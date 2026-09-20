@@ -29,6 +29,7 @@ Four pages. Each page has a row of rooms under it, so every feature is at most t
    - **Recap** — group-chat paste in desk / hype / roast voice. Copy text, copy a recap link, or save the image card.
 2. **Teams** — every roster.
    - **Roster** — tap any team: power scout card, optimal lineup, bench, nicknames, pick vault, season log, jump into a trade.
+   - **Mock** — Dynasty Nerds Superflex 2-round rookie mock. 1sts and 2nds get names; 3rds stay pick labels.
    - **Call** — tank, all in, or stay in the middle, from playoff odds, lineup rank, age, and pick capital.
    - **Loyalty** — kept / gone / new since last season, iron share, DNA keep rate.
    - **Passports** — career stamps for every player on the roster.
@@ -56,7 +57,7 @@ Sleeper trades first, KeepTradeCut as the prior:
 - Missing assets get a position/age estimate labeled **est**.
 - Elite players still get a premium so one star is not a pile of scraps.
 
-Refresh rankings with `python scripts/update_ktc_values.py`. Refresh the Sleeper trade market with `python scripts/update_sleeper_trade_market.py`. Live deploys try both scrapes and keep the last files if a source is down.
+Refresh rankings with `python scripts/update_ktc_values.py`. Refresh the Sleeper trade market with `python scripts/update_sleeper_trade_market.py`. Refresh the 2027 Superflex rookie mock with `python scripts/update_dynasty_rookie_mock.py` (Dynasty Nerds 2-round board; 1sts and 2nds get names, 3rds do not). A Monday GitHub Action commits that JSON to `develop` if the board changed. It does not publish the live site. Live deploys try the scrapes and keep the last files if a source is down.
 
 ## Live site (dynastyticker.com)
 

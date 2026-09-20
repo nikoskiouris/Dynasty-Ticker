@@ -15,13 +15,13 @@ export const PAGE_LABELS = {
 };
 export const PAGE_HINTS = {
   league: "Scores, standings, awards",
-  teams: "Roster, tank or contend",
+  teams: "Roster, mock, tank or contend",
   trades: "Calculator, partners, deals",
   history: "Titles, seasons, records",
 };
 export const PAGE_ROOMS = {
   league: ["start", "scores", "standings", "power", "awards", "recap"],
-  teams: ["roster", "call", "loyalty", "passports"],
+  teams: ["roster", "mock", "call", "loyalty", "passports"],
   trades: ["calculator", "match", "lab", "log"],
   history: ["hall", "seasons", "records"],
 };
@@ -42,6 +42,7 @@ export const ROOM_LABELS = {
   },
   teams: {
     roster: "Roster",
+    mock: "Mock",
     call: "Tank or contend",
     loyalty: "Who stayed",
     passports: "Player stamps",
@@ -69,6 +70,7 @@ export const ROOM_HINTS = {
   },
   teams: {
     roster: "Sit/start this week, scout card, picks",
+    mock: "2027 SF rookie mock board",
     call: "Tank, all in, or stay in the middle",
     loyalty: "Roster DNA, ironmen, charms",
     passports: "Who owned each player, season by season",
@@ -124,6 +126,11 @@ export const PLACE_ALIASES = {
   roster: { page: "teams", room: "roster" },
   lineup: { page: "teams", room: "roster" },
   scout: { page: "teams", room: "roster" },
+  mock: { page: "teams", room: "mock" },
+  mocks: { page: "teams", room: "mock" },
+  rookies: { page: "teams", room: "mock" },
+  rookiemock: { page: "teams", room: "mock" },
+  "rookie-mock": { page: "teams", room: "mock" },
   call: { page: "teams", room: "call" },
   window: { page: "teams", room: "call" },
   tank: { page: "teams", room: "call" },

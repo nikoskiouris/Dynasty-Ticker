@@ -16,15 +16,15 @@ Values / pick vault / power / rather
 Description
 Hybrid, not a replacement. Keep the pick. Do not turn a 2027 1st into a fake Jeremiah Smith stock.
 
-For the next rookie class only (one year out, not 2028+), a first shows:
-- the pick (2027 1st)
+For the next rookie class only (one year out, not 2028+), a 1st or 2nd shows:
+- the pick (2027 1st / 2027 2nd)
 - whose it is (original owner)
 - what place that roster is now
-- who stored mocks have at that slot, in parentheses
+- who Dynasty Nerds mock at that slot, in parentheses
 
 Example: `2027 1st from Niko · 4th (Jeremiah Smith)`.
 
-Store a few first-round mock drafts. Dynasty slot comes from current place (last now = 1.01). College names get no trade value. The number on the row is still the pick’s market price.
+Source is the Dynasty Nerds 12-team Superflex TEP 2-round mock. Refresh that page weekly. Dynasty slot comes from current place (last now = 1.01 / 2.01). Skill positions only (QB/RB/WR/TE). 3rd-round picks stay pick labels with no player name. College names get no trade value. The number on the row is still the pick’s market price.
 
 Keep current-year drafted names as they are (Cam Ward on a used 2026 1st). Later years stay pick labels.
 
@@ -32,10 +32,11 @@ Why
 “Future dynasty rankings — just a year out (instead of saying 2027 1st it says Jeremiah Smith with a value maybe just a ranking rather than a numeric value).”
 
 Current product
-Used picks can show the drafted player plus value. Undrafted future picks stay “2027 1st from X” with a pick-market number. No prospect board.
+Used picks can show the drafted player plus value. Undrafted future picks stay “2027 1st from X” with a pick-market number. Next-year 1sts and 2nds overlay the Dynasty Nerds name.
 
 Acceptance
-- Next-year 1sts still read as a pick, with owner, current place, and mocked name in parentheses.
+- Next-year 1sts and 2nds still read as a pick, with owner, current place, and mocked name in parentheses.
+- 3rds and later years stay pick labels.
 - Rank is the manager’s current place, not a made-up 8,400 college value.
-- Later years stay pick labels until we deliberately extend this.
-- Source of the stored mocks is named on the pick vault.
+- Source of the stored mock is named on the pick vault.
+- Board refreshes from Dynasty Nerds weekly without a Netlify production deploy.

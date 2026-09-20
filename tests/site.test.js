@@ -45,8 +45,8 @@ test("document titles and descriptions change with tab and league", () => {
     "Teams · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
-    buildDocumentTitle({ page: "teams", leagueName: "Try Hard or Die Hard", loaded: true, room: "passports" }),
-    "Player stamps · Try Hard or Die Hard — Dynasty Ticker"
+    buildDocumentTitle({ page: "teams", leagueName: "Try Hard or Die Hard", loaded: true, room: "mock" }),
+    "Mock · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "teams", leagueName: "Try Hard or Die Hard", loaded: true, room: "call" }),
@@ -183,10 +183,11 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
     assert.match(index, new RegExp(`id="${page}-page"`));
   }
   assert.match(index, /id="room-nav"/);
-  for (const room of ["start", "scores", "standings", "power", "awards", "recap", "roster", "call", "loyalty", "passports", "log", "match", "calculator", "lab", "hall", "seasons", "records"]) {
+  for (const room of ["start", "scores", "standings", "power", "awards", "recap", "roster", "mock", "call", "loyalty", "passports", "log", "match", "calculator", "lab", "hall", "seasons", "records"]) {
     assert.match(index, new RegExp(`data-room-panel="${room}"`), room);
   }
   assert.match(index, /id="passport-dashboard"/);
+  assert.match(index, /id="mock-dashboard"/);
   assert.match(index, /id="window-call-dashboard"/);
   assert.match(index, /id="trade-log-dashboard"/);
   assert.match(index, /id="trade-match-dashboard"/);

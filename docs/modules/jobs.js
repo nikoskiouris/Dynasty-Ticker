@@ -51,6 +51,13 @@ export const DESK_MORE_JOBS = Object.freeze([
     blurb: "Desk call for your roster",
   },
   {
+    id: "mock",
+    page: "teams",
+    room: "mock",
+    label: "Rookie mock",
+    blurb: "2027 SF board, 1sts and 2nds",
+  },
+  {
     id: "match",
     page: "trades",
     room: "match",
