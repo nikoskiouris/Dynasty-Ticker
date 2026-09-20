@@ -2474,6 +2474,16 @@ button.sheet-row.open {
   border-color: transparent;
 }
 
+.sheet-row.pick .sheet-player strong {
+  white-space: normal;
+}
+
+.pick-mock-note {
+  margin: 0 0 0.45rem;
+  max-width: 38ch;
+  line-height: 1.35;
+}
+
 .sheet-slot {
   color: var(--muted);
   font-size: 0.68rem;
