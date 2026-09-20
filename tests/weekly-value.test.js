@@ -8,6 +8,7 @@ import {
   DYNASTY_SCORE_LABEL,
   NFL_SCHEDULE_PATH,
   NO_RECENT_GAMES,
+  NOT_ON_TEAM,
   OPPONENT_MISSING,
   TARGET_SHARE_MISSING,
   WEEKLY_LOOKBACK_WEEKS,
@@ -276,7 +277,7 @@ test("weekly score help popup explains start chance", () => {
   assert.match(pop, /50% is a coin flip/);
   assert.match(pop, /90% is a lock/);
   assert.match(pop, /data-action="close-weekly-help"/);
-  assert.match(pop, /optimal lineup is set with this number/);
+  assert.match(pop, /Sit\/start uses this number/);
   const lines = weeklyScoreHelpLines();
   assert.equal(lines.length, 5);
   const sheetOpen = renderWeeklyPlayerSheet({
@@ -297,8 +298,10 @@ test("weekly score help popup explains start chance", () => {
 test("weekly score prints start chance percent", () => {
   assert.equal(formatWeeklyScore(50), "50%");
   assert.equal(formatWeeklyScore(90), "90%");
+  assert.equal(formatWeeklyScore(0), "0%");
   assert.equal(formatWeeklyScore(null), "—");
   assert.equal(weeklyScoreChipLabel({ score: 22 }), "22%");
+  assert.equal(weeklyScoreChipLabel({ score: 0 }), "0%");
   assert.match(WEEKLY_SCORE_HINT, /Chance you should start/);
 });
 
@@ -330,5 +333,49 @@ test("bye week and unknown players fail opponent strength visibly", () => {
     context,
   });
   assert.ok(model.missing.includes(OPPONENT_MISSING));
+  assert.equal(model.bye, true);
+  assert.equal(model.opponentMissing, false);
   assert.equal(model.inputs.find((input) => input.id === "opponent").value, "Bye");
+});
+
+test("unsigned players are 0% this week, even with leftover box scores", () => {
+  const context = buildWeeklyContext({
+    season: "2026",
+    week: 2,
+    schedule: { games: [{ season: "2026", week: 2, home: "KC", away: "LV" }] },
+    players: { tebow: { team: "", position: "QB" } },
+    weekRows: [
+      {
+        season: "2026",
+        week: 1,
+        stats: { tebow: { gp: 1, pts_ppr: 22, pass_att: 30 } },
+      },
+    ],
+  });
+  const unsigned = buildWeeklyPlayerModel({
+    playerId: "tebow",
+    name: "Tim Tebow",
+    position: "QB",
+    team: "",
+    seasonStats: { gp: 1, pts_ppr: 22 },
+    context,
+  });
+  const fa = buildWeeklyPlayerModel({
+    playerId: "tebow",
+    name: "Tim Tebow",
+    position: "QB",
+    team: "FA",
+    context,
+  });
+  assert.equal(unsigned.score, 0);
+  assert.equal(unsigned.noTeam, true);
+  assert.equal(unsigned.team, "");
+  assert.ok(unsigned.missing.includes(NOT_ON_TEAM));
+  assert.equal(unsigned.inputs.find((input) => input.id === "opponent").value, "No team");
+  assert.equal(formatWeeklyScore(unsigned.score), "0%");
+  assert.equal(weeklyScoreChipLabel(unsigned), "0%");
+  assert.match(renderWeeklyPlayerSheet(unsigned), /not on a team/);
+  assert.match(renderWeeklyPlayerSheet(unsigned), /weekly-score-badge[\s\S]*<strong>0<span class="weekly-score-max">%<\/span>/);
+  assert.equal(fa.score, 0);
+  assert.equal(fa.noTeam, true);
 });

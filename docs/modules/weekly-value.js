@@ -14,6 +14,7 @@ export const DOUBLE_TEAM_MISSING = "no double-team data";
 export const TARGET_SHARE_MISSING = "no target-share data";
 export const DROP_PCT_MISSING = "no drop-percentage data";
 export const OPPONENT_MISSING = "no opponent-strength data";
+export const NOT_ON_TEAM = "not on a team";
 export const NO_RECENT_GAMES = "no recent games";
 export const NO_WEEKLY_MODEL = "no weekly model for this position";
 
@@ -72,7 +73,7 @@ export function weeklyScoreHelpLines() {
     "Top-tier names belong in the 90s. A healthy RB1 vs an average defense should sit near 90, not 60.",
     `Blends role, last ${WEEKLY_LOOKBACK_WEEKS} games of PPR, drops, and this week's opponent. Matchup barely moves a lock; it matters more at 50/50.`,
     "Not dynasty trade price. Last week alone does not set it.",
-    "The optimal lineup is set with this number. Dynasty price only breaks ties.",
+    "Sit/start uses this number. Bye, out, no team, and missing opponent sit. Dynasty price only breaks ties.",
   ];
 }
 
@@ -559,37 +560,46 @@ export function buildWeeklyPlayerModel({
   const rushShare = averageShare(past, "rushShare");
   const dropPct = averageShare(past, "dropPct");
 
-  const upcoming = lookupScheduledOpponent(context?.scheduleIndex, context?.season, context?.week, teamKey);
+  const noTeam = !teamKey;
+  const upcoming = noTeam
+    ? { opponent: "", bye: false, missing: NOT_ON_TEAM, home: false }
+    : lookupScheduledOpponent(context?.scheduleIndex, context?.season, context?.week, teamKey);
   const opponent = upcoming.opponent;
   const defense = opponent ? context?.defense?.[opponent]?.[pos] : null;
   const leagueAvg = pos ? context?.leagueAvg?.[pos] : null;
   const passRate = opponent ? context?.passRates?.[opponent] : null;
-  const ease = opponentEase({ ptsAllowed: defense?.ptsAllowed, leagueAvg });
+  const ease = noTeam
+    ? { score: null, label: "", ratio: null }
+    : opponentEase({ ptsAllowed: defense?.ptsAllowed, leagueAvg });
 
-  const scored = scoreWeeklyValue({
-    position: pos,
-    recentPoints,
-    seasonPointsPerGame,
-    targetShare: pos === "QB" ? null : targetShare,
-    rushShare,
-    dropPct,
-    opponentPtsAllowed: defense?.ptsAllowed,
-    opponentLeagueAvg: leagueAvg,
-    doubleTeamRate: null,
-  });
+  const scored = noTeam
+    ? { score: 0, complete: false, missing: [NOT_ON_TEAM], matchupMult: 1 }
+    : scoreWeeklyValue({
+        position: pos,
+        recentPoints,
+        seasonPointsPerGame,
+        targetShare: pos === "QB" ? null : targetShare,
+        rushShare,
+        dropPct,
+        opponentPtsAllowed: defense?.ptsAllowed,
+        opponentLeagueAvg: leagueAvg,
+        doubleTeamRate: null,
+      });
 
-  const opponentDetail = upcoming.bye
-    ? "Bye week"
-    : opponent
-      ? [
-          opponent,
-          ease.label,
-          Number.isFinite(defense?.ptsAllowed)
-            ? `${defense.ptsAllowed.toFixed(1)} PPR allowed to ${pos || "this position"}`
-            : "",
-          coverageLabel(passRate),
-        ].filter(Boolean).join(" · ")
-      : OPPONENT_MISSING;
+  const opponentDetail = noTeam
+    ? NOT_ON_TEAM
+    : upcoming.bye
+      ? "Bye week"
+      : opponent
+        ? [
+            opponent,
+            ease.label,
+            Number.isFinite(defense?.ptsAllowed)
+              ? `${defense.ptsAllowed.toFixed(1)} PPR allowed to ${pos || "this position"}`
+              : "",
+            coverageLabel(passRate),
+          ].filter(Boolean).join(" · ")
+        : OPPONENT_MISSING;
 
   return {
     playerId: id,
@@ -600,6 +610,13 @@ export function buildWeeklyPlayerModel({
     score: scored.score,
     complete: scored.complete,
     missing: scored.missing,
+    bye: Boolean(upcoming.bye),
+    noTeam,
+    opponentMissing: !noTeam && !upcoming.bye && !opponent,
+    upcomingHome: Boolean(upcoming.home),
+    targetShare,
+    rushShare,
+    dropPct,
     recentPoints,
     seasonPointsPerGame,
     games: past,
@@ -607,9 +624,11 @@ export function buildWeeklyPlayerModel({
       {
         id: "opponent",
         label: "Opponent strength",
-        value: upcoming.bye ? "Bye" : (ease.label || "—"),
+        value: noTeam ? "No team" : upcoming.bye ? "Bye" : (ease.label || "—"),
         detail: opponentDetail,
-        missing: scored.missing.includes(OPPONENT_MISSING) ? OPPONENT_MISSING : "",
+        missing: scored.missing.includes(NOT_ON_TEAM)
+          ? NOT_ON_TEAM
+          : scored.missing.includes(OPPONENT_MISSING) ? OPPONENT_MISSING : "",
         tone: ease.label === "Easy" ? "up" : ease.label === "Hard" ? "down" : "",
       },
       {

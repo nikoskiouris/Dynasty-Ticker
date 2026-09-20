@@ -127,6 +127,10 @@ import {
   WEEKLY_SCORE_LABEL,
 } from "./modules/weekly-value.js";
 import {
+  buildSitStart,
+  renderSitStartCallout,
+} from "./modules/sit-start.js";
+import {
   analyzePastTrades,
   analyzeLeagueTradeSides,
   biggestTradeMiss,
@@ -4352,7 +4356,7 @@ function renderRosterSheet() {
     syncWeeklyScoreHelp();
     return;
   }
-  if (el.rosterSheetHeading) el.rosterSheetHeading.textContent = `${roster.manager.displayName}: lineup, bench, and picks`;
+  if (el.rosterSheetHeading) el.rosterSheetHeading.textContent = `${roster.manager.displayName}: sit/start, bench, and picks`;
   if (!state.playerMetadataLoaded) {
     el.rosterSheet.innerHTML = `<div class="power-sync"><strong>Syncing player metadata</strong><p class="muted">Names, positions, and ages arrive in a moment.</p></div>`;
     syncWeeklyScoreHelp();
@@ -4368,22 +4372,79 @@ function renderRosterSheet() {
   const summary = summarizeRosterAssets(roster, values);
   const selectedId = String(state.weeklyValue?.selectedPlayerId || "");
   const selectedAsset = roster.assets.find((asset) => asset.assetType === "player" && playerIdFromAssetId(asset.assetId) === selectedId) || null;
-  const selectedWeekly = selectedAsset ? weeklyModelForAsset(selectedAsset) : null;
-  const renderPlayerRow = (asset, slotLabel) => {
+  const weeklyByAssetId = new Map();
+  const weeklyFor = (asset) => {
+    const key = String(asset?.assetId || "");
+    if (!weeklyByAssetId.has(key)) weeklyByAssetId.set(key, weeklyModelForAsset(asset));
+    return weeklyByAssetId.get(key);
+  };
+  const selectedWeekly = selectedAsset ? weeklyFor(selectedAsset) : null;
+  const weeklyReady = Boolean(state.weeklyValue?.context);
+  const sitStart = weeklyReady
+    ? buildSitStart({
+        week: state.weeklyValue.week,
+        slots: getStarterRosterSlots(state.league),
+        players: roster.assets
+          .filter((asset) => asset.assetType === "player")
+          .map((asset) => ({
+            id: playerIdFromAssetId(asset.assetId),
+            name: asset.name,
+            position: playerPositionForAsset(asset),
+            positions: playerPositionsForAsset(asset),
+            dynastyValue: getAssetValue(asset, values),
+            injuryStatus: asset.raw?.injury_status,
+            playerStatus: asset.raw?.status,
+            weekly: weeklyFor(asset),
+            asset,
+            canFill: (slot) => assetCanFillRosterSlot(asset, slot),
+          })),
+      })
+    : null;
+  const startRows = sitStart
+    ? sitStart.starters
+    : strength.lineup.map((entry) => ({
+        slot: entry.slot,
+        slotLabel: formatRosterSlotLabel(entry.slot),
+        asset: entry.asset,
+        player: entry.asset ? { id: playerIdFromAssetId(entry.asset.assetId) } : null,
+        rowNote: "",
+      }));
+  const benchRows = sitStart
+    ? sitStart.bench
+    : roster.assets
+        .filter((asset) => asset.assetType === "player" && !strength.lineup.some((entry) => entry.asset?.assetId === asset.assetId))
+        .sort((a, b) => lineupFillValue({
+          startChance: weeklyFor(b)?.score,
+          dynastyValue: getAssetValue(b, values),
+        }) - lineupFillValue({
+          startChance: weeklyFor(a)?.score,
+          dynastyValue: getAssetValue(a, values),
+        }))
+        .map((asset) => ({ asset, rowNote: "", sitReason: "" }));
+  const renderPlayerRow = (asset, slotLabel, extra = {}) => {
     const playerId = playerIdFromAssetId(asset.assetId);
     const nickname = roster.nicknames?.[playerId];
     const injury = String(asset.raw?.injury_status || "").trim();
-    const weekly = weeklyModelForAsset(asset);
+    const weekly = weeklyFor(asset);
     const weeklyLabel = state.weeklyValue?.loading && !state.weeklyValue?.context
       ? "…"
       : weeklyScoreChipLabel(weekly);
     const open = selectedId && selectedId === playerId;
+    const note = String(extra.note || "").trim();
+    const rowClass = [
+      "sheet-row",
+      isInjuryFlaggedAsset(asset) ? "flagged" : "",
+      extra.sitCause ? "sit-cause" : "",
+      extra.closeCall ? "close-call" : "",
+      open ? "open" : "",
+    ].filter(Boolean).join(" ");
     return `
-      <button type="button" class="sheet-row ${isInjuryFlaggedAsset(asset) ? "flagged" : ""} ${open ? "open" : ""}" data-action="open-player" data-player-id="${escapeHtml(playerId)}" aria-pressed="${open ? "true" : "false"}">
+      <button type="button" class="${rowClass}" data-action="open-player" data-player-id="${escapeHtml(playerId)}" aria-pressed="${open ? "true" : "false"}">
         <span class="sheet-slot">${escapeHtml(slotLabel)}</span>
         <div class="sheet-player">
           <strong>${escapeHtml(asset.name)}${nickname ? ` <em class="nickname">“${escapeHtml(nickname)}”</em>` : ""}</strong>
           <span>${escapeHtml(formatPlayerPositionLabel(asset))}${asset.raw?.team ? ` · ${escapeHtml(asset.raw.team)}` : ""}${Number.isFinite(playerAgeForAsset(asset)) ? ` · ${playerAgeForAsset(asset)}y` : ""}${injury ? ` · <span class="injury">${escapeHtml(injury)}</span>` : ""}</span>
+          ${note ? `<small class="sheet-why">${escapeHtml(note)}</small>` : ""}
         </div>
         <span class="sheet-metrics">
           <span class="weekly-chip"${weekly?.missing?.length ? ` title="${escapeHtml(weekly.missing.join(", "))}"` : ""}>
@@ -4435,32 +4496,29 @@ function renderRosterSheet() {
             <p class="player-week-note">${state.weeklyValue?.loading ? "Loading matchup and usage…" : WEEKLY_SCORE_HINT}</p>
             <button type="button" class="ghost-btn week-sheet-close" data-action="close-player">Close player</button>
           </article>`
-        : state.weeklyValue?.loading
-          ? `<p class="muted small">Loading weekly matchup and usage…</p>`
-          : state.weeklyValue?.error
-            ? `<p class="muted small">This-week start chances unavailable (${escapeHtml(state.weeklyValue.error)}). Dynasty values still work.</p>`
-            : `<p class="muted small">Tap a player. This week is start chance — 50% coin flip, 90% lock. Not dynasty price.</p>`}
+        : ""}
+    ${renderSitStartCallout(sitStart, {
+      loading: Boolean(state.weeklyValue?.loading) && !weeklyReady,
+      error: weeklyReady ? "" : (state.weeklyValue?.error || ""),
+      week: state.weeklyValue?.week,
+    })}
     <div class="sheet-grid">
       <section class="sheet-column">
-        <h4>Optimal lineup</h4>
-        <p class="muted small lineup-basis">Set by start chance this week. Dynasty breaks ties.</p>
-        ${strength.lineup.map((entry) => entry.asset
-          ? renderPlayerRow(entry.asset, formatRosterSlotLabel(entry.slot))
-          : `<div class="sheet-row empty"><span class="sheet-slot">${escapeHtml(formatRosterSlotLabel(entry.slot))}</span><div class="sheet-player"><strong class="muted">Open slot</strong></div><span class="sheet-value mono">0</span></div>`).join("")}
+        <h4>Start</h4>
+        ${startRows.map((entry) => entry.asset
+          ? renderPlayerRow(entry.asset, entry.slotLabel || formatRosterSlotLabel(entry.slot), {
+              note: entry.rowNote,
+              closeCall: String(entry.rowNote || "").startsWith("Close vs"),
+            })
+          : `<div class="sheet-row empty"><span class="sheet-slot">${escapeHtml(entry.slotLabel || formatRosterSlotLabel(entry.slot))}</span><div class="sheet-player"><strong class="muted">${escapeHtml(entry.rowNote || "Open slot")}</strong><small class="sheet-why">Bye, out, or missing opponent. Nobody silent-starts here.</small></div></div>`).join("")}
       </section>
       <section class="sheet-column">
-        <h4>Bench</h4>
-        ${roster.assets
-          .filter((asset) => asset.assetType === "player" && !strength.lineup.some((entry) => entry.asset?.assetId === asset.assetId))
-          .sort((a, b) => lineupFillValue({
-            startChance: weeklyModelForAsset(b)?.score,
-            dynastyValue: getAssetValue(b, values),
-          }) - lineupFillValue({
-            startChance: weeklyModelForAsset(a)?.score,
-            dynastyValue: getAssetValue(a, values),
-          }))
-          .map((asset) => renderPlayerRow(asset, isTradeEligibleAsset(asset) ? "BN" : formatPlayerPositionLabel(asset)))
-          .join("") || `<p class="muted small">No bench players.</p>`}
+        <h4>Sit</h4>
+        ${benchRows.map((row) => renderPlayerRow(row.asset, row.sitReason ? "SIT" : (isTradeEligibleAsset(row.asset) ? "BN" : formatPlayerPositionLabel(row.asset)), {
+          note: row.rowNote,
+          sitCause: Boolean(row.sitReason),
+          closeCall: String(row.rowNote || "").startsWith("Close vs"),
+        })).join("") || `<p class="muted small">No bench players.</p>`}
         <h4>Pick vault</h4>
         ${picks.length
           ? picks.map((asset) => `
