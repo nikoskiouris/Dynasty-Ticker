@@ -176,6 +176,17 @@ import {
   sortDraftsForSelectionIngest,
 } from "./modules/draft-picks.js";
 import {
+  buildCurrentPlaceLookup,
+  currentPlaceForOwner,
+  fetchMockDrafts,
+  formatHybridFirstName,
+  formatMockSourceLine,
+  mockProspectAtSlot,
+  nextMockSeason,
+  projectedDraftSlot,
+  shouldAttachMock,
+} from "./modules/mock-drafts.js";
+import {
   applyDocumentMeta,
   buildDocumentTitle,
   buildPageDescription,
@@ -1488,6 +1499,7 @@ async function runLeagueLoad(leagueId) {
     const [coreData, nflState] = await Promise.all([
       loadLeagueCoreData(leagueId),
       apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => null),
+      ensureMockDraftsLoaded(),
     ]);
     state.nflState = nflState;
     const { league, users, rosters, tradedPicks, drafts } = coreData;
@@ -4520,14 +4532,11 @@ function renderRosterSheet() {
           closeCall: String(row.rowNote || "").startsWith("Close vs"),
         })).join("") || `<p class="muted small">No bench players.</p>`}
         <h4>Pick vault</h4>
+        ${picks.some((asset) => asset.raw?.mockProspectName)
+          ? `<p class="muted small pick-mock-note">${escapeHtml(formatMockSourceLine(state.mockDrafts))}</p>`
+          : ""}
         ${picks.length
-          ? picks.map((asset) => `
-            <div class="sheet-row pick">
-              <span class="sheet-slot">${escapeHtml(String(asset.raw?.season || ""))}</span>
-              <div class="sheet-player"><strong>${escapeHtml(asset.name)}</strong><span>Round ${escapeHtml(String(asset.raw?.round || "?"))}</span></div>
-              <span class="sheet-value mono">${renderAssetValuePlain(asset, values)}</span>
-            </div>
-          `).join("")
+          ? picks.map((asset) => renderPickVaultRow(asset, values)).join("")
           : `<p class="muted small">No draft picks owned.</p>`}
       </section>
     </div>
@@ -7481,7 +7490,17 @@ function buildTransactionPickAsset(pick, transaction = null) {
   const selection = lookupTradePickSelection(pick, transaction);
   const draftedPlayerName = resolveDraftedPlayerName(selection);
   const draftedPlayerValue = selection?.playerId ? playerValueById(selection.playerId) : 0;
-  const name = formatPickWithSelection(pickLabel, draftedPlayerName, draftedPlayerValue, formatNumber);
+  let name = formatPickWithSelection(pickLabel, draftedPlayerName, draftedPlayerValue, formatNumber);
+  if (!draftedPlayerName && shouldAttachMock({ season, round }, state.mockDrafts)) {
+    const place = currentPlaceForOwner(originalOwner, buildCurrentPlaceLookup(state.rosters, getSeasonModel()?.standings));
+    const mock = mockProspectAtSlot(state.mockDrafts, projectedDraftSlot(place?.rank, place?.total));
+    name = formatHybridFirstName({
+      season,
+      ownerName,
+      placeLabel: place?.label,
+      mockName: mock?.label || "",
+    }) || name;
+  }
   const normalizedPick = {
     ...pick,
     season,
@@ -13744,6 +13763,28 @@ function renderAssetValueBadge(asset, values = state.values) {
   `;
 }
 
+function renderPickVaultRow(asset, values) {
+  const mockName = String(asset?.raw?.mockProspectName || "").trim();
+  const ownerName = String(asset?.raw?.originalOwnerName || "").trim();
+  const placeLabel = String(asset?.raw?.currentPlaceLabel || "").trim();
+  const detail = mockName
+    ? [ownerName ? `from ${ownerName}` : "", placeLabel, mockName ? `(${mockName})` : ""]
+      .filter(Boolean)
+      .join(" · ")
+      .replace(" · (", " (")
+    : `Round ${asset?.raw?.round || "?"}`;
+  const heading = mockName
+    ? `${asset?.raw?.season || ""} 1st`.trim()
+    : asset?.name || "Pick";
+  return `
+            <div class="sheet-row pick">
+              <span class="sheet-slot">${escapeHtml(String(asset?.raw?.season || ""))}</span>
+              <div class="sheet-player"><strong>${escapeHtml(heading)}</strong><span>${escapeHtml(detail)}</span></div>
+              <span class="sheet-value mono">${renderAssetValuePlain(asset, values)}</span>
+            </div>
+          `;
+}
+
 function renderAssetValuePlain(asset, values = state.values) {
   const used = getAssetValue(asset, values);
   const market = getAssetValue(asset, values, { applyLeagueBoard: false });
@@ -14084,6 +14125,7 @@ function normalizeRosters(league, rosters, users, players, previousContext = { l
         previousContext?.league
       );
       if (isConsumedDraftPick(pick, currentDraftContext, assignedDraftSlot)) return [];
+      const mockMeta = futureFirstMockMeta(pick, { userById, rosterById, assignedDraftSlot });
       return [{
         assetId: `pick:${pick.season}:r${pick.round}:${pick.original_owner || "any"}`,
         valueAssetId: buildPickValueAssetId(pick, pickBucket),
@@ -14096,6 +14138,7 @@ function normalizeRosters(league, rosters, users, players, previousContext = { l
           assignedDraftSlot: assignedDraftSlot?.slot ?? null,
           assignedDraftSlotLabel: assignedDraftSlot?.label ?? null,
           previousFinishLabel: finishInfo?.label || null,
+          ...mockMeta,
         },
       }];
     });
@@ -14338,14 +14381,34 @@ function buildPickValueAssetId(pick, pickBucket = "any") {
   return `pick:${pick.season}:r${pick.round}:${bucket}`;
 }
 
-function formatPickName(pick, { userById, rosterById, previousFinishLookup, pickBucket = "any", assignedDraftSlot = null }) {
-  const details = [];
+function formatPickName(pick, {
+  userById,
+  rosterById,
+  previousFinishLookup,
+  pickBucket = "any",
+  assignedDraftSlot = null,
+  currentPlaceLookup = null,
+  mockDrafts = null,
+} = {}) {
   const ownerName = resolvePickOwnerName(pick.original_owner, rosterById, userById);
-  if (ownerName) details.push(`from ${ownerName}`);
+  const mockBoard = mockDrafts || state.mockDrafts;
+  const placeLookup = currentPlaceLookup || buildCurrentPlaceLookup(state.rosters, getSeasonModel()?.standings);
+  if (shouldAttachMock(pick, mockBoard) && !assignedDraftSlot?.label) {
+    const place = currentPlaceForOwner(pick.original_owner, placeLookup);
+    const slot = projectedDraftSlot(place?.rank, place?.total);
+    const mock = mockProspectAtSlot(mockBoard, slot);
+    return formatHybridFirstName({
+      season: pick.season,
+      ownerName,
+      placeLabel: place?.label,
+      mockName: mock?.label || "",
+    });
+  }
 
+  const details = [];
+  if (ownerName) details.push(`from ${ownerName}`);
   const finishLabel = resolvePreviousFinishLabel(pick.original_owner, rosterById, previousFinishLookup);
   if (finishLabel) details.push(finishLabel);
-
   const suffix = details.length ? ` (${details.join(", ")})` : "";
   if (assignedDraftSlot?.label) {
     return `${pick.season} ${assignedDraftSlot.label}${suffix}`;
@@ -14354,6 +14417,21 @@ function formatPickName(pick, { userById, rosterById, previousFinishLookup, pick
     ? ` ${formatPickBucketLabel(pickBucket)}`
     : "";
   return `${pick.season}${bucketLabel} ${ordinal(Number(pick.round) || 1)}${suffix}`;
+}
+
+function futureFirstMockMeta(pick, { userById, rosterById, assignedDraftSlot = null } = {}) {
+  if (!shouldAttachMock(pick, state.mockDrafts) || assignedDraftSlot?.label) return {};
+  const placeLookup = buildCurrentPlaceLookup(state.rosters, getSeasonModel()?.standings);
+  const place = currentPlaceForOwner(pick.original_owner, placeLookup);
+  const slot = projectedDraftSlot(place?.rank, place?.total);
+  const mock = mockProspectAtSlot(state.mockDrafts, slot);
+  return {
+    originalOwnerName: resolvePickOwnerName(pick.original_owner, rosterById, userById) || "",
+    currentPlaceRank: place?.rank ?? null,
+    currentPlaceLabel: place?.label || "",
+    projectedDraftSlot: slot,
+    mockProspectName: mock?.label || "",
+  };
 }
 
 async function loadValues(optionalUrl) {
@@ -14385,6 +14463,21 @@ function primeValuationData() {
   ensureValuesLoaded("").catch((err) => {
     console.warn("Could not preload valuation data", err);
   });
+}
+
+async function ensureMockDraftsLoaded() {
+  if (nextMockSeason(state.mockDrafts)) return state.mockDrafts;
+  if (state.mockDraftsPromise) return state.mockDraftsPromise;
+  state.mockDraftsPromise = fetchMockDrafts()
+    .then((board) => {
+      state.mockDrafts = board;
+      return board;
+    })
+    .catch(() => {
+      state.mockDraftsPromise = null;
+      return state.mockDrafts;
+    });
+  return state.mockDraftsPromise;
 }
 
 async function ensureValuesLoaded(optionalUrl = "") {

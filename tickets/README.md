@@ -2,7 +2,7 @@
 
 Random user feedback, turned into tickets. **Do not delete ticket files.** When one ships, mark it Done and keep it for history.
 
-The product already has a league desk, a tank/contend call, trade match, a calculator, find-deals, a landing “rather” duel, weekly start chance on the roster, and sit/start this week.
+The product already has a league desk, a tank/contend call, trade match, a calculator, find-deals, a landing “rather” duel, weekly start chance on the roster, sit/start this week, and next-year firsts with stored mock names.
 
 This outline is leftover work plus the tickets we already shipped.
 
@@ -24,7 +24,6 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 
 | ID | Ticket | Priority |
 | --- | --- | --- |
-| [003](003-future-dynasty-rankings.txt) | Future dynasty rankings (one year out, names not picks) | P0 |
 | [004](004-buy-low-sell-high.txt) | Buy-low / sell-high targets | P0 |
 | [005](005-win-now-targets.txt) | Win-now targets from this league | P1 |
 | [006](006-late-season-win-now.txt) | Late-season win-now value | P2 |
@@ -41,6 +40,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | --- | --- | --- | --- |
 | [001](001-weekly-player-value.txt) | Weekly player value from matchup + usage | P0 | [#57](https://github.com/nikoskiouris/Dynasty-Ticker/pull/57) |
 | [002](002-sit-start.txt) | Sit / start | P0 | [#60](https://github.com/nikoskiouris/Dynasty-Ticker/pull/60) |
+| [003](003-future-dynasty-rankings.txt) | Future dynasty rankings (one year out, names not picks) | P0 | [#61](https://github.com/nikoskiouris/Dynasty-Ticker/pull/61) |
 
 ## Shipped before this board
 

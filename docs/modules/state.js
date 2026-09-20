@@ -1,6 +1,7 @@
 import { sleeperClient } from "./sleeper.js";
 import { PAGE_IDS, DEFAULT_PAGE, DEFAULT_ROOMS } from "./constants.js";
 import { emptyWeeklyValueState } from "./weekly-value.js";
+import { emptyMockDrafts } from "./mock-drafts.js";
 
 export const THEME_STORAGE_KEY = "dynasty_ticker_theme";
 export const PLAYERS_CACHE_KEY = "fda_players_nfl_cache_v1";
@@ -126,6 +127,8 @@ export function createState() {
       summary: "",
     },
     weeklyValue: emptyWeeklyValueState(),
+    mockDrafts: emptyMockDrafts(),
+    mockDraftsPromise: null,
   };
 }
 
