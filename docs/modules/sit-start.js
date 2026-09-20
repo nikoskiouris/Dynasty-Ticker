@@ -9,8 +9,9 @@ import {
 export const CLOSE_CALL_GAP = 8;
 export const SIT_BYE = "Sit — bye week";
 export const SIT_NO_OPPONENT = "Sit — no opponent data";
+export const SIT_NO_TEAM = "Sit — not on a team";
 export const SIT_NO_ELIGIBLE = "No eligible starter";
-export const SIT_START_HINT = "League slots. Bye, out, and missing opponent sit. Dynasty only breaks ties.";
+export const SIT_START_HINT = "League slots. Bye, out, no team, and missing opponent sit. Dynasty only breaks ties.";
 
 const EXACT_SLOT_LIMIT = 12;
 const EXACT_CANDIDATE_LIMIT = 20;
@@ -67,6 +68,7 @@ export function injurySitReason(injuryStatus, playerStatus) {
 }
 
 export function weeklySitReason(weekly, position) {
+  if (weekly?.noTeam) return SIT_NO_TEAM;
   if (weekly?.bye) return SIT_BYE;
   const pos = weeklyPosition(weekly?.position || position);
   if (weekly?.opponentMissing && WEEKLY_SKILL.has(pos)) return SIT_NO_OPPONENT;

@@ -8,6 +8,7 @@ import {
   SIT_BYE,
   SIT_NO_ELIGIBLE,
   SIT_NO_OPPONENT,
+  SIT_NO_TEAM,
   SIT_START_HINT,
   buildSitStart,
   closeCallReason,
@@ -22,6 +23,7 @@ function weekly({
   position = "WR",
   score = 70,
   bye = false,
+  noTeam = false,
   opponentMissing = false,
   upcomingOpponent = "ARI",
   ease = "Easy",
@@ -35,8 +37,9 @@ function weekly({
     position,
     score,
     bye,
-    opponentMissing,
-    upcomingOpponent: opponentMissing || bye ? "" : upcomingOpponent,
+    noTeam,
+    opponentMissing: noTeam ? true : opponentMissing,
+    upcomingOpponent: opponentMissing || bye || noTeam ? "" : upcomingOpponent,
     opponentEase: ease ? { label: ease } : { label: "" },
     targetShare,
     rushShare,
@@ -105,6 +108,32 @@ test("empty slot when nobody eligible", () => {
   });
   assert.equal(board.starters[0].player, null);
   assert.equal(board.starters[0].rowNote, SIT_NO_ELIGIBLE);
+});
+
+test("unsigned Tebow is 0% and sits as not on a team", () => {
+  const board = buildSitStart({
+    slots: ["QB", "SUPER_FLEX"],
+    players: [
+      player("tebow", {
+        name: "Tim Tebow",
+        position: "QB",
+        dynastyValue: 9000,
+        weekly: weekly({ position: "QB", score: 0, noTeam: true }),
+      }),
+      player("dart", {
+        name: "Jaxson Dart",
+        position: "QB",
+        dynastyValue: 400,
+        weekly: weekly({ position: "QB", score: 91, ease: "Average", upcomingOpponent: "NYG" }),
+      }),
+    ],
+  });
+  assert.equal(board.starters[0].player?.name, "Jaxson Dart");
+  assert.notEqual(board.starters[0].player?.name, "Tim Tebow");
+  assert.equal(board.starters[1].player, null);
+  const tebow = board.bench.find((row) => row.player.name === "Tim Tebow");
+  assert.equal(tebow.sitReason, SIT_NO_TEAM);
+  assert.equal(sitStartEligibility(player("tebow", { position: "QB", weekly: weekly({ position: "QB", score: 0, noTeam: true }) })).eligible, false);
 });
 
 test("WR3 vs Flex close call uses matchup and usage, not dynasty", () => {
