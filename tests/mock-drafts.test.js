@@ -16,6 +16,8 @@ import {
   buildMockBoardModel,
   formatPickSlotLabel,
   formatMockDate,
+  mockPickDomId,
+  mockPickTarget,
   SKILL_POSITIONS,
 } from "../docs/modules/mock-drafts.js";
 
@@ -153,4 +155,15 @@ test("mock board lists 1sts and 2nds and marks your slot", () => {
   assert.equal(view.rounds[1].picks[6].mine, true);
   assert.equal(view.rounds[0].picks[0].mine, false);
   assert.equal(view.empty, false);
+  assert.equal(view.rounds[0].picks[0].id, "mock-pick-1-01");
+});
+
+test("only named 1sts and 2nds open the mock board", () => {
+  assert.equal(mockPickDomId(2, 7), "mock-pick-2-07");
+  assert.deepEqual(
+    mockPickTarget({ raw: { mockProspectName: "KJ Duff", round: 2, projectedDraftSlot: 7 } }),
+    { round: 2, slot: 7, name: "KJ Duff" }
+  );
+  assert.equal(mockPickTarget({ raw: { round: 3, projectedDraftSlot: 7 } }), null);
+  assert.equal(mockPickTarget({ raw: { mockProspectName: "Nope", round: 3, projectedDraftSlot: 1 } }), null);
 });

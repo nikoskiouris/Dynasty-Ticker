@@ -183,6 +183,8 @@ import {
   buildMockBoardModel,
   formatPickSlotLabel,
   formatMockSourceLine,
+  mockPickDomId,
+  mockPickTarget,
   mockProspectAtSlot,
   nextMockSeason,
   projectedDraftSlot,
@@ -3338,6 +3340,9 @@ function paintMockBoard() {
   const mineNote = mySlot
     ? `You sit ${place.label} now, so your names are ${slotLabels}. 3rds stay pick labels. College names have no trade value.`
     : "1sts and 2nds get these names from current place. 3rds stay pick labels. College names have no trade value.";
+  const focusId = state.mockFocus
+    ? mockPickDomId(state.mockFocus.round, state.mockFocus.slot)
+    : "";
   host.innerHTML = `
     <section class="workspace-panel mock-board">
       <div class="panel-heading">
@@ -3352,21 +3357,50 @@ function paintMockBoard() {
         ${board.rounds.map((round) => `
           <section class="sheet-column">
             <h4>${escapeHtml(round.label)}</h4>
-            ${round.picks.map((pick) => `
-              <div class="sheet-row pick mock-pick${pick.mine ? " mock-mine" : ""}">
+            ${round.picks.map((pick) => {
+              const focused = Boolean(focusId && pick.id === focusId);
+              const href = board.url
+                ? ` href="${escapeHtml(board.url)}" target="_blank" rel="noopener noreferrer"`
+                : "";
+              const tag = board.url ? "a" : "div";
+              return `
+              <${tag} class="sheet-row pick mock-pick${pick.mine ? " mock-mine" : ""}${focused ? " mock-focus" : ""}"${pick.id ? ` id="${escapeHtml(pick.id)}"` : ""}${href}>
                 <span class="sheet-slot">${escapeHtml(pick.pickLabel)}</span>
                 <div class="sheet-player">
                   <strong>${escapeHtml(pick.name)}${pick.mine ? `<em class="mock-you"> your slot</em>` : ""}</strong>
                   <span>${escapeHtml([pick.pos, pick.school].filter(Boolean).join(" · "))}</span>
                 </div>
                 <span class="sheet-value muted">${escapeHtml(pick.pos)}</span>
-              </div>
-            `).join("") || `<p class="muted small">No names this round.</p>`}
+              </${tag}>
+            `;
+            }).join("") || `<p class="muted small">No names this round.</p>`}
           </section>
         `).join("")}
       </div>
     </section>
   `;
+  revealMockFocus();
+}
+
+function openMockBoardAt(round, slot) {
+  const rnd = Number(round);
+  const n = Number(slot);
+  if (!Number.isFinite(rnd) || !Number.isFinite(n) || rnd < 1 || n < 1) return;
+  state.mockFocus = { round: rnd, slot: n };
+  const onMock = state.activePage === "teams" && getRoom("teams") === "mock";
+  if (onMock) paintMockBoard();
+  else openRoom("teams", "mock", { history: "push", scroll: "preserve" });
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => revealMockFocus());
+  });
+}
+
+function revealMockFocus() {
+  const focus = state.mockFocus;
+  if (!focus) return;
+  const node = document.getElementById(mockPickDomId(focus.round, focus.slot));
+  if (!node) return;
+  node.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function rosterManagerKey(roster) {
@@ -5266,7 +5300,12 @@ function handleWorkspaceClick(event) {
   const action = target.dataset.action;
   switch (action) {
     case "go": {
+      if (target.dataset.room === "mock") state.mockFocus = null;
       openRoom(target.dataset.page, target.dataset.room);
+      break;
+    }
+    case "open-mock-pick": {
+      openMockBoardAt(target.dataset.mockRound, target.dataset.mockSlot);
       break;
     }
     case "home-week": {
@@ -13849,6 +13888,7 @@ function renderPickVaultRow(asset, values) {
   const mockName = String(asset?.raw?.mockProspectName || "").trim();
   const ownerName = String(asset?.raw?.originalOwnerName || "").trim();
   const placeLabel = String(asset?.raw?.currentPlaceLabel || "").trim();
+  const target = mockPickTarget(asset);
   const detail = mockName
     ? [ownerName ? `from ${ownerName}` : "", placeLabel, mockName ? `(${mockName})` : ""]
       .filter(Boolean)
@@ -13858,11 +13898,21 @@ function renderPickVaultRow(asset, values) {
   const heading = mockName
     ? `${asset?.raw?.season || ""} ${ordinal(Number(asset?.raw?.round) || 1)}`.trim()
     : asset?.name || "Pick";
-  return `
-            <div class="sheet-row pick">
+  const body = `
               <span class="sheet-slot">${escapeHtml(String(asset?.raw?.season || ""))}</span>
               <div class="sheet-player"><strong>${escapeHtml(heading)}</strong><span>${escapeHtml(detail)}</span></div>
               <span class="sheet-value mono">${renderAssetValuePlain(asset, values)}</span>
+          `;
+  if (target) {
+    return `
+            <button type="button" class="sheet-row pick mock-open" data-action="open-mock-pick" data-mock-round="${target.round}" data-mock-slot="${target.slot}" title="Open mock board at ${escapeHtml(formatPickSlotLabel(target.round, target.slot))}">
+              ${body}
+            </button>
+          `;
+  }
+  return `
+            <div class="sheet-row pick">
+              ${body}
             </div>
           `;
 }

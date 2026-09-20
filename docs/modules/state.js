@@ -129,6 +129,7 @@ export function createState() {
     weeklyValue: emptyWeeklyValueState(),
     mockDrafts: emptyMockDrafts(),
     mockDraftsPromise: null,
+    mockFocus: null,
   };
 }
 

@@ -256,6 +256,7 @@ export function buildMockBoardModel(board, { mySlot = null } = {}) {
         school: pick.school,
         pickLabel: formatPickSlotLabel(pick.round, pick.slot),
         mine: mine === Number(pick.slot),
+        id: mockPickDomId(pick.round, pick.slot),
       })),
   }));
   return {
@@ -271,8 +272,23 @@ export function buildMockBoardModel(board, { mySlot = null } = {}) {
   };
 }
 
+export function mockPickDomId(round, slot) {
+  const label = formatPickSlotLabel(round, slot);
+  return label ? `mock-pick-${label.replace(".", "-")}` : "";
+}
+
+export function mockPickTarget(asset) {
+  const name = String(asset?.raw?.mockProspectName || "").trim();
+  const round = Number(asset?.raw?.round);
+  const slot = Number(asset?.raw?.projectedDraftSlot);
+  if (!name) return null;
+  if (!Number.isFinite(round) || round < 1 || round > MOCK_OVERLAY_MAX_ROUND) return null;
+  if (!Number.isFinite(slot) || slot < 1) return null;
+  return { round, slot, name };
+}
+
 export function pickHasMockOverlay(asset) {
-  return Boolean(asset?.raw?.mockProspectName);
+  return Boolean(mockPickTarget(asset) || String(asset?.raw?.mockProspectName || "").trim());
 }
 
 function normalizeMock(mock) {
