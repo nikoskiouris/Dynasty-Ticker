@@ -126,5 +126,5 @@ python -m src.cli \
 ## Notes
 - Player assets: `player:<sleeper_player_id>`
 - Pick assets: `pick:<season>:r<round>:<original_owner|any>`
-- Playoff odds are a 4000-season Monte Carlo. Early weeks shrink last year's pace toward the league mean so one 11-3 campaign is not a 99% lock in Week 1.
+- Playoff odds are a 4000-season Monte Carlo. Each simulated season draws team quality from the posterior, so a Week 1 favorite is not a 100% lock. 100% / 0% only appear when a team has mathematically clinched or been eliminated.
 - Phone layout (`max-width: 700px`) pins the four page tabs to the bottom edge and keeps the room strip sticky under the header. A share button sits in the header. iPad and desktop keep the tabs inline above the room strip.

@@ -9,7 +9,9 @@ import {
   winProbability,
   seedTeams,
   formatRecord,
+  formatOddsPct,
   blendSimPrior,
+  playoffLockStatus,
   scoreUpcomingWeekAngles,
   resolveUpcomingWeekEntry,
 } from "../docs/modules/season.js";
@@ -66,6 +68,24 @@ function side(rosterId, matchupId, points, extras = {}) {
     players: extras.players || ["10", "11", "12"],
     players_points: extras.playersPoints || { 10: points - 10, 11: 10, 12: 30 },
   };
+}
+
+function roundRobinWeeks(teamCount, weeks) {
+  const teams = Array.from({ length: teamCount }, (_, i) => i + 1);
+  const rows = new Map();
+  const rotation = teams.slice(1);
+  for (let week = 1; week <= weeks; week += 1) {
+    const ordered = [teams[0], ...rotation];
+    const games = [];
+    let matchupId = 1;
+    for (let i = 0; i < teamCount / 2; i += 1) {
+      games.push(side(ordered[i], matchupId, 0), side(ordered[teamCount - 1 - i], matchupId, 0));
+      matchupId += 1;
+    }
+    rows.set(week, games);
+    rotation.unshift(rotation.pop());
+  }
+  return rows;
 }
 
 test("final week writes standings, all-play, luck, and streaks", () => {
@@ -223,6 +243,128 @@ test("Monte Carlo stays off 99-1 in week 1 when priors shrink toward the mean", 
   assert.ok(alpha.playoffPct > bravo.playoffPct);
   assert.ok(alpha.playoffPct < 97, `week 1 favorite should not be a lock, got ${alpha.playoffPct}`);
   assert.ok(bravo.playoffPct > 3, `week 1 longshot should not be dead, got ${bravo.playoffPct}`);
+  assert.equal(alpha.clinched, false);
+  assert.equal(bravo.eliminated, false);
+});
+
+test("week 1 10-team favorite is not 100% after one final game", () => {
+  const weekRows = roundRobinWeeks(10, 14);
+  weekRows.set(1, [
+    side(1, 1, 168.4), side(6, 1, 131.3),
+    side(2, 2, 155.2), side(7, 2, 114.5),
+    side(3, 3, 148.0), side(8, 3, 109.5),
+    side(4, 4, 142.1), side(9, 4, 102.7),
+    side(5, 5, 136.8), side(10, 5, 80.9),
+  ]);
+  const tenUsers = Array.from({ length: 10 }, (_, i) => ({ user_id: `u${i + 1}`, display_name: `Team${i + 1}` }));
+  const tenRosters = Array.from({ length: 10 }, (_, i) => ({
+    roster_id: i + 1,
+    owner_id: `u${i + 1}`,
+    settings: { wins: 0, losses: 0, ties: 0, fpts: 0, fpts_decimal: 0 },
+  }));
+  const model = buildSeasonModel({
+    league: {
+      league_id: "L1",
+      season: "2026",
+      status: "in_season",
+      settings: {
+        start_week: 1,
+        playoff_week_start: 15,
+        playoff_teams: 6,
+        playoff_round_type: 0,
+        divisions: 0,
+        last_scored_leg: 1,
+        leg: 2,
+      },
+    },
+    rosters: tenRosters,
+    users: tenUsers,
+    weekRows,
+    nflState: { season: "2026", week: 2, season_type: "regular" },
+  });
+  assert.equal(model.remainingGames.length, 65);
+  const priors = new Map([
+    ["1", blendSimPrior({ baseline: 125, previousPpg: 170, valuePercentile: 0.95 })],
+    ["2", blendSimPrior({ baseline: 125, previousPpg: 155, valuePercentile: 0.85 })],
+    ["3", blendSimPrior({ baseline: 125, previousPpg: 148, valuePercentile: 0.75 })],
+    ["4", blendSimPrior({ baseline: 125, previousPpg: 140, valuePercentile: 0.65 })],
+    ["5", blendSimPrior({ baseline: 125, previousPpg: 132, valuePercentile: 0.55 })],
+    ["6", blendSimPrior({ baseline: 125, previousPpg: 128, valuePercentile: 0.5 })],
+    ["7", blendSimPrior({ baseline: 125, previousPpg: 120, valuePercentile: 0.4 })],
+    ["8", blendSimPrior({ baseline: 125, previousPpg: 118, valuePercentile: 0.35 })],
+    ["9", blendSimPrior({ baseline: 125, previousPpg: 110, valuePercentile: 0.2 })],
+    ["10", blendSimPrior({ baseline: 125, previousPpg: 95, valuePercentile: 0.05 })],
+  ]);
+  const sim = simulateSeason(model, { priors, iterations: 1200, seed: 20260911 });
+  const favorite = sim.results.find((row) => row.rosterId === "1");
+  const longshot = sim.results.find((row) => row.rosterId === "10");
+  assert.ok(favorite.playoffPct > longshot.playoffPct);
+  assert.ok(favorite.playoffPct < 92, `week 1 1-0 favorite should still miss some seasons, got ${favorite.playoffPct}`);
+  assert.ok(favorite.titlePct < 40, `week 1 title odds should not be a coin flip, got ${favorite.titlePct}`);
+  assert.ok(longshot.playoffPct > 8, `week 1 0-1 longshot should still have a path, got ${longshot.playoffPct}`);
+  assert.equal(favorite.clinched, false);
+  assert.equal(longshot.eliminated, false);
+  for (const row of sim.results) {
+    if (!row.clinched) {
+      assert.ok(row.playoffPct < 100, `${row.name} is not locked but sim said ${row.playoffPct}`);
+    }
+    if (!row.eliminated) {
+      assert.ok(row.playoffPct > 0, `${row.name} is not dead but sim said ${row.playoffPct}`);
+    }
+  }
+});
+
+test("100% playoffs only when remaining teams cannot catch a losing-out roster", () => {
+  const weekRows = new Map([
+    [1, [side(1, 1, 140), side(2, 1, 90), side(3, 2, 120), side(4, 2, 80)]],
+    [2, [side(1, 1, 145), side(3, 1, 100), side(2, 2, 130), side(4, 2, 70)]],
+    [3, [side(1, 1, 150), side(4, 1, 90), side(2, 2, 125), side(3, 2, 110)]],
+    [4, [side(1, 1, 0), side(2, 1, 0), side(3, 2, 0), side(4, 2, 0)]],
+  ]);
+  const model = buildSeasonModel({
+    league: {
+      league_id: "L1",
+      season: "2026",
+      status: "in_season",
+      settings: {
+        start_week: 1,
+        playoff_week_start: 5,
+        playoff_teams: 2,
+        playoff_round_type: 0,
+        divisions: 0,
+        last_scored_leg: 3,
+        leg: 4,
+      },
+    },
+    rosters: rosters(),
+    users: users(),
+    weekRows,
+    nflState: { season: "2026", week: 4, season_type: "regular" },
+  });
+  assert.equal(model.teams.get("1").wins, 3);
+  assert.equal(model.teams.get("4").wins, 0);
+  const locks = playoffLockStatus(model);
+  assert.equal(locks.clinched.has("1"), true);
+  assert.equal(locks.eliminated.has("4"), true);
+  assert.equal(locks.clinched.has("2"), false);
+  const sim = simulateSeason(model, { iterations: 400, seed: 11 });
+  const alpha = sim.byRosterId.get("1");
+  const delta = sim.byRosterId.get("4");
+  const bravo = sim.byRosterId.get("2");
+  assert.equal(alpha.clinched, true);
+  assert.equal(alpha.playoffPct, 100);
+  assert.equal(delta.eliminated, true);
+  assert.equal(delta.playoffPct, 0);
+  assert.equal(bravo.clinched, false);
+  assert.ok(bravo.playoffPct < 100);
+});
+
+test("formatOddsPct never rounds 99.6 to 100", () => {
+  assert.equal(formatOddsPct(100), "100%");
+  assert.equal(formatOddsPct(99.6), ">99%");
+  assert.equal(formatOddsPct(0.4), "<1%");
+  assert.equal(formatOddsPct(0), "0%");
+  assert.equal(formatOddsPct(61.2), "61%");
 });
 
 test("winProbability is symmetric and seed order prefers more wins", () => {

@@ -4,9 +4,12 @@
 
 const DEFAULT_PLAYOFF_TEAMS = 6;
 const DEFAULT_PLAYOFF_START = 15;
-const SIM_PRIOR_WEIGHT = 3;
-const SIM_MIN_STD = 16;
+const SIM_PRIOR_WEIGHT = 6;
+const SIM_MIN_STD = 20;
+const SIM_SEASON_DRIFT = 0.42;
 const SIM_DEFAULT_ITERATIONS = 4000;
+const SIM_UNLOCKED_FLOOR = 0.1;
+const SIM_UNLOCKED_CEILING = 99.9;
 
 export function buildSeasonModel({ league, rosters = [], users = [], weekRows = new Map(), nflState = null, optimalPoints = null }) {
   const settings = league?.settings || {};
@@ -253,16 +256,104 @@ export function buildTeamDistributions(model, priors = new Map(), { priorWeight 
     const sampleMean = n ? average(team.scores) : priorMean;
     const sampleStd = n > 1 ? standardDeviation(team.scores) : priorStd;
     const mean = (priorWeight * priorMean + n * sampleMean) / (priorWeight + n);
-    const std = Math.max(SIM_MIN_STD, (priorWeight * priorStd + Math.max(0, n - 1) * sampleStd) / (priorWeight + Math.max(0, n - 1)));
-    distributions.set(team.rosterId, { mean, std, sampleMean, sampleStd, n, priorMean, priorStd });
+    const std = Math.max(
+      SIM_MIN_STD,
+      (priorWeight * priorStd + Math.max(0, n - 1) * sampleStd) / (priorWeight + Math.max(0, n - 1))
+    );
+    const posteriorMeanStd = std / Math.sqrt(priorWeight + n);
+    const seasonDriftStd = std * SIM_SEASON_DRIFT / Math.sqrt(1 + n);
+    const meanStd = Math.sqrt(posteriorMeanStd ** 2 + seasonDriftStd ** 2);
+    const predictiveStd = Math.sqrt(std ** 2 + meanStd ** 2);
+    distributions.set(team.rosterId, {
+      mean,
+      std,
+      meanStd,
+      predictiveStd,
+      sampleMean,
+      sampleStd,
+      n,
+      priorMean,
+      priorStd,
+      priorWeight,
+    });
   });
   return distributions;
 }
 
 export function winProbability(distA, distB) {
   if (!distA || !distB) return 0.5;
-  const spread = Math.sqrt(distA.std ** 2 + distB.std ** 2) || 1;
+  const stdA = Number(distA.predictiveStd) || Number(distA.std) || 1;
+  const stdB = Number(distB.predictiveStd) || Number(distB.std) || 1;
+  const spread = Math.sqrt(stdA ** 2 + stdB ** 2) || 1;
   return normalCdf((distA.mean - distB.mean) / spread);
+}
+
+export function playoffLockStatus(model) {
+  const clinched = new Set();
+  const eliminated = new Set();
+  const teams = model?.standings || [];
+  if (teams.length < 2) return { clinched, eliminated };
+  const playoffTeams = Math.min(Number(model.playoffTeams) || DEFAULT_PLAYOFF_TEAMS, teams.length);
+  const remainingByTeam = new Map(teams.map((team) => [String(team.rosterId), 0]));
+  (model.remainingGames || []).forEach(({ game }) => {
+    const sides = game?.sides || [];
+    sides.slice(0, 2).forEach((side) => {
+      const rosterId = String(side?.rosterId || "");
+      if (!remainingByTeam.has(rosterId)) return;
+      remainingByTeam.set(rosterId, remainingByTeam.get(rosterId) + 1);
+    });
+  });
+  const rows = teams.map((team) => {
+    const remaining = remainingByTeam.get(String(team.rosterId)) || 0;
+    const winPts = Number(team.wins || 0) + 0.5 * Number(team.ties || 0);
+    return {
+      rosterId: String(team.rosterId),
+      division: Number(team.division) || 0,
+      minWins: winPts,
+      maxWins: winPts + remaining,
+    };
+  });
+  const remainingGameCount = (model.remainingGames || []).length;
+
+  if (remainingGameCount === 0) {
+    const seeds = new Set((model.seedOrder || []).slice(0, playoffTeams).map(String));
+    rows.forEach((row) => {
+      if (seeds.has(row.rosterId)) clinched.add(row.rosterId);
+      else eliminated.add(row.rosterId);
+    });
+    return { clinched, eliminated };
+  }
+
+  rows.forEach((team) => {
+    const others = rows.filter((row) => row.rosterId !== team.rosterId);
+    const canCatch = others.filter((row) => row.maxWins >= team.minWins).length;
+    if (canCatch < playoffTeams) clinched.add(team.rosterId);
+    const uncatchable = others.filter((row) => row.minWins > team.maxWins).length;
+    if (uncatchable >= playoffTeams) eliminated.add(team.rosterId);
+  });
+
+  if ((Number(model.divisionCount) || 0) > 1 && Number(model.seedType) !== 2) {
+    rows.forEach((team) => {
+      if (clinched.has(team.rosterId) || !team.division) return;
+      const rivals = rows.filter((row) => row.division === team.division && row.rosterId !== team.rosterId);
+      if (rivals.length > 0 && rivals.every((row) => row.maxWins < team.minWins)) clinched.add(team.rosterId);
+    });
+  }
+
+  eliminated.forEach((rosterId) => {
+    if (clinched.has(rosterId)) eliminated.delete(rosterId);
+  });
+  return { clinched, eliminated };
+}
+
+export function formatOddsPct(value) {
+  if (!Number.isFinite(Number(value))) return "—";
+  const numeric = Number(value);
+  if (numeric <= 0) return "0%";
+  if (numeric < 1) return "<1%";
+  if (numeric >= 100) return "100%";
+  if (numeric > 99) return ">99%";
+  return `${Math.round(numeric)}%`;
 }
 
 export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEFAULT_ITERATIONS, seed = 7 } = {}) {
@@ -278,6 +369,8 @@ export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEF
     .map(({ game }) => [teamIndex.get(game.sides[0].rosterId), teamIndex.get(game.sides[1].rosterId)])
     .filter(([a, b]) => Number.isInteger(a) && Number.isInteger(b));
   const playoffsDecided = model.seasonComplete;
+  // Draw a season-long talent for each roster so remaining weeks do not
+  // collapse a small scoring edge into a fake 100% lock.
   const totals = teams.map(() => ({
     playoffs: 0,
     bye: 0,
@@ -292,14 +385,16 @@ export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEF
   }));
   const dist = teams.map((team) => distributions.get(team.rosterId));
   const runs = playoffsDecided ? 1 : iterations;
+  const locks = playoffLockStatus(model);
 
   for (let iteration = 0; iteration < runs; iteration += 1) {
     const wins = teams.map((team) => team.wins);
     const ties = teams.map((team) => team.ties);
     const pf = teams.map((team) => team.pf);
+    const seasonMeans = dist.map((row) => randomNormal(rng, row.mean, row.meanStd || 0));
     remaining.forEach(([a, b]) => {
-      const scoreA = randomNormal(rng, dist[a].mean, dist[a].std);
-      const scoreB = randomNormal(rng, dist[b].mean, dist[b].std);
+      const scoreA = randomNormal(rng, seasonMeans[a], dist[a].std);
+      const scoreB = randomNormal(rng, seasonMeans[b], dist[b].std);
       pf[a] += scoreA;
       pf[b] += scoreB;
       if (scoreA > scoreB) wins[a] += 1;
@@ -338,7 +433,12 @@ export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEF
       if (seedIndex < byeCount) bucket.bye += 1;
     });
 
-    const bracket = simulateBracket(seeds.map((rosterId) => teamIndex.get(rosterId)), dist, rng);
+    const bracket = simulateBracket(
+      seeds.map((rosterId) => teamIndex.get(rosterId)),
+      dist,
+      rng,
+      seasonMeans
+    );
     if (bracket.champion != null) totals[bracket.champion].title += 1;
     if (bracket.finalists) bracket.finalists.forEach((index) => { totals[index].finals += 1; });
   }
@@ -346,22 +446,34 @@ export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEF
   const results = teams.map((team, index) => {
     const bucket = totals[index];
     const pct = (value) => round1((value / runs) * 100);
+    const isClinched = locks.clinched.has(String(team.rosterId));
+    const isEliminated = locks.eliminated.has(String(team.rosterId));
+    const rawPlayoff = (bucket.playoffs / runs) * 100;
+    const rawTitle = (bucket.title / runs) * 100;
+    const playoffPct = isClinched
+      ? 100
+      : isEliminated
+        ? 0
+        : round1(Math.min(SIM_UNLOCKED_CEILING, Math.max(SIM_UNLOCKED_FLOOR, rawPlayoff)));
+    const titlePct = playoffsDecided
+      ? round1(rawTitle)
+      : round1(Math.min(SIM_UNLOCKED_CEILING, Math.max(0, rawTitle)));
     return {
       rosterId: team.rosterId,
       name: team.name,
-      playoffPct: pct(bucket.playoffs),
+      playoffPct,
       byePct: pct(bucket.bye),
       divisionPct: pct(bucket.division),
       finalsPct: pct(bucket.finals),
-      titlePct: pct(bucket.title),
+      titlePct,
       topSeedPct: pct(bucket.topSeed),
       lastPlacePct: pct(bucket.lastPlace),
       projectedWins: round1(bucket.wins / runs),
       averageSeed: bucket.playoffs ? round1(bucket.seedSum / bucket.playoffs) : null,
       seedDistribution: bucket.seedCounts.map((count) => round1((count / runs) * 100)),
       distribution: distributions.get(team.rosterId),
-      clinched: bucket.playoffs === runs && model.remainingGames.length > 0,
-      eliminated: bucket.playoffs === 0 && model.remainingGames.length > 0,
+      clinched: isClinched,
+      eliminated: isEliminated,
     };
   });
 
@@ -936,7 +1048,7 @@ export function bracketByeCount(playoffTeams) {
   return Math.max(0, size - playoffTeams);
 }
 
-function simulateBracket(seedIndexes, dist, rng) {
+function simulateBracket(seedIndexes, dist, rng, seasonMeans = null) {
   if (seedIndexes.length === 0) return { champion: null, finalists: null };
   if (seedIndexes.length === 1) return { champion: seedIndexes[0], finalists: [seedIndexes[0]] };
   const size = nextPowerOfTwo(seedIndexes.length);
@@ -951,8 +1063,10 @@ function simulateBracket(seedIndexes, dist, rng) {
       if (a == null) next.push(b);
       else if (b == null) next.push(a);
       else {
-        const scoreA = randomNormal(rng, dist[a].mean, dist[a].std);
-        const scoreB = randomNormal(rng, dist[b].mean, dist[b].std);
+        const meanA = seasonMeans?.[a] ?? dist[a].mean;
+        const meanB = seasonMeans?.[b] ?? dist[b].mean;
+        const scoreA = randomNormal(rng, meanA, dist[a].std);
+        const scoreB = randomNormal(rng, meanB, dist[b].std);
         next.push(scoreA >= scoreB ? a : b);
       }
     }

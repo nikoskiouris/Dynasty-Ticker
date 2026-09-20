@@ -1,4 +1,5 @@
 import { clamp } from "./html.js";
+import { formatOddsPct } from "./season.js";
 
 export const WINDOW_CALLS = {
   "all-in": {
@@ -399,10 +400,7 @@ function leanFromNow(score) {
 }
 
 function percentText(value) {
-  if (!Number.isFinite(value)) return "—";
-  if (value > 0 && value < 1) return "<1%";
-  if (value > 99 && value < 100) return ">99%";
-  return `${Math.round(value)}%`;
+  return formatOddsPct(value);
 }
 
 function ordinal(rank) {

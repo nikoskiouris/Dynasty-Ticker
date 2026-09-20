@@ -7,6 +7,7 @@ import {
   buildRecapTradeWindow,
   isTradeInRecapWindow,
 } from "../docs/modules/recap.js";
+import { formatOddsPct } from "../docs/modules/season.js";
 
 test("inferNflKickoffDate is the Thursday after Labor Day", () => {
   assert.equal(inferNflKickoffDate(2026), "2026-09-10");
@@ -59,6 +60,50 @@ test("desk recap includes scoreboard, honors, and empty trade desk", () => {
   assert.match(text, /HONORS/);
   assert.match(text, /PLAYOFF PICTURE/);
   assert.match(text, /No completed trades this week/);
+});
+
+test("recap playoff picture never prints 100% unless the team is locked", () => {
+  const unlocked = buildRecap({
+    leagueName: "Bricked Up FF",
+    week: 1,
+    tone: "desk",
+    model: {
+      weeks: [{ week: 1, isPlayoff: false }],
+      standings: [],
+      remainingGames: [{}, {}],
+    },
+    sim: {
+      iterations: 4000,
+      remainingGameCount: 65,
+      results: [
+        { rosterId: "1", name: "ethanleingang", playoffPct: 99.6, titlePct: 48.2, clinched: false },
+        { rosterId: "10", name: "spennybuckets", playoffPct: 0.4, titlePct: 0.1, eliminated: false },
+      ],
+    },
+    trades: [],
+  });
+  assert.match(unlocked, /ethanleingang: >99% playoffs/);
+  assert.doesNotMatch(unlocked, /ethanleingang: 100% playoffs/);
+  assert.match(unlocked, /spennybuckets: <1% playoffs/);
+  assert.equal(formatOddsPct(99.6), ">99%");
+
+  const locked = buildRecap({
+    leagueName: "Bricked Up FF",
+    week: 14,
+    tone: "desk",
+    model: {
+      weeks: [{ week: 14, isPlayoff: false }],
+      standings: [],
+      remainingGames: [{}, {}],
+    },
+    sim: {
+      iterations: 4000,
+      remainingGameCount: 5,
+      results: [{ rosterId: "1", name: "ethanleingang", playoffPct: 100, titlePct: 41, clinched: true }],
+    },
+    trades: [],
+  });
+  assert.match(locked, /ethanleingang: 100% playoffs, 41% title CLINCHED/);
 });
 
 test("roast recap uses the rude empty-trade line", () => {

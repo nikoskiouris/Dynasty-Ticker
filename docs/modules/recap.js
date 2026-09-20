@@ -1,5 +1,5 @@
 // Weekly recap generator. Produces plain text that pastes cleanly into a group chat.
-import { formatPoints, formatRecord, ordinal } from "./season.js";
+import { formatOddsPct, formatPoints, formatRecord, ordinal } from "./season.js";
 
 export const RECAP_TONES = [
   { id: "desk", label: "Broadcast desk", description: "Straight, clean, and quotable." },
@@ -70,7 +70,7 @@ export function buildRecap({
         const delta = previous ? result.playoffPct - previous.playoffPct : null;
         const mover = Number.isFinite(delta) && Math.abs(delta) >= 3 ? ` (${delta > 0 ? "+" : ""}${delta.toFixed(0)})` : "";
         const flag = result.clinched ? " CLINCHED" : result.eliminated ? " ELIMINATED" : "";
-        lines.push(`${result.name}: ${result.playoffPct.toFixed(0)}% playoffs${mover}, ${result.titlePct.toFixed(0)}% title${flag}`);
+        lines.push(`${result.name}: ${formatOddsPct(result.playoffPct)} playoffs${mover}, ${formatOddsPct(result.titlePct)} title${flag}`);
       });
     lines.push(`Based on ${sim.iterations.toLocaleString()} simulated seasons with ${sim.remainingGameCount} games left.`);
     lines.push("");

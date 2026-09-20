@@ -7,6 +7,7 @@ import {
   winProbability,
   buildTeamDistributions,
   formatPoints,
+  formatOddsPct,
   blendSimPrior,
   scoreUpcomingWeekAngles,
 } from "./modules/season.js";
@@ -2772,10 +2773,7 @@ function weekStatusChip(entry) {
 }
 
 function percentLabel(value) {
-  if (!Number.isFinite(value)) return "—";
-  if (value > 0 && value < 1) return "<1%";
-  if (value > 99 && value < 100) return ">99%";
-  return `${Math.round(value)}%`;
+  return formatOddsPct(value);
 }
 
 function luckClass(luck) {
@@ -3192,8 +3190,8 @@ function renderPlayoffOddsPanel(model, sim) {
   const preseason = !Number.isFinite(model.finalThroughWeek) || model.finalThroughWeek < 1;
   const heading = phase === "bracket" ? "Title odds" : `${model.playoffTeams} playoff spots`;
   const copy = preseason
-    ? `${sim.remainingGameCount} games left. ${sim.iterations.toLocaleString()} simulated seasons, shrunk toward the league average so Week 1 is not a 99% lock. Last year's pace and roster value still lean the board; odds will move once scores go final.`
-    : `${sim.remainingGameCount} games left. ${sim.iterations.toLocaleString()} simulated seasons. Each roster scores from a blend of this year's results, last year's pace, and dynasty starter value.`;
+    ? `${sim.remainingGameCount} games left. ${sim.iterations.toLocaleString()} simulated seasons. Each season draws team quality from the posterior so a stacked roster is not a Week 1 lock. Last year's pace and starter value still lean the board.`
+    : `${sim.remainingGameCount} games left. ${sim.iterations.toLocaleString()} simulated seasons. Scores come from a blend of this year's results, last year's pace, and dynasty starter value, with team quality redrawn each season. 100% only if the playoff field cannot catch them.`;
   return `
     <section class="workspace-panel odds-panel">
       <div class="panel-heading stack">
@@ -4733,7 +4731,7 @@ function currentRecapCardModel(weekEntry, model, weekly) {
     games: weekly.games,
     awards: weekly.awards,
     favorite: favorite
-      ? { name: favorite.name, detail: `${Math.round(favorite.titlePct)}% title · ${Math.round(favorite.playoffPct)}% playoffs` }
+      ? { name: favorite.name, detail: `${percentLabel(favorite.titlePct)} title · ${percentLabel(favorite.playoffPct)} playoffs` }
       : null,
     url: buildShareUrl({ tab: "league", view: "recap", week: weekEntry.week, tone: state.recapTone }),
   });
