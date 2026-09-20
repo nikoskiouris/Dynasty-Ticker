@@ -1,12 +1,26 @@
 # Dynasty Ticker — Ticket Product Outline
 
-Random user feedback, turned into tickets. Only leftover work. Already-shipped items are listed at the bottom and are **not** in the ticket files.
+Random user feedback, turned into tickets. **Do not delete ticket files.** When one ships, mark it Done and keep it for history.
 
-The product already has a league desk, a tank/contend call, trade match, a calculator, find-deals, and a landing “rather” duel. This outline is the gap between that desk and what a dynasty player said they would actually use.
+The product already has a league desk, a tank/contend call, trade match, a calculator, find-deals, a landing “rather” duel, and weekly start chance on the roster.
+
+This outline is leftover work plus the tickets we already shipped.
 
 ## How to read this
 
-Each file in this folder is one ticket: title, why, what to build, and how to know it is done.
+Each file in this folder is one ticket: title, status, why, what to build, and how to know it is done.
+
+- **Open** — still to build.
+- **Done** — shipped. File stays. Do not rebuild unless the leftover note says so.
+
+## When a ticket ships
+
+1. Set `Status` to `Done` in the ticket file. Keep the rest of the file.
+2. Add a `Shipped` line with the PR (`#57`).
+3. Move the row from Open to Done in this README. Link the PR.
+4. Do not delete the file.
+
+## Open
 
 | ID | Ticket | Priority |
 | --- | --- | --- |
@@ -22,11 +36,16 @@ Each file in this folder is one ticket: title, why, what to build, and how to kn
 | [011](011-rather-pairing.txt) | Rather pairing still produces no-brainers | P1 |
 | [012](012-trades-first-run.txt) | Trades page first-run is confusing | P0 |
 
-## Already shipped — not ticketed
+## Done
 
-These were in the same note. They already exist. Do not rebuild them.
+| ID | Ticket | Priority | Shipped |
+| --- | --- | --- | --- |
+| [001](001-weekly-player-value.txt) | Weekly player value from matchup + usage | P0 | [#57](https://github.com/nikoskiouris/Dynasty-Ticker/pull/57) |
 
-- **Weekly player value.** Teams → Roster. Tap a player for a weekly score from opponent strength, target share, drop percentage, and past games. Double-team rate is shown as missing until we have it. Not mixed with dynasty value.
+## Shipped before this board
+
+These were in the same player note. They never had ticket files. Git history has no deleted ticket files to restore. Do not rebuild them.
+
 - **Tank / rebuild / contend.** Teams → Call. Playoff odds, lineup rank, age, and pick capital. Headline plus moves.
 - **Ticker speed.** Loop is at least 50s, about 9s per name. That complaint is closed.
 - **Calculator not on first paint.** Landing is jobs + username search, not the calculator. Remaining work is that “Make a trade” still opens the calculator, and the Trades tab still defaults to it. That leftover is ticket 012.

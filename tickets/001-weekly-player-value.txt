@@ -1,6 +1,15 @@
 Title
 Weekly player value from matchup and usage
 
+Status
+Done
+
+Shipped
+#57
+
+Leftover
+Double-team rate still missing until we have the data.
+
 Priority
 P0 — called out as the “magical” feature
 

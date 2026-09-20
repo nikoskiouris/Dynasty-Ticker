@@ -1,6 +1,9 @@
 Title
 Trades page first-run: not the calculator, and actually readable
 
+Status
+Open
+
 Priority
 P0
 
