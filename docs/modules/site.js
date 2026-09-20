@@ -26,7 +26,7 @@ export const PAGE_META = {
   },
   teams: {
     title: PAGE_LABELS.teams,
-    description: "Scout any roster: sit/start this week, tank-or-contend call, bench, pick vault, roster DNA, and player passports.",
+    description: "Scout any roster: sit/start this week, tank-or-contend call, bench, pick vault, 2027 mock board, roster DNA, and player passports.",
   },
   trades: {
     title: PAGE_LABELS.trades,
@@ -44,6 +44,7 @@ const ROOM_DESCRIPTIONS = {
   },
   teams: {
     roster: "Sit/start this week for this roster. League slots, close-call reasons, bye and missing opponent sit.",
+    mock: "Dynasty Nerds Superflex 2-round rookie mock. 1sts and 2nds get names; 3rds stay pick labels.",
     call: "Desk call for this roster: tank, go all in, or stay in the middle. Built from playoff odds, lineup rank, age, and pick capital.",
   },
   trades: {

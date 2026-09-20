@@ -2480,8 +2480,54 @@ button.sheet-row.open {
 
 .pick-mock-note {
   margin: 0 0 0.45rem;
-  max-width: 38ch;
+  max-width: 42ch;
   line-height: 1.35;
+}
+
+button.inline-link,
+a.inline-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  min-height: 0;
+  color: var(--link);
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+button.inline-link:hover,
+a.inline-link:hover {
+  transform: none;
+  filter: none;
+  background: none;
+  color: var(--link);
+}
+
+.mock-board-note {
+  margin: 0 0 1rem;
+  max-width: 52ch;
+  line-height: 1.4;
+}
+
+.sheet-row.mock-pick {
+  grid-template-columns: 3.2rem minmax(0, 1fr) auto;
+}
+
+.sheet-row.mock-mine {
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.45);
+}
+
+.mock-you {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .sheet-slot {
@@ -2588,6 +2634,10 @@ button.sheet-row.open {
     grid-template-columns: 2.5rem minmax(0, 1fr) minmax(8.9rem, auto);
     gap: 0.5rem;
     padding: 0.5rem 0.55rem;
+  }
+
+  .sheet-row.mock-pick {
+    grid-template-columns: 2.8rem minmax(0, 1fr) auto;
   }
 
   .sheet-metrics {

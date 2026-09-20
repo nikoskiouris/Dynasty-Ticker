@@ -13,6 +13,9 @@ import {
   mockProspectAtSlot,
   formatHybridFirstName,
   formatMockSourceLine,
+  buildMockBoardModel,
+  formatPickSlotLabel,
+  formatMockDate,
   SKILL_POSITIONS,
 } from "../docs/modules/mock-drafts.js";
 
@@ -132,4 +135,20 @@ test("source line names Dynasty Nerds and keeps 3rds as pick labels", () => {
   assert.match(line, /3rds stay pick labels/i);
   assert.match(line, /no trade value/i);
   assert.doesNotMatch(line, /SI|PFN/);
+});
+
+test("mock board lists 1sts and 2nds and marks your slot", () => {
+  assert.equal(formatPickSlotLabel(1, 7), "1.07");
+  assert.equal(formatMockDate("2026-08-31"), "Aug 31, 2026");
+  const view = buildMockBoardModel(bundled, { mySlot: 6 });
+  assert.equal(view.season, 2027);
+  assert.equal(view.source, "Dynasty Nerds");
+  assert.equal(view.rounds[0].picks.length, 12);
+  assert.equal(view.rounds[1].picks.length, 12);
+  assert.equal(view.rounds[0].picks[0].name, "Jeremiah Smith");
+  assert.equal(view.rounds[1].picks[0].name, "Justice Haynes");
+  assert.equal(view.rounds[0].picks[5].mine, true);
+  assert.equal(view.rounds[1].picks[5].name, "KJ Duff");
+  assert.equal(view.rounds[0].picks[0].mine, false);
+  assert.equal(view.empty, false);
 });

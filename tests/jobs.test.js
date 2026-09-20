@@ -54,6 +54,7 @@ test("job markup is buttons that deep-link into rooms", () => {
   assert.match(html, /Or jump to a tool/);
   assert.match(html, /Find a partner/);
   assert.match(html, /Tank or contend/);
+  assert.match(html, /Rookie mock/);
   assert.equal(renderJobButton(null), "");
 });
 

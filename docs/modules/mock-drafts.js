@@ -212,6 +212,65 @@ export function formatMockSourceLine(board) {
   return `${season} 1sts and 2nds show who ${sources} mock at that slot from current place. 3rds stay pick labels. College names have no trade value.`;
 }
 
+export function primaryMock(board) {
+  return (Array.isArray(board?.mocks) ? board.mocks : []).find((mock) => mock?.picks?.length) || null;
+}
+
+export function formatPickSlotLabel(round, slot) {
+  const rnd = Number(round);
+  const n = Number(slot);
+  if (!Number.isFinite(rnd) || !Number.isFinite(n) || rnd < 1 || n < 1) return "";
+  return `${rnd}.${String(n).padStart(2, "0")}`;
+}
+
+export function formatMockDate(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return text;
+  const date = new Date(`${match[1]}-${match[2]}-${match[3]}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return text;
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+export function buildMockBoardModel(board, { mySlot = null } = {}) {
+  const mock = primaryMock(board);
+  const season = nextMockSeason(board);
+  const slot = Number(mySlot);
+  const mine = Number.isFinite(slot) && slot > 0 ? slot : null;
+  const picks = Array.isArray(mock?.picks) ? mock.picks : [];
+  const rounds = [1, 2].map((round) => ({
+    round,
+    label: `Round ${round}`,
+    picks: picks
+      .filter((pick) => Number(pick.round) === round)
+      .map((pick) => ({
+        round: pick.round,
+        slot: pick.slot,
+        name: pick.name,
+        pos: pick.pos,
+        school: pick.school,
+        pickLabel: formatPickSlotLabel(pick.round, pick.slot),
+        mine: mine === Number(pick.slot),
+      })),
+  }));
+  return {
+    season,
+    source: mock?.source || mock?.short || "Dynasty Nerds",
+    author: mock?.author || "",
+    date: mock?.date || board?.updated || "",
+    dateLabel: formatMockDate(mock?.date || board?.updated || ""),
+    url: mock?.url || "",
+    format: mock?.format || "superflex",
+    rounds,
+    empty: !picks.length,
+  };
+}
+
 export function pickHasMockOverlay(asset) {
   return Boolean(asset?.raw?.mockProspectName);
 }

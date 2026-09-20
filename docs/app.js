@@ -180,6 +180,8 @@ import {
   currentPlaceForOwner,
   fetchMockDrafts,
   formatHybridFirstName,
+  buildMockBoardModel,
+  formatPickSlotLabel,
   formatMockSourceLine,
   mockProspectAtSlot,
   nextMockSeason,
@@ -336,6 +338,7 @@ const el = {
   loyaltyDashboard: document.querySelector("#loyalty-dashboard"),
   windowCallDashboard: document.querySelector("#window-call-dashboard"),
   passportDashboard: document.querySelector("#passport-dashboard"),
+  mockDashboard: document.querySelector("#mock-dashboard"),
   tradeLogDashboard: document.querySelector("#trade-log-dashboard"),
   tradeMatchNeeds: document.querySelector("#trade-match-needs"),
   tradeMatchDashboard: document.querySelector("#trade-match-dashboard"),
@@ -748,6 +751,9 @@ function renderTeamsRoom(room) {
       break;
     case "passports":
       renderPassportDesk();
+      break;
+    case "mock":
+      renderMockBoard();
       break;
     default:
       renderTeamsPage();
@@ -3294,6 +3300,75 @@ function renderTeamsPage() {
   void ensureWeeklyValueContext();
 }
 
+function renderMockBoard() {
+  const host = el.mockDashboard;
+  if (!host) return;
+  void ensureMockDraftsLoaded().then(() => {
+    if (getRoom("teams") !== "mock") return;
+    paintMockBoard();
+  });
+  paintMockBoard();
+}
+
+function paintMockBoard() {
+  const host = el.mockDashboard;
+  if (!host) return;
+  const place = currentPlaceForOwner(
+    state.meRosterId,
+    buildCurrentPlaceLookup(state.rosters, getSeasonModel()?.standings)
+  );
+  const mySlot = projectedDraftSlot(place?.rank, place?.total);
+  const board = buildMockBoardModel(state.mockDrafts, { mySlot });
+  if (board.empty) {
+    host.innerHTML = `<p class="muted">No stored rookie mock yet.</p>`;
+    return;
+  }
+  const byline = [
+    board.source,
+    board.format === "superflex" ? "Superflex" : board.format,
+    board.author,
+    board.dateLabel,
+  ].filter(Boolean).join(" · ");
+  const sourceLink = board.url
+    ? `<a class="inline-link" href="${escapeHtml(board.url)}" target="_blank" rel="noopener noreferrer">Open article</a>`
+    : "";
+  const slotLabels = mySlot
+    ? `${formatPickSlotLabel(1, mySlot)} and ${formatPickSlotLabel(2, mySlot)}`
+    : "";
+  const mineNote = mySlot
+    ? `You sit ${place.label} now, so your names are ${slotLabels}. 3rds stay pick labels. College names have no trade value.`
+    : "1sts and 2nds get these names from current place. 3rds stay pick labels. College names have no trade value.";
+  host.innerHTML = `
+    <section class="workspace-panel mock-board">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">Rookie mock</span>
+          <h2>${escapeHtml(String(board.season || "Next"))} SF board</h2>
+        </div>
+        <p class="section-copy">${escapeHtml(byline)}${sourceLink ? ` · ${sourceLink}` : ""}</p>
+      </div>
+      <p class="muted mock-board-note">${escapeHtml(mineNote)}</p>
+      <div class="sheet-grid">
+        ${board.rounds.map((round) => `
+          <section class="sheet-column">
+            <h4>${escapeHtml(round.label)}</h4>
+            ${round.picks.map((pick) => `
+              <div class="sheet-row pick mock-pick${pick.mine ? " mock-mine" : ""}">
+                <span class="sheet-slot">${escapeHtml(pick.pickLabel)}</span>
+                <div class="sheet-player">
+                  <strong>${escapeHtml(pick.name)}${pick.mine ? `<em class="mock-you"> your slot</em>` : ""}</strong>
+                  <span>${escapeHtml([pick.pos, pick.school].filter(Boolean).join(" · "))}</span>
+                </div>
+                <span class="sheet-value muted">${escapeHtml(pick.pos)}</span>
+              </div>
+            `).join("") || `<p class="muted small">No names this round.</p>`}
+          </section>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function rosterManagerKey(roster) {
   if (!roster?.manager) return "";
   return buildManagerKey(roster.manager.userId, state.leagueId, roster.rosterId);
@@ -4532,9 +4607,7 @@ function renderRosterSheet() {
           closeCall: String(row.rowNote || "").startsWith("Close vs"),
         })).join("") || `<p class="muted small">No bench players.</p>`}
         <h4>Pick vault</h4>
-        ${picks.some((asset) => asset.raw?.mockProspectName)
-          ? `<p class="muted small pick-mock-note">${escapeHtml(formatMockSourceLine(state.mockDrafts))}</p>`
-          : ""}
+        ${renderPickVaultIntro(picks)}
         ${picks.length
           ? picks.map((asset) => renderPickVaultRow(asset, values)).join("")
           : `<p class="muted small">No draft picks owned.</p>`}
@@ -13762,6 +13835,14 @@ function renderAssetValueBadge(asset, values = state.values) {
       ${showAlt ? `<small class="value-alt">${altLabel} ${formatNumber(altValue)}</small>` : ""}
     </span>
   `;
+}
+
+function renderPickVaultIntro(picks = []) {
+  const season = nextMockSeason(state.mockDrafts);
+  if (!season) return "";
+  const hasOverlay = picks.some((asset) => asset.raw?.mockProspectName);
+  const note = hasOverlay ? `${formatMockSourceLine(state.mockDrafts)} ` : "";
+  return `<p class="muted small pick-mock-note">${escapeHtml(note)}<button type="button" class="inline-link" data-action="go" data-page="teams" data-room="mock">Full board</button></p>`;
 }
 
 function renderPickVaultRow(asset, values) {

@@ -150,9 +150,11 @@ test("desk place helpers know pages and rooms", () => {
   assert.equal(defaultRoomFor("trades"), "calculator");
   assert.equal(defaultRoomFor("nope"), "start");
   assert.equal(isRoomOf("teams", "loyalty"), true);
+  assert.equal(isRoomOf("teams", "mock"), true);
   assert.equal(isRoomOf("teams", "call"), true);
   assert.equal(isRoomOf("teams", "log"), false);
   assert.deepEqual(resolveDeskPlace({ view: "tank" }), { page: "teams", room: "call" });
+  assert.deepEqual(resolveDeskPlace({ view: "rookies" }), { page: "teams", room: "mock" });
   assert.equal(normalizeRoom("teams", "window"), "call");
   assert.equal(normalizeRoom("trades", "partners"), "match");
   assert.deepEqual(resolveDeskPlace({ view: "start" }), { page: "league", room: "start" });
