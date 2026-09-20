@@ -7493,9 +7493,10 @@ function buildTransactionPickAsset(pick, transaction = null) {
   let name = formatPickWithSelection(pickLabel, draftedPlayerName, draftedPlayerValue, formatNumber);
   if (!draftedPlayerName && shouldAttachMock({ season, round }, state.mockDrafts)) {
     const place = currentPlaceForOwner(originalOwner, buildCurrentPlaceLookup(state.rosters, getSeasonModel()?.standings));
-    const mock = mockProspectAtSlot(state.mockDrafts, projectedDraftSlot(place?.rank, place?.total));
+    const mock = mockProspectAtSlot(state.mockDrafts, projectedDraftSlot(place?.rank, place?.total), round);
     name = formatHybridFirstName({
       season,
+      round,
       ownerName,
       placeLabel: place?.label,
       mockName: mock?.label || "",
@@ -13774,7 +13775,7 @@ function renderPickVaultRow(asset, values) {
       .replace(" · (", " (")
     : `Round ${asset?.raw?.round || "?"}`;
   const heading = mockName
-    ? `${asset?.raw?.season || ""} 1st`.trim()
+    ? `${asset?.raw?.season || ""} ${ordinal(Number(asset?.raw?.round) || 1)}`.trim()
     : asset?.name || "Pick";
   return `
             <div class="sheet-row pick">
@@ -14396,9 +14397,10 @@ function formatPickName(pick, {
   if (shouldAttachMock(pick, mockBoard) && !assignedDraftSlot?.label) {
     const place = currentPlaceForOwner(pick.original_owner, placeLookup);
     const slot = projectedDraftSlot(place?.rank, place?.total);
-    const mock = mockProspectAtSlot(mockBoard, slot);
+    const mock = mockProspectAtSlot(mockBoard, slot, Number(pick.round) || 1);
     return formatHybridFirstName({
       season: pick.season,
+      round: pick.round,
       ownerName,
       placeLabel: place?.label,
       mockName: mock?.label || "",
@@ -14424,7 +14426,7 @@ function futureFirstMockMeta(pick, { userById, rosterById, assignedDraftSlot = n
   const placeLookup = buildCurrentPlaceLookup(state.rosters, getSeasonModel()?.standings);
   const place = currentPlaceForOwner(pick.original_owner, placeLookup);
   const slot = projectedDraftSlot(place?.rank, place?.total);
-  const mock = mockProspectAtSlot(state.mockDrafts, slot);
+  const mock = mockProspectAtSlot(state.mockDrafts, slot, Number(pick.round) || 1);
   return {
     originalOwnerName: resolvePickOwnerName(pick.original_owner, rosterById, userById) || "",
     currentPlaceRank: place?.rank ?? null,

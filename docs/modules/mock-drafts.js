@@ -1,11 +1,14 @@
 import { ordinal } from "./season.js";
 
 export const MOCK_DRAFTS_PATH = "./data/nfl_mock_drafts.json";
+export const SKILL_POSITIONS = new Set(["QB", "RB", "WR", "TE"]);
+export const MOCK_OVERLAY_MAX_ROUND = 2;
 
 export function emptyMockDrafts() {
   return {
     season: 0,
-    round: 1,
+    rounds: MOCK_OVERLAY_MAX_ROUND,
+    round: MOCK_OVERLAY_MAX_ROUND,
     completedNflDraftYear: 0,
     updated: "",
     mocks: [],
@@ -17,9 +20,11 @@ export function parseMockDrafts(payload) {
   const mocks = (Array.isArray(source.mocks) ? source.mocks : [])
     .map(normalizeMock)
     .filter((mock) => mock.picks.length > 0);
+  const rounds = Number(source.rounds || source.round) || MOCK_OVERLAY_MAX_ROUND;
   return {
     season: Number(source.season) || 0,
-    round: Number(source.round) || 1,
+    rounds,
+    round: rounds,
     completedNflDraftYear: Number(source.completedNflDraftYear) || 0,
     updated: String(source.updated || "").trim(),
     mocks,
@@ -48,7 +53,12 @@ export function shouldAttachMock(pick, board) {
   const season = Number(pick?.season);
   const round = Number(pick?.round);
   const mockSeason = nextMockSeason(board);
-  return round === 1 && Number.isFinite(season) && season === mockSeason && mockSeason > 0;
+  return Number.isFinite(round)
+    && round >= 1
+    && round <= MOCK_OVERLAY_MAX_ROUND
+    && Number.isFinite(season)
+    && season === mockSeason
+    && mockSeason > 0;
 }
 
 export function projectedDraftSlot(placeRank, teamCount) {
@@ -121,13 +131,18 @@ export function normalizeProspectName(name) {
     .toLowerCase();
 }
 
-export function mockProspectAtSlot(board, slot) {
+export function mockProspectAtSlot(board, slot, round = 1) {
   const pickSlot = Number(slot);
+  const pickRound = Number(round) || 1;
   if (!Number.isFinite(pickSlot) || pickSlot < 1) return null;
+  if (!Number.isFinite(pickRound) || pickRound < 1 || pickRound > MOCK_OVERLAY_MAX_ROUND) return null;
   const rows = (Array.isArray(board?.mocks) ? board.mocks : [])
     .map((mock) => {
-      const pick = (mock.picks || []).find((row) => Number(row.slot) === pickSlot);
+      const pick = (mock.picks || []).find((row) => (
+        Number(row.slot) === pickSlot && Number(row.round || 1) === pickRound
+      ));
       if (!pick?.name) return null;
+      if (pick.pos && !SKILL_POSITIONS.has(String(pick.pos).toUpperCase())) return null;
       return {
         name: pick.name,
         pos: pick.pos || "",
@@ -179,21 +194,22 @@ export function mockProspectAtSlot(board, slot) {
   };
 }
 
-export function formatHybridFirstName({ season, ownerName, placeLabel, mockName } = {}) {
+export function formatHybridFirstName({ season, round = 1, ownerName, placeLabel, mockName } = {}) {
   const year = String(season || "").trim();
   if (!year) return "";
+  const roundLabel = ordinal(Number(round) || 1);
   const whose = String(ownerName || "").trim() ? ` from ${String(ownerName).trim()}` : "";
   const place = String(placeLabel || "").trim() ? ` · ${String(placeLabel).trim()}` : "";
   const mock = String(mockName || "").trim() ? ` (${String(mockName).trim()})` : "";
-  return `${year} 1st${whose}${place}${mock}`;
+  return `${year} ${roundLabel}${whose}${place}${mock}`;
 }
 
 export function formatMockSourceLine(board) {
   const mocks = Array.isArray(board?.mocks) ? board.mocks : [];
   const shorts = [...new Set(mocks.map((mock) => mock.short || mock.source).filter(Boolean))];
   const season = nextMockSeason(board) || "Next";
-  const sources = shorts.length ? shorts.join(" + ") : "stored mocks";
-  return `${season} firsts show who ${sources} mock at that slot from current place. College names have no trade value.`;
+  const sources = shorts.length ? shorts.join(" + ") : "Dynasty Nerds";
+  return `${season} 1sts and 2nds show who ${sources} mock at that slot from current place. 3rds stay pick labels. College names have no trade value.`;
 }
 
 export function pickHasMockOverlay(asset) {
@@ -203,13 +219,21 @@ export function pickHasMockOverlay(asset) {
 function normalizeMock(mock) {
   const picks = (Array.isArray(mock?.picks) ? mock.picks : [])
     .map((pick) => ({
+      round: Number(pick?.round) > 0 ? Number(pick.round) : 1,
       slot: Number(pick?.slot),
       name: String(pick?.name || "").trim(),
-      pos: String(pick?.pos || "").trim(),
+      pos: String(pick?.pos || "").trim().toUpperCase(),
       school: String(pick?.school || "").trim(),
     }))
-    .filter((pick) => Number.isFinite(pick.slot) && pick.slot > 0 && pick.name)
-    .sort((a, b) => a.slot - b.slot);
+    .filter((pick) => (
+      Number.isFinite(pick.slot)
+      && pick.slot > 0
+      && pick.round >= 1
+      && pick.round <= MOCK_OVERLAY_MAX_ROUND
+      && pick.name
+      && SKILL_POSITIONS.has(pick.pos)
+    ))
+    .sort((a, b) => a.round - b.round || a.slot - b.slot);
   return {
     id: String(mock?.id || "").trim(),
     source: String(mock?.source || "").trim(),
@@ -217,6 +241,7 @@ function normalizeMock(mock) {
     author: String(mock?.author || "").trim(),
     date: String(mock?.date || "").trim(),
     url: String(mock?.url || "").trim(),
+    format: String(mock?.format || "superflex").trim(),
     picks,
   };
 }

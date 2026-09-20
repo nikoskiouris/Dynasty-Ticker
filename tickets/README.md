@@ -2,7 +2,7 @@
 
 Random user feedback, turned into tickets. **Do not delete ticket files.** When one ships, mark it Done and keep it for history.
 
-The product already has a league desk, a tank/contend call, trade match, a calculator, find-deals, a landing “rather” duel, weekly start chance on the roster, sit/start this week, and next-year firsts with stored mock names.
+The product already has a league desk, a tank/contend call, trade match, a calculator, find-deals, a landing “rather” duel, weekly start chance on the roster, sit/start this week, and next-year 1sts/2nds with Dynasty Nerds mock names.
 
 This outline is leftover work plus the tickets we already shipped.
 

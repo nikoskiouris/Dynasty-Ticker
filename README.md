@@ -56,7 +56,7 @@ Sleeper trades first, KeepTradeCut as the prior:
 - Missing assets get a position/age estimate labeled **est**.
 - Elite players still get a premium so one star is not a pile of scraps.
 
-Refresh rankings with `python scripts/update_ktc_values.py`. Refresh the Sleeper trade market with `python scripts/update_sleeper_trade_market.py`. Live deploys try both scrapes and keep the last files if a source is down.
+Refresh rankings with `python scripts/update_ktc_values.py`. Refresh the Sleeper trade market with `python scripts/update_sleeper_trade_market.py`. Refresh the 2027 Superflex rookie mock with `python scripts/update_dynasty_rookie_mock.py` (Dynasty Nerds 2-round board; 1sts and 2nds get names, 3rds do not). A Monday GitHub Action commits that JSON to `develop` if the board changed. It does not publish the live site. Live deploys try the scrapes and keep the last files if a source is down.
 
 ## Live site (dynastyticker.com)
 

@@ -1,0 +1,43 @@
+name: Refresh rookie mock
+
+# Weekly scrape onto develop only. Does not publish dynastyticker.com.
+on:
+  schedule:
+    - cron: "17 14 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: refresh-rookie-mock
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Scrape Dynasty Nerds SF mock
+        run: python3 scripts/update_dynasty_rookie_mock.py
+
+      - name: Commit if the board changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data/nfl_mock_drafts.json
+          if git diff --staged --quiet; then
+            echo "Mock board unchanged."
+            exit 0
+          fi
+          git commit -m "Refresh Dynasty Nerds 2027 SF rookie mock."
+          git push origin HEAD:develop

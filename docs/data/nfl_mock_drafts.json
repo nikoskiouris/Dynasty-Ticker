@@ -1,411 +1,187 @@
 {
   "season": 2027,
-  "round": 1,
+  "rounds": 2,
+  "round": 2,
   "completedNflDraftYear": 2026,
-  "updated": "2026-09-20",
-  "note": "Stored first-round mocks. Dynasty slot N (from current place) maps to overall pick N. College names have no trade value.",
+  "updated": "2026-08-31",
+  "note": "Dynasty Nerds SF TEP 2-round rookie mock. Overlay next-year 1sts and 2nds from current place. 3rds stay pick labels. College names have no trade value.",
   "mocks": [
     {
-      "id": "si-melo",
-      "source": "Sports Illustrated",
-      "short": "SI",
-      "author": "Justin Melo",
-      "date": "2026-09-07",
-      "url": "https://www.si.com/nfl/draft/onsi/mock-drafts/2027-nfl-mock-draft-first-round-projection-before-everything-gets-flipped-totally-upside-down",
+      "id": "dynasty-nerds-sf",
+      "source": "Dynasty Nerds",
+      "short": "Dynasty Nerds",
+      "author": "Keith Ensminger",
+      "date": "2026-08-31",
+      "url": "https://www.dynastynerds.com/dynasty/2027-sf-rookie-mock-draft-2-rounds/",
+      "format": "superflex",
       "picks": [
         {
+          "round": 1,
           "slot": 1,
+          "name": "Jeremiah Smith",
+          "pos": "WR",
+          "school": "Ohio State"
+        },
+        {
+          "round": 1,
+          "slot": 2,
           "name": "Arch Manning",
           "pos": "QB",
           "school": "Texas"
         },
         {
-          "slot": 2,
+          "round": 1,
+          "slot": 3,
+          "name": "Cam Coleman",
+          "pos": "WR",
+          "school": "Texas"
+        },
+        {
+          "round": 1,
+          "slot": 4,
           "name": "Dante Moore",
           "pos": "QB",
           "school": "Oregon"
         },
         {
+          "round": 1,
+          "slot": 5,
+          "name": "Kewan Lacy",
+          "pos": "RB",
+          "school": "Ole Miss"
+        },
+        {
+          "round": 1,
+          "slot": 6,
+          "name": "Ahmad Hardy",
+          "pos": "RB",
+          "school": "Missouri"
+        },
+        {
+          "round": 1,
+          "slot": 7,
+          "name": "Jadan Baugh",
+          "pos": "RB",
+          "school": "Florida"
+        },
+        {
+          "round": 1,
+          "slot": 8,
+          "name": "Julian Sayin",
+          "pos": "QB",
+          "school": "Ohio State"
+        },
+        {
+          "round": 1,
+          "slot": 9,
+          "name": "LaNorris Sellers",
+          "pos": "QB",
+          "school": "South Carolina"
+        },
+        {
+          "round": 1,
+          "slot": 10,
+          "name": "Ryan Coleman-Williams",
+          "pos": "WR",
+          "school": "Alabama"
+        },
+        {
+          "round": 1,
+          "slot": 11,
+          "name": "Charlie Becker",
+          "pos": "WR",
+          "school": "Indiana"
+        },
+        {
+          "round": 1,
+          "slot": 12,
+          "name": "Mark Fletcher, Jr.",
+          "pos": "RB",
+          "school": "Miami"
+        },
+        {
+          "round": 2,
+          "slot": 1,
+          "name": "Justice Haynes",
+          "pos": "RB",
+          "school": "Georgia Tech"
+        },
+        {
+          "round": 2,
+          "slot": 2,
+          "name": "Drew Mestemaker",
+          "pos": "QB",
+          "school": "Oklahoma St."
+        },
+        {
+          "round": 2,
           "slot": 3,
           "name": "CJ Carr",
           "pos": "QB",
           "school": "Notre Dame"
         },
         {
+          "round": 2,
           "slot": 4,
-          "name": "Jeremiah Smith",
-          "pos": "WR",
-          "school": "Ohio State"
-        },
-        {
-          "slot": 5,
-          "name": "Trevor Goosby",
-          "pos": "OT",
-          "school": "Texas"
-        },
-        {
-          "slot": 6,
-          "name": "Dylan Stewart",
-          "pos": "EDGE",
-          "school": "South Carolina"
-        },
-        {
-          "slot": 7,
-          "name": "Trevor Lauck",
-          "pos": "OT",
-          "school": "Iowa"
-        },
-        {
-          "slot": 8,
-          "name": "Leonard Moore",
-          "pos": "CB",
-          "school": "Notre Dame"
-        },
-        {
-          "slot": 9,
-          "name": "Colin Simmons",
-          "pos": "EDGE",
-          "school": "Texas"
-        },
-        {
-          "slot": 10,
-          "name": "Ellis Robinson IV",
-          "pos": "CB",
-          "school": "Georgia"
-        },
-        {
-          "slot": 11,
-          "name": "Cam Coleman",
-          "pos": "WR",
-          "school": "Texas"
-        },
-        {
-          "slot": 12,
-          "name": "KJ Bolden",
-          "pos": "S",
-          "school": "Georgia"
-        },
-        {
-          "slot": 13,
-          "name": "Will Echoles",
-          "pos": "DT",
-          "school": "Ole Miss"
-        },
-        {
-          "slot": 14,
-          "name": "Darian Mensah",
-          "pos": "QB",
-          "school": "Miami"
-        },
-        {
-          "slot": 15,
-          "name": "Tae Johnson",
-          "pos": "S",
-          "school": "Notre Dame"
-        },
-        {
-          "slot": 16,
-          "name": "Ashton Hampton",
-          "pos": "CB",
-          "school": "Clemson"
-        },
-        {
-          "slot": 17,
-          "name": "Yhonzae Pierre",
-          "pos": "EDGE",
-          "school": "Alabama"
-        },
-        {
-          "slot": 18,
-          "name": "Jordan Seaton",
-          "pos": "OT",
+          "name": "Trey\u2019Dez Green",
+          "pos": "TE",
           "school": "LSU"
         },
         {
-          "slot": 19,
-          "name": "Kade Pieper",
-          "pos": "C",
-          "school": "Iowa"
-        },
-        {
-          "slot": 20,
-          "name": "David Stone",
-          "pos": "DT",
-          "school": "Oklahoma"
-        },
-        {
-          "slot": 21,
-          "name": "A'Mauri Washington",
-          "pos": "DT",
-          "school": "Oregon"
-        },
-        {
-          "slot": 22,
-          "name": "Kelley Jones",
-          "pos": "CB",
-          "school": "Mississippi State"
-        },
-        {
-          "slot": 23,
-          "name": "Charlie Becker",
-          "pos": "WR",
-          "school": "Indiana"
-        },
-        {
-          "slot": 24,
-          "name": "Anthonie Knapp",
-          "pos": "IOL",
-          "school": "Notre Dame"
-        },
-        {
-          "slot": 25,
-          "name": "Nick Marsh",
-          "pos": "WR",
-          "school": "Indiana"
-        },
-        {
-          "slot": 26,
-          "name": "Sammy Brown",
-          "pos": "LB",
-          "school": "Clemson"
-        },
-        {
-          "slot": 27,
-          "name": "Jamari Johnson",
-          "pos": "TE",
-          "school": "Oregon"
-        },
-        {
-          "slot": 28,
-          "name": "Clev Lubin",
-          "pos": "EDGE",
+          "round": 2,
+          "slot": 5,
+          "name": "Isaac Brown",
+          "pos": "RB",
           "school": "Louisville"
         },
         {
-          "slot": 29,
-          "name": "Greg Johnson",
-          "pos": "IOL",
-          "school": "Minnesota"
-        },
-        {
-          "slot": 30,
-          "name": "Kewan Lacy",
-          "pos": "RB",
-          "school": "Ole Miss"
-        },
-        {
-          "slot": 31,
-          "name": "Will Heldt",
-          "pos": "EDGE",
-          "school": "Clemson"
-        },
-        {
-          "slot": 32,
-          "name": "Trinidad Chambliss",
-          "pos": "QB",
-          "school": "Ole Miss"
-        }
-      ]
-    },
-    {
-      "id": "pfn-elijah",
-      "source": "Pro Football Network",
-      "short": "PFN",
-      "author": "Alec Elijah",
-      "date": "2026-09-12",
-      "url": "https://www.profootballnetwork.com/2027-nfl-mock-draft-elijah-september/",
-      "picks": [
-        {
-          "slot": 1,
-          "name": "Dante Moore",
-          "pos": "QB",
-          "school": "Oregon"
-        },
-        {
-          "slot": 2,
-          "name": "Jeremiah Smith",
-          "pos": "WR",
-          "school": "Ohio State"
-        },
-        {
-          "slot": 3,
-          "name": "Arch Manning",
-          "pos": "QB",
-          "school": "Texas"
-        },
-        {
-          "slot": 4,
+          "round": 2,
+          "slot": 6,
           "name": "Darian Mensah",
           "pos": "QB",
           "school": "Miami"
         },
         {
-          "slot": 5,
-          "name": "Cam Coleman",
-          "pos": "WR",
-          "school": "Texas"
-        },
-        {
-          "slot": 6,
-          "name": "Jordan Seaton",
-          "pos": "OT",
-          "school": "LSU"
-        },
-        {
+          "round": 2,
           "slot": 7,
-          "name": "Colin Simmons",
-          "pos": "EDGE",
+          "name": "KJ Duff",
+          "pos": "WR",
+          "school": "Rutgers"
+        },
+        {
+          "round": 2,
+          "slot": 8,
+          "name": "Hollywood Smothers",
+          "pos": "RB",
           "school": "Texas"
         },
         {
-          "slot": 8,
-          "name": "Leonard Moore",
-          "pos": "CB",
-          "school": "Notre Dame"
-        },
-        {
+          "round": 2,
           "slot": 9,
-          "name": "Quincy Rhodes Jr.",
-          "pos": "EDGE",
-          "school": "Arkansas"
-        },
-        {
-          "slot": 10,
-          "name": "David Stone",
-          "pos": "DT",
-          "school": "Oklahoma"
-        },
-        {
-          "slot": 11,
-          "name": "Tae Johnson",
-          "pos": "S",
-          "school": "Notre Dame"
-        },
-        {
-          "slot": 12,
-          "name": "Ellis Robinson IV",
-          "pos": "CB",
+          "name": "Nate Frazier",
+          "pos": "RB",
           "school": "Georgia"
         },
         {
-          "slot": 13,
-          "name": "Jadan Baugh",
-          "pos": "RB",
-          "school": "Florida"
-        },
-        {
-          "slot": 14,
-          "name": "Trinidad Chambliss",
-          "pos": "QB",
-          "school": "Ole Miss"
-        },
-        {
-          "slot": 15,
-          "name": "Charlie Becker",
+          "round": 2,
+          "slot": 10,
+          "name": "Nyck Harbor",
           "pos": "WR",
-          "school": "Indiana"
-        },
-        {
-          "slot": 16,
-          "name": "Dylan Stewart",
-          "pos": "EDGE",
           "school": "South Carolina"
         },
         {
-          "slot": 17,
-          "name": "Austin Siereveld",
-          "pos": "OG",
-          "school": "Ohio State"
+          "round": 2,
+          "slot": 11,
+          "name": "LJ Martin",
+          "pos": "RB",
+          "school": "BYU"
         },
         {
-          "slot": 18,
-          "name": "Justin Scott",
-          "pos": "DT",
-          "school": "Miami"
-        },
-        {
-          "slot": 19,
-          "name": "Kelley Jones",
-          "pos": "CB",
-          "school": "Mississippi State"
-        },
-        {
-          "slot": 20,
-          "name": "Yhonzae Pierre",
-          "pos": "EDGE",
-          "school": "Alabama"
-        },
-        {
-          "slot": 21,
-          "name": "KJ Bolden",
-          "pos": "S",
-          "school": "Georgia"
-        },
-        {
-          "slot": 22,
-          "name": "Trevor Goosby",
-          "pos": "OT",
-          "school": "Texas"
-        },
-        {
-          "slot": 23,
-          "name": "Ashton Hampton",
-          "pos": "CB",
+          "round": 2,
+          "slot": 12,
+          "name": "TJ Moore",
+          "pos": "WR",
           "school": "Clemson"
-        },
-        {
-          "slot": 24,
-          "name": "Kyngstonn Viliamu-Asa",
-          "pos": "LB",
-          "school": "Notre Dame"
-        },
-        {
-          "slot": 25,
-          "name": "Carter Smith",
-          "pos": "OT",
-          "school": "Indiana"
-        },
-        {
-          "slot": 26,
-          "name": "Greg Johnson",
-          "pos": "OG",
-          "school": "Minnesota"
-        },
-        {
-          "slot": 27,
-          "name": "Omarion Miller",
-          "pos": "WR",
-          "school": "Arizona State"
-        },
-        {
-          "slot": 28,
-          "name": "Melvin Siani",
-          "pos": "OT",
-          "school": "Texas"
-        },
-        {
-          "slot": 29,
-          "name": "OJ Frederique Jr.",
-          "pos": "CB",
-          "school": "Miami"
-        },
-        {
-          "slot": 30,
-          "name": "A'Mauri Washington",
-          "pos": "DT",
-          "school": "Oregon"
-        },
-        {
-          "slot": 31,
-          "name": "Nick Marsh",
-          "pos": "WR",
-          "school": "Indiana"
-        },
-        {
-          "slot": 32,
-          "name": "Matayo Uiagalelei",
-          "pos": "EDGE",
-          "school": "Oregon"
         }
       ]
     }

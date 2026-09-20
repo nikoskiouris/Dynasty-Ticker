@@ -79,6 +79,16 @@ test("GitHub Actions publish only from a GitHub Release", () => {
   assert.doesNotMatch(refresh, /cron:/);
   assert.doesNotMatch(refresh, /NETLIFY_BUILD_HOOK/);
   assert.doesNotMatch(refresh, /curl /);
+
+  const mockRefresh = read(".github/workflows/refresh-rookie-mock.yml");
+  assert.match(mockRefresh, /schedule:/);
+  assert.match(mockRefresh, /cron:/);
+  assert.match(mockRefresh, /update_dynasty_rookie_mock\.py/);
+  assert.match(mockRefresh, /ref:\s*develop/);
+  assert.match(mockRefresh, /HEAD:develop/);
+  assert.doesNotMatch(mockRefresh, /deploy_live_site/);
+  assert.doesNotMatch(mockRefresh, /netlify/i);
+  assert.doesNotMatch(mockRefresh, /--prod/);
 });
 
 test("push to prod cuts a GitHub Release", () => {
