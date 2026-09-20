@@ -2,7 +2,10 @@ Title
 Future dynasty rankings: names one year out, not pick labels
 
 Status
-Open
+Done
+
+Shipped
+#61
 
 Priority
 P0 — starred in the note

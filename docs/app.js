@@ -13768,7 +13768,7 @@ function renderPickVaultRow(asset, values) {
   const ownerName = String(asset?.raw?.originalOwnerName || "").trim();
   const placeLabel = String(asset?.raw?.currentPlaceLabel || "").trim();
   const detail = mockName
-    ? [ownerName ? `from ${ownerName}` : "", placeLabel ? `${placeLabel} now` : "", mockName ? `(${mockName})` : ""]
+    ? [ownerName ? `from ${ownerName}` : "", placeLabel, mockName ? `(${mockName})` : ""]
       .filter(Boolean)
       .join(" · ")
       .replace(" · (", " (")
