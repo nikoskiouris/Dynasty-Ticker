@@ -1,6 +1,9 @@
 Title
 Assets to move on from for capital
 
+Status
+Open
+
 Priority
 P1
 

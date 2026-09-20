@@ -1,6 +1,9 @@
 Title
 Rather pairing still produces no-brainers
 
+Status
+Open
+
 Priority
 P1
 

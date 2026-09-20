@@ -1,6 +1,9 @@
 Title
 Buy-low and sell-high targets
 
+Status
+Open
+
 Priority
 P0 — starred in the note
 

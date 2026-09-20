@@ -1,6 +1,9 @@
 Title
 Trade match invents positional needs
 
+Status
+Open
+
 Priority
 P0 — concrete bug from the note
 

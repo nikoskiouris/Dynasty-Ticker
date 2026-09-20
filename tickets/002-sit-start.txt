@@ -1,6 +1,9 @@
 Title
 Sit / start
 
+Status
+Open
+
 Priority
 P0
 
@@ -19,7 +22,7 @@ Why
 Listed as a differentiator next to future rankings and buy-low/sell-high. Dynasty apps skip the weekly decision. This one should not.
 
 Current product
-“Optimal lineup” is best dynasty-value starters, not this week’s NFL slate. Recap blames leftover bench points after the fact. Nothing answers sit/start before kickoff.
+After #57, Optimal lineup is filled by weekly start chance (dynasty only breaks ties). Still no sit/start answer: no close-call reasons (WR3 vs FLEX), no bye/injury callout as the product. Recap still blames leftover bench points after the fact.
 
 Acceptance
 - My team, this week: recommended starters vs bench, matching league roster slots.

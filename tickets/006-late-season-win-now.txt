@@ -1,6 +1,9 @@
 Title
 Late-season win-now value
 
+Status
+Open
+
 Priority
 P2 — marked MAYBE in the note
 

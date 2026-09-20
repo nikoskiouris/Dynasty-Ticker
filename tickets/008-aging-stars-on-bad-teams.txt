@@ -1,6 +1,9 @@
 Title
 Target aging stars on tanking teams in this league
 
+Status
+Open
+
 Priority
 P1
 
