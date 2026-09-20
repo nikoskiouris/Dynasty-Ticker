@@ -138,7 +138,8 @@ test("WR3 vs Flex close call uses matchup and usage, not dynasty", () => {
   assert.match(html, /data-sit-start="ready"/);
   assert.match(html, /Sit \/ start/);
   assert.match(html, /Nico over Diggs/);
-  assert.doesNotMatch(html, /dynasty/i);
+  assert.match(html, /<li>WR3: Nico over Diggs — Nico: 24% targets, Easy vs ARI\. Diggs: 11% targets, Hard vs SF<\/li>/);
+  assert.doesNotMatch(html, /<li>[^<]*dynasty/i);
   assert.match(html, new RegExp(SIT_START_HINT.replaceAll("/", "\\/")));
 });
 

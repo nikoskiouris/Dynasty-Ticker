@@ -2,7 +2,10 @@ Title
 Sit / start
 
 Status
-Open
+Done
+
+Shipped
+#60
 
 Priority
 P0
