@@ -276,7 +276,7 @@ test("weekly score help popup explains start chance", () => {
   assert.match(pop, /50% is a coin flip/);
   assert.match(pop, /90% is a lock/);
   assert.match(pop, /data-action="close-weekly-help"/);
-  assert.match(pop, /optimal lineup is set with this number/);
+  assert.match(pop, /Sit\/start uses this number/);
   const lines = weeklyScoreHelpLines();
   assert.equal(lines.length, 5);
   const sheetOpen = renderWeeklyPlayerSheet({
@@ -330,5 +330,7 @@ test("bye week and unknown players fail opponent strength visibly", () => {
     context,
   });
   assert.ok(model.missing.includes(OPPONENT_MISSING));
+  assert.equal(model.bye, true);
+  assert.equal(model.opponentMissing, false);
   assert.equal(model.inputs.find((input) => input.id === "opponent").value, "Bye");
 });

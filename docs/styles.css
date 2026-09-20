@@ -2378,6 +2378,56 @@ body:not(.league-loaded) .workspace-header {
   margin: 0 0 0.15rem;
 }
 
+.sit-start-board {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0 0 0.85rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.sit-start-head {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.sit-start-head h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.sit-start-calls {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.sit-start-calls li {
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.sheet-why {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 650;
+  line-height: 1.3;
+  white-space: normal;
+}
+
+.sheet-row.close-call {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.sheet-row.sit-cause {
+  border-color: rgba(251, 113, 133, 0.4);
+}
+
 .sheet-row {
   display: grid;
   grid-template-columns: 3.4rem minmax(0, 1fr) minmax(10.25rem, auto);

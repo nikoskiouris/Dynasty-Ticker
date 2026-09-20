@@ -68,7 +68,7 @@ export const ROOM_HINTS = {
     recap: "Group-chat recap and image card",
   },
   teams: {
-    roster: "Scout card, lineup, bench, picks",
+    roster: "Sit/start this week, scout card, picks",
     call: "Tank, all in, or stay in the middle",
     loyalty: "Roster DNA, ironmen, charms",
     passports: "Who owned each player, season by season",

@@ -72,7 +72,7 @@ export function weeklyScoreHelpLines() {
     "Top-tier names belong in the 90s. A healthy RB1 vs an average defense should sit near 90, not 60.",
     `Blends role, last ${WEEKLY_LOOKBACK_WEEKS} games of PPR, drops, and this week's opponent. Matchup barely moves a lock; it matters more at 50/50.`,
     "Not dynasty trade price. Last week alone does not set it.",
-    "The optimal lineup is set with this number. Dynasty price only breaks ties.",
+    "Sit/start uses this number. Bye, out, and missing opponent sit. Dynasty price only breaks ties.",
   ];
 }
 
@@ -600,6 +600,12 @@ export function buildWeeklyPlayerModel({
     score: scored.score,
     complete: scored.complete,
     missing: scored.missing,
+    bye: Boolean(upcoming.bye),
+    opponentMissing: !upcoming.bye && !opponent,
+    upcomingHome: Boolean(upcoming.home),
+    targetShare,
+    rushShare,
+    dropPct,
     recentPoints,
     seasonPointsPerGame,
     games: past,

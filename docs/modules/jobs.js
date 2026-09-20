@@ -14,7 +14,7 @@ export const DESK_JOBS = Object.freeze([
     page: "teams",
     room: "roster",
     label: "Scout a team",
-    blurb: "Lineup, tank or contend, who stayed",
+    blurb: "Sit/start, tank or contend, who stayed",
     cta: "scout a roster",
   },
   {
