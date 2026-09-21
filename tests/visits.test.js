@@ -7,11 +7,17 @@ import {
   isLiveDeskHost,
   isSecretNumbersPath,
   loadSecretNumbers,
+  parseTrafficCounts,
+  readOrCreateVisitorId,
+  recordDeskUse,
   recordDeskVisit,
   renderSecretNumbers,
+  renderTrafficReport,
   shouldTrackVisit,
+  sourceHost,
   visitCountUrl,
   visitTrackUrl,
+  VISITOR_STORAGE_KEY,
 } from "../docs/modules/visits.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -92,33 +98,34 @@ test("secret numbers are eight unlabeled lines", () => {
   assert.equal(renderSecretNumbers(null), "0\n0\n0\n0\n0\n0\n0\n0");
 });
 
-test("loadSecretNumbers reads the eight totals and never tracks", async () => {
+test("loadSecretNumbers reads the desk report and never tracks", async () => {
   const calls = [];
-  const counts = await loadSecretNumbers({
+  const payload = {
+    today: { views: 1, people: 2, active: 9 },
+    week: { views: 3, people: 4 },
+    year: { views: 5, people: 6 },
+    all: { views: 7, people: 8 },
+  };
+  const report = await loadSecretNumbers({
     fetchFn: async (url) => {
       calls.push(url);
-      return {
-        ok: true,
-        json: async () => ({
-          today: { views: 1, people: 2 },
-          week: { views: 3, people: 4 },
-          year: { views: 5, people: 6 },
-          all: { views: 7, people: 8 },
-        }),
-      };
+      return { ok: true, json: async () => payload };
     },
   });
-  assert.deepEqual(counts, [1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.deepEqual(parseTrafficCounts(report), [1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.match(renderTrafficReport(report), /today views 1\s+people 2\s+active 9/);
+  assert.match(renderTrafficReport(null), /today views 0/);
   assert.equal(calls.length, 1);
   assert.match(calls[0], /\/api\/views$/);
 });
 
-test("loadSecretNumbers treats hung views as zero", async () => {
-  const counts = await loadSecretNumbers({
+test("loadSecretNumbers treats hung views as an empty report", async () => {
+  const report = await loadSecretNumbers({
     timeoutMs: 20,
     fetchFn: () => new Promise(() => {}),
   });
-  assert.deepEqual(counts, [0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.equal(report, null);
+  assert.match(renderTrafficReport(report), /days\nnone/);
 });
 
 test("the desk stores visits but never prints the total on public pages", () => {
@@ -134,6 +141,8 @@ test("the desk stores visits but never prints the total on public pages", () => 
 
   const app = readFileSync(join(docs, "app.js"), "utf8");
   assert.match(app, /recordDeskVisit/);
+  assert.match(app, /recordDeskUse/);
+  assert.match(app, /noteDeskUse\(\)/);
   assert.doesNotMatch(app, /applyVisitCount/);
   assert.doesNotMatch(app, /secret-numbers/);
 
@@ -161,6 +170,7 @@ test("the unlisted numbers page is bare and unlabeled", () => {
   const html = readFileSync(page, "utf8");
   assert.match(html, /noindex/);
   assert.match(html, /loadSecretNumbers/);
+  assert.match(html, /renderTrafficReport/);
   assert.match(html, /innerText/);
   assert.match(html, /0<br>0<br>0<br>0<br>0<br>0<br>0<br>0/);
   assert.doesNotMatch(html, /stylesheet/);
@@ -191,4 +201,67 @@ test("Netlify serves the first-party counter ahead of the 404 catch-all", () => 
   const script = readFileSync(join(root, "scripts/desk_visits.py"), "utf8");
   assert.match(script, /dynastyticker\.com\/api\/views/);
   assert.doesNotMatch(script, /page-views-api|ratneshc/);
+});
+
+function memoryStorage(initial = {}) {
+  const data = { ...initial };
+  return {
+    getItem(key) {
+      return Object.prototype.hasOwnProperty.call(data, key) ? data[key] : null;
+    },
+    setItem(key, value) {
+      data[key] = String(value);
+    },
+  };
+}
+
+test("the same browser keeps one visitor id and a failed save retries that id", async () => {
+  const storage = memoryStorage();
+  const first = readOrCreateVisitorId(storage);
+  assert.equal(readOrCreateVisitorId(storage), first);
+  assert.match(first, /^[a-f0-9]{32}$/);
+  assert.equal(storage.getItem(VISITOR_STORAGE_KEY), first);
+
+  const bodies = [];
+  let tries = 0;
+  const ok = await recordDeskVisit({
+    retryDelayMs: 0,
+    storage,
+    referrer: "https://www.instagram.com/reel/1",
+    location: { hostname: "dynastyticker.com", pathname: "/" },
+    fetchFn: async (_url, options) => {
+      tries += 1;
+      bodies.push(JSON.parse(options.body));
+      if (tries === 1) return { ok: false, status: 503 };
+      return { ok: true, status: 200 };
+    },
+  });
+  assert.equal(ok, true);
+  assert.equal(tries, 2);
+  assert.equal(bodies[0].eventId, bodies[1].eventId);
+  assert.equal(bodies[0].visitorId, first);
+  assert.equal(bodies[0].kind, "open");
+  assert.equal(bodies[0].source, "instagram.com");
+  assert.equal(sourceHost("https://dynastyticker.com/privacy.html"), "direct");
+});
+
+test("desk use posts an active event and skips localhost", async () => {
+  const storage = memoryStorage({ [VISITOR_STORAGE_KEY]: "ab".repeat(16) });
+  const calls = [];
+  const ok = await recordDeskUse({
+    retryDelayMs: 0,
+    storage,
+    location: { hostname: "dynastyticker.com", pathname: "/" },
+    fetchFn: async (_url, options) => {
+      calls.push(JSON.parse(options.body));
+      return { ok: true };
+    },
+  });
+  assert.equal(ok, true);
+  assert.equal(calls[0].kind, "active");
+  assert.equal(calls[0].visitorId, "ab".repeat(16));
+  assert.equal(await recordDeskUse({
+    fetchFn: async () => ({ ok: true }),
+    location: { hostname: "localhost", pathname: "/" },
+  }), false);
 });

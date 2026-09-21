@@ -241,7 +241,7 @@ import {
   buildPageDescription,
   tickerDurationSeconds,
 } from "./modules/site.js";
-import { recordDeskVisit } from "./modules/visits.js";
+import { recordDeskUse, recordDeskVisit } from "./modules/visits.js";
 import {
   DEFAULT_RATHER_FORMAT,
   buildRatherBoard,
@@ -632,6 +632,12 @@ applyTheme(readStoredTheme(), { persist: false });
 state.applyLeagueBoard = readApplyLeagueBoard();
 renderSessionSnapshot();
 syncTradeModeUi();
+let deskUseNoted = false;
+function noteDeskUse() {
+  if (deskUseNoted) return;
+  deskUseNoted = true;
+  void recordDeskUse();
+}
 void recordDeskVisit();
 bootFromUrl();
 void bootLandingRather();
@@ -1879,6 +1885,7 @@ async function runLeagueLoad(leagueId, token) {
       state.pendingWeek = null;
     }
     showAppPages();
+    noteDeskUse();
     scrollLoadedWorkspaceIntoView();
     setMobileRailOpen(false);
     setStatus(`Loaded ${state.leagueName}. Player names are still syncing...`, { loading: true });
@@ -15524,6 +15531,7 @@ async function chooseRatherPlayer(winnerId) {
   }
 
   recordRatherVote({ ...vote, at: Date.now(), format: DEFAULT_RATHER_FORMAT });
+  noteDeskUse();
   applyRemoteCrowdVotes(remote);
   if (pair.key) pushRatherRecentKey(pair.key);
 
