@@ -3654,7 +3654,7 @@ button.weekly-help-close:hover {
 
 .calc-list {
   margin-top: 0;
-  max-height: 320px;
+  max-height: 22rem;
 }
 
 .calc-verdict {
@@ -7447,56 +7447,3 @@ button.rather-skip {
   transform: translateX(-50%);
 }
 
-.value-pick-board {
-  display: grid;
-  gap: 0.7rem;
-  margin-top: 0.75rem;
-}
-
-.value-pick-year {
-  display: grid;
-  gap: 0.4rem;
-}
-
-.value-pick-year > span {
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted-strong);
-}
-
-.value-pick-round {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  align-items: center;
-}
-
-.value-pick-round em {
-  flex: 0 0 2.6rem;
-  font-style: normal;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.value-pick-round button {
-  min-height: 1.85rem;
-  padding: 0.2rem 0.55rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--panel-soft);
-  color: var(--text);
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.value-pick-round button:hover {
-  border-color: var(--line-strong);
-}
-
-.calc-pane .value-pick-board {
-  padding-top: 0.2rem;
-  border-top: 1px dashed var(--line);
-}

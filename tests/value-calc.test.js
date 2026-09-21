@@ -1,11 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { parseCsvValues } from "../docs/modules/values.js";
 import {
   addValueCalcItem,
   clearValueCalcSides,
   emptyValueCalcState,
-  groupGenericPicks,
   listGenericPicks,
+  listValueCalcAssets,
   listValueCalcPlayers,
   removeValueCalcItem,
   sumValueCalcSide,
@@ -20,11 +24,16 @@ const values = {
   "pick:2027:r1:late": 5400,
   "pick:2027:r1:any": 6100,
   "pick:2027:r2:early": 3200,
+  "pick:2026:r1:early": 6800,
 };
 const names = {
   "player:1": "Bijan Robinson",
   "player:2": "Some Bench",
-  "pick:2027:r1:early": "2027 Early 1st",
+  "pick:2027:r1:early": "2027 Early 1st Pick",
+  "pick:2027:r1:mid": "2027 Mid 1st Pick",
+  "pick:2027:r1:late": "2027 Late 1st Pick",
+  "pick:2027:r2:early": "2027 Early 2nd Pick",
+  "pick:2026:r1:early": "2026 Early 1st Pick",
 };
 
 test("blank calculator searches any player, not a roster", () => {
@@ -33,14 +42,32 @@ test("blank calculator searches any player, not a roster", () => {
   assert.equal(rows[0].name, "Bijan Robinson");
 });
 
-test("generic picks are early middle late, not a specific team's pick", () => {
+test("blank calculator searches players and generic picks in one list", () => {
+  const mixed = listValueCalcAssets(values, names, { query: "2027 1st" });
+  assert.deepEqual(mixed.map((row) => row.assetId).sort(), [
+    "pick:2027:r1:early",
+    "pick:2027:r1:late",
+    "pick:2027:r1:mid",
+  ]);
+  assert.equal(mixed.some((row) => row.assetId === "pick:2027:r2:early"), false);
+  assert.equal(mixed.some((row) => row.assetId === "pick:2027:r1:any"), false);
+
+  const middle = listValueCalcAssets(values, names, { query: "middle 1st" });
+  assert.deepEqual(middle.map((row) => row.assetId), ["pick:2027:r1:mid"]);
+
+  const playerHit = listValueCalcAssets(values, names, { query: "bijan" });
+  assert.equal(playerHit.length, 1);
+  assert.equal(playerHit[0].assetType, "player");
+
+  const ranked = listValueCalcAssets(values, names, { query: "early" });
+  assert.ok(ranked[0].value >= ranked[ranked.length - 1].value);
+  assert.ok(ranked.every((row) => row.assetType === "pick"));
+});
+
+test("generic picks stay early middle late, not a specific team's pick", () => {
   const picks = listGenericPicks(values, names);
-  assert.deepEqual(picks.map((pick) => pick.bucket), ["early", "mid", "late", "early"]);
+  assert.deepEqual(picks.map((pick) => pick.bucket), ["early", "early", "mid", "late", "early"]);
   assert.equal(picks.some((pick) => pick.bucket === "any"), false);
-  const grouped = groupGenericPicks(picks);
-  assert.equal(grouped[0].season, "2027");
-  assert.equal(grouped[0].rounds[0].round, 1);
-  assert.equal(grouped[0].rounds[0].buckets.length, 3);
 });
 
 test("blank calculator adds, sums, and grades both sides", () => {
@@ -57,4 +84,19 @@ test("blank calculator adds, sums, and grades both sides", () => {
   state = clearValueCalcSides(state);
   assert.deepEqual(state.left, []);
   assert.deepEqual(state.right, []);
+});
+
+test("market file search finds 2026 firsts and named players together", () => {
+  const csv = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/data/ktc_values_sf.csv"), "utf8");
+  const { values: marketValues, nameMap } = parseCsvValues(csv);
+  const firsts = listValueCalcAssets(marketValues, nameMap, { query: "2026 1st", limit: 20 });
+  assert.ok(firsts.length >= 3);
+  assert.ok(firsts.every((row) => row.assetType === "pick" && row.season === "2026" && row.round === 1));
+  assert.ok(firsts.some((row) => row.bucket === "early"));
+  assert.ok(firsts.some((row) => row.bucket === "mid"));
+  assert.ok(firsts.some((row) => row.bucket === "late"));
+
+  const bijan = listValueCalcAssets(marketValues, nameMap, { query: "bijan", limit: 5 });
+  assert.equal(bijan[0].assetType, "player");
+  assert.match(bijan[0].name, /Bijan/i);
 });
