@@ -92,10 +92,10 @@ test("document titles and descriptions change with tab and league", () => {
   );
   assert.match(
     buildPageDescription({ page: "trades", room: "value", leagueName: "Demo", loaded: true }),
-    /Blank trade calculator/
+    /blank trade calculator/i
   );
   assert.match(buildPageDescription({ page: "teams", room: "call", loaded: true }), /tank/);
-  assert.match(buildPageDescription({ page: "trades", room: "calculator", loaded: true }), /two-team calculator/);
+  assert.match(buildPageDescription({ page: "trades", room: "calculator", loaded: true }), /two-team calculator/i);
   assert.match(buildPageDescription({ page: "trades", room: "log", loaded: true }), /Graded past deals/);
   assert.match(buildPageDescription({ page: "trades", room: "match", loaded: true }), /Match with teams/);
   assert.equal(buildPageDescription({}), DEFAULT_DESCRIPTION);
