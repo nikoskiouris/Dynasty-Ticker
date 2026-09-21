@@ -117,6 +117,15 @@ test("pickValueBundle prefers 1QB or Superflex maps", () => {
   assert.equal(pickValueBundle(payload, "oneQb").values["player:1"], 6100);
 });
 
+test("pickValueBundle keeps top-level names when a format nameMap is empty", () => {
+  const bundle = pickValueBundle({
+    sf: { values: { "player:9509": 9996 }, nameMap: {} },
+    names: { "player:9509": "Bijan Robinson" },
+  }, "sf");
+  assert.equal(bundle.values["player:9509"], 9996);
+  assert.equal(bundle.nameMap["player:9509"], "Bijan Robinson");
+});
+
 test("fetchValuationBundles falls back from JSON to SF then sample CSV", async () => {
   const files = {
     "./data/ktc_values.json": { sf: { "player:1": 8000 }, oneQb: { "player:1": 5000 }, names: { "player:1": "Star" } },
@@ -134,6 +143,8 @@ test("fetchValuationBundles falls back from JSON to SF then sample CSV", async (
   const bundle = await fetchValuationBundles(fetchImpl);
   assert.equal(bundle.sf.values["player:1"], 8000);
   assert.equal(bundle.oneQb.values["player:1"], 5000);
+  assert.equal(bundle.sf.nameMap["player:1"], "Star");
+  assert.equal(pickValueBundle(bundle, "sf").nameMap["player:1"], "Star");
 
   const csvFetch = async (path) => {
     if (path === "./data/ktc_values_sf.csv") {

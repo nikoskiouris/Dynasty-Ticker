@@ -35,7 +35,7 @@ Three pages. Each page has a row of rooms under it, so every feature is at most 
    - **Mock** — Dynasty Nerds Superflex 2-round rookie mock. 1sts and 2nds get names; 3rds stay pick labels.
    - A **Viewing** picker on Loyalty and Passports switches which roster you are looking at.
 3. **Trades** — deals.
-   - **Calculator** — blank board: any player plus early / middle / late picks.
+   - **Calculator** — blank board: search any player or pick in one box.
    - **Two teams** — build both sides from two rosters and get a verdict.
    - **Match** — pairs you with teams that have your holes, need your extras, or are tanking while you contend. Builds roster-fit trades, not leftover-third swaps.
    - **Find deals** — shop an asset, target a player, or generate a blockbuster.

@@ -312,6 +312,11 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(app, /bindTicker\(/);
   assert.match(app, /pickLatestCrown\(/);
   assert.match(app, /renderValueCalculator\(/);
+  assert.doesNotMatch(app, /value-pick-board/);
+  assert.doesNotMatch(app, /renderValueCalcPickBoard/);
+  assert.match(app, /Search players and picks/);
+  assert.match(app, /listValueCalcAssets/);
+  assert.doesNotMatch(readDocs("styles.css"), /value-pick-board/);
   assert.match(app, /function goLeagueHome/);
   assert.doesNotMatch(app, /from "\.\/modules\/recap/);
   assert.match(readDocs("styles.css"), /--ticker-duration: 60s/);

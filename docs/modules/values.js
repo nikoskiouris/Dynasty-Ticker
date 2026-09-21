@@ -90,17 +90,24 @@ export function coerceValueMap(payload) {
   };
 }
 
+function nameMapFrom(source) {
+  return source && typeof source === "object" && !Array.isArray(source) ? source : {};
+}
+
 export function pickValueBundle(payload, format) {
   if (!payload || typeof payload !== "object") return { values: {}, nameMap: {} };
   if (payload.sf || payload.oneQb) {
     const selected = format === "oneQb"
       ? (payload.oneQb || payload.sf)
       : (payload.sf || payload.oneQb);
-    const names = payload.names && typeof payload.names === "object"
-      ? payload.names
-      : selected?.nameMap || {};
     const values = selected?.values && typeof selected.values === "object" ? selected.values : selected || {};
-    return { values, nameMap: selected?.nameMap || names };
+    return {
+      values,
+      nameMap: {
+        ...nameMapFrom(payload.names),
+        ...nameMapFrom(selected?.nameMap),
+      },
+    };
   }
   return coerceValueMap(payload);
 }
@@ -590,12 +597,13 @@ export async function fetchValuationBundles(fetchImpl = globalThis.fetch) {
     if (jsonBundle.sf || jsonBundle.oneQb) {
       const sf = coerceValueMap(jsonBundle.sf || jsonBundle.oneQb);
       const oneQb = coerceValueMap(jsonBundle.oneQb || jsonBundle.sf);
+      const names = jsonBundle.names && typeof jsonBundle.names === "object"
+        ? jsonBundle.names
+        : { ...sf.nameMap, ...oneQb.nameMap };
       return {
-        sf,
-        oneQb,
-        names: jsonBundle.names && typeof jsonBundle.names === "object"
-          ? jsonBundle.names
-          : { ...sf.nameMap, ...oneQb.nameMap },
+        sf: { values: sf.values, nameMap: { ...names, ...sf.nameMap } },
+        oneQb: { values: oneQb.values, nameMap: { ...names, ...oneQb.nameMap } },
+        names,
       };
     }
     const coerced = coerceValueMap(jsonBundle);
