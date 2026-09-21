@@ -4,10 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Privacy policy — Dynasty Ticker</title>
-    <meta name="description" content="How Dynasty Ticker handles Sleeper data, browser storage, and contact. No accounts, no cookies, no ads, no analytics." />
+    <meta name="description" content="How Dynasty Ticker handles Sleeper data, browser storage, and contact. No accounts, no cookies, no ads, no third-party trackers." />
     <meta name="theme-color" content="#eef3f2" />
     <meta property="og:title" content="Privacy policy — Dynasty Ticker" />
-    <meta property="og:description" content="How Dynasty Ticker handles Sleeper data, browser storage, and contact. No accounts, no cookies, no ads, no analytics." />
+    <meta property="og:description" content="How Dynasty Ticker handles Sleeper data, browser storage, and contact. No accounts, no cookies, no ads, no third-party trackers." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://dynastyticker.com/privacy.html" />
     <meta property="og:image" content="https://dynastyticker.com/og-image.jpg" />
@@ -38,7 +38,7 @@
       <main class="legal-card legal-prose">
         <p class="eyebrow">Privacy</p>
         <h1>What this ticker stores, and what it never sees.</h1>
-        <p class="muted">Last updated September 17, 2026. Dynasty Ticker is a static website at <a href="https://dynastyticker.com/">dynastyticker.com</a>. It talks to Sleeper from your browser. There is no Dynasty Ticker account.</p>
+        <p class="muted">Last updated September 21, 2026. Dynasty Ticker is a static website at <a href="https://dynastyticker.com/">dynastyticker.com</a>. It talks to Sleeper from your browser. There is no Dynasty Ticker account.</p>
 
         <h2>Who we are</h2>
         <p>Dynasty Ticker is the open-source project at <a href="https://github.com/nikoskiouris/Dynasty-Ticker">github.com/nikoskiouris/Dynasty-Ticker</a>. Contact is GitHub issues on that repo, not a mailbox or street address.</p>
@@ -54,14 +54,17 @@
           <li>Whether you dismissed the storage notice</li>
           <li>A local copy of “who would you rather have” picks if the public vote host is unreachable. Live votes are stored on the site host, not only in this browser.</li>
           <li>Whether you turned on the optional league board, which prices players from this league’s own completed trades.</li>
+          <li>A random id (<code>dynasty_ticker_visitor</code>) used only for the desk tally below</li>
         </ul>
-        <p>Clear site data in your browser to wipe the local copy. We cannot read that storage from the host.</p>
+        <p>Clear site data in your browser to wipe the local copy.</p>
 
         <h2>Public rather votes</h2>
         <p>Landing-page “who would you rather have” picks are stored anonymously on the site host so they can slightly nudge player values for everyone. A vote is two Sleeper player ids, a format label, and a timestamp. A hashed IP plus browser string is used only to slow spam. Votes do not overwrite KeepTradeCut or Sleeper trade-market files.</p>
 
-        <h2>Cookies, ads, analytics</h2>
-        <p>This app does not set first-party cookies, does not show ads, and does not install Google Analytics or other third-party trackers. The site host and the Sleeper API may log standard request metadata on their side. That is their infrastructure, not a pixel we added.</p>
+        <h2>Cookies, ads, and the desk tally</h2>
+        <p>This app does not set cookies, does not show ads, and does not install Google Analytics or any other third-party tracker.</p>
+        <p>The live site keeps its own tally of opens. Your browser stores a random id under <code>dynasty_ticker_visitor</code> and sends it with that tally so a reload counts as the same browser. The host stores a hash of the id, not the id itself. If storage is blocked, the fallback is a hash of the IP address and browser string. The tally also records whether this browser loaded a league or saved a “who would you rather have” pick, the referring site host (not the full link), and whether the open was the home page, a shared league link, or a legal page. It does not store your Sleeper username or the league id. Days roll over at midnight US Eastern. Clear site data to reset the id.</p>
+        <p>The site host and the Sleeper API may log ordinary request metadata on their side. That is their infrastructure, not a pixel we added.</p>
 
         <h2>Share links</h2>
         <p>Share URLs are ordinary query strings (<code>league</code>, <code>me</code>, <code>tab</code>, <code>week</code>, <code>tone</code>). Anyone with the link can open the same public Sleeper league view. Do not put secrets in the URL. There are none to put.</p>

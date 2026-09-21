@@ -32,6 +32,25 @@ class DeskVisitsTests(unittest.TestCase):
             [0, 0, 0, 0, 0, 0, 0, 0],
         )
 
+    def test_report_labels_use_and_hides_nothing_important(self):
+        desk_visits = load_desk_visits()
+        text = desk_visits.report({
+            "today": {
+                "views": 12,
+                "people": 3,
+                "active": 2,
+                "sources": {"direct": 8, "instagram.com": 4},
+                "landings": {"home": 6, "shared": 5, "legal": 1},
+            },
+            "days": [{"day": "2026-09-21", "views": 12, "people": 3, "active": 2}],
+        })
+        self.assertIn("US Eastern", text)
+        self.assertIn("today views 12", text)
+        self.assertIn("active 2", text)
+        self.assertIn("instagram.com 4", text)
+        self.assertIn("shared 5", text)
+        self.assertIn("2026-09-21", text)
+
 
 if __name__ == "__main__":
     unittest.main()

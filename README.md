@@ -77,21 +77,34 @@ Netlify emails on a GitHub merge do **not** mean credits were spent. On credit p
 
 Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Tests: `.github/workflows/test.yml`.
 
-### Traffic (how many people, how many hits)
+### Traffic
 
-There is no perfect “people” count. Use two numbers and do not mix them.
+Two different numbers. Do not mix them. Do not buy another tracker.
 
-1. **CDN logs — all hits.** In Netlify go to **Analytics & metrics → Analytics → Enable Analytics**. That reads server logs: pageviews = HTML served, unique visitors = distinct IPs. It sees users with ad blockers and with JavaScript off. It also counts bots and 404s. Charts update hourly and keep about 30 days. This is the most complete picture of raw traffic.
+1. **Netlify Web Analytics — how many people hit the site.** Already on. In the project sidebar: **Analytics & metrics → Web analytics**. Unique visitors are distinct IP addresses. Pageviews are real page loads, not the WordPress scan 404s (those sit under resources-not-found). It updates about hourly. Ad blockers do not hide visits. The free window is about 7 days. The 30-day range costs extra. Skip it for now. Do not use **Observability** for the user count. That one includes bots. **Real user monitoring** is page speed, not users.
 
-2. **Desk opens — people who actually loaded the app.** The live site POSTs to first-party `/api/visit` (same host, no Google Analytics, no cookies). Reloads add **views**. The same IP + browser counts once as **people** for today / this ISO week / this year / all-time. Obvious bot user-agents are skipped. Print the eight unlabeled totals with:
+   A week in mid-September 2026 read **557 unique visitors** and **879 pageviews**, almost all on `/` because the desk is one page. Treat that as roughly **400 real people** that week, not 557 humans. China, Germany, and Singapore add scanner IPs. Someone on Wi-Fi and cell data can count twice.
+
+2. **Desk tally — who actually used the app.** Netlify cannot see this, because a league load, a vote, and a bounce are all `/`. The live site POSTs to `/api/visit` (same host, no cookies, no Google Analytics). Print it with:
 
 ```
 python3 scripts/desk_visits.py
 ```
 
-Order: today views, today people, week views, week people, year views, year people, all-time views, all-time people.
+- **views** — full page loads that ran JavaScript. Reloads count. Obvious crawlers do not.
+- **people** — distinct browsers. A random id in localStorage (`dynasty_ticker_visitor`) is hashed and stored. The same browser counts once per period even if the IP changes. Two browsers are two people. Private windows and cleared storage look new. If storage is blocked, the fallback is a hash of IP plus user-agent, which can merge people on one network.
+- **active** — people who loaded a league or saved a “who would you rather have” pick. A landing-page bounce is a view and a person, not active.
+- **days** — the last 14 US Eastern dates. Today and the week start at midnight Eastern. The week is Monday–Sunday.
+- **sources** — referring site host only. Direct means no referrer, or a hop from this site.
+- **landings** — home, shared league link, or legal page. The league id is not stored.
 
-The old third-party `page-views-api.ratneshc.com` counter is retired. It only counted a browser once via localStorage, so it missed private windows, undercounted people who blocked the third-party host, and could not tell traffic from people.
+Today, this week, this calendar year, and all-time are the four periods. A failed save retries with the same event id so a blip does not double-count.
+
+This people number will not match Netlify’s 557. Netlify counts IPs that downloaded the page. The desk counts browsers that ran it, then marks who loaded a league or voted.
+
+Switching people from IP + browser to a browser id makes each existing browser look new once. All-time people steps up by the returning browsers. After that it stays put.
+
+The old third-party `page-views-api.ratneshc.com` counter is retired. It only counted a browser once, missed private windows, and could not tell traffic from people.
 
 ## CLI
 
