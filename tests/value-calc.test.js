@@ -88,6 +88,14 @@ test("blank calculator adds, sums, and grades both sides", () => {
   assert.deepEqual(state.right, []);
 });
 
+test("searching Brian finds Brian Thomas and Brian Robinson", () => {
+  const csv = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/data/ktc_values_sf.csv"), "utf8");
+  const { values: marketValues, nameMap } = parseCsvValues(csv);
+  const rows = listValueCalcAssets(marketValues, nameMap, { query: "Brian" });
+  assert.ok(rows.some((row) => row.name === "Brian Thomas"));
+  assert.ok(rows.some((row) => row.name === "Brian Robinson"));
+});
+
 test("market file search finds 2026 firsts and named players together", () => {
   const csv = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/data/ktc_values_sf.csv"), "utf8");
   const { values: marketValues, nameMap } = parseCsvValues(csv);
