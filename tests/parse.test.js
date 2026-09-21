@@ -169,4 +169,13 @@ test("desk place helpers know pages and rooms", () => {
   assert.deepEqual(resolveDeskPlace({ view: "ktc" }), { page: "trades", room: "value" });
   assert.equal(isRoomOf("league", "start"), true);
   assert.equal(isRoomOf("trades", "value"), true);
+  assert.equal(isRoomOf("trades", "ranks"), true);
+  assert.deepEqual(resolveDeskPlace({ view: "ranks" }), { page: "trades", room: "ranks" });
+  const ranksUrl = buildShareUrl({ origin: "", pathname: "/", leagueId: "1", tab: "trades", view: "ranks", asset: "player:9221" });
+  assert.match(ranksUrl, /view=ranks/);
+  assert.match(ranksUrl, /asset=player%3A9221|asset=player:9221/);
+  assert.equal(parseShareParams("view=ranks&asset=player:9221").tab, "trades");
+  assert.equal(parseShareParams("view=ranks&asset=player:9221").view, "ranks");
+  assert.equal(parseShareParams("view=ranks&asset=player:9221").asset, "player:9221");
+  assert.equal(parseShareParams("view=ranks&asset=nope").asset, "");
 });

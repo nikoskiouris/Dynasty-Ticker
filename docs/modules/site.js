@@ -46,8 +46,8 @@ const ROOM_DESCRIPTIONS = {
     passports: "Player passport: who owned each player, season by season.",
   },
   trades: {
-    value: "Blank trade calculator. Search any player or pick in one box.",
     value: "Blank trade calculator: search any player or pick and build both sides.",
+    ranks: "Player and pick values from Sleeper trades mixed with the crowd. Open one to see the pick he equals.",
     calculator: "Two-team calculator: pick a partner and tap assets on both sides.",
     match: "Match with teams that have the positions you need, want what you can spare, or are tanking while you contend.",
   },

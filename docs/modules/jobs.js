@@ -59,6 +59,13 @@ export const DESK_MORE_JOBS = Object.freeze([
     blurb: "Who has your holes",
   },
   {
+    id: "ranks",
+    page: "trades",
+    room: "ranks",
+    label: "Player values",
+    blurb: "Ranks and the pick they equal",
+  },
+  {
     id: "lab",
     page: "trades",
     room: "lab",

@@ -36,6 +36,7 @@ Three pages. Each page has a row of rooms under it, so every feature is at most 
    - A **Viewing** picker on Loyalty and Passports switches which roster you are looking at.
 3. **Trades** — deals.
    - **Calculator** — blank board: search any player or pick in one box.
+   - **Ranks** — player and pick values. Open a name for the pick he equals, crowd versus Sleeper trades, and who has him in this league. The same board opens from the landing page with no league.
    - **Partners** — one recommended trade per complementary roster: send this for that, and the starting lineup rank change.
    - **Two teams** — build both sides from two rosters and get a verdict.
    - **Find deals** — shop an asset, target a player, or generate a blockbuster.
