@@ -46,6 +46,22 @@ test("trade move chips keep pick names, players, and the swap arrow apart", () =
   assert.match(html, /class="trade-arrow"[^>]*>←<\/span>/);
   assert.match(html, /class="trade-chip">Matthew Stafford<\/span>/);
   assert.equal(renderTradeAssetLabel({ name: "Cam Ward" }), "Cam Ward");
+
+  const faced = renderTradeMove({
+    received: [{ name: "Ja'Marr Chase", assetId: "player:11564", assetType: "player" }],
+    sent: [{
+      name: "2024 1st",
+      pickLabel: "2024 1st",
+      draftedPlayerName: "Malik Nabers",
+      draftedPlayerId: "11631",
+      assetType: "pick",
+    }],
+  });
+  assert.match(faced, /trade-chip has-face/);
+  assert.match(faced, /players\/thumb\/11564\.jpg/);
+  assert.match(faced, /player-name-text">Ja&#39;Marr Chase/);
+  assert.match(faced, /players\/thumb\/11631\.jpg/);
+  assert.match(faced, /pick-selection">\(<span class="player-face/);
 });
 
 test("copyTextToClipboard uses the clipboard API then a textarea fallback", async () => {

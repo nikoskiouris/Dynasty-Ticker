@@ -1,3 +1,5 @@
+import { facePlayerId, renderPlayerFace } from "./player-face.js";
+
 export function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -58,21 +60,35 @@ export function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-export function renderTradeAssetLabel(item, formatValue = formatNumber) {
+function tradeFaceSize(options) {
+  const size = options?.faceSize;
+  return size === "sm" || size === "md" || size === "xs" ? size : "xs";
+}
+
+export function renderTradeAssetLabel(item, formatValue = formatNumber, options = {}) {
+  const faceSize = tradeFaceSize(options);
   if (item?.draftedPlayerName) {
     const pickLabel = escapeHtml(item.pickLabel || item.name || "Pick");
     const extraValue = Number(item.draftedPlayerValue) > 0
       ? `, ${formatValue(Math.round(item.draftedPlayerValue))}`
       : "";
-    return `${pickLabel} <span class="pick-selection">(${escapeHtml(item.draftedPlayerName)}${extraValue})</span>`;
+    const face = renderPlayerFace(item.draftedPlayerId, item.draftedPlayerName, { size: faceSize });
+    return `${pickLabel} <span class="pick-selection">(${face}${escapeHtml(item.draftedPlayerName)}${extraValue})</span>`;
   }
-  return escapeHtml(item?.name || "Asset");
+  const name = escapeHtml(item?.name || "Asset");
+  const face = renderPlayerFace(facePlayerId(item), item?.name, { size: faceSize });
+  if (!face) return name;
+  return `${face}<span class="player-name-text">${name}</span>`;
 }
 
 export function renderTradeMoveSide(items, formatValue = formatNumber) {
   const list = Array.isArray(items) ? items.filter(Boolean) : [];
   if (!list.length) return `<span class="trade-chip trade-chip-empty">picks</span>`;
-  return list.map((item) => `<span class="trade-chip">${renderTradeAssetLabel(item, formatValue)}</span>`).join("");
+  return list.map((item) => {
+    const label = renderTradeAssetLabel(item, formatValue);
+    const faced = label.startsWith("<span class=\"player-face");
+    return `<span class="trade-chip${faced ? " has-face" : ""}">${label}</span>`;
+  }).join("");
 }
 
 export function renderTradeMove(row, formatValue = formatNumber) {

@@ -109,6 +109,7 @@ import {
 } from "./modules/league-board.js";
 import { createLivePoller, liveUpdateMatchesLeague, shouldPollLive, shouldRefreshSim, weekRowsFingerprint } from "./modules/live.js";
 import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
+import { facePlayerId, renderPlayerFace, renderPlayerLabel } from "./modules/player-face.js";
 import {
   addValueCalcItem,
   clearValueCalcSides,
@@ -1339,7 +1340,11 @@ function syncTargetSearchUi() {
     el.targetChip.classList.toggle("hidden", !hasTarget);
   }
   if (el.targetChipLabel) {
-    el.targetChipLabel.textContent = selectedAsset?.name || "";
+    const face = selectedAsset ? renderPlayerFace(facePlayerId(selectedAsset), selectedAsset.name, { size: "xs" }) : "";
+    el.targetChipLabel.classList.toggle("player-name", Boolean(face));
+    el.targetChipLabel.innerHTML = face
+      ? `${face}<span class="player-name-text">${escapeHtml(selectedAsset.name)}</span>`
+      : escapeHtml(selectedAsset?.name || "");
   }
   if (el.targetSearchShell) {
     el.targetSearchShell.classList.toggle("has-token", hasTarget);
@@ -4117,7 +4122,7 @@ function gradeClassName(grade) {
 }
 
 function renderDnaChip(chip) {
-  return `<div class="dna-chip"><span>${escapeHtml(chip.name)}</span><strong>${formatNumber(Math.round(chip.value || 0))}</strong></div>`;
+  return `<div class="dna-chip">${renderPlayerLabel(chip.name, chip.playerId, { size: "xs" })}<strong>${formatNumber(Math.round(chip.value || 0))}</strong></div>`;
 }
 
 function buildPassportBoard(roster, limit = 10) {
@@ -4447,29 +4452,29 @@ function renderLoyaltyDashboard() {
     <div class="loyalty-grid">
       <article class="loyalty-card">
         <span>Ironmen</span>
-        <strong>${longest ? escapeHtml(longest.name) : "Need archive"}</strong>
+        ${longest ? renderPlayerLabel(longest.name, longest.playerId, { size: "md", tag: "strong" }) : "<strong>Need archive</strong>"}
         <small>${tenures.slice(0, 4).map((row) => `${row.name} ${row.consecutiveSeasons}y`).join(" · ") || "Need more seasons."}</small>
       </article>
       <article class="loyalty-card">
         <span>Luck charms</span>
-        <strong>${charms[0] ? escapeHtml(playerNameById(charms[0].playerId)) : "Need starts"}</strong>
+        ${charms[0] ? renderPlayerLabel(playerNameById(charms[0].playerId), charms[0].playerId, { size: "md", tag: "strong" }) : "<strong>Need starts</strong>"}
         <small>${charms.slice(0, 4).map((row) => `${playerNameById(row.playerId)} ${row.badge || row.roster.label}`).join(" · ") || "Need more weeks."}</small>
       </article>
       <article class="loyalty-card">
         <span>Biggest miss</span>
-        <strong>${miss ? escapeHtml(miss.name) : "Clean books"}</strong>
+        ${miss ? renderPlayerLabel(miss.name, facePlayerId(miss), { size: "md", tag: "strong" }) : "<strong>Clean books</strong>"}
         <small>${miss ? `Now ${formatNumber(Math.round(miss.value))} · ${miss.season || ""} W${miss.week || "?"} vs ${miss.partnerName || "rival"}` : "Nobody you shipped is a KTC monster."}</small>
       </article>
       <article class="loyalty-card">
         <span>New core</span>
-        <strong>${core[0] ? escapeHtml(core[0].name) : "No young adds"}</strong>
+        ${core[0] ? renderPlayerLabel(core[0].name, core[0].playerId, { size: "md", tag: "strong" }) : "<strong>No young adds</strong>"}
         <small>${core.map((row) => `${row.name}${Number.isFinite(row.age) ? ` ${row.age}` : ""}`).join(" · ") || "Adds skew older."}</small>
       </article>
     </div>
     <div class="charm-list">
       ${charms.slice(0, 8).map((row) => `
         <div class="charm-row">
-          <span>${escapeHtml(playerNameById(row.playerId))}${row.badge ? ` <em class="badge-${escapeHtml(row.badge)}">${escapeHtml(row.badge)}</em>` : ""}</span>
+          <span class="player-name">${renderPlayerFace(row.playerId, playerNameById(row.playerId), { size: "sm" })}<span class="player-name-text">${escapeHtml(playerNameById(row.playerId))}${row.badge ? ` <em class="badge-${escapeHtml(row.badge)}">${escapeHtml(row.badge)}</em>` : ""}</span></span>
           <strong>on ${escapeHtml(row.roster.label)} · start ${escapeHtml(row.started.games ? row.started.label : "—")}</strong>
         </div>
       `).join("") || `<p class="muted small">Charms show once this roster logs a few games.</p>`}
@@ -4479,7 +4484,7 @@ function renderLoyaltyDashboard() {
 
 function renderTradeAssetLine(item) {
   const valueLabel = formatNumber(Math.round(item.value || 0));
-  return `<li><span>${renderTradeAssetLabel(item)}</span><strong>${valueLabel}</strong></li>`;
+  return `<li><span>${renderTradeAssetLabel(item, formatNumber, { faceSize: "sm" })}</span><strong>${valueLabel}</strong></li>`;
 }
 
 function renderResultPills(games = []) {
@@ -4667,9 +4672,12 @@ function renderPassportPage(row, { myManagerKey, currentSeason }) {
   return `
     <article class="passport-page">
       <header class="passport-page-head">
-        <div>
-          <strong>${escapeHtml(passport.name)}</strong>
-          <span>${escapeHtml(bits.join(" · "))}</span>
+        <div class="passport-identity">
+          ${renderPlayerFace(passport.playerId, passport.name, { size: "md" })}
+          <div>
+            <strong>${escapeHtml(passport.name)}</strong>
+            <span>${escapeHtml(bits.join(" · "))}</span>
+          </div>
         </div>
         ${value > 0 ? `<em class="passport-page-value">${formatNumber(value)}</em>` : ""}
       </header>
@@ -4954,6 +4962,7 @@ function renderRosterSheet() {
       <button type="button" class="${rowClass}" data-action="open-player" data-player-id="${escapeHtml(playerId)}" aria-pressed="${open ? "true" : "false"}">
         <span class="sheet-slot">${escapeHtml(slotLabel)}</span>
         <div class="sheet-player">
+          ${renderPlayerFace(playerId, asset.name, { size: "sm" })}
           <strong>${escapeHtml(asset.name)}${nickname ? ` <em class="nickname">“${escapeHtml(nickname)}”</em>` : ""}</strong>
           <span>${escapeHtml(formatPlayerPositionLabel(asset))}${asset.raw?.team ? ` · ${escapeHtml(asset.raw.team)}` : ""}${Number.isFinite(playerAgeForAsset(asset)) ? ` · ${playerAgeForAsset(asset)}y` : ""}${injury ? ` · <span class="injury">${escapeHtml(injury)}</span>` : ""}</span>
           ${note ? `<small class="sheet-why">${escapeHtml(note)}</small>` : ""}
@@ -4997,7 +5006,8 @@ function renderRosterSheet() {
       : selectedAsset
         ? `<article class="player-week-sheet" data-player-id="${escapeHtml(selectedId)}">
             <header class="player-week-head">
-              <div>
+              ${renderPlayerFace(selectedId, selectedAsset.name, { size: "md" })}
+              <div class="player-week-copy">
                 <span class="player-week-kicker">
                   <span class="eyebrow">This week</span>
                   ${renderWeeklyScoreHelpButton({ open: Boolean(state.weeklyValue?.helpOpen) })}
@@ -5142,9 +5152,13 @@ function renderLuckIndexPanel(model) {
 
 function renderAwardCard(award) {
   const manager = award.rosterId ? managerForRosterId(award.rosterId) : { displayName: award.teamName, avatar: award.avatar };
+  const player = award.playerId && award.playerName
+    ? `<div class="award-player">${renderPlayerFace(award.playerId, award.playerName, { size: "md" })}<div><strong>${escapeHtml(award.playerName)}</strong>${award.playerPosition ? `<span>${escapeHtml(award.playerPosition)}</span>` : ""}</div></div>`
+    : "";
   return `
     <article class="award-card ${award.tone || ""}">
       <span class="analytics-kicker">${escapeHtml(award.title)}</span>
+      ${player}
       <div class="award-body">
         ${renderAvatar(manager, { size: "md" })}
         <div>
@@ -5308,6 +5322,12 @@ function renderCalcPaneTotal(roster, side) {
   `;
 }
 
+function renderSelectedTokenLabel(asset) {
+  const face = renderPlayerFace(facePlayerId(asset), asset?.name, { size: "xs" });
+  if (!face) return `<span class="selected-token-label">${escapeHtml(asset?.name || "")}</span>`;
+  return `<span class="selected-token-label player-name">${face}<span class="player-name-text">${escapeHtml(asset.name)}</span></span>`;
+}
+
 function renderCalcSelectedTokens(roster, side) {
   const selected = calcAssetsFor(roster, side);
   if (!selected.length) {
@@ -5317,7 +5337,7 @@ function renderCalcSelectedTokens(roster, side) {
     .sort((a, b) => getAssetValue(b, state.values) - getAssetValue(a, state.values))
     .map((asset) => `
       <button type="button" class="selected-token" data-action="calc-toggle" data-side="${side}" data-asset-id="${escapeHtml(asset.assetId)}" title="Remove">
-        <span class="selected-token-label">${escapeHtml(asset.name)}</span>
+        ${renderSelectedTokenLabel(asset)}
         <span class="selected-token-remove" aria-hidden="true">×</span>
       </button>
     `)
@@ -5585,7 +5605,7 @@ function renderValueCalcPane(side, label) {
         ${selected.length
           ? selected.map((item) => `
             <button type="button" class="selected-token" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" title="Remove">
-              <span class="selected-token-label">${escapeHtml(item.name)}</span>
+              ${renderSelectedTokenLabel(item)}
               <span class="selected-token-remove" aria-hidden="true">×</span>
             </button>
           `).join("")
@@ -5616,6 +5636,7 @@ function renderValueCalcAssetList(side) {
   return assets.map((asset) => `
     <div class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(asset.assetId)}" data-name="${escapeHtml(asset.name)}" data-value="${asset.value}" data-kind="${asset.assetType === "pick" ? "pick" : "player"}" role="button" tabindex="-1">
       <div class="asset-row-top">
+        ${renderPlayerFace(facePlayerId(asset), asset.name, { size: "sm" })}
         <div class="asset-name-stack">
           <strong>${escapeHtml(asset.name)}</strong>
           <div class="asset-meta">
@@ -7203,7 +7224,7 @@ function renderRosterDeltaColumn(label, count, chips, tone) {
       ${chips.length
         ? chips.map((chip) => `
             <div class="roster-delta-chip">
-              <strong>${escapeHtml(chip.name)}</strong>
+              ${renderPlayerLabel(chip.name, chip.playerId, { size: "sm", tag: "strong" })}
               <span>${escapeHtml(chip.valueLabel)}</span>
             </div>
           `).join("")
@@ -7780,7 +7801,7 @@ function renderAssetMarketRow(asset, maxCount) {
   return `
     <div class="analytics-row">
       <div>
-        <strong>${escapeHtml(asset.name)}</strong>
+        ${renderPlayerLabel(asset.name, asset.assetType === "player" ? facePlayerId(asset) : "", { size: "sm", tag: "strong" })}
         <span>${escapeHtml(asset.typeLabel)} • ${formatNumber(asset.totalValue)} value</span>
       </div>
       <div class="row-meter" aria-hidden="true"><span style="width:${width}%"></span></div>
@@ -8199,6 +8220,7 @@ function buildTransactionPickAsset(pick, transaction = null) {
     name,
     pickLabel,
     draftedPlayerName,
+    draftedPlayerId: selection?.playerId ? String(selection.playerId) : "",
     draftedPlayerValue,
     assetType: "pick",
     raw: normalizedPick,
@@ -8894,8 +8916,9 @@ function buildAssetPickerMarkup(asset, { values, contextLabel } = {}) {
 
   return `
     <div class="asset-row-top">
+      ${renderPlayerFace(facePlayerId(asset), asset.name, { size: "sm" })}
       <div class="asset-name-stack">
-        <strong>${asset.name}</strong>
+        <strong>${escapeHtml(asset.name)}</strong>
         <div class="asset-meta">
           ${pills.join("")}
           ${contextLabel ? `<span class="asset-context">${contextLabel}</span>` : ""}
@@ -9757,7 +9780,7 @@ function renderLineupStateCard(label, snapshot, values, teamClass = "") {
           .map((slotEntry) => `
             <li class="lineup-slot-item">
               <span class="lineup-slot-label">${formatRosterSlotLabel(slotEntry.slot)}</span>
-              <span class="lineup-slot-player">${slotEntry.asset ? slotEntry.asset.name : "Open spot"}</span>
+              <span class="lineup-slot-player">${slotEntry.asset ? renderPlayerLabel(slotEntry.asset.name, facePlayerId(slotEntry.asset), { size: "sm" }) : "Open spot"}</span>
               <span class="lineup-slot-value">${slotEntry.asset ? formatNumber(getAssetValue(slotEntry.asset, values)) : "0"}</span>
             </li>
           `)
@@ -9769,7 +9792,7 @@ function renderLineupStateCard(label, snapshot, values, teamClass = "") {
           ? snapshot.benchHighlights
             .map((asset) => `
               <li class="bench-item">
-                <span class="lineup-slot-player">${asset.name}</span>
+                <span class="lineup-slot-player">${renderPlayerLabel(asset.name, facePlayerId(asset), { size: "sm" })}</span>
                 <span class="lineup-slot-value">${formatNumber(getAssetValue(asset, values))}</span>
               </li>
             `)
@@ -14345,7 +14368,7 @@ function renderAssetList(assets, values, teamClass = "") {
         .map(
           (asset) => `
             <li class="asset-item">
-              <span>${asset.name}</span>
+              <span>${renderPlayerLabel(asset.name, facePlayerId(asset), { size: "sm" })}</span>
               <span class="asset-value">${formatAssetSecondaryLabel(asset, values)}</span>
             </li>`
         )
@@ -15559,12 +15582,19 @@ function handleLandingRatherClick(event) {
 }
 
 function bindRatherPhotos(root) {
-  root?.querySelectorAll?.("img.rather-photo").forEach((img) => {
+  root?.querySelectorAll?.("img.rather-photo, img.player-face-photo").forEach((img) => {
     img.addEventListener("error", () => {
       img.classList.add("is-broken");
     });
   });
 }
+
+document.addEventListener("error", (event) => {
+  const img = event.target;
+  if (!(img instanceof HTMLImageElement)) return;
+  if (!img.classList.contains("player-face-photo") && !img.classList.contains("rather-photo")) return;
+  img.classList.add("is-broken");
+}, true);
 
 function watchLandingSearchVisibility() {
   if (landingSearchObserver || typeof IntersectionObserver !== "function" || !el.landingUsernameForm) return;

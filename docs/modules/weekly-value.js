@@ -1,4 +1,5 @@
 import { clamp, escapeHtml, formatNumber } from "./html.js";
+import { renderPlayerFace } from "./player-face.js";
 
 export const NFL_SCHEDULE_PATH = "./data/nfl_schedule.json";
 export const WEEKLY_LOOKBACK_WEEKS = 6;
@@ -722,7 +723,8 @@ export function renderWeeklyPlayerSheet(model, { helpOpen = false } = {}) {
   return `
     <article class="player-week-sheet" data-player-id="${escapeHtml(model.playerId)}">
       <header class="player-week-head">
-        <div>
+        ${renderPlayerFace(model.playerId, model.name, { size: "md" })}
+        <div class="player-week-copy">
           <span class="player-week-kicker">
             <span class="eyebrow">This week</span>
             ${renderWeeklyScoreHelpButton({ open: helpOpen })}
