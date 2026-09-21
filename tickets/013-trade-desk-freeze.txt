@@ -2,7 +2,10 @@ Title
 Deal finder / trade calculator freeze the tab
 
 Status
-Open
+Done
+
+Shipped
+#64
 
 Priority
 P0
