@@ -5477,12 +5477,14 @@ button.weekly-help-close:hover {
   .app-frame {
     grid-template-columns: minmax(0, 1fr);
     min-height: 100dvh;
+    align-content: start;
   }
 
   .mobile-chrome {
     position: sticky;
     top: 0;
     z-index: 20;
+    align-self: start;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 0.65rem;
@@ -5747,6 +5749,7 @@ button.weekly-help-close:hover {
     position: sticky;
     top: calc(3.15rem + max(0.45rem, env(safe-area-inset-top)));
     z-index: 12;
+    order: -1;
     display: flex;
     gap: 0.2rem;
     overflow-x: auto;

@@ -353,6 +353,7 @@ test("phone desk nav puts pages on top and rooms on the bottom", () => {
   assert.match(css, /room strip pins to the bottom edge/);
   assert.doesNotMatch(css, /page tabs pin to the bottom edge/);
   assert.match(css, /\.workspace-tabs \{[^}]*position:\s*sticky/s);
+  assert.match(css, /\.workspace-tabs \{[^}]*order:\s*-1/s);
   assert.match(css, /\.room-nav \{[^}]*position:\s*fixed/s);
   assert.doesNotMatch(
     css,
