@@ -6,6 +6,7 @@ import {
   classifyMatchTimeline,
   describePartnerMatch,
   evaluateTradeHelp,
+  gradeCoveredPosition,
   gradePositionNeed,
   isLateRoundPick,
   packageLooksLikeFiller,
@@ -266,6 +267,52 @@ test("match deals patch the hole and never ship a third-round swap", () => {
   }
   const names = deals.flatMap((deal) => [...deal.myAssets, ...deal.theirAssets].map((asset) => asset.name)).join(" ");
   assert.doesNotMatch(names, /3rd/);
+});
+
+test("two startable tight ends are not a TE need", () => {
+  const mine = buildTradeMatchProfile({
+    roster: roster(1, "Friend", [
+      player("likely", "Isaiah Likely", "TE", 25, 1),
+      player("kincaid", "Dalton Kincaid", "TE", 25, 1),
+      player("wr", "Wideout", "WR", 25, 1),
+    ]),
+    powerProfile: powerProfile({
+      laneId: "contender",
+      laneLabel: "Contender",
+      positions: [
+        { position: "TE", percentile: 0.18, demand: 1, value: 4800 },
+        { position: "WR", percentile: 0.2, demand: 2, value: 3000 },
+      ],
+    }),
+    values: {
+      "player:likely": 4200,
+      "player:kincaid": 4800,
+      "player:wr": 3000,
+    },
+    getAssetValue,
+    playerPositionForAsset,
+    playerPositionsForAsset: positionsFor,
+    playerAgeForAsset,
+  });
+  assert.equal(mine.needs.some((row) => row.position === "TE"), false);
+  assert.equal(gradeCoveredPosition(0.18, { startable: 2, demand: 1 }), "stable");
+  const empty = buildTradeMatchProfile({
+    roster: roster(2, "Empty", [
+      player("scrub", "Stream TE", "TE", 27, 2),
+    ]),
+    powerProfile: powerProfile({
+      laneId: "middle",
+      laneLabel: "Middle",
+      positions: [{ position: "TE", percentile: 0.1, demand: 1, value: 900 }],
+    }),
+    values: { "player:scrub": 900 },
+    getAssetValue,
+    playerPositionForAsset,
+    playerPositionsForAsset: positionsFor,
+    playerAgeForAsset,
+  });
+  assert.equal(empty.needs[0]?.position, "TE");
+  assert.equal(empty.needs[0]?.grade, "critical");
 });
 
 test("a third-for-third does not count as help", () => {

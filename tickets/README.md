@@ -50,7 +50,7 @@ These were in the same player note. They never had ticket files. Git history has
 
 - **Tank / rebuild / contend.** Teams → Call. Playoff odds, lineup rank, age, and pick capital. Headline plus moves.
 - **Ticker speed.** Loop is at least 50s, about 9s per name. That complaint is closed.
-- **Calculator not on first paint.** Landing is jobs + username search, not the calculator. Remaining work is that “Make a trade” still opens the calculator, and the Trades tab still defaults to it. That leftover is ticket 012.
+- **Calculator not on first paint.** Landing is jobs + username search, not the calculator. Trades opens on Partners. Ticket 012 tracks that first screen.
 
 ## Source
 

@@ -1030,6 +1030,69 @@ export function compareStandings(a, b) {
     || String(a.rosterId).localeCompare(String(b.rosterId), undefined, { numeric: true });
 }
 
+export function pointsAgainstFromSettings(settings = {}) {
+  if (settings?.fpts_against == null && settings?.fpts_against_decimal == null) return null;
+  const whole = Number(settings.fpts_against);
+  const decimal = Number(settings.fpts_against_decimal);
+  return (Number.isFinite(whole) ? whole : 0) + (Number.isFinite(decimal) ? decimal : 0) / 100;
+}
+
+export function compareRosterRecord(a, b) {
+  const wins = (Number(b.wins) || 0) - (Number(a.wins) || 0);
+  if (wins) return wins;
+  const losses = (Number(a.losses) || 0) - (Number(b.losses) || 0);
+  if (losses) return losses;
+  const ties = (Number(b.ties) || 0) - (Number(a.ties) || 0);
+  if (ties) return ties;
+  const points = (Number(b.points) || 0) - (Number(a.points) || 0);
+  if (points) return points;
+  const aPa = Number.isFinite(Number(a.pointsAgainst)) ? Number(a.pointsAgainst) : null;
+  const bPa = Number.isFinite(Number(b.pointsAgainst)) ? Number(b.pointsAgainst) : null;
+  if (aPa == null && bPa == null) {
+    return String(a.rosterId).localeCompare(String(b.rosterId), undefined, { numeric: true });
+  }
+  if (aPa == null) return 1;
+  if (bPa == null) return -1;
+  const pa = aPa - bPa;
+  if (pa) return pa;
+  return String(a.rosterId).localeCompare(String(b.rosterId), undefined, { numeric: true });
+}
+
+export function playoffWeekCount(playoffTeams, roundType) {
+  const teams = Number(playoffTeams);
+  const size = Number.isFinite(teams) && teams >= 2 ? teams : 2;
+  const base = Math.max(1, Math.ceil(Math.log2(size)));
+  const type = Number(roundType) || 0;
+  if (type === 1) return base + 1;
+  if (type === 2) return base * 2;
+  return base;
+}
+
+export function transactionWeekEnd(league, {
+  fallbackEnd = 18,
+  minWeek = 1,
+  maxWeek = 22,
+} = {}) {
+  const settings = league?.settings || {};
+  const playoffStart = Number(settings.playoff_week_start);
+  const tradeDeadline = Number(settings.trade_deadline);
+  const playoffTeams = Number(settings.playoff_teams);
+  const roundType = Number(settings.playoff_round_type) || 0;
+  let playoffEnd = 0;
+  if (Number.isFinite(playoffStart) && playoffStart > 0) {
+    const weeks = Number.isFinite(playoffTeams) && playoffTeams >= 2
+      ? playoffWeekCount(playoffTeams, roundType)
+      : 4;
+    playoffEnd = playoffStart + weeks - 1;
+  }
+  const configuredEnd = Math.max(
+    fallbackEnd,
+    playoffEnd,
+    Number.isFinite(tradeDeadline) && tradeDeadline > 0 ? tradeDeadline + 6 : 0,
+  );
+  return Math.min(maxWeek, Math.max(minWeek, configuredEnd));
+}
+
 export function bracketOrder(size) {
   let order = [1];
   while (order.length < size) {
@@ -1204,10 +1267,7 @@ function inferCurrentWeek(weekRows) {
 }
 
 function computePlayoffRounds(playoffTeams, roundType) {
-  const base = Math.max(1, Math.ceil(Math.log2(Math.max(2, playoffTeams))));
-  if (roundType === 1) return base + 1;
-  if (roundType === 2) return base * 2;
-  return base;
+  return playoffWeekCount(playoffTeams, roundType);
 }
 
 function decimalStat(roster, wholeKey, decimalKey) {

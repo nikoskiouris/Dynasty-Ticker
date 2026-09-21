@@ -2,6 +2,7 @@ export const MATCH_NEED_PERCENTILE = 0.42;
 export const MATCH_CRITICAL_PERCENTILE = 0.28;
 export const MATCH_SURPLUS_PERCENTILE = 0.62;
 export const MATCH_EDGE_PERCENTILE = 0.75;
+export const MATCH_STARTABLE_VALUE = 2500;
 export const MATCH_MIN_HEADLINE_VALUE = 2200;
 export const MATCH_MIN_GLUE_VALUE = 1600;
 export const MATCH_NEED_DELTA = 250;
@@ -27,6 +28,25 @@ export function gradePositionNeed(percentile) {
   if (value >= MATCH_EDGE_PERCENTILE) return "surplus";
   if (value >= MATCH_SURPLUS_PERCENTILE) return "depth";
   return "stable";
+}
+
+export function countStartableAtPosition(assets, position, valueOf, positionsOf) {
+  const token = String(position || "");
+  if (!token) return 0;
+  return (Array.isArray(assets) ? assets : []).filter((asset) => {
+    if (asset?.assetType !== "player") return false;
+    const positions = positionsOf?.(asset) || [];
+    if (!positions.includes(token)) return false;
+    const value = Number(valueOf?.(asset));
+    return Number.isFinite(value) && value >= MATCH_STARTABLE_VALUE;
+  }).length;
+}
+
+export function gradeCoveredPosition(percentile, { startable = 0, demand = 1 } = {}) {
+  const grade = gradePositionNeed(percentile);
+  const slots = Math.max(1, Number(demand) || 1);
+  if ((grade === "need" || grade === "critical") && Number(startable) >= slots) return "stable";
+  return grade;
 }
 
 export function pickRound(asset) {
@@ -94,13 +114,21 @@ export function buildTradeMatchProfile({
   const surplus = [];
 
   positionSummaries.forEach((entry) => {
-    const grade = gradePositionNeed(entry.percentile);
+    const demand = Math.max(1, Number(demandByPosition[entry.position] || entry.demand) || 1);
+    const startable = countStartableAtPosition(
+      roster?.assets,
+      entry.position,
+      (asset) => getAssetValue?.(asset, values),
+      (asset) => playerPositionsForAsset?.(asset) || [],
+    );
+    const grade = gradeCoveredPosition(entry.percentile, { startable, demand });
     const row = {
       position: entry.position,
       percentile: Number(entry.percentile) || 0,
       rankLabel: entry.rankLabel || "",
-      demand: Math.max(1, Number(demandByPosition[entry.position] || entry.demand) || 1),
+      demand,
       value: Number(entry.value) || 0,
+      startable,
       grade,
     };
     if (grade === "critical" || grade === "need") needs.push(row);

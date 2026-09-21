@@ -31,7 +31,7 @@ export const PAGE_META = {
   },
   trades: {
     title: PAGE_LABELS.trades,
-    description: "A blank trade calculator for any assets, a two-team calculator, trade match, and a graded trade log.",
+    description: "Find a partner who has your holes, use the calculator, or shop a name.",
   },
 };
 
@@ -47,6 +47,7 @@ const ROOM_DESCRIPTIONS = {
   },
   trades: {
     value: "Blank trade calculator. Search any player or pick in one box.",
+    value: "Blank trade calculator: search any player or pick and build both sides.",
     calculator: "Two-team calculator: pick a partner and tap assets on both sides.",
     match: "Match with teams that have the positions you need, want what you can spare, or are tanking while you contend.",
   },

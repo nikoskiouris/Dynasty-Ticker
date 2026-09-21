@@ -68,7 +68,7 @@ test("document titles and descriptions change with tab and league", () => {
   );
   assert.equal(
     buildDocumentTitle({ page: "trades", leagueName: "Try Hard or Die Hard", loaded: true, room: "match" }),
-    "Partners · Try Hard or Die Hard — Dynasty Ticker"
+    "Trades · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "trader", leagueName: "Try Hard or Die Hard", loaded: true }),
@@ -97,7 +97,7 @@ test("document titles and descriptions change with tab and league", () => {
   assert.match(buildPageDescription({ page: "teams", room: "call", loaded: true }), /tank/);
   assert.match(buildPageDescription({ page: "trades", room: "calculator", loaded: true }), /two-team calculator/i);
   assert.match(buildPageDescription({ page: "trades", room: "log", loaded: true }), /Graded past deals/);
-  assert.match(buildPageDescription({ page: "trades", room: "match", loaded: true }), /Match with teams/);
+  assert.match(buildPageDescription({ page: "trades", room: "match", loaded: true }), /partner who has your holes/i);
   assert.equal(buildPageDescription({}), DEFAULT_DESCRIPTION);
 });
 
@@ -216,7 +216,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="value-calculator-shell"/);
   assert.match(index, /id="match-generate-btn"/);
   assert.match(index, />Find matches</);
-  assert.match(index, /Calculator, partners, deals/);
+  assert.match(index, /Partners, calculator, deals/);
   const tradesPage = index.slice(index.indexOf('id="trades-page"'), index.indexOf('id="site-dock"'));
   assert.deepEqual(
     [...tradesPage.matchAll(/data-room-panel="([^"]+)"/g)].map((row) => row[1]),

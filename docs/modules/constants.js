@@ -18,17 +18,17 @@ export const PAGE_LABELS = {
 export const PAGE_HINTS = {
   league: "Scores, standings, history",
   teams: "Roster, tank or contend, mock",
-  trades: "Calculator, partners, deals",
+  trades: "Partners, calculator, deals",
 };
 export const PAGE_ROOMS = {
   league: ["start", "scores", "standings", "power", "awards", "history"],
   teams: ["roster", "call", "loyalty", "passports", "mock"],
-  trades: ["value", "match", "calculator", "lab", "log"],
+  trades: ["match", "value", "calculator", "lab", "log"],
 };
 export const DEFAULT_ROOMS = {
   league: "start",
   teams: "roster",
-  trades: "value",
+  trades: "match",
 };
 export const ROOM_LABELS = {
   league: {
