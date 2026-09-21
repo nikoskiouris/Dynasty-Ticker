@@ -3650,6 +3650,14 @@ button.weekly-help-close:hover {
 .calc-search {
   min-height: 2.5rem;
   background: var(--panel-solid);
+  font-size: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.calc-item {
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .calc-list {

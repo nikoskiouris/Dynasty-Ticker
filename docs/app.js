@@ -110,6 +110,13 @@ import {
   valueCalcVerdict,
   withPlayerDirectoryNames,
 } from "./modules/value-calc.js";
+import {
+  CALC_LIST_LIMIT,
+  keepCalcSearchFocused,
+  planCalcListVisibility,
+  renderCalcSearchInput,
+  shouldHoldCalcSearchFocus,
+} from "./modules/calc-search.js";
 import { bindTicker } from "./modules/ticker-scrub.js";
 import { leagueHistoryRecords, pickLatestCrown } from "./modules/league-crown.js";
 import { jobById, landingSearchHint, renderDeskJobsMarkup, deskJobsForLeague } from "./modules/jobs.js";
@@ -551,6 +558,7 @@ el.landingUsername?.addEventListener("input", () => {
 el.leagueId?.addEventListener("input", () => setFieldError(el.leagueId, el.leagueIdError, ""));
 el.workspace?.addEventListener("click", handleWorkspaceClick);
 el.workspace?.addEventListener("keydown", handleWorkspaceKeydown);
+el.workspace?.addEventListener("pointerdown", handleWorkspacePointerDown);
 el.workspace?.addEventListener("change", handleWorkspaceChange);
 el.workspace?.addEventListener("input", handleWorkspaceInput);
 syncWeeklyScoreHelp();
@@ -4985,7 +4993,12 @@ function renderCalcPane(roster, side) {
       <div class="calc-selected">
         ${renderCalcSelectedTokens(roster, side)}
       </div>
-      <input type="search" class="calc-search" placeholder="Filter ${side === "my" ? "your" : "their"} players and picks" value="${escapeHtml(query)}" data-input="calc-search" data-side="${side}" />
+      ${renderCalcSearchInput({
+        query,
+        side,
+        input: "calc-search",
+        placeholder: `Filter ${side === "my" ? "your" : "their"} players and picks`,
+      })}
       <div class="calc-list" id="calc-list-${side}">${renderCalcList(roster, side)}</div>
     </section>
   `;
@@ -5016,20 +5029,23 @@ function renderCalcSelectedTokens(roster, side) {
     .join("");
 }
 
+function calcEligibleAssets(roster) {
+  return (roster?.assets || [])
+    .filter((asset) => isTradeEligibleAsset(asset) || asset.assetType === "pick")
+    .sort((a, b) => sortAssetsByValueDesc(a, b, state.values));
+}
+
 function renderCalcList(roster, side) {
   const ids = side === "my" ? state.calc.myAssetIds : state.calc.theirAssetIds;
-  const query = (side === "my" ? state.calc.myQuery : state.calc.theirQuery).trim().toLowerCase();
-  const assets = roster.assets
-    .filter((asset) => isTradeEligibleAsset(asset) || asset.assetType === "pick")
-    .filter((asset) => !query || assetMatchesQuery(asset, query))
-    .sort((a, b) => sortAssetsByValueDesc(a, b, state.values))
-    .slice(0, 80);
-  if (assets.length === 0) return `<div class="player-item muted">No matching assets.</div>`;
-  return assets.map((asset) => `
-    <div class="player-item calc-item ${ids.has(asset.assetId) ? "selected" : ""}" data-action="calc-toggle" data-side="${side}" data-asset-id="${escapeHtml(asset.assetId)}" role="button" tabindex="0">
+  const query = side === "my" ? state.calc.myQuery : state.calc.theirQuery;
+  const assets = calcEligibleAssets(roster);
+  if (assets.length === 0) return `<div class="player-item muted calc-empty">No matching assets.</div>`;
+  const plan = planCalcListVisibility(assets, query, assetMatchesQuery, CALC_LIST_LIMIT);
+  return `<div class="player-item muted calc-empty${plan.visibleCount ? " hidden" : ""}">No matching assets.</div>${assets.map((asset, index) => `
+    <div class="player-item calc-item ${ids.has(asset.assetId) ? "selected" : ""}${plan.visibility[index] ? "" : " hidden"}" data-action="calc-toggle" data-side="${side}" data-asset-id="${escapeHtml(asset.assetId)}" role="button" tabindex="-1">
       ${buildAssetPickerMarkup(asset, { values: state.values })}
     </div>
-  `).join("");
+  `).join("")}`;
 }
 
 function buildCalculatorIdea(me, partner, myAssets, theirAssets) {
@@ -5155,14 +5171,29 @@ function buildOfferText(me, partner, myAssets, theirAssets, idea, verdictLabel) 
   return `Trade proposal: ${me.manager.displayName} sends ${list(myAssets)} to ${partner.manager.displayName} for ${list(theirAssets)}. Adjusted value ${formatNumber(idea.myAdjustedValue)} vs ${formatNumber(idea.theirAdjustedValue)} (${idea.pctDiff}% apart). Ticker verdict: ${verdictLabel}.`;
 }
 
-function refreshCalculatorLists() {
-  const me = getMyRoster();
-  const partner = getCalcPartnerRoster();
-  if (!me || !partner) return;
-  const myList = document.querySelector("#calc-list-my");
-  const theirList = document.querySelector("#calc-list-their");
-  if (myList) myList.innerHTML = renderCalcList(me, "my");
-  if (theirList) theirList.innerHTML = renderCalcList(partner, "their");
+function refreshCalculatorLists(side) {
+  const sides = side === "their" || side === "my" ? [side] : ["my", "their"];
+  sides.forEach((key) => applyCalcListFilter(key));
+}
+
+function applyCalcListFilter(side) {
+  const roster = side === "their" ? getCalcPartnerRoster() : getMyRoster();
+  const list = document.querySelector(`#calc-list-${side}`);
+  if (!roster || !list) return;
+  const assets = calcEligibleAssets(roster);
+  const items = [...list.querySelectorAll(".calc-item[data-asset-id]")];
+  if (items.length !== assets.length) {
+    list.innerHTML = renderCalcList(roster, side);
+    return;
+  }
+  const query = side === "their" ? state.calc.theirQuery : state.calc.myQuery;
+  const plan = planCalcListVisibility(assets, query, assetMatchesQuery, CALC_LIST_LIMIT);
+  const visibleById = new Map(assets.map((asset, index) => [asset.assetId, plan.visibility[index]]));
+  items.forEach((item) => {
+    item.classList.toggle("hidden", !visibleById.get(item.dataset.assetId));
+  });
+  const empty = list.querySelector(".calc-empty");
+  if (empty) empty.classList.toggle("hidden", plan.visibleCount > 0);
 }
 
 function patchCalculatorAfterToggle(side) {
@@ -5265,7 +5296,12 @@ function renderValueCalcPane(side, label) {
           `).join("")
           : `<span class="muted small">Search a player or pick, like 2026 early 1st.</span>`}
       </div>
-      <input type="search" class="calc-search" placeholder="Search players and picks" value="${escapeHtml(query)}" data-input="value-search" data-side="${side}" />
+      ${renderCalcSearchInput({
+        query,
+        side,
+        input: "value-search",
+        placeholder: "Search players and picks",
+      })}
       <div class="calc-list" id="value-list-${side}">${renderValueCalcAssetList(side)}</div>
     </section>
   `;
@@ -5283,7 +5319,7 @@ function renderValueCalcAssetList(side) {
   );
   if (assets.length === 0) return `<div class="player-item muted">No matching players or picks.</div>`;
   return assets.map((asset) => `
-    <div class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(asset.assetId)}" data-name="${escapeHtml(asset.name)}" data-value="${asset.value}" data-kind="${asset.assetType === "pick" ? "pick" : "player"}" role="button" tabindex="0">
+    <div class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(asset.assetId)}" data-name="${escapeHtml(asset.name)}" data-value="${asset.value}" data-kind="${asset.assetType === "pick" ? "pick" : "player"}" role="button" tabindex="-1">
       <div class="asset-row-top">
         <div class="asset-name-stack">
           <strong>${escapeHtml(asset.name)}</strong>
@@ -5329,16 +5365,17 @@ function renderValueCalculatorVerdict(leftTotal, rightTotal) {
   `;
 }
 
-function refreshValueCalculatorLists() {
+function refreshValueCalculatorLists(side) {
   const host = el.valueCalculatorShell;
   if (!host?.querySelector(".calc-grid")) {
     renderValueCalculator();
     return;
   }
-  const leftList = host.querySelector("#value-list-left");
-  const rightList = host.querySelector("#value-list-right");
-  if (leftList) leftList.innerHTML = renderValueCalcAssetList("left");
-  if (rightList) rightList.innerHTML = renderValueCalcAssetList("right");
+  const sides = side === "right" || side === "left" ? [side] : ["left", "right"];
+  sides.forEach((key) => {
+    const list = host.querySelector(`#value-list-${key}`);
+    if (list) list.innerHTML = renderValueCalcAssetList(key);
+  });
 }
 
 function openTradeFile(tradeId, managerKey) {
@@ -5435,6 +5472,11 @@ function handleWorkspaceKeydown(event) {
   if (!target || event.target !== target || !el.workspace?.contains(target)) return;
   event.preventDefault();
   target.click();
+}
+
+function handleWorkspacePointerDown(event) {
+  if (!shouldHoldCalcSearchFocus(event, document)) return;
+  event.preventDefault();
 }
 
 function handleWorkspaceClick(event) {
@@ -5600,16 +5642,18 @@ function handleWorkspaceChange(event) {
 
 function handleWorkspaceInput(event) {
   const target = event.target.closest("[data-input]");
-  if (!target) return;
+  if (!target || event.isComposing) return;
   if (target.dataset.input === "calc-search") {
-    if (target.dataset.side === "their") state.calc.theirQuery = target.value;
+    const side = target.dataset.side === "their" ? "their" : "my";
+    if (side === "their") state.calc.theirQuery = target.value;
     else state.calc.myQuery = target.value;
-    refreshCalculatorLists();
+    keepCalcSearchFocused(document, () => refreshCalculatorLists(side));
   }
   if (target.dataset.input === "value-search") {
-    if (target.dataset.side === "right") state.valueCalc.rightQuery = target.value;
+    const side = target.dataset.side === "right" ? "right" : "left";
+    if (side === "right") state.valueCalc.rightQuery = target.value;
     else state.valueCalc.leftQuery = target.value;
-    refreshValueCalculatorLists();
+    keepCalcSearchFocused(document, () => refreshValueCalculatorLists(side));
   }
 }
 
