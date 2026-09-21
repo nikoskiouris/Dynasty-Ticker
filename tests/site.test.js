@@ -304,6 +304,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(readDocs("site.webmanifest"), /"theme_color": "#eef3f2"/);
   assert.match(readDocs("styles.css"), /Daylight mint desk/);
   assert.match(readDocs("styles.css"), /Phone landing: search first/);
+  assert.match(readDocs("styles.css"), /Phone desk nav: page tabs stick under the header/);
 
   assert.ok(statSync(join(docs, "og-image.jpg")).size < 120_000);
   assert.match(OG_IMAGE_URL, /og-image\.jpg$/);
@@ -344,6 +345,23 @@ test("storage notice CSS does not override the hidden attribute", () => {
   const css = readDocs("styles.css");
   assert.match(css, /\.storage-notice:not\(\[hidden\]\)\s*\{[^}]*display:\s*flex/s);
   assert.doesNotMatch(css, /\.storage-notice\s*\{[^}]*display:\s*flex/s);
+});
+
+test("phone desk nav puts pages on top and rooms on the bottom", () => {
+  const css = readDocs("styles.css");
+  assert.match(css, /Phone desk nav: page tabs stick under the header/);
+  assert.match(css, /room strip pins to the bottom edge/);
+  assert.doesNotMatch(css, /page tabs pin to the bottom edge/);
+  assert.match(css, /\.workspace-tabs \{[^}]*position:\s*sticky/s);
+  assert.match(css, /\.room-nav \{[^}]*position:\s*fixed/s);
+  assert.doesNotMatch(
+    css,
+    /\.asset-row-top,\s*\.asset-item \{[^}]*flex-direction:\s*column/s
+  );
+  assert.match(
+    css,
+    /\.asset-row-top,\s*\.asset-item \{[^}]*flex-direction:\s*row/s
+  );
 });
 
 test("ticker loops slower so names stay readable", () => {
