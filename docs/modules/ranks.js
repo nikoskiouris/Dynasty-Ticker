@@ -1,4 +1,5 @@
 import { escapeHtml, formatNumber } from "./html.js";
+import { renderPlayerFace } from "./player-face.js";
 import { ordinal } from "./season.js";
 import { isInactivePlayerAsset, parsePickAssetId } from "./values.js";
 import { playerAgeFromNfl, playerInitials, sleeperPlayerThumbUrl } from "./rather.js";
@@ -286,6 +287,13 @@ function renderRankChip(action, key, value, label, activeValue) {
   return `<button type="button" class="ranks-chip${on ? " active" : ""}" data-action="${action}" data-${key}="${escapeHtml(value)}" aria-pressed="${on ? "true" : "false"}">${escapeHtml(label)}</button>`;
 }
 
+function renderRankName(row) {
+  const face = row?.kind === "player" ? renderPlayerFace(row.playerId, row.name, { size: "sm" }) : "";
+  const name = escapeHtml(row?.name || "");
+  if (!face) return `<strong>${name}</strong>`;
+  return `<strong class="player-name">${face}<span class="player-name-text">${name}</span></strong>`;
+}
+
 function renderRankRow(row, active) {
   const you = row.owner?.mine ? " you" : "";
   const meta = rankMeta(row);
@@ -293,7 +301,7 @@ function renderRankRow(row, active) {
     <button type="button" class="ranks-row${active ? " active" : ""}${you}" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}" aria-pressed="${active ? "true" : "false"}">
       <span class="ranks-num">${escapeHtml(String(row.listRank || ""))}</span>
       <span class="ranks-who">
-        <strong>${escapeHtml(row.name)}</strong>
+        ${renderRankName(row)}
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
       </span>
       <span class="ranks-value">${escapeHtml(formatNumber(row.value))}</span>
@@ -362,7 +370,7 @@ function renderRankNeighbor(row) {
   return `
     <button type="button" class="ranks-row ranks-neighbor" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}">
       <span class="ranks-who">
-        <strong>${escapeHtml(row.name)}</strong>
+        ${renderRankName(row)}
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
       </span>
       <span class="ranks-value">${escapeHtml(formatNumber(row.value))}</span>

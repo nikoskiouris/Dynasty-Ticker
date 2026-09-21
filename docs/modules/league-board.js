@@ -1,4 +1,5 @@
 import { escapeHtml } from "./html.js";
+import { playerIdFromAssetId, renderPlayerFace } from "./player-face.js";
 import {
   LEAGUE_BOARD_MAX_ABS_SHIFT,
   playerAgeForAsset,
@@ -253,6 +254,14 @@ export function shouldShowLeagueAlt(marketValue, leagueValue) {
   return delta >= LEAGUE_BOARD_SHOW_ABS && delta >= market * LEAGUE_BOARD_SHOW_RATIO;
 }
 
+function exampleName(row) {
+  const playerId = playerIdFromAssetId(row?.assetId);
+  const face = playerId ? renderPlayerFace(playerId, row?.name, { size: "sm" }) : "";
+  const name = escapeHtml(row?.name || "");
+  if (!face) return name;
+  return `<span class="player-name">${face}<span class="player-name-text">${name}</span></span>`;
+}
+
 export function renderLeagueBoardMarkup(board, { applied = false, formatNumber = String } = {}) {
   const ready = Boolean(board?.ready);
   const biases = Array.isArray(board?.biases) ? board.biases : [];
@@ -281,7 +290,7 @@ export function renderLeagueBoardMarkup(board, { applied = false, formatNumber =
       ${biases.length ? `<ul class="league-bias-list">${biases.map((bias) => `<li>${escapeHtml(bias.sentence)}</li>`).join("")}</ul>` : ""}
       ${examples.length ? `<div class="league-board-examples">${examples.slice(0, 4).map((row) => `
         <article class="league-board-example">
-          <strong>${escapeHtml(row.name)}</strong>
+          <strong>${exampleName(row)}</strong>
           <span>market ${escapeHtml(formatNumber(row.marketValue))}</span>
           <span>your league ${escapeHtml(formatNumber(row.leagueValue))}</span>
         </article>`).join("")}</div>` : ""}

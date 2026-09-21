@@ -1,9 +1,21 @@
 import { escapeHtml } from "./html.js";
+import {
+  SLEEPER_PLAYER_THUMB_BASE,
+  playerIdFromAssetId,
+  playerInitials,
+  sleeperPlayerThumbUrl,
+} from "./player-face.js";
+
+export {
+  SLEEPER_PLAYER_THUMB_BASE,
+  playerIdFromAssetId,
+  playerInitials,
+  sleeperPlayerThumbUrl,
+};
 
 export const RATHER_VOTES_KEY = "dynasty_ticker_rather_votes";
 export const RATHER_RECENT_KEY = "dynasty_ticker_rather_recent";
 export const RATHER_SESSION_KEY = "dynasty_ticker_rather_session";
-export const SLEEPER_PLAYER_THUMB_BASE = "https://sleepercdn.com/content/nfl/players/thumb/";
 export const RATHER_MIN_PLAYER_VALUE = 1800;
 export const RATHER_RECENT_LIMIT = 24;
 export const RATHER_VOTE_LIMIT = 200;
@@ -36,26 +48,6 @@ export function formatRatherDetailLong(format = DEFAULT_RATHER_FORMAT) {
   const teams = Number(format?.teams || DEFAULT_RATHER_FORMAT.teams);
   const qb = String(format?.qb || DEFAULT_RATHER_FORMAT.qb);
   return `Ticker ${qb} ranks · full ${scoring} scoring · ${teams}-man league · ${qb} QB`;
-}
-
-export function playerIdFromAssetId(assetId) {
-  const value = String(assetId || "");
-  return value.startsWith("player:") ? value.slice("player:".length) : "";
-}
-
-export function sleeperPlayerThumbUrl(playerId) {
-  const id = String(playerId || "").trim();
-  return id ? `${SLEEPER_PLAYER_THUMB_BASE}${encodeURIComponent(id)}.jpg` : "";
-}
-
-export function playerInitials(name) {
-  const parts = String(name || "")
-    .replaceAll(/['’.]/g, "")
-    .split(/\s+/)
-    .filter(Boolean);
-  if (!parts.length) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase();
 }
 
 export function pairKey(leftId, rightId) {

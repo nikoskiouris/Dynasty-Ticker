@@ -841,7 +841,15 @@ export function computeWeeklyAwards(model, week, { playerName = (id) => id, play
     });
   });
   if (mvp) {
-    push("mvp", liveMode ? "Player of the Week (so far)" : "Player of the Week", mvp.side, formatPoints(mvp.points), `${playerName(mvp.playerId)}${playerPosition(mvp.playerId) ? ` (${playerPosition(mvp.playerId)})` : ""} carried ${teamLabel(model, mvp.side.rosterId)}.`, "green");
+    const mvpName = String(playerName(mvp.playerId) || "").trim();
+    const mvpPosition = String(playerPosition(mvp.playerId) || "").trim();
+    push("mvp", liveMode ? "Player of the Week (so far)" : "Player of the Week", mvp.side, formatPoints(mvp.points), `${mvpName}${mvpPosition ? ` (${mvpPosition})` : ""} carried ${teamLabel(model, mvp.side.rosterId)}.`, "green");
+    const mvpAward = awards.find((award) => award.id === "mvp");
+    if (mvpAward) {
+      mvpAward.playerId = String(mvp.playerId);
+      mvpAward.playerName = mvpName;
+      mvpAward.playerPosition = mvpPosition;
+    }
   }
 
   if (!liveMode && typeof optimalPoints === "function") {

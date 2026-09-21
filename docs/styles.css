@@ -1541,6 +1541,88 @@ body:not(.league-loaded) .workspace-header {
   color: var(--bg);
 }
 
+.player-face {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--gradient-soft);
+  line-height: 0;
+  vertical-align: middle;
+}
+
+.player-face-xs {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.player-face-sm {
+  width: 1.7rem;
+  height: 1.7rem;
+}
+
+.player-face-md {
+  width: 2.45rem;
+  height: 2.45rem;
+}
+
+.player-face-photo {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.player-face-photo.is-broken {
+  display: none;
+}
+
+.player-face > .player-face-initials {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted-strong);
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: none;
+}
+
+.player-face-xs > .player-face-initials {
+  font-size: 0.4rem;
+}
+
+.player-face-md > .player-face-initials {
+  font-size: 0.72rem;
+}
+
+.player-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.player-name > .player-name-text {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
 .avatar {
   display: inline-grid;
   place-items: center;
@@ -2577,6 +2659,21 @@ a.inline-link:hover {
   min-width: 0;
 }
 
+.sheet-player:has(> .player-face) {
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.5rem;
+  align-items: center;
+}
+
+.sheet-player:has(> .player-face) > .player-face {
+  grid-row: 1 / span 3;
+  grid-column: 1;
+}
+
+.sheet-player:has(> .player-face) > :not(.player-face) {
+  grid-column: 2;
+}
+
 .sheet-player strong {
   overflow: hidden;
   font-size: 0.88rem;
@@ -2692,8 +2789,13 @@ a.inline-link:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 0.8rem 1.2rem;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
+}
+
+.player-week-copy {
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 
 .player-week-head h3 {
@@ -3072,6 +3174,33 @@ button.weekly-help-close:hover {
   margin-bottom: 0;
 }
 
+.award-player {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.award-player > div {
+  display: grid;
+  min-width: 0;
+}
+
+.award-player strong {
+  overflow: hidden;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.award-player span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .award-body {
   display: flex;
   align-items: center;
@@ -3349,6 +3478,15 @@ button.weekly-help-close:hover {
   font-weight: 700;
 }
 
+.selected-token:has(.player-face) {
+  padding-left: 0.28rem;
+}
+
+.selected-token-label.player-name {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
 .selected-token-remove {
   display: grid;
   place-items: center;
@@ -3535,6 +3673,10 @@ button.weekly-help-close:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--panel-soft);
+}
+
+.league-board-example strong.player-name {
+  justify-content: flex-start;
 }
 
 .league-board-example span {
@@ -4133,6 +4275,11 @@ button.weekly-help-close:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--panel-solid);
+}
+
+.asset-item > span:first-child,
+.lineup-slot-player {
+  min-width: 0;
 }
 
 .asset-item strong {
@@ -6557,6 +6704,17 @@ body.dock-visible {
   white-space: normal;
 }
 
+.trade-chip.has-face {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding-left: 0.18rem;
+}
+
+.trade-chip .pick-selection .player-face {
+  margin-right: 0.2rem;
+}
+
 .trade-chip-empty {
   color: var(--muted);
 }
@@ -6592,6 +6750,13 @@ body.dock-visible {
   padding: 0.28rem 0;
   border-top: 1px solid var(--line);
   font-size: 0.86rem;
+}
+
+.trade-asset-list li > span:has(.player-face) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
 }
 
 .trade-asset-list li:first-child {
@@ -6743,10 +6908,17 @@ body.dock-visible {
 
 .passport-page-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
   margin-bottom: 0.7rem;
+}
+
+.passport-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
 .passport-page-head div {
@@ -6932,6 +7104,10 @@ body.dock-visible {
 
 .loyalty-card strong {
   font-size: 1.15rem;
+}
+
+.loyalty-card strong.player-name {
+  gap: 0.55rem;
 }
 
 .dna-board {
@@ -7599,6 +7775,12 @@ button.ranks-row.you {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ranks-who strong.player-name {
+  display: flex;
+  gap: 0.45rem;
+  white-space: normal;
 }
 
 .ranks-who small {
