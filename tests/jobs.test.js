@@ -8,6 +8,7 @@ import {
   DESK_JOBS,
   DESK_MORE_JOBS,
   jobById,
+  deskJobsForLeague,
   landingSearchHint,
   renderDeskJobsMarkup,
   renderJobButton,
@@ -56,6 +57,16 @@ test("job markup is buttons that deep-link into rooms", () => {
   assert.match(html, /Tank or contend/);
   assert.match(html, /Rookie mock/);
   assert.equal(renderJobButton(null), "");
+});
+
+test("redraft desk jobs drop mock and rename the call", () => {
+  const { jobs, more } = deskJobsForLeague({ settings: { type: 0 } });
+  assert.equal(jobs.find((job) => job.id === "team")?.blurb, "Sit/start, in it or out");
+  assert.equal(more.find((job) => job.id === "call")?.label, "In it or out");
+  assert.equal(more.some((job) => job.id === "mock"), false);
+  assert.equal(more.some((job) => job.id === "call"), true);
+  const dynasty = deskJobsForLeague({ settings: { type: 2 } });
+  assert.equal(dynasty.more.some((job) => job.id === "mock"), true);
 });
 
 test("landing HTML asks the job question and lists the four jobs", () => {

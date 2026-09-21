@@ -18,11 +18,9 @@ import {
   SIM_ITERATIONS,
   PAGE_IDS,
   PAGE_LABELS,
-  PAGE_ROOMS,
   DEFAULT_PAGE,
   DEFAULT_ROOMS,
   ROOM_LABELS,
-  ROOM_HINTS,
   DEFAULT_FAIRNESS_PCT,
   DEFAULT_MAX_RESULTS,
   TRANSACTION_WEEK_START,
@@ -102,7 +100,7 @@ import {
 import { createLivePoller, shouldPollLive, shouldRefreshSim, weekRowsFingerprint } from "./modules/live.js";
 import { buildRecapCardModel, drawRecapCard, renderRecapCardBlob, recapCardFilename } from "./modules/recap-card.js";
 import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, clamp, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
-import { jobById, landingSearchHint, renderDeskJobsMarkup } from "./modules/jobs.js";
+import { jobById, landingSearchHint, renderDeskJobsMarkup, deskJobsForLeague } from "./modules/jobs.js";
 import {
   buildTradeMatchProfile,
   describePartnerMatch,
@@ -160,6 +158,19 @@ import {
   renderMeSelectOptions,
   resolveDefaultMeRoster,
 } from "./modules/league-search.js";
+import {
+  leagueKeepsPlayers,
+  leagueTypeId,
+  leagueTypeLabel,
+  leagueUsesFuturePicks,
+  marketCaveat,
+  pageHintForLeague,
+  roomLabelFor,
+  roomHintFor,
+  roomsForPage,
+  visibleRoomFor,
+  windowCallHorizon,
+} from "./modules/league-format.js";
 import {
   buildFranchiseIndex,
   ownerIdFromRoster,
@@ -591,19 +602,32 @@ syncSiteDock();
 // Desk navigation: four pages, each with a row of rooms
 // ---------------------------------------------------------------------------
 
+function visibleRooms(page) {
+  return roomsForPage(page, state.league);
+}
+
+function clampRoom(page, room) {
+  return visibleRoomFor(page, room, state.league) || defaultRoomFor(page);
+}
+
+function clampRoomsToLeague() {
+  PAGE_IDS.forEach((page) => {
+    state.rooms[page] = clampRoom(page, state.rooms?.[page]);
+  });
+}
+
 function getRoom(page = state.activePage) {
-  const room = state.rooms?.[page];
-  return isRoomOf(page, room) ? room : defaultRoomFor(page);
+  return clampRoom(page, state.rooms?.[page]);
 }
 
 function setRoom(page, room) {
   if (!PAGE_IDS.includes(page)) return;
-  state.rooms[page] = isRoomOf(page, room) ? room : defaultRoomFor(page);
+  state.rooms[page] = clampRoom(page, room);
 }
 
 function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
   const nextPage = PAGE_IDS.includes(page) ? page : DEFAULT_PAGE;
-  const nextRoom = isRoomOf(nextPage, room) ? room : defaultRoomFor(nextPage);
+  const nextRoom = clampRoom(nextPage, isRoomOf(nextPage, room) ? room : defaultRoomFor(nextPage));
   const samePlace = state.activePage === nextPage && getRoom(nextPage) === nextRoom && !state.selectedTradeId;
   if (samePlace && history === "push") return;
   if (history === "push") prepareDeskPush();
@@ -635,6 +659,7 @@ function showAppPages() {
   state.pendingJobId = "";
   const page = pending && PAGE_IDS.includes(pending.page) ? pending.page : state.activePage || DEFAULT_PAGE;
   if (pending?.room) setRoom(page, pending.room);
+  clampRoomsToLeague();
   setActivePage(page, { history: "replace", scroll: "top" });
 }
 
@@ -1154,7 +1179,7 @@ function renderLeagueHero() {
   const seasonLabel = `${league.season} season`;
   const trophy = String(league?.metadata?.trophy_winner_banner_text || "").trim();
   const pageLabel = PAGE_LABELS[state.activePage] || "League";
-  const roomLabel = ROOM_LABELS[state.activePage]?.[getRoom()] || "";
+  const roomLabel = roomLabelFor(state.activePage, getRoom(), league);
   el.heroEyebrow.textContent = `${pageLabel}${roomLabel ? ` / ${roomLabel}` : ""} · ${seasonLabel} · ${state.normalizedRosters.length} teams · ${model?.playoffTeams || league?.settings?.playoff_teams || "?"} playoff spots`;
   el.heroTitle.textContent = state.leagueName;
   const status = model?.seasonComplete
@@ -1172,6 +1197,7 @@ function renderLeagueHero() {
       ? `<img src="${SLEEPER_AVATAR_BASE}${escapeHtml(league.avatar)}" alt="${escapeHtml(state.leagueName || "League")} logo" loading="lazy" />`
       : brandMarkAvatarHtml();
   }
+  syncLeagueFormatCopy();
 }
 
 function scrollLoadedWorkspaceIntoView() {
@@ -1191,13 +1217,15 @@ function syncRoomUi() {
 
 function renderRoomNav(page, room) {
   if (!el.roomNav) return;
-  if (el.roomNav.dataset.page !== page) {
-    const rooms = PAGE_ROOMS[page] || [];
+  const rooms = visibleRooms(page);
+  const navKey = `${page}:${leagueTypeId(state.league)}`;
+  if (el.roomNav.dataset.navKey !== navKey) {
     el.roomNav.innerHTML = rooms.map((id) => `
-      <button type="button" class="room-tab" role="tab" data-room="${escapeHtml(id)}" title="${escapeHtml(ROOM_HINTS[page]?.[id] || "")}">
-        ${escapeHtml(ROOM_LABELS[page]?.[id] || id)}
+      <button type="button" class="room-tab" role="tab" data-room="${escapeHtml(id)}" title="${escapeHtml(roomHintFor(page, id, state.league))}">
+        ${escapeHtml(roomLabelFor(page, id, state.league) || id)}
       </button>
     `).join("");
+    el.roomNav.dataset.navKey = navKey;
     el.roomNav.dataset.page = page;
     el.roomNav.setAttribute("aria-label", `${PAGE_LABELS[page] || "Page"} rooms`);
   }
@@ -2574,6 +2602,8 @@ function renderPowerDashboard() {
     ? "Sleeper market trends loaded"
     : "Sleeper market trends syncing";
 
+  const showPicks = leagueUsesFuturePicks(state.league) || Number(profile.assetSummary.pickValue) > 0
+    || Number(profile.assetSummary.firstRoundPickCount) > 0;
   el.powerDashboard.innerHTML = `
     ${renderWindowCallBanner(windowCall)}
     <div class="power-hero">
@@ -2596,7 +2626,7 @@ function renderPowerDashboard() {
     <div class="power-stat-grid">
       ${renderPowerStat("Starter XP", formatNumber(profile.metrics.starterValue), profile.componentLabels.starter)}
       ${renderPowerStat("Bench XP", formatNumber(profile.metrics.benchValue), profile.componentLabels.bench)}
-      ${renderPowerStat("Pick Vault", formatNumber(profile.assetSummary.pickValue), `${profile.assetSummary.firstRoundPickCount} firsts`)}
+      ${showPicks ? renderPowerStat("Pick Vault", formatNumber(profile.assetSummary.pickValue), `${profile.assetSummary.firstRoundPickCount} firsts`) : ""}
       ${renderPowerStat("Timeline", profile.assetSummary.averageAgeLabel, profile.componentLabels.timeline)}
     </div>
     <div class="power-lanes">
@@ -2734,6 +2764,7 @@ function buildWindowCallForProfile(profile, { model = null, sim } = {}) {
     standing,
     simRow,
     model: resolvedModel,
+    horizon: windowCallHorizon(state.league),
   }));
 }
 
@@ -2848,11 +2879,14 @@ function renderStartRoom() {
     return;
   }
   const me = String(getMyRoster()?.manager?.displayName || "").trim();
+  const deskJobs = deskJobsForLeague(state.league);
   host.innerHTML = renderDeskJobsMarkup({
     heading: me ? `What do you want to do, ${me}?` : "What do you want to do?",
     hint: "Pick a job. Everything else stays one tap away in the tabs.",
     more: true,
     action: "go",
+    jobs: deskJobs.jobs,
+    moreJobs: deskJobs.more,
   });
 }
 
@@ -3270,14 +3304,19 @@ function renderOddsRow(row, sim) {
 function renderHomePowerBoard(profiles, model) {
   if (profiles.length === 0) return "";
   const maxStarter = Math.max(1, ...profiles.map((profile) => profile.metrics.starterValue));
+  const redraft = leagueTypeId(state.league) === "redraft";
+  const showPicks = leagueUsesFuturePicks(state.league);
+  const caveat = marketCaveat(state.league);
   return `
     <section class="workspace-panel power-board-panel">
       <div class="panel-heading stack">
         <div>
           <span class="eyebrow">Power Rankings</span>
-          <h2>Dynasty value board</h2>
+          <h2>${redraft ? "This-year roster board" : "Dynasty value board"}</h2>
         </div>
-        <p class="section-copy">Optimal-lineup value, depth, pick capital, and roster age, scored 35-99. Tap a team to open its scout card.</p>
+        <p class="section-copy">${redraft
+          ? `${caveat} Tap a team to open its scout card.`
+          : "Optimal-lineup value, depth, pick capital, and roster age, scored 35-99. Tap a team to open its scout card."}</p>
       </div>
       <div class="power-board">
         ${profiles.map((profile, index) => {
@@ -3288,7 +3327,7 @@ function renderHomePowerBoard(profiles, model) {
               ${renderTeamIdentity(profile.rosterId, { extra: `${profile.laneLabel}${team?.gamesPlayed ? ` · ${team.recordLabel}` : ""}` })}
               <div class="power-board-meter">
                 <div class="meter-track"><span style="width:${Math.round(profile.metrics.starterValue / maxStarter * 100)}%"></span></div>
-                <small>${formatNumber(profile.metrics.starterValue)} starters · ${formatNumber(profile.assetSummary.pickValue)} picks · ${profile.assetSummary.averageAgeLabel}</small>
+                <small>${formatNumber(profile.metrics.starterValue)} starters${showPicks ? ` · ${formatNumber(profile.assetSummary.pickValue)} picks` : ""} · ${profile.assetSummary.averageAgeLabel}</small>
               </div>
               <span class="power-tier ${profile.tierClass}">${profile.grade}</span>
               <strong class="power-score">${profile.score}</strong>
@@ -3305,10 +3344,28 @@ function renderHomePowerBoard(profiles, model) {
 // ---------------------------------------------------------------------------
 
 function renderTeamsPage() {
+  syncLeagueFormatCopy();
   renderTeamsGrid();
   renderPowerDashboard();
   renderRosterSheet();
   void ensureWeeklyValueContext();
+}
+
+function syncLeagueFormatCopy() {
+  const teamsHint = document.querySelector("#teams-tab-hint");
+  if (teamsHint) teamsHint.textContent = pageHintForLeague("teams", state.league) || "Roster, mock, tank or contend";
+  const gridCopy = document.querySelector("#teams-grid-copy");
+  if (gridCopy) {
+    gridCopy.textContent = leagueTypeId(state.league) === "redraft"
+      ? "Ranked by current power. Sit/start is this week. Tap a card for the scout."
+      : "Ranked by dynasty power score. Your team is outlined. Tap any card to open its scout card, desk call, and lineup below, or start a trade.";
+  }
+  const powerCopy = document.querySelector("#power-section-copy");
+  if (powerCopy) {
+    powerCopy.textContent = leagueTypeId(state.league) === "redraft"
+      ? "Power score, in-it-or-out call, sit/start, and Sleeper intel for the selected roster."
+      : "Power score, tank-or-contend call, lineup rank, position map, and Sleeper intel for the selected roster.";
+  }
 }
 
 function renderMockBoard() {
@@ -3862,8 +3919,11 @@ function renderWindowCallDashboard() {
   const host = el.windowCallDashboard;
   if (!host) return;
   const roster = getLensRoster();
+  const seasonCall = windowCallHorizon(state.league) === "season";
   if (!roster) {
-    host.innerHTML = `<p class="muted">Pick a manager. Desk says tank, all in, or middle.</p>`;
+    host.innerHTML = `<p class="muted">${seasonCall
+      ? "Pick a manager. Desk says in it, bubble, or out."
+      : "Pick a manager. Desk says tank, all in, or middle."}</p>`;
     return;
   }
   if (!state.playerMetadataLoaded) {
@@ -3873,8 +3933,12 @@ function renderWindowCallDashboard() {
         <strong>${state.playerMetadataFailed ? "Player metadata unavailable" : "Syncing player metadata"}</strong>
         <p class="muted">${
           state.playerMetadataFailed
-            ? "Need positions and ages before the desk can make a tank / all-in / middle call."
-            : "Waiting on Sleeper positions, ages, and pick data so the call is not a coin flip."
+            ? (seasonCall
+              ? "Need positions before the desk can make an in-it / bubble / out call."
+              : "Need positions and ages before the desk can make a tank / all-in / middle call.")
+            : (seasonCall
+              ? "Waiting on Sleeper positions so the call is not a coin flip."
+              : "Waiting on Sleeper positions, ages, and pick data so the call is not a coin flip.")
         }</p>
       </div>
     `;
@@ -3896,11 +3960,18 @@ function renderWindowCallDashboard() {
   const leagueCalls = buildLeagueWindowCalls({ profiles, model, sim });
   const groups = groupWindowCalls(leagueCalls);
   const other = isViewingOtherRoster(roster);
-  const groupMeta = [
-    { id: "all-in", title: "All in", empty: "Nobody is a finished title team yet." },
-    { id: "middle", title: "Middle", empty: "No one is sitting on the fence." },
-    { id: "tank", title: "Tank", empty: "Nobody should be collecting firsts yet." },
-  ];
+  const season = call.horizon === "season";
+  const groupMeta = season
+    ? [
+      { id: "all-in", title: "In it", empty: "Nobody is a lock yet." },
+      { id: "middle", title: "Bubble", empty: "No bubble teams." },
+      { id: "tank", title: "Out", empty: "Everybody still has a pulse." },
+    ]
+    : [
+      { id: "all-in", title: "All in", empty: "Nobody is a finished title team yet." },
+      { id: "middle", title: "Middle", empty: "No one is sitting on the fence." },
+      { id: "tank", title: "Tank", empty: "Nobody should be collecting firsts yet." },
+    ];
 
   host.innerHTML = `
     ${renderLensPicker(roster)}
@@ -3914,12 +3985,12 @@ function renderWindowCallDashboard() {
       <div class="window-call-confidence">
         <span>Confidence</span>
         <strong>${call.confidence}%</strong>
-        <small>${call.nowScore} this year · ${call.futureScore} future</small>
+        <small>${season ? `${call.nowScore} this year` : `${call.nowScore} this year · ${call.futureScore} future`}</small>
       </div>
     </article>
     <div class="window-call-axes">
       ${renderWindowCallAxis("This year", call.nowScore, "Playoff math plus current lineup juice.")}
-      ${renderWindowCallAxis("Dynasty future", call.futureScore, "Age, youth share, and pick capital.")}
+      ${season ? "" : renderWindowCallAxis("Dynasty future", call.futureScore, "Age, youth share, and pick capital.")}
     </div>
     <div class="window-call-signals">
       ${call.signals.map(renderWindowCallSignal).join("")}
@@ -3931,11 +4002,17 @@ function renderWindowCallDashboard() {
           <h2>What the desk wants</h2>
         </div>
         <p class="section-copy">${
-          call.id === "all-in"
-            ? "Win now. Buy starters. Do not collect dart throws."
-            : call.id === "tank"
-              ? "This year is for capital. Sell vets. Keep the kids."
-              : "No fire sale, no farm sale. One clean upgrade."
+          season
+            ? (call.id === "all-in"
+              ? "Win this week. Start the studs. Stream the hole."
+              : call.id === "tank"
+                ? "This year is dead. Waivers over panic trades."
+                : "Still alive. One start/sit upgrade, not a fire sale.")
+            : (call.id === "all-in"
+              ? "Win now. Buy starters. Do not collect dart throws."
+              : call.id === "tank"
+                ? "This year is for capital. Sell vets. Keep the kids."
+                : "No fire sale, no farm sale. One clean upgrade.")
         }</p>
       </div>
       <ol class="window-call-moves">
@@ -3954,7 +4031,9 @@ function renderWindowCallDashboard() {
           <span class="eyebrow">League board</span>
           <h2>Who else is in which lane</h2>
         </div>
-        <p class="section-copy">Same call for every roster: playoff odds, lineup rank, age, and pick vault. Tap a name to switch.</p>
+        <p class="section-copy">${season
+          ? "Same call for every roster: playoff odds and this year's lineup. Tap a name to switch."
+          : "Same call for every roster: playoff odds, lineup rank, age, and pick vault. Tap a name to switch."}</p>
       </div>
       <div class="window-call-league">
         ${groupMeta.map((group) => `
@@ -4495,7 +4574,6 @@ function renderRosterSheet() {
     syncWeeklyScoreHelp();
     return;
   }
-  if (el.rosterSheetHeading) el.rosterSheetHeading.textContent = `${roster.manager.displayName}: sit/start, bench, and picks`;
   if (!state.playerMetadataLoaded) {
     el.rosterSheet.innerHTML = `<div class="power-sync"><strong>Syncing player metadata</strong><p class="muted">Names, positions, and ages arrive in a moment.</p></div>`;
     syncWeeklyScoreHelp();
@@ -4506,6 +4584,12 @@ function renderRosterSheet() {
   const picks = roster.assets
     .filter((asset) => asset.assetType === "pick")
     .sort((a, b) => Number(a.raw?.season) - Number(b.raw?.season) || Number(a.raw?.round) - Number(b.raw?.round) || getAssetValue(b, values) - getAssetValue(a, values));
+  const showPicks = leagueUsesFuturePicks(state.league) || picks.length > 0;
+  if (el.rosterSheetHeading) {
+    el.rosterSheetHeading.textContent = showPicks
+      ? `${roster.manager.displayName}: sit/start, bench, and picks`
+      : `${roster.manager.displayName}: sit/start and bench`;
+  }
   const model = getSeasonModel();
   const team = model?.teams.get(String(roster.rosterId));
   const summary = summarizeRosterAssets(roster, values);
@@ -4616,7 +4700,7 @@ function renderRosterSheet() {
     <div class="sheet-summary">
       ${renderPowerStat("Starters", formatNumber(strength.starterValue), `${strength.lineup.filter((entry) => entry.asset).length}/${strength.lineup.length} slots filled`)}
       ${renderPowerStat("Bench", formatNumber(strength.benchValue), `${strength.benchHighlights.length ? `${summary.playerCount} players rostered` : "no bench"}`)}
-      ${renderPowerStat("Pick vault", formatNumber(summary.pickValue), `${summary.pickCount} picks · ${summary.firstRoundPickCount} firsts`)}
+      ${showPicks ? renderPowerStat("Pick vault", formatNumber(summary.pickValue), `${summary.pickCount} picks · ${summary.firstRoundPickCount} firsts`) : ""}
       ${renderPowerStat("Avg age", summary.averageAgeLabel, `${summary.youthCount} youth · ${summary.veteranCount} vets · ${summary.injuredCount} flagged`)}
     </div>
     ${selectedWeekly
@@ -4658,11 +4742,12 @@ function renderRosterSheet() {
           sitCause: Boolean(row.sitReason),
           closeCall: String(row.rowNote || "").startsWith("Close vs"),
         })).join("") || `<p class="muted small">No bench players.</p>`}
+        ${showPicks ? `
         <h4>Pick vault</h4>
         ${renderPickVaultIntro(picks)}
         ${picks.length
           ? picks.map((asset) => renderPickVaultRow(asset, values)).join("")
-          : `<p class="muted small">No draft picks owned.</p>`}
+          : `<p class="muted small">No draft picks owned.</p>`}` : ""}
       </section>
     </div>
     <h4>Season log</h4>
@@ -8162,13 +8247,14 @@ function describeLeagueFormat(league) {
   const taxiSlots = Number(league?.settings?.taxi_slots || 0);
   const draftRounds = Number(league?.settings?.draft_rounds || 0);
   const parts = [
+    leagueTypeLabel(league),
     hasSuperflex ? "Superflex" : "1-QB",
     pprLabel,
     `${slots.length} starters`,
   ];
   if (tepLevel(league) > 0) parts.push("TE premium");
-  if (taxiSlots > 0) parts.push(`${taxiSlots} taxi`);
-  if (draftRounds > 0) parts.push(`${draftRounds}-round rookie draft`);
+  if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi`);
+  if (leagueUsesFuturePicks(league) && draftRounds > 0) parts.push(`${draftRounds}-round rookie draft`);
   return parts.join(" • ");
 }
 
@@ -13850,16 +13936,19 @@ function setButtonLoading(button, isLoading, loadingText = "Loading...") {
 }
 
 function marketBoardHint() {
+  const caveat = marketCaveat(state.league);
   const meta = state.valueBundles?.tradeMeta || state.tradeMarketBundle?.meta;
   const trades = Number(meta?.tradeCount);
   const leagues = Number(meta?.leagueCount);
+  let hint = "";
   if (Number.isFinite(trades) && trades > 0 && Number.isFinite(leagues) && leagues > 0) {
-    return `Sleeper trade market from ${formatNumber(trades)} completed dynasty trades across ${formatNumber(leagues)} leagues, mixed with KeepTradeCut.`;
+    hint = `Sleeper trade market from ${formatNumber(trades)} completed dynasty trades across ${formatNumber(leagues)} leagues, mixed with KeepTradeCut.`;
+  } else if (state.applyLeagueBoard) {
+    hint = "Calculator, find-deals, and power now use this room's prices.";
+  } else {
+    hint = "Numbers are the Sleeper trade market mixed with KeepTradeCut. League prices stay on the side until you apply them.";
   }
-  if (state.applyLeagueBoard) {
-    return "Calculator, find-deals, and power now use this room's prices.";
-  }
-  return "Numbers are the Sleeper trade market mixed with KeepTradeCut. League prices stay on the side until you apply them.";
+  return caveat ? `${caveat} ${hint}` : hint;
 }
 
 function refreshLeagueBoard() {
@@ -14209,6 +14298,22 @@ function buildOwnedPicksByRoster(league, rosters, tradedPicks = [], pickValueCat
           .filter((pick) => pick && !isConsumedDraftPick(pick, currentDraftContext))
       );
     });
+    return ownedByRoster;
+  }
+
+  if (!leagueUsesFuturePicks(league)) {
+    const rosterKeySet = new Set(rosterKeys);
+    tradedPicks
+      .map((pick) => normalizeTradedPickRecord(pick))
+      .filter(Boolean)
+      .forEach((pick) => {
+        const currentOwnerKey = normalizeRosterIdKey(pick.owner_id);
+        if (!currentOwnerKey || !rosterKeySet.has(currentOwnerKey)) return;
+        const targetList = ownedByRoster.get(currentOwnerKey);
+        if (!targetList) return;
+        if (isConsumedDraftPick(pick, currentDraftContext)) return;
+        targetList.push(pick);
+      });
     return ownedByRoster;
   }
 
@@ -14786,12 +14891,14 @@ function syncDocumentMeta() {
       leagueName: state.leagueName,
       loaded: Boolean(state.leagueId),
       room,
+      league: state.league,
     }),
     description: buildPageDescription({
       page: state.leagueId ? state.activePage : "",
       leagueName: state.leagueName,
       loaded: Boolean(state.leagueId),
       room,
+      league: state.league,
     }),
   });
 }

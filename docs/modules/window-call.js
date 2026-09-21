@@ -25,12 +25,33 @@ export const WINDOW_CALLS = {
   },
 };
 
-export function windowCallMeta(id) {
-  return WINDOW_CALLS[id] || WINDOW_CALLS.middle;
+export const SEASON_WINDOW_CALLS = {
+  "all-in": {
+    label: "Push for it",
+    shortLabel: "In it",
+  },
+  middle: {
+    label: "On the bubble",
+    shortLabel: "Bubble",
+  },
+  tank: {
+    label: "Out of it",
+    shortLabel: "Out",
+  },
+};
+
+export function windowCallHorizonFrom(value) {
+  return value === "season" ? "season" : "dynasty";
+}
+
+export function windowCallMeta(id, { horizon = "dynasty" } = {}) {
+  const base = WINDOW_CALLS[id] || WINDOW_CALLS.middle;
+  if (horizon !== "season") return { ...base };
+  return { ...base, ...(SEASON_WINDOW_CALLS[base.id] || {}) };
 }
 
 export function windowCallTeamState(id) {
-  return windowCallMeta(id).teamState;
+  return WINDOW_CALLS[id]?.teamState || WINDOW_CALLS.middle.teamState;
 }
 
 export function computeSeasonProgress({
@@ -57,7 +78,7 @@ export function computeSeasonProgress({
   return 0.15;
 }
 
-export function windowCallInputFromDesk({ profile, standing, simRow, model } = {}) {
+export function windowCallInputFromDesk({ profile, standing, simRow, model, horizon } = {}) {
   const rosterId = String(profile?.rosterId ?? standing?.rosterId ?? "");
   const remaining = Array.isArray(model?.remainingGames) ? model.remainingGames : [];
   const remainingTeamGames = remaining.filter((entry) =>
@@ -100,6 +121,7 @@ export function windowCallInputFromDesk({ profile, standing, simRow, model } = {
     clinched: Boolean(simRow?.clinched),
     eliminated: Boolean(simRow?.eliminated),
     recordLabel: standing?.recordLabel || "",
+    horizon: windowCallHorizonFrom(horizon),
   };
 }
 
@@ -160,13 +182,16 @@ export function scoreWindowAxes(input = {}) {
 }
 
 export function analyzeWindowCall(input = {}) {
-  const axes = scoreWindowAxes(input);
-  const picked = pickWindowCall(input, axes);
-  const meta = windowCallMeta(picked.id);
-  const signals = buildWindowCallSignals(input, axes);
-  const copy = buildWindowCallCopy(input, axes, picked.id);
+  const horizon = windowCallHorizonFrom(input.horizon);
+  const scored = { ...input, horizon };
+  const axes = scoreWindowAxes(scored);
+  const picked = pickWindowCall(scored, axes);
+  const meta = windowCallMeta(picked.id, { horizon });
+  const signals = buildWindowCallSignals(scored, axes);
+  const copy = buildWindowCallCopy(scored, axes, picked.id);
   return {
     ...meta,
+    horizon,
     rosterId: String(input.rosterId || ""),
     managerName: String(input.managerName || ""),
     confidence: picked.confidence,
@@ -226,6 +251,7 @@ function hardWindowOverride(input, axes) {
 
 function scoreWindowPressure(input, axes) {
   const { nowScore, futureScore, seasonProgress, aging, young, pickRich, pickPoor } = axes;
+  const season = windowCallHorizonFrom(input.horizon) === "season";
   const playoffPct = Number.isFinite(input.playoffPct) ? Number(input.playoffPct) : null;
   const titlePct = Number(input.titlePct) || 0;
   const lastPlacePct = Number(input.lastPlacePct) || 0;
@@ -234,8 +260,8 @@ function scoreWindowPressure(input, axes) {
   let tank = (100 - nowScore) * 1.03;
   let middle = 48 + Math.max(0, 16 - Math.abs(nowScore - 52) * 0.4);
 
-  if (nowScore >= 62 && aging) allIn += 16;
-  if (nowScore >= 68 && pickPoor) allIn += 10;
+  if (!season && nowScore >= 62 && aging) allIn += 16;
+  if (!season && nowScore >= 68 && pickPoor) allIn += 10;
   if (titlePct >= 10) allIn += 10;
   if (titlePct >= 18) allIn += 8;
   if (playoffPct != null && playoffPct >= 68) allIn += 14;
@@ -248,21 +274,21 @@ function scoreWindowPressure(input, axes) {
   if (playoffPct != null && playoffPct <= 10 && seasonProgress >= 0.32) tank += 16;
   if (playoffPct != null && playoffPct <= 20 && seasonProgress >= 0.52) tank += 12;
   if (nowScore <= 38) tank += 12;
-  if (nowScore <= 46 && (young || pickRich)) tank += 12;
-  if (nowScore <= 50 && aging && !pickRich) tank += 14;
+  if (!season && nowScore <= 46 && (young || pickRich)) tank += 12;
+  if (!season && nowScore <= 50 && aging && !pickRich) tank += 14;
   if (lastPlacePct >= 32 && nowScore <= 52) tank += 8;
-  if (futureScore >= 68 && nowScore <= 48) tank += 8;
+  if (!season && futureScore >= 68 && nowScore <= 48) tank += 8;
 
   if (nowScore >= 66) tank -= 22;
   if (playoffPct != null && playoffPct >= 48) tank -= 16;
   if (nowScore <= 42) allIn -= 20;
   if (playoffPct != null && playoffPct <= 22 && seasonProgress >= 0.28) allIn -= 12;
-  if (pickRich && young && nowScore <= 54) allIn -= 12;
+  if (!season && pickRich && young && nowScore <= 54) allIn -= 12;
 
-  if (nowScore >= 44 && nowScore <= 66 && futureScore >= 40 && futureScore <= 72) middle += 10;
+  if (!season && nowScore >= 44 && nowScore <= 66 && futureScore >= 40 && futureScore <= 72) middle += 10;
   if (playoffPct != null && playoffPct >= 26 && playoffPct <= 58 && titlePct < 12) middle += 12;
-  if (Math.abs(nowScore - futureScore) <= 12 && nowScore >= 42 && nowScore <= 64) middle += 8;
-  if (nowScore >= 70 && young && !pickPoor) middle += 6;
+  if (!season && Math.abs(nowScore - futureScore) <= 12 && nowScore >= 42 && nowScore <= 64) middle += 8;
+  if (!season && nowScore >= 70 && young && !pickPoor) middle += 6;
 
   const gap = Math.abs(allIn - tank);
   if (gap >= 20) middle -= 12;
@@ -282,7 +308,8 @@ function buildWindowCallSignals(input, axes) {
   const age = Number(input.averageAge);
   const firsts = axes.firsts;
   const hole = input.weakestPosition;
-  return [
+  const season = windowCallHorizonFrom(input.horizon) === "season";
+  const core = [
     {
       id: "playoffs",
       label: "Playoff odds",
@@ -304,31 +331,47 @@ function buildWindowCallSignals(input, axes) {
       detail: `${axes.nowScore} this-year score`,
       lean: leanFromNow(axes.starterPct * 100),
     },
-    {
-      id: "timeline",
-      label: "Timeline",
-      value: Number.isFinite(age) ? `${age.toFixed(1)}y` : "N/A",
-      detail: `${Number(input.youthCount) || 0} youth / ${Number(input.veteranCount) || 0} vets`,
-      lean: axes.aging ? "all-in" : axes.young ? "tank" : "middle",
-    },
-    {
-      id: "picks",
-      label: "Pick vault",
-      value: `${firsts} first${firsts === 1 ? "" : "s"}`,
-      detail: axes.pickRich ? "Future ammo" : axes.pickPoor ? "Thin capital" : "Balanced capital",
-      lean: axes.pickRich ? "tank" : axes.pickPoor ? "all-in" : "middle",
-    },
-    {
-      id: "hole",
-      label: hole?.position ? `${hole.position} hole` : "Roster hole",
-      value: hole?.rankLabel || (hole?.percentile != null ? `${Math.round(hole.percentile * 100)}th pct` : "Balanced"),
-      detail: hole?.position ? "Cleanest upgrade path" : "No screaming gap",
-      lean: Number(hole?.percentile) <= 0.32 ? "all-in" : "middle",
-    },
   ];
+  if (season) {
+    core.push({
+      id: "left",
+      label: "Games left",
+      value: Number.isFinite(Number(input.remainingTeamGames)) ? String(Number(input.remainingTeamGames)) : "—",
+      detail: "Regular season remaining",
+      lean: "middle",
+    });
+  } else {
+    core.push(
+      {
+        id: "timeline",
+        label: "Timeline",
+        value: Number.isFinite(age) ? `${age.toFixed(1)}y` : "N/A",
+        detail: `${Number(input.youthCount) || 0} youth / ${Number(input.veteranCount) || 0} vets`,
+        lean: axes.aging ? "all-in" : axes.young ? "tank" : "middle",
+      },
+      {
+        id: "picks",
+        label: "Pick vault",
+        value: `${firsts} first${firsts === 1 ? "" : "s"}`,
+        detail: axes.pickRich ? "Future ammo" : axes.pickPoor ? "Thin capital" : "Balanced capital",
+        lean: axes.pickRich ? "tank" : axes.pickPoor ? "all-in" : "middle",
+      },
+    );
+  }
+  core.push({
+    id: "hole",
+    label: hole?.position ? `${hole.position} hole` : "Roster hole",
+    value: hole?.rankLabel || (hole?.percentile != null ? `${Math.round(hole.percentile * 100)}th pct` : "Balanced"),
+    detail: hole?.position ? "Cleanest upgrade path" : "No screaming gap",
+    lean: Number(hole?.percentile) <= 0.32 ? "all-in" : "middle",
+  });
+  return core;
 }
 
 function buildWindowCallCopy(input, axes, id) {
+  if (windowCallHorizonFrom(input.horizon) === "season") {
+    return buildSeasonWindowCallCopy(input, axes, id);
+  }
   const hole = input.weakestPosition?.position;
   const age = Number.isFinite(input.averageAge) ? Number(input.averageAge).toFixed(1) : null;
   const record = input.recordLabel || (Number(input.gamesPlayed) > 0 ? "this season" : "preseason");
@@ -388,6 +431,51 @@ function buildWindowCallCopy(input, axes, id) {
       "Do not dump two firsts for a fading veteran.",
       "Do not sell a core starter just because the record looks ugly this week.",
       "One-for-one youth/prime swaps beat both a teardown and a panic buy.",
+    ],
+  };
+}
+
+function buildSeasonWindowCallCopy(input, axes, id) {
+  const hole = input.weakestPosition?.position;
+  const record = input.recordLabel || (Number(input.gamesPlayed) > 0 ? "this season" : "preseason");
+  if (id === "all-in") {
+    return {
+      headline: "You're in it. Play the best lineup every week.",
+      summary: `Playoff math and ${record} say compete. Start the studs${hole ? ` and patch ${hole}` : ""}. This is a sit/start problem, not a rebuild.`,
+      moves: [
+        hole ? `Start your best ${hole} and stream the rest of that slot.` : "Start the hot hand, not last week's name.",
+        "Treat waivers like a title hunt. Dead bench is a wasted roster spot.",
+        "If you trade, buy this-year production. Do not pay dynasty prices for kids.",
+        input.playoffsStarted
+          ? "The next two weeks are the season. No cute sits."
+          : "Stop sitting a league-winner for a hunch.",
+      ],
+    };
+  }
+  if (id === "tank") {
+    return {
+      headline: "This year is dead. You are out of the race.",
+      summary: input.eliminated || (Number(input.playoffPct) <= 8 && axes.seasonProgress >= 0.35)
+        ? "Playoff math is cooked. Stream the wire. Do not trade a league-winner for a rental."
+        : `The weekly team is not a title threat${hole ? `, even at ${hole}` : ""}. Stop chasing the playoffs.`,
+      moves: [
+        "Start the upside, sit the duds. This is a lineup week, not a dynasty teardown.",
+        "Waivers matter more than a panic trade.",
+        "Do not buy a vet who cannot get you in.",
+        "If you deal, move depth for a streamer, not a 2028 first.",
+      ],
+    };
+  }
+  return {
+    headline: Number(input.playoffPct) >= 28 && Number(input.playoffPct) <= 58
+      ? "Bubble team. One hot week changes the math."
+      : "Still alive. Don't blow up the roster.",
+    summary: `Keep the core, fill ${hole || "the weakest starter spot"} on the wire, and play the matchups.`,
+    moves: [
+      hole ? `Upgrade ${hole} with a streamer or a one-week add.` : "Make one start/sit upgrade. Stop after that.",
+      "Do not trade your RB1 because last week looked ugly.",
+      "Watch the remaining schedule more than dynasty age.",
+      "One waiver add beats a fire sale.",
     ],
   };
 }

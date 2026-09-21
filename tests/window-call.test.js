@@ -258,3 +258,48 @@ test("this-year and future scores move in the expected directions", () => {
   assert.ok(hot.aging);
   assert.ok(cold.young);
 });
+
+test("redraft dead team is out, not a rebuild", () => {
+  const result = callFor({
+    horizon: "season",
+    rank: 12,
+    powerScore: 46,
+    starterPercentile: 0.08,
+    pickPercentile: 0.5,
+    firstRoundPickCount: 0,
+    playoffPct: 2,
+    titlePct: 0,
+    lastPlacePct: 40,
+    winPct: 0.15,
+    currentWeek: 12,
+    averageAge: 24.0,
+    youthCount: 11,
+    veteranCount: 3,
+  });
+  assert.equal(result.id, "tank");
+  assert.equal(result.horizon, "season");
+  assert.equal(result.shortLabel, "Out");
+  assert.equal(result.label, "Out of it");
+  assert.match(result.headline, /out|dead/i);
+  assert.doesNotMatch(result.headline, /rebuild|firsts|veterans/i);
+  assert.ok(result.signals.every((signal) => signal.id !== "picks"));
+  assert.ok(result.moves.every((move) => !/2027 capital|pick vault/i.test(move)));
+});
+
+test("redraft lock is in it without spending future picks", () => {
+  const result = callFor({
+    horizon: "season",
+    rank: 1,
+    powerScore: 93,
+    starterPercentile: 0.96,
+    playoffPct: 88,
+    titlePct: 24,
+    clinched: true,
+    winPct: 0.8,
+    currentWeek: 12,
+  });
+  assert.equal(result.id, "all-in");
+  assert.equal(result.shortLabel, "In it");
+  assert.match(result.headline, /in it/i);
+  assert.doesNotMatch(result.headline, /future picks/i);
+});

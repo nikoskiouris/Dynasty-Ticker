@@ -53,6 +53,16 @@ test("document titles and descriptions change with tab and league", () => {
     "Tank or contend · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
+    buildDocumentTitle({
+      page: "teams",
+      leagueName: "Sunday Squad",
+      loaded: true,
+      room: "call",
+      league: { settings: { type: 0 } },
+    }),
+    "In it or out · Sunday Squad — Dynasty Ticker"
+  );
+  assert.equal(
     buildDocumentTitle({ page: "trades", leagueName: "Try Hard or Die Hard", loaded: true, room: "lab" }),
     "Find deals · Try Hard or Die Hard — Dynasty Ticker"
   );

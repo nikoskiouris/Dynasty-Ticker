@@ -1,0 +1,33 @@
+Title
+Redraft rest-of-season values (not dynasty KTC)
+
+Status
+Open
+
+Priority
+P1 — after the format-aware desk
+
+Area
+Values (`docs/modules/values.js`, trade market scrape), League → Power, Trades
+
+Description
+The desk now detects Sleeper `settings.type` (0 redraft / 1 keeper / 2 dynasty), labels the picker, hides dynasty-only rooms, and stops inventing future pick grids for redraft. Power and trades still use the dynasty Sleeper-trade + KeepTradeCut board. That overweights youth in redraft.
+
+Do:
+- Ship a rest-of-season / redraft value board (Sleeper projections, in-season points, or a redraft KTC scrape — pick one source and blend later).
+- Score Power, the calculator, and trade match on that board when the league is redraft.
+- Keep dynasty values for dynasty (and probably keeper).
+- Do not mix redraft trades into `sleeper_trade_values.json`.
+
+Do not:
+- Rename the product.
+- Filter redraft leagues out of the picker.
+- Pretend dynasty prices are ROS.
+
+Why
+Lots of people already load redraft rooms. Scores, standings, odds, sit/start, awards, recap, and history already work. The lie is the market.
+
+Acceptance
+- A redraft league's power board and trade grades follow this-year value, not dynasty KTC.
+- A dynasty league is unchanged.
+- Market copy no longer needs the "youth looks rich" caveat once the ROS board is live.

@@ -1,4 +1,5 @@
-import { DEFAULT_ROOMS, PAGE_HINTS, PAGE_LABELS, ROOM_HINTS, ROOM_LABELS } from "./constants.js";
+import { DEFAULT_ROOMS, PAGE_HINTS, PAGE_LABELS } from "./constants.js";
+import { roomDescriptionFor, roomHintFor, roomLabelFor } from "./league-format.js";
 import { normalizeDeskTab, normalizeRoom } from "./parse.js";
 
 export const SITE_NAME = "Dynasty Ticker";
@@ -52,16 +53,18 @@ const ROOM_DESCRIPTIONS = {
   },
 };
 
-function pageMetaFor({ page = "", room = "" } = {}) {
+function pageMetaFor({ page = "", room = "", league = null } = {}) {
   const pageId = normalizeDeskTab(page);
   const base = PAGE_META[pageId];
   if (!base) return null;
   const roomId = normalizeRoom(pageId, room) || normalizeRoom(pageId, page);
   if (roomId && roomId !== DEFAULT_ROOMS[pageId]) {
+    const described = roomDescriptionFor(pageId, roomId, league);
     return {
-      title: ROOM_LABELS[pageId]?.[roomId] || base.title,
-      description: ROOM_DESCRIPTIONS[pageId]?.[roomId]
-        || (ROOM_HINTS[pageId]?.[roomId] ? `${ROOM_HINTS[pageId][roomId]}.` : base.description),
+      title: roomLabelFor(pageId, roomId, league) || base.title,
+      description: described
+        || ROOM_DESCRIPTIONS[pageId]?.[roomId]
+        || (roomHintFor(pageId, roomId, league) ? `${roomHintFor(pageId, roomId, league)}.` : base.description),
     };
   }
   return base;
@@ -71,19 +74,19 @@ export function pageHintFor(page) {
   return PAGE_HINTS[normalizeDeskTab(page)] || "";
 }
 
-export function buildDocumentTitle({ page = "", leagueName = "", loaded = false, room = "" } = {}) {
-  const pageLabel = pageMetaFor({ page, room })?.title || "";
-  const league = String(leagueName || "").trim();
-  if (loaded && league && pageLabel) return `${pageLabel} · ${league} — ${SITE_NAME}`;
-  if (loaded && league) return `${league} — ${SITE_NAME}`;
+export function buildDocumentTitle({ page = "", leagueName = "", loaded = false, room = "", league = null } = {}) {
+  const pageLabel = pageMetaFor({ page, room, league })?.title || "";
+  const name = String(leagueName || "").trim();
+  if (loaded && name && pageLabel) return `${pageLabel} · ${name} — ${SITE_NAME}`;
+  if (loaded && name) return `${name} — ${SITE_NAME}`;
   if (loaded && pageLabel) return `${pageLabel} — ${SITE_NAME}`;
   return DEFAULT_TITLE;
 }
 
-export function buildPageDescription({ page = "", leagueName = "", loaded = false, room = "" } = {}) {
-  const pageMeta = pageMetaFor({ page, room });
-  const league = String(leagueName || "").trim();
-  if (loaded && league && pageMeta) return `${pageMeta.description} Now open: ${league}.`;
+export function buildPageDescription({ page = "", leagueName = "", loaded = false, room = "", league = null } = {}) {
+  const pageMeta = pageMetaFor({ page, room, league });
+  const name = String(leagueName || "").trim();
+  if (loaded && name && pageMeta) return `${pageMeta.description} Now open: ${name}.`;
   return pageMeta?.description || DEFAULT_DESCRIPTION;
 }
 
