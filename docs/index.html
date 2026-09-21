@@ -53,21 +53,22 @@
           <span class="sr-only">League controls</span>
         </button>
         <div class="mobile-chrome-copy">
-          <span class="brand-lockup brand-lockup--header">
+          <span class="brand-lockup brand-lockup--header" data-action="league-home" role="button" tabindex="0" title="League home">
             <img class="brand-wordmark brand-wordmark--light" src="./brand/wordmark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
             <img class="brand-wordmark brand-wordmark--dark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" aria-hidden="true" />
           </span>
-          <strong id="mobile-chrome-title">Your Sleeper league</strong>
+          <strong id="mobile-chrome-title" data-action="league-home" role="button" tabindex="0" title="League home">Your Sleeper league</strong>
         </div>
         <div class="mobile-chrome-actions">
           <button
             type="button"
-            id="mobile-share-btn"
+            id="mobile-home-btn"
             class="mobile-icon-btn hidden"
-            title="Copy a link to this league and team"
+            title="League home"
+            data-action="league-home"
           >
-            <span class="share-glyph" aria-hidden="true"></span>
-            <span class="sr-only">Copy league link</span>
+            <span class="home-glyph" aria-hidden="true"></span>
+            <span class="sr-only">League home</span>
           </button>
           <button
             type="button"
@@ -80,12 +81,12 @@
             <span class="sr-only" id="mobile-theme-label">Dark mode</span>
           </button>
         </div>
-        <span id="mobile-share-feedback" class="feedback-chip mobile-share-feedback hidden" role="status">Link copied</span>
+        <span id="mobile-home-feedback" class="feedback-chip mobile-share-feedback hidden" role="status">Home</span>
       </header>
       <div class="rail-backdrop" id="rail-backdrop" hidden></div>
       <aside class="control-rail" id="control-rail" aria-label="League controls">
         <div class="brand-panel">
-          <span class="brand-lockup brand-lockup--rail" aria-hidden="true">
+          <span class="brand-lockup brand-lockup--rail" data-action="league-home" role="button" tabindex="0" title="League home">
             <img class="brand-wordmark brand-wordmark--light" src="./brand/wordmark.svg" width="364" height="57" alt="" decoding="async" />
             <img class="brand-wordmark brand-wordmark--dark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" />
           </span>
@@ -163,21 +164,23 @@
         </section>
 
         <div class="rail-footer">
-          <button id="share-link-btn" type="button" class="ghost-btn hidden" title="Copy a link that opens this league and team">Copy league link</button>
+          <button id="home-btn" type="button" class="ghost-btn hidden" title="League home" data-action="league-home">
+            <span class="home-glyph" aria-hidden="true"></span>
+            <span class="sr-only">League home</span>
+          </button>
           <button id="theme-toggle-btn" type="button" class="ghost-btn" aria-pressed="true" title="Toggle light and dark theme">Dark mode</button>
-          <span id="share-link-feedback" class="feedback-chip hidden">Link copied</span>
         </div>
       </aside>
 
       <main class="workspace">
         <header class="workspace-header" id="workspace-header">
           <div class="league-hero">
-            <div class="league-avatar" id="league-avatar" aria-hidden="true">
+            <div class="league-avatar" id="league-avatar" data-action="league-home" role="button" tabindex="0" title="League home">
               <img class="league-mark" src="./brand/mark.svg" width="148" height="132" alt="" decoding="async" />
             </div>
             <div class="league-hero-copy">
               <span class="eyebrow" id="hero-eyebrow">Sleeper dynasty league</span>
-              <h1 id="hero-title">Your league. Pick a job.</h1>
+              <h1 id="hero-title" data-action="league-home" title="League home">Your league. Pick a job.</h1>
               <p class="workspace-lede" id="hero-lede">See this week, scout a roster, make a trade, or open league history.</p>
             </div>
           </div>
@@ -198,24 +201,21 @@
         </header>
 
         <div class="desk-nav hidden" id="desk-nav">
-          <nav class="workspace-tabs" id="page-tabs" role="tablist" aria-label="Desk pages">
+          <nav class="workspace-tabs" id="page-tabs" role="tablist" aria-label="League pages">
             <button id="league-tab" class="page-tab active" type="button" role="tab" aria-selected="true" aria-controls="league-page" tabindex="0" data-page="league">
-              <span class="tab-copy"><strong>League</strong><small>Scores, standings, awards</small></span>
+              <span class="tab-copy"><strong>League</strong><small>Scores, standings, history</small></span>
             </button>
             <button id="teams-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="teams-page" tabindex="-1" data-page="teams">
-              <span class="tab-copy"><strong>Teams</strong><small id="teams-tab-hint">Roster, mock, tank or contend</small></span>
+              <span class="tab-copy"><strong>Teams</strong><small id="teams-tab-hint">Roster, tank or contend, mock</small></span>
             </button>
             <button id="trades-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades">
-              <span class="tab-copy"><strong>Trades</strong><small>Calculator, partners, deals</small></span>
-            </button>
-            <button id="history-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="history-page" tabindex="-1" data-page="history">
-              <span class="tab-copy"><strong>History</strong><small>Titles, seasons, records</small></span>
+              <span class="tab-copy"><strong>Trades</strong><small>Calculator, two teams, deals</small></span>
             </button>
           </nav>
           <nav class="room-nav" id="room-nav" role="tablist" aria-label="Rooms on this page"></nav>
         </div>
 
-        <div id="ticker" class="ticker hidden" aria-label="League ticker">
+        <div id="ticker" class="ticker hidden" aria-label="League ticker" aria-pressed="false" title="Tap to pause or resume. Drag to scrub.">
           <span class="ticker-label">Live</span>
           <div class="ticker-viewport">
             <div class="ticker-track" id="ticker-track"></div>
@@ -240,13 +240,13 @@
                   <strong>Scout a team</strong>
                   <small>Lineup, tank or contend, who stayed</small>
                 </button>
-                <button type="button" class="desk-job" data-job="trade" data-page="trades" data-room="calculator" aria-pressed="false">
+                <button type="button" class="desk-job" data-job="trade" data-page="trades" data-room="value" aria-pressed="false">
                   <strong>Make a trade</strong>
                   <small>Calculator, find a partner, shop a player</small>
                 </button>
-                <button type="button" class="desk-job" data-job="history" data-page="history" data-room="hall" aria-pressed="false">
+                <button type="button" class="desk-job" data-job="history" data-page="league" data-room="history" aria-pressed="false">
                   <strong>League history</strong>
-                  <small>Titles, seasons, record book</small>
+                  <small>Last champion, titles, records</small>
                 </button>
               </div>
               <form id="landing-username-form" class="landing-search" novalidate>
@@ -279,7 +279,7 @@
               <div class="rather-panel landing-rather-pending">
                 <h2 id="rather-title">Who would you rather have?</h2>
                 <p class="rather-format" id="rather-format">PPR 12-man Superflex</p>
-                <p class="rather-format-detail" id="rather-format-detail">Desk Superflex ranks · full PPR scoring · 12-man league · Superflex QB</p>
+                <p class="rather-format-detail" id="rather-format-detail">Ticker Superflex ranks · full PPR scoring · 12-man league · Superflex QB</p>
                 <p class="muted">Loading a close matchup…</p>
               </div>
             </div>
@@ -302,8 +302,10 @@
           <div class="room hidden" data-room-panel="awards">
             <div id="awards-dashboard" class="dashboard"></div>
           </div>
-          <div class="room hidden" data-room-panel="recap">
-            <div id="recap-dashboard" class="dashboard"></div>
+          <div class="room hidden" data-room-panel="history">
+            <div id="history-dashboard" class="dashboard analytics-dashboard">
+              <p class="muted">Load a league to open league history.</p>
+            </div>
           </div>
         </div>
 
@@ -360,9 +362,6 @@
               <div id="weekly-help-layer-host"></div>
             </section>
           </div>
-          <div class="room hidden" data-room-panel="mock">
-            <div id="mock-dashboard" class="dashboard mock-dashboard"></div>
-          </div>
           <div class="room hidden" data-room-panel="call">
             <div id="window-call-dashboard" class="window-call-dashboard"></div>
           </div>
@@ -372,10 +371,13 @@
           <div class="room hidden" data-room-panel="passports">
             <div id="passport-dashboard" class="dashboard"></div>
           </div>
+          <div class="room hidden" data-room-panel="mock">
+            <div id="mock-dashboard" class="dashboard mock-dashboard"></div>
+          </div>
         </div>
 
         <div id="trades-page" class="workspace-page app-page hidden" role="tabpanel" aria-labelledby="trades-tab">
-          <div class="room" data-room-panel="log">
+          <div class="room hidden" data-room-panel="log">
             <div id="trade-log-dashboard" class="dashboard"></div>
           </div>
 
@@ -403,6 +405,12 @@
             </section>
             <section class="workspace-panel results-shell" id="trade-match-results">
               <div id="trade-match-dashboard" class="trade-match-dashboard"></div>
+            </section>
+          </div>
+
+          <div class="room" data-room-panel="value">
+            <section class="workspace-panel" id="value-calculator-section">
+              <div id="value-calculator-shell" class="calculator-shell"></div>
             </section>
           </div>
 
@@ -481,20 +489,6 @@
               </div>
               <div id="results-list"></div>
             </section>
-          </div>
-        </div>
-
-        <div id="history-page" class="workspace-page app-page hidden" role="tabpanel" aria-labelledby="history-tab">
-          <div class="room" data-room-panel="hall">
-            <div id="hall-dashboard" class="dashboard analytics-dashboard">
-              <p class="muted">Load a league and choose a team to open the hall.</p>
-            </div>
-          </div>
-          <div class="room hidden" data-room-panel="seasons">
-            <div id="seasons-dashboard" class="dashboard analytics-dashboard"></div>
-          </div>
-          <div class="room hidden" data-room-panel="records">
-            <div id="records-dashboard" class="dashboard"></div>
           </div>
         </div>
       </main>

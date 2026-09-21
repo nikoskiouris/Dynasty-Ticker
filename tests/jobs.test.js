@@ -28,7 +28,7 @@ test("desk jobs map to real rooms and stay unique", () => {
   }
   assert.equal(DESK_JOBS.length, 4);
   assert.equal(jobById("week")?.room, "scores");
-  assert.equal(jobById("trade")?.room, "calculator");
+  assert.equal(jobById("trade")?.room, "value");
   assert.equal(jobById("match")?.page, "trades");
   assert.equal(jobById("missing"), null);
   assert.equal(jobById("lab", { includeMore: false }), null);

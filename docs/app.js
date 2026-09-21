@@ -11,7 +11,6 @@ import {
   blendSimPrior,
   scoreUpcomingWeekAngles,
 } from "./modules/season.js";
-import { buildRecap, RECAP_TONES, resolveSeasonStartDate, selectRecapTrades } from "./modules/recap.js";
 import {
   SLEEPER_AVATAR_BASE,
   PLAYERS_CACHE_TTL_MS,
@@ -20,6 +19,7 @@ import {
   PAGE_LABELS,
   DEFAULT_PAGE,
   DEFAULT_ROOMS,
+  HOME_ROOM,
   ROOM_LABELS,
   DEFAULT_FAIRNESS_PCT,
   DEFAULT_MAX_RESULTS,
@@ -36,6 +36,7 @@ import {
   LIVE_POLL_INTERVAL_MS,
   LIVE_SIM_REFRESH_MS,
   MATCHUP_FETCH_CHUNK,
+  LEAGUE_HISTORY_RECORD_IDS,
 } from "./modules/constants.js";
 import { state, sleeper, THEME_STORAGE_KEY, PLAYERS_CACHE_KEY, DEFAULT_THEME, THEME_COLORS } from "./modules/state.js";
 import { apiGet, apiGetWithRetry, fetchUserLeagues, mapInChunks } from "./modules/sleeper.js";
@@ -98,8 +99,20 @@ import {
   writeApplyLeagueBoard,
 } from "./modules/league-board.js";
 import { createLivePoller, shouldPollLive, shouldRefreshSim, weekRowsFingerprint } from "./modules/live.js";
-import { buildRecapCardModel, drawRecapCard, renderRecapCardBlob, recapCardFilename } from "./modules/recap-card.js";
 import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, clamp, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
+import {
+  addValueCalcItem,
+  clearValueCalcSides,
+  emptyValueCalcState,
+  groupGenericPicks,
+  listGenericPicks,
+  listValueCalcPlayers,
+  removeValueCalcItem,
+  sumValueCalcSide,
+  valueCalcVerdict,
+} from "./modules/value-calc.js";
+import { bindTicker } from "./modules/ticker-scrub.js";
+import { leagueHistoryRecords, pickLatestCrown } from "./modules/league-crown.js";
 import { jobById, landingSearchHint, renderDeskJobsMarkup, deskJobsForLeague } from "./modules/jobs.js";
 import {
   buildTradeMatchProfile,
@@ -322,9 +335,7 @@ const el = {
   roomNav: document.querySelector("#room-nav"),
   powerSection: document.querySelector("#power-section"),
   powerDashboard: document.querySelector("#power-dashboard"),
-  hallDashboard: document.querySelector("#hall-dashboard"),
-  seasonsDashboard: document.querySelector("#seasons-dashboard"),
-  recordsDashboard: document.querySelector("#records-dashboard"),
+  historyDashboard: document.querySelector("#history-dashboard"),
   playerSection: document.querySelector("#player-section"),
   tradeModeSelect: document.querySelector("#trade-mode-select"),
   modeCards: document.querySelectorAll("[data-trade-mode]"),
@@ -356,7 +367,6 @@ const el = {
   weeklyHelpBtn: document.querySelector("#weekly-help-btn"),
   weeklyHelpLayerHost: document.querySelector("#weekly-help-layer-host"),
   awardsDashboard: document.querySelector("#awards-dashboard"),
-  recapDashboard: document.querySelector("#recap-dashboard"),
   loyaltyDashboard: document.querySelector("#loyalty-dashboard"),
   windowCallDashboard: document.querySelector("#window-call-dashboard"),
   passportDashboard: document.querySelector("#passport-dashboard"),
@@ -371,9 +381,9 @@ const el = {
   tickerTrack: document.querySelector("#ticker-track"),
   calculatorSection: document.querySelector("#calculator-section"),
   calculatorShell: document.querySelector("#calculator-shell"),
+  valueCalculatorShell: document.querySelector("#value-calculator-shell"),
   themeToggleBtn: document.querySelector("#theme-toggle-btn"),
-  shareLinkBtn: document.querySelector("#share-link-btn"),
-  shareLinkFeedback: document.querySelector("#share-link-feedback"),
+  homeBtn: document.querySelector("#home-btn"),
   landingFindBtn: document.querySelector("#landing-find-btn"),
   landingUsername: document.querySelector("#landing-username"),
   landingUsernameForm: document.querySelector("#landing-username-form"),
@@ -395,8 +405,7 @@ const el = {
   mobileThemeBtn: document.querySelector("#mobile-theme-btn"),
   mobileThemeIcon: document.querySelector("#mobile-theme-icon"),
   mobileThemeLabel: document.querySelector("#mobile-theme-label"),
-  mobileShareBtn: document.querySelector("#mobile-share-btn"),
-  mobileShareFeedback: document.querySelector("#mobile-share-feedback"),
+  mobileHomeBtn: document.querySelector("#mobile-home-btn"),
   railBackdrop: document.querySelector("#rail-backdrop"),
   controlRail: document.querySelector("#control-rail"),
   heroTitle: document.querySelector("#hero-title"),
@@ -408,8 +417,9 @@ const el = {
 let leagueLoadPromise = null;
 let leagueLoadAnimationTimer = null;
 let leagueLoadStartedAt = 0;
-let shareFeedbackTimer = null;
 let livePoller = null;
+let tickerController = null;
+let tickerFingerprint = "";
 let liveVisibilityBound = false;
 let userSearchPromise = null;
 let lastSimSignature = "";
@@ -492,7 +502,6 @@ el.roomNav?.addEventListener("keydown", handleRoomTabKeydown);
 el.pageTabs?.addEventListener("keydown", handlePageTabKeydown);
 el.themeToggleBtn?.addEventListener("click", () => applyTheme(state.theme === "dark" ? "light" : "dark"));
 el.mobileThemeBtn?.addEventListener("click", () => applyTheme(state.theme === "dark" ? "light" : "dark"));
-el.mobileShareBtn?.addEventListener("click", copyShareLink);
 el.mobileRailToggle?.addEventListener("click", () => {
   const nextOpen = !document.body.classList.contains("rail-open");
   setMobileRailOpen(nextOpen);
@@ -515,10 +524,22 @@ document.addEventListener("keydown", (event) => {
   }
 });
 el.landingRather?.addEventListener("click", handleLandingRatherClick);
+document.addEventListener("click", (event) => {
+  const home = event.target.closest("[data-action='league-home']");
+  if (!home) return;
+  event.preventDefault();
+  goLeagueHome();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const home = event.target.closest("[data-action='league-home']");
+  if (!home || event.target !== home) return;
+  event.preventDefault();
+  goLeagueHome();
+});
 window.matchMedia(PHONE_LAYOUT_QUERY).addEventListener("change", () => {
   setMobileRailOpen(false);
 });
-el.shareLinkBtn?.addEventListener("click", copyShareLink);
 el.landingUsernameForm?.addEventListener("submit", requestFindLeagues);
 el.stickyFindBtn?.addEventListener("click", focusUsernameSearch);
 el.sleeperUsername?.addEventListener("input", () => {
@@ -599,7 +620,7 @@ watchLandingSearchVisibility();
 syncSiteDock();
 
 // ---------------------------------------------------------------------------
-// Desk navigation: four pages, each with a row of rooms
+// Desk navigation: three pages, each with a row of rooms
 // ---------------------------------------------------------------------------
 
 function visibleRooms(page) {
@@ -652,8 +673,8 @@ function invalidateResults() {
 
 function showAppPages() {
   el.deskNav?.classList.remove("hidden");
-  el.shareLinkBtn?.classList.remove("hidden");
-  el.mobileShareBtn?.classList.remove("hidden");
+  el.homeBtn?.classList.remove("hidden");
+  el.mobileHomeBtn?.classList.remove("hidden");
   const pending = state.pendingPlace;
   state.pendingPlace = null;
   state.pendingJobId = "";
@@ -665,9 +686,12 @@ function showAppPages() {
 
 function hideAppPages() {
   el.deskNav?.classList.add("hidden");
-  el.shareLinkBtn?.classList.add("hidden");
-  el.mobileShareBtn?.classList.add("hidden");
+  el.homeBtn?.classList.add("hidden");
+  el.mobileHomeBtn?.classList.add("hidden");
   el.ticker?.classList.add("hidden");
+  tickerController?.destroy();
+  tickerController = null;
+  tickerFingerprint = "";
   PAGE_IDS.forEach((page) => {
     const pageEl = el.pages[page];
     pageEl?.classList.add("hidden");
@@ -746,9 +770,6 @@ function renderActivePage() {
     case "trades":
       renderTradesRoom(room);
       break;
-    case "history":
-      renderHistoryRoom(room);
-      break;
     default:
       renderLeagueRoom(room);
   }
@@ -769,8 +790,8 @@ function renderLeagueRoom(room) {
     case "awards":
       renderAwardsPage();
       break;
-    case "recap":
-      renderRecapPage();
+    case "history":
+      renderLeagueHistoryRoom();
       break;
     default:
       renderScoresRoom();
@@ -802,6 +823,9 @@ function renderTradesRoom(room) {
     case "calculator":
       renderCalculator();
       break;
+    case "value":
+      renderValueCalculator();
+      break;
     case "match":
       renderTradeMatchRoom();
       break;
@@ -812,17 +836,8 @@ function renderTradesRoom(room) {
   }
 }
 
-function renderHistoryRoom(room) {
-  switch (room) {
-    case "seasons":
-      renderSeasonsRoom();
-      break;
-    case "records":
-      renderRecordsRoom();
-      break;
-    default:
-      renderHallRoom();
-  }
+function renderHistoryRoom() {
+  renderLeagueHistoryRoom();
 }
 
 function readStoredTheme() {
@@ -858,15 +873,6 @@ function applyTheme(theme, { persist = true } = {}) {
     } catch {
       // Non-fatal.
     }
-  }
-  const recapCanvas = document.querySelector("#recap-card-canvas");
-  const recapCtx = recapCanvas?.getContext("2d");
-  if (recapCtx && state.recapCardModel) {
-    drawRecapCard(recapCtx, state.recapCardModel, {
-      width: recapCanvas.width,
-      height: recapCanvas.height,
-      theme: nextTheme,
-    });
   }
 }
 
@@ -965,11 +971,9 @@ function applyDeskPopState(historyState) {
 function buildShareUrl(overrides = {}) {
   const page = normalizeDeskTab(overrides.tab) || state.activePage;
   const room = overrides.view || getRoom(page);
-  const week = room === "recap"
-    ? state.recapWeek || state.homeWeek
-    : room === "awards"
-      ? state.awardsWeek || state.homeWeek
-      : state.homeWeek;
+  const week = room === "awards"
+    ? state.awardsWeek || state.homeWeek
+    : state.homeWeek;
   return buildShareUrlFromParts({
     origin: window.location.origin,
     pathname: window.location.pathname,
@@ -978,24 +982,12 @@ function buildShareUrl(overrides = {}) {
     tab: page,
     view: room,
     week: overrides.week ?? week,
-    tone: overrides.tone || state.recapTone || "",
   });
 }
 
-async function copyShareLink() {
+function goLeagueHome() {
   if (!state.leagueId) return;
-  const copied = await copyTextToClipboard(buildShareUrl());
-  const message = copied ? "Link copied" : "Copy failed";
-  [el.shareLinkFeedback, el.mobileShareFeedback].forEach((chip) => {
-    if (!chip) return;
-    chip.textContent = message;
-    chip.classList.remove("hidden");
-  });
-  clearTimeout(shareFeedbackTimer);
-  shareFeedbackTimer = setTimeout(() => {
-    el.shareLinkFeedback?.classList.add("hidden");
-    el.mobileShareFeedback?.classList.add("hidden");
-  }, 1600);
+  openRoom("league", HOME_ROOM);
 }
 
 function getTradeMode() {
@@ -1069,7 +1061,7 @@ function isReadyToGenerate() {
 function getGenerateHelpText() {
   if (!state.meRosterId) return "Load a league and choose your team first.";
   const mode = getTradeMode();
-  if (mode === "calculator") return "Pick a partner and tap assets on both sides. The desk grades the deal live.";
+  if (mode === "calculator") return "Pick a partner and tap assets on both sides. The ticker grades the deal live.";
   if (mode === "surprise") return "Ready. The app will find a three-team blockbuster.";
   if (mode === "shop") {
     return state.shopAsset
@@ -1179,7 +1171,8 @@ function renderLeagueHero() {
   const seasonLabel = `${league.season} season`;
   const trophy = String(league?.metadata?.trophy_winner_banner_text || "").trim();
   const pageLabel = PAGE_LABELS[state.activePage] || "League";
-  const roomLabel = roomLabelFor(state.activePage, getRoom(), league);
+  const room = getRoom();
+  const roomLabel = room === HOME_ROOM ? "" : roomLabelFor(state.activePage, room, league);
   el.heroEyebrow.textContent = `${pageLabel}${roomLabel ? ` / ${roomLabel}` : ""} · ${seasonLabel} · ${state.normalizedRosters.length} teams · ${model?.playoffTeams || league?.settings?.playoff_teams || "?"} playoff spots`;
   el.heroTitle.textContent = state.leagueName;
   const status = model?.seasonComplete
@@ -1528,12 +1521,12 @@ async function runLeagueLoad(leagueId) {
     }
     state.homeWeek = null;
     state.awardsWeek = null;
-    state.recapWeek = null;
     state.selectedTradeId = "";
     state.selectedTradeManagerKey = "";
     leagueTradeSideCache = { key: "", sides: [] };
     state.standingsView = "overall";
     resetCalculatorState({ keepPartner: false });
+    state.valueCalc = emptyValueCalcState();
     clearTradeMatchCache();
     state.weeklyValue = emptyWeeklyValueState();
     if (el.playerSearch) el.playerSearch.value = "";
@@ -1584,12 +1577,7 @@ async function runLeagueLoad(leagueId) {
     if (state.pendingWeek) {
       state.homeWeek = state.pendingWeek;
       state.awardsWeek = state.pendingWeek;
-      state.recapWeek = state.pendingWeek;
       state.pendingWeek = null;
-    }
-    if (state.pendingTone && RECAP_TONES.some((item) => item.id === state.pendingTone)) {
-      state.recapTone = state.pendingTone;
-      state.pendingTone = "";
     }
     showAppPages();
     scrollLoadedWorkspaceIntoView();
@@ -2545,7 +2533,7 @@ function getLensRoster() {
   return getMyRoster();
 }
 
-// The lens is the roster the desk is "viewing" on Teams and the trade log.
+// The lens is the roster the app is viewing on Teams and the trade log.
 // Null means "follow my team", so switching identity also resets the lens.
 function setLensRoster(rosterId) {
   const next = Number(rosterId);
@@ -2964,15 +2952,15 @@ function renderPulseStrip(model, sim, profiles) {
     },
     {
       label: champion ? "Champion" : "Title favorite",
-      page: champion ? "history" : "league",
-      room: champion ? "hall" : "standings",
+      page: champion ? "league" : "league",
+      room: champion ? "history" : "standings",
       value: champion ? champion.managerName : favorite?.name || "TBD",
       detail: champion ? `${model.season} league winner` : favorite ? `${percentLabel(favorite.titlePct)} title · ${percentLabel(favorite.playoffPct)} playoffs` : "simulation pending",
       tone: "green",
     },
     myCall
       ? {
-        label: "Desk call",
+        label: "Ticker call",
         page: "teams",
         room: "call",
         value: myCall.shortLabel,
@@ -2997,7 +2985,7 @@ function renderPulseStrip(model, sim, profiles) {
         tone: "gold",
       }
       : {
-        label: "Trade desk",
+        label: "Trade board",
         page: "trades",
         room: "log",
         value: state.transactionsLoaded ? `${tradeCount} trade${tradeCount === 1 ? "" : "s"}` : "Syncing",
@@ -3055,7 +3043,7 @@ function renderScoreboardPanel(model, sim) {
   const nextWeek = index >= 0 && index < weeksWithGames.length - 1 ? weeksWithGames[index + 1] : null;
   const distributions = sim?.distributions || buildTeamDistributions(model, buildSimPriors(model));
   const caption = entry.status === "final"
-    ? "Final scores. Win probability shown is what the desk had before kickoff."
+    ? "Final scores. Win probability shown is what the ticker had before kickoff."
     : entry.status === "live"
       ? "Live scores from Sleeper. Probabilities are pre-game, from each roster's scoring profile."
       : "Pre-game win probability from each roster's scoring profile and simulated priors.";
@@ -3353,7 +3341,7 @@ function renderTeamsPage() {
 
 function syncLeagueFormatCopy() {
   const teamsHint = document.querySelector("#teams-tab-hint");
-  if (teamsHint) teamsHint.textContent = pageHintForLeague("teams", state.league) || "Roster, mock, tank or contend";
+  if (teamsHint) teamsHint.textContent = pageHintForLeague("teams", state.league) || "Roster, tank or contend, mock";
   const gridCopy = document.querySelector("#teams-grid-copy");
   if (gridCopy) {
     gridCopy.textContent = leagueTypeId(state.league) === "redraft"
@@ -3934,8 +3922,8 @@ function renderWindowCallDashboard() {
         <p class="muted">${
           state.playerMetadataFailed
             ? (seasonCall
-              ? "Need positions before the desk can make an in-it / bubble / out call."
-              : "Need positions and ages before the desk can make a tank / all-in / middle call.")
+              ? "Need positions before the ticker can make an in-it / bubble / out call."
+              : "Need positions and ages before the ticker can make a tank / all-in / middle call.")
             : (seasonCall
               ? "Waiting on Sleeper positions so the call is not a coin flip."
               : "Waiting on Sleeper positions, ages, and pick data so the call is not a coin flip.")
@@ -3999,7 +3987,7 @@ function renderWindowCallDashboard() {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">Next moves</span>
-          <h2>What the desk wants</h2>
+          <h2>What the ticker wants</h2>
         </div>
         <p class="section-copy">${
           season
@@ -4396,7 +4384,7 @@ function renderPassportDesk() {
   if (!host) return;
   const roster = getLensRoster();
   if (!roster) {
-    host.innerHTML = `<p class="muted">Choose a team to stamp player passports.</p>`;
+    host.innerHTML = `<p class="muted">Choose a team to open player passports.</p>`;
     return;
   }
 
@@ -4411,9 +4399,9 @@ function renderPassportDesk() {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">Passport control</span>
-          <h2>${other ? `${escapeHtml(roster.manager.displayName)}'s career stamps` : "Career stamps"}</h2>
+          <h2>${other ? `${escapeHtml(roster.manager.displayName)}'s player passport` : "Player passport"}</h2>
         </div>
-        <p class="section-copy">One passport per player on this roster, plus league journeymen. Origin is the first desk that held them; Now is who has them this season.</p>
+        <p class="section-copy">One passport per player on this roster, plus league journeymen. Origin is the first roster that held them; Now is who has them this season.</p>
       </div>
       ${passports.map((row) => renderPassportPage(row, { myManagerKey: managerKey, currentSeason })).join("") || `<p class="muted small">Need roster history to stamp passports.</p>`}
     </section>
@@ -4814,9 +4802,9 @@ function renderAwardsPage() {
         <strong>Luck index</strong>
         <span>Who the schedule loves, next to the standings.</span>
       </button>
-      <button type="button" class="room-link" data-action="go" data-page="history" data-room="records">
-        <strong>Record book</strong>
-        <span>All-time marks live in History.</span>
+      <button type="button" class="room-link" data-action="go" data-page="league" data-room="history">
+        <strong>League history</strong>
+        <span>Last champion, titles, and a few records.</span>
       </button>
     </div>
   `;
@@ -4916,180 +4904,6 @@ function avatarForManagerKey(managerKey) {
   const user = state.users.find((entry) => String(entry.user_id) === userId)
     || state.leagueHistory.flatMap((entry) => entry.users || []).find((entry) => String(entry.user_id) === userId);
   return user?.avatar || null;
-}
-
-// ---------------------------------------------------------------------------
-// Recap
-// ---------------------------------------------------------------------------
-
-function renderRecapPage() {
-  if (!el.recapDashboard) return;
-  if (!state.league || state.normalizedRosters.length === 0) {
-    el.recapDashboard.innerHTML = `<p class="muted">Load a league to write the recap.</p>`;
-    return;
-  }
-  const model = getSeasonModel();
-  const weeksWithPoints = model.weeks.filter((entry) => entry.hasPoints);
-  const requested = state.recapWeek != null ? weeksWithPoints.find((entry) => entry.week === Number(state.recapWeek)) : null;
-  const weekEntry = requested || model.featuredWeek || weeksWithPoints[weeksWithPoints.length - 1] || null;
-  const tone = RECAP_TONES.some((item) => item.id === state.recapTone) ? state.recapTone : "desk";
-  let text = "";
-  let weekly = null;
-  if (weekEntry) {
-    weekly = computeWeeklyAwards(model, weekEntry.week, {
-      playerName: playerNameById,
-      playerPosition: playerPositionById,
-      optimalPoints: state.playerMetadataLoaded ? computeOptimalPointsForSide : null,
-    });
-    text = buildRecap({
-      leagueName: state.leagueName,
-      model,
-      week: weekEntry.week,
-      awards: weekly.awards,
-      games: weekly.games,
-      provisional: weekly.provisional,
-      sim: getSimulation(model),
-      trades: buildRecapTradeLines(weekEntry.week),
-      tone,
-    });
-  }
-  el.recapDashboard.innerHTML = `
-    <section class="workspace-panel recap-panel">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">Weekly Recap</span>
-          <h2>Group-chat ready</h2>
-        </div>
-        <p class="section-copy">Scores, honors, standings, playoff odds, and the trade desk in one paste. Copy text, save an image card, or send the dynastyticker.com link.</p>
-      </div>
-      <div class="recap-controls">
-        <label class="recap-control">
-          <span>Week</span>
-          <select data-change="recap-week" ${weeksWithPoints.length === 0 ? "disabled" : ""}>
-            ${weeksWithPoints.length === 0 ? `<option>No scores yet</option>` : weeksWithPoints.map((entry) => `<option value="${entry.week}" ${weekEntry && entry.week === weekEntry.week ? "selected" : ""}>${escapeHtml(entry.label)}${entry.isFinal ? "" : " (live)"}</option>`).join("")}
-          </select>
-        </label>
-        <div class="recap-control">
-          <span>Voice</span>
-          <div class="segmented">
-            ${RECAP_TONES.map((item) => `<button type="button" class="${item.id === tone ? "active" : ""}" data-action="recap-tone" data-tone="${item.id}" title="${escapeHtml(item.description)}">${escapeHtml(item.label)}</button>`).join("")}
-          </div>
-        </div>
-        <button type="button" class="recap-copy" data-action="copy-recap" ${text ? "" : "disabled"}>Copy recap</button>
-        <button type="button" class="ghost-btn recap-copy" data-action="copy-recap-link" ${weekEntry ? "" : "disabled"}>Copy recap link</button>
-        <button type="button" class="recap-copy" data-action="save-recap-card" ${weekEntry ? "" : "disabled"}>Save image card</button>
-        <span id="recap-copy-feedback" class="feedback-chip hidden">Copied</span>
-      </div>
-      <div class="recap-card-preview ${weekEntry ? "" : "hidden"}">
-        <canvas id="recap-card-canvas" width="1080" height="1350" aria-label="Recap image card"></canvas>
-      </div>
-      ${text
-        ? `<textarea id="recap-text" class="recap-text" readonly rows="${Math.min(40, text.split("\n").length + 1)}">${escapeHtml(text)}</textarea>`
-        : `<p class="muted analytics-empty">${state.seasonLoaded ? "No scores yet this season. The recap writes itself once games are posted." : "Syncing matchups from Sleeper…"}</p>`}
-    </section>
-  `;
-  if (weekEntry && weekly) paintRecapCard(weekEntry, model, weekly);
-}
-
-function recapFeedback(message) {
-  const feedback = document.querySelector("#recap-copy-feedback");
-  if (!feedback) return;
-  feedback.textContent = message;
-  feedback.classList.remove("hidden");
-  setTimeout(() => feedback.classList.add("hidden"), 1800);
-}
-
-function currentRecapCardModel(weekEntry, model, weekly) {
-  const favorite = getSimulation(model)?.results?.[0] || null;
-  return buildRecapCardModel({
-    leagueName: state.leagueName,
-    weekLabel: weekEntry.label,
-    provisional: weekly.provisional,
-    games: weekly.games,
-    awards: weekly.awards,
-    favorite: favorite
-      ? { name: favorite.name, detail: `${percentLabel(favorite.titlePct)} title · ${percentLabel(favorite.playoffPct)} playoffs` }
-      : null,
-    url: buildShareUrl({ tab: "league", view: "recap", week: weekEntry.week, tone: state.recapTone }),
-  });
-}
-
-function paintRecapCard(weekEntry, model, weekly) {
-  const canvas = document.querySelector("#recap-card-canvas");
-  const ctx = canvas?.getContext("2d");
-  if (!ctx) return;
-  const card = currentRecapCardModel(weekEntry, model, weekly);
-  drawRecapCard(ctx, card, { width: canvas.width, height: canvas.height, theme: state.theme });
-  state.recapCardModel = card;
-}
-
-function recapShareUrl() {
-  const model = getSeasonModel();
-  const week = state.recapWeek || model?.featuredWeek?.week || model?.currentWeek;
-  return buildShareUrl({ tab: "league", view: "recap", week, tone: state.recapTone });
-}
-
-async function copyRecapLink() {
-  const copied = await copyTextToClipboard(recapShareUrl());
-  recapFeedback(copied ? "Link copied" : "Copy failed");
-}
-
-async function saveRecapCard() {
-  const model = getSeasonModel();
-  const weekEntry = model?.weeks?.find((entry) => entry.week === Number(state.recapWeek))
-    || model?.featuredWeek
-    || model?.weeks?.find((entry) => entry.hasPoints);
-  if (!weekEntry) return;
-  const weekly = computeWeeklyAwards(model, weekEntry.week, {
-    playerName: playerNameById,
-    playerPosition: playerPositionById,
-    optimalPoints: state.playerMetadataLoaded ? computeOptimalPointsForSide : null,
-  });
-  const card = currentRecapCardModel(weekEntry, model, weekly);
-  try {
-    const blob = await renderRecapCardBlob(card, { theme: state.theme });
-    const file = new File([blob], recapCardFilename(card), { type: "image/png" });
-    if (navigator.canShare?.({ files: [file] }) && navigator.share) {
-      await navigator.share({
-        title: `${state.leagueName} recap`,
-        text: card.kicker,
-        url: card.url,
-        files: [file],
-      });
-      recapFeedback("Shared");
-      return;
-    }
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = recapCardFilename(card);
-    link.click();
-    URL.revokeObjectURL(url);
-    recapFeedback("Card saved");
-  } catch (err) {
-    recapFeedback(err?.name === "AbortError" ? "Share canceled" : "Card failed");
-  }
-}
-
-function buildRecapTradeLines(week) {
-  return selectRecapTrades(state.transactions, {
-    week,
-    seasonStartDate: resolveSeasonStartDate(state.league, state.nflState),
-  }).map((transaction) => {
-    const summary = buildRecentTradeSummary(transaction);
-    return `${summary.title}: ${summary.preview}`;
-  });
-}
-
-async function copyRecapText() {
-  const textarea = document.querySelector("#recap-text");
-  const feedback = document.querySelector("#recap-copy-feedback");
-  if (!textarea) return;
-  const copied = await copyTextToClipboard(textarea.value);
-  if (!feedback) return;
-  feedback.textContent = copied ? "Copied" : "Copy failed";
-  feedback.classList.remove("hidden");
-  setTimeout(() => feedback.classList.add("hidden"), 1600);
 }
 
 // ---------------------------------------------------------------------------
@@ -5250,7 +5064,7 @@ function renderCalculatorVerdict(me, partner) {
   const myAssets = calcAssetsFor(me, "my");
   const theirAssets = calcAssetsFor(partner, "their");
   if (myAssets.length === 0 && theirAssets.length === 0) {
-    return `<p class="muted calc-hint">Add at least one asset to each side and the desk grades the deal: value balance, the piece that evens it up, power-score swing, and lineup impact for both rosters.</p>`;
+    return `<p class="muted calc-hint">Add at least one asset to each side and the ticker grades the deal: value balance, the piece that evens it up, power-score swing, and lineup impact for both rosters.</p>`;
   }
   if (Object.keys(state.values).length === 0) {
     return `<p class="muted calc-hint">Valuation data is still loading…</p>`;
@@ -5263,7 +5077,7 @@ function renderCalculatorVerdict(me, partner) {
     return `
       <section class="calc-summary">
         <div class="calc-summary-main">
-          <span class="analytics-kicker">Desk verdict</span>
+          <span class="analytics-kicker">Ticker verdict</span>
           <h3>Add the other side</h3>
           <p>One side is empty, so this is a gift, not a trade.</p>
         </div>
@@ -5310,7 +5124,7 @@ function renderCalculatorVerdict(me, partner) {
   return `
     <section class="calc-summary ${verdictClass}">
       <div class="calc-summary-main">
-        <span class="analytics-kicker">Desk verdict</span>
+        <span class="analytics-kicker">Ticker verdict</span>
         <h3>${escapeHtml(verdictLabel)}</h3>
         <p>Adjusted value: you send ${formatNumber(idea.myAdjustedValue)}, you receive ${formatNumber(idea.theirAdjustedValue)} (${pct}% apart). Consolidation premium ${idea.packageAdjustment ? `${formatNumber(idea.packageAdjustment)} on ${idea.packageAdjustmentSide === "my" ? "your" : "their"} side` : "not needed"}.</p>
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenSide)} add${evenSide === "You" ? "" : "s"} roughly ${formatNumber(Math.round(Math.abs(gap)))} in value, about a ${escapeHtml(evenUp.name)} (${formatNumber(evenUp.value)}).</p>` : ""}
@@ -5340,7 +5154,7 @@ function renderCalculatorVerdict(me, partner) {
 
 function buildOfferText(me, partner, myAssets, theirAssets, idea, verdictLabel) {
   const list = (assets) => assets.map((asset) => `${asset.name} (${formatNumber(getAssetValue(asset, state.values))})`).join(", ") || "nothing";
-  return `Trade proposal: ${me.manager.displayName} sends ${list(myAssets)} to ${partner.manager.displayName} for ${list(theirAssets)}. Adjusted value ${formatNumber(idea.myAdjustedValue)} vs ${formatNumber(idea.theirAdjustedValue)} (${idea.pctDiff}% apart). Desk verdict: ${verdictLabel}.`;
+  return `Trade proposal: ${me.manager.displayName} sends ${list(myAssets)} to ${partner.manager.displayName} for ${list(theirAssets)}. Adjusted value ${formatNumber(idea.myAdjustedValue)} vs ${formatNumber(idea.theirAdjustedValue)} (${idea.pctDiff}% apart). Ticker verdict: ${verdictLabel}.`;
 }
 
 function refreshCalculatorLists() {
@@ -5385,6 +5199,175 @@ function openCalculatorWith(rosterId) {
   openRoom("trades", "calculator");
 }
 
+function addValueCalcAsset(side, assetId, name, value, kind) {
+  if (!assetId) return;
+  const asset = {
+    assetId,
+    name: name || assetId,
+    value: Number(value) || 0,
+    assetType: kind === "pick" || String(assetId).startsWith("pick:") ? "pick" : "player",
+  };
+  state.valueCalc = addValueCalcItem(state.valueCalc, side, asset);
+  renderValueCalculator();
+}
+
+function renderValueCalculator() {
+  const host = el.valueCalculatorShell;
+  if (!host) return;
+  if (Object.keys(state.values).length === 0) {
+    host.innerHTML = `<p class="muted">Values are still loading. The blank calculator uses market prices, not a specific roster.</p>`;
+    return;
+  }
+  const leftTotal = Math.round(sumValueCalcSide(state.valueCalc.left));
+  const rightTotal = Math.round(sumValueCalcSide(state.valueCalc.right));
+  const picks = groupGenericPicks(listGenericPicks(state.values, state.valueNameMap));
+  host.innerHTML = `
+    ${renderValueBoardBar({
+      applied: state.applyLeagueBoard,
+      ready: Boolean(state.leagueBoard?.ready),
+      marketHint: marketBoardHint(),
+    })}
+    <div class="panel-heading calc-heading">
+      <div>
+        <span class="eyebrow">Trade Calculator</span>
+        <h2>Any assets</h2>
+      </div>
+      <p class="section-copy">Search any player. Throw in early, middle, or late picks. Not tied to two rosters.</p>
+    </div>
+    <div class="calc-grid">
+      ${renderValueCalcPane("left", "Give", picks)}
+      ${renderValueCalcPane("right", "Get", picks)}
+    </div>
+    <div id="value-calc-verdict" class="calc-verdict">${renderValueCalculatorVerdict(leftTotal, rightTotal)}</div>
+  `;
+}
+
+function renderValueCalcPane(side, label, pickYears) {
+  const selected = state.valueCalc[side] || [];
+  const total = Math.round(sumValueCalcSide(selected));
+  const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
+  return `
+    <section class="calc-pane ${side === "left" ? "team-a" : "team-b"}">
+      <header class="calc-pane-head">
+        <div>
+          <span class="analytics-kicker">${escapeHtml(label)}</span>
+          <strong>${escapeHtml(label)}</strong>
+        </div>
+        <div class="calc-pane-total">
+          <strong>${formatNumber(total)}</strong>
+          <small>${selected.length} asset${selected.length === 1 ? "" : "s"}</small>
+        </div>
+      </header>
+      <div class="calc-selected">
+        ${selected.length
+          ? selected.map((item) => `
+            <button type="button" class="selected-token" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" title="Remove">
+              <span class="selected-token-label">${escapeHtml(item.name)}</span>
+              <span class="selected-token-remove" aria-hidden="true">×</span>
+            </button>
+          `).join("")
+          : `<span class="muted small">Search a player or tap an early / middle / late pick.</span>`}
+      </div>
+      <input type="search" class="calc-search" placeholder="Search any player" value="${escapeHtml(query)}" data-input="value-search" data-side="${side}" />
+      <div class="calc-list" id="value-list-${side}">${renderValueCalcPlayerList(side)}</div>
+      ${renderValueCalcPickBoard(side, pickYears)}
+    </section>
+  `;
+}
+
+function renderValueCalcPlayerList(side) {
+  const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
+  const players = listValueCalcPlayers(state.values, state.valueNameMap, { query, limit: query.trim() ? 40 : 12 });
+  if (!query.trim()) {
+    return `<div class="player-item muted">Type a name, or use the pick buttons below.</div>`;
+  }
+  if (players.length === 0) return `<div class="player-item muted">No matching players.</div>`;
+  return players.map((player) => `
+    <div class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(player.assetId)}" data-name="${escapeHtml(player.name)}" data-value="${player.value}" data-kind="player" role="button" tabindex="0">
+      <strong>${escapeHtml(player.name)}</strong>
+      <span>${formatNumber(Math.round(player.value))}</span>
+    </div>
+  `).join("");
+}
+
+function renderValueCalcPickBoard(side, pickYears) {
+  if (!pickYears.length) return "";
+  return `
+    <div class="value-pick-board">
+      ${pickYears.map((year) => `
+        <div class="value-pick-year">
+          <span>${escapeHtml(year.season)}</span>
+          ${year.rounds.map((round) => `
+            <div class="value-pick-round">
+              <em>${round.round}${ordinalPickRound(round.round)}</em>
+              ${round.buckets.map((pick) => `
+                <button type="button" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(pick.assetId)}" data-name="${escapeHtml(pick.name)}" data-value="${pick.value}" data-kind="pick" title="${escapeHtml(pick.name)} · ${formatNumber(Math.round(pick.value))}">
+                  ${escapeHtml(pick.bucketLabel || pick.bucket)}
+                </button>
+              `).join("")}
+            </div>
+          `).join("")}
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function ordinalPickRound(round) {
+  const n = Number(round);
+  if (!Number.isFinite(n)) return "";
+  const mod = n % 100;
+  if (mod >= 11 && mod <= 13) return "th";
+  if (n % 10 === 1) return "st";
+  if (n % 10 === 2) return "nd";
+  if (n % 10 === 3) return "rd";
+  return "th";
+}
+
+function renderValueCalculatorVerdict(leftTotal, rightTotal) {
+  if (!leftTotal && !rightTotal) {
+    return `<p class="muted calc-hint">Blank board. Add any player or generic pick to either side.</p>`;
+  }
+  const verdict = valueCalcVerdict(leftTotal, rightTotal);
+  const maxSide = Math.max(verdict.left, verdict.right, 1);
+  return `
+    <section class="calc-summary ${verdict.tone}">
+      <div class="calc-summary-main">
+        <span class="analytics-kicker">Ticker verdict</span>
+        <h3>${escapeHtml(verdict.label)}</h3>
+        <p>Give ${formatNumber(Math.round(verdict.left))} · Get ${formatNumber(Math.round(verdict.right))}${verdict.left && verdict.right ? ` (${verdict.pct}% apart)` : ""}.</p>
+      </div>
+      <div class="calc-bars">
+        <div class="calc-bar team-a">
+          <span>Give</span>
+          <div class="meter-track"><span style="width:${Math.round(verdict.left / maxSide * 100)}%"></span></div>
+          <strong>${formatNumber(Math.round(verdict.left))}</strong>
+        </div>
+        <div class="calc-bar team-b">
+          <span>Get</span>
+          <div class="meter-track"><span style="width:${Math.round(verdict.right / maxSide * 100)}%"></span></div>
+          <strong>${formatNumber(Math.round(verdict.right))}</strong>
+        </div>
+      </div>
+      <div class="calc-actions">
+        <button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>
+      </div>
+    </section>
+  `;
+}
+
+function refreshValueCalculatorLists() {
+  const host = el.valueCalculatorShell;
+  if (!host?.querySelector(".calc-grid")) {
+    renderValueCalculator();
+    return;
+  }
+  const leftList = host.querySelector("#value-list-left");
+  const rightList = host.querySelector("#value-list-right");
+  if (leftList) leftList.innerHTML = renderValueCalcPlayerList("left");
+  if (rightList) rightList.innerHTML = renderValueCalcPlayerList("right");
+}
+
 function openTradeFile(tradeId, managerKey) {
   const id = String(tradeId || "");
   if (!id) return;
@@ -5409,6 +5392,9 @@ function openTradeFile(tradeId, managerKey) {
 function renderTicker() {
   if (!el.ticker || !el.tickerTrack) return;
   if (!state.leagueId || !state.league) {
+    tickerController?.destroy();
+    tickerController = null;
+    tickerFingerprint = "";
     el.ticker.classList.add("hidden");
     return;
   }
@@ -5440,13 +5426,30 @@ function renderTicker() {
     items.push(`<span class="ticker-tag green">Title odds</span>${top}`);
   }
   if (items.length === 0) {
+    tickerController?.destroy();
+    tickerController = null;
+    tickerFingerprint = "";
     el.ticker.classList.add("hidden");
     return;
   }
   const markup = items.map((item) => `<span class="ticker-item">${item}</span>`).join("");
+  const fingerprint = items.join("|");
+  const durationSeconds = tickerDurationSeconds(items.length);
+  if (fingerprint === tickerFingerprint && tickerController) {
+    el.ticker.classList.remove("hidden");
+    return;
+  }
+  const paused = Boolean(tickerController?.paused);
+  tickerController?.destroy();
   el.tickerTrack.innerHTML = `<span class="ticker-group">${markup}</span><span class="ticker-group" aria-hidden="true">${markup}</span>`;
-  el.tickerTrack.style.setProperty("--ticker-duration", `${tickerDurationSeconds(items.length)}s`);
+  el.tickerTrack.style.setProperty("--ticker-duration", `${durationSeconds}s`);
   el.ticker.classList.remove("hidden");
+  tickerFingerprint = fingerprint;
+  tickerController = bindTicker(el.ticker, el.tickerTrack, {
+    durationSeconds,
+    paused,
+    currentTime: 0,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -5464,6 +5467,7 @@ function handleWorkspaceKeydown(event) {
 function handleWorkspaceClick(event) {
   const target = event.target.closest("[data-action]");
   if (!target || !el.workspace?.contains(target)) return;
+  if (target.dataset.action === "league-home") return;
   const action = target.dataset.action;
   switch (action) {
     case "go": {
@@ -5533,24 +5537,6 @@ function handleWorkspaceClick(event) {
       renderAwardsPage();
       break;
     }
-    case "recap-tone": {
-      state.recapTone = target.dataset.tone || "desk";
-      renderRecapPage();
-      updateUrlState({ mode: "replace" });
-      break;
-    }
-    case "copy-recap": {
-      copyRecapText();
-      break;
-    }
-    case "copy-recap-link": {
-      copyRecapLink();
-      break;
-    }
-    case "save-recap-card": {
-      saveRecapCard();
-      break;
-    }
     case "open-trade": {
       if (!String(target.dataset.tradeId || "")) return;
       openTradeFile(target.dataset.tradeId, target.dataset.managerKey);
@@ -5580,6 +5566,20 @@ function handleWorkspaceClick(event) {
     case "calc-clear": {
       resetCalculatorState({ keepPartner: true });
       renderCalculator();
+      break;
+    }
+    case "value-add": {
+      addValueCalcAsset(target.dataset.side, target.dataset.assetId, target.dataset.name, Number(target.dataset.value), target.dataset.kind);
+      break;
+    }
+    case "value-remove": {
+      state.valueCalc = removeValueCalcItem(state.valueCalc, target.dataset.side, target.dataset.uid);
+      renderValueCalculator();
+      break;
+    }
+    case "value-clear": {
+      state.valueCalc = clearValueCalcSides(state.valueCalc);
+      renderValueCalculator();
       break;
     }
     case "calc-copy": {
@@ -5620,12 +5620,6 @@ function handleWorkspaceChange(event) {
       renderCalculator();
       break;
     }
-    case "recap-week": {
-      state.recapWeek = Number(target.value);
-      renderRecapPage();
-      updateUrlState();
-      break;
-    }
     default:
       break;
   }
@@ -5638,6 +5632,11 @@ function handleWorkspaceInput(event) {
     if (target.dataset.side === "their") state.calc.theirQuery = target.value;
     else state.calc.myQuery = target.value;
     refreshCalculatorLists();
+  }
+  if (target.dataset.input === "value-search") {
+    if (target.dataset.side === "right") state.valueCalc.rightQuery = target.value;
+    else state.valueCalc.leftQuery = target.value;
+    refreshValueCalculatorLists();
   }
 }
 
@@ -5655,21 +5654,94 @@ function historyRoomRoster(host, copy) {
   return roster;
 }
 
-function renderHallRoom() {
-  const roster = historyRoomRoster(el.hallDashboard, "Load a league and choose a team to open the hall.");
+function renderLeagueHistoryRoom() {
+  const host = el.historyDashboard;
+  if (!host) return;
+  const roster = historyRoomRoster(host, "Load a league to open league history.");
   if (!roster) return;
   const { history } = buildHistoryArchiveModel(roster);
-  el.hallDashboard.innerHTML = `
+  const recordBook = buildRecordBook(getSeasonModel());
+  host.innerHTML = `
     ${renderArchiveHero(history)}
     ${renderHallBoard(history)}
-    ${renderFinishMatrixPanel(history)}
-    <div class="analytics-two-col">
-      ${renderRivalryLedgerPanel(history)}
-      ${renderLeagueStoryPanel(history)}
-    </div>
-    ${renderLensPicker(roster, { label: "Manager lens" })}
-    ${renderManagerLensPanel(history.managerLens)}
+    ${renderChampionYears(history)}
+    ${renderSimpleRecordBook(recordBook)}
   `;
+}
+
+function renderChampionYears(history) {
+  const crowns = [...(history?.seasonSnapshots || [])]
+    .filter((snapshot) => snapshot?.champion && (snapshot.isComplete === true || !snapshot.isCurrent))
+    .sort((a, b) => Number(b.season) - Number(a.season));
+  if (!crowns.length) {
+    return `
+      <section class="workspace-panel">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">Champions</span>
+            <h2>Title years</h2>
+          </div>
+          <p class="section-copy">Need a finished season. Current first place is not the crown.</p>
+        </div>
+      </section>
+    `;
+  }
+  return `
+    <section class="workspace-panel">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">Champions</span>
+          <h2>Who won the league</h2>
+        </div>
+        <p class="section-copy">Previous season champions. Not this year's standings or power leader.</p>
+      </div>
+      <div class="champion-year-list">
+        ${crowns.map((snapshot) => `
+          <div class="champion-year-row">
+            <strong>${escapeHtml(snapshot.season)}</strong>
+            <span>${escapeHtml(snapshot.champion.managerName)}</span>
+            <small>${snapshot.runnerUp
+              ? `beat ${escapeHtml(snapshot.runnerUp.managerName)}`
+              : "champion"}</small>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderSimpleRecordBook(recordBook) {
+  const records = leagueHistoryRecords(recordBook, LEAGUE_HISTORY_RECORD_IDS);
+  const gameCount = Number(recordBook?.gameCount) || 0;
+  return `
+    <section class="workspace-panel">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">Record book</span>
+          <h2>A few all-time marks</h2>
+        </div>
+        <p class="section-copy">${gameCount
+          ? `${gameCount.toLocaleString()} games in the archive.`
+          : "Records fill in as old matchups load."}</p>
+      </div>
+      ${records.length
+        ? `<div class="record-list record-list-wide">${records.map((record) => `
+            <div class="record-row ${escapeHtml(record.tone || "")}">
+              <div>
+                <span class="analytics-kicker">${escapeHtml(record.title)}</span>
+                <strong>${escapeHtml(record.holder)}</strong>
+                <p>${escapeHtml(record.detail)}</p>
+              </div>
+              <strong class="record-value">${escapeHtml(record.valueLabel)}</strong>
+            </div>
+          `).join("")}</div>`
+        : `<p class="muted analytics-empty">Records populate as archive matchups load.</p>`}
+    </section>
+  `;
+}
+
+function renderHallRoom() {
+  renderLeagueHistoryRoom();
 }
 
 function renderSeasonsRoom() {
@@ -6237,32 +6309,26 @@ function buildLeagueStorylines(seasonSnapshots, dynastyRows, archiveTrades, leag
 }
 
 function renderArchiveHero(history) {
-  const latestSnapshot = history.latestSnapshot;
-  const championLabel = latestSnapshot?.isCurrent
-    ? latestSnapshot.regularLeader?.managerName || "TBD"
-    : latestSnapshot?.champion?.managerName || "TBD";
-  const championDetail = latestSnapshot?.isCurrent ? "current standings leader" : `latest champion (${latestSnapshot?.season || "archive"})`;
-  const tradeLabel = history.archiveTrades.tradeCount > 0
-    ? `${formatNumber(history.archiveTrades.movedAssetCount)} assets moved`
-    : history.syncLabel;
-  const titleLeader = [...history.dynastyRows]
+  const crown = pickLatestCrown(history.seasonSnapshots);
+  const championLabel = crown?.champion?.managerName || "TBD";
+  const championDetail = crown ? `${crown.season} champion` : "previous season champion";
+  const titleLeader = [...(history.dynastyRows || [])]
     .filter((row) => row.titles > 0)
     .sort((a, b) => b.titles - a.titles || b.podiums - a.podiums)[0] || null;
   const titleValue = titleLeader ? titleLeader.managerName : "Open";
   const titleDetail = titleLeader
-    ? `${titleLeader.titles} title${titleLeader.titles === 1 ? "" : "s"} · ${titleLeader.podiums} podium${titleLeader.podiums === 1 ? "" : "s"}`
+    ? `${titleLeader.titles} title${titleLeader.titles === 1 ? "" : "s"}`
     : "no completed season in the archive yet";
 
   return `
     <div class="league-archive-hero">
       <div class="analytics-hero-main">
-        <span class="analytics-kicker">${escapeHtml(state.leagueName || "League")} Dynasty Ledger</span>
-        <h3>All-time hall</h3>
-        <p>${escapeHtml(history.seasonRange)} archive loaded. Champions, career records, finish heatmap, trade rivalries, and the eras that shaped the league.</p>
+        <span class="analytics-kicker">${escapeHtml(state.leagueName || "League")} history</span>
+        <h3>League history</h3>
+        <p>${escapeHtml(history.seasonRange)} archive. Last champion, title hall, and a short record book.</p>
         <div class="power-badge-row">
           <span class="power-badge">${escapeHtml(`${history.seasonSnapshots.length} season${history.seasonSnapshots.length === 1 ? "" : "s"}`)}</span>
           <span class="power-badge">${escapeHtml(`${history.uniqueChampionCount} title winner${history.uniqueChampionCount === 1 ? "" : "s"}`)}</span>
-          <span class="power-badge muted-badge">${escapeHtml(history.syncLabel)}</span>
         </div>
       </div>
       <div class="trophy-panel">
@@ -6273,10 +6339,8 @@ function renderArchiveHero(history) {
     </div>
 
     <div class="analytics-metric-grid">
-      ${renderAnalyticsMetric("Archive Span", history.seasonRange, `${history.completedSeasonCount} completed season${history.completedSeasonCount === 1 ? "" : "s"}`, "blue")}
+      ${renderAnalyticsMetric("Seasons", history.seasonRange, `${history.completedSeasonCount} completed`, "blue")}
       ${renderAnalyticsMetric("Most Titles", titleValue, titleDetail, "gold")}
-      ${renderAnalyticsMetric("Trades Logged", formatNumber(history.archiveTrades.tradeCount), tradeLabel, "blue")}
-      ${renderAnalyticsMetric("Parity", history.averageParityScore ? `${history.averageParityScore}/100` : "N/A", "average scoring tightness", "green")}
     </div>
   `;
 }
@@ -6949,11 +7013,11 @@ function renderHallBoard(history) {
           <span class="eyebrow">All-time hall</span>
           <h3>Titles, career W-L, playoff trips</h3>
         </div>
-        <p class="section-copy">Archive first. Finish heatmap and rivalries stay below.</p>
+        <p class="section-copy">Who has the rings. Career W-L is the rest of the story.</p>
       </div>
       <div class="hall-table">
         <div class="hall-head">
-          <span>#</span><span>Mgr</span><span>Titles</span><span>W-L</span><span>PO</span><span>Avg</span><span>Score</span>
+          <span>#</span><span>Mgr</span><span>Titles</span><span>W-L</span><span>PO</span>
         </div>
         ${hall.map((row, index) => `
           <div class="hall-row ${row.managerKey === meKey ? "you" : ""}">
@@ -6962,8 +7026,6 @@ function renderHallBoard(history) {
             <span>${row.titles}</span>
             <span>${escapeHtml(row.recordLabel)}</span>
             <span>${row.playoffApps}</span>
-            <span>${row.avgFinish == null ? "—" : row.avgFinish.toFixed(1)}</span>
-            <span>${formatNumber(row.dynastyScore)}</span>
           </div>
         `).join("")}
       </div>
@@ -15114,7 +15176,7 @@ async function chooseRatherPlayer(winnerId) {
     state.crowdShifts
   ).find((row) => row.assetId === winnerId);
   const status = winnerName && winnerRow?.boardRank
-    ? `Saved. ${winnerName} is ${winnerRow.boardRank} on the desk.`
+    ? `Saved. ${winnerName} is ${winnerRow.boardRank} on the ticker.`
     : winnerName
       ? `Saved. ${winnerName}.`
       : "Saved.";

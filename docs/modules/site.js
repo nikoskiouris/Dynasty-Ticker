@@ -23,32 +23,31 @@ export function tickerDurationSeconds(itemCount) {
 export const PAGE_META = {
   league: {
     title: PAGE_LABELS.league,
-    description: "Live scores, standings, playoff odds, power rankings, weekly awards, and a group-chat recap.",
+    description: "Live scores, standings, playoff odds, power rankings, weekly awards, and league history.",
   },
   teams: {
     title: PAGE_LABELS.teams,
-    description: "Scout any roster: sit/start this week, tank-or-contend call, bench, pick vault, 2027 mock board, roster DNA, and player passports.",
+    description: "Scout any roster: sit/start this week, tank-or-contend call, bench, pick vault, player passport, and the 2027 mock board.",
   },
   trades: {
     title: PAGE_LABELS.trades,
-    description: "Trade match for complementary rosters, a graded trade log, a two-team calculator, and Sleeper-trade values.",
-  },
-  history: {
-    title: PAGE_LABELS.history,
-    description: "All-time hall, season ledger, manager comparisons, and the league record book.",
+    description: "A blank trade calculator for any assets, a two-team calculator, trade match, and a graded trade log.",
   },
 };
 
 const ROOM_DESCRIPTIONS = {
   league: {
-    recap: "Group-chat recap of scores, awards, standings, and odds. Copy text or save an image card.",
+    history: "Last season's champion, the title hall, and a short record book.",
   },
   teams: {
     roster: "Sit/start this week for this roster. League slots, close-call reasons, bye and missing opponent sit.",
     mock: "Dynasty Nerds Superflex 2-round rookie mock. 1sts and 2nds get names; 3rds stay pick labels.",
-    call: "Desk call for this roster: tank, go all in, or stay in the middle. Built from playoff odds, lineup rank, age, and pick capital.",
+    call: "Ticker call for this roster: tank, go all in, or stay in the middle. Built from playoff odds, lineup rank, age, and pick capital.",
+    passports: "Player passport: who owned each player, season by season.",
   },
   trades: {
+    value: "Blank trade calculator. Add any player and generic early, middle, or late picks.",
+    calculator: "Two-team calculator: pick a partner and tap assets on both sides.",
     match: "Match with teams that have the positions you need, want what you can spare, or are tanking while you contend.",
   },
 };

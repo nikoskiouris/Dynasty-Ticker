@@ -257,7 +257,7 @@ export function scoreTradeSide({
 }
 
 export function buildTradeRecap({
-  managerName = "This desk",
+  managerName = "This team",
   partnerName = "them",
   season = "",
   week = 0,
@@ -272,7 +272,7 @@ export function buildTradeRecap({
   const gave = sent.map((item) => item.name).filter(Boolean).slice(0, 6).join(", ") || "picks";
   const when = Number(week) > 0 ? `${season} Week ${week}` : String(season || "That season");
   const recordBit = Number(since.games) > 0
-    ? `Since the deal the desk is ${since.label} (${Math.round((Number(since.winPct) || 0) * 100)}%).`
+    ? `Since the deal the ticker is ${since.label} (${Math.round((Number(since.winPct) || 0) * 100)}%).`
     : "No games have posted after this one yet, so the record is still blank.";
   const marketBit = Math.abs(Number(delta) || 0) < 200
     ? "Today's KTC still calls it even."
@@ -290,7 +290,7 @@ export function analyzePastTrades({
   myRosterId,
   games = [],
   valueOf = () => 0,
-  managerName = "This desk",
+  managerName = "This team",
   finishes = [],
 } = {}) {
   const mine = String(myRosterId || "");
@@ -517,7 +517,7 @@ export function passportJourneyLabel(passport = {}) {
   const stops = passport.stops || [];
   const hops = Number.isFinite(Number(passport.hops)) ? Number(passport.hops) : Math.max(0, stops.length - 1);
   const here = stops.some((stop) => stop.current);
-  if (stops.length <= 1) return here ? "Never left this desk" : "One stamp";
+  if (stops.length <= 1) return here ? "Never left this roster" : "One stamp";
   const visaWord = hops === 1 ? "One visa" : `${hops} visas`;
   return here ? `${visaWord} · still here` : visaWord;
 }

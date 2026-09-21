@@ -1048,6 +1048,18 @@ select.is-invalid {
   min-width: 0;
   overflow: hidden;
   padding-left: 0.9rem;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ticker-viewport.is-dragging {
+  cursor: grabbing;
+}
+
+.ticker.is-paused .ticker-label {
+  opacity: 0.72;
 }
 
 .ticker-viewport::after {
@@ -1071,16 +1083,16 @@ select.is-invalid {
   will-change: transform;
 }
 
+.ticker.is-bound .ticker-track {
+  animation: none;
+}
+
 .ticker-group {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
   gap: 2.2rem;
   padding: 0 1.1rem;
-}
-
-.ticker:hover .ticker-track {
-  animation-play-state: paused;
 }
 
 .ticker-item {
@@ -3212,70 +3224,6 @@ button.weekly-help-close:hover {
   font-size: 1.1rem;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-}
-
-/* ==========================================================================
-   Recap
-   ========================================================================== */
-
-.recap-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.8rem;
-  align-items: end;
-  margin-bottom: 0.9rem;
-}
-
-.recap-control {
-  display: grid;
-  gap: 0.3rem;
-  min-width: 12rem;
-}
-
-.recap-control > span {
-  color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.recap-copy {
-  width: auto;
-  min-height: 2.75rem;
-  padding: 0.6rem 1.1rem;
-}
-
-.recap-card-preview {
-  width: fit-content;
-  max-width: 100%;
-  margin: 0 auto 1rem;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--bg);
-}
-
-.recap-card-preview canvas {
-  display: block;
-  width: min(100%, 22rem);
-  height: auto;
-  margin: 0 auto;
-}
-
-.recap-text {
-  width: 100%;
-  min-height: 18rem;
-  padding: 1rem 1.1rem;
-  border-radius: var(--radius-sm);
-  background: var(--panel-solid);
-  color: var(--text);
-  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  font-size: 0.82rem;
-  line-height: 1.55;
-  resize: vertical;
-  white-space: pre;
-  overflow: auto;
 }
 
 /* ==========================================================================
@@ -5435,8 +5383,7 @@ button.weekly-help-close:hover {
   }
 
   .history-compare-toolbar,
-  .history-compare-selects,
-  .recap-controls {
+  .history-compare-selects {
     align-items: stretch;
     flex-direction: column;
   }
@@ -5969,37 +5916,6 @@ button.weekly-help-close:hover {
     min-height: 2.35rem;
   }
 
-  .recap-controls {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.65rem;
-    align-items: stretch;
-  }
-
-  .recap-control {
-    min-width: 0;
-  }
-
-  .recap-controls .recap-copy,
-  .recap-controls .ghost-btn {
-    width: 100%;
-  }
-
-  .recap-card-preview canvas {
-    width: 100%;
-  }
-
-  .recap-text {
-    min-height: 14rem;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-
-  .recap-copy,
-  .action-panel button {
-    width: 100%;
-  }
-
   .trade-card-summary {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.55rem;
@@ -6018,8 +5934,11 @@ button.weekly-help-close:hover {
     grid-template-columns: 1fr;
   }
 
+  .action-panel button {
+    width: 100%;
+  }
+
   .history-compare-select,
-  .recap-control,
   .calc-partner {
     min-width: 0;
     width: 100%;
@@ -7137,7 +7056,7 @@ body.dock-visible {
 .hall-row,
 .hall-head {
   display: grid;
-  grid-template-columns: 2rem minmax(8rem, 1.4fr) 4rem 5.5rem 4.5rem 5rem 4.5rem;
+  grid-template-columns: 2rem minmax(8rem, 1.4fr) 4rem 5.5rem 4.5rem;
   gap: 0.45rem;
   align-items: center;
   padding: 0.55rem 0.75rem;
@@ -7150,6 +7069,30 @@ body.dock-visible {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.champion-year-list {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.champion-year-row {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.champion-year-row strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.champion-year-row small {
+  color: var(--muted);
 }
 
 .hall-row.you {
@@ -7451,4 +7394,109 @@ button.rather-skip {
   .passport-stamp strong {
     transform: none;
   }
+}
+
+[data-action="league-home"] {
+  cursor: pointer;
+}
+
+#hero-title[data-action="league-home"] {
+  display: inline-block;
+}
+
+#home-btn {
+  min-width: 2.7rem;
+  padding-left: 0.7rem;
+  padding-right: 0.7rem;
+}
+
+#home-btn .home-glyph {
+  margin: 0 auto;
+}
+
+.home-glyph {
+  position: relative;
+  display: block;
+  width: 1.1rem;
+  height: 1.05rem;
+}
+
+.home-glyph::before,
+.home-glyph::after {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+}
+
+.home-glyph::before {
+  left: 50%;
+  top: 0.02rem;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-bottom: 0;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.home-glyph::after {
+  left: 50%;
+  bottom: 0;
+  width: 0.64rem;
+  height: 0.46rem;
+  border-top: 0;
+  transform: translateX(-50%);
+}
+
+.value-pick-board {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.75rem;
+}
+
+.value-pick-year {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.value-pick-year > span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-strong);
+}
+
+.value-pick-round {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.value-pick-round em {
+  flex: 0 0 2.6rem;
+  font-style: normal;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.value-pick-round button {
+  min-height: 1.85rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.value-pick-round button:hover {
+  border-color: var(--line-strong);
+}
+
+.calc-pane .value-pick-board {
+  padding-top: 0.2rem;
+  border-top: 1px dashed var(--line);
 }

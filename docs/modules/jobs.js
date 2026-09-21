@@ -21,29 +21,22 @@ export const DESK_JOBS = Object.freeze([
   {
     id: "trade",
     page: "trades",
-    room: "calculator",
+    room: "value",
     label: "Make a trade",
     blurb: "Calculator, find a partner, shop a player",
     cta: "make a trade",
   },
   {
     id: "history",
-    page: "history",
-    room: "hall",
+    page: "league",
+    room: "history",
     label: "League history",
-    blurb: "Titles, seasons, record book",
+    blurb: "Last champion, titles, records",
     cta: "open league history",
   },
 ]);
 
 export const DESK_MORE_JOBS = Object.freeze([
-  {
-    id: "recap",
-    page: "league",
-    room: "recap",
-    label: "Write a recap",
-    blurb: "Group-chat card of the week",
-  },
   {
     id: "call",
     page: "teams",

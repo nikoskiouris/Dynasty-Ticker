@@ -109,7 +109,7 @@ export function isRoomOf(page, room) {
 
 /**
  * Turn a tab token (from a URL, a hash, or old share links) into a page id.
- * Tokens that used to be tabs but are now rooms (e.g. `recap`, `calculator`)
+ * Tokens that used to be tabs but are now rooms (e.g. `calculator`, `awards`)
  * resolve to the page that owns that room.
  */
 export function normalizeDeskTab(tab) {
@@ -138,7 +138,7 @@ export function normalizeRoom(page, view) {
 /**
  * Resolve any combination of tab + view tokens to a concrete desk place.
  * Cross-page room tokens win over the tab (e.g. `tab=league&view=hall` opens
- * History → Hall because the Hall moved), so every historical link lands
+ * League History because the old History page now lives there), so every historical link lands
  * on the content it used to point at.
  */
 export function resolveDeskPlace({ tab = "", view = "" } = {}) {

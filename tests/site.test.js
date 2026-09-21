@@ -38,7 +38,7 @@ test("document titles and descriptions change with tab and league", () => {
   );
   assert.equal(
     buildDocumentTitle({ page: "recap", leagueName: "Try Hard or Die Hard", loaded: true }),
-    "Recap · Try Hard or Die Hard — Dynasty Ticker"
+    "Scores · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "team", leagueName: "Try Hard or Die Hard", loaded: true }),
@@ -76,19 +76,23 @@ test("document titles and descriptions change with tab and league", () => {
   );
   assert.equal(
     buildDocumentTitle({ page: "history", leagueName: "Try Hard or Die Hard", loaded: true, room: "hall" }),
-    "History · Try Hard or Die Hard — Dynasty Ticker"
+    "League History · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "history", leagueName: "Try Hard or Die Hard", loaded: true, room: "records" }),
-    "Records · Try Hard or Die Hard — Dynasty Ticker"
+    "League History · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.match(
     buildPageDescription({ page: "home", leagueName: "Try Hard or Die Hard", loaded: true }),
     /Now open: Try Hard or Die Hard/
   );
   assert.match(
-    buildPageDescription({ page: "league", room: "recap", leagueName: "Demo", loaded: true }),
-    /Group-chat recap/
+    buildPageDescription({ page: "league", room: "history", leagueName: "Demo", loaded: true }),
+    /Last season's champion/
+  );
+  assert.match(
+    buildPageDescription({ page: "trades", room: "value", leagueName: "Demo", loaded: true }),
+    /Blank trade calculator/
   );
   assert.match(buildPageDescription({ page: "teams", room: "call", loaded: true }), /tank/);
   assert.match(buildPageDescription({ page: "trades", room: "calculator", loaded: true }), /two-team calculator/);
@@ -158,6 +162,8 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /id="copy-league-id-btn"/);
   assert.doesNotMatch(index, /Use demo league/);
   assert.doesNotMatch(index, /Open demo/);
+  assert.equal(existsSync(join(docs, "modules/recap.js")), false);
+  assert.equal(existsSync(join(docs, "modules/recap-card.js")), false);
   assert.match(index, /id="landing-rather"/);
   assert.match(index, /id="landing-username"/);
   assert.match(index, />What do you want to do\?</);
@@ -188,24 +194,36 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="theme-toggle-btn"[^>]*aria-pressed="true"/);
   assert.doesNotMatch(index, /data-theme="dark"/);
   assert.match(index, /family=Inter:/);
-  for (const page of ["league", "teams", "trades", "history"]) {
+  for (const page of ["league", "teams", "trades"]) {
     assert.match(index, new RegExp(`data-page="${page}"`));
     assert.match(index, new RegExp(`id="${page}-page"`));
   }
+  assert.doesNotMatch(index, /data-page="history"/);
+  assert.doesNotMatch(index, /id="history-page"/);
   assert.match(index, /id="room-nav"/);
-  for (const room of ["start", "scores", "standings", "power", "awards", "recap", "roster", "mock", "call", "loyalty", "passports", "log", "match", "calculator", "lab", "hall", "seasons", "records"]) {
+  for (const room of ["start", "scores", "standings", "power", "awards", "history", "roster", "mock", "call", "loyalty", "passports", "log", "match", "value", "calculator", "lab"]) {
     assert.match(index, new RegExp(`data-room-panel="${room}"`), room);
   }
+  assert.doesNotMatch(index, /data-room-panel="recap"/);
+  assert.doesNotMatch(index, /data-room-panel="hall"/);
+  assert.doesNotMatch(index, /data-room-panel="seasons"/);
+  assert.doesNotMatch(index, /data-room-panel="records"/);
   assert.match(index, /id="passport-dashboard"/);
   assert.match(index, /id="mock-dashboard"/);
   assert.match(index, /id="window-call-dashboard"/);
   assert.match(index, /id="trade-log-dashboard"/);
   assert.match(index, /id="trade-match-dashboard"/);
+  assert.match(index, /id="value-calculator-shell"/);
   assert.match(index, /id="match-generate-btn"/);
   assert.match(index, />Find matches</);
-  assert.match(index, /Calculator, partners, deals/);
-  assert.match(index, /id="records-dashboard"/);
-  assert.match(index, /id="mobile-share-btn"/);
+  assert.match(index, /Calculator, two teams, deals/);
+  assert.match(index, /id="history-dashboard"/);
+  assert.match(index, /id="mobile-home-btn"/);
+  assert.match(index, /data-action="league-home"/);
+  assert.match(index, /class="home-glyph"/);
+  assert.doesNotMatch(index, /id="records-dashboard"/);
+  assert.doesNotMatch(index, /id="mobile-share-btn"/);
+  assert.doesNotMatch(index, /id="recap-dashboard"/);
   assert.doesNotMatch(index, /id="trader-menu"/);
   assert.doesNotMatch(index, /data-trade-room=/);
   assert.doesNotMatch(index, /data-league-room=/);
@@ -291,7 +309,13 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   const app = readDocs("app.js");
   assert.doesNotMatch(app, /Last league remembered/);
   assert.match(app, /tickerDurationSeconds\(items\.length\)/);
+  assert.match(app, /bindTicker\(/);
+  assert.match(app, /pickLatestCrown\(/);
+  assert.match(app, /renderValueCalculator\(/);
+  assert.match(app, /function goLeagueHome/);
+  assert.doesNotMatch(app, /from "\.\/modules\/recap/);
   assert.match(readDocs("styles.css"), /--ticker-duration: 60s/);
+  assert.match(readDocs("styles.css"), /\.ticker\.is-bound \.ticker-track/);
 
   const terms = readDocs("terms.html");
   assert.match(terms, /theme-color" content="#eef3f2"/);

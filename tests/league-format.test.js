@@ -48,6 +48,10 @@ test("redraft hides loyalty and the rookie mock, keeper and dynasty do not", () 
   assert.ok(roomsForPage("teams", dynasty).includes("mock"));
   assert.equal(visibleRoomFor("teams", "loyalty", redraft), "roster");
   assert.equal(visibleRoomFor("teams", "call", redraft), "call");
+  assert.ok(!roomsForPage("league").includes("start"));
+  assert.equal(visibleRoomFor("league", "start"), "start");
+  assert.deepEqual(roomsForPage("teams"), ["roster", "call", "loyalty", "passports", "mock"]);
+  assert.deepEqual(roomsForPage("trades"), ["value", "calculator", "match", "lab", "log"]);
 });
 
 test("only dynasty invents a future pick grid", () => {

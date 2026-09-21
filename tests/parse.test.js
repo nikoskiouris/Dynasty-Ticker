@@ -68,24 +68,26 @@ test("share params map old recap/home tabs onto league", () => {
     tone: "roast",
   });
   assert.doesNotMatch(url, /tab=/);
-  assert.match(url, /view=recap/);
+  assert.match(url, /view=scores/);
   assert.match(url, /week=2/);
   assert.match(url, /tone=roast/);
   const parsed = parseShareParams(url.split("?")[1]);
   assert.equal(parsed.tab, "league");
-  assert.equal(parsed.view, "recap");
+  assert.equal(parsed.view, "scores");
   assert.equal(parsed.week, 2);
   assert.equal(parsed.tone, "roast");
   assert.equal(parsed.meRosterId, 3);
   assert.equal(parseShareParams("league=1").tab, "");
   assert.equal(parseShareParams("league=1").view, "start");
   assert.equal(parseShareParams("league=1&tab=recap").tab, "league");
+  assert.equal(parseShareParams("league=1&tab=recap").view, "scores");
   assert.equal(parseShareParams("league=1&tab=league&view=now").view, "scores");
   assert.equal(parseShareParams("league=1&tab=home").tab, "league");
+  assert.equal(parseShareParams("league=1&tab=home").view, "start");
   assert.equal(parseShareParams("league=1&tab=team").tab, "teams");
   assert.equal(parseShareParams("league=1&tab=teams").view, "roster");
   assert.equal(parseShareParams("league=1&tab=trader").tab, "trades");
-  assert.equal(parseShareParams("league=1&tab=trader").view, "calculator");
+  assert.equal(parseShareParams("league=1&tab=trader").view, "value");
   assert.equal(parseShareParams("league=1&view=start").view, "start");
 });
 
@@ -120,23 +122,26 @@ test("share params move old trade rooms to their new pages", () => {
   assert.equal(parseShareParams("league=1&tab=awards").view, "awards");
 });
 
-test("share params move hall, analytics, and records to History", () => {
-  assert.deepEqual(resolveDeskPlace({ tab: "history" }), { page: "history", room: "hall" });
-  assert.deepEqual(resolveDeskPlace({ tab: "analytics" }), { page: "history", room: "hall" });
-  assert.deepEqual(resolveDeskPlace({ tab: "league", view: "hall" }), { page: "history", room: "hall" });
-  assert.deepEqual(resolveDeskPlace({ view: "league-hall" }), { page: "history", room: "hall" });
-  assert.deepEqual(resolveDeskPlace({ tab: "history", view: "history" }), { page: "history", room: "hall" });
+test("share params move hall, analytics, and records to league history", () => {
+  assert.deepEqual(resolveDeskPlace({ tab: "history" }), { page: "league", room: "history" });
+  assert.deepEqual(resolveDeskPlace({ tab: "analytics" }), { page: "league", room: "history" });
+  assert.deepEqual(resolveDeskPlace({ tab: "league", view: "hall" }), { page: "league", room: "history" });
+  assert.deepEqual(resolveDeskPlace({ view: "league-hall" }), { page: "league", room: "history" });
+  assert.deepEqual(resolveDeskPlace({ tab: "history", view: "history" }), { page: "league", room: "history" });
   assert.deepEqual(resolveDeskPlace({ tab: "trades", view: "history" }), { page: "trades", room: "log" });
-  assert.deepEqual(resolveDeskPlace({ view: "records" }), { page: "history", room: "records" });
-  assert.deepEqual(resolveDeskPlace({ view: "archive" }), { page: "history", room: "seasons" });
+  assert.deepEqual(resolveDeskPlace({ view: "records" }), { page: "league", room: "history" });
+  assert.deepEqual(resolveDeskPlace({ view: "archive" }), { page: "league", room: "history" });
+  assert.deepEqual(resolveDeskPlace({ view: "titles" }), { page: "league", room: "history" });
   assert.deepEqual(resolveDeskPlace({ tab: "nonsense", view: "nonsense" }), { page: "league", room: "start" });
-  assert.deepEqual(resolveDeskPlace({ tab: "teams", view: "hall" }), { page: "history", room: "hall" });
-  assert.equal(parseShareParams("league=1&tab=history").tab, "history");
-  assert.equal(parseShareParams("league=1&view=hall").tab, "history");
+  assert.deepEqual(resolveDeskPlace({ tab: "teams", view: "hall" }), { page: "league", room: "history" });
+  assert.equal(parseShareParams("league=1&tab=history").tab, "league");
+  assert.equal(parseShareParams("league=1&tab=history").view, "history");
+  assert.equal(parseShareParams("league=1&view=hall").tab, "league");
+  assert.equal(parseShareParams("league=1&view=hall").view, "history");
 
   const url = buildShareUrl({ origin: "", pathname: "/", leagueId: "1", tab: "history", view: "records" });
-  assert.equal(url, "/?league=1&tab=history&view=records");
-  assert.equal(buildShareUrl({ origin: "", pathname: "/", leagueId: "1", tab: "history", view: "hall" }), "/?league=1&tab=history");
+  assert.equal(url, "/?league=1&view=history");
+  assert.equal(buildShareUrl({ origin: "", pathname: "/", leagueId: "1", tab: "history", view: "hall" }), "/?league=1&view=history");
 });
 
 test("desk place helpers know pages and rooms", () => {
@@ -146,8 +151,9 @@ test("desk place helpers know pages and rooms", () => {
   assert.equal(normalizeRoom("trades", "calc"), "calculator");
   assert.equal(normalizeRoom("trades", "tradematch"), "match");
   assert.equal(normalizeRoom("trades", "hall"), "");
-  assert.equal(normalizeRoom("league", "home"), "scores");
-  assert.equal(defaultRoomFor("trades"), "calculator");
+  assert.equal(normalizeRoom("league", "home"), "start");
+  assert.equal(defaultRoomFor("trades"), "value");
+  assert.equal(defaultRoomFor("league"), "start");
   assert.equal(defaultRoomFor("nope"), "start");
   assert.equal(isRoomOf("teams", "loyalty"), true);
   assert.equal(isRoomOf("teams", "mock"), true);
@@ -158,4 +164,9 @@ test("desk place helpers know pages and rooms", () => {
   assert.equal(normalizeRoom("teams", "window"), "call");
   assert.equal(normalizeRoom("trades", "partners"), "match");
   assert.deepEqual(resolveDeskPlace({ view: "start" }), { page: "league", room: "start" });
+  assert.deepEqual(resolveDeskPlace({ tab: "trades" }), { page: "trades", room: "value" });
+  assert.deepEqual(resolveDeskPlace({ tab: "trades", view: "calculator" }), { page: "trades", room: "calculator" });
+  assert.deepEqual(resolveDeskPlace({ view: "ktc" }), { page: "trades", room: "value" });
+  assert.equal(isRoomOf("league", "start"), true);
+  assert.equal(isRoomOf("trades", "value"), true);
 });

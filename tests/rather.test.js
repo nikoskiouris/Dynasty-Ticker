@@ -57,7 +57,7 @@ function memoryStorage(seed = {}) {
 test("startup rather copy names two-player PPR 12-man Superflex", () => {
   assert.equal(formatRatherHeadline(), "Who would you rather have?");
   assert.equal(formatRatherDetail(), "PPR 12-man Superflex");
-  assert.match(formatRatherDetailLong(), /Desk Superflex ranks/);
+  assert.match(formatRatherDetailLong(), /Ticker Superflex ranks/);
   assert.match(formatRatherDetailLong(), /full PPR scoring/);
   assert.match(formatRatherDetailLong(), /12-man league/);
   assert.match(formatRatherDetailLong(), /Superflex QB/);
@@ -171,7 +171,7 @@ test("desk board ranks two NFL RB1s as RB1 and RB2 from our values", () => {
   assert.equal(boarded[1].boardRank, "RB2");
   assert.equal(boarded[2].boardRank, "WR1");
   assert.equal(formatRatherBoardRank(boarded[1]), "RB2");
-  assert.equal(formatRatherMatchup(boarded[0], boarded[1]), "RB1 vs RB2 on the desk board");
+  assert.equal(formatRatherMatchup(boarded[0], boarded[1]), "RB1 vs RB2 on the ticker board");
   assert.equal(
     decorateRatherPlayer(boarded[0], { bijan: { position: "RB", team: "ATL", age: 23, depth_chart_order: 1 } }).meta,
     "RB1 · ATL · 23y"
@@ -336,7 +336,7 @@ test("renderRatherMarkup shows headline, format detail, and two players", () => 
   });
   assert.match(html, /Who would you rather have\?/);
   assert.match(html, /PPR 12-man Superflex/);
-  assert.match(html, /Desk Superflex ranks/);
+  assert.match(html, /Ticker Superflex ranks/);
   assert.match(html, /Drake Maye/);
   assert.match(html, /Jeremiyah Love/);
   assert.match(html, /QB1 · NE · 24y/);
@@ -353,7 +353,7 @@ test("renderRatherMarkup shows headline, format detail, and two players", () => 
   assert.match(html, /aria-label="Skip this matchup"/);
   assert.match(html, /Sleeper trades mixed with KeepTradeCut/);
   assert.match(html, /not NFL depth charts/);
-  assert.match(html, /public desk board for everyone/);
+  assert.match(html, /public ticker board for everyone/);
   assert.doesNotMatch(html, /Desk Crowd/);
   assert.doesNotMatch(html, /8510/);
 });
@@ -417,7 +417,8 @@ test("index puts rather on the landing page and never auto-opens a league overla
   assert.match(app, /landingSearchOffscreen/);
   assert.match(app, /buildRatherBoard/);
   assert.match(app, /minValue: 1/);
-  assert.match(app, /is \$\{winnerRow\.boardRank\} on the desk/);
+  assert.match(app, /is \$\{winnerRow\.boardRank\} on the ticker/);
+  assert.doesNotMatch(app, /on the desk/);
   assert.doesNotMatch(app, /function chooseRatherPlayer[\s\S]*loadLeagueById/);
 });
 

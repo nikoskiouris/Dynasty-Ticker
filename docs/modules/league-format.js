@@ -1,4 +1,4 @@
-import { PAGE_HINTS, PAGE_ROOMS, ROOM_HINTS, ROOM_LABELS } from "./constants.js";
+import { HOME_ROOM, PAGE_HINTS, PAGE_ROOMS, ROOM_HINTS, ROOM_LABELS } from "./constants.js";
 
 export const LEAGUE_TYPE_IDS = Object.freeze({
   redraft: "redraft",
@@ -79,7 +79,7 @@ export function hiddenRoomsForLeague(league) {
 }
 
 export function roomsForPage(page, league) {
-  const rooms = PAGE_ROOMS[page] || [];
+  const rooms = (PAGE_ROOMS[page] || []).filter((room) => !(page === "league" && room === HOME_ROOM));
   if (!league) return rooms;
   const hidden = new Set(
     hiddenRoomsForLeague(league)
@@ -94,6 +94,7 @@ export function isRoomVisible(page, room, league) {
 }
 
 export function visibleRoomFor(page, room, league) {
+  if (page === "league" && room === HOME_ROOM) return HOME_ROOM;
   const rooms = roomsForPage(page, league);
   if (rooms.includes(room)) return room;
   const fallback = rooms[0];
@@ -124,7 +125,7 @@ export function roomHintFor(page, room, league) {
 
 export function roomDescriptionFor(page, room, league) {
   if (leagueTypeId(league) === "redraft" && page === "teams" && room === "call") {
-    return "Desk call for this roster: push for the playoffs, sit on the bubble, or you are out. Built from playoff odds and this year's lineup.";
+    return "Ticker call for this roster: push for the playoffs, sit on the bubble, or you are out. Built from playoff odds and this year's lineup.";
   }
   return "";
 }
@@ -133,6 +134,7 @@ export function pageHintForLeague(page, league) {
   if (page === "teams" && leagueTypeId(league) === "redraft") {
     return "Roster, in it or out";
   }
+  if (page === "teams") return PAGE_HINTS.teams || "";
   return PAGE_HINTS[page] || "";
 }
 

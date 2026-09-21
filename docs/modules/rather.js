@@ -35,7 +35,7 @@ export function formatRatherDetailLong(format = DEFAULT_RATHER_FORMAT) {
   const scoring = String(format?.scoring || DEFAULT_RATHER_FORMAT.scoring);
   const teams = Number(format?.teams || DEFAULT_RATHER_FORMAT.teams);
   const qb = String(format?.qb || DEFAULT_RATHER_FORMAT.qb);
-  return `Desk ${qb} ranks · full ${scoring} scoring · ${teams}-man league · ${qb} QB`;
+  return `Ticker ${qb} ranks · full ${scoring} scoring · ${teams}-man league · ${qb} QB`;
 }
 
 export function playerIdFromAssetId(assetId) {
@@ -269,7 +269,7 @@ export function formatRatherMatchup(left, right) {
   const rightRank = right?.boardRank || formatRatherBoardRank(right);
   if (!leftRank || !rightRank) return "";
   if (left?.position && left.position === right?.position) {
-    return `${leftRank} vs ${rightRank} on the desk board`;
+    return `${leftRank} vs ${rightRank} on the ticker board`;
   }
   return `${leftRank} vs ${rightRank}`;
 }
@@ -345,7 +345,7 @@ export function renderRatherMarkup(pair, format = DEFAULT_RATHER_FORMAT, options
   const right = pair?.right || {};
   const skipLabel = options.skipLabel || "Skip";
   const note = options.note
-    || "Your pick slightly nudges the public desk board for everyone. These ranks are ours, not NFL depth charts. The prior is Sleeper trades mixed with KeepTradeCut.";
+    || "Your pick slightly nudges the public ticker board for everyone. These ranks are ours, not NFL depth charts. The prior is Sleeper trades mixed with KeepTradeCut.";
   const status = options.status || "";
   const matchup = options.matchup || formatRatherMatchup(left, right);
   return `

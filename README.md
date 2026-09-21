@@ -4,7 +4,7 @@ Sleeper dynasty league ticker: live scores, standings, playoff odds, awards, arc
 
 ## What is in this repo
 - **Web app:** `docs/` — League Command Center at [dynastyticker.com](https://dynastyticker.com/).
-- **Kernels:** `docs/modules/` — parse, Sleeper client, values, live poll, recap card, season engine.
+- **Kernels:** `docs/modules/` — parse, Sleeper client, values, live poll, season engine.
 - **Tests:** `tests/` — Node + Python. Run `npm test`.
 - **Python CLI:** `src/` — still there if you want terminal trade suggestions.
 
@@ -16,36 +16,33 @@ Open `docs/` locally (`npm run serve`) or [dynastyticker.com](https://dynastytic
 2. Pick the league.
 3. League ID / URL still lives behind “Have a league ID or URL instead?”
 
-Share URLs are ordinary query strings: `?league=&me=&tab=&view=&week=&tone=`. `tab` is the page, `view` is the room inside it. Old links (`tab=trader`, `tab=analytics`, `tab=team`, `view=passport`, ...) still resolve. Recap can copy that link or save a PNG image card.
+Share URLs are ordinary query strings: `?league=&me=&tab=&view=&week=&tone=`. `tab` is the page, `view` is the room inside it. Old links (`tab=trader`, `tab=analytics`, `tab=team`, `view=passport`, `tab=recap`, ...) still resolve.
 
 ### Pages
-Four pages. Each page has a row of rooms under it, so every feature is at most two taps away.
+Three pages. Each page has a row of rooms under it, so every feature is at most two taps away. Opening a league (or tapping the logo / home icon) lands on the start jobs screen, which is not a League subtab.
 
 1. **League** — this season.
    - **Scores** — live scoreboard with pre-game win%, pulse tiles that jump to the right room.
    - **Standings** — overall / divisions, all-play, luck index.
    - **Power** — dynasty value board (starters, depth, picks, age). Tap a team to open its scout card.
    - **Awards** — weekly honors (marked live if the week is still going) and season superlatives.
-   - **Recap** — group-chat paste in desk / hype / roast voice. Copy text, copy a recap link, or save the image card.
+   - **League History** — last season's champion, title hall, and a short record book.
 2. **Teams** — every roster.
    - **Roster** — tap any team: power scout card, optimal lineup, bench, nicknames, pick vault, season log, jump into a trade.
-   - **Mock** — Dynasty Nerds Superflex 2-round rookie mock. 1sts and 2nds get names; 3rds stay pick labels.
    - **Call** — tank, all in, or stay in the middle, from playoff odds, lineup rank, age, and pick capital.
    - **Loyalty** — kept / gone / new since last season, iron share, DNA keep rate.
-   - **Passports** — career stamps for every player on the roster.
+   - **Player passport** — who owned each player, season by season.
+   - **Mock** — Dynasty Nerds Superflex 2-round rookie mock. 1sts and 2nds get names; 3rds stay pick labels.
    - A **Viewing** picker on Loyalty and Passports switches which roster you are looking at.
 3. **Trades** — deals.
-   - **Log** — graded trade log with the trade wire. Tap a row to open the trade file (record since, market now, later finishes). Optional league board reads this room’s taste.
+   - **Calculator** — blank board: any player plus early / middle / late picks.
+   - **Two teams** — build both sides from two rosters and get a verdict.
    - **Match** — pairs you with teams that have your holes, need your extras, or are tanking while you contend. Builds roster-fit trades, not leftover-third swaps.
-   - **Calculator** — build both sides by hand and get a verdict.
    - **Find deals** — shop an asset, target a player, or generate a blockbuster.
-4. **History** — the archive.
-   - **Hall** — all-time titles, finish matrix, rivalry ledger, league eras, manager lens.
-   - **Seasons** — season archive and side-by-side comparisons.
-   - **Records** — all-time record book from archive matchups.
+   - **Log** — graded trade log with the trade wire. Tap a row to open the trade file (record since, market now, later finishes). Optional league board reads this room’s taste.
 
 ### Live Sunday scores
-The desk polls Sleeper matchups on the NFL window (Thu–Mon UTC) and whenever the current week already has points. Scoreboard, ticker, awards, and recap refresh. The 4000-season Monte Carlo does **not** rerun on every point tick. It refreshes when a week finals, remaining games change, or ~3 minutes have passed.
+The app polls Sleeper matchups on the NFL window (Thu–Mon UTC) and whenever the current week already has points. Scoreboard, ticker, and awards refresh. The 4000-season Monte Carlo does **not** rerun on every point tick. It refreshes when a week finals, remaining games change, or ~3 minutes have passed.
 
 ### Value source
 Sleeper trades first, KeepTradeCut as the prior:
