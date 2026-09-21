@@ -3458,15 +3458,22 @@ button.weekly-help-close:hover {
 
 .asset-row-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.7rem;
 }
 
 .asset-name-stack {
   display: grid;
+  flex: 1 1 auto;
   gap: 0.3rem;
   min-width: 0;
+}
+
+.asset-value-badge-slot {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .asset-name-stack strong {
@@ -5413,9 +5420,7 @@ button.weekly-help-close:hover {
   }
 
   .game-impact-main,
-  .recent-trade div,
-  .asset-row-top,
-  .asset-item {
+  .recent-trade div {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -5472,12 +5477,14 @@ button.weekly-help-close:hover {
   .app-frame {
     grid-template-columns: minmax(0, 1fr);
     min-height: 100dvh;
+    align-content: start;
   }
 
   .mobile-chrome {
     position: sticky;
     top: 0;
     z-index: 20;
+    align-self: start;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 0.65rem;
@@ -5726,9 +5733,10 @@ button.weekly-help-close:hover {
     font-size: 0.78rem;
   }
 
-  /* The desk nav splits on phones: page tabs pin to the bottom edge, the
-     room strip stays at the top of the workspace. display: contents drops
-     the sticky/backdrop box so the fixed tab bar is not trapped inside it. */
+  /* Phone desk nav: page tabs stick under the header, the
+     room strip pins to the bottom edge. display: contents drops
+     the sticky/backdrop box so the fixed room bar is not trapped inside it.
+     iPad stays on the inline stacked desk-nav (this query is 700px max). */
   .desk-nav {
     display: contents;
   }
@@ -5738,12 +5746,10 @@ button.weekly-help-close:hover {
   }
 
   .workspace-tabs {
-    position: fixed;
-    top: auto;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 20;
+    position: sticky;
+    top: calc(3.15rem + max(0.45rem, env(safe-area-inset-top)));
+    z-index: 12;
+    order: -1;
     display: flex;
     gap: 0.2rem;
     overflow-x: auto;
@@ -5751,15 +5757,15 @@ button.weekly-help-close:hover {
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    margin: 0;
-    padding: 0.3rem 0.35rem calc(0.3rem + env(safe-area-inset-bottom));
+    margin: -0.75rem calc(-1 * max(0.75rem, env(safe-area-inset-right))) 0 calc(-1 * max(0.75rem, env(safe-area-inset-left)));
+    padding: 0.1rem max(0.35rem, env(safe-area-inset-right)) 0 max(0.35rem, env(safe-area-inset-left));
     border: 0;
-    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
     border-radius: 0;
     background: color-mix(in srgb, var(--bg) 92%, transparent);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    box-shadow: var(--lift-shadow);
+    box-shadow: none;
   }
 
   .workspace-tabs::-webkit-scrollbar {
@@ -5767,17 +5773,25 @@ button.weekly-help-close:hover {
   }
 
   .room-nav {
-    position: sticky;
-    top: calc(3.15rem + max(0.45rem, env(safe-area-inset-top)));
-    z-index: 12;
-    margin: -0.35rem 0 0;
-    padding: 0.4rem 0.5rem;
-    border: 1px solid var(--line);
-    border-radius: 999px;
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 20;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    margin: 0;
+    padding: 0.4rem 0.5rem calc(0.4rem + env(safe-area-inset-bottom));
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
     background: color-mix(in srgb, var(--bg) 92%, transparent);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    box-shadow: var(--shadow-soft);
+    box-shadow: var(--lift-shadow);
   }
 
   .room-tab {
@@ -5792,13 +5806,13 @@ button.weekly-help-close:hover {
     align-items: center;
     gap: 0.12rem;
     min-width: 0;
-    min-height: 3.15rem;
+    min-height: 2.85rem;
     padding: 0.28rem 0.15rem;
     border-radius: 10px;
   }
 
   .page-tab.active {
-    box-shadow: inset 0 2px 0 var(--blue);
+    box-shadow: inset 0 -2px 0 var(--blue);
   }
 
   .tab-copy {
@@ -5813,7 +5827,7 @@ button.weekly-help-close:hover {
   .tab-copy strong {
     overflow: hidden;
     max-width: 100%;
-    font-size: 0.68rem;
+    font-size: 0.76rem;
     line-height: 1.15;
     white-space: nowrap;
   }
@@ -6009,6 +6023,16 @@ button.weekly-help-close:hover {
   .calc-partner {
     min-width: 0;
     width: 100%;
+  }
+
+  .asset-row-top,
+  .asset-item {
+    align-items: flex-start;
+    flex-direction: row;
+  }
+
+  .asset-value-badge.has-alt {
+    min-width: 4.6rem;
   }
 }
 
