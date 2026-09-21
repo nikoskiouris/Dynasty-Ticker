@@ -112,6 +112,12 @@ import {
   rankPartnerMatches,
 } from "./modules/trade-match.js";
 import {
+  combinationsOfSize,
+  buildPackages as buildCappedPackages,
+  buildTargetPackages as buildCappedTargetPackages,
+  walkPackagePairs,
+} from "./modules/trade-packages.js";
+import {
   buildWeeklyContext,
   buildWeeklyPlayerModel,
   emptyWeeklyValueState,
@@ -214,9 +220,9 @@ import {
 } from "./modules/rather.js";
 import { fetchRatherCrowdVotes, submitRatherCrowdVote } from "./modules/rather-crowd.js";
 
-const OUTGOING_POOL_LIMIT = 18;
-const DEFAULT_MAX_OUTGOING_PACKAGE_SIZE = 5;
-const ELITE_MAX_OUTGOING_PACKAGE_SIZE = 6;
+const OUTGOING_POOL_LIMIT = 14;
+const DEFAULT_MAX_OUTGOING_PACKAGE_SIZE = 3;
+const ELITE_MAX_OUTGOING_PACKAGE_SIZE = 4;
 const ELITE_TARGET_VALUE_THRESHOLD = 7000;
 const STAR_TARGET_VALUE_THRESHOLD = 5000;
 const MIN_OUTGOING_ASSET_VALUE = 450;
@@ -280,6 +286,9 @@ const CUSTOM_MULTI_TEAM_SECONDARY_ANCHOR_MIN_SHARE = 0.16;
 const CUSTOM_MULTI_TEAM_SECONDARY_ANCHOR_MAX_SHARE = 0.78;
 const CUSTOM_MULTI_TEAM_ORDER_LIMIT = 12;
 const CUSTOM_MULTI_TEAM_PLAN_LIMIT = 18;
+
+const leagueStrengthCache = { key: "", baseline: null };
+const weeklyModelCache = { key: "", models: new Map() };
 
 const el = {
   sleeperUsername: document.querySelector("#sleeper-username"),
@@ -2685,7 +2694,7 @@ function buildSimPriors(model) {
     : previousLeaguePpg || model.leagueAverage || 125;
 
   const strength = state.normalizedRosters.length
-    ? buildLeagueStrengthBaseline({ league: state.league, rosters: state.normalizedRosters, values: state.values })
+    ? getCachedLeagueStrengthBaseline({ league: state.league, rosters: state.normalizedRosters, values: state.values })
     : null;
   const metricsByKey = new Map();
   strength?.metricsByRosterId.forEach((metrics, rosterId) => metricsByKey.set(String(rosterId), metrics));
@@ -4455,7 +4464,14 @@ function weeklyModelForAsset(asset) {
   if (!asset || asset.assetType !== "player" || !state.weeklyValue?.context) return null;
   const playerId = playerIdFromAssetId(asset.assetId);
   if (!playerId) return null;
-  return buildWeeklyPlayerModel({
+  const cacheKey = `${state.weeklyValue.key || ""}:${valuationCacheVersion()}`;
+  if (weeklyModelCache.key !== cacheKey) {
+    weeklyModelCache.key = cacheKey;
+    weeklyModelCache.models = new Map();
+  }
+  const assetKey = String(asset.assetId);
+  if (weeklyModelCache.models.has(assetKey)) return weeklyModelCache.models.get(assetKey);
+  const model = buildWeeklyPlayerModel({
     playerId,
     name: asset.name,
     position: playerPositionForAsset(asset),
@@ -4464,6 +4480,8 @@ function weeklyModelForAsset(asset) {
     seasonStats: state.weeklyValue.seasonStats?.[playerId] || {},
     context: state.weeklyValue.context,
   });
+  weeklyModelCache.models.set(assetKey, model);
+  return model;
 }
 
 function renderRosterSheet() {
@@ -5058,32 +5076,47 @@ function renderCalculator() {
 }
 
 function renderCalcPane(roster, side) {
-  const selected = calcAssetsFor(roster, side);
-  const total = selected.reduce((sum, asset) => sum + getAssetValue(asset, state.values), 0);
   const query = side === "my" ? state.calc.myQuery : state.calc.theirQuery;
   return `
     <section class="calc-pane ${side === "my" ? "team-a" : "team-b"}">
       <header class="calc-pane-head">
         ${renderTeamIdentity(roster.rosterId, { showTeamName: false, extra: side === "my" ? "sends" : "sends" })}
         <div class="calc-pane-total">
-          <strong>${formatNumber(Math.round(total))}</strong>
-          <small>${selected.length} asset${selected.length === 1 ? "" : "s"}</small>
+          ${renderCalcPaneTotal(roster, side)}
         </div>
       </header>
       <div class="calc-selected">
-        ${selected.length
-          ? selected.sort((a, b) => getAssetValue(b, state.values) - getAssetValue(a, state.values)).map((asset) => `
-            <button type="button" class="selected-token" data-action="calc-toggle" data-side="${side}" data-asset-id="${escapeHtml(asset.assetId)}" title="Remove">
-              <span class="selected-token-label">${escapeHtml(asset.name)}</span>
-              <span class="selected-token-remove" aria-hidden="true">×</span>
-            </button>
-          `).join("")
-          : `<span class="muted small">Tap assets below to add them to this side.</span>`}
+        ${renderCalcSelectedTokens(roster, side)}
       </div>
       <input type="search" class="calc-search" placeholder="Filter ${side === "my" ? "your" : "their"} players and picks" value="${escapeHtml(query)}" data-input="calc-search" data-side="${side}" />
       <div class="calc-list" id="calc-list-${side}">${renderCalcList(roster, side)}</div>
     </section>
   `;
+}
+
+function renderCalcPaneTotal(roster, side) {
+  const selected = calcAssetsFor(roster, side);
+  const total = selected.reduce((sum, asset) => sum + getAssetValue(asset, state.values), 0);
+  return `
+    <strong>${formatNumber(Math.round(total))}</strong>
+    <small>${selected.length} asset${selected.length === 1 ? "" : "s"}</small>
+  `;
+}
+
+function renderCalcSelectedTokens(roster, side) {
+  const selected = calcAssetsFor(roster, side);
+  if (!selected.length) {
+    return `<span class="muted small">Tap assets below to add them to this side.</span>`;
+  }
+  return selected
+    .sort((a, b) => getAssetValue(b, state.values) - getAssetValue(a, state.values))
+    .map((asset) => `
+      <button type="button" class="selected-token" data-action="calc-toggle" data-side="${side}" data-asset-id="${escapeHtml(asset.assetId)}" title="Remove">
+        <span class="selected-token-label">${escapeHtml(asset.name)}</span>
+        <span class="selected-token-remove" aria-hidden="true">×</span>
+      </button>
+    `)
+    .join("");
 }
 
 function renderCalcList(roster, side) {
@@ -5109,7 +5142,7 @@ function buildCalculatorIdea(me, partner, myAssets, theirAssets) {
   const globalMaxValue = Math.max(state.globalMaxPlayerValue || KTC_GLOBAL_MAX_FALLBACK, ...myValues, ...theirValues, 1);
   const packageResult = calculatePackageAdjustment({ myValues, theirValues, globalMaxValue });
   const pctDiff = calculatePctDiff(packageResult.myAdjustedValue, packageResult.theirAdjustedValue);
-  const baseline = buildLeagueStrengthBaseline({ league: state.league, rosters: state.normalizedRosters, values });
+  const baseline = getCachedLeagueStrengthBaseline({ league: state.league, rosters: state.normalizedRosters, values });
   return enrichTradeIdea({
     idea: {
       myAssets,
@@ -5137,16 +5170,42 @@ function renderCalculatorVerdict(me, partner) {
   if (Object.keys(state.values).length === 0) {
     return `<p class="muted calc-hint">Valuation data is still loading…</p>`;
   }
+  const oneSided = myAssets.length === 0 || theirAssets.length === 0;
+  if (oneSided) {
+    const myTotal = Math.round(myAssets.reduce((sum, asset) => sum + getAssetValue(asset, state.values), 0));
+    const theirTotal = Math.round(theirAssets.reduce((sum, asset) => sum + getAssetValue(asset, state.values), 0));
+    const maxSide = Math.max(myTotal, theirTotal, 1);
+    return `
+      <section class="calc-summary">
+        <div class="calc-summary-main">
+          <span class="analytics-kicker">Desk verdict</span>
+          <h3>Add the other side</h3>
+          <p>One side is empty, so this is a gift, not a trade.</p>
+        </div>
+        <div class="calc-bars">
+          <div class="calc-bar team-a">
+            <span>You send</span>
+            <div class="meter-track"><span style="width:${Math.round(myTotal / maxSide * 100)}%"></span></div>
+            <strong>${formatNumber(myTotal)}</strong>
+          </div>
+          <div class="calc-bar team-b">
+            <span>You receive</span>
+            <div class="meter-track"><span style="width:${Math.round(theirTotal / maxSide * 100)}%"></span></div>
+            <strong>${formatNumber(theirTotal)}</strong>
+          </div>
+        </div>
+        <div class="calc-actions">
+          <button type="button" class="ghost-btn" data-action="calc-clear">Clear both sides</button>
+        </div>
+      </section>
+    `;
+  }
   const idea = buildCalculatorIdea(me, partner, myAssets, theirAssets);
   const gap = idea.theirAdjustedValue - idea.myAdjustedValue;
-  const oneSided = myAssets.length === 0 || theirAssets.length === 0;
   const pct = idea.pctDiff;
   let verdictLabel;
   let verdictClass;
-  if (oneSided) {
-    verdictLabel = "Add the other side";
-    verdictClass = "";
-  } else if (pct <= 5) {
+  if (pct <= 5) {
     verdictLabel = "Dead even";
     verdictClass = "good";
   } else if (pct <= 12) {
@@ -5159,7 +5218,7 @@ function renderCalculatorVerdict(me, partner) {
     verdictLabel = gap > 0 ? "Lopsided in your favor" : `Lopsided for ${partner.manager.displayName}`;
     verdictClass = gap > 0 ? "good" : "bad";
   }
-  const evenUp = !oneSided && Math.abs(gap) >= 150 ? findClosestValuationPick(Math.abs(gap), state.values, state.valueNameMap) : null;
+  const evenUp = Math.abs(gap) >= 150 ? findClosestValuationPick(Math.abs(gap), state.values, state.valueNameMap) : null;
   const evenSide = gap > 0 ? "You" : partner.manager.displayName;
   const maxSide = Math.max(idea.myAdjustedValue, idea.theirAdjustedValue, 1);
   const offerText = buildOfferText(me, partner, myAssets, theirAssets, idea, verdictLabel);
@@ -5168,9 +5227,7 @@ function renderCalculatorVerdict(me, partner) {
       <div class="calc-summary-main">
         <span class="analytics-kicker">Desk verdict</span>
         <h3>${escapeHtml(verdictLabel)}</h3>
-        <p>${oneSided
-          ? "One side is empty, so this is a gift, not a trade."
-          : `Adjusted value: you send ${formatNumber(idea.myAdjustedValue)}, you receive ${formatNumber(idea.theirAdjustedValue)} (${pct}% apart). Consolidation premium ${idea.packageAdjustment ? `${formatNumber(idea.packageAdjustment)} on ${idea.packageAdjustmentSide === "my" ? "your" : "their"} side` : "not needed"}.`}</p>
+        <p>Adjusted value: you send ${formatNumber(idea.myAdjustedValue)}, you receive ${formatNumber(idea.theirAdjustedValue)} (${pct}% apart). Consolidation premium ${idea.packageAdjustment ? `${formatNumber(idea.packageAdjustment)} on ${idea.packageAdjustmentSide === "my" ? "your" : "their"} side` : "not needed"}.</p>
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenSide)} add${evenSide === "You" ? "" : "s"} roughly ${formatNumber(Math.round(Math.abs(gap)))} in value, about a ${escapeHtml(evenUp.name)} (${formatNumber(evenUp.value)}).</p>` : ""}
       </div>
       <div class="calc-bars">
@@ -5191,8 +5248,8 @@ function renderCalculatorVerdict(me, partner) {
         <span id="calc-copy-feedback" class="feedback-chip hidden">Copied</span>
       </div>
     </section>
-    ${!oneSided && idea.powerUpgrade ? renderGameImpact(idea.powerUpgrade, idea) : ""}
-    ${!oneSided && idea.impactAnalysis ? renderImpactAnalysis(idea.impactAnalysis, state.values) : ""}
+    ${idea.powerUpgrade ? renderGameImpact(idea.powerUpgrade, idea) : ""}
+    ${idea.impactAnalysis ? renderImpactAnalysis(idea.impactAnalysis, state.values) : ""}
   `;
 }
 
@@ -5209,6 +5266,31 @@ function refreshCalculatorLists() {
   const theirList = document.querySelector("#calc-list-their");
   if (myList) myList.innerHTML = renderCalcList(me, "my");
   if (theirList) theirList.innerHTML = renderCalcList(partner, "their");
+}
+
+function patchCalculatorAfterToggle(side) {
+  const me = getMyRoster();
+  const partner = getCalcPartnerRoster();
+  if (!me || !partner || !el.calculatorShell?.querySelector(".calc-grid")) {
+    renderCalculator();
+    return;
+  }
+  const roster = side === "their" ? partner : me;
+  const pane = el.calculatorShell.querySelector(side === "their" ? ".calc-pane.team-b" : ".calc-pane.team-a");
+  if (!pane) {
+    renderCalculator();
+    return;
+  }
+  const ids = side === "their" ? state.calc.theirAssetIds : state.calc.myAssetIds;
+  const totalEl = pane.querySelector(".calc-pane-total");
+  if (totalEl) totalEl.innerHTML = renderCalcPaneTotal(roster, side);
+  const selectedEl = pane.querySelector(".calc-selected");
+  if (selectedEl) selectedEl.innerHTML = renderCalcSelectedTokens(roster, side);
+  pane.querySelectorAll(".calc-item").forEach((item) => {
+    item.classList.toggle("selected", ids.has(item.dataset.assetId));
+  });
+  const verdict = el.calculatorShell.querySelector("#calc-verdict");
+  if (verdict) verdict.innerHTML = renderCalculatorVerdict(me, partner);
 }
 
 function openCalculatorWith(rosterId) {
@@ -5407,17 +5489,7 @@ function handleWorkspaceClick(event) {
       if (!assetId) return;
       if (ids.has(assetId)) ids.delete(assetId);
       else ids.add(assetId);
-      const activeSearch = document.activeElement?.dataset?.input === "calc-search" ? document.activeElement : null;
-      const focusSide = activeSearch?.dataset?.side || null;
-      const cursor = activeSearch ? activeSearch.selectionStart : null;
-      renderCalculator();
-      if (focusSide) {
-        const input = document.querySelector(`[data-input="calc-search"][data-side="${focusSide}"]`);
-        if (input) {
-          input.focus();
-          if (cursor != null) input.setSelectionRange(cursor, cursor);
-        }
-      }
+      patchCalculatorAfterToggle(side);
       break;
     }
     case "calc-clear": {
@@ -8542,13 +8614,15 @@ async function generateTradeMatches({ userRequested = false } = {}) {
       myProfile,
       matchProfiles.filter((profile) => String(profile.rosterId) !== String(meRoster.rosterId))
     );
-    const leagueStrengthBaseline = buildLeagueStrengthBaseline({
+    const leagueStrengthBaseline = getCachedLeagueStrengthBaseline({
       league: state.league,
       rosters: state.normalizedRosters,
       values: state.values,
     });
 
-    const groups = ranked.map(({ profile: theirProfile, match }) => {
+    const groups = [];
+    for (const { profile: theirProfile, match } of ranked) {
+      await waitForNextPaint();
       const rawDeals = proposeMatchDeals({
         myProfile,
         theirProfile,
@@ -8561,7 +8635,7 @@ async function generateTradeMatches({ userRequested = false } = {}) {
         fairnessPct,
         maxResults: 8,
       });
-      const ideas = [];
+      const cheapIdeas = [];
       rawDeals.forEach((deal) => {
         if (packageLooksLikeFiller(deal.myAssets, deal.theirAssets, state.values, getAssetValue)) return;
         const packageResult = calculatePackageAdjustment({
@@ -8574,32 +8648,47 @@ async function generateTradeMatches({ userRequested = false } = {}) {
         });
         const pctDiff = Number(calculatePctDiff(packageResult.myAdjustedValue, packageResult.theirAdjustedValue).toFixed(2));
         if (pctDiff > Math.max(fairnessPct, 26)) return;
-
+        cheapIdeas.push({ deal, packageResult, pctDiff });
+      });
+      cheapIdeas.sort((a, b) => {
+        const loudest = myProfile.weakestPosition?.position;
+        if (loudest) {
+          const aHit = (a.deal.myHelp?.patchedNeeds || []).some((row) => row.position === loudest) ? 1 : 0;
+          const bHit = (b.deal.myHelp?.patchedNeeds || []).some((row) => row.position === loudest) ? 1 : 0;
+          if (aHit !== bHit) return bHit - aHit;
+        }
+        const bySize = (a.deal.myAssets.length + a.deal.theirAssets.length) - (b.deal.myAssets.length + b.deal.theirAssets.length);
+        if (Math.abs(bySize) >= 2) return bySize;
+        return (b.deal.helpScore || 0) - (a.deal.helpScore || 0) || a.pctDiff - b.pctDiff;
+      });
+      const ideas = [];
+      for (const row of cheapIdeas) {
         const idea = enrichTradeIdea({
           idea: {
-            myAssets: deal.myAssets,
-            theirAssets: deal.theirAssets,
-            ...packageResult,
-            pctDiff,
-            labScore: clamp(Math.round(deal.helpScore), 1, 99),
-            tags: deal.tags,
-            summary: deal.summary,
-            pitch: deal.pitch,
+            myAssets: row.deal.myAssets,
+            theirAssets: row.deal.theirAssets,
+            ...row.packageResult,
+            pctDiff: row.pctDiff,
+            labScore: clamp(Math.round(row.deal.helpScore), 1, 99),
+            tags: row.deal.tags,
+            summary: row.deal.summary,
+            pitch: row.deal.pitch,
             counterpartyName: theirProfile.managerName,
             counterpartyRosterId: theirProfile.rosterId,
-            matchKind: deal.kind,
-            myHelp: deal.myHelp,
+            matchKind: row.deal.kind,
+            myHelp: row.deal.myHelp,
           },
           myRoster: meRoster,
           theirRoster: theirProfile.roster,
           values: state.values,
           leagueStrengthBaseline,
         });
-        if (!tradeMatchIdeaHelps(idea, myProfile, deal)) return;
+        if (!tradeMatchIdeaHelps(idea, myProfile, row.deal)) continue;
         ideas.push(idea);
-      });
+        if (ideas.length >= 2) break;
+      }
 
-      return {
+      groups.push({
         title: theirProfile.managerName,
         laneLabel: theirProfile.laneLabel,
         subtitle: describePartnerMatch(match, myProfile),
@@ -8609,22 +8698,10 @@ async function generateTradeMatches({ userRequested = false } = {}) {
           ...(match.takePositions || []).map((position) => `Get ${position}`),
           ...(match.givePositions || []).map((position) => `Send ${position}`),
         ].filter(Boolean).slice(0, 4),
-        ideas: ideas
-          .sort((a, b) => {
-            const loudest = myProfile.weakestPosition?.position;
-            if (loudest) {
-              const aHit = (a.myHelp?.patchedNeeds || []).some((row) => row.position === loudest) ? 1 : 0;
-              const bHit = (b.myHelp?.patchedNeeds || []).some((row) => row.position === loudest) ? 1 : 0;
-              if (aHit !== bHit) return bHit - aHit;
-            }
-            const bySize = (a.myAssets.length + a.theirAssets.length) - (b.myAssets.length + b.theirAssets.length);
-            if (Math.abs(bySize) >= 2) return bySize;
-            return compareEnrichedTradeIdeas(a, b);
-          })
-          .slice(0, 2),
+        ideas,
         emptyText: "The rosters fit, but every fair package still looked like filler. Try Find deals on a specific name.",
-      };
-    });
+      });
+    }
 
     const withDeals = groups.filter((group) => group.ideas.length > 0);
     state.tradeMatch.payload = {
@@ -8686,7 +8763,7 @@ async function generateTradeIdeas() {
     setButtonLoading(el.generateBtn, true, "Building trade ideas...");
     await ensureValuesLoaded("");
     await waitForNextPaint();
-    const leagueStrengthBaseline = buildLeagueStrengthBaseline({
+    const leagueStrengthBaseline = getCachedLeagueStrengthBaseline({
       league: state.league,
       rosters: state.normalizedRosters,
       values: state.values,
@@ -8699,7 +8776,7 @@ async function generateTradeIdeas() {
         setGenerateError("Could not resolve the other roster.");
         return;
       }
-      resultPayload = generateAcquisitionIdeaBuckets({
+      resultPayload = await generateAcquisitionIdeaBuckets({
         meRoster,
         theirRoster,
         targetAsset: state.targetAsset,
@@ -8710,7 +8787,7 @@ async function generateTradeIdeas() {
         leagueStrengthBaseline,
       });
     } else if (mode === "shop") {
-      resultPayload = generateShopIdeaBuckets({
+      resultPayload = await generateShopIdeaBuckets({
         meRoster,
         shopAsset: state.shopAsset,
         values: state.values,
@@ -8720,7 +8797,7 @@ async function generateTradeIdeas() {
         leagueStrengthBaseline,
       });
     } else if (mode === "surprise") {
-      resultPayload = generateSurpriseBlockbusterIdeas({
+      resultPayload = await generateSurpriseBlockbusterIdeas({
         meRoster,
         values: state.values,
         fairnessPct,
@@ -9185,6 +9262,29 @@ function renderLineupStateCard(label, snapshot, values, teamClass = "") {
 function formatDeltaPair(before, after) {
   const delta = after - before;
   return `${formatNumber(before)} to ${formatNumber(after)} (${delta >= 0 ? "+" : ""}${formatNumber(delta)})`;
+}
+
+function getCachedLeagueStrengthBaseline({ league, rosters, values } = {}) {
+  const resolvedLeague = league || state.league;
+  const resolvedRosters = rosters || state.normalizedRosters;
+  const resolvedValues = values || state.values;
+  const rosterSig = (resolvedRosters || [])
+    .map((roster) => `${roster.rosterId}:${(roster.assets || []).map((asset) => asset.assetId).join(",")}`)
+    .join("|");
+  const key = [
+    resolvedLeague?.league_id || state.leagueId || "",
+    valuationCacheVersion(),
+    rosterSig,
+  ].join("::");
+  if (leagueStrengthCache.key === key && leagueStrengthCache.baseline) return leagueStrengthCache.baseline;
+  const baseline = buildLeagueStrengthBaseline({
+    league: resolvedLeague,
+    rosters: resolvedRosters,
+    values: resolvedValues,
+  });
+  leagueStrengthCache.key = key;
+  leagueStrengthCache.baseline = baseline;
+  return baseline;
 }
 
 function buildLeagueStrengthBaseline({ league, rosters, values }) {
@@ -9788,7 +9888,7 @@ function classifyTwoTeamTradeTier(idea, focusAsset, values, { mode = "acquire" }
   return "even";
 }
 
-function generateAcquisitionIdeaBuckets({
+async function generateAcquisitionIdeaBuckets({
   meRoster,
   theirRoster,
   targetAsset,
@@ -9800,19 +9900,22 @@ function generateAcquisitionIdeaBuckets({
 }) {
   const targetValue = getAssetValue(targetAsset, values);
   const ideas = [];
+  const plans = ["level-up", "even", "break-down"].flatMap((tierId) =>
+    getAcquisitionTierPlans(tierId).map((plan) => ({ ...plan, tierId }))
+  );
+  const searchContext = buildTradeSearchContext({
+    myRoster: meRoster,
+    targetAsset,
+    values,
+    fairnessPct,
+    tradeLab,
+    maxOutgoingAssetsOverride: Math.max(...plans.map((plan) => plan.maxOutgoingAssets)),
+  });
 
-  for (const tierId of ["level-up", "even", "break-down"]) {
-    for (const plan of getAcquisitionTierPlans(tierId)) {
-      const searchContext = buildTradeSearchContext({
-        myRoster: meRoster,
-        targetAsset,
-        values,
-        fairnessPct,
-        tradeLab,
-        maxOutgoingAssetsOverride: plan.maxOutgoingAssets,
-      });
-      if (!searchContext) continue;
-
+  if (searchContext) {
+    for (const plan of plans) {
+      await waitForNextPaint();
+      const myPackages = searchContext.myPackages.filter((pkg) => pkg.assets.length <= plan.maxOutgoingAssets);
       ideas.push(
         ...suggestTrades({
           myRoster: meRoster,
@@ -9827,7 +9930,11 @@ function generateAcquisitionIdeaBuckets({
           maxExtraTargetAssetShare: plan.maxExtraTargetAssetShare,
           maxExtraTargetTotalShare: plan.maxExtraTargetTotalShare,
           tradeLab,
-          searchContext,
+          searchContext: {
+            ...searchContext,
+            myPackages,
+            maxOutgoingAssets: plan.maxOutgoingAssets,
+          },
         }).map((idea) => ({
           ...idea,
           counterpartyName: theirRoster.manager.displayName,
@@ -9927,7 +10034,7 @@ function getAcquisitionTierPlans(tierId) {
   ];
 }
 
-function generateShopIdeaBuckets({
+async function generateShopIdeaBuckets({
   meRoster,
   shopAsset,
   values,
@@ -9943,7 +10050,7 @@ function generateShopIdeaBuckets({
   };
   const otherRosters = state.normalizedRosters.filter((roster) => roster.rosterId !== meRoster.rosterId);
 
-  otherRosters.forEach((theirRoster) => {
+  for (const theirRoster of otherRosters) {
     suggestShopDealsWithRoster({
       meRoster,
       theirRoster,
@@ -9954,7 +10061,8 @@ function generateShopIdeaBuckets({
     }).forEach((idea) => {
       tierBuckets[idea.tradeTierId].push(idea);
     });
-  });
+    await waitForNextPaint();
+  }
 
   const ideas = selectDiverseTradeIdeas(
     dedupeTwoTeamIdeas([
@@ -10025,32 +10133,36 @@ function suggestShopDealsWithRoster({
   const tierConfigs = [
     { id: "level-up", maxMyAssets: 3, maxTheirAssets: 2, minTheirAssets: 1, myLimit: 90, theirLimit: 90 },
     { id: "even", maxMyAssets: 2, maxTheirAssets: 2, minTheirAssets: 1, myLimit: 90, theirLimit: 90 },
-    { id: "break-down", maxMyAssets: 2, maxTheirAssets: 4, minTheirAssets: 2, myLimit: 70, theirLimit: 110 },
+    { id: "break-down", maxMyAssets: 2, maxTheirAssets: 3, minTheirAssets: 2, myLimit: 70, theirLimit: 110 },
   ];
 
   tierConfigs.forEach((config) => {
     const myPackages = limitPackageCandidates(
-      buildPackages(myPool, values, config.maxMyAssets, { requiredAssetIds: requiredOutgoingAssetIds }),
+      buildPackages(myPool, values, config.maxMyAssets, {
+        requiredAssetIds: requiredOutgoingAssetIds,
+        targetValue: shopValue,
+      }),
       shopValue,
       config.myLimit,
       { preferMultiple: config.id !== "level-up" }
     );
     const theirPackages = limitPackageCandidates(
-      buildPackages(theirPool, values, config.maxTheirAssets),
+      buildPackages(theirPool, values, config.maxTheirAssets, { targetValue: shopValue }),
       shopValue,
       config.theirLimit,
       { preferMultiple: config.id === "break-down", minimumAssets: config.minTheirAssets }
     );
 
-    myPackages.forEach((myPackage) => {
-      theirPackages.forEach((theirPackage) => {
+    walkPackagePairs(myPackages, theirPackages, {
+      fairnessPct: effectiveFairnessPct,
+      visit(myPackage, theirPackage) {
         const packageResult = calculatePackageAdjustment({
           myValues: myPackage.values,
           theirValues: theirPackage.values,
-          globalMaxValue: getGlobalMaxPlayerValue(values, Math.max(shopValue, theirPackage.totalValue)),
+          globalMaxValue: getGlobalMaxPlayerValue(values, Math.max(shopValue, theirPackage.totalValue || theirPackage.total || 0)),
         });
         const pctDiff = calculatePctDiff(packageResult.myAdjustedValue, packageResult.theirAdjustedValue);
-        if (pctDiff > effectiveFairnessPct) return;
+        if (pctDiff > effectiveFairnessPct) return false;
 
         const idea = buildShopTradeIdea({
           myPackage,
@@ -10063,9 +10175,10 @@ function suggestShopDealsWithRoster({
           packageResult,
           coreAssetIds,
         });
-        if (idea.tradeTierId !== config.id) return;
+        if (idea.tradeTierId !== config.id) return false;
         tradeIdeas.push(idea);
-      });
+        return true;
+      },
     });
   });
 
@@ -10267,7 +10380,7 @@ function generateCustomMultiTeamIdeas({
   };
 }
 
-function generateSurpriseBlockbusterIdeas({
+async function generateSurpriseBlockbusterIdeas({
   meRoster,
   values,
   fairnessPct,
@@ -10297,7 +10410,8 @@ function generateSurpriseBlockbusterIdeas({
   });
   const ideas = [];
 
-  participantSets.forEach((participantSet) => {
+  for (const participantSet of participantSets) {
+    await waitForNextPaint();
     const participantRosters = [meRoster, ...participantSet.rosters];
     const anchorPlans = buildCustomMultiTeamAnchorPlans({
       meRoster,
@@ -10306,7 +10420,7 @@ function generateSurpriseBlockbusterIdeas({
       maxPlanCount: Math.max(6, maxResults * 3),
     });
 
-    anchorPlans.slice(0, Math.max(4, maxResults * 2)).forEach((plan) => {
+    for (const plan of anchorPlans.slice(0, Math.max(4, maxResults * 2))) {
       ideas.push(
         ...buildMultiTeamIdeasFromAnchors({
           meRoster,
@@ -10319,8 +10433,8 @@ function generateSurpriseBlockbusterIdeas({
           focusLabel: "surprise blockbuster",
         })
       );
-    });
-  });
+    }
+  }
 
   const dedupedIdeas = dedupeMultiTeamIdeas(ideas)
     .sort((a, b) => compareMultiTeamIdeas(a, b))
@@ -12919,6 +13033,7 @@ function suggestTrades({
     );
   const myPackages = searchContext?.myPackages || buildPackages(myAssetPool, values, maxOutgoingAssets, {
     requiredAssetIds: requiredOutgoingAssetIds,
+    targetValue,
   });
   const theirPackages = buildTargetPackages({
     theirRoster,
@@ -12935,39 +13050,39 @@ function suggestTrades({
   const ideaStyle = requireExtraTargetAsset ? "throw-in-back" : "direct";
 
   const rawIdeas = [];
-  for (const myPackage of myPackages) {
-    for (const theirPackage of theirPackages) {
+  walkPackagePairs(myPackages, theirPackages, {
+    fairnessPct: effectiveFairnessPct,
+    visit(myPackage, theirPackage) {
       const packageResult = calculatePackageAdjustment({
         myValues: myPackage.values,
         theirValues: theirPackage.values,
         globalMaxValue,
       });
       const pctDiff = calculatePctDiff(packageResult.myAdjustedValue, packageResult.theirAdjustedValue);
-      if (pctDiff <= effectiveFairnessPct) {
-        const labDetails = scoreTradeIdea({
-          myRoster,
-          theirRoster,
-          targetAsset,
-          myAssets: myPackage.assets,
-          theirAssets: theirPackage.assets,
-          values,
-          pctDiff,
-          tradeLab,
-          ideaStyle,
-          coreAssetIds,
-        });
-        if (!labDetails.viable) continue;
-
-        rawIdeas.push({
-          myAssets: myPackage.assets,
-          theirAssets: theirPackage.assets,
-          ...packageResult,
-          pctDiff: Number(pctDiff.toFixed(2)),
-          ...labDetails,
-        });
-      }
-    }
-  }
+      if (pctDiff > effectiveFairnessPct) return false;
+      const labDetails = scoreTradeIdea({
+        myRoster,
+        theirRoster,
+        targetAsset,
+        myAssets: myPackage.assets,
+        theirAssets: theirPackage.assets,
+        values,
+        pctDiff,
+        tradeLab,
+        ideaStyle,
+        coreAssetIds,
+      });
+      if (!labDetails.viable) return false;
+      rawIdeas.push({
+        myAssets: myPackage.assets,
+        theirAssets: theirPackage.assets,
+        ...packageResult,
+        pctDiff: Number(pctDiff.toFixed(2)),
+        ...labDetails,
+      });
+      return true;
+    },
+  });
 
   const deduped = [];
   const seen = new Set();
@@ -13006,7 +13121,10 @@ function buildTradeSearchContext({ myRoster, targetAsset, values, fairnessPct, t
     myAssetPool,
     requiredOutgoingAssetIds,
     maxOutgoingAssets,
-    myPackages: buildPackages(myAssetPool, values, maxOutgoingAssets, { requiredAssetIds: requiredOutgoingAssetIds }),
+    myPackages: buildPackages(myAssetPool, values, maxOutgoingAssets, {
+      requiredAssetIds: requiredOutgoingAssetIds,
+      targetValue,
+    }),
     globalMaxValue: Math.max(state.globalMaxPlayerValue || KTC_GLOBAL_MAX_FALLBACK, targetValue),
     effectiveFairnessPct: getEffectiveFairnessPct(fairnessPct, tradeLab.tradeVibe),
   };
@@ -13091,10 +13209,10 @@ function limitOutgoingAssetPool(pool, values, targetValue, { coreAssetIds = new 
 }
 
 function getMaxOutgoingPackageSize(targetValue) {
-  if (!Number.isFinite(targetValue)) return DEFAULT_MAX_OUTGOING_PACKAGE_SIZE;
-  if (targetValue >= ELITE_TARGET_VALUE_THRESHOLD) return ELITE_MAX_OUTGOING_PACKAGE_SIZE;
-  if (targetValue >= 5000) return DEFAULT_MAX_OUTGOING_PACKAGE_SIZE;
-  return 4;
+  if (Number.isFinite(targetValue) && targetValue >= ELITE_TARGET_VALUE_THRESHOLD) {
+    return ELITE_MAX_OUTGOING_PACKAGE_SIZE;
+  }
+  return DEFAULT_MAX_OUTGOING_PACKAGE_SIZE;
 }
 
 function getEffectiveFairnessPct(fairnessPct, tradeVibe) {
@@ -13689,94 +13807,22 @@ function calculatePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
   };
 }
 
-function buildPackages(assets, values, maxAssets, { requiredAssetIds = new Set() } = {}) {
-  const valuedAssets = assets
-    .map((asset) => ({ asset, value: getAssetValue(asset, values) }))
-    .filter((entry) => Number.isFinite(entry.value));
-  const requiredEntries = valuedAssets.filter((entry) => requiredAssetIds.has(entry.asset.assetId));
-  const optionalEntries = valuedAssets.filter((entry) => !requiredAssetIds.has(entry.asset.assetId));
-  const requiredCount = requiredEntries.length;
-
-  if (requiredCount > maxAssets) return [];
-
-  const packages = [];
-  const minimumPackageSize = requiredCount > 0 ? requiredCount : 1;
-  const maxOptionalAssets = Math.min(maxAssets - requiredCount, optionalEntries.length);
-
-  for (let size = minimumPackageSize; size <= Math.min(maxAssets, valuedAssets.length); size++) {
-    const optionalSize = size - requiredCount;
-    if (optionalSize < 0 || optionalSize > maxOptionalAssets) continue;
-    const combos = optionalSize === 0 ? [[]] : combinationsOfSize(optionalEntries, optionalSize);
-    for (const combo of combos) {
-      const fullCombo = [...requiredEntries, ...combo];
-      packages.push({
-        assets: fullCombo.map((entry) => entry.asset),
-        values: fullCombo.map((entry) => entry.value),
-      });
-    }
-  }
-  return packages;
+function buildPackages(assets, values, maxAssets, options = {}) {
+  return buildCappedPackages(assets, values, maxAssets, {
+    ...options,
+    getAssetValue,
+  });
 }
 
-function buildTargetPackages({
-  theirRoster,
-  targetAsset,
-  values,
-  allowExtraTargetAssets,
-  maxExtraAssets,
-  maxExtraAssetShare = 0.3,
-  maxExtraTotalShare = 0.55,
-}) {
-  const targetValue = getAssetValue(targetAsset, values);
-  if (!Number.isFinite(targetValue)) return [];
-
-  const packages = [{ assets: [targetAsset], values: [targetValue] }];
-  if (!allowExtraTargetAssets) return packages;
-
-  const maxThrowInValue = Math.max(900, Math.round(targetValue * maxExtraAssetShare));
-  const maxThrowInTotalValue = Math.max(maxThrowInValue, Math.round(targetValue * maxExtraTotalShare));
-  const extras = theirRoster.assets
-    .filter((asset) => asset.assetId !== targetAsset.assetId)
-    .filter(isTradeEligibleAsset)
-    .map((asset) => ({ asset, value: getAssetValue(asset, values) }))
-    .filter((entry) => Number.isFinite(entry.value) && entry.value <= maxThrowInValue)
-    .sort((a, b) => a.value - b.value);
-
-  for (let size = 1; size <= Math.min(maxExtraAssets, extras.length); size++) {
-    for (const combo of combinationsOfSize(extras, size)) {
-      const comboTotal = combo.reduce((sum, entry) => sum + entry.value, 0);
-      if (comboTotal > maxThrowInTotalValue) continue;
-      packages.push({
-        assets: [targetAsset, ...combo.map((entry) => entry.asset)],
-        values: [targetValue, ...combo.map((entry) => entry.value)],
-      });
-    }
-  }
-
-  return packages;
-}
-
-function combinationsOfSize(items, size) {
-  if (size === 0) return [[]];
-  if (size > items.length) return [];
-
-  const out = [];
-  const stack = [];
-
-  function walk(startIndex) {
-    if (stack.length === size) {
-      out.push([...stack]);
-      return;
-    }
-    for (let i = startIndex; i <= items.length - (size - stack.length); i++) {
-      stack.push(items[i]);
-      walk(i + 1);
-      stack.pop();
-    }
-  }
-
-  walk(0);
-  return out;
+function buildTargetPackages(options) {
+  const roster = options.theirRoster;
+  return buildCappedTargetPackages({
+    ...options,
+    theirRoster: roster
+      ? { ...roster, assets: (roster.assets || []).filter(isTradeEligibleAsset) }
+      : roster,
+    getAssetValue,
+  });
 }
 
 function renderAssetList(assets, values, teamClass = "") {

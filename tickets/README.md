@@ -33,6 +33,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [010](010-league-first-landing.txt) | League is the product; rather is not the homepage | P0 |
 | [011](011-rather-pairing.txt) | Rather pairing still produces no-brainers | P1 |
 | [012](012-trades-first-run.txt) | Trades page first-run is confusing | P0 |
+| [013](013-trade-desk-freeze.txt) | Deal finder / calculator freeze | P0 |
 
 ## Done
 

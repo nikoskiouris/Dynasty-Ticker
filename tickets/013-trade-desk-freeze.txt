@@ -1,0 +1,31 @@
+Title
+Deal finder / trade calculator freeze the tab
+
+Status
+Open
+
+Priority
+P0
+
+Area
+Trades → Find deals (`lab`), Trades → Calculator
+
+Description
+User feedback: the deal finder and trade calculator kept freezing.
+
+Find deals built every 5- and 6-asset package off an 18-player pool (tens of thousands of combos), then crossed those with throw-in packages from the other roster. Shop mode did that against every other team. The calculator rebuilt the whole board and re-solved every lineup on each tap, including one-sided boards that do not need a grade yet.
+
+Cap package search, yield between passes, cache league strength, and patch the calculator in place so the tab stays live.
+
+Why
+“The deal finder / trade calculator kept freezing.”
+
+Current product
+`buildPackages` enumerates C(n, k) with no cap. `suggestTrades` walks the full cartesian product. Calculator `renderCalculator()` plus `buildLeagueStrengthBaseline` run on every asset toggle.
+
+Acceptance
+- An 18-asset elite pool cannot explode into tens of thousands of packages.
+- Find deals / shop / surprise keep painting the loading button instead of locking the tab.
+- Calculator taps update the selected chips and totals without rebuilding both lists.
+- One-sided calculator boards do not run lineup impact.
+- Regression test on the capped package search.
