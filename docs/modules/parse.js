@@ -7,6 +7,7 @@ import {
   PLACE_ALIASES,
   SCOPED_ROOM_ALIASES,
 } from "./constants.js";
+import { isRankAssetId } from "./ranks.js";
 
 const SLEEPER_LEAGUE_PATH = /leagues\/(\d+)/i;
 const SLEEPER_USER_PATH = /sleeper\.app\/(?:u|user)\/([^/?#]+)/i;
@@ -174,6 +175,7 @@ export function buildShareParams({
   view = "",
   week = null,
   tone = "",
+  asset = "",
 } = {}) {
   const params = new URLSearchParams();
   if (leagueId) params.set("league", String(leagueId));
@@ -183,6 +185,7 @@ export function buildShareParams({
   if (place.room !== defaultRoomFor(place.page)) params.set("view", place.room);
   if (Number.isFinite(Number(week)) && Number(week) > 0) params.set("week", String(week));
   if (tone && tone !== "desk") params.set("tone", String(tone));
+  if (place.room === "ranks" && isRankAssetId(asset)) params.set("asset", String(asset));
   return params;
 }
 
@@ -194,11 +197,13 @@ export function parseShareParams(search) {
   const rawView = params.get("view") || "";
   const week = Number(params.get("week"));
   const tone = String(params.get("tone") || "").trim();
+  const asset = String(params.get("asset") || "").trim();
   const hasPlace = Boolean(cleanToken(rawTab) || cleanToken(rawView));
   const place = resolveDeskPlace({ tab: rawTab, view: rawView });
   return {
     leagueId: parseLeagueId(league) || league,
     meRosterId: Number.isFinite(me) && me > 0 ? me : null,
+    asset: place.room === "ranks" && isRankAssetId(asset) ? asset : "",
     // `tab` stays "" when the URL did not ask for a place, so boot can fall
     // back to the hash or the default without treating it as a request.
     tab: hasPlace ? place.page : "",

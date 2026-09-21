@@ -87,12 +87,14 @@ import {
   leagueHasSuperflex,
   tepLevel,
   crowdShiftsFromVotes,
+  applyLeagueShift,
   getGlobalMaxPlayerValue,
   KTC_GLOBAL_MAX_FALLBACK,
 } from "./modules/values.js";
 import {
   composeValuationBundles,
   fetchTradeMarketBundle,
+  pickTradeMarket,
 } from "./modules/trade-market.js";
 import {
   ageBucketForAsset,
@@ -252,9 +254,19 @@ import {
   readRatherRecentKeys,
   readRatherVotes,
   recordRatherVote,
+  formatRatherPlayerDetail,
+  isRatherRookie,
+  lookupRatherDraftPick,
   renderLandingRatherPlaceholder,
   renderRatherMarkup,
 } from "./modules/rather.js";
+import {
+  buildRankBoard,
+  isRankAssetId,
+  rankView,
+  renderRanksBody,
+  renderRanksMarkup,
+} from "./modules/ranks.js";
 import { fetchRatherCrowdVotes, submitRatherCrowdVote } from "./modules/rather-crowd.js";
 
 const OUTGOING_POOL_LIMIT = 14;
@@ -394,6 +406,9 @@ const el = {
   calculatorSection: document.querySelector("#calculator-section"),
   calculatorShell: document.querySelector("#calculator-shell"),
   valueCalculatorShell: document.querySelector("#value-calculator-shell"),
+  ranksDashboard: document.querySelector("#ranks-dashboard"),
+  publicRanks: document.querySelector("#public-ranks"),
+  publicRanksBoard: document.querySelector("#public-ranks-board"),
   themeToggleBtn: document.querySelector("#theme-toggle-btn"),
   homeBtn: document.querySelector("#home-btn"),
   landingFindBtn: document.querySelector("#landing-find-btn"),
@@ -444,6 +459,10 @@ let ratherPromptPair = null;
 let ratherSeasonStatsCache = { season: "", stats: null };
 let landingSearchOffscreen = false;
 let landingSearchObserver = null;
+let publicRanksOpen = false;
+let publicRanksHistory = false;
+let rankBoardCache = { key: "", rows: [] };
+let rankContextPromise = null;
 let ratherPromptContext = {
   nflPlayers: {},
   seasonStats: {},
@@ -685,6 +704,12 @@ function invalidateResults() {
 }
 
 function showAppPages() {
+  publicRanksOpen = false;
+  publicRanksHistory = false;
+  if (el.publicRanks) {
+    el.publicRanks.classList.add("hidden");
+    el.publicRanks.hidden = true;
+  }
   el.deskNav?.classList.remove("hidden");
   el.homeBtn?.classList.remove("hidden");
   el.mobileHomeBtn?.classList.remove("hidden");
@@ -830,6 +855,244 @@ function renderTeamsRoom(room) {
   }
 }
 
+function activeRankFormat() {
+  if (state.ranks?.format === "oneQb" || state.ranks?.format === "sf") return state.ranks.format;
+  if (state.league) return selectValueFormat(state.league);
+  return "sf";
+}
+
+function rankValuesReady() {
+  const values = state.valueBundles?.sf?.values || state.valueBundles?.oneQb?.values;
+  return Boolean(values && Object.keys(values).length);
+}
+
+function rankNflPlayers() {
+  if (state.players && Object.keys(state.players).length) return state.players;
+  return ratherPromptContext?.nflPlayers || {};
+}
+
+function rankOwners() {
+  const owners = {};
+  if (!state.leagueId) return owners;
+  const me = String(state.meRosterId || "");
+  for (const roster of state.normalizedRosters || []) {
+    const mine = String(roster.rosterId) === me;
+    const name = roster.manager?.displayName || "A team";
+    for (const asset of roster.assets || []) {
+      if (asset?.assetType !== "player" || !asset.assetId || owners[asset.assetId]) continue;
+      owners[asset.assetId] = { name, mine };
+    }
+  }
+  return owners;
+}
+
+function rankPlayerNote(playerId, raw) {
+  if (!ratherPromptContext?.previousSeason && !ratherPromptContext?.seasonStats) return "";
+  const position = String(raw?.position || raw?.fantasy_positions?.[0] || "").toUpperCase();
+  const line = formatRatherPlayerDetail({
+    isRookie: isRatherRookie(raw, ratherPromptContext.currentSeason),
+    draft: lookupRatherDraftPick(playerId, ratherPromptContext.draftPicks, raw),
+    stats: ratherPromptContext.seasonStats?.[playerId] || ratherPromptContext.seasonStats?.[String(playerId)] || null,
+    position,
+    previousSeason: ratherPromptContext.previousSeason,
+  });
+  if (!line || /^No \d{4} stats/.test(line)) return "";
+  return line;
+}
+
+function cachedRankRows() {
+  const format = activeRankFormat();
+  const bundle = state.valueBundles?.[format];
+  const values = bundle?.values || {};
+  const players = rankNflPlayers();
+  const key = [
+    format,
+    state.valuationRevision || 0,
+    Object.keys(values).length,
+    Object.keys(players).length,
+    ratherPromptContext?.previousSeason || "",
+    state.leagueId || "",
+    state.normalizedRosters?.length || 0,
+    state.meRosterId || "",
+  ].join("|");
+  if (rankBoardCache.key === key) return rankBoardCache.rows;
+  const ktc = pickValueBundle(state.ktcBundles, format);
+  const trade = pickTradeMarket(state.tradeMarketBundle, format);
+  rankBoardCache = {
+    key,
+    rows: buildRankBoard({
+      values,
+      ktcValues: ktc.values,
+      tradeValues: trade.values,
+      tradeCounts: trade.counts,
+      names: state.valueBundles?.names || bundle?.nameMap || state.valueNameMap || {},
+      nflPlayers: players,
+      owners: rankOwners(),
+      noteFor: rankPlayerNote,
+    }),
+  };
+  return rankBoardCache.rows;
+}
+
+function rankViewModel() {
+  if (!rankValuesReady()) {
+    return rankView({ loading: true, format: activeRankFormat() });
+  }
+  return rankView({
+    rows: cachedRankRows(),
+    query: state.ranks?.query || "",
+    position: state.ranks?.position || "ALL",
+    format: activeRankFormat(),
+    leagueFormat: state.league ? selectValueFormat(state.league) : "",
+    selectedId: state.ranks?.selectedId || "",
+    caveat: state.league ? marketCaveat(state.league) : "",
+    leagueOpen: Boolean(state.leagueId),
+    leagueValueFor: (row) => {
+      if (!state.leagueBoard?.ready || row?.kind !== "player") return null;
+      const league = applyLeagueShift(row.assetId, row.value, state.leagueBoard.shifts);
+      return shouldShowLeagueAlt(row.value, league) ? league : null;
+    },
+  });
+}
+
+function renderRankHost(host) {
+  if (!host) return;
+  const view = rankViewModel();
+  const toolbar = host.querySelector("[data-ranks-toolbar]");
+  const typing = Boolean(
+    toolbar
+    && document.activeElement?.matches?.("[data-input='ranks-search']")
+    && host.contains(document.activeElement)
+  );
+  if (!toolbar || view.loading) {
+    host.innerHTML = renderRanksMarkup(view);
+  } else {
+    toolbar.querySelectorAll("[data-action='rank-pos']").forEach((button) => {
+      const on = button.dataset.pos === view.position;
+      button.classList.toggle("active", on);
+      button.setAttribute("aria-pressed", String(on));
+    });
+    toolbar.querySelectorAll("[data-action='rank-format']").forEach((button) => {
+      const on = button.dataset.format === view.format;
+      button.classList.toggle("active", on);
+      button.setAttribute("aria-pressed", String(on));
+    });
+    const note = toolbar.querySelector(".ranks-note");
+    if (note) note.textContent = view.note;
+    const input = toolbar.querySelector("[data-ranks-query]");
+    if (input && !typing) input.value = view.query;
+    const body = host.querySelector("[data-ranks-body]");
+    if (body) body.innerHTML = renderRanksBody(view);
+    else host.innerHTML = renderRanksMarkup(view);
+  }
+  bindRatherPhotos(host);
+}
+
+function renderRankSurfaces() {
+  if (publicRanksOpen) renderRankHost(el.publicRanksBoard);
+  if (state.leagueId && state.activePage === "trades" && getRoom("trades") === "ranks") {
+    renderRankHost(el.ranksDashboard);
+  }
+}
+
+function syncPublicRanksUrl({ mode = "replace" } = {}) {
+  if (state.leagueId || !publicRanksOpen || typeof history?.replaceState !== "function") return;
+  const params = new URLSearchParams();
+  params.set("view", "ranks");
+  if (isRankAssetId(state.ranks?.selectedId)) params.set("asset", state.ranks.selectedId);
+  const next = `${window.location.pathname}?${params}`;
+  const same = `${window.location.pathname}${window.location.search}` === next;
+  if (mode === "push" && typeof history.pushState === "function" && !same) {
+    history.pushState({ publicRanks: true }, "", next);
+    publicRanksHistory = true;
+    return;
+  }
+  if (!same) history.replaceState({ publicRanks: true }, "", next);
+}
+
+function syncRankUrl() {
+  if (publicRanksOpen && !state.leagueId) syncPublicRanksUrl();
+  else if (state.leagueId) updateUrlState({ mode: "replace" });
+}
+
+async function ensureRankExtras() {
+  try {
+    if (!rankValuesReady()) {
+      const [ktcBundles, tradeBundle] = await Promise.all([
+        fetchValuationBundles(),
+        fetchTradeMarketBundle(),
+      ]);
+      state.ktcBundles = ktcBundles;
+      state.tradeMarketBundle = tradeBundle;
+      state.valueBundles = composeValuationBundles(ktcBundles, tradeBundle);
+      if (!state.leagueId) {
+        const bundle = pickValueBundle(state.valueBundles, activeRankFormat());
+        state.values = bundle.values || {};
+        state.valueNameMap = bundle.nameMap || {};
+        state.valueFormat = activeRankFormat();
+      }
+    }
+    if (!ratherPromptContext?.previousSeason && !rankContextPromise) {
+      rankContextPromise = loadRatherPromptContext()
+        .then((ctx) => {
+          if (ctx) ratherPromptContext = ctx;
+          return ctx;
+        })
+        .catch(() => null);
+    }
+    if (rankContextPromise) await rankContextPromise;
+  } catch (err) {
+    console.warn("Could not load player ranks", err);
+  }
+  rankBoardCache = { key: "", rows: [] };
+  if (publicRanksOpen || (state.leagueId && state.activePage === "trades" && getRoom("trades") === "ranks")) {
+    renderRankSurfaces();
+  }
+}
+
+function openPublicRanks({ history = "push" } = {}) {
+  if (state.leagueId) {
+    openRoom("trades", "ranks");
+    return;
+  }
+  const already = publicRanksOpen;
+  publicRanksOpen = true;
+  document.querySelector("#landing")?.classList.add("hidden");
+  if (el.publicRanks) {
+    el.publicRanks.classList.remove("hidden");
+    el.publicRanks.hidden = false;
+  }
+  renderRankHost(el.publicRanksBoard);
+  if (!already && history === "push") syncPublicRanksUrl({ mode: "push" });
+  else syncPublicRanksUrl({ mode: "replace" });
+  syncDocumentMeta();
+  renderSessionSnapshot();
+  syncSiteDock();
+  if (!already) window.scrollTo(0, 0);
+  void ensureRankExtras();
+}
+
+function closePublicRanks({ fromHistory = false } = {}) {
+  const wasOpen = publicRanksOpen;
+  publicRanksOpen = false;
+  if (el.publicRanks) {
+    el.publicRanks.classList.add("hidden");
+    el.publicRanks.hidden = true;
+  }
+  document.querySelector("#landing")?.classList.remove("hidden");
+  if (!fromHistory && wasOpen && publicRanksHistory && typeof history?.back === "function") {
+    publicRanksHistory = false;
+    history.back();
+  } else if (!fromHistory && wasOpen && !state.leagueId && typeof history?.replaceState === "function") {
+    history.replaceState({}, "", window.location.pathname);
+  } else if (fromHistory) {
+    publicRanksHistory = false;
+  }
+  syncDocumentMeta();
+  renderSessionSnapshot();
+  syncSiteDock();
+}
+
 function renderTradesRoom(room) {
   syncTradeModeUi();
   switch (room) {
@@ -838,6 +1101,10 @@ function renderTradesRoom(room) {
       break;
     case "value":
       renderValueCalculator();
+      break;
+    case "ranks":
+      renderRankHost(el.ranksDashboard);
+      if (!rankValuesReady() || !ratherPromptContext?.previousSeason) void ensureRankExtras();
       break;
     case "match":
       renderTradeMatchRoom();
@@ -907,8 +1174,11 @@ function bootFromUrl() {
   if (el.landingUsername) el.landingUsername.value = fields.username;
   if (el.leagueId) el.leagueId.value = fields.leagueId;
 
+  if (parsed.view === "ranks" && parsed.asset) state.ranks.selectedId = parsed.asset;
   if (parsed.leagueId) {
     void loadLeagueById(parsed.leagueId);
+  } else if (parsed.tab === "trades" && parsed.view === "ranks") {
+    openPublicRanks({ history: "silent" });
   }
 }
 
@@ -955,7 +1225,20 @@ function updateUrlState({ mode = "replace" } = {}) {
 }
 
 function applyDeskPopState(historyState) {
-  if (!state.leagueId) return;
+  if (!state.leagueId) {
+    const parsed = parseShareParams(window.location.search);
+    if (parsed.tab === "trades" && parsed.view === "ranks") {
+      if (parsed.asset) state.ranks.selectedId = parsed.asset;
+      else state.ranks.selectedId = "";
+      if (!publicRanksOpen) {
+        publicRanksHistory = true;
+        openPublicRanks({ history: "silent" });
+      } else renderRankSurfaces();
+      return;
+    }
+    if (publicRanksOpen) closePublicRanks({ fromHistory: true });
+    return;
+  }
   const parsed = parseShareParams(window.location.search);
   if (parsed.leagueId && parsed.leagueId !== state.leagueId) {
     void loadLeagueById(parsed.leagueId);
@@ -995,11 +1278,13 @@ function buildShareUrl(overrides = {}) {
     tab: page,
     view: room,
     week: overrides.week ?? week,
+    asset: room === "ranks" ? state.ranks?.selectedId : "",
   });
 }
 
 function goLeagueHome() {
   if (!state.leagueId) {
+    closePublicRanks();
     document.querySelector("#landing")?.scrollIntoView({ behavior: "smooth", block: "start" });
     el.landingUsername?.focus();
     return;
@@ -1142,7 +1427,9 @@ function scrollActiveTabIntoView() {
 function renderSessionSnapshot() {
   document.body.classList.toggle("league-loaded", Boolean(state.leagueId));
   if (el.mobileChromeTitle) {
-    el.mobileChromeTitle.textContent = state.leagueName || "Your Sleeper league";
+    el.mobileChromeTitle.textContent = publicRanksOpen && !state.leagueId
+      ? "Player ranks"
+      : (state.leagueName || "Your Sleeper league");
   }
   if (el.chromeLeagueLabel) {
     el.chromeLeagueLabel.textContent = state.leagueName || "Not loaded";
@@ -5498,6 +5785,39 @@ function handleWorkspaceClick(event) {
       openRoom(target.dataset.page, target.dataset.room);
       break;
     }
+    case "open-public-ranks":
+      openPublicRanks();
+      break;
+    case "close-public-ranks":
+      closePublicRanks();
+      break;
+    case "rank-open": {
+      const id = String(target.dataset.assetId || "");
+      if (!id) return;
+      state.ranks.selectedId = state.ranks.selectedId === id ? "" : id;
+      renderRankSurfaces();
+      syncRankUrl();
+      document.querySelector(".ranks-card")?.scrollIntoView({ block: "nearest" });
+      break;
+    }
+    case "rank-close":
+      state.ranks.selectedId = "";
+      renderRankSurfaces();
+      syncRankUrl();
+      break;
+    case "rank-pos":
+      state.ranks.position = target.dataset.pos || "ALL";
+      renderRankSurfaces();
+      break;
+    case "rank-format":
+      state.ranks.format = target.dataset.format === "oneQb" ? "oneQb" : "sf";
+      rankBoardCache = { key: "", rows: [] };
+      renderRankSurfaces();
+      break;
+    case "rank-calc":
+      addValueCalcAsset("left", target.dataset.assetId, target.dataset.name, target.dataset.value, target.dataset.kind);
+      openRoom("trades", "value");
+      break;
     case "open-mock-pick": {
       openMockBoardAt(target.dataset.mockRound, target.dataset.mockSlot);
       break;
@@ -5662,6 +5982,10 @@ function handleWorkspaceInput(event) {
     if (side === "right") state.valueCalc.rightQuery = target.value;
     else state.valueCalc.leftQuery = target.value;
     keepCalcSearchFocused(document, () => refreshValueCalculatorLists(side));
+  }
+  if (target.dataset.input === "ranks-search") {
+    state.ranks.query = target.value;
+    renderRankHost(target.closest("#ranks-dashboard, #public-ranks-board"));
   }
 }
 
@@ -14976,6 +15300,13 @@ function focusUsernameSearch() {
 }
 
 function syncDocumentMeta() {
+  if (publicRanksOpen && !state.leagueId) {
+    applyDocumentMeta(document, {
+      title: "Ranks — Dynasty Ticker",
+      description: "Player and pick values from Sleeper trades mixed with the crowd. Open one to see the pick he equals.",
+    });
+    return;
+  }
   const room = state.leagueId ? getRoom() : "";
   applyDocumentMeta(document, {
     title: buildDocumentTitle({
@@ -15248,6 +15579,7 @@ function watchLandingSearchVisibility() {
 function syncSiteDock() {
   const stickyOpen = isPhoneLayout()
     && !state.leagueId
+    && !publicRanksOpen
     && !document.body.classList.contains("rail-open")
     && landingSearchOffscreen;
   if (el.stickyMobileCta) el.stickyMobileCta.hidden = !stickyOpen;

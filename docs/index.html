@@ -269,6 +269,7 @@
                 <p id="landing-username-error" class="field-error" hidden role="alert"></p>
               </form>
               <p id="landing-job-hint" class="muted landing-job-hint">Type your Sleeper username, then pick a league.</p>
+              <button type="button" id="open-public-ranks" class="ghost-btn landing-ranks-btn" data-action="open-public-ranks">Check player values</button>
               <div id="landing-league-picker" class="league-picker landing-league-picker hidden" data-league-picker></div>
               <p id="landing-loading" class="landing-loading hidden" aria-live="polite">
                 <span class="status-loader" aria-hidden="true"></span>
@@ -283,6 +284,19 @@
                 <p class="muted">Loading a close matchup…</p>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section id="public-ranks" class="public-ranks hidden" hidden>
+          <div class="workspace-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow">Values</span>
+                <h2>Player ranks</h2>
+              </div>
+              <button type="button" class="ghost-btn" data-action="close-public-ranks">Back</button>
+            </div>
+            <div id="public-ranks-board"></div>
           </div>
         </section>
 
@@ -380,6 +394,18 @@
           <div class="room hidden" data-room-panel="value">
             <section class="workspace-panel" id="value-calculator-section">
               <div id="value-calculator-shell" class="calculator-shell"></div>
+            </section>
+          </div>
+
+          <div class="room hidden" data-room-panel="ranks">
+            <section class="workspace-panel" id="ranks-section">
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow">Values</span>
+                  <h2>Player ranks</h2>
+                </div>
+              </div>
+              <div id="ranks-dashboard"></div>
             </section>
           </div>
 

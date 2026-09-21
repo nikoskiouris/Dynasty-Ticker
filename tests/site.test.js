@@ -165,6 +165,10 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.equal(existsSync(join(docs, "modules/recap.js")), false);
   assert.equal(existsSync(join(docs, "modules/recap-card.js")), false);
   assert.match(index, /id="landing-rather"/);
+  assert.match(index, /id="open-public-ranks"/);
+  assert.match(index, /Check player values/);
+  assert.match(index, /id="public-ranks"/);
+  assert.match(index, /id="ranks-dashboard"/);
   assert.match(index, /id="landing-username"/);
   assert.match(index, />What do you want to do\?</);
   assert.match(index, /id="landing-jobs"/);
@@ -201,7 +205,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /data-page="history"/);
   assert.doesNotMatch(index, /id="history-page"/);
   assert.match(index, /id="room-nav"/);
-  for (const room of ["start", "scores", "standings", "power", "awards", "history", "roster", "mock", "call", "loyalty", "passports", "log", "match", "value", "calculator", "lab"]) {
+  for (const room of ["start", "scores", "standings", "power", "awards", "history", "roster", "mock", "call", "loyalty", "passports", "log", "match", "value", "ranks", "calculator", "lab"]) {
     assert.match(index, new RegExp(`data-room-panel="${room}"`), room);
   }
   assert.doesNotMatch(index, /data-room-panel="recap"/);
@@ -220,7 +224,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   const tradesPage = index.slice(index.indexOf('id="trades-page"'), index.indexOf('id="site-dock"'));
   assert.deepEqual(
     [...tradesPage.matchAll(/data-room-panel="([^"]+)"/g)].map((row) => row[1]),
-    ["value", "match", "calculator", "lab", "log"],
+    ["value", "ranks", "match", "calculator", "lab", "log"],
   );
   assert.match(index, /id="history-dashboard"/);
   assert.match(index, /id="mobile-home-btn"/);
