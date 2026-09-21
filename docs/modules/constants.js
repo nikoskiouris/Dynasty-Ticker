@@ -71,7 +71,7 @@ export const ROOM_HINTS = {
     mock: "2027 SF rookie mock board",
   },
   trades: {
-    value: "Blank board: any player plus early, middle, or late picks",
+    value: "Blank board: search any player or pick in one box",
     calculator: "Build both sides from two rosters and get a verdict",
     match: "Teams that have your holes and need your extras",
     lab: "Shop an asset, acquire a target, blockbuster",

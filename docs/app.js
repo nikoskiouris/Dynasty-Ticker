@@ -104,12 +104,11 @@ import {
   addValueCalcItem,
   clearValueCalcSides,
   emptyValueCalcState,
-  groupGenericPicks,
-  listGenericPicks,
-  listValueCalcPlayers,
+  listValueCalcAssets,
   removeValueCalcItem,
   sumValueCalcSide,
   valueCalcVerdict,
+  withPlayerDirectoryNames,
 } from "./modules/value-calc.js";
 import { bindTicker } from "./modules/ticker-scrub.js";
 import { leagueHistoryRecords, pickLatestCrown } from "./modules/league-crown.js";
@@ -5220,7 +5219,6 @@ function renderValueCalculator() {
   }
   const leftTotal = Math.round(sumValueCalcSide(state.valueCalc.left));
   const rightTotal = Math.round(sumValueCalcSide(state.valueCalc.right));
-  const picks = groupGenericPicks(listGenericPicks(state.values, state.valueNameMap));
   host.innerHTML = `
     ${renderValueBoardBar({
       applied: state.applyLeagueBoard,
@@ -5232,17 +5230,17 @@ function renderValueCalculator() {
         <span class="eyebrow">Trade Calculator</span>
         <h2>Any assets</h2>
       </div>
-      <p class="section-copy">Search any player. Throw in early, middle, or late picks. Not tied to two rosters.</p>
+      <p class="section-copy">Search any player or pick, same box. Not tied to two rosters.</p>
     </div>
     <div class="calc-grid">
-      ${renderValueCalcPane("left", "Give", picks)}
-      ${renderValueCalcPane("right", "Get", picks)}
+      ${renderValueCalcPane("left", "Give")}
+      ${renderValueCalcPane("right", "Get")}
     </div>
     <div id="value-calc-verdict" class="calc-verdict">${renderValueCalculatorVerdict(leftTotal, rightTotal)}</div>
   `;
 }
 
-function renderValueCalcPane(side, label, pickYears) {
+function renderValueCalcPane(side, label) {
   const selected = state.valueCalc[side] || [];
   const total = Math.round(sumValueCalcSide(selected));
   const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
@@ -5266,62 +5264,38 @@ function renderValueCalcPane(side, label, pickYears) {
               <span class="selected-token-remove" aria-hidden="true">×</span>
             </button>
           `).join("")
-          : `<span class="muted small">Search a player or tap an early / middle / late pick.</span>`}
+          : `<span class="muted small">Search a player or pick, like 2026 early 1st.</span>`}
       </div>
-      <input type="search" class="calc-search" placeholder="Search any player" value="${escapeHtml(query)}" data-input="value-search" data-side="${side}" />
-      <div class="calc-list" id="value-list-${side}">${renderValueCalcPlayerList(side)}</div>
-      ${renderValueCalcPickBoard(side, pickYears)}
+      <input type="search" class="calc-search" placeholder="Search players and picks" value="${escapeHtml(query)}" data-input="value-search" data-side="${side}" />
+      <div class="calc-list" id="value-list-${side}">${renderValueCalcAssetList(side)}</div>
     </section>
   `;
 }
 
-function renderValueCalcPlayerList(side) {
+function renderValueCalcAssetList(side) {
   const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
-  const players = listValueCalcPlayers(state.values, state.valueNameMap, { query, limit: query.trim() ? 40 : 12 });
   if (!query.trim()) {
-    return `<div class="player-item muted">Type a name, or use the pick buttons below.</div>`;
+    return `<div class="player-item muted">Type a player or pick, like 2026 early 1st.</div>`;
   }
-  if (players.length === 0) return `<div class="player-item muted">No matching players.</div>`;
-  return players.map((player) => `
-    <div class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(player.assetId)}" data-name="${escapeHtml(player.name)}" data-value="${player.value}" data-kind="player" role="button" tabindex="0">
-      <strong>${escapeHtml(player.name)}</strong>
-      <span>${formatNumber(Math.round(player.value))}</span>
+  const assets = listValueCalcAssets(
+    state.values,
+    withPlayerDirectoryNames(state.valueNameMap, state.players),
+    { query, limit: 40 }
+  );
+  if (assets.length === 0) return `<div class="player-item muted">No matching players or picks.</div>`;
+  return assets.map((asset) => `
+    <div class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(asset.assetId)}" data-name="${escapeHtml(asset.name)}" data-value="${asset.value}" data-kind="${asset.assetType === "pick" ? "pick" : "player"}" role="button" tabindex="0">
+      <div class="asset-row-top">
+        <div class="asset-name-stack">
+          <strong>${escapeHtml(asset.name)}</strong>
+          <div class="asset-meta">
+            <span class="asset-pill ${asset.assetType === "pick" ? "gold" : ""}">${asset.assetType === "pick" ? "Pick" : "Player"}</span>
+          </div>
+        </div>
+        <span class="asset-value-badge">${formatNumber(Math.round(asset.value))}</span>
+      </div>
     </div>
   `).join("");
-}
-
-function renderValueCalcPickBoard(side, pickYears) {
-  if (!pickYears.length) return "";
-  return `
-    <div class="value-pick-board">
-      ${pickYears.map((year) => `
-        <div class="value-pick-year">
-          <span>${escapeHtml(year.season)}</span>
-          ${year.rounds.map((round) => `
-            <div class="value-pick-round">
-              <em>${round.round}${ordinalPickRound(round.round)}</em>
-              ${round.buckets.map((pick) => `
-                <button type="button" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(pick.assetId)}" data-name="${escapeHtml(pick.name)}" data-value="${pick.value}" data-kind="pick" title="${escapeHtml(pick.name)} · ${formatNumber(Math.round(pick.value))}">
-                  ${escapeHtml(pick.bucketLabel || pick.bucket)}
-                </button>
-              `).join("")}
-            </div>
-          `).join("")}
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
-
-function ordinalPickRound(round) {
-  const n = Number(round);
-  if (!Number.isFinite(n)) return "";
-  const mod = n % 100;
-  if (mod >= 11 && mod <= 13) return "th";
-  if (n % 10 === 1) return "st";
-  if (n % 10 === 2) return "nd";
-  if (n % 10 === 3) return "rd";
-  return "th";
 }
 
 function renderValueCalculatorVerdict(leftTotal, rightTotal) {
@@ -5364,8 +5338,8 @@ function refreshValueCalculatorLists() {
   }
   const leftList = host.querySelector("#value-list-left");
   const rightList = host.querySelector("#value-list-right");
-  if (leftList) leftList.innerHTML = renderValueCalcPlayerList("left");
-  if (rightList) rightList.innerHTML = renderValueCalcPlayerList("right");
+  if (leftList) leftList.innerHTML = renderValueCalcAssetList("left");
+  if (rightList) rightList.innerHTML = renderValueCalcAssetList("right");
 }
 
 function openTradeFile(tradeId, managerKey) {

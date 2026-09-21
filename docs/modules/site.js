@@ -46,7 +46,7 @@ const ROOM_DESCRIPTIONS = {
     passports: "Player passport: who owned each player, season by season.",
   },
   trades: {
-    value: "Blank trade calculator. Add any player and generic early, middle, or late picks.",
+    value: "Blank trade calculator. Search any player or pick in one box.",
     calculator: "Two-team calculator: pick a partner and tap assets on both sides.",
     match: "Match with teams that have the positions you need, want what you can spare, or are tanking while you contend.",
   },

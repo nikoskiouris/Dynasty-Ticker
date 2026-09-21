@@ -1,11 +1,20 @@
 import {
   formatGenericPickAssetLabel,
   formatPickBucketLabel,
+  getPickBucketAliases,
   parsePickAssetId,
 } from "./values.js";
 
 export const VALUE_CALC_SIDES = Object.freeze(["left", "right"]);
 export const VALUE_CALC_BUCKETS = Object.freeze(["early", "mid", "late"]);
+
+const ROUND_WORD_NAMES = {
+  1: "first",
+  2: "second",
+  3: "third",
+  4: "fourth",
+  5: "fifth",
+};
 
 export function emptyValueCalcState() {
   return {
@@ -22,19 +31,59 @@ export function isGenericPickAssetId(assetId) {
   return Boolean(meta && VALUE_CALC_BUCKETS.includes(meta.bucket));
 }
 
-export function listValueCalcPlayers(values = {}, names = {}, { query = "", limit = 40 } = {}) {
-  const needle = String(query || "").trim().toLowerCase();
-  const rows = Object.entries(values)
-    .filter(([assetId, value]) => String(assetId).startsWith("player:") && Number.isFinite(Number(value)))
-    .map(([assetId, value]) => ({
-      assetId,
-      playerId: String(assetId).slice("player:".length),
-      name: names[assetId] || assetId,
-      value: Number(value),
-      assetType: "player",
-    }))
-    .filter((row) => !needle || row.name.toLowerCase().includes(needle) || row.assetId.toLowerCase().includes(needle))
-    .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+export function searchWords(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+function roundSearchWords(round) {
+  const n = Number(round);
+  if (!Number.isFinite(n) || n <= 0) return [];
+  const mod = n % 100;
+  const suffix = mod >= 11 && mod <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th");
+  return [`${n}${suffix}`, `r${n}`, ROUND_WORD_NAMES[n]].filter(Boolean);
+}
+
+export function valueCalcAssetSearchText(row) {
+  if (row?.assetType === "pick") {
+    return [
+      row.name,
+      row.assetId,
+      row.season,
+      "pick",
+      `round${row.round}`,
+      ...roundSearchWords(row.round),
+      ...getPickBucketAliases(row.bucket),
+      row.bucketLabel,
+    ].filter(Boolean).join(" ");
+  }
+  return [row?.name, row?.assetId].filter(Boolean).join(" ");
+}
+
+function wordMatchesToken(word, token) {
+  if (!word || !token) return false;
+  if (word === token) return true;
+  if (/^\d+$/.test(token) && /^\d+$/.test(word)) {
+    return token.length >= 3 && word.startsWith(token);
+  }
+  return word.startsWith(token);
+}
+
+export function valueCalcAssetMatchesQuery(row, query) {
+  const tokens = searchWords(query);
+  if (!tokens.length) return true;
+  const words = searchWords(valueCalcAssetSearchText(row));
+  return tokens.every((token) => words.some((word) => wordMatchesToken(word, token)));
+}
+
+function sortValueCalcRows(a, b) {
+  return b.value - a.value || a.name.localeCompare(b.name);
+}
+
+function sliceValueCalcRows(rows, limit) {
   return Number.isFinite(Number(limit)) && Number(limit) > 0 ? rows.slice(0, Number(limit)) : rows;
 }
 
@@ -57,27 +106,42 @@ export function listGenericPicks(values = {}, names = {}) {
     .sort((a, b) => Number(a.season) - Number(b.season) || a.round - b.round || VALUE_CALC_BUCKETS.indexOf(a.bucket) - VALUE_CALC_BUCKETS.indexOf(b.bucket));
 }
 
-export function groupGenericPicks(picks = []) {
-  const seasons = [];
-  const seasonMap = new Map();
-  picks.forEach((pick) => {
-    if (!seasonMap.has(pick.season)) {
-      const row = { season: pick.season, rounds: [] };
-      seasonMap.set(pick.season, row);
-      seasons.push(row);
-    }
-    const seasonRow = seasonMap.get(pick.season);
-    let roundRow = seasonRow.rounds.find((entry) => entry.round === pick.round);
-    if (!roundRow) {
-      roundRow = { round: pick.round, buckets: [] };
-      seasonRow.rounds.push(roundRow);
-    }
-    roundRow.buckets.push(pick);
+function listValueCalcPlayerRows(values = {}, names = {}) {
+  return Object.entries(values)
+    .filter(([assetId, value]) => String(assetId).startsWith("player:") && Number.isFinite(Number(value)))
+    .map(([assetId, value]) => ({
+      assetId,
+      playerId: String(assetId).slice("player:".length),
+      name: names[assetId] || assetId,
+      value: Number(value),
+      assetType: "player",
+    }));
+}
+
+export function listValueCalcAssets(values = {}, names = {}, { query = "", limit = 40, kinds = ["player", "pick"] } = {}) {
+  const want = new Set(kinds);
+  const rows = [];
+  if (want.has("player")) rows.push(...listValueCalcPlayerRows(values, names));
+  if (want.has("pick")) rows.push(...listGenericPicks(values, names));
+  return sliceValueCalcRows(
+    rows.filter((row) => valueCalcAssetMatchesQuery(row, query)).sort(sortValueCalcRows),
+    limit
+  );
+}
+
+export function listValueCalcPlayers(values = {}, names = {}, options = {}) {
+  return listValueCalcAssets(values, names, { ...options, kinds: ["player"] });
+}
+
+export function withPlayerDirectoryNames(nameMap = {}, players = {}) {
+  const names = { ...nameMap };
+  Object.entries(players && typeof players === "object" ? players : {}).forEach(([playerId, raw]) => {
+    const assetId = String(playerId).startsWith("player:") ? String(playerId) : `player:${playerId}`;
+    if (names[assetId]) return;
+    const name = String(raw?.full_name || `${raw?.first_name || ""} ${raw?.last_name || ""}`).trim();
+    if (name) names[assetId] = name;
   });
-  seasons.forEach((season) => {
-    season.rounds.sort((a, b) => a.round - b.round);
-  });
-  return seasons;
+  return names;
 }
 
 export function addValueCalcItem(state, side, asset) {
