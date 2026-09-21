@@ -36,8 +36,8 @@ Three pages. Each page has a row of rooms under it, so every feature is at most 
    - A **Viewing** picker on Loyalty and Passports switches which roster you are looking at.
 3. **Trades** — deals.
    - **Calculator** — blank board: search any player or pick in one box.
+   - **Partners** — one recommended trade per complementary roster: send this for that, and the starting lineup rank change.
    - **Two teams** — build both sides from two rosters and get a verdict.
-   - **Match** — pairs you with teams that have your holes, need your extras, or are tanking while you contend. Builds roster-fit trades, not leftover-third swaps.
    - **Find deals** — shop an asset, target a player, or generate a blockbuster.
    - **Log** — graded trade log with the trade wire. Tap a row to open the trade file (record since, market now, later finishes). Optional league board reads this room’s taste.
 

@@ -216,7 +216,12 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="value-calculator-shell"/);
   assert.match(index, /id="match-generate-btn"/);
   assert.match(index, />Find matches</);
-  assert.match(index, /Calculator, two teams, deals/);
+  assert.match(index, /Calculator, partners, deals/);
+  const tradesPage = index.slice(index.indexOf('id="trades-page"'), index.indexOf('id="site-dock"'));
+  assert.deepEqual(
+    [...tradesPage.matchAll(/data-room-panel="([^"]+)"/g)].map((row) => row[1]),
+    ["value", "match", "calculator", "lab", "log"],
+  );
   assert.match(index, /id="history-dashboard"/);
   assert.match(index, /id="mobile-home-btn"/);
   assert.match(index, /data-action="league-home"/);

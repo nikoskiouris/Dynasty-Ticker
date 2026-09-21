@@ -99,7 +99,7 @@ import {
   writeApplyLeagueBoard,
 } from "./modules/league-board.js";
 import { createLivePoller, shouldPollLive, shouldRefreshSim, weekRowsFingerprint } from "./modules/live.js";
-import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, clamp, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
+import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
 import {
   addValueCalcItem,
   clearValueCalcSides,
@@ -115,7 +115,6 @@ import { leagueHistoryRecords, pickLatestCrown } from "./modules/league-crown.js
 import { jobById, landingSearchHint, renderDeskJobsMarkup, deskJobsForLeague } from "./modules/jobs.js";
 import {
   buildTradeMatchProfile,
-  describePartnerMatch,
   packageLooksLikeFiller,
   previewBestMatch,
   proposeMatchDeals,
@@ -8679,19 +8678,10 @@ function renderTradeMatchDashboard() {
   }
   el.tradeMatchDashboard.innerHTML = payload.groups.map((group) => `
     <article class="match-partner-card">
-      <div class="match-partner-heading">
-        <div>
-          <span class="eyebrow">${escapeHtml(group.laneLabel || "Match")}</span>
-          <h3>${escapeHtml(group.title)}</h3>
-        </div>
-        <div class="power-badge-row">
-          ${(group.tags || []).map((tag) => `<span class="power-badge">${escapeHtml(tag)}</span>`).join("")}
-        </div>
-      </div>
-      <p class="muted small">${escapeHtml(group.subtitle)}</p>
+      <h3>${escapeHtml(group.title)}</h3>
       ${
         group.ideas.length > 0
-          ? group.ideas.map((idea, idx) => renderTradeCard(idea, idx, state.values)).join("")
+          ? group.ideas.map((idea) => renderMatchTradeCard(idea)).join("")
           : `<p class="muted small idea-group-empty">${escapeHtml(group.emptyText || "Need fit is there, but no package stayed fair without filler.")}</p>`
       }
     </article>
@@ -8791,10 +8781,6 @@ async function generateTradeMatches({ userRequested = false } = {}) {
             theirAssets: row.deal.theirAssets,
             ...row.packageResult,
             pctDiff: row.pctDiff,
-            labScore: clamp(Math.round(row.deal.helpScore), 1, 99),
-            tags: row.deal.tags,
-            summary: row.deal.summary,
-            pitch: row.deal.pitch,
             counterpartyName: theirProfile.managerName,
             counterpartyRosterId: theirProfile.rosterId,
             matchKind: row.deal.kind,
@@ -8804,22 +8790,15 @@ async function generateTradeMatches({ userRequested = false } = {}) {
           theirRoster: theirProfile.roster,
           values: state.values,
           leagueStrengthBaseline,
+          includePowerUpgrade: false,
         });
         if (!tradeMatchIdeaHelps(idea, myProfile, row.deal)) continue;
         ideas.push(idea);
-        if (ideas.length >= 2) break;
+        if (ideas.length >= 1) break;
       }
 
       groups.push({
         title: theirProfile.managerName,
-        laneLabel: theirProfile.laneLabel,
-        subtitle: describePartnerMatch(match, myProfile),
-        tags: [
-          match.twoWay ? "Two-way" : "",
-          match.timelinePairing === "contend-rebuild" || match.timelinePairing === "rebuild-contend" ? "Contend / tank" : "",
-          ...(match.takePositions || []).map((position) => `Get ${position}`),
-          ...(match.givePositions || []).map((position) => `Send ${position}`),
-        ].filter(Boolean).slice(0, 4),
         ideas,
         emptyText: "The rosters fit, but every fair package still looked like filler. Try Find deals on a specific name.",
       });
@@ -8850,9 +8829,11 @@ function tradeMatchIdeaHelps(idea, myProfile, deal) {
   if (deal?.myHelp?.helped === false) return false;
   if (myProfile.timeline !== "contending") return true;
   const starterDelta = (idea.impactAnalysis?.mySide.after.starterValue || 0) - (idea.impactAnalysis?.mySide.before.starterValue || 0);
-  const powerDelta = idea.powerUpgrade?.delta ?? 0;
-  const holePatched = Boolean(deal?.myHelp?.patchedNeeds?.length) || idea.powerUpgrade?.badges?.includes("Hole Patched");
-  return holePatched || starterDelta >= -150 || powerDelta >= 0;
+  const holePatched = Boolean(deal?.myHelp?.patchedNeeds?.length);
+  const beforeRank = idea.impactAnalysis?.mySide.before.rank;
+  const afterRank = idea.impactAnalysis?.mySide.after.rank;
+  const rankImproved = Number.isFinite(beforeRank) && Number.isFinite(afterRank) && afterRank <= beforeRank;
+  return holePatched || starterDelta >= -150 || rankImproved;
 }
 
 async function generateTradeIdeas() {
@@ -8955,7 +8936,7 @@ async function generateTradeIdeas() {
   }
 }
 
-function enrichTradeIdea({ idea, myRoster, theirRoster, values, leagueStrengthBaseline }) {
+function enrichTradeIdea({ idea, myRoster, theirRoster, values, leagueStrengthBaseline, includePowerUpgrade = true }) {
   const impactAnalysis = leagueStrengthBaseline
     ? buildTradeImpactAnalysis({
       baseline: leagueStrengthBaseline,
@@ -8968,6 +8949,13 @@ function enrichTradeIdea({ idea, myRoster, theirRoster, values, leagueStrengthBa
       values,
     })
     : null;
+  if (!includePowerUpgrade) {
+    return {
+      ...idea,
+      impactAnalysis,
+      powerUpgrade: null,
+    };
+  }
   const powerUpgrade = leagueStrengthBaseline
     ? buildTradePowerUpgrade({
       baseline: leagueStrengthBaseline,
@@ -9173,6 +9161,23 @@ function renderMultiTeamPartyCard(participant, values, meRosterId) {
 
 function formatAssetNameList(assets) {
   return assets.map((asset) => asset.name).join(", ");
+}
+
+function renderMatchTradeCard(idea) {
+  const copy = formatMatchIdeaCopy({
+    sendNames: (idea.myAssets || []).map((asset) => asset.name),
+    receiveNames: (idea.theirAssets || []).map((asset) => asset.name),
+    beforeRank: idea.impactAnalysis?.mySide?.before?.rank,
+    afterRank: idea.impactAnalysis?.mySide?.after?.rank,
+    totalTeams: idea.impactAnalysis?.mySide?.before?.totalTeams
+      || idea.impactAnalysis?.mySide?.after?.totalTeams,
+  });
+  return `
+    <article class="match-trade-card">
+      <p class="match-trade-offer">${escapeHtml(copy.offer)}</p>
+      ${copy.rank ? `<p class="match-trade-rank">${escapeHtml(copy.rank)}</p>` : ""}
+    </article>
+  `;
 }
 
 function renderTradeCard(idea, index, values) {

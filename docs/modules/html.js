@@ -16,6 +16,42 @@ export function formatSignedNumber(value) {
   return `${numericValue > 0 ? "+" : ""}${formatNumber(numericValue)}`;
 }
 
+function joinNameList(names) {
+  const list = (names || []).map((name) => String(name || "").trim()).filter(Boolean);
+  if (!list.length) return "nothing";
+  if (list.length === 1) return list[0];
+  if (list.length === 2) return `${list[0]} and ${list[1]}`;
+  return `${list.slice(0, -1).join(", ")}, and ${list[list.length - 1]}`;
+}
+
+function ordinalLabel(rank) {
+  const value = Number(rank);
+  if (!Number.isFinite(value)) return "";
+  const rounded = Math.trunc(value);
+  const mod100 = rounded % 100;
+  if (mod100 >= 10 && mod100 <= 20) return `${rounded}th`;
+  const suffix = { 1: "st", 2: "nd", 3: "rd" }[rounded % 10] || "th";
+  return `${rounded}${suffix}`;
+}
+
+export function formatStarterRankLabel(rank, totalTeams) {
+  const label = ordinalLabel(rank);
+  if (!label) return "";
+  const total = Number(totalTeams);
+  if (!Number.isFinite(total) || total <= 0) return label;
+  return `${label}/${total}`;
+}
+
+export function formatMatchIdeaCopy({ sendNames, receiveNames, beforeRank, afterRank, totalTeams } = {}) {
+  const offer = `Send ${joinNameList(sendNames)} for ${joinNameList(receiveNames)}`;
+  const before = formatStarterRankLabel(beforeRank, totalTeams);
+  const after = formatStarterRankLabel(afterRank, totalTeams);
+  const rank = before && after
+    ? `It'll change your starting lineup rank from ${before} to ${after}`
+    : "";
+  return { offer, rank };
+}
+
 export function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }

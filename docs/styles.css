@@ -3808,12 +3808,37 @@ button.weekly-help-close:hover {
 }
 
 .match-partner-heading h3,
-.match-partner-heading .eyebrow {
+.match-partner-heading .eyebrow,
+.match-partner-card > h3 {
   margin-bottom: 0;
 }
 
-.match-partner-card .trade-card {
+.match-partner-card .trade-card,
+.match-trade-card {
   background: var(--panel);
+}
+
+.match-trade-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.match-trade-offer,
+.match-trade-rank {
+  margin: 0;
+}
+
+.match-trade-offer {
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.match-trade-rank {
+  color: var(--muted-strong);
+  font-size: 0.88rem;
 }
 
 .trade-card,
