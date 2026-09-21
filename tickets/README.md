@@ -29,10 +29,8 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [006](006-late-season-win-now.txt) | Late-season win-now value | P2 |
 | [007](007-assets-to-move-on.txt) | Assets to move on from for capital | P1 |
 | [008](008-aging-stars-on-bad-teams.txt) | Target aging stars on tanking teams | P1 |
-| [009](009-trade-match-false-needs.txt) | Trade match invents positional needs | P0 |
 | [010](010-league-first-landing.txt) | League is the product; rather is not the homepage | P0 |
 | [011](011-rather-pairing.txt) | Rather pairing still produces no-brainers | P1 |
-| [012](012-trades-first-run.txt) | Trades page first-run is confusing | P0 |
 | [014](014-redraft-values.txt) | Redraft rest-of-season values | P1 |
 
 ## Done
@@ -42,6 +40,8 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [001](001-weekly-player-value.txt) | Weekly player value from matchup + usage | P0 | [#57](https://github.com/nikoskiouris/Dynasty-Ticker/pull/57) |
 | [002](002-sit-start.txt) | Sit / start | P0 | [#60](https://github.com/nikoskiouris/Dynasty-Ticker/pull/60) |
 | [003](003-future-dynasty-rankings.txt) | Future dynasty rankings (one year out, names not picks) | P0 | [#61](https://github.com/nikoskiouris/Dynasty-Ticker/pull/61) |
+| [009](009-trade-match-false-needs.txt) | Trade match invents positional needs | P0 | [#77](https://github.com/nikoskiouris/Dynasty-Ticker/pull/77) |
+| [012](012-trades-first-run.txt) | Trades page first-run is confusing | P0 | [#77](https://github.com/nikoskiouris/Dynasty-Ticker/pull/77) |
 | [013](013-trade-desk-freeze.txt) | Deal finder / calculator freeze | P0 | [#64](https://github.com/nikoskiouris/Dynasty-Ticker/pull/64) |
 
 ## Shipped before this board

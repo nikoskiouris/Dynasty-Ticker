@@ -2,7 +2,10 @@ Title
 Trade match invents positional needs
 
 Status
-Open
+Done
+
+Shipped
+#77
 
 Priority
 P0 — concrete bug from the note

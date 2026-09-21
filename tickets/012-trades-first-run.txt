@@ -2,7 +2,10 @@ Title
 Trades page first-run: not the calculator, and actually readable
 
 Status
-Open
+Done
+
+Shipped
+#77
 
 Priority
 P0
