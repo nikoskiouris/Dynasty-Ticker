@@ -233,7 +233,7 @@ def main() -> int:
         return 0 if fallback_values_exist() else 1
 
     sf_values = scrape_format(players, extra_params={"filters": KTC_FILTERS})
-    one_qb_values = scrape_format(players, extra_params={"filters": KTC_FILTERS, "format": 1})
+    scraped_one_qb = scrape_format(players, extra_params={"filters": KTC_FILTERS, "format": 1})
 
     if not accept_scrape(sf_values, players):
         print(
@@ -243,13 +243,18 @@ def main() -> int:
         )
         return 0 if fallback_values_exist() else 1
 
-    if not accept_scrape(one_qb_values, players):
+    one_qb_values = resolve_one_qb_values(
+        scraped_one_qb,
+        players,
+        load_existing_json_format("oneQb"),
+    )
+    if not accept_scrape(scraped_one_qb, players):
+        kept = "keeping the last 1QB file" if one_qb_values else "no prior 1QB file to keep"
         print(
-            f"KTC 1QB scrape looked broken ({mapped_player_count(one_qb_values)} players); "
-            "keeping the last 1QB file or Superflex.",
+            f"KTC 1QB scrape looked broken ({mapped_player_count(scraped_one_qb)} players); "
+            f"{kept}. Not copying Superflex into the 1QB slot.",
             file=sys.stderr,
         )
-        one_qb_values = load_existing_json_format("oneQb") or sf_values
 
     for output_path in SF_OUTPUT_PATHS:
         write_values_csv(output_path, sf_values, players)
@@ -284,6 +289,15 @@ def scrape_covers_sentinels(values: dict, players: dict) -> bool:
 
 def accept_scrape(values: dict, players: dict) -> bool:
     return mapped_player_count(values) >= MIN_MAPPED_PLAYERS and scrape_covers_sentinels(values, players)
+
+
+def resolve_one_qb_values(scraped: dict, players: dict, existing: dict | None) -> dict | None:
+    """Keep a real 1QB board. Never store Superflex numbers in the 1QB slot."""
+    if accept_scrape(scraped, players):
+        return scraped
+    if isinstance(existing, dict) and existing:
+        return existing
+    return None
 
 
 def load_existing_json_format(key: str) -> dict:
@@ -759,13 +773,14 @@ def resolve_asset_name(asset_id: str, players: dict) -> str:
     return asset_id
 
 
-def write_values_json(path: Path, sf_values: dict[str, int], one_qb_values: dict[str, int], players: dict) -> None:
+def write_values_json(path: Path, sf_values: dict[str, int], one_qb_values: dict[str, int] | None, players: dict) -> None:
     names: dict[str, str] = {}
-    for asset_id in set(sf_values) | set(one_qb_values or {}):
+    one_qb = one_qb_values or {}
+    for asset_id in set(sf_values) | set(one_qb):
         names[asset_id] = resolve_asset_name(asset_id, players)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        json.dumps({"sf": sf_values, "oneQb": one_qb_values or sf_values, "names": names}, separators=(",", ":")),
+        json.dumps({"sf": sf_values, "oneQb": one_qb_values if one_qb_values else None, "names": names}, separators=(",", ":")),
         encoding="utf-8",
     )
 
