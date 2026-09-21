@@ -194,13 +194,26 @@ export function mockProspectAtSlot(board, slot, round = 1) {
   };
 }
 
-export function formatHybridFirstName({ season, round = 1, ownerName, placeLabel, mockName } = {}) {
+export function formatHybridFirstName({
+  season,
+  round = 1,
+  ownerName,
+  placeLabel,
+  mockName,
+  mockSlot = null,
+} = {}) {
   const year = String(season || "").trim();
   if (!year) return "";
   const roundLabel = ordinal(Number(round) || 1);
   const whose = String(ownerName || "").trim() ? ` from ${String(ownerName).trim()}` : "";
-  const place = String(placeLabel || "").trim() ? ` · ${String(placeLabel).trim()}` : "";
-  const mock = String(mockName || "").trim() ? ` (${String(mockName).trim()})` : "";
+  const placeRaw = String(placeLabel || "").trim();
+  const place = placeRaw
+    ? ` · ${/\bplace\b/i.test(placeRaw) ? placeRaw : `${placeRaw} place`}`
+    : "";
+  const slotLabel = formatPickSlotLabel(round, mockSlot);
+  const name = String(mockName || "").trim();
+  const mockInner = [slotLabel, name].filter(Boolean).join(" ");
+  const mock = mockInner ? ` (${mockInner})` : "";
   return `${year} ${roundLabel}${whose}${place}${mock}`;
 }
 
@@ -209,7 +222,7 @@ export function formatMockSourceLine(board) {
   const shorts = [...new Set(mocks.map((mock) => mock.short || mock.source).filter(Boolean))];
   const season = nextMockSeason(board) || "Next";
   const sources = shorts.length ? shorts.join(" + ") : "Dynasty Nerds";
-  return `${season} 1sts and 2nds show who ${sources} mock at that slot from current place. 3rds stay pick labels. College names have no trade value.`;
+  return `${season} 1sts and 2nds show who ${sources} mock at that slot from current place (last place = 1.01 / 2.01, 12th pick = 1.12). 3rds stay pick labels. College names have no trade value.`;
 }
 
 export function primaryMock(board) {

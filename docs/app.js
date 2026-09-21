@@ -7605,13 +7605,15 @@ function buildTransactionPickAsset(pick, transaction = null) {
   let name = formatPickWithSelection(pickLabel, draftedPlayerName, draftedPlayerValue, formatNumber);
   if (!draftedPlayerName && shouldAttachMock({ season, round }, state.mockDrafts)) {
     const place = currentPlaceForOwner(originalOwner, buildCurrentPlaceLookup(state.rosters, getSeasonModel()?.standings));
-    const mock = mockProspectAtSlot(state.mockDrafts, projectedDraftSlot(place?.rank, place?.total), round);
+    const slot = projectedDraftSlot(place?.rank, place?.total);
+    const mock = mockProspectAtSlot(state.mockDrafts, slot, round);
     name = formatHybridFirstName({
       season,
       round,
       ownerName,
       placeLabel: place?.label,
       mockName: mock?.label || "",
+      mockSlot: slot,
     }) || name;
   }
   const normalizedPick = {
@@ -13889,8 +13891,11 @@ function renderPickVaultRow(asset, values) {
   const ownerName = String(asset?.raw?.originalOwnerName || "").trim();
   const placeLabel = String(asset?.raw?.currentPlaceLabel || "").trim();
   const target = mockPickTarget(asset);
+  const slotLabel = target ? formatPickSlotLabel(target.round, target.slot) : "";
+  const placeBit = placeLabel ? `${placeLabel} place` : "";
+  const mockBit = mockName ? `(${[slotLabel, mockName].filter(Boolean).join(" ")})` : "";
   const detail = mockName
-    ? [ownerName ? `from ${ownerName}` : "", placeLabel, mockName ? `(${mockName})` : ""]
+    ? [ownerName ? `from ${ownerName}` : "", placeBit, mockBit]
       .filter(Boolean)
       .join(" · ")
       .replace(" · (", " (")
@@ -14535,6 +14540,7 @@ function formatPickName(pick, {
       ownerName,
       placeLabel: place?.label,
       mockName: mock?.label || "",
+      mockSlot: slot,
     });
   }
 

@@ -106,9 +106,10 @@ test("hybrid label keeps pick, owner, place, and mock without a college price", 
       round: 1,
       ownerName: "Niko",
       placeLabel: "4th",
-      mockName: "Jeremiah Smith",
+      mockName: "LaNorris Sellers",
+      mockSlot: 9,
     }),
-    "2027 1st from Niko · 4th (Jeremiah Smith)"
+    "2027 1st from Niko · 4th place (1.09 LaNorris Sellers)"
   );
   assert.equal(
     formatHybridFirstName({
@@ -117,12 +118,23 @@ test("hybrid label keeps pick, owner, place, and mock without a college price", 
       ownerName: "Niko",
       placeLabel: "12th",
       mockName: "Justice Haynes",
+      mockSlot: 1,
     }),
-    "2027 2nd from Niko · 12th (Justice Haynes)"
+    "2027 2nd from Niko · 12th place (2.01 Justice Haynes)"
   );
   assert.equal(
     formatHybridFirstName({ season: 2027, ownerName: "Niko", placeLabel: "4th" }),
-    "2027 1st from Niko · 4th"
+    "2027 1st from Niko · 4th place"
+  );
+  assert.doesNotMatch(
+    formatHybridFirstName({
+      season: 2027,
+      round: 2,
+      placeLabel: "12th",
+      mockName: "Justice Haynes",
+      mockSlot: 1,
+    }),
+    /12th pick|12th \(Justice/
   );
   assert.doesNotMatch(formatHybridFirstName({
     season: 2027,
@@ -133,7 +145,8 @@ test("hybrid label keeps pick, owner, place, and mock without a college price", 
 test("source line names Dynasty Nerds and keeps 3rds as pick labels", () => {
   const line = formatMockSourceLine(sampleBoard);
   assert.match(line, /Dynasty Nerds/);
-  assert.match(line, /1sts and 2nds/);
+  assert.match(line, /last place = 1\.01 \/ 2\.01/);
+  assert.match(line, /12th pick = 1\.12/);
   assert.match(line, /3rds stay pick labels/i);
   assert.match(line, /no trade value/i);
   assert.doesNotMatch(line, /SI|PFN/);

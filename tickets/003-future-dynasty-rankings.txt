@@ -22,7 +22,7 @@ For the next rookie class only (one year out, not 2028+), a 1st or 2nd shows:
 - what place that roster is now
 - who Dynasty Nerds mock at that slot, in parentheses
 
-Example: `2027 1st from Niko · 4th (Jeremiah Smith)`.
+Example: `2027 2nd from Niko · 12th place (2.01 Justice Haynes)`. 12th is standings place. 2.01 is the slot (overall pick 13 in a 12-team draft). 12th pick is 1.12.
 
 Source is the Dynasty Nerds 12-team Superflex TEP 2-round mock. Refresh that page weekly. Dynasty slot comes from current place (last now = 1.01 / 2.01). Skill positions only (QB/RB/WR/TE). 3rd-round picks stay pick labels with no player name. College names get no trade value. The number on the row is still the pick’s market price.
 
