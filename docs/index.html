@@ -209,7 +209,7 @@
               <span class="tab-copy"><strong>Teams</strong><small id="teams-tab-hint">Roster, tank or contend, mock</small></span>
             </button>
             <button id="trades-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades">
-              <span class="tab-copy"><strong>Trades</strong><small>Calculator, two teams, deals</small></span>
+              <span class="tab-copy"><strong>Trades</strong><small>Calculator, partners, deals</small></span>
             </button>
           </nav>
           <nav class="room-nav" id="room-nav" role="tablist" aria-label="Rooms on this page"></nav>
@@ -377,8 +377,10 @@
         </div>
 
         <div id="trades-page" class="workspace-page app-page hidden" role="tabpanel" aria-labelledby="trades-tab">
-          <div class="room hidden" data-room-panel="log">
-            <div id="trade-log-dashboard" class="dashboard"></div>
+          <div class="room" data-room-panel="value">
+            <section class="workspace-panel" id="value-calculator-section">
+              <div id="value-calculator-shell" class="calculator-shell"></div>
+            </section>
           </div>
 
           <div class="room hidden" data-room-panel="match">
@@ -405,12 +407,6 @@
             </section>
             <section class="workspace-panel results-shell" id="trade-match-results">
               <div id="trade-match-dashboard" class="trade-match-dashboard"></div>
-            </section>
-          </div>
-
-          <div class="room" data-room-panel="value">
-            <section class="workspace-panel" id="value-calculator-section">
-              <div id="value-calculator-shell" class="calculator-shell"></div>
             </section>
           </div>
 
@@ -489,6 +485,10 @@
               </div>
               <div id="results-list"></div>
             </section>
+          </div>
+
+          <div class="room hidden" data-room-panel="log">
+            <div id="trade-log-dashboard" class="dashboard"></div>
           </div>
         </div>
       </main>
