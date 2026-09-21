@@ -133,6 +133,17 @@ export function listValueCalcPlayers(values = {}, names = {}, options = {}) {
   return listValueCalcAssets(values, names, { ...options, kinds: ["player"] });
 }
 
+export function withPlayerDirectoryNames(nameMap = {}, players = {}) {
+  const names = { ...nameMap };
+  Object.entries(players && typeof players === "object" ? players : {}).forEach(([playerId, raw]) => {
+    const assetId = String(playerId).startsWith("player:") ? String(playerId) : `player:${playerId}`;
+    if (names[assetId]) return;
+    const name = String(raw?.full_name || `${raw?.first_name || ""} ${raw?.last_name || ""}`).trim();
+    if (name) names[assetId] = name;
+  });
+  return names;
+}
+
 export function addValueCalcItem(state, side, asset) {
   const next = emptyValueCalcState();
   Object.assign(next, state);

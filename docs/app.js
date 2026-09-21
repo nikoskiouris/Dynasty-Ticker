@@ -108,6 +108,7 @@ import {
   removeValueCalcItem,
   sumValueCalcSide,
   valueCalcVerdict,
+  withPlayerDirectoryNames,
 } from "./modules/value-calc.js";
 import { bindTicker } from "./modules/ticker-scrub.js";
 import { leagueHistoryRecords, pickLatestCrown } from "./modules/league-crown.js";
@@ -5276,7 +5277,11 @@ function renderValueCalcAssetList(side) {
   if (!query.trim()) {
     return `<div class="player-item muted">Type a player or pick, like 2026 early 1st.</div>`;
   }
-  const assets = listValueCalcAssets(state.values, state.valueNameMap, { query, limit: 40 });
+  const assets = listValueCalcAssets(
+    state.values,
+    withPlayerDirectoryNames(state.valueNameMap, state.players),
+    { query, limit: 40 }
+  );
   if (assets.length === 0) return `<div class="player-item muted">No matching players or picks.</div>`;
   return assets.map((asset) => `
     <div class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(asset.assetId)}" data-name="${escapeHtml(asset.name)}" data-value="${asset.value}" data-kind="${asset.assetType === "pick" ? "pick" : "player"}" role="button" tabindex="0">

@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseCsvValues } from "../docs/modules/values.js";
+import { parseCsvValues, pickValueBundle } from "../docs/modules/values.js";
+import { composeValuationBundles } from "../docs/modules/trade-market.js";
 import {
   addValueCalcItem,
   clearValueCalcSides,
@@ -14,6 +15,7 @@ import {
   removeValueCalcItem,
   sumValueCalcSide,
   valueCalcVerdict,
+  withPlayerDirectoryNames,
 } from "../docs/modules/value-calc.js";
 
 const values = {
@@ -99,4 +101,27 @@ test("market file search finds 2026 firsts and named players together", () => {
   const bijan = listValueCalcAssets(marketValues, nameMap, { query: "bijan", limit: 5 });
   assert.equal(bijan[0].assetType, "player");
   assert.match(bijan[0].name, /Bijan/i);
+});
+
+test("player directory names fill a blank name map so search still works", () => {
+  const names = withPlayerDirectoryNames({}, { 9509: { full_name: "Bijan Robinson" } });
+  const rows = listValueCalcAssets({ "player:9509": 9996 }, names, { query: "bijan" });
+  assert.equal(rows[0].name, "Bijan Robinson");
+});
+
+test("live ktc json names survive an empty format nameMap", () => {
+  const json = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/data/ktc_values.json"), "utf8"));
+  const composed = composeValuationBundles(
+    {
+      sf: { values: json.sf, nameMap: {} },
+      oneQb: { values: json.oneQb, nameMap: {} },
+      names: json.names,
+    },
+    { sf: { values: {}, counts: {} }, oneQb: { values: {}, counts: {} }, names: {} }
+  );
+  const bundle = pickValueBundle(composed, "sf");
+  const bijan = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "bijan", limit: 5 });
+  assert.match(bijan[0].name, /Bijan/i);
+  const firsts = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "2026 1st", limit: 8 });
+  assert.ok(firsts.some((row) => row.assetType === "pick"));
 });
