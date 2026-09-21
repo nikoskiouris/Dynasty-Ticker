@@ -123,6 +123,15 @@ test("desk uses the capped search and cached calculator baseline", () => {
   assert.match(app, /DEFAULT_MAX_OUTGOING_PACKAGE_SIZE = 3/);
   assert.match(app, /ELITE_MAX_OUTGOING_PACKAGE_SIZE = 4/);
   assert.match(app, /await waitForNextPaint\(\)/);
+  const shop = app.slice(
+    app.indexOf("async function generateShopIdeaBuckets"),
+    app.indexOf("function suggestShopDealsWithRoster"),
+  );
+  assert.ok(shop.indexOf("await waitForNextPaint()") < shop.indexOf("suggestShopDealsWithRoster("));
+  assert.match(app, /Player names still syncing/);
+  assert.match(app, /if \(el\.generateBtn\?\.classList\.contains\("loading"\)\) return;/);
+  assert.doesNotMatch(app, /function getGlobalMaxPlayerValue/);
+  assert.doesNotMatch(app, /function ordinal\(/);
   assert.doesNotMatch(
     app.slice(app.indexOf("function suggestTrades"), app.indexOf("function buildTradeSearchContext")),
     /for \(const myPackage of myPackages\) \{\s*for \(const theirPackage of theirPackages\)/

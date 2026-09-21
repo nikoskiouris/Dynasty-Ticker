@@ -8,6 +8,7 @@ import {
   buildTeamDistributions,
   formatPoints,
   formatOddsPct,
+  ordinal,
   blendSimPrior,
   scoreUpcomingWeekAngles,
 } from "./modules/season.js";
@@ -39,6 +40,7 @@ import {
   LEAGUE_HISTORY_RECORD_IDS,
 } from "./modules/constants.js";
 import { state, sleeper, THEME_STORAGE_KEY, PLAYERS_CACHE_KEY, DEFAULT_THEME, THEME_COLORS } from "./modules/state.js";
+import { createLeagueLoader } from "./modules/league-load.js";
 import { apiGet, apiGetWithRetry, fetchUserLeagues, mapInChunks } from "./modules/sleeper.js";
 import {
   classifyLeagueInput,
@@ -82,6 +84,8 @@ import {
   leagueHasSuperflex,
   tepLevel,
   crowdShiftsFromVotes,
+  getGlobalMaxPlayerValue,
+  KTC_GLOBAL_MAX_FALLBACK,
 } from "./modules/values.js";
 import {
   composeValuationBundles,
@@ -279,7 +283,6 @@ const KTC_RAW_BASE = 0.10;
 const KTC_RAW_ELITE_WEIGHT = 0.08;
 const KTC_RAW_TRADE_WEIGHT = 0.11;
 const KTC_RAW_DEPTH_WEIGHT = 0.18;
-const KTC_GLOBAL_MAX_FALLBACK = 9999;
 const DEFAULT_MULTI_TEAM_COUNT = 3;
 const TRENDING_PLAYERS_LIMIT = 30;
 const TRENDING_LOOKBACK_HOURS = 24;
@@ -419,7 +422,7 @@ const el = {
   leagueAvatar: document.querySelector("#league-avatar"),
 };
 
-let leagueLoadPromise = null;
+const leagueLoader = createLeagueLoader();
 let leagueLoadAnimationTimer = null;
 let leagueLoadStartedAt = 0;
 let livePoller = null;
@@ -1459,8 +1462,6 @@ function stopFindLeaguesUi() {
 }
 
 async function loadLeague() {
-  if (leagueLoadPromise) return leagueLoadPromise;
-
   const classified = classifyLeagueInput(el.leagueId?.value);
   const leagueId = classified.kind === "league" ? classified.leagueId : parseLeagueId(el.leagueId?.value);
   if (!leagueId) {
@@ -1474,19 +1475,13 @@ async function loadLeague() {
 }
 
 async function loadLeagueById(leagueId) {
-  if (leagueLoadPromise) return leagueLoadPromise;
   if (!leagueId) return;
-
-  leagueLoadPromise = runLeagueLoad(leagueId);
-  try {
-    await leagueLoadPromise;
-  } finally {
-    leagueLoadPromise = null;
-  }
+  return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token));
 }
 
-async function runLeagueLoad(leagueId) {
+async function runLeagueLoad(leagueId, token) {
   try {
+    if (!leagueLoader.isCurrent(token)) return;
     startLeagueLoadingUi();
     stopLivePolling();
     state.targetAsset = null;
@@ -1545,9 +1540,11 @@ async function runLeagueLoad(leagueId) {
       apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => null),
       ensureMockDraftsLoaded(),
     ]);
+    if (!leagueLoader.isCurrent(token)) return;
     state.nflState = nflState;
     const { league, users, rosters, tradedPicks, drafts } = coreData;
     const leagueHistory = await loadLeagueHistoryContext(leagueId, coreData);
+    if (!leagueLoader.isCurrent(token)) return;
     const previousEntry = leagueHistory.find((entry) => !entry.isCurrent) || null;
     const previousContext = previousEntry
       ? {
@@ -1557,6 +1554,7 @@ async function runLeagueLoad(leagueId) {
         }
       : { league: null, users: [], rosters: [] };
     const currentDraftContext = await loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts);
+    if (!leagueLoader.isCurrent(token)) return;
 
     state.leagueId = leagueId;
     state.leagueName = league?.name || `League ${leagueId}`;
@@ -1599,6 +1597,7 @@ async function runLeagueLoad(leagueId) {
 
     loadPlayersWithCache()
       .then((players) => {
+        if (!leagueLoader.isCurrent(token) || String(state.leagueId) !== String(leagueId)) return;
         state.players = players;
         state.playerMetadataLoaded = true;
         state.playerMetadataFailed = false;
@@ -1623,6 +1622,7 @@ async function runLeagueLoad(leagueId) {
         );
       })
       .catch((err) => {
+        if (!leagueLoader.isCurrent(token) || String(state.leagueId) !== String(leagueId)) return;
         state.playerMetadataLoaded = false;
         state.playerMetadataFailed = true;
         syncTradeModeUi();
@@ -1633,11 +1633,12 @@ async function runLeagueLoad(leagueId) {
         );
       });
   } catch (err) {
+    if (!leagueLoader.isCurrent(token)) return;
     const message = `Could not load league data. ${err.message}`;
     setFieldError(el.leagueId, el.leagueIdError, message);
     setStatus(message, { error: true });
   } finally {
-    stopLeagueLoadingUi();
+    if (leagueLoader.isCurrent(token)) stopLeagueLoadingUi();
   }
 }
 
@@ -8750,6 +8751,7 @@ async function generateTradeMatches({ userRequested = false } = {}) {
     await ensureValuesLoaded("");
     await waitForNextPaint();
     if (!state.playerMetadataLoaded && !state.playerMetadataFailed) {
+      state.tradeMatch.error = "Player names still syncing. Try again in a moment.";
       state.tradeMatch.payload = null;
       return;
     }
@@ -8881,6 +8883,7 @@ function tradeMatchIdeaHelps(idea, myProfile, deal) {
 }
 
 async function generateTradeIdeas() {
+  if (el.generateBtn?.classList.contains("loading")) return;
   if (!state.meRosterId) {
     setGenerateError("Load a league and choose your team first.");
     return;
@@ -10222,6 +10225,7 @@ async function generateShopIdeaBuckets({
   const otherRosters = state.normalizedRosters.filter((roster) => roster.rosterId !== meRoster.rosterId);
 
   for (const theirRoster of otherRosters) {
+    await waitForNextPaint();
     suggestShopDealsWithRoster({
       meRoster,
       theirRoster,
@@ -13859,16 +13863,6 @@ function calculatePctDiff(a, b) {
   return Math.abs(a - b) / Math.max(a, b) * 100;
 }
 
-function getGlobalMaxPlayerValue(values, tradeMaxValue = 0) {
-  let maxValue = Math.max(KTC_GLOBAL_MAX_FALLBACK, tradeMaxValue);
-  for (const value of Object.values(values || {})) {
-    if (Number.isFinite(value) && value > maxValue) {
-      maxValue = value;
-    }
-  }
-  return maxValue;
-}
-
 function calculateKtcRawAdjustment(playerValue, tradeMaxValue, globalMaxValue) {
   if (!Number.isFinite(playerValue) || playerValue <= 0 || !Number.isFinite(tradeMaxValue) || tradeMaxValue <= 0) return 0;
 
@@ -14567,13 +14561,6 @@ function extractRosterPoints(roster) {
   const settings = roster?.settings || {};
   if (settings.fpts == null) return null;
   return Number(settings.fpts) + Number(settings.fpts_decimal || 0) / 100;
-}
-
-function ordinal(rank) {
-  const mod100 = rank % 100;
-  if (mod100 >= 10 && mod100 <= 20) return `${rank}th`;
-  const suffix = { 1: "st", 2: "nd", 3: "rd" }[rank % 10] || "th";
-  return `${rank}${suffix}`;
 }
 
 function formatPreviousYearRankLabel(rank, totalTeams) {

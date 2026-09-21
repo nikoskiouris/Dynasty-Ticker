@@ -561,14 +561,14 @@ export function isEstimatedAsset(asset, values, options = {}) {
   return lookupMarketValue(asset, values, valueNameMap, pickCatalog).estimated;
 }
 
-export function getGlobalMaxPlayerValue(values) {
-  const max = Math.max(
-    ...Object.entries(values || {})
-      .filter(([assetId, value]) => assetId.startsWith("player:") && Number.isFinite(value))
-      .map(([, value]) => value),
-    0
-  );
-  return Math.max(max, KTC_GLOBAL_MAX_FALLBACK);
+export function getGlobalMaxPlayerValue(values, tradeMaxValue = 0) {
+  const floor = Number.isFinite(tradeMaxValue) ? tradeMaxValue : 0;
+  let maxValue = Math.max(KTC_GLOBAL_MAX_FALLBACK, floor);
+  for (const [assetId, value] of Object.entries(values || {})) {
+    if (!String(assetId).startsWith("player:")) continue;
+    if (Number.isFinite(value) && value > maxValue) maxValue = value;
+  }
+  return maxValue;
 }
 
 async function readTextIfOk(fetchImpl, path) {

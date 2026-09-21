@@ -15,8 +15,20 @@ import {
   crowdShiftsFromVotes,
   applyCrowdShift,
   applyElitePlayerValuePremium,
+  getGlobalMaxPlayerValue,
+  KTC_GLOBAL_MAX_FALLBACK,
   CROWD_MAX_ABS_SHIFT,
 } from "../docs/modules/values.js";
+
+test("global max follows players, not a pricey pick", () => {
+  const values = {
+    "player:star": 8000,
+    "pick:2027:r1:early": 14000,
+  };
+  assert.equal(getGlobalMaxPlayerValue(values), KTC_GLOBAL_MAX_FALLBACK);
+  assert.equal(getGlobalMaxPlayerValue({ "player:star": 11000, "pick:2027:r1:early": 14000 }), 11000);
+  assert.equal(getGlobalMaxPlayerValue(values, 10500), 10500);
+});
 
 test("parseCsvValues reads asset rows", () => {
   const parsed = parseCsvValues("asset_id,value,name\nplayer:1,8000,Star\npick:2026:r1:any,5000,2026 1st\n");
