@@ -4,7 +4,7 @@ Random user feedback, turned into tickets. **Do not delete ticket files.** When 
 
 The product already has a league desk, a tank/contend call, trade match, a calculator, find-deals, a landing “rather” duel, weekly start chance on the roster, sit/start this week, and next-year 1sts/2nds with Dynasty Nerds mock names.
 
-This outline is leftover work plus the tickets we already shipped.
+This outline is leftover work plus the tickets we already shipped. [015](015-chopping-block.txt) is a cut list, not a build. Do not delete features from that ticket alone.
 
 ## How to read this
 
@@ -34,6 +34,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [011](011-rather-pairing.txt) | Rather pairing still produces no-brainers | P1 |
 | [012](012-trades-first-run.txt) | Trades page first-run is confusing | P0 |
 | [014](014-redraft-values.txt) | Redraft rest-of-season values | P1 |
+| [015](015-chopping-block.txt) | Chopping block: cut until you add things back | P0 |
 
 ## Done
 
