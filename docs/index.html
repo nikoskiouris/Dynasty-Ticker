@@ -209,7 +209,7 @@
               <span class="tab-copy"><strong>Teams</strong><small id="teams-tab-hint">Roster, tank or contend, mock</small></span>
             </button>
             <button id="trades-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades">
-              <span class="tab-copy"><strong>Trades</strong><small>Calculator, partners, deals</small></span>
+              <span class="tab-copy"><strong>Trades</strong><small>Partners, calculator, deals</small></span>
             </button>
           </nav>
           <nav class="room-nav" id="room-nav" role="tablist" aria-label="Rooms on this page"></nav>
@@ -240,9 +240,9 @@
                   <strong>Scout a team</strong>
                   <small>Lineup, tank or contend, who stayed</small>
                 </button>
-                <button type="button" class="desk-job" data-job="trade" data-page="trades" data-room="value" aria-pressed="false">
+                <button type="button" class="desk-job" data-job="trade" data-page="trades" data-room="match" aria-pressed="false">
                   <strong>Make a trade</strong>
-                  <small>Calculator, find a partner, shop a player</small>
+                  <small>Find a partner, then the calculator</small>
                 </button>
                 <button type="button" class="desk-job" data-job="history" data-page="league" data-room="history" aria-pressed="false">
                   <strong>League history</strong>
@@ -377,13 +377,13 @@
         </div>
 
         <div id="trades-page" class="workspace-page app-page hidden" role="tabpanel" aria-labelledby="trades-tab">
-          <div class="room" data-room-panel="value">
+          <div class="room hidden" data-room-panel="value">
             <section class="workspace-panel" id="value-calculator-section">
               <div id="value-calculator-shell" class="calculator-shell"></div>
             </section>
           </div>
 
-          <div class="room hidden" data-room-panel="match">
+          <div class="room" data-room-panel="match">
             <section class="workspace-panel" id="trade-match-section">
               <div class="panel-heading">
                 <div>

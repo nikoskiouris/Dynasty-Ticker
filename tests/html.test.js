@@ -11,6 +11,8 @@ test("number helpers keep signs and locale digits", () => {
   assert.equal(formatSignedNumber(-3), formatNumber(-3));
   assert.equal(clamp(12, 0, 10), 10);
   assert.equal(clamp(-2, 0, 10), 0);
+  assert.equal(formatNumber(Number.NaN), "—");
+  assert.equal(formatNumber(undefined), "—");
 });
 
 test("partner idea copy is send/receive plus a starter rank line", () => {

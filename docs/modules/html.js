@@ -8,7 +8,9 @@ export function escapeHtml(value) {
 }
 
 export function formatNumber(value) {
-  return Number(value).toLocaleString();
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "—";
+  return numeric.toLocaleString();
 }
 
 export function formatSignedNumber(value) {

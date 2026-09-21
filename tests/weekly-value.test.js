@@ -302,6 +302,9 @@ test("weekly score prints start chance percent", () => {
   assert.equal(formatWeeklyScore(null), "—");
   assert.equal(weeklyScoreChipLabel({ score: 22 }), "22%");
   assert.equal(weeklyScoreChipLabel({ score: 0 }), "0%");
+  assert.equal(weeklyScoreChipLabel({ score: 62, opponentMissing: true }), "—");
+  assert.equal(weeklyScoreChipLabel({ score: 62, bye: true }), "—");
+  assert.equal(weeklyScoreChipLabel({ score: 0, noTeam: true }), "0%");
   assert.match(WEEKLY_SCORE_HINT, /Chance you should start/);
 });
 

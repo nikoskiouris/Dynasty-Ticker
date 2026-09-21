@@ -28,6 +28,12 @@ export function shouldPollLive(model, nflState = null, now = new Date()) {
   return footballWindowDay(date);
 }
 
+export function liveUpdateMatchesLeague(capturedLeagueId, currentLeagueId) {
+  const captured = String(capturedLeagueId ?? "");
+  const current = String(currentLeagueId ?? "");
+  return captured !== "" && captured === current;
+}
+
 export function shouldRefreshSim({ previousFinalThroughWeek, nextFinalThroughWeek, previousRemaining, nextRemaining, forced = false }) {
   if (forced) return true;
   if (Number(previousFinalThroughWeek) !== Number(nextFinalThroughWeek)) return true;
@@ -63,6 +69,7 @@ export function createLivePoller(options = {}) {
     ticks += 1;
     try {
       const payload = await fetchUpdate();
+      if (stopped) return { polled: false, reason: "stopped" };
       onScores?.(payload);
       const due = forceSim || (lastSimAt > 0 && now() - lastSimAt >= simRefreshMs);
       if (due) {

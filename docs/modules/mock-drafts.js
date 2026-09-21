@@ -1,4 +1,4 @@
-import { ordinal } from "./season.js";
+import { compareRosterRecord, ordinal, pointsAgainstFromSettings } from "./season.js";
 
 export const MOCK_DRAFTS_PATH = "./data/nfl_mock_drafts.json";
 export const SKILL_POSITIONS = new Set(["QB", "RB", "WR", "TE"]);
@@ -99,13 +99,10 @@ export function buildCurrentPlaceLookup(rosters = [], standings = []) {
       losses: Number(roster?.settings?.losses || 0),
       ties: Number(roster?.settings?.ties || 0),
       points: rosterPointsFor(roster),
+      pointsAgainst: pointsAgainstFromSettings(roster?.settings),
     }))
     .filter((row) => row.rosterId)
-    .sort((a, b) => b.wins - a.wins
-      || a.losses - b.losses
-      || b.ties - a.ties
-      || b.points - a.points
-      || a.rosterId.localeCompare(b.rosterId, undefined, { numeric: true }));
+    .sort(compareRosterRecord);
 
   const byRosterId = new Map();
   const total = ranked.length;

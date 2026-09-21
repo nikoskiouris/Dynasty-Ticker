@@ -198,6 +198,35 @@ test("locks with a fat gap are not close calls", () => {
   assert.match(html, /No close calls this week/);
 });
 
+test("deep rosters still solve the scarce slot instead of a greedy local pick", () => {
+  const groups = [
+    ["Q", "QB"],
+    ["R", "RB"],
+    ["W", "WR"],
+    ["T", "TE"],
+  ];
+  const fillers = groups.flatMap(([slot, position]) => Array.from({ length: 6 }, (_, index) => ({
+    id: `${slot}-${index}`,
+    name: `${position} ${index}`,
+    position,
+    dynastyValue: 1000,
+    weekly: weekly({ position, score: 60 - index }),
+    canFill: (candidate) => candidate === slot,
+  })));
+  const board = buildSitStart({
+    slots: ["A", "B", "Q", "R", "W", "T"],
+    players: [
+      { id: "X", name: "X", position: "RB", weekly: weekly({ score: 10 }), canFill: (slot) => slot === "A" || slot === "B" },
+      { id: "Y", name: "Y", position: "RB", weekly: weekly({ score: 9 }), canFill: (slot) => slot === "A" },
+      { id: "Z", name: "Z", position: "RB", weekly: weekly({ score: 3 }), canFill: (slot) => slot === "B" },
+      ...fillers,
+    ],
+  });
+  const bySlot = Object.fromEntries(board.starters.map((row) => [row.slot, row.player?.id]));
+  assert.equal(bySlot.A, "Y");
+  assert.equal(bySlot.B, "X");
+});
+
 test("sit/start callout has loading and error states", () => {
   assert.match(renderSitStartCallout(null, { loading: true, week: 2 }), /Loading this week's sit\/start/);
   assert.match(renderSitStartCallout({ week: 2 }, { error: "stats down" }), /stats down/);

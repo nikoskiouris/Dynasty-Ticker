@@ -246,18 +246,30 @@ function slotFlexWeight(slot) {
 }
 
 function candidatePool(players, slots) {
-  const map = new Map();
-  const maxPerSlot = Math.min(
-    players.length,
-    Math.max(6, (Array.isArray(slots) ? slots.length : 0) + 2)
-  );
-  (Array.isArray(slots) ? slots : []).forEach((slot) => {
-    players
-      .filter((player) => playerCanFillSlot(player, slot))
-      .slice(0, maxPerSlot)
-      .forEach((player) => map.set(player.id, player));
+  const slotList = Array.isArray(slots) ? slots : [];
+  const ranked = [...(Array.isArray(players) ? players : [])]
+    .filter((player) => slotList.some((slot) => playerCanFillSlot(player, slot)))
+    .sort((left, right) => right.fillValue - left.fillValue || String(left.id).localeCompare(String(right.id)));
+  const kept = new Map();
+  const scarceFirst = slotList
+    .map((slot) => ({
+      slot,
+      options: ranked.filter((player) => playerCanFillSlot(player, slot)),
+    }))
+    .sort((left, right) => left.options.length - right.options.length);
+  scarceFirst.forEach(({ options }) => {
+    let added = 0;
+    for (const player of options) {
+      if (kept.size >= EXACT_CANDIDATE_LIMIT || added >= 2) break;
+      if (!kept.has(player.id)) kept.set(player.id, player);
+      added += 1;
+    }
   });
-  return [...map.values()].sort((left, right) => right.fillValue - left.fillValue);
+  for (const player of ranked) {
+    if (kept.size >= EXACT_CANDIDATE_LIMIT) break;
+    kept.set(player.id, player);
+  }
+  return [...kept.values()].sort((left, right) => right.fillValue - left.fillValue);
 }
 
 function fillLineup(slots, candidates) {
