@@ -1,5 +1,5 @@
 Title
-Chopping block: cut until you have to add things back
+Chopping block: my call, not a museum purge
 
 Status
 Open — notes only. Do not cut in this ticket.
@@ -8,221 +8,202 @@ Priority
 P0 — navigation
 
 Area
-Whole desk: landing, League, Teams, Trades, leftover History code
-
-Philosophy
-Elon: if you are not adding things back, you are not removing enough.
-WOW test: would a dynasty player open this every week, or is it a museum?
-Goal: as few doors as possible. League. Teams. Trades. Then rooms.
-
-This ticket does not ship cuts. It is the list. Next PRs pick rows.
+Doors, not soul. Landing, League extra rooms, Trades extra rooms.
 
 --------------------------------------------------------------------
-ALREADY CUT when History moved under League
+I WAS WRONG LAST PASS
 --------------------------------------------------------------------
 
-Shipped in PR #69 (commit a98e2b6). Do not rebuild unless a later cut feels too deep
-and you add it back.
+Last list treated "would you open this every Sunday" as the WOW test.
+That is a stats-site test. This is not a stats site.
 
-Nav
-- History as a 4th top tab (Hall / Seasons / Records). Now one League room.
-- Recap as a League room, landing/start job, modules, PNG card, tone picker.
-  Old tab=recap / view=recap links land on Scores.
-- Copy league link (desktop + mobile share). Replaced by home (logo / title / home icon).
-- Start as a League subtab. Start is home now, hidden from the room strip.
+That list put Player passport on the block. That was dumb. Passport is
+the thing Sleeper does not have: how this name got on this desk.
+You named it, moved it, stamped origin/visa/now, wired Gus→Juan through it.
+Same class of miss: Who stayed, Mock page, blank KTC-style calc, Rather
+as a product (just not the homepage).
 
-History UI that used to paint, now gone from the live room
-- Finish matrix (rank-by-season heatmap)
-- Rivalry ledger (top trade-pair roads)
-- League eras / story cards (Dynasty Gravity, Parity Meter, Scoring Boom, Market Maker, Final Boss)
-- Manager lens on History (picker, next chapter, season chips)
-- Season archive cards (champion, points king, scoring gap, pick drift)
-- Season vs manager side-by-side compare (H2H, roster shift chips)
-- Full record book. Slim room keeps four marks only: high score, blowout,
-  win streak, season points. Hidden: low, closest, shootout, slog, loss-streak,
-  best-record, worst-record.
-- Hall columns Avg finish and Dynasty Score
-- Hero metrics Trades Logged and Parity
-- Latest Crown used to be able to mean current first place. Now last finished champion only.
-
-Code leftover (cut from nav, still in app.js)
-- renderSeasonsRoom, renderRecordsRoom, renderFinishMatrix*, renderRivalryLedgerPanel,
-  renderLeagueStoryPanel, renderManagerLensPanel*, renderHistoryComparison*,
-  renderSeasonArchivePanel, buildHistoryComparison*, buildLeagueStorylines,
-  state.historyCompare, HISTORY_COMPARE_H2H_LIMIT, HISTORY_COMPARE_ROSTER_LIMIT
-- el.seasonsDashboard / el.recordsDashboard are never bound
-- ?tone= still parsed (recap leftover), unused
-- CSS for finish-matrix, manager-lens, history-compare, storyline, season-ledger, share-glyph
-
-Kept in League → League History
-- Archive hero + Latest Crown
-- All-time hall (Mgr, Titles, W-L, PO)
-- Champion years
-- Short record book (those four marks)
+If a cut would make you mad, it is probably soul. Soul stays.
 
 --------------------------------------------------------------------
-WHAT THE DESK IS NOW (develop)
+WHAT THIS WEBSITE IS
 --------------------------------------------------------------------
 
-3 pages × 5 rooms = 15 rooms, plus Start home, plus landing jobs, plus Rather,
-plus Start "more tools".
+Your words:
 
-Landing
-  4 jobs + username search + full Rather column (desktop: half the first screen)
+- "Our main features should just be League, Teams, Trades"
+- "this site has really cool stuff but I dont know where it is and i
+  cant clearly tell what this website does"
+- Do not scrap features. Make the door simple, then the complex stuff.
+  (KTC pattern. Job-first landing.)
+- Player: "the main idea is still implementing your league"
 
-League rooms
-  Scores · Standings · Power · Awards · League History
-  (Start exists, hidden from tabs)
+Premise, one line:
+Dynasty Ticker is YOUR Sleeper dynasty league, live, with memory
+Sleeper does not have, plus the next move.
 
-Teams rooms
+Live     ticker, scores, sit/start
+Memory   passport, who stayed, hall
+Next     tank/contend, trade match, calculator
+
+Rather is our board vs Sleeper's. Cool. Not the product.
+Recap was not the product. You already killed it. Good.
+
+The actual problem is too many DOORS to the same job, plus a homepage
+that sells the crowd duel.
+
+--------------------------------------------------------------------
+ALREADY CUT (History under League, PR #69)
+--------------------------------------------------------------------
+
+You asked for this. Keep it cut unless someone screams.
+
+Explicit kills
+- Recap. All of it. You said delete it.
+- History as a 4th top tab. Now one League room.
+- Titles / Seasons / Records collapsed. Keep only a few really cool bits.
+- Start as a League subtab. Home = first open, or logo / team name.
+- Copy-link. Home icon instead.
+- Latest Crown = last finished champ, not the guy in 1st.
+
+History UI already gone from the live room
+- Finish matrix, rivalry ledger, era story cards, manager lens,
+  season archive cards, season vs manager compare, most of the record book,
+  hall Avg/Score, Trades Logged / Parity
+
+Still on League History (the "few really cool things")
+- Latest Crown, title hall, champion years, four records
+
+Dead code still in app.js. Cleanup later. Not a product cut.
+
+--------------------------------------------------------------------
+IF I OWN THE CALL, I CUT THESE
+--------------------------------------------------------------------
+
+I am responsible for this list. I would ship these. I would not ship
+the old "kill passport" list.
+
+1. Rather off the first screen
+   Keep the picker. Keep global crowd votes. Keep our board.
+   Kill it as the desktop hero. Phone 99%. Landing already too busy.
+   Ticket 010. Player said it: cool, why is it the main page.
+   Where it goes: below search, or after a league is loaded.
+
+2. Start job board after the league is open
+   Jobs exist because people cannot tell what the site does.
+   After load, League / Teams / Trades ARE the jobs.
+   The 4 jobs + 4 "more tools" is how people get lost.
+   First open can still splash. Logo can still go home.
+   Then default to Scores. More-tools duplicates rooms. Kill that row.
+
+3. Power as a League room
+   Nobody asked for this room. Teams grid is the same ranking.
+   Power SCORE on a scout card stays. The extra League tab dies.
+
+4. Awards as a League room
+   Keep the honors. Scores already prints week-angle cards.
+   Recap is gone. A shrine next to Scores is a door, not a feature.
+   Weekly honors live on Scores. Season superlatives live on Standings
+   or History. Awards tab dies.
+
+5. Find deals as a sibling of Partners
+   Trade match is the hook you described: catch a new user's eye,
+   come back, no third-round junk, tank vs contend.
+   Lab is the same generator with extra homework (Shop / Acquire /
+   Blockbuster). Merge into Partners. Shop/Acquire become modes.
+   Blockbuster goes under More. Engines stay.
+
+6. Landing's fourth job "League history"
+   You said the main features are League, Teams, Trades.
+   History is a League room now. A fourth job teaches a fourth product.
+   Three jobs. See this week / Scout a team / Make a trade.
+
+7. Trades default = blank calculator
+   You wanted BOTH boards: two-team stays as it is, plus a KTC-style
+   any-asset search. Keep both. I would not kill the blank board.
+   The crime is first paint: empty Give/Get, and two rooms that look
+   like the same tool. Ticket 012. Player: do not open on the calculator.
+   My call: Trades opens on Partners. One Calculator room with a switch
+   "Two teams | Any assets". If you hate the merge, keep two rooms,
+   still default to Partners.
+
+8. Dead History renderers
+   Already cut from the UI. Finish matrix etc. still in app.js.
+   Delete the corpses so nobody "re-adds" them by accident.
+
+I would not cut more than that in the first pass.
+If we never want any of it back, we cut enough.
+If you scream about the Calculator merge or Awards-on-Scores, we add
+that door back. That is the Elon test used on the RIGHT things.
+
+--------------------------------------------------------------------
+I WOULD NOT CUT (soul)
+--------------------------------------------------------------------
+
+Player passport
+  How this name got here. Signature. Stays a Teams room.
+
+Who stayed
+  DNA kept/gone/new. Franchise memory. Stays a Teams room.
+
+Mock
+  You asked for a page, and for picks to open it. Names on 1sts/2nds
+  stay. The page stays.
+
+Tank or contend
+  "Sick idea." Player asked. Whole room. Stays.
+
+Sit/start
+  Optimal lineup by start%. Stays on Roster.
+
+Both calculator boards
+  Two-team AND KTC any-asset. You asked for both this week.
+  Capability stays. Extra door does not have to.
+
+Trade match
+  The "come back" feature. Stays. Gets Find deals folded in.
+
+Trade log
+  Graded file. Different job. Stays.
+
+Slim League History
+  Already the cut version. Do not cut again.
+
+Scores, standings, odds, ticker
+  The live product.
+
+Rather (as a toy)
+  Our ranks, global votes. Stays. Just not the homepage.
+
+--------------------------------------------------------------------
+SHAPE AFTER MY CUTS
+--------------------------------------------------------------------
+
+Landing (phone first)
+  Your league. Username. Three jobs.
+  Rather below the fold.
+
+League
+  Scores (honors live here) · Standings · History
+
+Teams  (unchanged on purpose)
   Roster · Tank or contend · Who stayed · Player passport · Mock
 
-Trades rooms
-  Calculator (blank Give/Get) · Two teams · Partners · Find deals · Log
-
-Start after load
-  Same 4 jobs + 4 more tools (Tank or contend, Rookie mock, Find a partner, Find deals)
-
-A tester who loaded a real league counted ~26 things that look like a destination.
-That is the problem.
-
---------------------------------------------------------------------
-KEEP (do not put these on the block)
---------------------------------------------------------------------
-
-- Username search (the door in)
-- Scores (live week)
-- Standings + playoff odds + luck
-- Roster sit/start + scout card + bench + picks
-- Tank / contend as a call (the feature). Room is optional.
-- League History slim room
-- One calculator that grades a package
-- Partner discovery ("who do I text")
-- Trade log (past deals)
-- Ticker
-- Theme, mobile rail, sticky Find leagues
-
---------------------------------------------------------------------
-RANKED CHOPPING BLOCK
---------------------------------------------------------------------
-
-Do not cut here. Rank is "kill first if we get ruthless."
-
-1. Landing Rather as a hero
-   Not WOW for the product. Ticket 010 already says so. Desktop steals half the
-   first screen from loading a league. Fun toy, wrong homepage.
-   If cut: hide below search or after league load. Keep the vote engine if it
-   still nudges values.
-
-2. Two trade calculators
-   Blank "Calculator" + "Two teams" look like the same tool. A live tester
-   thought Two teams was just Calculator pre-filtered. That confusion is the bug.
-   Ticket 012 still open: "Make a trade" and Trades default still open a blank board.
-   If cut: one Calculator. Partner picker default. Optional "any asset" search.
-   Landing/Start "Make a trade" should not open a blank form.
-
-3. Partners room vs Find deals room
-   Two generators for the same job, then Find deals nests Shop / Acquire / Blockbuster.
-   Four ways to invent a trade before the user knows the door.
-   If cut: one Deals room. Partners first. Shop/Acquire secondary. Blockbuster buried.
-   Ticket 009 (false needs) still bites this generator.
-
-4. Awards as its own League room
-   Chat bait, not a weekly destination. Scores already has week-angle honor cards.
-   Superlatives overlap Standings luck / History records.
-   If cut: merge weekly honors into Scores. Season superlatives into Standings or History.
-
-5. Power as its own League room
-   Same ranking as the Teams grid and the scout card. A list that already lives
-   on Teams does not earn a League tab.
-   If cut: delete the room. Keep the score on Teams.
-
-6. Who stayed (Loyalty)
-   Museum. DNA kept/gone/new, ironmen, charms. Cool once, not a weekly job.
-   Overlaps History career chips and Passport.
-   If cut: delete the room. Optional DNA strip on Roster.
-
-7. Player passport
-   Who owned each name, season by season. High novelty, near-zero weekly use.
-   Fifth Teams tab for a curiosity.
-   If cut: delete. Stamp on a player drill-in inside Roster if anything survives.
-
-8. Start jobs as a forever home
-   After the first open, Start is a menu of menus. Same jobs as landing, same
-   destinations as room tabs, plus "more tools" that already exist as rooms.
-   If cut: one-shot splash, then default to Scores. Logo still goes home.
-
-9. Mock as a Teams room
-   2027 SF board. Useful around the draft. Pick vault already shows mock names
-   and a "Full board" jump.
-   If cut: modal / sheet from picks. Drop the tab and the Start more-tool.
-
-10. Landing jobs as four competing heroes
-    See this week / Scout / Make a trade / League history teach four products
-    before the user has a league. After load they fight the real tabs.
-    If cut: one line — load your Sleeper league. Jobs become the three page tabs.
-
-11. Call as a separate Teams tab
-    Keep the call. Roster already shows the banner and a chip on every team card.
-    If cut: expand the call on Roster. Drop the extra tab.
-
-12. Blockbuster as a first-class Lab card
-    Only unique auto path. Chaos, not weekly. Nested under an already-nested room.
-    If cut: bury under More / advanced. Keep the engine.
-
-13. Chrome leftovers
-    State-grid (League / Manager / Week) repeats the hero.
-    Rail username search duplicates landing until a league is loaded.
-    Python CLI is a second acquire tool nobody in the browser sees.
-    If cut: hide state-grid on phone; hide rail search until "Change league";
-    keep CLI as an eng tool, not product story.
-
---------------------------------------------------------------------
-TARGET SHAPE IF WE ACTUALLY CUT
---------------------------------------------------------------------
-
-Landing
-  League promise + username. Rather gone or below the fold.
-
-League tabs (3)
-  Scores · Standings · History
-
-Teams tabs (1, maybe 2)
-  Roster (sit/start, scout, call, picks, mock overlay)
-  Call only if Roster cannot hold the full board
-
-Trades tabs (3, or 2)
-  Deals (partners first) · Calculator · Log
-  Elon version: Trade + Log
+Trades
+  Partners (default, lab folded in) · Calculator (two modes) · Log
 
 Start
-  Not a third nav. First-load only, or delete.
+  First-open only. Not a third nav.
 
-That is ~8 rooms instead of 15, and one door per job.
-
---------------------------------------------------------------------
-WOW vs NOT, room by room
---------------------------------------------------------------------
-
-KEEP WOW
-  Scores, Standings, Sit/start, Tank/contend feature, slim History, one Calculator,
-  Partners discovery, Log, Ticker
-
-NOT WOW (chop block)
-  Rather hero, Awards room, Power room, Loyalty room, Passport room, Mock room,
-  blank-calc default, second calculator room, Lab as sibling of Partners,
-  Blockbuster peer card, Start-as-home, four landing jobs
-
-ALREADY PROVED THE RULE
-  Recap, History tab, finish matrix, rivalry ledger, eras, manager compare,
-  full record book, copy-link. Cut them. Nobody is screaming to add them back yet.
-  If someone does, that is the add-back test. Until then, leave them dead.
+15 rooms → 11. The five Teams rooms stay because they are five
+different stories, not five copies of "look at a roster."
+The cuts are League clones, Trades clones, and the homepage lie.
 
 --------------------------------------------------------------------
-Related tickets (do not duplicate work)
+Related tickets
 --------------------------------------------------------------------
 
-010  League-first landing; Rather is not the homepage
-011  Rather pairing still no-brainers (only matters if Rather stays)
-012  Trades first-run should not be the calculator
-009  Trade match invents positional needs (fix or the Deals room lies)
+010  Rather is not the homepage          → cut 1
+012  Trades first-run is the calculator  → cut 7
+009  Trade match false needs             → fix when folding Lab in
+011  Rather no-brainers                  → only if Rather stays visible

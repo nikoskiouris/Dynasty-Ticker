@@ -34,7 +34,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [011](011-rather-pairing.txt) | Rather pairing still produces no-brainers | P1 |
 | [012](012-trades-first-run.txt) | Trades page first-run is confusing | P0 |
 | [014](014-redraft-values.txt) | Redraft rest-of-season values | P1 |
-| [015](015-chopping-block.txt) | Chopping block: cut until you add things back | P0 |
+| [015](015-chopping-block.txt) | Chopping block: my call (doors, not soul) | P0 |
 
 ## Done
 
