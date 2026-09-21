@@ -1,4 +1,5 @@
 import { escapeHtml } from "./html.js";
+import { leagueTypeLabel } from "./league-format.js";
 import { sleeperAvatarUrl } from "./sleeper.js";
 
 export function leagueStatusLabel(status) {
@@ -97,7 +98,7 @@ export function renderLeaguePickerMarkup(leagues, currentSeason, selectedId = ""
             <span class="league-pick-avatar">${avatar ? `<img src="${escapeHtml(avatar)}" alt="${escapeHtml(league.name || "League")} logo">` : `<span aria-hidden="true">${escapeHtml((league.name || "L").slice(0, 1))}</span>`}</span>
             <span class="league-pick-copy">
               <strong>${escapeHtml(league.name || "Untitled league")}</strong>
-              <small>${escapeHtml(String(league.season || ""))} · ${Number(league.total_rosters || 0)} teams · ${escapeHtml(leagueStatusLabel(league.status))}</small>
+              <small>${escapeHtml(String(league.season || ""))} · ${Number(league.total_rosters || 0)} teams · ${escapeHtml(leagueTypeLabel(league))} · ${escapeHtml(leagueStatusLabel(league.status))}</small>
             </span>
           </button>
         `;

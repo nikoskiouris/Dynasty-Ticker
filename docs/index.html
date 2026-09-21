@@ -203,7 +203,7 @@
               <span class="tab-copy"><strong>League</strong><small>Scores, standings, awards</small></span>
             </button>
             <button id="teams-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="teams-page" tabindex="-1" data-page="teams">
-              <span class="tab-copy"><strong>Teams</strong><small>Roster, mock, tank or contend</small></span>
+              <span class="tab-copy"><strong>Teams</strong><small id="teams-tab-hint">Roster, mock, tank or contend</small></span>
             </button>
             <button id="trades-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades">
               <span class="tab-copy"><strong>Trades</strong><small>Calculator, partners, deals</small></span>
@@ -315,7 +315,7 @@
                   <span class="eyebrow">Teams</span>
                   <h2>Pick a roster to scout</h2>
                 </div>
-                <p class="section-copy">Ranked by dynasty power score. Your team is outlined. Tap any card to open its scout card, desk call, and lineup below, or start a trade.</p>
+                <p class="section-copy" id="teams-grid-copy">Ranked by dynasty power score. Your team is outlined. Tap any card to open its scout card, desk call, and lineup below, or start a trade.</p>
               </div>
               <div id="teams-grid" class="teams-grid"></div>
             </section>
@@ -326,7 +326,7 @@
                   <span class="eyebrow">Scout Card</span>
                   <h2 id="power-heading">Roster power</h2>
                 </div>
-                <p class="section-copy">Power score, tank-or-contend call, lineup rank, position map, and Sleeper intel for the selected roster.</p>
+                <p class="section-copy" id="power-section-copy">Power score, tank-or-contend call, lineup rank, position map, and Sleeper intel for the selected roster.</p>
               </div>
               <div id="power-dashboard" class="power-dashboard">
                 <p class="muted">Load values to score this roster.</p>

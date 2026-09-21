@@ -106,6 +106,15 @@ test("league picker markup lists seasons and marks the selected desk", () => {
   assert.match(html, /data-league-id="111"/);
   assert.match(html, /league-pick current selected/);
   assert.match(html, /alt="Try Hard or Die Hard logo"/);
-  assert.match(html, /2025 · 10 teams · complete/);
+  assert.match(html, /2025 · 10 teams · Dynasty · complete/);
   assert.equal(renderLeaguePickerMarkup([]), "");
+});
+
+test("league picker names redraft and keeper rooms", () => {
+  const html = renderLeaguePickerMarkup([
+    { league_id: "r1", name: "Sunday Redraft", season: "2026", total_rosters: 12, status: "in_season", settings: { type: 0 } },
+    { league_id: "k1", name: "Keep 3", season: "2026", total_rosters: 10, status: "in_season", settings: { type: 1 } },
+  ], "2026", "r1");
+  assert.match(html, /12 teams · Redraft · in season/);
+  assert.match(html, /10 teams · Keeper · in season/);
 });
