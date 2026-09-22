@@ -69,9 +69,10 @@ test("redraft desk jobs drop mock and rename the call", () => {
   assert.equal(dynasty.more.some((job) => job.id === "mock"), true);
 });
 
-test("landing HTML asks the job question and lists the four jobs", () => {
+test("landing HTML leads with the league and lists the four jobs", () => {
   const index = readFileSync(join(docs, "index.html"), "utf8");
-  assert.match(index, />What do you want to do\?</);
+  assert.match(index, />Your dynasty league, live\.</);
+  assert.doesNotMatch(index, />What do you want to do\?</);
   assert.match(index, /id="landing-jobs"/);
   assert.match(index, /id="landing-job-hint"/);
   assert.match(index, /id="landing-league-picker"/);

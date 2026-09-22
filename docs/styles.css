@@ -1159,9 +1159,10 @@ body:not(.league-loaded) .workspace-header {
 
 .landing-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.95fr);
-  gap: 1.1rem;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 42rem);
+  justify-content: center;
+  gap: 1.25rem;
+  align-items: start;
 }
 
 .landing-copy h2 {
@@ -1194,7 +1195,7 @@ body:not(.league-loaded) .workspace-header {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.55rem;
-  margin: 0 0 0.95rem;
+  margin: 0.85rem 0 0.95rem;
 }
 
 .desk-jobs-board {
@@ -1304,7 +1305,7 @@ body:not(.league-loaded) .workspace-header {
 .landing-search {
   display: grid;
   gap: 0.45rem;
-  margin-top: 0;
+  margin-top: 0.15rem;
 }
 
 .landing-search label {
@@ -1374,10 +1375,8 @@ body:not(.league-loaded) .workspace-header {
   height: auto;
 }
 
-@media (min-width: 1121px) {
-  .landing-rather .rather-panel {
-    height: 100%;
-  }
+.landing-rather .rather-panel h2 {
+  font-size: 1.2rem;
 }
 
 /* ==========================================================================

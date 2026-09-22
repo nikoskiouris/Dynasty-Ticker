@@ -258,8 +258,10 @@ import {
   formatRatherPlayerDetail,
   isRatherRookie,
   lookupRatherDraftPick,
+  playerAgeFromNfl,
   renderLandingRatherPlaceholder,
   renderRatherMarkup,
+  renderRatherNoClose,
 } from "./modules/rather.js";
 import {
   buildRankBoard,
@@ -15361,28 +15363,26 @@ async function bootLandingRather() {
   if (parseShareParams(window.location.search).leagueId) return;
   el.landingRather.innerHTML = renderLandingRatherPlaceholder();
   try {
-    const [, context] = await Promise.all([
-      (async () => {
-        if (!state.valueBundles?.sf?.values || !Object.keys(state.valueBundles.sf.values).length) {
-          const [ktcBundles, tradeBundle] = await Promise.all([
-            fetchValuationBundles(),
-            fetchTradeMarketBundle(),
-          ]);
-          state.ktcBundles = ktcBundles;
-          state.tradeMarketBundle = tradeBundle;
-          state.valueBundles = composeValuationBundles(ktcBundles, tradeBundle);
-        }
-      })(),
-      loadRatherPromptContext(),
-    ]);
-    ratherPromptContext = context;
+    if (!state.valueBundles?.sf?.values || !Object.keys(state.valueBundles.sf.values).length) {
+      const [ktcBundles, tradeBundle] = await Promise.all([
+        fetchValuationBundles(),
+        fetchTradeMarketBundle(),
+      ]);
+      state.ktcBundles = ktcBundles;
+      state.tradeMarketBundle = tradeBundle;
+      state.valueBundles = composeValuationBundles(ktcBundles, tradeBundle);
+    }
+    const cachedPlayers = getPlayersCache()?.players || {};
+    if (Object.keys(cachedPlayers).length) {
+      ratherPromptContext = { ...ratherPromptContext, nflPlayers: cachedPlayers };
+    }
     await hydrateCrowdVotes();
     refreshCrowdShifts();
     refreshPlayerPositionRanks();
     showNextRatherMatchup();
   } catch (err) {
     console.warn("Could not open rather matchup", err);
-    el.landingRather.innerHTML = "";
+    el.landingRather.innerHTML = renderRatherNoClose();
   }
 }
 
@@ -15492,13 +15492,22 @@ function showNextRatherMatchup({ status = "" } = {}) {
     state.crowdShifts
   );
   const rankById = new Map(boarded.map((row) => [row.assetId, row]));
-  const pairPool = listed.map((row) => ({ ...row, ...(rankById.get(row.assetId) || {}) }));
+  const pairPool = listed.map((row) => {
+    const rankedRow = rankById.get(row.assetId) || {};
+    const raw = nflPlayers?.[row.playerId] || nflPlayers?.[String(row.playerId)] || {};
+    return {
+      ...row,
+      ...rankedRow,
+      age: rankedRow.age ?? playerAgeFromNfl(raw),
+      isRookie: rankedRow.isRookie || isRatherRookie(raw, ratherPromptContext.currentSeason),
+    };
+  });
   const picked = pickRatherPair(pairPool, {
     recentKeys: readRatherRecentKeys(),
     shifts: state.crowdShifts,
   });
   if (!picked) {
-    el.landingRather.innerHTML = "";
+    el.landingRather.innerHTML = renderRatherNoClose();
     ratherPromptPair = null;
     return;
   }

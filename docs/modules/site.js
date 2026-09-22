@@ -13,7 +13,7 @@ export const STORAGE_NOTICE_KEY = "dynasty_ticker_storage_notice";
 
 export const DEFAULT_TITLE = "Dynasty Ticker — Your Sleeper dynasty league";
 export const DEFAULT_DESCRIPTION =
-  "Pick a job, then open your Sleeper dynasty league. Live scores, roster scout, trade tools, and league history.";
+  "Your Sleeper dynasty league, live. Scores, rosters, trades, and history in one desk.";
 
 export function tickerDurationSeconds(itemCount) {
   const count = Math.max(0, Number(itemCount) || 0);
