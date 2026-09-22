@@ -121,9 +121,9 @@ def make_og_image() -> None:
     draw.text((200, 108), "DYNASTY TICKER", font=eyebrow, fill=BLUE)
     draw.text((88, 214), "Your league, on a", font=title, fill=TEXT)
     draw.text((88, 286), "live ticker.", font=title, fill=TEXT)
-    draw.text((88, 372), "Live scores, playoff odds, awards, and a trade lab.", font=lede, fill=MUTED)
+    draw.text((88, 372), "Scores, rosters, trades, and history in one desk.", font=lede, fill=MUTED)
 
-    chips = ["Live Sunday poll", "Monte Carlo odds", "KeepTradeCut values"]
+    chips = ["Live scores", "Sit / start", "Trade match"]
     x = 88
     chip_bg = (214, 234, 252, 255)
     for label in chips:

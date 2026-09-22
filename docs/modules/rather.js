@@ -16,11 +16,14 @@ export {
 export const RATHER_VOTES_KEY = "dynasty_ticker_rather_votes";
 export const RATHER_RECENT_KEY = "dynasty_ticker_rather_recent";
 export const RATHER_SESSION_KEY = "dynasty_ticker_rather_session";
-export const RATHER_MIN_PLAYER_VALUE = 1800;
+export const RATHER_MIN_PLAYER_VALUE = 5000;
 export const RATHER_RECENT_LIMIT = 24;
 export const RATHER_VOTE_LIMIT = 200;
-export const RATHER_MAX_RANK_GAP = 8;
+export const RATHER_MAX_RANK_GAP = 4;
 export const RATHER_MAX_VALUE_RATIO = 1.12;
+export const RATHER_MAX_AGE_GAP = 6;
+export const RATHER_ELITE_POS_RANK = 5;
+export const RATHER_DEPTH_POS_RANK = 12;
 export const RATHER_SAME_POS_WEIGHT = 2.4;
 export const RATHER_DRAFT_PICKS_PATH = "./data/nfl_draft_picks.json";
 const WR_DEPTH_SLOTS = new Set(["WR", "LWR", "RWR", "SWR"]);
@@ -79,6 +82,7 @@ export function ratherPairWeight(left, right, shifts = null) {
   if (!(lo > 0) || !(hi > 0)) return 0;
   const ratio = hi / lo;
   if (ratio > RATHER_MAX_VALUE_RATIO) return 0;
+  if (!ratherCareerClose(left, right) || !ratherRankClose(left, right)) return 0;
   return (RATHER_MAX_VALUE_RATIO - ratio) + 0.02;
 }
 
@@ -91,17 +95,8 @@ export function pickRatherPair(players, { recentKeys = [], random = Math.random,
   const pool = closeOptions.length
     ? closeOptions
     : collectRatherPairOptions(ranked, { recent: new Set(), shifts, requireClose: true });
-  const picked = pickWeightedRatherOption(
-    pool.length
-      ? pool
-      : [{
-        left: ranked[0],
-        right: ranked[1],
-        key: pairKey(ranked[0].assetId, ranked[1].assetId),
-        weight: 1,
-      }],
-    random,
-  );
+  const picked = pickWeightedRatherOption(pool, random);
+  if (!picked) return null;
   if (clampUnit(random()) < 0.5) {
     return { left: picked.right, right: picked.left, key: picked.key };
   }
@@ -358,6 +353,15 @@ export function renderRatherMarkup(pair, format = DEFAULT_RATHER_FORMAT, options
   `;
 }
 
+export function renderRatherNoClose() {
+  return `
+    <div class="rather-panel">
+      <h2 id="rather-title">${escapeHtml(formatRatherHeadline())}</h2>
+      <p class="muted" id="rather-empty">No close matchup right now.</p>
+    </div>
+  `;
+}
+
 export function renderLandingRatherPlaceholder() {
   return `
     <div class="rather-panel landing-rather-pending">
@@ -367,6 +371,38 @@ export function renderLandingRatherPlaceholder() {
       <p class="muted">Loading a close matchup…</p>
     </div>
   `;
+}
+
+function ratherCareerClose(left, right) {
+  const leftAge = Number(left?.age);
+  const rightAge = Number(right?.age);
+  const leftKnown = leftAge > 0;
+  const rightKnown = rightAge > 0;
+  if (leftKnown && rightKnown && Math.abs(leftAge - rightAge) > RATHER_MAX_AGE_GAP) return false;
+  if (left?.isRookie && rightKnown && rightAge >= 28) return false;
+  if (right?.isRookie && leftKnown && leftAge >= 28) return false;
+  return true;
+}
+
+function ratherRankClose(left, right) {
+  const leftPos = String(left?.position || "").toUpperCase();
+  const rightPos = String(right?.position || "").toUpperCase();
+  const samePos = Boolean(leftPos) && leftPos === rightPos;
+  const leftPosRank = Number(left?.positionRank);
+  const rightPosRank = Number(right?.positionRank);
+  if (samePos && Number.isFinite(leftPosRank) && Number.isFinite(rightPosRank)) {
+    const elite = Math.min(leftPosRank, rightPosRank);
+    const depth = Math.max(leftPosRank, rightPosRank);
+    if (depth - elite > RATHER_MAX_RANK_GAP) return false;
+    if (elite <= RATHER_ELITE_POS_RANK && depth >= RATHER_DEPTH_POS_RANK) return false;
+    return true;
+  }
+  const leftOverall = Number(left?.overallRank);
+  const rightOverall = Number(right?.overallRank);
+  if (Number.isFinite(leftOverall) && Number.isFinite(rightOverall)) {
+    return Math.abs(leftOverall - rightOverall) <= RATHER_MAX_RANK_GAP;
+  }
+  return true;
 }
 
 function applyLocalCrowdShift(assetId, value, shifts) {

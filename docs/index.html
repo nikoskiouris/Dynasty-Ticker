@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Dynasty Ticker — Your Sleeper dynasty league</title>
-    <meta name="description" content="Pick a job, then open your Sleeper dynasty league. Live scores, roster scout, trade tools, and league history." />
+    <meta name="description" content="Your Sleeper dynasty league, live. Scores, rosters, trades, and history in one desk." />
     <meta name="theme-color" content="#eef3f2" />
     <script>
       try {
@@ -17,7 +17,7 @@
       } catch (err) {}
     </script>
     <meta property="og:title" content="Dynasty Ticker — Your Sleeper dynasty league" />
-    <meta property="og:description" content="Pick a job, then open your Sleeper dynasty league. Live scores, roster scout, trade tools, and league history." />
+    <meta property="og:description" content="Your Sleeper dynasty league, live. Scores, rosters, trades, and history in one desk." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://dynastyticker.com/" />
     <meta property="og:image" content="https://dynastyticker.com/og-image.jpg" />
@@ -26,7 +26,7 @@
     <meta property="og:image:alt" content="Dynasty Ticker: your league on a live ticker" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Dynasty Ticker — Your Sleeper dynasty league" />
-    <meta name="twitter:description" content="Pick a job, then open your Sleeper dynasty league. Live scores, roster scout, trade tools, and league history." />
+    <meta name="twitter:description" content="Your Sleeper dynasty league, live. Scores, rosters, trades, and history in one desk." />
     <meta name="twitter:image" content="https://dynastyticker.com/og-image.jpg" />
     <link rel="canonical" href="https://dynastyticker.com/" />
     <link rel="icon" href="./favicon.ico" sizes="any" />
@@ -229,26 +229,8 @@
                 <img class="brand-wordmark brand-wordmark--light" src="./brand/wordmark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
                 <img class="brand-wordmark brand-wordmark--dark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" aria-hidden="true" />
               </span>
-              <h2>What do you want to do?</h2>
-              <p class="landing-lede">Your Sleeper dynasty league. Pick a job, then type your username.</p>
-              <div id="landing-jobs" class="desk-jobs" role="group" aria-label="What do you want to do">
-                <button type="button" class="desk-job" data-job="week" data-page="league" data-room="scores" aria-pressed="false">
-                  <strong>See this week</strong>
-                  <small>Scores, standings, and awards</small>
-                </button>
-                <button type="button" class="desk-job" data-job="team" data-page="teams" data-room="roster" aria-pressed="false">
-                  <strong>Scout a team</strong>
-                  <small>Lineup, tank or contend, who stayed</small>
-                </button>
-                <button type="button" class="desk-job" data-job="trade" data-page="trades" data-room="match" aria-pressed="false">
-                  <strong>Make a trade</strong>
-                  <small>Find a partner, then the calculator</small>
-                </button>
-                <button type="button" class="desk-job" data-job="history" data-page="league" data-room="history" aria-pressed="false">
-                  <strong>League history</strong>
-                  <small>Last champion, titles, records</small>
-                </button>
-              </div>
+              <h2>Your dynasty league, live.</h2>
+              <p class="landing-lede">Load your Sleeper league. Scores, rosters, trades, and history in one desk.</p>
               <form id="landing-username-form" class="landing-search" novalidate>
                 <label for="landing-username">Sleeper username</label>
                 <div class="landing-search-row">
@@ -269,6 +251,24 @@
                 <p id="landing-username-error" class="field-error" hidden role="alert"></p>
               </form>
               <p id="landing-job-hint" class="muted landing-job-hint">Type your Sleeper username, then pick a league.</p>
+              <div id="landing-jobs" class="desk-jobs" role="group" aria-label="What do you want to do">
+                <button type="button" class="desk-job" data-job="week" data-page="league" data-room="scores" aria-pressed="false">
+                  <strong>See this week</strong>
+                  <small>Scores, standings, and awards</small>
+                </button>
+                <button type="button" class="desk-job" data-job="team" data-page="teams" data-room="roster" aria-pressed="false">
+                  <strong>Scout a team</strong>
+                  <small>Lineup, tank or contend, who stayed</small>
+                </button>
+                <button type="button" class="desk-job" data-job="trade" data-page="trades" data-room="match" aria-pressed="false">
+                  <strong>Make a trade</strong>
+                  <small>Find a partner, then the calculator</small>
+                </button>
+                <button type="button" class="desk-job" data-job="history" data-page="league" data-room="history" aria-pressed="false">
+                  <strong>League history</strong>
+                  <small>Last champion, titles, records</small>
+                </button>
+              </div>
               <button type="button" id="open-public-ranks" class="ghost-btn landing-ranks-btn" data-action="open-public-ranks">Check player values</button>
               <div id="landing-league-picker" class="league-picker landing-league-picker hidden" data-league-picker></div>
               <p id="landing-loading" class="landing-loading hidden" aria-live="polite">

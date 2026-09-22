@@ -81,6 +81,11 @@ test("listRatherPlayers drops picks and keeps named player assets", () => {
   );
   assert.deepEqual(players.map((row) => row.name), ["Drake Maye", "Malik Nabers"]);
   assert.equal(players[0].playerId, "11564");
+  const fringe = listRatherPlayers(
+    { "player:a": 4999, "player:b": 5000 },
+    { "player:a": "Fringe", "player:b": "Starter" },
+  );
+  assert.deepEqual(fringe.map((row) => row.name), ["Starter"]);
 });
 
 test("pickRatherPair returns two different close-ranked players", () => {
@@ -142,7 +147,7 @@ test("pickRatherPair uses crowd-shifted values to judge closeness", () => {
   assert.equal(pair.key, pairKey("player:a", "player:b"));
 });
 
-test("pickRatherPair still returns a pair if the board is all cliffs", () => {
+test("pickRatherPair returns nothing when every fight is a cliff", () => {
   const pair = pickRatherPair(
     [
       { assetId: "player:a", playerId: "a", name: "A", value: 9000 },
@@ -150,8 +155,59 @@ test("pickRatherPair still returns a pair if the board is all cliffs", () => {
     ],
     { random: () => 0 },
   );
-  assert.ok(pair);
-  assert.notEqual(pair.left.assetId, pair.right.assetId);
+  assert.equal(pair, null);
+});
+
+test("pickRatherPair will not serve a top WR against a WR3-tier cliff", () => {
+  const nico = {
+    assetId: "player:7569",
+    playerId: "7569",
+    name: "Nico Collins",
+    value: 8000,
+    position: "WR",
+    positionRank: 4,
+    overallRank: 12,
+    age: 26,
+  };
+  const deebo = {
+    assetId: "player:5872",
+    playerId: "5872",
+    name: "Deebo Samuel",
+    value: 7600,
+    position: "WR",
+    positionRank: 28,
+    overallRank: 70,
+    age: 30,
+  };
+  const peer = {
+    assetId: "player:peer",
+    playerId: "peer",
+    name: "Peer",
+    value: 7900,
+    position: "WR",
+    positionRank: 6,
+    overallRank: 16,
+    age: 25,
+  };
+  assert.equal(ratherPairWeight(nico, deebo), 0);
+  assert.equal(pickRatherPair([nico, deebo], { random: () => 0 }), null);
+  const pair = pickRatherPair([nico, deebo, peer], { random: () => 0 });
+  assert.deepEqual([pair.left.name, pair.right.name].sort(), ["Nico Collins", "Peer"]);
+});
+
+test("pickRatherPair skips a young name against a much older one", () => {
+  const young = { assetId: "player:young", playerId: "y", name: "Young", value: 7000, position: "WR", age: 23, positionRank: 8 };
+  const old = { assetId: "player:old", playerId: "o", name: "Old", value: 6900, position: "WR", age: 32, positionRank: 9 };
+  const peer = { assetId: "player:peer", playerId: "p", name: "Peer", value: 6950, position: "WR", age: 24, positionRank: 10 };
+  assert.equal(ratherPairWeight(young, old), 0);
+  const names = new Set();
+  for (let i = 0; i < 12; i += 1) {
+    const pair = pickRatherPair([young, old, peer], { random: () => (i + 0.5) / 12 });
+    assert.ok(pair);
+    names.add([pair.left.name, pair.right.name].sort().join("|"));
+  }
+  assert.equal(names.has("Old|Young"), false);
+  assert.equal(names.has("Peer|Young"), true);
 });
 
 test("desk board ranks two NFL RB1s as RB1 and RB2 from our values", () => {
@@ -414,6 +470,9 @@ test("index puts rather on the landing page and never auto-opens a league overla
   assert.match(css, /\.rather-stats\s*\{/);
   assert.match(css, /\.rather-matchup\s*\{/);
   assert.match(app, /bootLandingRather/);
+  const boot = app.slice(app.indexOf("async function bootLandingRather"), app.indexOf("async function loadRatherPromptContext"));
+  assert.doesNotMatch(boot, /loadRatherPromptContext/);
+  assert.match(boot, /getPlayersCache/);
   assert.match(app, /landingSearchOffscreen/);
   assert.match(app, /buildRatherBoard/);
   assert.match(app, /minValue: 1/);

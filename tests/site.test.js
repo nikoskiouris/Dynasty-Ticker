@@ -170,7 +170,8 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="public-ranks"/);
   assert.match(index, /id="ranks-dashboard"/);
   assert.match(index, /id="landing-username"/);
-  assert.match(index, />What do you want to do\?</);
+  assert.match(index, />Your dynasty league, live\.</);
+  assert.match(index, /Scores, rosters, trades, and history in one desk/);
   assert.match(index, /id="landing-jobs"/);
   assert.match(index, /brand\/wordmark\.svg/);
   assert.match(index, /class="brand-wordmark/);
