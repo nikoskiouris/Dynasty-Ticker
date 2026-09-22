@@ -2,7 +2,10 @@ Title
 Rather pairing still produces no-brainers
 
 Status
-Open
+Done
+
+Shipped
+#81
 
 Priority
 P1

@@ -2,7 +2,10 @@ Title
 League is the product; rather is not the homepage
 
 Status
-Open
+Done
+
+Shipped
+#81
 
 Priority
 P0 — product positioning

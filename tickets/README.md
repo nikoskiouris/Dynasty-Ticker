@@ -29,8 +29,6 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [006](006-late-season-win-now.txt) | Late-season win-now value | P2 |
 | [007](007-assets-to-move-on.txt) | Assets to move on from for capital | P1 |
 | [008](008-aging-stars-on-bad-teams.txt) | Target aging stars on tanking teams | P1 |
-| [010](010-league-first-landing.txt) | League is the product; rather is not the homepage | P0 |
-| [011](011-rather-pairing.txt) | Rather pairing still produces no-brainers | P1 |
 | [014](014-redraft-values.txt) | Redraft rest-of-season values | P1 |
 
 ## Done
@@ -43,6 +41,8 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [009](009-trade-match-false-needs.txt) | Trade match invents positional needs | P0 | [#77](https://github.com/nikoskiouris/Dynasty-Ticker/pull/77) |
 | [012](012-trades-first-run.txt) | Trades page first-run is confusing | P0 | [#77](https://github.com/nikoskiouris/Dynasty-Ticker/pull/77) |
 | [013](013-trade-desk-freeze.txt) | Deal finder / calculator freeze | P0 | [#64](https://github.com/nikoskiouris/Dynasty-Ticker/pull/64) |
+| [010](010-league-first-landing.txt) | League is the product; rather is not the homepage | P0 | [#81](https://github.com/nikoskiouris/Dynasty-Ticker/pull/81) |
+| [011](011-rather-pairing.txt) | Rather pairing still produces no-brainers | P1 | [#81](https://github.com/nikoskiouris/Dynasty-Ticker/pull/81) |
 
 ## Shipped before this board
 
