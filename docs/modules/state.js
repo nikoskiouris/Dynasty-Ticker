@@ -12,6 +12,15 @@ export const THEME_COLORS = {
   dark: "#071018",
 };
 
+export function emptyDealBoard() {
+  return {
+    key: "",
+    ideas: [],
+    exhausted: false,
+    loading: false,
+  };
+}
+
 export function createState() {
   return {
     leagueId: "",
@@ -109,6 +118,7 @@ export function createState() {
       error: "",
       payload: null,
     },
+    dealBoard: emptyDealBoard(),
     pendingMeRosterId: null,
     pendingJobId: "",
     // { page, room } parsed from the URL before the league finishes loading.

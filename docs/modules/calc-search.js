@@ -81,6 +81,25 @@ export function keepCalcSearchFocused(doc, mutate, schedule) {
   }
 }
 
+export function shouldResetCalcSearchOnPick(action, { fromList = true } = {}) {
+  if (action === "value-add") return true;
+  if (action === "calc-toggle") return Boolean(fromList);
+  return false;
+}
+
+export function clearCalcSearchBox(input) {
+  if (!input) return false;
+  input.value = "";
+  if (typeof input.setSelectionRange === "function") {
+    try {
+      input.setSelectionRange(0, 0);
+    } catch {
+      // Some input types reject a caret range.
+    }
+  }
+  return true;
+}
+
 export function shouldHoldCalcSearchFocus(event, doc = globalThis.document) {
   const item = event?.target?.closest?.(".calc-item[data-action]");
   if (!item) return false;

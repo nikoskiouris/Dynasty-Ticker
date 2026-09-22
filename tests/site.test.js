@@ -220,6 +220,8 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="trade-match-dashboard"/);
   assert.match(index, /id="value-calculator-shell"/);
   assert.match(index, /id="match-generate-btn"/);
+  assert.match(index, /id="find-more-btn"/);
+  assert.match(index, />Find more</);
   assert.match(index, />Find matches</);
   assert.match(index, /Partners, calculator, deals/);
   const tradesPage = index.slice(index.indexOf('id="trades-page"'), index.indexOf('id="site-dock"'));
