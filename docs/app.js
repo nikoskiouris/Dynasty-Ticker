@@ -212,6 +212,7 @@ import {
   groupWindowCalls,
   windowCallInputFromDesk,
 } from "./modules/window-call.js";
+import { chooseBestLineup } from "./modules/lineup.js";
 import {
   formatPickWithSelection,
   indexDraftSelections,
@@ -339,7 +340,9 @@ const CUSTOM_MULTI_TEAM_ORDER_LIMIT = 12;
 const CUSTOM_MULTI_TEAM_PLAN_LIMIT = 18;
 
 const leagueStrengthCache = { key: "", baseline: null };
+const powerBoardCache = { key: "", profiles: null, context: null };
 const weeklyModelCache = { key: "", models: new Map() };
+let teamsPaintGeneration = 0;
 
 const el = {
   sleeperUsername: document.querySelector("#sleeper-username"),
@@ -2888,17 +2891,14 @@ function renderPowerDashboard() {
     return;
   }
 
-  const context = buildLeaguePowerContext({
-    league: state.league,
-    rosters: state.normalizedRosters,
-    values: state.values,
-  });
-  const profile = buildTeamPowerProfile({
-    roster: meRoster,
-    values: state.values,
-    league: state.league,
-    context,
-  });
+  const { profiles, context } = getLeaguePowerBoard();
+  const profile = profiles.find((entry) => String(entry.rosterId) === String(meRoster.rosterId))
+    || buildTeamPowerProfile({
+      roster: meRoster,
+      values: state.values,
+      league: state.league,
+      context,
+    });
   const insights = buildSleeperInsightCards(profile, context);
   const windowCall = buildWindowCallForProfile(profile);
   const trendNote = state.trendingLoaded
@@ -3045,15 +3045,7 @@ function buildSimPriors(model) {
 }
 
 function buildPowerProfiles() {
-  if (!state.league || state.normalizedRosters.length === 0) return [];
-  const context = buildLeaguePowerContext({
-    league: state.league,
-    rosters: state.normalizedRosters,
-    values: state.values,
-  });
-  return state.normalizedRosters
-    .map((roster) => buildTeamPowerProfile({ roster, values: state.values, league: state.league, context }))
-    .sort((a, b) => b.score - a.score || a.rank - b.rank || a.managerName.localeCompare(b.managerName));
+  return getLeaguePowerBoard().profiles;
 }
 
 function buildWindowCallForProfile(profile, { model = null, sim } = {}) {
@@ -3648,10 +3640,38 @@ function renderHomePowerBoard(profiles, model) {
 
 function renderTeamsPage() {
   syncLeagueFormatCopy();
+  const generation = ++teamsPaintGeneration;
+  if (!peekLeaguePowerBoard()) {
+    // Cold board solves every roster. Let the Teams tab paint before that work.
+    if (el.teamsGrid) el.teamsGrid.innerHTML = `<p class="muted">Ranking rosters…</p>`;
+    void finishTeamsPagePaint(generation);
+    return;
+  }
   renderTeamsGrid();
   renderPowerDashboard();
   renderRosterSheet();
   void ensureWeeklyValueContext();
+}
+
+function teamsRosterVisible() {
+  return state.activePage === "teams" && getRoom("teams") === "roster";
+}
+
+async function finishTeamsPagePaint(generation) {
+  await waitForNextPaint();
+  if (generation !== teamsPaintGeneration || !teamsRosterVisible()) return;
+  try {
+    getLeaguePowerBoard();
+    if (generation !== teamsPaintGeneration || !teamsRosterVisible()) return;
+    renderTeamsGrid();
+    renderPowerDashboard();
+    renderRosterSheet();
+    void ensureWeeklyValueContext();
+  } catch (err) {
+    console.warn("Teams page failed to rank rosters", err);
+    if (generation !== teamsPaintGeneration || !teamsRosterVisible()) return;
+    if (el.teamsGrid) el.teamsGrid.innerHTML = `<p class="muted">Could not rank rosters. Open Teams again.</p>`;
+  }
 }
 
 function syncLeagueFormatCopy() {
@@ -6168,19 +6188,7 @@ function renderRecordsRoom() {
 }
 
 function buildHistoryArchiveModel(lensRoster) {
-  const context = buildLeaguePowerContext({
-    league: state.league,
-    rosters: state.normalizedRosters,
-    values: state.values,
-  });
-  const profiles = state.normalizedRosters
-    .map((roster) => buildTeamPowerProfile({
-      roster,
-      values: state.values,
-      league: state.league,
-      context,
-    }))
-    .sort((a, b) => b.score - a.score || a.rank - b.rank || a.managerName.localeCompare(b.managerName));
+  const { context, profiles } = getLeaguePowerBoard();
   const lensProfile = profiles.find((profile) => String(profile.rosterId) === String(lensRoster.rosterId))
     || buildTeamPowerProfile({ roster: lensRoster, values: state.values, league: state.league, context });
   const market = buildTradeMarketAnalytics(lensRoster);
@@ -9817,6 +9825,57 @@ function formatDeltaPair(before, after) {
   return `${formatNumber(before)} to ${formatNumber(after)} (${delta >= 0 ? "+" : ""}${formatNumber(delta)})`;
 }
 
+function leagueBoardCacheKey(rosters = state.normalizedRosters) {
+  const rosterSig = (rosters || [])
+    .map((roster) => `${roster.rosterId}:${(roster.assets || []).map((asset) => asset.assetId).join(",")}`)
+    .join("|");
+  return [
+    state.league?.league_id || state.leagueId || "",
+    valuationCacheVersion(),
+    state.playerMetadataLoaded ? "players" : "names",
+    rosterSig,
+  ].join("::");
+}
+
+function peekLeaguePowerBoard() {
+  const key = leagueBoardCacheKey();
+  if (powerBoardCache.key === key && powerBoardCache.profiles && powerBoardCache.context) return powerBoardCache;
+  return null;
+}
+
+function getLeaguePowerBoard() {
+  if (!state.league || state.normalizedRosters.length === 0) {
+    return { key: "", profiles: [], context: null };
+  }
+  const key = leagueBoardCacheKey();
+  if (powerBoardCache.key === key && powerBoardCache.profiles && powerBoardCache.context) return powerBoardCache;
+  const baseline = getCachedLeagueStrengthBaseline({
+    league: state.league,
+    rosters: state.normalizedRosters,
+    values: state.values,
+  });
+  const context = buildLeaguePowerContext({
+    league: state.league,
+    rosters: state.normalizedRosters,
+    values: state.values,
+    metricsByRosterId: baseline.metricsByRosterId,
+  });
+  const profiles = state.normalizedRosters
+    .map((roster) => buildTeamPowerProfile({
+      roster,
+      values: state.values,
+      league: state.league,
+      context,
+      metrics: baseline.metricsByRosterId.get(roster.rosterId),
+      rank: context.ranks.get(roster.rosterId),
+    }))
+    .sort((a, b) => b.score - a.score || a.rank - b.rank || a.managerName.localeCompare(b.managerName));
+  powerBoardCache.key = key;
+  powerBoardCache.profiles = profiles;
+  powerBoardCache.context = context;
+  return powerBoardCache;
+}
+
 function getCachedLeagueStrengthBaseline({ league, rosters, values } = {}) {
   const resolvedLeague = league || state.league;
   const resolvedRosters = rosters || state.normalizedRosters;
@@ -9827,6 +9886,7 @@ function getCachedLeagueStrengthBaseline({ league, rosters, values } = {}) {
   const key = [
     resolvedLeague?.league_id || state.leagueId || "",
     valuationCacheVersion(),
+    state.playerMetadataLoaded ? "players" : "names",
     rosterSig,
   ].join("::");
   if (leagueStrengthCache.key === key && leagueStrengthCache.baseline) return leagueStrengthCache.baseline;
@@ -10134,7 +10194,7 @@ function buildOptimalStartingLineup(assets, starterSlots, values) {
     });
 
   const bestPlan = shouldUseExactLineupSolver(slotEntries, candidates)
-    ? chooseBestLineup(slotEntries, candidates, 0, 0n, new Map())
+    ? chooseBestLineup(slotEntries, candidates, (candidate, slot) => assetCanFillRosterSlot(candidate.asset, slot))
     : chooseGreedyLineup(slotEntries, candidates);
   const starters = bestPlan.picks
     .map((candidateIndex, slotIndex) => ({
@@ -10161,48 +10221,6 @@ function buildOptimalStartingLineup(assets, starterSlots, values) {
 function shouldUseExactLineupSolver(slotEntries, candidates) {
   return slotEntries.length <= LINEUP_EXACT_SOLVER_SLOT_LIMIT
     && candidates.length <= LINEUP_EXACT_SOLVER_CANDIDATE_LIMIT;
-}
-
-function chooseBestLineup(slotEntries, candidates, slotIndex, usedMask, memo) {
-  const memoKey = `${slotIndex}:${usedMask.toString()}`;
-  if (memo.has(memoKey)) return memo.get(memoKey);
-  if (slotIndex >= slotEntries.length) {
-    const emptyResult = { score: 0, picks: [] };
-    memo.set(memoKey, emptyResult);
-    return emptyResult;
-  }
-
-  let bestResult = {
-    score: Number.NEGATIVE_INFINITY,
-    picks: [],
-  };
-  const slot = slotEntries[slotIndex].slot;
-
-  for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
-    const candidateBit = 1n << BigInt(candidateIndex);
-    if ((usedMask & candidateBit) !== 0n) continue;
-    if (!assetCanFillRosterSlot(candidates[candidateIndex].asset, slot)) continue;
-
-    const child = chooseBestLineup(slotEntries, candidates, slotIndex + 1, usedMask | candidateBit, memo);
-    const totalScore = candidates[candidateIndex].value + child.score;
-    if (totalScore > bestResult.score) {
-      bestResult = {
-        score: totalScore,
-        picks: [candidateIndex, ...child.picks],
-      };
-    }
-  }
-
-  const skipChild = chooseBestLineup(slotEntries, candidates, slotIndex + 1, usedMask, memo);
-  if (skipChild.score > bestResult.score) {
-    bestResult = {
-      score: skipChild.score,
-      picks: [null, ...skipChild.picks],
-    };
-  }
-
-  memo.set(memoKey, bestResult);
-  return bestResult;
 }
 
 function chooseGreedyLineup(slotEntries, candidates) {
