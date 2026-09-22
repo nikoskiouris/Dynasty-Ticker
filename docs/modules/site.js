@@ -13,7 +13,7 @@ export const STORAGE_NOTICE_KEY = "dynasty_ticker_storage_notice";
 
 export const DEFAULT_TITLE = "Dynasty Ticker — Your Sleeper dynasty league";
 export const DEFAULT_DESCRIPTION =
-  "Pick a job, then open your Sleeper dynasty league. Live scores, roster scout, trade tools, and league history.";
+  "Your Sleeper dynasty league, live. Scores, rosters, trades, and history in one desk.";
 
 export function tickerDurationSeconds(itemCount) {
   const count = Math.max(0, Number(itemCount) || 0);
@@ -31,7 +31,7 @@ export const PAGE_META = {
   },
   trades: {
     title: PAGE_LABELS.trades,
-    description: "A blank trade calculator for any assets, a two-team calculator, trade match, and a graded trade log.",
+    description: "Find a partner who has your holes, use the calculator, or shop a name.",
   },
 };
 
@@ -46,7 +46,8 @@ const ROOM_DESCRIPTIONS = {
     passports: "Player passport: who owned each player, season by season.",
   },
   trades: {
-    value: "Blank trade calculator. Search any player or pick in one box.",
+    value: "Blank trade calculator: search any player or pick and build both sides.",
+    ranks: "Player and pick values from Sleeper trades mixed with the crowd. Open one to see the pick he equals.",
     calculator: "Two-team calculator: pick a partner and tap assets on both sides.",
     match: "Match with teams that have the positions you need, want what you can spare, or are tanking while you contend.",
   },

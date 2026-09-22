@@ -83,6 +83,15 @@ test("current place ranks by wins then points", () => {
   assert.equal(currentPlaceForOwner(8, lookup).label, "3rd");
 });
 
+test("tied points use points against, lower is better", () => {
+  const lookup = buildCurrentPlaceLookup([
+    { roster_id: 1, settings: { wins: 5, losses: 5, fpts: 1100, fpts_against: 1200 } },
+    { roster_id: 2, settings: { wins: 5, losses: 5, fpts: 1100, fpts_against: 1000 } },
+  ]);
+  assert.equal(currentPlaceForOwner(2, lookup).rank, 1);
+  assert.equal(currentPlaceForOwner(1, lookup).rank, 2);
+});
+
 test("mock overlay is next-year 1sts and 2nds only", () => {
   assert.equal(shouldAttachMock({ season: 2027, round: 1 }, sampleBoard), true);
   assert.equal(shouldAttachMock({ season: 2027, round: 2 }, sampleBoard), true);

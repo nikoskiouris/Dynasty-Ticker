@@ -1,3 +1,5 @@
+import { isRealUserId, ownerIdFromRoster } from "./franchise.js";
+
 export function draftedPickRosterKey(season, round, originalRosterId) {
   return `${String(season || "")}:${Number(round) || 0}:roster:${String(originalRosterId ?? "")}`;
 }
@@ -17,7 +19,7 @@ export function ownerKeyByRosterIdFromRosters(rosters = []) {
   (Array.isArray(rosters) ? rosters : []).forEach((roster) => {
     const rosterId = roster?.roster_id != null ? String(roster.roster_id) : "";
     if (!rosterId) return;
-    const userId = String(roster?.owner_id || "").trim();
+    const userId = ownerIdFromRoster(roster);
     map.set(rosterId, userId ? `user:${userId}` : "");
   });
   return map;
@@ -30,11 +32,19 @@ export function slotToRosterIdFromDraft(draftDetails, rosters = []) {
   }
 
   const inverted = {};
-  const rosterIdByOwnerId = new Map(
-    (Array.isArray(rosters) ? rosters : [])
-      .map((roster) => [String(roster?.owner_id ?? ""), String(roster?.roster_id ?? "")])
-      .filter(([ownerId, rosterId]) => ownerId && rosterId)
-  );
+  const rosterIdByOwnerId = new Map();
+  (Array.isArray(rosters) ? rosters : []).forEach((roster) => {
+    const rosterId = String(roster?.roster_id ?? "");
+    if (!rosterId) return;
+    const ids = [];
+    if (isRealUserId(roster?.owner_id)) ids.push(String(roster.owner_id).trim());
+    (Array.isArray(roster?.co_owners) ? roster.co_owners : []).forEach((id) => {
+      if (isRealUserId(id)) ids.push(String(id).trim());
+    });
+    ids.forEach((id) => {
+      if (!rosterIdByOwnerId.has(id)) rosterIdByOwnerId.set(id, rosterId);
+    });
+  });
   const draftOrder = draftDetails?.draft_order && typeof draftDetails.draft_order === "object"
     ? draftDetails.draft_order
     : {};

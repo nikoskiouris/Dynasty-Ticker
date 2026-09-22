@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createLivePoller, shouldPollLive, shouldRefreshSim, weekRowsFingerprint } from "../docs/modules/live.js";
+import { createLivePoller, liveUpdateMatchesLeague, shouldPollLive, shouldRefreshSim, weekRowsFingerprint } from "../docs/modules/live.js";
 
 test("shouldPollLive only when the featured week is live", () => {
   assert.equal(shouldPollLive({ currentWeekEntry: { isLive: true } }), true);
@@ -91,4 +91,29 @@ test("live poller fetches scores, skips paused tabs, and rate-limits sims", asyn
   assert.equal(sims, 1);
   poller.stop();
   assert.equal(poller.running, false);
+});
+
+test("a stopped poll drops scores that arrive after the league changed", async () => {
+  let release;
+  let scores = 0;
+  const poller = createLivePoller({
+    isLive: () => true,
+    fetchUpdate: () => new Promise((resolve) => {
+      release = resolve;
+    }),
+    onScores: () => {
+      scores += 1;
+    },
+    setIntervalFn: () => ({ id: 1 }),
+    clearIntervalFn: () => {},
+  });
+  const started = poller.start();
+  poller.stop();
+  release({ leagueId: "a" });
+  const result = await started;
+  assert.equal(result.reason, "stopped");
+  assert.equal(scores, 0);
+  assert.equal(liveUpdateMatchesLeague("a", "a"), true);
+  assert.equal(liveUpdateMatchesLeague("a", "b"), false);
+  assert.equal(liveUpdateMatchesLeague("", "b"), false);
 });

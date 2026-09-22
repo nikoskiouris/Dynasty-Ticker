@@ -97,6 +97,12 @@ export function createState() {
       theirQuery: "",
     },
     valueCalc: emptyValueCalcState(),
+    ranks: {
+      query: "",
+      position: "ALL",
+      format: "",
+      selectedId: "",
+    },
     tradeMatch: {
       key: "",
       loading: false,

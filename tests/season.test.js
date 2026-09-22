@@ -14,6 +14,9 @@ import {
   playoffLockStatus,
   scoreUpcomingWeekAngles,
   resolveUpcomingWeekEntry,
+  compareRosterRecord,
+  playoffWeekCount,
+  transactionWeekEnd,
 } from "../docs/modules/season.js";
 
 function leagueFixture({
@@ -432,4 +435,16 @@ test("upcoming week dark horses use scoring distributions, not a value check", (
   assert.ok(angles.trapGames.some((card) => card.teamName === "Charlie" && card.opponentName === "Bravo"));
   assert.match(angles.darkHorses[0].detail, /scoring-profile|boom tail/i);
   assert.doesNotMatch(angles.darkHorses[0].detail, /KTC roster rank|raw KTC/i);
+});
+
+test("tied records break on points against, and two-week playoffs stay in the trade fetch", () => {
+  const better = { rosterId: "2", wins: 5, losses: 5, ties: 0, points: 1100, pointsAgainst: 1000 };
+  const worse = { rosterId: "1", wins: 5, losses: 5, ties: 0, points: 1100, pointsAgainst: 1200 };
+  assert.ok(compareRosterRecord(better, worse) < 0);
+  assert.equal(playoffWeekCount(6, 2), 6);
+  const end = transactionWeekEnd({
+    settings: { playoff_week_start: 15, playoff_teams: 6, playoff_round_type: 2 },
+  });
+  assert.equal(end, 20);
+  assert.equal(transactionWeekEnd({ settings: { playoff_week_start: 15 } }), 18);
 });

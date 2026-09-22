@@ -1,5 +1,7 @@
 import importlib.util
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -172,6 +174,26 @@ class KtcScraperTests(unittest.TestCase):
         tiny = {"player:7564": 9000}
         self.assertFalse(self.ktc.accept_scrape(tiny, players))
         self.assertGreaterEqual(self.ktc.MIN_MAPPED_PLAYERS, 180)
+
+    def test_failed_1qb_scrape_never_copies_superflex(self):
+        players = {}
+        scraped = {"player:1": 10}
+        existing = {"player:9": 2222, "pick:2027:r1:early": 9000}
+        superflex = {"player:1": 9999, "pick:2027:r1:early": 9999}
+        self.assertEqual(self.ktc.resolve_one_qb_values(scraped, players, existing), existing)
+        self.assertIsNone(self.ktc.resolve_one_qb_values(scraped, players, {}))
+        self.assertIsNone(self.ktc.resolve_one_qb_values(scraped, players, None))
+        self.assertNotEqual(self.ktc.resolve_one_qb_values(scraped, players, None), superflex)
+
+    def test_json_writer_leaves_1qb_null_instead_of_copying_superflex(self):
+        sf = {"player:1": 1000}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ktc_values.json"
+            self.ktc.write_values_json(path, sf, None, {})
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        self.assertIsNone(payload["oneQb"])
+        self.assertEqual(payload["sf"], sf)
+        self.assertNotIn("9999", json.dumps(payload["oneQb"]))
 
     def test_build_urls_include_1qb_format_and_filters(self):
         sf_url = self.ktc.build_ktc_url(0, {"filters": self.ktc.KTC_FILTERS})

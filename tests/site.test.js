@@ -68,7 +68,7 @@ test("document titles and descriptions change with tab and league", () => {
   );
   assert.equal(
     buildDocumentTitle({ page: "trades", leagueName: "Try Hard or Die Hard", loaded: true, room: "match" }),
-    "Partners · Try Hard or Die Hard — Dynasty Ticker"
+    "Trades · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "trader", leagueName: "Try Hard or Die Hard", loaded: true }),
@@ -97,7 +97,7 @@ test("document titles and descriptions change with tab and league", () => {
   assert.match(buildPageDescription({ page: "teams", room: "call", loaded: true }), /tank/);
   assert.match(buildPageDescription({ page: "trades", room: "calculator", loaded: true }), /two-team calculator/i);
   assert.match(buildPageDescription({ page: "trades", room: "log", loaded: true }), /Graded past deals/);
-  assert.match(buildPageDescription({ page: "trades", room: "match", loaded: true }), /Match with teams/);
+  assert.match(buildPageDescription({ page: "trades", room: "match", loaded: true }), /partner who has your holes/i);
   assert.equal(buildPageDescription({}), DEFAULT_DESCRIPTION);
 });
 
@@ -165,8 +165,13 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.equal(existsSync(join(docs, "modules/recap.js")), false);
   assert.equal(existsSync(join(docs, "modules/recap-card.js")), false);
   assert.match(index, /id="landing-rather"/);
+  assert.match(index, /id="open-public-ranks"/);
+  assert.match(index, /Check player values/);
+  assert.match(index, /id="public-ranks"/);
+  assert.match(index, /id="ranks-dashboard"/);
   assert.match(index, /id="landing-username"/);
-  assert.match(index, />What do you want to do\?</);
+  assert.match(index, />Your dynasty league, live\.</);
+  assert.match(index, /Scores, rosters, trades, and history in one desk/);
   assert.match(index, /id="landing-jobs"/);
   assert.match(index, /brand\/wordmark\.svg/);
   assert.match(index, /class="brand-wordmark/);
@@ -201,7 +206,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /data-page="history"/);
   assert.doesNotMatch(index, /id="history-page"/);
   assert.match(index, /id="room-nav"/);
-  for (const room of ["start", "scores", "standings", "power", "awards", "history", "roster", "mock", "call", "loyalty", "passports", "log", "match", "value", "calculator", "lab"]) {
+  for (const room of ["start", "scores", "standings", "power", "awards", "history", "roster", "mock", "call", "loyalty", "passports", "log", "match", "value", "ranks", "calculator", "lab"]) {
     assert.match(index, new RegExp(`data-room-panel="${room}"`), room);
   }
   assert.doesNotMatch(index, /data-room-panel="recap"/);
@@ -216,7 +221,12 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="value-calculator-shell"/);
   assert.match(index, /id="match-generate-btn"/);
   assert.match(index, />Find matches</);
-  assert.match(index, /Calculator, two teams, deals/);
+  assert.match(index, /Partners, calculator, deals/);
+  const tradesPage = index.slice(index.indexOf('id="trades-page"'), index.indexOf('id="site-dock"'));
+  assert.deepEqual(
+    [...tradesPage.matchAll(/data-room-panel="([^"]+)"/g)].map((row) => row[1]),
+    ["value", "ranks", "match", "calculator", "lab", "log"],
+  );
   assert.match(index, /id="history-dashboard"/);
   assert.match(index, /id="mobile-home-btn"/);
   assert.match(index, /data-action="league-home"/);

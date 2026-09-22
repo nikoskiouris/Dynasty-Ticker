@@ -94,12 +94,17 @@ function nameMapFrom(source) {
   return source && typeof source === "object" && !Array.isArray(source) ? source : {};
 }
 
+function formatPayload(payload) {
+  return payload && typeof payload === "object" ? payload : { values: {}, nameMap: {} };
+}
+
 export function pickValueBundle(payload, format) {
   if (!payload || typeof payload !== "object") return { values: {}, nameMap: {} };
   if (payload.sf || payload.oneQb) {
+    // Missing 1QB evidence stays empty. Never price a 1QB league with Superflex.
     const selected = format === "oneQb"
-      ? (payload.oneQb || payload.sf)
-      : (payload.sf || payload.oneQb);
+      ? formatPayload(payload.oneQb)
+      : formatPayload(payload.sf);
     const values = selected?.values && typeof selected.values === "object" ? selected.values : selected || {};
     return {
       values,
@@ -561,14 +566,14 @@ export function isEstimatedAsset(asset, values, options = {}) {
   return lookupMarketValue(asset, values, valueNameMap, pickCatalog).estimated;
 }
 
-export function getGlobalMaxPlayerValue(values) {
-  const max = Math.max(
-    ...Object.entries(values || {})
-      .filter(([assetId, value]) => assetId.startsWith("player:") && Number.isFinite(value))
-      .map(([, value]) => value),
-    0
-  );
-  return Math.max(max, KTC_GLOBAL_MAX_FALLBACK);
+export function getGlobalMaxPlayerValue(values, tradeMaxValue = 0) {
+  const floor = Number.isFinite(tradeMaxValue) ? tradeMaxValue : 0;
+  let maxValue = Math.max(KTC_GLOBAL_MAX_FALLBACK, floor);
+  for (const [assetId, value] of Object.entries(values || {})) {
+    if (!String(assetId).startsWith("player:")) continue;
+    if (Number.isFinite(value) && value > maxValue) maxValue = value;
+  }
+  return maxValue;
 }
 
 async function readTextIfOk(fetchImpl, path) {
@@ -595,8 +600,8 @@ export async function fetchValuationBundles(fetchImpl = globalThis.fetch) {
   const jsonBundle = await readJsonIfOk(fetchImpl, VALUES_JSON_PATH);
   if (jsonBundle && (jsonBundle.sf || jsonBundle.oneQb || jsonBundle.values)) {
     if (jsonBundle.sf || jsonBundle.oneQb) {
-      const sf = coerceValueMap(jsonBundle.sf || jsonBundle.oneQb);
-      const oneQb = coerceValueMap(jsonBundle.oneQb || jsonBundle.sf);
+      const sf = coerceValueMap(jsonBundle.sf || {});
+      const oneQb = coerceValueMap(jsonBundle.oneQb || {});
       const names = jsonBundle.names && typeof jsonBundle.names === "object"
         ? jsonBundle.names
         : { ...sf.nameMap, ...oneQb.nameMap };
@@ -616,6 +621,6 @@ export async function fetchValuationBundles(fetchImpl = globalThis.fetch) {
     readTextIfOk(fetchImpl, SAMPLE_VALUES_PATH),
   ]);
   const sf = parseCsvValues(sfCsv || sampleCsv);
-  const oneQb = parseCsvValues(oneQbCsv || sfCsv || sampleCsv);
+  const oneQb = oneQbCsv ? parseCsvValues(oneQbCsv) : { values: {}, nameMap: {} };
   return { sf, oneQb, names: { ...sf.nameMap, ...oneQb.nameMap } };
 }

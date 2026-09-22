@@ -64,6 +64,22 @@ test("slotToRosterIdFromDraft falls back to draft_order plus rosters", () => {
   assert.equal(String(slotMap["1"]), "7");
 });
 
+test("slotToRosterIdFromDraft maps co-owners when owner_id is empty", () => {
+  const slotMap = slotToRosterIdFromDraft(
+    { draft_order: { userCo: 3, userMain: 1 } },
+    [
+      { roster_id: 9, owner_id: null, co_owners: ["userCo"] },
+      { roster_id: 4, owner_id: "userMain", co_owners: [] },
+    ]
+  );
+  assert.equal(String(slotMap["3"]), "9");
+  assert.equal(String(slotMap["1"]), "4");
+  const keys = ownerKeyByRosterIdFromRosters([
+    { roster_id: 9, owner_id: null, co_owners: ["userCo"] },
+  ]);
+  assert.equal(keys.get("9"), "user:userCo");
+});
+
 test("sortDraftsForSelectionIngest puts the smaller/rookie draft last", () => {
   const sorted = sortDraftsForSelectionIngest([
     { draft_id: "rookie", settings: { rounds: 4 } },

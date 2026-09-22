@@ -1,4 +1,5 @@
 import { clamp, escapeHtml, formatNumber } from "./html.js";
+import { renderPlayerFace } from "./player-face.js";
 
 export const NFL_SCHEDULE_PATH = "./data/nfl_schedule.json";
 export const WEEKLY_LOOKBACK_WEEKS = 6;
@@ -686,7 +687,12 @@ export function weeklyScoreParts(score) {
   return { value: String(Math.round(Number(score))), max: "%" };
 }
 
+export function weeklyScoreSuppressed(model) {
+  return Boolean(model?.bye || model?.opponentMissing);
+}
+
 export function weeklyScoreChipLabel(model) {
+  if (weeklyScoreSuppressed(model)) return "—";
   return formatWeeklyScore(model?.score);
 }
 
@@ -695,7 +701,9 @@ export function renderWeeklyPlayerSheet(model, { helpOpen = false } = {}) {
   const missingNote = model.complete
     ? "Every usage and matchup input is in."
     : `Missing: ${model.missing.join(", ")}.`;
-  const parts = weeklyScoreParts(model.score);
+  const parts = weeklyScoreSuppressed(model)
+    ? { value: "—", max: "" }
+    : weeklyScoreParts(model.score);
   const dynasty = model.dynastyValue == null ? "—" : formatNumber(Math.round(model.dynastyValue));
   const games = (model.games || []).map((game) => {
     const bits = [
@@ -715,7 +723,8 @@ export function renderWeeklyPlayerSheet(model, { helpOpen = false } = {}) {
   return `
     <article class="player-week-sheet" data-player-id="${escapeHtml(model.playerId)}">
       <header class="player-week-head">
-        <div>
+        ${renderPlayerFace(model.playerId, model.name, { size: "md" })}
+        <div class="player-week-copy">
           <span class="player-week-kicker">
             <span class="eyebrow">This week</span>
             ${renderWeeklyScoreHelpButton({ open: helpOpen })}

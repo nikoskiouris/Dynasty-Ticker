@@ -21,9 +21,9 @@ export const DESK_JOBS = Object.freeze([
   {
     id: "trade",
     page: "trades",
-    room: "value",
+    room: "match",
     label: "Make a trade",
-    blurb: "Calculator, find a partner, shop a player",
+    blurb: "Find a partner, then the calculator",
     cta: "make a trade",
   },
   {
@@ -57,6 +57,13 @@ export const DESK_MORE_JOBS = Object.freeze([
     room: "match",
     label: "Find a partner",
     blurb: "Who has your holes",
+  },
+  {
+    id: "ranks",
+    page: "trades",
+    room: "ranks",
+    label: "Player values",
+    blurb: "Ranks and the pick they equal",
   },
   {
     id: "lab",

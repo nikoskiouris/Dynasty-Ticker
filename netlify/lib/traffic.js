@@ -18,9 +18,15 @@ export const TRAFFIC_LINES = Object.freeze([
   ["all", "views"],
   ["all", "people"],
 ]);
+export const VISIT_TIME_ZONE = "America/New_York";
+export const TRAFFIC_HISTORY_DAYS = 14;
 
-const BOT_RE = /(bot|crawler|spider|crawling|prerender|lighthouse|pagespeed|headless|pingdom|uptimerobot|facebookexternalhit|slackbot|twitterbot|linkedinbot|whatsapp|telegrambot|discordbot|google-inspection|preview|curl\/|python-urllib|go-http-client)/i;
+const BOT_RE = /(bot|crawler|spider|crawling|prerender|lighthouse|pagespeed|headless|pingdom|uptimerobot|facebookexternalhit|slackbot|twitterbot|linkedinbot|telegrambot|discordbot|google-inspection|bingpreview|curl\/|python-urllib|go-http-client|ahrefs|semrush|bytespider|dataforseo)/i;
 const KEEP_DAYS = 40;
+const MAX_SOURCE_HOSTS = 40;
+const EVENT_KEEP_MS = 48 * 60 * 60 * 1000;
+const EVENT_MAX = 4000;
+const SITE_HOST = "dynastyticker.com";
 
 function pad2(value) {
   return String(value).padStart(2, "0");
@@ -36,21 +42,94 @@ export function utcIsoWeek(now = new Date()) {
   return { year: weekYear, week };
 }
 
-export function visitPeriodKeys(now = new Date()) {
-  const year = now.getUTCFullYear();
-  const month = pad2(now.getUTCMonth() + 1);
-  const day = pad2(now.getUTCDate());
-  const iso = utcIsoWeek(now);
+export function zonedYmd(now = new Date(), timeZone = VISIT_TIME_ZONE) {
+  const parts = {};
+  for (const part of new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now)) {
+    if (part.type === "year" || part.type === "month" || part.type === "day") parts[part.type] = part.value;
+  }
   return {
-    day: `${year}-${month}-${day}`,
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+  };
+}
+
+function isoWeekFromYmd(year, month, day) {
+  return utcIsoWeek(new Date(Date.UTC(year, month - 1, day)));
+}
+
+export function visitPeriodKeys(now = new Date()) {
+  const { year, month, day } = zonedYmd(now);
+  const iso = isoWeekFromYmd(year, month, day);
+  return {
+    day: `${year}-${pad2(month)}-${pad2(day)}`,
     week: `${iso.year}-W${pad2(iso.week)}`,
     year: String(year),
   };
 }
 
-export function visitorHash(ip, userAgent, salt = DEFAULT_SALT) {
+export function recentDayKeys(now = new Date(), count = TRAFFIC_HISTORY_DAYS) {
+  const { year, month, day } = zonedYmd(now);
+  let cursor = Date.UTC(year, month - 1, day, 16, 0, 0);
+  const keys = [];
+  const total = Math.max(1, Math.floor(Number(count) || 1));
+  for (let i = 0; i < total; i += 1) {
+    keys.push(visitPeriodKeys(new Date(cursor)).day);
+    cursor -= 86400000;
+  }
+  keys.reverse();
+  return keys;
+}
+
+export function cleanVisitorId(value) {
+  const id = String(value || "").trim().toLowerCase();
+  return /^[a-f0-9]{32}$/.test(id) ? id : "";
+}
+
+export function cleanEventId(value) {
+  const id = String(value || "").trim();
+  if (!id || id.length > 80 || !/^[a-zA-Z0-9_-]+$/.test(id)) return "";
+  return id;
+}
+
+export function cleanSourceHost(value) {
+  const raw = String(value || "").trim().toLowerCase().replace(/^www\./, "");
+  if (!raw || raw === "direct") return "direct";
+  if (raw === SITE_HOST || raw.endsWith(".netlify.app")) return "direct";
+  if (!/^[a-z0-9.-]{1,120}$/.test(raw)) return "direct";
+  if (raw.startsWith(".") || raw.endsWith(".") || raw.includes("..")) return "direct";
+  return raw;
+}
+
+export function landingFromReferer(referer) {
+  const raw = String(referer || "").trim();
+  if (!raw) return "home";
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return "home";
+  }
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+  if (path === "/privacy" || path === "/privacy.html" || path === "/terms" || path === "/terms.html") return "legal";
+  const league = String(url.searchParams.get("league") || "").trim();
+  if (league) return "shared";
+  return "home";
+}
+
+export function visitorHash(ip, userAgent, salt = DEFAULT_SALT, visitorId = "") {
+  const secret = salt || DEFAULT_SALT;
+  const id = cleanVisitorId(visitorId);
+  if (id) {
+    return createHash("sha256").update(`${secret}\nvisitor\n${id}`).digest("hex").slice(0, 32);
+  }
   return createHash("sha256")
-    .update(`${salt}\n${String(ip || "").trim()}\n${String(userAgent || "").trim()}`)
+    .update(`${secret}\n${String(ip || "").trim()}\n${String(userAgent || "").trim()}`)
     .digest("hex")
     .slice(0, 32);
 }
@@ -59,8 +138,20 @@ export function isBot(userAgent) {
   return BOT_RE.test(String(userAgent || ""));
 }
 
+function emptyLandings() {
+  return { home: 0, shared: 0, legal: 0 };
+}
+
 export function emptyBucket() {
-  return { views: 0, people: 0, seen: {} };
+  return {
+    views: 0,
+    people: 0,
+    active: 0,
+    seen: {},
+    activeSeen: {},
+    sources: {},
+    landings: emptyLandings(),
+  };
 }
 
 export function emptyState() {
@@ -69,6 +160,7 @@ export function emptyState() {
     days: {},
     weeks: {},
     years: {},
+    events: {},
   };
 }
 
@@ -83,12 +175,34 @@ function asSeen(value) {
   return { ...value };
 }
 
+function asSources(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out = {};
+  for (const [key, count] of Object.entries(value)) {
+    const host = cleanSourceHost(key);
+    out[host] = asCount(out[host]) + asCount(count);
+  }
+  return out;
+}
+
+function asLandings(value) {
+  return {
+    home: asCount(value?.home),
+    shared: asCount(value?.shared),
+    legal: asCount(value?.legal),
+  };
+}
+
 function asBucket(value) {
   if (!value || typeof value !== "object") return emptyBucket();
   return {
     views: asCount(value.views),
     people: asCount(value.people),
+    active: asCount(value.active),
     seen: asSeen(value.seen),
+    activeSeen: asSeen(value.activeSeen),
+    sources: asSources(value.sources),
+    landings: asLandings(value.landings),
   };
 }
 
@@ -101,6 +215,18 @@ function asBucketMap(value) {
   return out;
 }
 
+function asEvents(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out = {};
+  for (const [key, stamp] of Object.entries(value)) {
+    const id = cleanEventId(key);
+    const at = Number(stamp);
+    if (!id || !Number.isFinite(at) || at <= 0) continue;
+    out[id] = at;
+  }
+  return out;
+}
+
 export function normalizeState(raw) {
   if (!raw || typeof raw !== "object") return emptyState();
   return {
@@ -108,21 +234,38 @@ export function normalizeState(raw) {
     days: asBucketMap(raw.days),
     weeks: asBucketMap(raw.weeks),
     years: asBucketMap(raw.years),
+    events: asEvents(raw.events),
   };
 }
 
-function pickCounts(bucket) {
-  return { views: asCount(bucket?.views), people: asCount(bucket?.people) };
+function pickPeriod(bucket) {
+  const sources = {};
+  for (const [key, value] of Object.entries(bucket?.sources || {})) {
+    sources[key] = asCount(value);
+  }
+  return {
+    views: asCount(bucket?.views),
+    people: asCount(bucket?.people),
+    active: asCount(bucket?.active),
+    sources,
+    landings: asLandings(bucket?.landings),
+  };
 }
 
 export function summarize(state, now = new Date()) {
   const periods = visitPeriodKeys(now);
   const current = normalizeState(state);
   return {
-    today: pickCounts(current.days[periods.day]),
-    week: pickCounts(current.weeks[periods.week]),
-    year: pickCounts(current.years[periods.year]),
-    all: pickCounts(current.all),
+    today: pickPeriod(current.days[periods.day]),
+    week: pickPeriod(current.weeks[periods.week]),
+    year: pickPeriod(current.years[periods.year]),
+    all: pickPeriod(current.all),
+    days: recentDayKeys(now).map((day) => ({
+      day,
+      views: asCount(current.days[day]?.views),
+      people: asCount(current.days[day]?.people),
+      active: asCount(current.days[day]?.active),
+    })),
   };
 }
 
@@ -133,12 +276,26 @@ export function flattenTrafficCounts(summary) {
 function pruneMap(map, keepKey, maxKeys) {
   const keys = Object.keys(map).sort();
   for (const key of keys) {
-    if (key !== keepKey) delete map[key].seen;
+    if (key !== keepKey) {
+      delete map[key].seen;
+      delete map[key].activeSeen;
+    }
   }
   if (keys.length <= maxKeys) return;
   for (const key of keys.slice(0, keys.length - maxKeys)) {
     delete map[key];
   }
+}
+
+function pruneEvents(state, now) {
+  const cutoff = now.getTime() - EVENT_KEEP_MS;
+  for (const [key, stamp] of Object.entries(state.events)) {
+    if (stamp < cutoff) delete state.events[key];
+  }
+  const keys = Object.keys(state.events);
+  if (keys.length <= EVENT_MAX) return;
+  keys.sort((a, b) => state.events[a] - state.events[b] || a.localeCompare(b));
+  for (const key of keys.slice(0, keys.length - EVENT_MAX)) delete state.events[key];
 }
 
 export function pruneState(state, now = new Date()) {
@@ -147,29 +304,82 @@ export function pruneState(state, now = new Date()) {
   pruneMap(current.days, periods.day, KEEP_DAYS);
   pruneMap(current.weeks, periods.week, 12);
   pruneMap(current.years, periods.year, 3);
+  pruneEvents(current, now);
   return current;
 }
 
-function bump(bucket, hash) {
-  bucket.views += 1;
+function bumpPerson(bucket, hash) {
   if (!bucket.seen[hash]) {
     bucket.seen[hash] = 1;
     bucket.people += 1;
   }
 }
 
-export function applyVisit(state, { hash, now = new Date() } = {}) {
+function bumpActive(bucket, hash) {
+  bumpPerson(bucket, hash);
+  if (!bucket.activeSeen[hash]) {
+    bucket.activeSeen[hash] = 1;
+    bucket.active += 1;
+  }
+}
+
+function bumpSource(bucket, host) {
+  const key = host || "direct";
+  bucket.sources[key] = asCount(bucket.sources[key]) + 1;
+  const extras = Object.keys(bucket.sources).filter((name) => name !== "direct");
+  if (extras.length + (bucket.sources.direct == null ? 0 : 1) <= MAX_SOURCE_HOSTS) return;
+  extras.sort((a, b) => bucket.sources[a] - bucket.sources[b] || a.localeCompare(b));
+  while (Object.keys(bucket.sources).length > MAX_SOURCE_HOSTS && extras.length) {
+    delete bucket.sources[extras.shift()];
+  }
+}
+
+function bumpLanding(bucket, landing) {
+  const key = landing === "shared" || landing === "legal" ? landing : "home";
+  bucket.landings[key] += 1;
+}
+
+function periodBuckets(state, now) {
+  const periods = visitPeriodKeys(now);
+  if (!state.days[periods.day]) state.days[periods.day] = emptyBucket();
+  if (!state.weeks[periods.week]) state.weeks[periods.week] = emptyBucket();
+  if (!state.years[periods.year]) state.years[periods.year] = emptyBucket();
+  return [
+    state.all,
+    state.days[periods.day],
+    state.weeks[periods.week],
+    state.years[periods.year],
+  ];
+}
+
+export function applyVisit(state, {
+  hash,
+  now = new Date(),
+  eventId = "",
+  kind = "open",
+  source = "direct",
+  landing = "home",
+} = {}) {
   const current = pruneState(state, now);
+  const event = cleanEventId(eventId);
+  if (event && current.events[event]) return current;
   const id = String(hash || "").trim();
   if (!id) return current;
-  const periods = visitPeriodKeys(now);
-  if (!current.days[periods.day]) current.days[periods.day] = emptyBucket();
-  if (!current.weeks[periods.week]) current.weeks[periods.week] = emptyBucket();
-  if (!current.years[periods.year]) current.years[periods.year] = emptyBucket();
-  bump(current.all, id);
-  bump(current.days[periods.day], id);
-  bump(current.weeks[periods.week], id);
-  bump(current.years[periods.year], id);
+  const buckets = periodBuckets(current, now);
+  if (kind === "active") {
+    for (const bucket of buckets) bumpActive(bucket, id);
+  } else {
+    const host = cleanSourceHost(source);
+    const land = landing === "shared" || landing === "legal" ? landing : "home";
+    for (const bucket of buckets) {
+      bucket.views += 1;
+      bumpPerson(bucket, id);
+      bumpSource(bucket, host);
+      bumpLanding(bucket, land);
+    }
+  }
+  if (event) current.events[event] = now.getTime();
+  pruneEvents(current, now);
   return current;
 }
 
@@ -256,6 +466,24 @@ export function wrapLambdaHandler(visitHandler) {
   };
 }
 
+async function readVisitBody(req) {
+  const declared = Number(req.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > 2000) return {};
+  let text = "";
+  try {
+    text = await req.text();
+  } catch {
+    return {};
+  }
+  if (!text || text.length > 2000) return {};
+  try {
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 async function readTrafficSnapshot(store) {
   if (!store || typeof store.getWithMetadata !== "function") throw new Error("durable store unavailable");
   const snapshot = await store.getWithMetadata(STATE_KEY, {
@@ -311,6 +539,8 @@ export function createVisitHandler({
       return jsonResponse({ ok: true, skipped: "bot" });
     }
 
+    const body = req.method === "POST" ? await readVisitBody(req) : {};
+
     let store;
     try {
       store = typeof getStore === "function" ? getStore() : null;
@@ -328,8 +558,12 @@ export function createVisitHandler({
       }
     }
 
-    const hash = visitorHash(clientIp(req, context), userAgent, salt);
+    const eventId = cleanEventId(body.eventId);
+    const hash = visitorHash(clientIp(req, context), userAgent, salt, body.visitorId);
     const now = nowFn();
+    const kind = body.kind === "active" ? "active" : "open";
+    const source = cleanSourceHost(body.source);
+    const landing = landingFromReferer(req.headers.get("referer"));
     for (let attempt = 0; attempt < TRAFFIC_MAX_WRITE_RETRIES; attempt += 1) {
       let snapshot;
       try {
@@ -337,7 +571,8 @@ export function createVisitHandler({
       } catch {
         return jsonResponse({ error: "store", retryable: true }, { status: 503 });
       }
-      const next = applyVisit(snapshot.state, { hash, now });
+      if (eventId && snapshot.state.events[eventId]) return jsonResponse({ ok: true });
+      const next = applyVisit(snapshot.state, { hash, now, eventId, kind, source, landing });
       try {
         if (await writeTrafficSnapshot(store, next, snapshot)) return jsonResponse({ ok: true });
       } catch {

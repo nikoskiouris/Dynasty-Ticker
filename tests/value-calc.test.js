@@ -57,6 +57,9 @@ test("blank calculator searches players and generic picks in one list", () => {
   const middle = listValueCalcAssets(values, names, { query: "middle 1st" });
   assert.deepEqual(middle.map((row) => row.assetId), ["pick:2027:r1:mid"]);
 
+  const firsts = listValueCalcAssets(values, names, { query: "2027 early 1st" });
+  assert.deepEqual(firsts.map((row) => row.assetId), ["pick:2027:r1:early"]);
+
   const playerHit = listValueCalcAssets(values, names, { query: "bijan" });
   assert.equal(playerHit.length, 1);
   assert.equal(playerHit[0].assetType, "player");

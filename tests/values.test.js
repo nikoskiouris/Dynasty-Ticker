@@ -15,8 +15,20 @@ import {
   crowdShiftsFromVotes,
   applyCrowdShift,
   applyElitePlayerValuePremium,
+  getGlobalMaxPlayerValue,
+  KTC_GLOBAL_MAX_FALLBACK,
   CROWD_MAX_ABS_SHIFT,
 } from "../docs/modules/values.js";
+
+test("global max follows players, not a pricey pick", () => {
+  const values = {
+    "player:star": 8000,
+    "pick:2027:r1:early": 14000,
+  };
+  assert.equal(getGlobalMaxPlayerValue(values), KTC_GLOBAL_MAX_FALLBACK);
+  assert.equal(getGlobalMaxPlayerValue({ "player:star": 11000, "pick:2027:r1:early": 14000 }), 11000);
+  assert.equal(getGlobalMaxPlayerValue(values, 10500), 10500);
+});
 
 test("parseCsvValues reads asset rows", () => {
   const parsed = parseCsvValues("asset_id,value,name\nplayer:1,8000,Star\npick:2026:r1:any,5000,2026 1st\n");
@@ -117,6 +129,15 @@ test("pickValueBundle prefers 1QB or Superflex maps", () => {
   assert.equal(pickValueBundle(payload, "oneQb").values["player:1"], 6100);
 });
 
+test("pickValueBundle does not copy Superflex prices into a missing 1QB board", () => {
+  const payload = {
+    sf: { values: { "player:1": 9000 }, nameMap: { "player:1": "Star" } },
+    oneQb: null,
+  };
+  assert.deepEqual(pickValueBundle(payload, "oneQb").values, {});
+  assert.equal(pickValueBundle(payload, "sf").values["player:1"], 9000);
+});
+
 test("pickValueBundle keeps top-level names when a format nameMap is empty", () => {
   const bundle = pickValueBundle({
     sf: { values: { "player:9509": 9996 }, nameMap: {} },
@@ -157,7 +178,22 @@ test("fetchValuationBundles falls back from JSON to SF then sample CSV", async (
   };
   const csvBundle = await fetchValuationBundles(csvFetch);
   assert.equal(csvBundle.sf.values["player:9"], 1111);
-  assert.equal(csvBundle.oneQb.values["player:9"], 1111);
+  assert.deepEqual(csvBundle.oneQb.values, {});
+});
+
+test("fetchValuationBundles keeps a null 1QB JSON map empty", async () => {
+  const fetchImpl = async (path) => {
+    if (path !== "./data/ktc_values.json") return { ok: false, json: async () => null, text: async () => "" };
+    return {
+      ok: true,
+      json: async () => ({ sf: { "player:1": 8000 }, oneQb: null, names: { "player:1": "Star" } }),
+      text: async () => "",
+    };
+  };
+  const bundle = await fetchValuationBundles(fetchImpl);
+  assert.equal(bundle.sf.values["player:1"], 8000);
+  assert.deepEqual(bundle.oneQb.values, {});
+  assert.equal(pickValueBundle(bundle, "oneQb").values["player:1"], undefined);
 });
 
 function evenVote(winnerId, loserId, at = 1_700_000_000_000, format = "PPR 12-man Superflex", eventId = "") {

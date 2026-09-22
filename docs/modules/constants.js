@@ -18,17 +18,17 @@ export const PAGE_LABELS = {
 export const PAGE_HINTS = {
   league: "Scores, standings, history",
   teams: "Roster, tank or contend, mock",
-  trades: "Calculator, two teams, deals",
+  trades: "Partners, calculator, deals",
 };
 export const PAGE_ROOMS = {
   league: ["start", "scores", "standings", "power", "awards", "history"],
   teams: ["roster", "call", "loyalty", "passports", "mock"],
-  trades: ["value", "calculator", "match", "lab", "log"],
+  trades: ["match", "value", "ranks", "calculator", "lab", "log"],
 };
 export const DEFAULT_ROOMS = {
   league: "start",
   teams: "roster",
-  trades: "value",
+  trades: "match",
 };
 export const ROOM_LABELS = {
   league: {
@@ -48,6 +48,7 @@ export const ROOM_LABELS = {
   },
   trades: {
     value: "Calculator",
+    ranks: "Ranks",
     calculator: "Two teams",
     match: "Partners",
     lab: "Find deals",
@@ -72,6 +73,7 @@ export const ROOM_HINTS = {
   },
   trades: {
     value: "Blank board: search any player or pick in one box",
+    ranks: "Players, picks, and the pick they equal",
     calculator: "Build both sides from two rosters and get a verdict",
     match: "Teams that have your holes and need your extras",
     lab: "Shop an asset, acquire a target, blockbuster",
@@ -154,6 +156,10 @@ export const PLACE_ALIASES = {
   wire: { page: "trades", room: "log" },
   value: { page: "trades", room: "value" },
   ktc: { page: "trades", room: "value" },
+  ranks: { page: "trades", room: "ranks" },
+  rank: { page: "trades", room: "ranks" },
+  playervalues: { page: "trades", room: "ranks" },
+  "player-values": { page: "trades", room: "ranks" },
   "any-assets": { page: "trades", room: "value" },
   calculator: { page: "trades", room: "calculator" },
   calc: { page: "trades", room: "calculator" },
