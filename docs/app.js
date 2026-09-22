@@ -42,7 +42,7 @@ import {
   MATCHUP_FETCH_CHUNK,
   LEAGUE_HISTORY_RECORD_IDS,
 } from "./modules/constants.js";
-import { state, sleeper, THEME_STORAGE_KEY, PLAYERS_CACHE_KEY, DEFAULT_THEME, THEME_COLORS } from "./modules/state.js";
+import { emptyDealBoard, state, sleeper, THEME_STORAGE_KEY, PLAYERS_CACHE_KEY, DEFAULT_THEME, THEME_COLORS } from "./modules/state.js";
 import { createLeagueLoader } from "./modules/league-load.js";
 import { apiGet, apiGetWithRetry, fetchUserLeagues, mapInChunks } from "./modules/sleeper.js";
 import {
@@ -122,11 +122,14 @@ import {
 } from "./modules/value-calc.js";
 import {
   CALC_LIST_LIMIT,
+  clearCalcSearchBox,
   keepCalcSearchFocused,
   planCalcListVisibility,
   renderCalcSearchInput,
   shouldHoldCalcSearchFocus,
+  shouldResetCalcSearchOnPick,
 } from "./modules/calc-search.js";
+import { ideaPackageKey, selectNextDiverse } from "./modules/deal-more.js";
 import { bindTicker } from "./modules/ticker-scrub.js";
 import { leagueHistoryRecords, pickLatestCrown } from "./modules/league-crown.js";
 import { jobById, landingSearchHint, renderDeskJobsMarkup, deskJobsForLeague } from "./modules/jobs.js";
@@ -383,6 +386,9 @@ const el = {
   resultsSection: document.querySelector("#results-section"),
   resultsSubtitle: document.querySelector("#results-subtitle"),
   resultsList: document.querySelector("#results-list"),
+  resultsMore: document.querySelector("#results-more"),
+  findMoreBtn: document.querySelector("#find-more-btn"),
+  findMoreStatus: document.querySelector("#find-more-status"),
   workspace: document.querySelector(".workspace"),
   pageTabButtons: document.querySelectorAll(".page-tab"),
   pages: Object.fromEntries(PAGE_IDS.map((page) => [page, document.querySelector(`#${page}-page`)])),
@@ -627,7 +633,12 @@ el.meSelect?.addEventListener("change", () => {
   renderSessionSnapshot();
   updateUrlState({ mode: "replace" });
 });
-el.generateBtn?.addEventListener("click", generateTradeIdeas);
+el.generateBtn?.addEventListener("click", () => {
+  void generateTradeIdeas();
+});
+el.findMoreBtn?.addEventListener("click", () => {
+  void generateTradeIdeas({ more: true });
+});
 el.matchGenerateBtn?.addEventListener("click", () => {
   void generateTradeMatches({ userRequested: true });
 });
@@ -712,6 +723,8 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
 
 function invalidateResults() {
   el.resultsSection.classList.add("hidden");
+  state.dealBoard = emptyDealBoard();
+  syncFindMore();
   syncGenerateState();
 }
 
@@ -5573,15 +5586,54 @@ function openCalculatorWith(rosterId) {
 }
 
 function addValueCalcAsset(side, assetId, name, value, kind) {
-  if (!assetId) return;
+  if (!assetId) return false;
+  const normalizedSide = side === "right" ? "right" : "left";
   const asset = {
     assetId,
     name: name || assetId,
     value: Number(value) || 0,
     assetType: kind === "pick" || String(assetId).startsWith("pick:") ? "pick" : "player",
   };
-  state.valueCalc = addValueCalcItem(state.valueCalc, side, asset);
-  renderValueCalculator();
+  state.valueCalc = addValueCalcItem(state.valueCalc, normalizedSide, asset);
+  patchValueCalculator(normalizedSide);
+  return true;
+}
+
+function patchValueCalculator(side) {
+  const host = el.valueCalculatorShell;
+  if (!host?.querySelector(".calc-grid")) {
+    renderValueCalculator();
+    return;
+  }
+  const pane = host.querySelector(side === "right" ? ".calc-pane.team-b" : ".calc-pane.team-a");
+  if (!pane) {
+    renderValueCalculator();
+    return;
+  }
+  const totalEl = pane.querySelector(".calc-pane-total");
+  if (totalEl) totalEl.innerHTML = renderValueCalcTotalMarkup(side);
+  const selectedEl = pane.querySelector(".calc-selected");
+  if (selectedEl) selectedEl.innerHTML = renderValueCalcSelectedMarkup(side);
+  const list = host.querySelector(`#value-list-${side}`);
+  if (list) list.innerHTML = renderValueCalcAssetList(side);
+  const verdict = host.querySelector("#value-calc-verdict");
+  if (verdict) {
+    const leftTotal = Math.round(sumValueCalcSide(state.valueCalc.left));
+    const rightTotal = Math.round(sumValueCalcSide(state.valueCalc.right));
+    verdict.innerHTML = renderValueCalculatorVerdict(leftTotal, rightTotal);
+  }
+}
+
+function settleCalcSearch(kind, side) {
+  const input = document.querySelector(`[data-input="${kind}"][data-side="${side}"]`);
+  clearCalcSearchBox(input);
+  if (kind === "calc-search") refreshCalculatorLists(side);
+  if (!input) return;
+  try {
+    input.focus({ preventScroll: true });
+  } catch {
+    input.focus();
+  }
 }
 
 function renderValueCalculator() {
@@ -5614,9 +5666,29 @@ function renderValueCalculator() {
   `;
 }
 
-function renderValueCalcPane(side, label) {
+function renderValueCalcTotalMarkup(side) {
   const selected = state.valueCalc[side] || [];
   const total = Math.round(sumValueCalcSide(selected));
+  return `
+    <strong>${formatNumber(total)}</strong>
+    <small>${selected.length} asset${selected.length === 1 ? "" : "s"}</small>
+  `;
+}
+
+function renderValueCalcSelectedMarkup(side) {
+  const selected = state.valueCalc[side] || [];
+  if (!selected.length) {
+    return `<span class="muted small">Search a player or pick, like 2026 early 1st.</span>`;
+  }
+  return selected.map((item) => `
+    <button type="button" class="selected-token" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" title="Remove">
+      ${renderSelectedTokenLabel(item)}
+      <span class="selected-token-remove" aria-hidden="true">×</span>
+    </button>
+  `).join("");
+}
+
+function renderValueCalcPane(side, label) {
   const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
   return `
     <section class="calc-pane ${side === "left" ? "team-a" : "team-b"}">
@@ -5626,19 +5698,11 @@ function renderValueCalcPane(side, label) {
           <strong>${escapeHtml(label)}</strong>
         </div>
         <div class="calc-pane-total">
-          <strong>${formatNumber(total)}</strong>
-          <small>${selected.length} asset${selected.length === 1 ? "" : "s"}</small>
+          ${renderValueCalcTotalMarkup(side)}
         </div>
       </header>
       <div class="calc-selected">
-        ${selected.length
-          ? selected.map((item) => `
-            <button type="button" class="selected-token" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" title="Remove">
-              ${renderSelectedTokenLabel(item)}
-              <span class="selected-token-remove" aria-hidden="true">×</span>
-            </button>
-          `).join("")
-          : `<span class="muted small">Search a player or pick, like 2026 early 1st.</span>`}
+        ${renderValueCalcSelectedMarkup(side)}
       </div>
       ${renderCalcSearchInput({
         query,
@@ -5951,9 +6015,15 @@ function handleWorkspaceClick(event) {
       const ids = side === "my" ? state.calc.myAssetIds : state.calc.theirAssetIds;
       const assetId = target.dataset.assetId;
       if (!assetId) return;
+      const fromList = target.classList.contains("calc-item");
       if (ids.has(assetId)) ids.delete(assetId);
       else ids.add(assetId);
+      if (shouldResetCalcSearchOnPick("calc-toggle", { fromList })) {
+        if (side === "their") state.calc.theirQuery = "";
+        else state.calc.myQuery = "";
+      }
       patchCalculatorAfterToggle(side);
+      if (shouldResetCalcSearchOnPick("calc-toggle", { fromList })) settleCalcSearch("calc-search", side);
       break;
     }
     case "calc-clear": {
@@ -5962,7 +6032,14 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "value-add": {
-      addValueCalcAsset(target.dataset.side, target.dataset.assetId, target.dataset.name, Number(target.dataset.value), target.dataset.kind);
+      const side = target.dataset.side === "right" ? "right" : "left";
+      if (!target.dataset.assetId) return;
+      if (shouldResetCalcSearchOnPick("value-add")) {
+        if (side === "right") state.valueCalc.rightQuery = "";
+        else state.valueCalc.leftQuery = "";
+      }
+      addValueCalcAsset(side, target.dataset.assetId, target.dataset.name, Number(target.dataset.value), target.dataset.kind);
+      settleCalcSearch("value-search", side);
       break;
     }
     case "value-remove": {
@@ -9269,8 +9346,96 @@ function tradeMatchIdeaHelps(idea, myProfile, deal) {
   return holePatched || starterDelta >= -150 || rankImproved;
 }
 
-async function generateTradeIdeas() {
+function dealFocusKey() {
+  const mode = getTradeMode();
+  const focus = mode === "shop"
+    ? state.shopAsset?.assetId
+    : mode === "acquire"
+      ? state.targetAsset?.assetId
+      : "surprise";
+  return [state.leagueId || "", state.meRosterId || "", mode, focus || ""].join("|");
+}
+
+function takeNextDealIdeas({
+  pool,
+  kind,
+  priorIdeas,
+  maxResults,
+  meRoster,
+  values,
+  lockedAssetIds,
+  leagueStrengthBaseline,
+}) {
+  if (kind === "multi-team") {
+    return selectNextDiverse(pool, maxResults, { prior: priorIdeas, keyOf: ideaPackageKey });
+  }
+  return selectDiverseTradeIdeas(pool, maxResults, values, new Set(lockedAssetIds || []), priorIdeas).map((idea) => {
+    const theirRoster = state.normalizedRosters.find((roster) => String(roster.rosterId) === String(idea.counterpartyRosterId));
+    if (!theirRoster) return idea;
+    return enrichTradeIdea({
+      idea,
+      myRoster: meRoster,
+      theirRoster,
+      values,
+      leagueStrengthBaseline,
+    });
+  }).sort(compareEnrichedTradeIdeas);
+}
+
+function rememberDealPool(payload) {
+  if (!payload) return payload;
+  const rankedPool = payload.rankedPool || [];
+  const lockedAssetIds = payload.lockedAssetIds || [];
+  const shell = { ...payload };
+  delete shell.rankedPool;
+  delete shell.lockedAssetIds;
+  state.dealBoard.rankedPool = rankedPool;
+  state.dealBoard.lockedAssetIds = lockedAssetIds;
+  state.dealBoard.shell = shell;
+  return shell;
+}
+
+function syncFindMore() {
+  const open = Boolean(el.resultsSection && !el.resultsSection.classList.contains("hidden"));
+  const ideas = state.dealBoard?.ideas || [];
+  const show = open && ideas.length > 0;
+  el.resultsMore?.classList.toggle("hidden", !show);
+  const exhausted = Boolean(state.dealBoard?.exhausted);
+  const loading = Boolean(state.dealBoard?.loading);
+  if (el.findMoreBtn && !el.findMoreBtn.classList.contains("loading")) {
+    el.findMoreBtn.hidden = exhausted;
+    el.findMoreBtn.disabled = exhausted || loading;
+  }
+  if (el.findMoreStatus) {
+    const note = show && exhausted;
+    el.findMoreStatus.hidden = !note;
+    el.findMoreStatus.textContent = note ? "That's every trade that fits." : "";
+  }
+}
+
+function appendDealCards(payload, freshIdeas, startIndex) {
+  const group = el.resultsList?.querySelector(".idea-group");
+  if (!group) {
+    const display = {
+      ...payload,
+      groups: [{ ...(payload?.groups?.[0] || {}), ideas: state.dealBoard.ideas }],
+    };
+    el.resultsList.innerHTML = renderResultPayload(display, state.values);
+    return;
+  }
+  const multi = payload?.kind === "multi-team";
+  group.insertAdjacentHTML("beforeend", freshIdeas.map((idea, index) => (
+    multi
+      ? renderMultiTeamCard(idea, startIndex + index, state.values)
+      : renderTradeCard(idea, startIndex + index, state.values)
+  )).join(""));
+  const selector = multi ? ".multi-team-card" : ".trade-card";
+  group.querySelectorAll(selector)[startIndex]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+async function generateTradeIdeas({ more = false } = {}) {
   if (el.generateBtn?.classList.contains("loading")) return;
+  if (state.dealBoard?.loading || el.findMoreBtn?.classList.contains("loading")) return;
   if (!state.meRosterId) {
     setGenerateError("Load a league and choose your team first.");
     return;
@@ -9291,15 +9456,28 @@ async function generateTradeIdeas() {
     return;
   }
 
+  const boardKey = dealFocusKey();
+  if (more && state.dealBoard.exhausted && state.dealBoard.key === boardKey) return;
+  const continuing = Boolean(
+    more
+    && state.dealBoard.key === boardKey
+    && state.dealBoard.ideas.length > 0
+    && state.dealBoard.rankedPool?.length
+  );
+  const priorIdeas = continuing ? state.dealBoard.ideas.slice() : [];
   const fairnessPct = DEFAULT_FAIRNESS_PCT;
   const maxResults = DEFAULT_MAX_RESULTS;
   const tradeLab = getTradeLabSettings();
+  const loadingBtn = continuing ? el.findMoreBtn : el.generateBtn;
   setGenerateError("");
 
   try {
-    setButtonLoading(el.generateBtn, true, "Building trade ideas...");
+    state.dealBoard.loading = true;
+    setButtonLoading(loadingBtn, true, continuing ? "Finding more..." : "Building trade ideas...");
+    syncFindMore();
     await ensureValuesLoaded("");
     await waitForNextPaint();
+    if (dealFocusKey() !== boardKey) return;
     const leagueStrengthBaseline = getCachedLeagueStrengthBaseline({
       league: state.league,
       rosters: state.normalizedRosters,
@@ -9307,7 +9485,23 @@ async function generateTradeIdeas() {
     });
     let resultPayload = null;
 
-    if (mode === "acquire") {
+    if (continuing) {
+      const fresh = takeNextDealIdeas({
+        pool: state.dealBoard.rankedPool,
+        kind: state.dealBoard.shell?.kind,
+        priorIdeas,
+        maxResults,
+        meRoster,
+        values: state.values,
+        lockedAssetIds: state.dealBoard.lockedAssetIds,
+        leagueStrengthBaseline,
+      });
+      const shell = state.dealBoard.shell;
+      resultPayload = {
+        ...shell,
+        groups: [{ ...(shell.groups?.[0] || {}), ideas: fresh }],
+      };
+    } else if (mode === "acquire") {
       const theirRoster = state.normalizedRosters.find((roster) => roster.rosterId === state.targetAsset.managerRosterId);
       if (!theirRoster) {
         setGenerateError("Could not resolve the other roster.");
@@ -9322,6 +9516,7 @@ async function generateTradeIdeas() {
         maxResults,
         tradeLab,
         leagueStrengthBaseline,
+        priorIdeas,
       });
     } else if (mode === "shop") {
       resultPayload = await generateShopIdeaBuckets({
@@ -9332,6 +9527,7 @@ async function generateTradeIdeas() {
         maxResults,
         tradeLab,
         leagueStrengthBaseline,
+        priorIdeas,
       });
     } else if (mode === "surprise") {
       resultPayload = await generateSurpriseBlockbusterIdeas({
@@ -9340,10 +9536,16 @@ async function generateTradeIdeas() {
         fairnessPct,
         maxResults,
         tradeLab,
+        priorIdeas,
       });
     }
 
-    const totalIdeaCount = countIdeasInResultPayload(resultPayload);
+    if (dealFocusKey() !== boardKey) return;
+    if (!continuing) resultPayload = rememberDealPool(resultPayload);
+    const freshIdeas = resultPayload?.groups?.[0]?.ideas || [];
+    state.dealBoard.key = boardKey;
+    state.dealBoard.ideas = priorIdeas.concat(freshIdeas);
+    state.dealBoard.exhausted = freshIdeas.length < maxResults;
 
     el.resultsSection.classList.remove("hidden");
     el.resultsSubtitle.textContent = buildResultsSubtitle({
@@ -9353,9 +9555,16 @@ async function generateTradeIdeas() {
       payload: resultPayload,
     });
 
-    if (totalIdeaCount === 0) {
-      el.resultsList.innerHTML = `<p class="muted">${buildNoIdeasMessage(tradeLab, mode)}</p>`;
-      el.resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (freshIdeas.length === 0) {
+      if (!continuing) {
+        el.resultsList.innerHTML = `<p class="muted">${buildNoIdeasMessage(tradeLab, mode)}</p>`;
+        el.resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      return;
+    }
+
+    if (continuing) {
+      appendDealCards(resultPayload, freshIdeas, priorIdeas.length);
       return;
     }
 
@@ -9365,7 +9574,9 @@ async function generateTradeIdeas() {
   } catch (err) {
     setGenerateError(`Could not load valuation source. ${err.message}`);
   } finally {
-    setButtonLoading(el.generateBtn, false);
+    state.dealBoard.loading = false;
+    setButtonLoading(loadingBtn, false);
+    syncFindMore();
     syncGenerateState();
   }
 }
@@ -10468,6 +10679,7 @@ async function generateAcquisitionIdeaBuckets({
   maxResults,
   tradeLab,
   leagueStrengthBaseline,
+  priorIdeas = [],
 }) {
   const targetValue = getAssetValue(targetAsset, values);
   const ideas = [];
@@ -10515,11 +10727,13 @@ async function generateAcquisitionIdeaBuckets({
     }
   }
 
+  const rankedPool = dedupeTwoTeamIdeas(ideas).sort((a, b) => compareTradeIdeas(a, b));
   const finalizedIdeas = selectDiverseTradeIdeas(
-    dedupeTwoTeamIdeas(ideas).sort((a, b) => compareTradeIdeas(a, b)),
+    rankedPool,
     maxResults,
     values,
-    tradeLab.selectedOutgoingAssetIds
+    tradeLab.selectedOutgoingAssetIds,
+    priorIdeas
   ).map((idea) => enrichTradeIdea({
     idea,
     myRoster: meRoster,
@@ -10539,6 +10753,8 @@ async function generateAcquisitionIdeaBuckets({
       ideas: finalizedIdeas,
     }],
     referenceValue: targetValue,
+    rankedPool,
+    lockedAssetIds: [...tradeLab.selectedOutgoingAssetIds],
   };
 }
 
@@ -10613,6 +10829,7 @@ async function generateShopIdeaBuckets({
   maxResults,
   tradeLab,
   leagueStrengthBaseline,
+  priorIdeas = [],
 }) {
   const tierBuckets = {
     "level-up": [],
@@ -10636,15 +10853,17 @@ async function generateShopIdeaBuckets({
     await waitForNextPaint();
   }
 
+  const rankedPool = dedupeTwoTeamIdeas([
+    ...tierBuckets["level-up"],
+    ...tierBuckets.even,
+    ...tierBuckets["break-down"],
+  ]).sort((a, b) => compareTradeIdeas(a, b));
   const ideas = selectDiverseTradeIdeas(
-    dedupeTwoTeamIdeas([
-      ...tierBuckets["level-up"],
-      ...tierBuckets.even,
-      ...tierBuckets["break-down"],
-    ]).sort((a, b) => compareTradeIdeas(a, b)),
+    rankedPool,
     maxResults,
     values,
-    new Set([shopAsset.assetId])
+    new Set([shopAsset.assetId]),
+    priorIdeas
   ).map((idea) => {
     const theirRoster = state.normalizedRosters.find((roster) => roster.rosterId === idea.counterpartyRosterId);
     if (!theirRoster) return idea;
@@ -10667,6 +10886,8 @@ async function generateShopIdeaBuckets({
       emptyText: "No trade ideas fit the current setup.",
       ideas,
     }],
+    rankedPool,
+    lockedAssetIds: [shopAsset.assetId],
   };
 }
 
@@ -10958,6 +11179,7 @@ async function generateSurpriseBlockbusterIdeas({
   fairnessPct,
   maxResults,
   tradeLab,
+  priorIdeas = [],
 }) {
   const partnerCount = DEFAULT_MULTI_TEAM_COUNT - 1;
   const otherRosters = state.normalizedRosters.filter((roster) => roster.rosterId !== meRoster.rosterId);
@@ -11008,13 +11230,16 @@ async function generateSurpriseBlockbusterIdeas({
     }
   }
 
-  const dedupedIdeas = dedupeMultiTeamIdeas(ideas)
-    .sort((a, b) => compareMultiTeamIdeas(a, b))
-    .slice(0, maxResults);
+  const rankedPool = dedupeMultiTeamIdeas(ideas).sort((a, b) => compareMultiTeamIdeas(a, b));
+  const dedupedIdeas = selectNextDiverse(rankedPool, maxResults, {
+    prior: priorIdeas,
+    keyOf: ideaPackageKey,
+  });
 
   return {
     kind: "multi-team",
     teamCount: DEFAULT_MULTI_TEAM_COUNT,
+    rankedPool,
     groups: [{
       title: "Surprise Blockbusters",
       subtitle: "Automatic multi-team ideas. No extra setup.",
@@ -13946,25 +14171,12 @@ function areTradeIdeasTooSimilar(candidate, picked, values, lockedAssetIds = new
   return false;
 }
 
-function selectDiverseTradeIdeas(ideas, maxResults, values, lockedAssetIds = new Set()) {
-  const selected = [];
-  const heldBack = [];
-
-  for (const idea of ideas) {
-    if (selected.some((picked) => areTradeIdeasTooSimilar(idea, picked, values, lockedAssetIds))) {
-      heldBack.push(idea);
-      continue;
-    }
-    selected.push(idea);
-    if (selected.length >= maxResults) return selected;
-  }
-
-  for (const idea of heldBack) {
-    if (selected.length >= maxResults) break;
-    selected.push(idea);
-  }
-
-  return selected;
+function selectDiverseTradeIdeas(ideas, maxResults, values, lockedAssetIds = new Set(), priorIdeas = []) {
+  return selectNextDiverse(ideas, maxResults, {
+    prior: priorIdeas,
+    keyOf: ideaPackageKey,
+    tooSimilar: (idea, picked) => areTradeIdeasTooSimilar(idea, picked, values, lockedAssetIds),
+  });
 }
 
 function scoreTradeIdea({ myRoster, theirRoster, targetAsset, myAssets, theirAssets, values, pctDiff, tradeLab, ideaStyle, coreAssetIds = null }) {

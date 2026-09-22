@@ -5,11 +5,13 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   CALC_LIST_LIMIT,
+  clearCalcSearchBox,
   keepCalcSearchFocused,
   planCalcListVisibility,
   renderCalcSearchInput,
   restoreFocusedCalcSearch,
   shouldHoldCalcSearchFocus,
+  shouldResetCalcSearchOnPick,
   snapshotFocusedCalcSearch,
 } from "../docs/modules/calc-search.js";
 import { listValueCalcAssets } from "../docs/modules/value-calc.js";
@@ -75,6 +77,20 @@ test("snapshot skips non-calculator fields", () => {
   assert.equal(restoreFocusedCalcSearch(null, doc), false);
 });
 
+test("picking a player clears the typed name and leaves the caret ready", () => {
+  assert.equal(shouldResetCalcSearchOnPick("value-add"), true);
+  assert.equal(shouldResetCalcSearchOnPick("calc-toggle", { fromList: true }), true);
+  assert.equal(shouldResetCalcSearchOnPick("calc-toggle", { fromList: false }), false);
+  assert.equal(shouldResetCalcSearchOnPick("value-remove"), false);
+  const input = mockSearchInput("value-search", "left", 4);
+  input.value = "Bijan";
+  assert.equal(clearCalcSearchBox(input), true);
+  assert.equal(input.value, "");
+  assert.equal(input.selectionStart, 0);
+  assert.equal(input.selectionEnd, 0);
+  assert.equal(clearCalcSearchBox(null), false);
+});
+
 test("pointer down on a result keeps the filter box focused", () => {
   const input = mockSearchInput("calc-search", "my", 4);
   const doc = mockDoc(input);
@@ -93,6 +109,8 @@ test("both calculator shells keep using the sticky text search", () => {
   const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/app.js"), "utf8");
   assert.match(app, /renderCalcSearchInput\(/);
   assert.match(app, /keepCalcSearchFocused\(/);
+  assert.match(app, /clearCalcSearchBox\(/);
+  assert.match(app, /shouldResetCalcSearchOnPick\(/);
   assert.match(app, /tabindex="-1"/);
   assert.doesNotMatch(app, /class="calc-search"[^>]*type="search"/);
   assert.doesNotMatch(app, /type="search"[^>]*class="calc-search"/);
