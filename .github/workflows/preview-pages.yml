@@ -1,0 +1,42 @@
+name: Preview unreleased site
+
+# develop only. Preview of work that is not on prod yet.
+# The live domain stays on Netlify and only updates from a GitHub Release.
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-preview
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+
+      - name: Stage preview
+        run: bash scripts/stage_pages_preview.sh "$RUNNER_TEMP/pages"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload preview
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/pages
+
+      - name: Deploy preview
+        id: deployment
+        uses: actions/deploy-pages@v4
