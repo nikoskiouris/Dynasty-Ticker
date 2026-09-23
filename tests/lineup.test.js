@@ -153,6 +153,25 @@ test("past-week best lineups use that week's points, not this week's start chanc
   assert.match(appSource, /startChance: thisWeek \? weeklyModelForAsset\(asset\)\?\.score : undefined/);
 });
 
+test("dynasty starter value ignores this week's start chance", () => {
+  const strength = appSource.slice(
+    appSource.indexOf("function evaluateRosterStrength"),
+    appSource.indexOf("function rankRosterMetrics"),
+  );
+  assert.match(strength, /thisWeek: false/);
+  assert.match(appSource, /function buildOptimalStartingLineup\(assets, starterSlots, values, \{ thisWeek = false \} = \{\}\)/);
+});
+
+test("deep rosters still use the exact lineup solver", () => {
+  const body = appSource.slice(
+    appSource.indexOf("function buildOptimalStartingLineup"),
+    appSource.indexOf("function chooseGreedyLineup"),
+  );
+  assert.match(body, /chooseBestLineup\([\s\S]*\)\s*\|\|\s*chooseGreedyLineup/);
+  assert.doesNotMatch(appSource, /LINEUP_EXACT_SOLVER_/);
+  assert.doesNotMatch(appSource, /shouldUseExactLineupSolver/);
+});
+
 test("teams page reuses one power board and paints before the cold solve", () => {
   assert.match(appSource, /function buildPowerProfiles\(\) \{\s*return getLeaguePowerBoard\(\)\.profiles;/);
   assert.match(appSource, /function renderPowerDashboard\(\) \{[\s\S]*getLeaguePowerBoard\(\)/);
