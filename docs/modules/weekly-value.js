@@ -196,6 +196,12 @@ export function opponentsFromTeamStats(weekStats) {
   return paired;
 }
 
+export function regularSeasonFinale(season) {
+  const year = Number(season);
+  if (!Number.isFinite(year)) return 18;
+  return year >= 2021 ? 18 : 17;
+}
+
 export function weeksForWeeklyValue({ season, week, previousSeason, count = WEEKLY_LOOKBACK_WEEKS } = {}) {
   const currentSeason = String(season || "").trim();
   const currentWeek = Number(week);
@@ -211,7 +217,7 @@ export function weeksForWeeklyValue({ season, week, previousSeason, count = WEEK
     if (slate >= 1) continue;
     year = Number.isFinite(prior) ? prior : year - 1;
     prior = year - 1;
-    slate = 18;
+    slate = regularSeasonFinale(year);
   }
   return out;
 }
@@ -501,6 +507,14 @@ export function buildWeeklyContext({
   };
 }
 
+function orderedWeekRows(rows) {
+  return [...(Array.isArray(rows) ? rows : [])].sort((left, right) => {
+    const seasonDiff = Number(right?.season) - Number(left?.season);
+    if (seasonDiff) return seasonDiff;
+    return Number(right?.week) - Number(left?.week);
+  });
+}
+
 function coverageLabel(passRate) {
   if (!Number.isFinite(passRate)) return "";
   if (passRate >= 0.58) return "pass-heavy";
@@ -526,14 +540,19 @@ export function buildWeeklyPlayerModel({
   const pos = weeklyPosition(position);
   const teamKey = normalizeNflTeam(team);
   const id = String(playerId || "");
-  const rows = context?.weekRows || [];
+  const rows = orderedWeekRows(context?.weekRows);
   const games = [];
+  const seenWeeks = new Set();
 
   rows.forEach((row) => {
+    const weekKey = `${row?.season}:${Number(row?.week)}`;
+    if (seenWeeks.has(weekKey)) return;
+    seenWeeks.add(weekKey);
     const stats = row?.stats?.[id];
     if (!playedNflGame(stats)) return;
     const totals = teamTotalsFromWeek(row.stats, teamKey, context?.teamById);
     const scheduled = lookupScheduledOpponent(context?.scheduleIndex, row.season, row.week, teamKey);
+    if (scheduled.bye) return;
     const paired = opponentsFromTeamStats(row.stats);
     const opponent = scheduled.opponent || paired[teamKey] || "";
     games.push({

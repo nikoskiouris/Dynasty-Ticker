@@ -437,6 +437,60 @@ test("upcoming week dark horses use scoring distributions, not a value check", (
   assert.doesNotMatch(angles.darkHorses[0].detail, /KTC roster rank|raw KTC/i);
 });
 
+test("a scoreless final week does not mint ties", () => {
+  const model = buildSeasonModel({
+    league: leagueFixture({ lastScored: 2, leg: 3 }),
+    rosters: rosters(),
+    users: users(),
+    weekRows: new Map([
+      [1, [side(1, 1, 100), side(2, 1, 80), side(3, 2, 90), side(4, 2, 70)]],
+      [2, [side(1, 1, 0), side(3, 1, 0), side(2, 2, 0), side(4, 2, 0)]],
+      [3, [side(1, 1, 0), side(4, 1, 0), side(2, 2, 0), side(3, 2, 0)]],
+    ]),
+    nflState: { season: "2026", week: 3, season_type: "regular" },
+  });
+  const alpha = model.teams.get("1");
+  assert.equal(alpha.wins, 1);
+  assert.equal(alpha.ties, 0);
+  assert.equal(alpha.losses, 0);
+  assert.equal(model.teams.get("2").losses, 1);
+});
+
+test("a duplicate roster row cannot bank two results in one week", () => {
+  const model = buildSeasonModel({
+    league: leagueFixture({ lastScored: 1, leg: 2 }),
+    rosters: rosters(),
+    users: users(),
+    weekRows: new Map([
+      [1, [side(1, 1, 50), side(2, 1, 40), side(1, 2, 90), side(3, 2, 10), side(4, 3, 70), side(2, 3, 60)]],
+      [2, [side(1, 1, 0), side(2, 1, 0), side(3, 2, 0), side(4, 2, 0)]],
+      [3, [side(1, 1, 0), side(3, 1, 0), side(2, 2, 0), side(4, 2, 0)]],
+    ]),
+    nflState: { season: "2026", week: 2, season_type: "regular" },
+  });
+  assert.equal(model.teams.get("1").gamesPlayed, 1);
+  assert.equal(model.teams.get("1").pf, 90);
+  assert.equal(model.teams.get("2").gamesPlayed, 1);
+});
+
+test("an unfinished schedule does not clinch or simulate", () => {
+  const model = buildSeasonModel({
+    league: leagueFixture({ lastScored: 1, leg: 2, playoffTeams: 2 }),
+    rosters: rosters(),
+    users: users(),
+    weekRows: new Map([
+      [1, [side(1, 1, 110), side(2, 1, 90), side(3, 2, 100), side(4, 2, 80)]],
+    ]),
+    nflState: { season: "2026", week: 2, season_type: "regular" },
+  });
+  assert.equal(model.scheduleIncomplete, true);
+  const locks = playoffLockStatus(model);
+  assert.equal(locks.clinched.size, 0);
+  assert.equal(locks.eliminated.size, 0);
+  assert.equal(simulateSeason(model, { iterations: 30, seed: 1 }), null);
+  assert.equal(model.teams.get("1").wins, 1);
+});
+
 test("tied records break on points against, and two-week playoffs stay in the trade fetch", () => {
   const better = { rosterId: "2", wins: 5, losses: 5, ties: 0, points: 1100, pointsAgainst: 1000 };
   const worse = { rosterId: "1", wins: 5, losses: 5, ties: 0, points: 1100, pointsAgainst: 1200 };

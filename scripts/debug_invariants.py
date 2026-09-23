@@ -114,6 +114,31 @@ def check_even_value() -> str:
     return ""
 
 
+def check_player_max_and_even_packages() -> str:
+    service = ValuationService({"player:star": 8000, "pick:2027:r1:early": 14000})
+    if service.max_value == 14000:
+        return "pick price became the global max"
+    if service.max_value != 10160:
+        return f"player max {service.max_value}"
+    even = service.calculate_package_adjustment([8000], [7900])
+    if even.package_adjustment != 0 or even.my_adjusted_value != 8000:
+        return f"1-for-1 adjustment {even.package_adjustment}"
+    return ""
+
+
+def check_cache_strings() -> str:
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "cache.json"
+        path.write_text('{"player:a": "8000", "player:b": true, "player:c": "nope"}', encoding="utf-8")
+        loaded = KeepTradeCutProvider(cache_file=str(path), ttl_seconds=10**9).load_values()
+    if loaded.get("player:a") != 8000:
+        return f"cache {loaded}"
+    if "player:b" in loaded or "player:c" in loaded:
+        return f"bad cache rows kept {loaded}"
+    ValuationService(loaded)
+    return ""
+
+
 def check_fair_trades() -> str:
     values = {"player:mine": 3000, "player:theirs": 3000, "player:extra": 200}
     service = ValuationService(values)
@@ -149,6 +174,8 @@ def main() -> int:
     check("value coercion", check_value_coercion)
     check("sleeper points", check_sleeper_points)
     check("even value", check_even_value)
+    check("player max and even packages", check_player_max_and_even_packages)
+    check("cache strings", check_cache_strings)
     check("fair trades", check_fair_trades)
     if FAILURES:
         print(f"debug invariants found {len(FAILURES)} bug{'s' if len(FAILURES) != 1 else ''} in {CHECKS} checks", file=sys.stderr)

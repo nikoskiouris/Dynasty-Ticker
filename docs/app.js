@@ -1267,6 +1267,9 @@ function applyDeskPopState(historyState) {
   }
   const parsed = parseShareParams(window.location.search);
   if (parsed.leagueId && parsed.leagueId !== state.leagueId) {
+    if (parsed.tab) state.pendingPlace = { page: parsed.tab, room: parsed.view };
+    if (parsed.week) state.pendingWeek = parsed.week;
+    if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
     void loadLeagueById(parsed.leagueId);
     return;
   }
@@ -1515,9 +1518,11 @@ function renderLeagueHero() {
       ? "Matchups are syncing from Sleeper."
       : model?.currentWeekEntry?.isLive
         ? `Week ${model.currentWeek} is live. Scores, win probability, and playoff odds update as Sleeper posts points.`
-        : model
-          ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
-          : "Matchups are syncing.";
+        : model?.scheduleIncomplete
+          ? "Matchups are still syncing. Playoff odds wait until the full slate is in."
+          : model
+            ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
+            : "Matchups are syncing.";
   el.heroLede.textContent = `${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`;
   if (el.leagueAvatar) {
     el.leagueAvatar.innerHTML = league.avatar
@@ -1809,6 +1814,29 @@ async function runLeagueLoad(leagueId, token) {
     if (!leagueLoader.isCurrent(token)) return;
     startLeagueLoadingUi();
     stopLivePolling();
+    hideAppPages();
+
+    const [coreData, nflState] = await Promise.all([
+      loadLeagueCoreData(leagueId),
+      apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => null),
+      ensureMockDraftsLoaded(),
+    ]);
+    if (!leagueLoader.isCurrent(token)) return;
+    const { league, users, rosters, tradedPicks, drafts } = coreData;
+    const leagueHistory = await loadLeagueHistoryContext(leagueId, coreData);
+    if (!leagueLoader.isCurrent(token)) return;
+    const previousEntry = leagueHistory.find((entry) => !entry.isCurrent) || null;
+    const previousContext = previousEntry
+      ? {
+          league: previousEntry.league,
+          users: previousEntry.users,
+          rosters: previousEntry.rosters,
+        }
+      : { league: null, users: [], rosters: [] };
+    const draftLoad = await loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts);
+    if (!leagueLoader.isCurrent(token)) return;
+
+    const sameLeague = String(state.leagueId || "") === String(leagueId);
     state.targetAsset = null;
     state.shopAsset = null;
     state.selectedOutgoingAssetIds.clear();
@@ -1822,8 +1850,15 @@ async function runLeagueLoad(leagueId, token) {
     state.trendingLoaded = false;
     state.playerMetadataLoaded = false;
     state.playerMetadataFailed = false;
-    state.activePage = DEFAULT_PAGE;
-    state.rooms = { ...DEFAULT_ROOMS };
+    if (!sameLeague) {
+      state.activePage = DEFAULT_PAGE;
+      state.rooms = { ...DEFAULT_ROOMS };
+      state.meRosterId = null;
+      state.mePickedByUser = false;
+      if (el.meSelect) el.meSelect.innerHTML = "";
+      state.homeWeek = null;
+      state.awardsWeek = null;
+    }
     franchiseIndexCache = { key: "", index: null };
     state.transactions = [];
     state.transactionsLoaded = false;
@@ -1839,14 +1874,8 @@ async function runLeagueLoad(leagueId, token) {
     state.historyTransactionLoadError = "";
     resetHistoryCompareState();
     resetSeasonState();
+    state.nflState = nflState;
     state.lensRosterId = null;
-    if (String(state.leagueId || "") !== String(leagueId)) {
-      state.meRosterId = null;
-      state.mePickedByUser = false;
-      if (el.meSelect) el.meSelect.innerHTML = "";
-    }
-    state.homeWeek = null;
-    state.awardsWeek = null;
     state.selectedTradeId = "";
     state.selectedTradeManagerKey = "";
     leagueTradeSideCache = { key: "", sides: [] };
@@ -1856,30 +1885,11 @@ async function runLeagueLoad(leagueId, token) {
     clearTradeMatchCache();
     state.weeklyValue = emptyWeeklyValueState();
     if (el.playerSearch) el.playerSearch.value = "";
-    hideAppPages();
     if (el.resultsList) el.resultsList.innerHTML = "";
     el.resultsSection?.classList.add("hidden");
-
-    const [coreData, nflState] = await Promise.all([
-      loadLeagueCoreData(leagueId),
-      apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => null),
-      ensureMockDraftsLoaded(),
-    ]);
-    if (!leagueLoader.isCurrent(token)) return;
-    state.nflState = nflState;
-    const { league, users, rosters, tradedPicks, drafts } = coreData;
-    const leagueHistory = await loadLeagueHistoryContext(leagueId, coreData);
-    if (!leagueLoader.isCurrent(token)) return;
-    const previousEntry = leagueHistory.find((entry) => !entry.isCurrent) || null;
-    const previousContext = previousEntry
-      ? {
-          league: previousEntry.league,
-          users: previousEntry.users,
-          rosters: previousEntry.rosters,
-        }
-      : { league: null, users: [], rosters: [] };
-    const currentDraftContext = await loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts);
-    if (!leagueLoader.isCurrent(token)) return;
+    (draftLoad?.ingested || []).forEach((row) => {
+      ingestDraftSelections(row.season, row.draftDetails, row.picks, row.rosters);
+    });
 
     state.leagueId = leagueId;
     state.leagueName = league?.name || `League ${leagueId}`;
@@ -1887,13 +1897,13 @@ async function runLeagueLoad(leagueId, token) {
     state.users = users;
     state.rosters = rosters;
     state.tradedPicks = tradedPicks;
-    state.currentDraftContext = currentDraftContext;
+    state.currentDraftContext = draftLoad?.context || null;
     state.players = {};
     state.previousLeague = previousContext.league;
     state.previousUsers = previousContext.users;
     state.previousRosters = previousContext.rosters;
     state.leagueHistory = leagueHistory;
-    state.normalizedRosters = normalizeRosters(league, rosters, users, state.players, previousContext, tradedPicks, currentDraftContext);
+    state.normalizedRosters = normalizeRosters(league, rosters, users, state.players, previousContext, tradedPicks, state.currentDraftContext);
 
     setFieldError(el.leagueId, el.leagueIdError, "");
     if (state.userLeagues.length) {
@@ -1960,9 +1970,14 @@ async function runLeagueLoad(leagueId, token) {
       });
   } catch (err) {
     if (!leagueLoader.isCurrent(token)) return;
+    state.pendingPlace = null;
     const message = `Could not load league data. ${err.message}`;
     setFieldError(el.leagueId, el.leagueIdError, message);
     setStatus(message, { error: true });
+    if (state.league) {
+      showAppPages();
+      startLivePolling();
+    }
   } finally {
     if (leagueLoader.isCurrent(token)) stopLeagueLoadingUi();
   }
@@ -2001,6 +2016,7 @@ function simSignature(model) {
     state.leagueId,
     model.finalThroughWeek,
     model.remainingGames.length,
+    model.scheduleIncomplete ? 1 : 0,
     model.seasonComplete ? 1 : 0,
     valuationCacheVersion(),
     state.previousRosters.length,
@@ -2313,6 +2329,8 @@ async function loadDraftSelectionIndex(historyEntries = []) {
 
 async function loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts = []) {
   const candidateIds = buildCurrentDraftDetailCandidateIds(league, drafts);
+  const ingested = [];
+  let context = null;
   for (const draftId of candidateIds) {
     try {
       const [draftDetails, draftPicks] = await Promise.all([
@@ -2320,15 +2338,20 @@ async function loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts =
         apiGetWithRetry(`/draft/${draftId}/picks`, { timeoutMs: 12000, retries: 1 }).catch(() => []),
       ]);
       const picks = Array.isArray(draftPicks) ? draftPicks : [];
-      ingestDraftSelections(draftDetails?.season || league?.season, draftDetails, picks, rosters);
-      const context = buildCurrentDraftContext(league, rosters, draftDetails, picks);
-      if (context) return context;
+      ingested.push({
+        season: draftDetails?.season || league?.season,
+        draftDetails,
+        picks,
+        rosters,
+      });
+      if (!context) context = buildCurrentDraftContext(league, rosters, draftDetails, picks);
+      if (context) break;
     } catch (err) {
       console.warn(`Could not load draft details for ${draftId}`, err);
     }
   }
 
-  return null;
+  return { context, ingested };
 }
 
 function buildLeagueHistoryEntry(leagueId, coreData, isCurrent = false) {
@@ -2603,7 +2626,9 @@ async function loadLeagueHistoryMatchups(historyEntries = []) {
               }))
           )
         );
+        if (state.leagueId !== activeLeagueId) return;
         settled.forEach((result) => {
+          if (state.leagueId !== activeLeagueId) return;
           if (result.status !== "fulfilled") return;
           loadedWeeks += 1;
           matchups.push(...buildWeekMatchupRecords(entry, result.value.week, result.value.matchups, playoffStart));
@@ -3004,7 +3029,7 @@ function computeOptimalPointsForSide(side) {
 }
 
 function getSimulation(model) {
-  if (!model) return null;
+  if (!model || model.scheduleIncomplete) return null;
   if (!state.seasonLoaded && model.remainingGames.length === 0 && !model.seasonComplete) return null;
   const key = simSignature(model);
   if (state.simCache.key === key) return state.simCache.result;
@@ -3258,9 +3283,11 @@ function renderPulseStrip(model, sim, profiles) {
           ? "syncing matchups"
           : model.currentWeekEntry?.isLive
             ? "games in progress"
-            : model.currentWeekEntry?.isPlayoff
+              : model.currentWeekEntry?.isPlayoff
               ? "playoff round"
-              : `${model.remainingGames.length} regular-season games left`,
+              : model.scheduleIncomplete
+                ? "syncing full slate"
+                : `${model.remainingGames.length} regular-season games left`,
       tone: model.currentWeekEntry?.isLive ? "live" : "blue",
     },
     {

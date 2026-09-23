@@ -21,6 +21,7 @@ import {
   weeklyScoreHelpLines,
   buildWeeklyContext,
   buildWeeklyPlayerModel,
+  regularSeasonFinale,
   dropPctFromStats,
   indexNflSchedule,
   lookupScheduledOpponent,
@@ -64,6 +65,48 @@ test("weeks walk back into the previous season", () => {
       { season: "2025", week: 17 },
     ]
   );
+});
+
+test("2021 week 1 walks back to the 17-game 2020 finale", () => {
+  assert.equal(regularSeasonFinale(2020), 17);
+  assert.equal(regularSeasonFinale(2021), 18);
+  assert.deepEqual(
+    weeksForWeeklyValue({ season: "2021", week: 1, previousSeason: "2020", count: 2 }).slice(0, 3),
+    [
+      { season: "2021", week: 1 },
+      { season: "2020", week: 17 },
+      { season: "2020", week: 16 },
+    ]
+  );
+});
+
+test("a bye-week box score stays out of the lookback", () => {
+  const scheduleIndex = indexNflSchedule({
+    games: [
+      { season: "2026", week: 4, home: "BUF", away: "NYJ" },
+      { season: "2026", week: 5, home: "KC", away: "LAC" },
+    ],
+  });
+  const model = buildWeeklyPlayerModel({
+    playerId: "p1",
+    name: "Bye Back",
+    position: "WR",
+    team: "BUF",
+    dynastyValue: 1000,
+    context: {
+      season: "2026",
+      week: 6,
+      scheduleIndex,
+      weekRows: [
+        { season: "2026", week: 4, stats: { p1: { gp: 1, pts_ppr: 10, rec_tgt: 4 } } },
+        { season: "2026", week: 5, stats: { p1: { gp: 1, pts_ppr: 20, rec_tgt: 8 } } },
+        { season: "2026", week: 5, stats: { p1: { gp: 1, pts_ppr: 99, rec_tgt: 12 } } },
+      ],
+    },
+  });
+  assert.equal(model.recentPoints, 10);
+  assert.equal(model.games.length, 1);
+  assert.equal(model.games[0].week, 4);
 });
 
 test("target share and drops stay honest when pieces are missing", () => {

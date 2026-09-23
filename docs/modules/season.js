@@ -66,7 +66,7 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
 
   const weeks = [];
   [...regularWeeks, ...playoffWeeks].forEach((week) => {
-    const rows = Array.isArray(weekRows.get(week)) ? weekRows.get(week) : [];
+    const rows = dedupeWeekRows(Array.isArray(weekRows.get(week)) ? weekRows.get(week) : []);
     const { games, byes } = groupGames(rows, teams);
     const isPlayoff = week >= playoffStart;
     const isFinal = week <= weekState.finalThroughWeek;
@@ -86,7 +86,7 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     });
   });
 
-  weeks.filter((entry) => entry.isFinal && !entry.isPlayoff).forEach((entry) => {
+  weeks.filter((entry) => entry.isFinal && !entry.isPlayoff && entry.hasPoints).forEach((entry) => {
     const weekScores = [];
     entry.games.forEach((game) => {
       const [left, right] = game.sides;
@@ -193,6 +193,13 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
   const remainingGames = weeks
     .filter((entry) => !entry.isFinal && !entry.isPlayoff)
     .flatMap((entry) => entry.games.map((game) => ({ week: entry.week, game })));
+  // A missing week, or a future week Sleeper has not scheduled yet, is not
+  // "zero games left". Locks and the Monte Carlo both read remainingGames.
+  const scheduleIncomplete = weeks.some((entry) => {
+    if (entry.isPlayoff || entry.isFinal) return false;
+    if (!weekRows.has(entry.week)) return true;
+    return entry.games.length === 0 && entry.byes.length === 0;
+  });
   const leagueScores = standings.flatMap((team) => team.scores);
   const currentWeekEntry = weeks.find((entry) => entry.isCurrent)
     || weeks.find((entry) => entry.week === weekState.currentWeek)
@@ -232,6 +239,7 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     latestFinalWeek,
     featuredWeek,
     weeksLoaded: weekRows.size,
+    scheduleIncomplete,
   };
 }
 
@@ -301,7 +309,7 @@ export function playoffLockStatus(model) {
   const clinched = new Set();
   const eliminated = new Set();
   const teams = model?.standings || [];
-  if (teams.length < 2) return { clinched, eliminated };
+  if (teams.length < 2 || model.scheduleIncomplete) return { clinched, eliminated };
   const playoffTeams = Math.min(Number(model.playoffTeams) || DEFAULT_PLAYOFF_TEAMS, teams.length);
   const remainingByTeam = new Map(teams.map((team) => [String(team.rosterId), 0]));
   (model.remainingGames || []).forEach(({ game }) => {
@@ -366,7 +374,7 @@ export function formatOddsPct(value) {
 }
 
 export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEFAULT_ITERATIONS, seed = 7 } = {}) {
-  if (!model || model.standings.length < 2) return null;
+  if (!model || model.scheduleIncomplete || model.standings.length < 2) return null;
   const distributions = buildTeamDistributions(model, priors);
   const rng = mulberry32(seed);
   const teams = model.standings;
@@ -1152,6 +1160,17 @@ function simulateBracket(seedIndexes, dist, rng, seasonMeans = null) {
     slots = next;
   }
   return { champion: slots[0] ?? null, finalists };
+}
+
+function dedupeWeekRows(rows) {
+  const byRoster = new Map();
+  rows.forEach((row) => {
+    const rosterId = row?.roster_id != null ? String(row.roster_id) : "";
+    if (!rosterId) return;
+    const previous = byRoster.get(rosterId);
+    if (!previous || matchupPoints(row) > matchupPoints(previous)) byRoster.set(rosterId, row);
+  });
+  return [...byRoster.values()];
 }
 
 function groupGames(rows, teams) {
