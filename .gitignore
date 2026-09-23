@@ -3,3 +3,4 @@ __pycache__/
 .cache/
 .venv/
 node_modules/
+_preview/

@@ -3928,6 +3928,15 @@ button.weekly-help-close:hover {
   background: var(--panel-soft);
 }
 
+.results-more {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.results-more p {
+  margin: 0;
+}
+
 .match-needs,
 .trade-match-dashboard {
   display: grid;

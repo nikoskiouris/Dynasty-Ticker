@@ -325,8 +325,9 @@ function adjustPickAcrossYears(value, sourceSeason, targetSeason) {
   const target = Number(targetSeason);
   if (!Number.isFinite(value) || !Number.isFinite(source) || !Number.isFinite(target)) return value;
   const yearDelta = target - source;
+  if (yearDelta <= 0) return Math.max(1, Math.round(value));
   const factor = PICK_YEAR_DISCOUNT ** yearDelta;
-  return Math.max(1, Math.round(value * Math.max(0.5, Math.min(1.5, factor))));
+  return Math.max(1, Math.round(value * Math.max(0.5, factor)));
 }
 
 export function findPickCatalogValue(meta, values, valueNameMap = {}, catalog = null) {

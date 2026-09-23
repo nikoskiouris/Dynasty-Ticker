@@ -11,7 +11,7 @@ import { isRankAssetId } from "./ranks.js";
 
 const SLEEPER_LEAGUE_PATH = /leagues\/(\d+)/i;
 const SLEEPER_USER_PATH = /sleeper\.app\/(?:u|user)\/([^/?#]+)/i;
-const LONG_NUMERIC_ID = /\d{8,}/;
+const LONG_NUMERIC_ID = /(\d{8,})/;
 
 export function parseLeagueId(raw) {
   const value = String(raw || "").trim();

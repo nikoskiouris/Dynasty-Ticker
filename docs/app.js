@@ -13,6 +13,7 @@ import {
   scoreUpcomingWeekAngles,
   compareRosterRecord,
   pointsAgainstFromSettings,
+  sleeperPoints,
   transactionWeekEnd,
 } from "./modules/season.js";
 import {
@@ -42,7 +43,7 @@ import {
   MATCHUP_FETCH_CHUNK,
   LEAGUE_HISTORY_RECORD_IDS,
 } from "./modules/constants.js";
-import { state, sleeper, THEME_STORAGE_KEY, PLAYERS_CACHE_KEY, DEFAULT_THEME, THEME_COLORS } from "./modules/state.js";
+import { emptyDealBoard, state, sleeper, THEME_STORAGE_KEY, PLAYERS_CACHE_KEY, DEFAULT_THEME, THEME_COLORS } from "./modules/state.js";
 import { createLeagueLoader } from "./modules/league-load.js";
 import { apiGet, apiGetWithRetry, fetchUserLeagues, mapInChunks } from "./modules/sleeper.js";
 import {
@@ -122,11 +123,14 @@ import {
 } from "./modules/value-calc.js";
 import {
   CALC_LIST_LIMIT,
+  clearCalcSearchBox,
   keepCalcSearchFocused,
   planCalcListVisibility,
   renderCalcSearchInput,
   shouldHoldCalcSearchFocus,
+  shouldResetCalcSearchOnPick,
 } from "./modules/calc-search.js";
+import { ideaPackageKey, selectNextDiverse } from "./modules/deal-more.js";
 import { bindTicker } from "./modules/ticker-scrub.js";
 import { leagueHistoryRecords, pickLatestCrown } from "./modules/league-crown.js";
 import { jobById, landingSearchHint, renderDeskJobsMarkup, deskJobsForLeague } from "./modules/jobs.js";
@@ -212,6 +216,7 @@ import {
   groupWindowCalls,
   windowCallInputFromDesk,
 } from "./modules/window-call.js";
+import { chooseBestLineup } from "./modules/lineup.js";
 import {
   formatPickWithSelection,
   indexDraftSelections,
@@ -339,7 +344,9 @@ const CUSTOM_MULTI_TEAM_ORDER_LIMIT = 12;
 const CUSTOM_MULTI_TEAM_PLAN_LIMIT = 18;
 
 const leagueStrengthCache = { key: "", baseline: null };
+const powerBoardCache = { key: "", profiles: null, context: null };
 const weeklyModelCache = { key: "", models: new Map() };
+let teamsPaintGeneration = 0;
 
 const el = {
   sleeperUsername: document.querySelector("#sleeper-username"),
@@ -380,6 +387,9 @@ const el = {
   resultsSection: document.querySelector("#results-section"),
   resultsSubtitle: document.querySelector("#results-subtitle"),
   resultsList: document.querySelector("#results-list"),
+  resultsMore: document.querySelector("#results-more"),
+  findMoreBtn: document.querySelector("#find-more-btn"),
+  findMoreStatus: document.querySelector("#find-more-status"),
   workspace: document.querySelector(".workspace"),
   pageTabButtons: document.querySelectorAll(".page-tab"),
   pages: Object.fromEntries(PAGE_IDS.map((page) => [page, document.querySelector(`#${page}-page`)])),
@@ -624,7 +634,12 @@ el.meSelect?.addEventListener("change", () => {
   renderSessionSnapshot();
   updateUrlState({ mode: "replace" });
 });
-el.generateBtn?.addEventListener("click", generateTradeIdeas);
+el.generateBtn?.addEventListener("click", () => {
+  void generateTradeIdeas();
+});
+el.findMoreBtn?.addEventListener("click", () => {
+  void generateTradeIdeas({ more: true });
+});
 el.matchGenerateBtn?.addEventListener("click", () => {
   void generateTradeMatches({ userRequested: true });
 });
@@ -709,6 +724,8 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
 
 function invalidateResults() {
   el.resultsSection.classList.add("hidden");
+  state.dealBoard = emptyDealBoard();
+  syncFindMore();
   syncGenerateState();
 }
 
@@ -1250,6 +1267,9 @@ function applyDeskPopState(historyState) {
   }
   const parsed = parseShareParams(window.location.search);
   if (parsed.leagueId && parsed.leagueId !== state.leagueId) {
+    if (parsed.tab) state.pendingPlace = { page: parsed.tab, room: parsed.view };
+    if (parsed.week) state.pendingWeek = parsed.week;
+    if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
     void loadLeagueById(parsed.leagueId);
     return;
   }
@@ -1498,9 +1518,11 @@ function renderLeagueHero() {
       ? "Matchups are syncing from Sleeper."
       : model?.currentWeekEntry?.isLive
         ? `Week ${model.currentWeek} is live. Scores, win probability, and playoff odds update as Sleeper posts points.`
-        : model
-          ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
-          : "Matchups are syncing.";
+        : model?.scheduleIncomplete
+          ? "Matchups are still syncing. Playoff odds wait until the full slate is in."
+          : model
+            ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
+            : "Matchups are syncing.";
   el.heroLede.textContent = `${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`;
   if (el.leagueAvatar) {
     el.leagueAvatar.innerHTML = league.avatar
@@ -1792,6 +1814,29 @@ async function runLeagueLoad(leagueId, token) {
     if (!leagueLoader.isCurrent(token)) return;
     startLeagueLoadingUi();
     stopLivePolling();
+    hideAppPages();
+
+    const [coreData, nflState] = await Promise.all([
+      loadLeagueCoreData(leagueId),
+      apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => null),
+      ensureMockDraftsLoaded(),
+    ]);
+    if (!leagueLoader.isCurrent(token)) return;
+    const { league, users, rosters, tradedPicks, drafts } = coreData;
+    const leagueHistory = await loadLeagueHistoryContext(leagueId, coreData);
+    if (!leagueLoader.isCurrent(token)) return;
+    const previousEntry = leagueHistory.find((entry) => !entry.isCurrent) || null;
+    const previousContext = previousEntry
+      ? {
+          league: previousEntry.league,
+          users: previousEntry.users,
+          rosters: previousEntry.rosters,
+        }
+      : { league: null, users: [], rosters: [] };
+    const draftLoad = await loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts);
+    if (!leagueLoader.isCurrent(token)) return;
+
+    const sameLeague = String(state.leagueId || "") === String(leagueId);
     state.targetAsset = null;
     state.shopAsset = null;
     state.selectedOutgoingAssetIds.clear();
@@ -1805,8 +1850,15 @@ async function runLeagueLoad(leagueId, token) {
     state.trendingLoaded = false;
     state.playerMetadataLoaded = false;
     state.playerMetadataFailed = false;
-    state.activePage = DEFAULT_PAGE;
-    state.rooms = { ...DEFAULT_ROOMS };
+    if (!sameLeague) {
+      state.activePage = DEFAULT_PAGE;
+      state.rooms = { ...DEFAULT_ROOMS };
+      state.meRosterId = null;
+      state.mePickedByUser = false;
+      if (el.meSelect) el.meSelect.innerHTML = "";
+      state.homeWeek = null;
+      state.awardsWeek = null;
+    }
     franchiseIndexCache = { key: "", index: null };
     state.transactions = [];
     state.transactionsLoaded = false;
@@ -1822,14 +1874,8 @@ async function runLeagueLoad(leagueId, token) {
     state.historyTransactionLoadError = "";
     resetHistoryCompareState();
     resetSeasonState();
+    state.nflState = nflState;
     state.lensRosterId = null;
-    if (String(state.leagueId || "") !== String(leagueId)) {
-      state.meRosterId = null;
-      state.mePickedByUser = false;
-      if (el.meSelect) el.meSelect.innerHTML = "";
-    }
-    state.homeWeek = null;
-    state.awardsWeek = null;
     state.selectedTradeId = "";
     state.selectedTradeManagerKey = "";
     leagueTradeSideCache = { key: "", sides: [] };
@@ -1839,30 +1885,11 @@ async function runLeagueLoad(leagueId, token) {
     clearTradeMatchCache();
     state.weeklyValue = emptyWeeklyValueState();
     if (el.playerSearch) el.playerSearch.value = "";
-    hideAppPages();
     if (el.resultsList) el.resultsList.innerHTML = "";
     el.resultsSection?.classList.add("hidden");
-
-    const [coreData, nflState] = await Promise.all([
-      loadLeagueCoreData(leagueId),
-      apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => null),
-      ensureMockDraftsLoaded(),
-    ]);
-    if (!leagueLoader.isCurrent(token)) return;
-    state.nflState = nflState;
-    const { league, users, rosters, tradedPicks, drafts } = coreData;
-    const leagueHistory = await loadLeagueHistoryContext(leagueId, coreData);
-    if (!leagueLoader.isCurrent(token)) return;
-    const previousEntry = leagueHistory.find((entry) => !entry.isCurrent) || null;
-    const previousContext = previousEntry
-      ? {
-          league: previousEntry.league,
-          users: previousEntry.users,
-          rosters: previousEntry.rosters,
-        }
-      : { league: null, users: [], rosters: [] };
-    const currentDraftContext = await loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts);
-    if (!leagueLoader.isCurrent(token)) return;
+    (draftLoad?.ingested || []).forEach((row) => {
+      ingestDraftSelections(row.season, row.draftDetails, row.picks, row.rosters);
+    });
 
     state.leagueId = leagueId;
     state.leagueName = league?.name || `League ${leagueId}`;
@@ -1870,13 +1897,13 @@ async function runLeagueLoad(leagueId, token) {
     state.users = users;
     state.rosters = rosters;
     state.tradedPicks = tradedPicks;
-    state.currentDraftContext = currentDraftContext;
+    state.currentDraftContext = draftLoad?.context || null;
     state.players = {};
     state.previousLeague = previousContext.league;
     state.previousUsers = previousContext.users;
     state.previousRosters = previousContext.rosters;
     state.leagueHistory = leagueHistory;
-    state.normalizedRosters = normalizeRosters(league, rosters, users, state.players, previousContext, tradedPicks, currentDraftContext);
+    state.normalizedRosters = normalizeRosters(league, rosters, users, state.players, previousContext, tradedPicks, state.currentDraftContext);
 
     setFieldError(el.leagueId, el.leagueIdError, "");
     if (state.userLeagues.length) {
@@ -1943,9 +1970,14 @@ async function runLeagueLoad(leagueId, token) {
       });
   } catch (err) {
     if (!leagueLoader.isCurrent(token)) return;
+    state.pendingPlace = null;
     const message = `Could not load league data. ${err.message}`;
     setFieldError(el.leagueId, el.leagueIdError, message);
     setStatus(message, { error: true });
+    if (state.league) {
+      showAppPages();
+      startLivePolling();
+    }
   } finally {
     if (leagueLoader.isCurrent(token)) stopLeagueLoadingUi();
   }
@@ -1984,6 +2016,7 @@ function simSignature(model) {
     state.leagueId,
     model.finalThroughWeek,
     model.remainingGames.length,
+    model.scheduleIncomplete ? 1 : 0,
     model.seasonComplete ? 1 : 0,
     valuationCacheVersion(),
     state.previousRosters.length,
@@ -2296,6 +2329,8 @@ async function loadDraftSelectionIndex(historyEntries = []) {
 
 async function loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts = []) {
   const candidateIds = buildCurrentDraftDetailCandidateIds(league, drafts);
+  const ingested = [];
+  let context = null;
   for (const draftId of candidateIds) {
     try {
       const [draftDetails, draftPicks] = await Promise.all([
@@ -2303,15 +2338,20 @@ async function loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts =
         apiGetWithRetry(`/draft/${draftId}/picks`, { timeoutMs: 12000, retries: 1 }).catch(() => []),
       ]);
       const picks = Array.isArray(draftPicks) ? draftPicks : [];
-      ingestDraftSelections(draftDetails?.season || league?.season, draftDetails, picks, rosters);
-      const context = buildCurrentDraftContext(league, rosters, draftDetails, picks);
-      if (context) return context;
+      ingested.push({
+        season: draftDetails?.season || league?.season,
+        draftDetails,
+        picks,
+        rosters,
+      });
+      if (!context) context = buildCurrentDraftContext(league, rosters, draftDetails, picks);
+      if (context) break;
     } catch (err) {
       console.warn(`Could not load draft details for ${draftId}`, err);
     }
   }
 
-  return null;
+  return { context, ingested };
 }
 
 function buildLeagueHistoryEntry(leagueId, coreData, isCurrent = false) {
@@ -2586,7 +2626,9 @@ async function loadLeagueHistoryMatchups(historyEntries = []) {
               }))
           )
         );
+        if (state.leagueId !== activeLeagueId) return;
         settled.forEach((result) => {
+          if (state.leagueId !== activeLeagueId) return;
           if (result.status !== "fulfilled") return;
           loadedWeeks += 1;
           matchups.push(...buildWeekMatchupRecords(entry, result.value.week, result.value.matchups, playoffStart));
@@ -2888,17 +2930,14 @@ function renderPowerDashboard() {
     return;
   }
 
-  const context = buildLeaguePowerContext({
-    league: state.league,
-    rosters: state.normalizedRosters,
-    values: state.values,
-  });
-  const profile = buildTeamPowerProfile({
-    roster: meRoster,
-    values: state.values,
-    league: state.league,
-    context,
-  });
+  const { profiles, context } = getLeaguePowerBoard();
+  const profile = profiles.find((entry) => String(entry.rosterId) === String(meRoster.rosterId))
+    || buildTeamPowerProfile({
+      roster: meRoster,
+      values: state.values,
+      league: state.league,
+      context,
+    });
   const insights = buildSleeperInsightCards(profile, context);
   const windowCall = buildWindowCallForProfile(profile);
   const trendNote = state.trendingLoaded
@@ -2990,7 +3029,7 @@ function computeOptimalPointsForSide(side) {
 }
 
 function getSimulation(model) {
-  if (!model) return null;
+  if (!model || model.scheduleIncomplete) return null;
   if (!state.seasonLoaded && model.remainingGames.length === 0 && !model.seasonComplete) return null;
   const key = simSignature(model);
   if (state.simCache.key === key) return state.simCache.result;
@@ -3015,7 +3054,7 @@ function buildSimPriors(model) {
         ownerId: roster?.owner_id != null ? String(roster.owner_id) : "",
         rosterId: String(roster?.roster_id),
         games,
-        pf: Number(settings.fpts || 0) + Number(settings.fpts_decimal || 0) / 100,
+        pf: sleeperPoints(settings.fpts, settings.fpts_decimal) ?? 0,
       };
     })
     .filter((row) => row.games > 0 && row.pf > 0);
@@ -3045,15 +3084,7 @@ function buildSimPriors(model) {
 }
 
 function buildPowerProfiles() {
-  if (!state.league || state.normalizedRosters.length === 0) return [];
-  const context = buildLeaguePowerContext({
-    league: state.league,
-    rosters: state.normalizedRosters,
-    values: state.values,
-  });
-  return state.normalizedRosters
-    .map((roster) => buildTeamPowerProfile({ roster, values: state.values, league: state.league, context }))
-    .sort((a, b) => b.score - a.score || a.rank - b.rank || a.managerName.localeCompare(b.managerName));
+  return getLeaguePowerBoard().profiles;
 }
 
 function buildWindowCallForProfile(profile, { model = null, sim } = {}) {
@@ -3252,9 +3283,11 @@ function renderPulseStrip(model, sim, profiles) {
           ? "syncing matchups"
           : model.currentWeekEntry?.isLive
             ? "games in progress"
-            : model.currentWeekEntry?.isPlayoff
+              : model.currentWeekEntry?.isPlayoff
               ? "playoff round"
-              : `${model.remainingGames.length} regular-season games left`,
+              : model.scheduleIncomplete
+                ? "syncing full slate"
+                : `${model.remainingGames.length} regular-season games left`,
       tone: model.currentWeekEntry?.isLive ? "live" : "blue",
     },
     {
@@ -3648,10 +3681,38 @@ function renderHomePowerBoard(profiles, model) {
 
 function renderTeamsPage() {
   syncLeagueFormatCopy();
+  const generation = ++teamsPaintGeneration;
+  if (!peekLeaguePowerBoard()) {
+    // Cold board solves every roster. Let the Teams tab paint before that work.
+    if (el.teamsGrid) el.teamsGrid.innerHTML = `<p class="muted">Ranking rosters…</p>`;
+    void finishTeamsPagePaint(generation);
+    return;
+  }
   renderTeamsGrid();
   renderPowerDashboard();
   renderRosterSheet();
   void ensureWeeklyValueContext();
+}
+
+function teamsRosterVisible() {
+  return state.activePage === "teams" && getRoom("teams") === "roster";
+}
+
+async function finishTeamsPagePaint(generation) {
+  await waitForNextPaint();
+  if (generation !== teamsPaintGeneration || !teamsRosterVisible()) return;
+  try {
+    getLeaguePowerBoard();
+    if (generation !== teamsPaintGeneration || !teamsRosterVisible()) return;
+    renderTeamsGrid();
+    renderPowerDashboard();
+    renderRosterSheet();
+    void ensureWeeklyValueContext();
+  } catch (err) {
+    console.warn("Teams page failed to rank rosters", err);
+    if (generation !== teamsPaintGeneration || !teamsRosterVisible()) return;
+    if (el.teamsGrid) el.teamsGrid.innerHTML = `<p class="muted">Could not rank rosters. Open Teams again.</p>`;
+  }
 }
 
 function syncLeagueFormatCopy() {
@@ -5553,15 +5614,54 @@ function openCalculatorWith(rosterId) {
 }
 
 function addValueCalcAsset(side, assetId, name, value, kind) {
-  if (!assetId) return;
+  if (!assetId) return false;
+  const normalizedSide = side === "right" ? "right" : "left";
   const asset = {
     assetId,
     name: name || assetId,
     value: Number(value) || 0,
     assetType: kind === "pick" || String(assetId).startsWith("pick:") ? "pick" : "player",
   };
-  state.valueCalc = addValueCalcItem(state.valueCalc, side, asset);
-  renderValueCalculator();
+  state.valueCalc = addValueCalcItem(state.valueCalc, normalizedSide, asset);
+  patchValueCalculator(normalizedSide);
+  return true;
+}
+
+function patchValueCalculator(side) {
+  const host = el.valueCalculatorShell;
+  if (!host?.querySelector(".calc-grid")) {
+    renderValueCalculator();
+    return;
+  }
+  const pane = host.querySelector(side === "right" ? ".calc-pane.team-b" : ".calc-pane.team-a");
+  if (!pane) {
+    renderValueCalculator();
+    return;
+  }
+  const totalEl = pane.querySelector(".calc-pane-total");
+  if (totalEl) totalEl.innerHTML = renderValueCalcTotalMarkup(side);
+  const selectedEl = pane.querySelector(".calc-selected");
+  if (selectedEl) selectedEl.innerHTML = renderValueCalcSelectedMarkup(side);
+  const list = host.querySelector(`#value-list-${side}`);
+  if (list) list.innerHTML = renderValueCalcAssetList(side);
+  const verdict = host.querySelector("#value-calc-verdict");
+  if (verdict) {
+    const leftTotal = Math.round(sumValueCalcSide(state.valueCalc.left));
+    const rightTotal = Math.round(sumValueCalcSide(state.valueCalc.right));
+    verdict.innerHTML = renderValueCalculatorVerdict(leftTotal, rightTotal);
+  }
+}
+
+function settleCalcSearch(kind, side) {
+  const input = document.querySelector(`[data-input="${kind}"][data-side="${side}"]`);
+  clearCalcSearchBox(input);
+  if (kind === "calc-search") refreshCalculatorLists(side);
+  if (!input) return;
+  try {
+    input.focus({ preventScroll: true });
+  } catch {
+    input.focus();
+  }
 }
 
 function renderValueCalculator() {
@@ -5594,9 +5694,29 @@ function renderValueCalculator() {
   `;
 }
 
-function renderValueCalcPane(side, label) {
+function renderValueCalcTotalMarkup(side) {
   const selected = state.valueCalc[side] || [];
   const total = Math.round(sumValueCalcSide(selected));
+  return `
+    <strong>${formatNumber(total)}</strong>
+    <small>${selected.length} asset${selected.length === 1 ? "" : "s"}</small>
+  `;
+}
+
+function renderValueCalcSelectedMarkup(side) {
+  const selected = state.valueCalc[side] || [];
+  if (!selected.length) {
+    return `<span class="muted small">Search a player or pick, like 2026 early 1st.</span>`;
+  }
+  return selected.map((item) => `
+    <button type="button" class="selected-token" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" title="Remove">
+      ${renderSelectedTokenLabel(item)}
+      <span class="selected-token-remove" aria-hidden="true">×</span>
+    </button>
+  `).join("");
+}
+
+function renderValueCalcPane(side, label) {
   const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
   return `
     <section class="calc-pane ${side === "left" ? "team-a" : "team-b"}">
@@ -5606,19 +5726,11 @@ function renderValueCalcPane(side, label) {
           <strong>${escapeHtml(label)}</strong>
         </div>
         <div class="calc-pane-total">
-          <strong>${formatNumber(total)}</strong>
-          <small>${selected.length} asset${selected.length === 1 ? "" : "s"}</small>
+          ${renderValueCalcTotalMarkup(side)}
         </div>
       </header>
       <div class="calc-selected">
-        ${selected.length
-          ? selected.map((item) => `
-            <button type="button" class="selected-token" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" title="Remove">
-              ${renderSelectedTokenLabel(item)}
-              <span class="selected-token-remove" aria-hidden="true">×</span>
-            </button>
-          `).join("")
-          : `<span class="muted small">Search a player or pick, like 2026 early 1st.</span>`}
+        ${renderValueCalcSelectedMarkup(side)}
       </div>
       ${renderCalcSearchInput({
         query,
@@ -5931,9 +6043,15 @@ function handleWorkspaceClick(event) {
       const ids = side === "my" ? state.calc.myAssetIds : state.calc.theirAssetIds;
       const assetId = target.dataset.assetId;
       if (!assetId) return;
+      const fromList = target.classList.contains("calc-item");
       if (ids.has(assetId)) ids.delete(assetId);
       else ids.add(assetId);
+      if (shouldResetCalcSearchOnPick("calc-toggle", { fromList })) {
+        if (side === "their") state.calc.theirQuery = "";
+        else state.calc.myQuery = "";
+      }
       patchCalculatorAfterToggle(side);
+      if (shouldResetCalcSearchOnPick("calc-toggle", { fromList })) settleCalcSearch("calc-search", side);
       break;
     }
     case "calc-clear": {
@@ -5942,7 +6060,14 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "value-add": {
-      addValueCalcAsset(target.dataset.side, target.dataset.assetId, target.dataset.name, Number(target.dataset.value), target.dataset.kind);
+      const side = target.dataset.side === "right" ? "right" : "left";
+      if (!target.dataset.assetId) return;
+      if (shouldResetCalcSearchOnPick("value-add")) {
+        if (side === "right") state.valueCalc.rightQuery = "";
+        else state.valueCalc.leftQuery = "";
+      }
+      addValueCalcAsset(side, target.dataset.assetId, target.dataset.name, Number(target.dataset.value), target.dataset.kind);
+      settleCalcSearch("value-search", side);
       break;
     }
     case "value-remove": {
@@ -6168,19 +6293,7 @@ function renderRecordsRoom() {
 }
 
 function buildHistoryArchiveModel(lensRoster) {
-  const context = buildLeaguePowerContext({
-    league: state.league,
-    rosters: state.normalizedRosters,
-    values: state.values,
-  });
-  const profiles = state.normalizedRosters
-    .map((roster) => buildTeamPowerProfile({
-      roster,
-      values: state.values,
-      league: state.league,
-      context,
-    }))
-    .sort((a, b) => b.score - a.score || a.rank - b.rank || a.managerName.localeCompare(b.managerName));
+  const { context, profiles } = getLeaguePowerBoard();
   const lensProfile = profiles.find((profile) => String(profile.rosterId) === String(lensRoster.rosterId))
     || buildTeamPowerProfile({ roster: lensRoster, values: state.values, league: state.league, context });
   const market = buildTradeMarketAnalytics(lensRoster);
@@ -7738,10 +7851,7 @@ function buildManagerKey(userId, leagueId, rosterId) {
 
 function extractRosterDecimalStat(roster, wholeKey, decimalKey) {
   const settings = roster?.settings || {};
-  const whole = Number(settings[wholeKey] || 0);
-  const decimal = Number(settings[decimalKey] || 0);
-  if (!Number.isFinite(whole) && !Number.isFinite(decimal)) return 0;
-  return (Number.isFinite(whole) ? whole : 0) + (Number.isFinite(decimal) ? decimal : 0) / 100;
+  return sleeperPoints(settings[wholeKey], settings[decimalKey]) ?? 0;
 }
 
 function calculateRankVolatility(ranks) {
@@ -9261,8 +9371,96 @@ function tradeMatchIdeaHelps(idea, myProfile, deal) {
   return holePatched || starterDelta >= -150 || rankImproved;
 }
 
-async function generateTradeIdeas() {
+function dealFocusKey() {
+  const mode = getTradeMode();
+  const focus = mode === "shop"
+    ? state.shopAsset?.assetId
+    : mode === "acquire"
+      ? state.targetAsset?.assetId
+      : "surprise";
+  return [state.leagueId || "", state.meRosterId || "", mode, focus || ""].join("|");
+}
+
+function takeNextDealIdeas({
+  pool,
+  kind,
+  priorIdeas,
+  maxResults,
+  meRoster,
+  values,
+  lockedAssetIds,
+  leagueStrengthBaseline,
+}) {
+  if (kind === "multi-team") {
+    return selectNextDiverse(pool, maxResults, { prior: priorIdeas, keyOf: ideaPackageKey });
+  }
+  return selectDiverseTradeIdeas(pool, maxResults, values, new Set(lockedAssetIds || []), priorIdeas).map((idea) => {
+    const theirRoster = state.normalizedRosters.find((roster) => String(roster.rosterId) === String(idea.counterpartyRosterId));
+    if (!theirRoster) return idea;
+    return enrichTradeIdea({
+      idea,
+      myRoster: meRoster,
+      theirRoster,
+      values,
+      leagueStrengthBaseline,
+    });
+  }).sort(compareEnrichedTradeIdeas);
+}
+
+function rememberDealPool(payload) {
+  if (!payload) return payload;
+  const rankedPool = payload.rankedPool || [];
+  const lockedAssetIds = payload.lockedAssetIds || [];
+  const shell = { ...payload };
+  delete shell.rankedPool;
+  delete shell.lockedAssetIds;
+  state.dealBoard.rankedPool = rankedPool;
+  state.dealBoard.lockedAssetIds = lockedAssetIds;
+  state.dealBoard.shell = shell;
+  return shell;
+}
+
+function syncFindMore() {
+  const open = Boolean(el.resultsSection && !el.resultsSection.classList.contains("hidden"));
+  const ideas = state.dealBoard?.ideas || [];
+  const show = open && ideas.length > 0;
+  el.resultsMore?.classList.toggle("hidden", !show);
+  const exhausted = Boolean(state.dealBoard?.exhausted);
+  const loading = Boolean(state.dealBoard?.loading);
+  if (el.findMoreBtn && !el.findMoreBtn.classList.contains("loading")) {
+    el.findMoreBtn.hidden = exhausted;
+    el.findMoreBtn.disabled = exhausted || loading;
+  }
+  if (el.findMoreStatus) {
+    const note = show && exhausted;
+    el.findMoreStatus.hidden = !note;
+    el.findMoreStatus.textContent = note ? "That's every trade that fits." : "";
+  }
+}
+
+function appendDealCards(payload, freshIdeas, startIndex) {
+  const group = el.resultsList?.querySelector(".idea-group");
+  if (!group) {
+    const display = {
+      ...payload,
+      groups: [{ ...(payload?.groups?.[0] || {}), ideas: state.dealBoard.ideas }],
+    };
+    el.resultsList.innerHTML = renderResultPayload(display, state.values);
+    return;
+  }
+  const multi = payload?.kind === "multi-team";
+  group.insertAdjacentHTML("beforeend", freshIdeas.map((idea, index) => (
+    multi
+      ? renderMultiTeamCard(idea, startIndex + index, state.values)
+      : renderTradeCard(idea, startIndex + index, state.values)
+  )).join(""));
+  const selector = multi ? ".multi-team-card" : ".trade-card";
+  group.querySelectorAll(selector)[startIndex]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+async function generateTradeIdeas({ more = false } = {}) {
   if (el.generateBtn?.classList.contains("loading")) return;
+  if (state.dealBoard?.loading || el.findMoreBtn?.classList.contains("loading")) return;
   if (!state.meRosterId) {
     setGenerateError("Load a league and choose your team first.");
     return;
@@ -9283,15 +9481,28 @@ async function generateTradeIdeas() {
     return;
   }
 
+  const boardKey = dealFocusKey();
+  if (more && state.dealBoard.exhausted && state.dealBoard.key === boardKey) return;
+  const continuing = Boolean(
+    more
+    && state.dealBoard.key === boardKey
+    && state.dealBoard.ideas.length > 0
+    && state.dealBoard.rankedPool?.length
+  );
+  const priorIdeas = continuing ? state.dealBoard.ideas.slice() : [];
   const fairnessPct = DEFAULT_FAIRNESS_PCT;
   const maxResults = DEFAULT_MAX_RESULTS;
   const tradeLab = getTradeLabSettings();
+  const loadingBtn = continuing ? el.findMoreBtn : el.generateBtn;
   setGenerateError("");
 
   try {
-    setButtonLoading(el.generateBtn, true, "Building trade ideas...");
+    state.dealBoard.loading = true;
+    setButtonLoading(loadingBtn, true, continuing ? "Finding more..." : "Building trade ideas...");
+    syncFindMore();
     await ensureValuesLoaded("");
     await waitForNextPaint();
+    if (dealFocusKey() !== boardKey) return;
     const leagueStrengthBaseline = getCachedLeagueStrengthBaseline({
       league: state.league,
       rosters: state.normalizedRosters,
@@ -9299,7 +9510,23 @@ async function generateTradeIdeas() {
     });
     let resultPayload = null;
 
-    if (mode === "acquire") {
+    if (continuing) {
+      const fresh = takeNextDealIdeas({
+        pool: state.dealBoard.rankedPool,
+        kind: state.dealBoard.shell?.kind,
+        priorIdeas,
+        maxResults,
+        meRoster,
+        values: state.values,
+        lockedAssetIds: state.dealBoard.lockedAssetIds,
+        leagueStrengthBaseline,
+      });
+      const shell = state.dealBoard.shell;
+      resultPayload = {
+        ...shell,
+        groups: [{ ...(shell.groups?.[0] || {}), ideas: fresh }],
+      };
+    } else if (mode === "acquire") {
       const theirRoster = state.normalizedRosters.find((roster) => roster.rosterId === state.targetAsset.managerRosterId);
       if (!theirRoster) {
         setGenerateError("Could not resolve the other roster.");
@@ -9314,6 +9541,7 @@ async function generateTradeIdeas() {
         maxResults,
         tradeLab,
         leagueStrengthBaseline,
+        priorIdeas,
       });
     } else if (mode === "shop") {
       resultPayload = await generateShopIdeaBuckets({
@@ -9324,6 +9552,7 @@ async function generateTradeIdeas() {
         maxResults,
         tradeLab,
         leagueStrengthBaseline,
+        priorIdeas,
       });
     } else if (mode === "surprise") {
       resultPayload = await generateSurpriseBlockbusterIdeas({
@@ -9332,10 +9561,16 @@ async function generateTradeIdeas() {
         fairnessPct,
         maxResults,
         tradeLab,
+        priorIdeas,
       });
     }
 
-    const totalIdeaCount = countIdeasInResultPayload(resultPayload);
+    if (dealFocusKey() !== boardKey) return;
+    if (!continuing) resultPayload = rememberDealPool(resultPayload);
+    const freshIdeas = resultPayload?.groups?.[0]?.ideas || [];
+    state.dealBoard.key = boardKey;
+    state.dealBoard.ideas = priorIdeas.concat(freshIdeas);
+    state.dealBoard.exhausted = freshIdeas.length < maxResults;
 
     el.resultsSection.classList.remove("hidden");
     el.resultsSubtitle.textContent = buildResultsSubtitle({
@@ -9345,9 +9580,16 @@ async function generateTradeIdeas() {
       payload: resultPayload,
     });
 
-    if (totalIdeaCount === 0) {
-      el.resultsList.innerHTML = `<p class="muted">${buildNoIdeasMessage(tradeLab, mode)}</p>`;
-      el.resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (freshIdeas.length === 0) {
+      if (!continuing) {
+        el.resultsList.innerHTML = `<p class="muted">${buildNoIdeasMessage(tradeLab, mode)}</p>`;
+        el.resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      return;
+    }
+
+    if (continuing) {
+      appendDealCards(resultPayload, freshIdeas, priorIdeas.length);
       return;
     }
 
@@ -9357,7 +9599,9 @@ async function generateTradeIdeas() {
   } catch (err) {
     setGenerateError(`Could not load valuation source. ${err.message}`);
   } finally {
-    setButtonLoading(el.generateBtn, false);
+    state.dealBoard.loading = false;
+    setButtonLoading(loadingBtn, false);
+    syncFindMore();
     syncGenerateState();
   }
 }
@@ -9817,6 +10061,57 @@ function formatDeltaPair(before, after) {
   return `${formatNumber(before)} to ${formatNumber(after)} (${delta >= 0 ? "+" : ""}${formatNumber(delta)})`;
 }
 
+function leagueBoardCacheKey(rosters = state.normalizedRosters) {
+  const rosterSig = (rosters || [])
+    .map((roster) => `${roster.rosterId}:${(roster.assets || []).map((asset) => asset.assetId).join(",")}`)
+    .join("|");
+  return [
+    state.league?.league_id || state.leagueId || "",
+    valuationCacheVersion(),
+    state.playerMetadataLoaded ? "players" : "names",
+    rosterSig,
+  ].join("::");
+}
+
+function peekLeaguePowerBoard() {
+  const key = leagueBoardCacheKey();
+  if (powerBoardCache.key === key && powerBoardCache.profiles && powerBoardCache.context) return powerBoardCache;
+  return null;
+}
+
+function getLeaguePowerBoard() {
+  if (!state.league || state.normalizedRosters.length === 0) {
+    return { key: "", profiles: [], context: null };
+  }
+  const key = leagueBoardCacheKey();
+  if (powerBoardCache.key === key && powerBoardCache.profiles && powerBoardCache.context) return powerBoardCache;
+  const baseline = getCachedLeagueStrengthBaseline({
+    league: state.league,
+    rosters: state.normalizedRosters,
+    values: state.values,
+  });
+  const context = buildLeaguePowerContext({
+    league: state.league,
+    rosters: state.normalizedRosters,
+    values: state.values,
+    metricsByRosterId: baseline.metricsByRosterId,
+  });
+  const profiles = state.normalizedRosters
+    .map((roster) => buildTeamPowerProfile({
+      roster,
+      values: state.values,
+      league: state.league,
+      context,
+      metrics: baseline.metricsByRosterId.get(roster.rosterId),
+      rank: context.ranks.get(roster.rosterId),
+    }))
+    .sort((a, b) => b.score - a.score || a.rank - b.rank || a.managerName.localeCompare(b.managerName));
+  powerBoardCache.key = key;
+  powerBoardCache.profiles = profiles;
+  powerBoardCache.context = context;
+  return powerBoardCache;
+}
+
 function getCachedLeagueStrengthBaseline({ league, rosters, values } = {}) {
   const resolvedLeague = league || state.league;
   const resolvedRosters = rosters || state.normalizedRosters;
@@ -9827,6 +10122,7 @@ function getCachedLeagueStrengthBaseline({ league, rosters, values } = {}) {
   const key = [
     resolvedLeague?.league_id || state.leagueId || "",
     valuationCacheVersion(),
+    state.playerMetadataLoaded ? "players" : "names",
     rosterSig,
   ].join("::");
   if (leagueStrengthCache.key === key && leagueStrengthCache.baseline) return leagueStrengthCache.baseline;
@@ -10134,7 +10430,7 @@ function buildOptimalStartingLineup(assets, starterSlots, values) {
     });
 
   const bestPlan = shouldUseExactLineupSolver(slotEntries, candidates)
-    ? chooseBestLineup(slotEntries, candidates, 0, 0n, new Map())
+    ? chooseBestLineup(slotEntries, candidates, (candidate, slot) => assetCanFillRosterSlot(candidate.asset, slot))
     : chooseGreedyLineup(slotEntries, candidates);
   const starters = bestPlan.picks
     .map((candidateIndex, slotIndex) => ({
@@ -10161,48 +10457,6 @@ function buildOptimalStartingLineup(assets, starterSlots, values) {
 function shouldUseExactLineupSolver(slotEntries, candidates) {
   return slotEntries.length <= LINEUP_EXACT_SOLVER_SLOT_LIMIT
     && candidates.length <= LINEUP_EXACT_SOLVER_CANDIDATE_LIMIT;
-}
-
-function chooseBestLineup(slotEntries, candidates, slotIndex, usedMask, memo) {
-  const memoKey = `${slotIndex}:${usedMask.toString()}`;
-  if (memo.has(memoKey)) return memo.get(memoKey);
-  if (slotIndex >= slotEntries.length) {
-    const emptyResult = { score: 0, picks: [] };
-    memo.set(memoKey, emptyResult);
-    return emptyResult;
-  }
-
-  let bestResult = {
-    score: Number.NEGATIVE_INFINITY,
-    picks: [],
-  };
-  const slot = slotEntries[slotIndex].slot;
-
-  for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
-    const candidateBit = 1n << BigInt(candidateIndex);
-    if ((usedMask & candidateBit) !== 0n) continue;
-    if (!assetCanFillRosterSlot(candidates[candidateIndex].asset, slot)) continue;
-
-    const child = chooseBestLineup(slotEntries, candidates, slotIndex + 1, usedMask | candidateBit, memo);
-    const totalScore = candidates[candidateIndex].value + child.score;
-    if (totalScore > bestResult.score) {
-      bestResult = {
-        score: totalScore,
-        picks: [candidateIndex, ...child.picks],
-      };
-    }
-  }
-
-  const skipChild = chooseBestLineup(slotEntries, candidates, slotIndex + 1, usedMask, memo);
-  if (skipChild.score > bestResult.score) {
-    bestResult = {
-      score: skipChild.score,
-      picks: [null, ...skipChild.picks],
-    };
-  }
-
-  memo.set(memoKey, bestResult);
-  return bestResult;
 }
 
 function chooseGreedyLineup(slotEntries, candidates) {
@@ -10450,6 +10704,7 @@ async function generateAcquisitionIdeaBuckets({
   maxResults,
   tradeLab,
   leagueStrengthBaseline,
+  priorIdeas = [],
 }) {
   const targetValue = getAssetValue(targetAsset, values);
   const ideas = [];
@@ -10497,11 +10752,13 @@ async function generateAcquisitionIdeaBuckets({
     }
   }
 
+  const rankedPool = dedupeTwoTeamIdeas(ideas).sort((a, b) => compareTradeIdeas(a, b));
   const finalizedIdeas = selectDiverseTradeIdeas(
-    dedupeTwoTeamIdeas(ideas).sort((a, b) => compareTradeIdeas(a, b)),
+    rankedPool,
     maxResults,
     values,
-    tradeLab.selectedOutgoingAssetIds
+    tradeLab.selectedOutgoingAssetIds,
+    priorIdeas
   ).map((idea) => enrichTradeIdea({
     idea,
     myRoster: meRoster,
@@ -10521,6 +10778,8 @@ async function generateAcquisitionIdeaBuckets({
       ideas: finalizedIdeas,
     }],
     referenceValue: targetValue,
+    rankedPool,
+    lockedAssetIds: [...tradeLab.selectedOutgoingAssetIds],
   };
 }
 
@@ -10595,6 +10854,7 @@ async function generateShopIdeaBuckets({
   maxResults,
   tradeLab,
   leagueStrengthBaseline,
+  priorIdeas = [],
 }) {
   const tierBuckets = {
     "level-up": [],
@@ -10618,15 +10878,17 @@ async function generateShopIdeaBuckets({
     await waitForNextPaint();
   }
 
+  const rankedPool = dedupeTwoTeamIdeas([
+    ...tierBuckets["level-up"],
+    ...tierBuckets.even,
+    ...tierBuckets["break-down"],
+  ]).sort((a, b) => compareTradeIdeas(a, b));
   const ideas = selectDiverseTradeIdeas(
-    dedupeTwoTeamIdeas([
-      ...tierBuckets["level-up"],
-      ...tierBuckets.even,
-      ...tierBuckets["break-down"],
-    ]).sort((a, b) => compareTradeIdeas(a, b)),
+    rankedPool,
     maxResults,
     values,
-    new Set([shopAsset.assetId])
+    new Set([shopAsset.assetId]),
+    priorIdeas
   ).map((idea) => {
     const theirRoster = state.normalizedRosters.find((roster) => roster.rosterId === idea.counterpartyRosterId);
     if (!theirRoster) return idea;
@@ -10649,6 +10911,8 @@ async function generateShopIdeaBuckets({
       emptyText: "No trade ideas fit the current setup.",
       ideas,
     }],
+    rankedPool,
+    lockedAssetIds: [shopAsset.assetId],
   };
 }
 
@@ -10940,6 +11204,7 @@ async function generateSurpriseBlockbusterIdeas({
   fairnessPct,
   maxResults,
   tradeLab,
+  priorIdeas = [],
 }) {
   const partnerCount = DEFAULT_MULTI_TEAM_COUNT - 1;
   const otherRosters = state.normalizedRosters.filter((roster) => roster.rosterId !== meRoster.rosterId);
@@ -10990,13 +11255,16 @@ async function generateSurpriseBlockbusterIdeas({
     }
   }
 
-  const dedupedIdeas = dedupeMultiTeamIdeas(ideas)
-    .sort((a, b) => compareMultiTeamIdeas(a, b))
-    .slice(0, maxResults);
+  const rankedPool = dedupeMultiTeamIdeas(ideas).sort((a, b) => compareMultiTeamIdeas(a, b));
+  const dedupedIdeas = selectNextDiverse(rankedPool, maxResults, {
+    prior: priorIdeas,
+    keyOf: ideaPackageKey,
+  });
 
   return {
     kind: "multi-team",
     teamCount: DEFAULT_MULTI_TEAM_COUNT,
+    rankedPool,
     groups: [{
       title: "Surprise Blockbusters",
       subtitle: "Automatic multi-team ideas. No extra setup.",
@@ -13928,25 +14196,12 @@ function areTradeIdeasTooSimilar(candidate, picked, values, lockedAssetIds = new
   return false;
 }
 
-function selectDiverseTradeIdeas(ideas, maxResults, values, lockedAssetIds = new Set()) {
-  const selected = [];
-  const heldBack = [];
-
-  for (const idea of ideas) {
-    if (selected.some((picked) => areTradeIdeasTooSimilar(idea, picked, values, lockedAssetIds))) {
-      heldBack.push(idea);
-      continue;
-    }
-    selected.push(idea);
-    if (selected.length >= maxResults) return selected;
-  }
-
-  for (const idea of heldBack) {
-    if (selected.length >= maxResults) break;
-    selected.push(idea);
-  }
-
-  return selected;
+function selectDiverseTradeIdeas(ideas, maxResults, values, lockedAssetIds = new Set(), priorIdeas = []) {
+  return selectNextDiverse(ideas, maxResults, {
+    prior: priorIdeas,
+    keyOf: ideaPackageKey,
+    tooSimilar: (idea, picked) => areTradeIdeasTooSimilar(idea, picked, values, lockedAssetIds),
+  });
 }
 
 function scoreTradeIdea({ myRoster, theirRoster, targetAsset, myAssets, theirAssets, values, pctDiff, tradeLab, ideaStyle, coreAssetIds = null }) {
@@ -14939,7 +15194,7 @@ function displayNameForUser(user, fallback) {
 function extractRosterPoints(roster) {
   const settings = roster?.settings || {};
   if (settings.fpts == null) return null;
-  return Number(settings.fpts) + Number(settings.fpts_decimal || 0) / 100;
+  return sleeperPoints(settings.fpts, settings.fpts_decimal);
 }
 
 function formatPreviousYearRankLabel(rank, totalTeams) {

@@ -29,6 +29,7 @@ When a ticket is done:
 ## Live site releases
 
 - Merging to `develop` (or leftover `main`) must **not** publish [dynastyticker.com](https://dynastyticker.com/). Netlify git builds are **stopped** at the site (`stop_builds`). Ignore scripts are only a safety net if someone turns builds back on.
+- GitHub Pages publishes `develop` to `https://nikoskiouris.github.io/Dynasty-Ticker/` as a preview of unreleased work. Do not set a Pages custom domain. That URL is not dynastyticker.com.
 - Pushing or merging `develop` into `prod` cuts a GitHub Release. That runs `.github/workflows/deploy-release.yml`, which calls `scripts/deploy_live_site.sh`.
 - Do not trigger a production deploy unless the user explicitly asks to cut a release / promote to prod.
 - Do not run a scheduled Netlify production deploy. Market files refresh when a release is cut. The weekly Dynasty Nerds mock scrape may commit JSON to `develop`; that must not publish the live site.
