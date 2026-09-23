@@ -2,12 +2,40 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 from src.config import settings
+
+
+def _coerce_value(value) -> int | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        if isinstance(value, float) and not math.isfinite(value):
+            return None
+        return _round_half_up(float(value))
+    if isinstance(value, str):
+        text = value.strip().replace(",", "")
+        if not text:
+            return None
+        try:
+            number = float(text)
+        except ValueError:
+            return None
+        if not math.isfinite(number):
+            return None
+        return _round_half_up(number)
+    return None
+
+
+def _round_half_up(number: float) -> int:
+    if number >= 0:
+        return int(number + 0.5)
+    return int(number - 0.5)
 
 
 class KeepTradeCutProvider:
@@ -38,11 +66,15 @@ class KeepTradeCutProvider:
             raise RuntimeError(f"KTC source fetch failed for {source_url}: {exc}") from exc
 
         values: dict[str, int] = {}
+        if not isinstance(payload, list):
+            return values
         for item in payload:
+            if not isinstance(item, dict):
+                continue
             asset_id = item.get("asset_id")
-            value = item.get("value")
-            if asset_id and isinstance(value, int):
-                values[asset_id] = value
+            value = _coerce_value(item.get("value"))
+            if asset_id and value is not None:
+                values[str(asset_id)] = value
         return values
 
     def _load_from_csv(self, path: str) -> dict[str, int]:
@@ -51,9 +83,9 @@ class KeepTradeCutProvider:
             reader = csv.DictReader(fp)
             for row in reader:
                 asset_id = row.get("asset_id")
-                value = row.get("value")
-                if asset_id and value and value.isdigit():
-                    values[asset_id] = int(value)
+                value = _coerce_value(row.get("value"))
+                if asset_id and value is not None:
+                    values[asset_id] = value
         return values
 
     def _read_cache_if_fresh(self) -> dict[str, int] | None:

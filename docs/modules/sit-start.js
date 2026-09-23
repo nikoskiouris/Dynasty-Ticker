@@ -261,7 +261,8 @@ function candidatePool(players, slots) {
     let added = 0;
     for (const player of options) {
       if (kept.size >= EXACT_CANDIDATE_LIMIT || added >= 2) break;
-      if (!kept.has(player.id)) kept.set(player.id, player);
+      if (kept.has(player.id)) continue;
+      kept.set(player.id, player);
       added += 1;
     }
   });

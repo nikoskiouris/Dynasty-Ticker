@@ -1,4 +1,4 @@
-import { compareRosterRecord, ordinal, pointsAgainstFromSettings } from "./season.js";
+import { compareRosterRecord, ordinal, pointsAgainstFromSettings, sleeperPoints } from "./season.js";
 
 export const MOCK_DRAFTS_PATH = "./data/nfl_mock_drafts.json";
 export const SKILL_POSITIONS = new Set(["QB", "RB", "WR", "TE"]);
@@ -72,7 +72,7 @@ export function projectedDraftSlot(placeRank, teamCount) {
 export function rosterPointsFor(roster) {
   const settings = roster?.settings || {};
   if (settings.fpts == null) return 0;
-  return Number(settings.fpts || 0) + Number(settings.fpts_decimal || 0) / 100;
+  return sleeperPoints(settings.fpts, settings.fpts_decimal) ?? 0;
 }
 
 export function buildCurrentPlaceLookup(rosters = [], standings = []) {

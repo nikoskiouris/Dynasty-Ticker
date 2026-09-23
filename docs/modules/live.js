@@ -1,10 +1,12 @@
+import { matchupPoints } from "./season.js";
+
 export function weekRowsFingerprint(weekRows) {
   let hash = 0;
   if (!weekRows || typeof weekRows.forEach !== "function") return 0;
   weekRows.forEach((rows, week) => {
     hash = (hash * 33 + Number(week || 0)) >>> 0;
     (Array.isArray(rows) ? rows : []).forEach((row) => {
-      hash = (hash * 33 + Math.round((Number(row?.points) || 0) * 100) + Number(row?.roster_id || 0)) >>> 0;
+      hash = (hash * 33 + Math.round(matchupPoints(row) * 100) + Number(row?.roster_id || 0)) >>> 0;
     });
   });
   return hash;
