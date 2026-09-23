@@ -45,25 +45,44 @@ function referenceLineup(slotEntries, candidates) {
   return solve(0, 0);
 }
 
+// Every caller hands the solver a pool sorted best-first.
+function bestFirst(candidates) {
+  return [...candidates].sort((left, right) => right.value - left.value);
+}
+
+function assertValidLineup(slots, candidates, plan) {
+  const used = plan.picks.filter((pick) => pick != null);
+  assert.equal(new Set(used).size, used.length, "a player starts twice");
+  plan.picks.forEach((pick, slotIndex) => {
+    if (pick != null) assert.ok(canFill(candidates[pick], slots[slotIndex].slot), "player in a slot he cannot fill");
+  });
+  assert.equal(plan.score, used.reduce((sum, pick) => sum + candidates[pick].value, 0));
+}
+
 test("exact lineup matches the old search on random rosters", () => {
   const pool = ["QB", "RB", "WR", "TE", "K"];
   for (let trial = 0; trial < 30; trial += 1) {
     const slotNames = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "SUPER_FLEX", "K"].slice(0, 6 + (trial % 4));
     const slots = slotNames.map((slot, index) => ({ slot, index }));
-    const candidates = Array.from({ length: 8 + (trial % 5) }, (_, index) => ({
+    const raw = Array.from({ length: 8 + (trial % 5) }, (_, index) => ({
       pos: pool[(index * 3 + trial) % pool.length],
       value: ((trial * 17 + index * 13) % 9) * 100,
     }));
+    const candidates = bestFirst(raw);
     const fast = chooseBestLineup(slots, candidates, canFill);
     const slow = referenceLineup(slots, candidates);
     assert.equal(fast.score, slow.score);
     assert.deepEqual(fast.picks, slow.picks);
+
+    const anyOrder = chooseBestLineup(slots, raw, canFill);
+    assert.equal(anyOrder.score, referenceLineup(slots, raw).score);
+    assertValidLineup(slots, raw, anyOrder);
   }
 });
 
 test("exact lineup matches the old search, including ties and open slots", () => {
   const slots = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "SUPER_FLEX", "K"].map((slot, index) => ({ slot, index }));
-  const candidates = [
+  const candidates = bestFirst([
     { pos: "QB", value: 5000 },
     { pos: "QB", value: 5000 },
     { pos: "RB", value: 4200 },
@@ -72,13 +91,40 @@ test("exact lineup matches the old search, including ties and open slots", () =>
     { pos: "RB", value: 900 },
     { pos: "WR", value: 3000 },
     { pos: "WR", value: 3000 },
-  ];
+  ]);
   const fast = chooseBestLineup(slots, candidates, canFill);
   const slow = referenceLineup(slots, candidates);
   assert.equal(fast.score, slow.score);
   assert.deepEqual(fast.picks, slow.picks);
   assert.equal(fast.picks[0], 0);
   assert.equal(fast.picks.at(-1), null);
+});
+
+test("a twenty-player superflex pool solves in milliseconds, not seconds", () => {
+  const slots = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "FLEX", "SUPER_FLEX", "K", "DEF"]
+    .map((slot, index) => ({ slot, index }));
+  const positions = ["QB", "QB", "QB", "RB", "RB", "RB", "RB", "RB", "RB", "WR", "WR", "WR", "WR", "WR", "WR", "WR", "TE", "TE", "K", "DEF"];
+  const started = Date.now();
+  for (let roster = 0; roster < 12; roster += 1) {
+    const candidates = bestFirst(positions.map((pos, index) => ({
+      pos,
+      value: 9000 - index * 311 + ((roster * 7 + index * 3) % 11) * 40,
+    })));
+    const plan = chooseBestLineup(slots, candidates, canFill);
+    assert.ok(plan, "solver gave up on a normal roster");
+    assert.equal(plan.picks.filter((pick) => pick != null).length, slots.length);
+  }
+  const elapsed = Date.now() - started;
+  assert.ok(elapsed < 250, `twelve 20-player solves took ${elapsed}ms`);
+});
+
+test("solver declines instead of hanging when the search is too big", () => {
+  const slots = Array.from({ length: 24 }, (_, index) => ({ slot: `S${index}`, index }));
+  const candidates = Array.from({ length: 24 }, (_, index) => ({ id: index, value: 100 - index }));
+  // Every player fits a different random-looking set of slots, so nobody is interchangeable.
+  const fits = (candidate, slot) => ((candidate.id * 7 + Number(slot.slice(1)) * 5) % 3) === 0;
+  assert.equal(chooseBestLineup(slots, candidates, fits, { stateLimit: 500 }), null);
+  assert.ok(chooseBestLineup(slots.slice(0, 4), candidates.slice(0, 6), fits));
 });
 
 test("exact lineup stays fast for a full league of deep rosters", () => {

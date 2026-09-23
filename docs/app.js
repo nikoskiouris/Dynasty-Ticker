@@ -10429,9 +10429,9 @@ function buildOptimalStartingLineup(assets, starterSlots, values) {
       return getSlotFlexWeight(left.slot) - getSlotFlexWeight(right.slot);
     });
 
-  const bestPlan = shouldUseExactLineupSolver(slotEntries, candidates)
-    ? chooseBestLineup(slotEntries, candidates, (candidate, slot) => assetCanFillRosterSlot(candidate.asset, slot))
-    : chooseGreedyLineup(slotEntries, candidates);
+  const bestPlan = (shouldUseExactLineupSolver(slotEntries, candidates)
+    && chooseBestLineup(slotEntries, candidates, (candidate, slot) => assetCanFillRosterSlot(candidate.asset, slot)))
+    || chooseGreedyLineup(slotEntries, candidates);
   const starters = bestPlan.picks
     .map((candidateIndex, slotIndex) => ({
       slot: slotEntries[slotIndex].slot,
