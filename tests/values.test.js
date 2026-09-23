@@ -16,6 +16,7 @@ import {
   applyCrowdShift,
   applyElitePlayerValuePremium,
   findPickCatalogValue,
+  findMarketValueByPlayerName,
   getGlobalMaxPlayerValue,
   KTC_GLOBAL_MAX_FALLBACK,
   CROWD_MAX_ABS_SHIFT,
@@ -108,6 +109,46 @@ test("missing sleeper id still uses the KeepTradeCut name", () => {
   const names = { "player:11566": "Jayden Daniels" };
   assert.equal(isEstimatedAsset(jayden, values, { valueNameMap: names }), false);
   assert.ok(getAssetValue(jayden, values, { valueNameMap: names }) > 7008);
+});
+
+test("name fallback ignores punctuation, skips picks and dead rows, and refuses a two-way tie", () => {
+  const names = {
+    "player:1": "D.J. Moore",
+    "player:2": "Josh Allen",
+    "player:3": "Josh Allen",
+    "player:4": "Retired Guy",
+    "pick:2027:r1:any": "Josh Allen",
+  };
+  const values = { "player:1": 4100, "player:2": 8800, "player:3": 900, "player:4": 0, "pick:2027:r1:any": 5000 };
+  assert.equal(findMarketValueByPlayerName("D J Moore", values, names), 4100);
+  assert.equal(findMarketValueByPlayerName("  d.j.  moore ", values, names), 4100);
+  assert.equal(findMarketValueByPlayerName("Josh Allen", values, names), null);
+  assert.equal(findMarketValueByPlayerName("Josh Allen", { ...values, "player:3": 0 }, names), 8800);
+  assert.equal(findMarketValueByPlayerName("Retired Guy", values, names), null);
+  assert.equal(findMarketValueByPlayerName("Nobody", values, names), null);
+  assert.equal(findMarketValueByPlayerName("", values, names), null);
+  assert.equal(findMarketValueByPlayerName("D J Moore", values, null), null);
+});
+
+test("value lookups that miss by id stay cheap on a full market board", () => {
+  const values = {};
+  const names = {};
+  for (let index = 0; index < 3000; index += 1) {
+    values[`player:${index}`] = 1000 + index;
+    names[`player:${index}`] = `Player Number ${index} Jr.`;
+  }
+  const misses = Array.from({ length: 400 }, (_, index) => ({
+    assetId: `pick:2027:${(index % 4) + 1}:${index}`,
+    assetType: "pick",
+    name: `2027 Round ${(index % 4) + 1}`,
+    raw: { season: 2027, round: (index % 4) + 1 },
+  }));
+  const started = Date.now();
+  for (let pass = 0; pass < 50; pass += 1) {
+    misses.forEach((asset) => getAssetValue(asset, values, { valueNameMap: names }));
+  }
+  const elapsed = Date.now() - started;
+  assert.ok(elapsed < 400, `20,000 missed lookups took ${elapsed}ms`);
 });
 
 test("elite premium is smooth instead of jumping at tier boundaries", () => {

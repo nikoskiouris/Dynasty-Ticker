@@ -515,6 +515,47 @@ function orderedWeekRows(rows) {
   });
 }
 
+// Row order, opponent pairs, and team totals are the same for every player in a
+// context, so they are worked out once per context instead of once per player.
+const contextRowCaches = new WeakMap();
+
+function contextRows(context) {
+  if (!context || typeof context !== "object") {
+    return { rows: orderedWeekRows(context?.weekRows), paired: null, totals: null };
+  }
+  let cache = contextRowCaches.get(context);
+  if (!cache) {
+    cache = { rows: orderedWeekRows(context.weekRows), paired: new Map(), totals: new Map() };
+    contextRowCaches.set(context, cache);
+  }
+  return cache;
+}
+
+function rowOpponentPairs(cache, row) {
+  if (!cache.paired) return opponentsFromTeamStats(row.stats);
+  let paired = cache.paired.get(row);
+  if (!paired) {
+    paired = opponentsFromTeamStats(row.stats);
+    cache.paired.set(row, paired);
+  }
+  return paired;
+}
+
+function rowTeamTotals(cache, row, teamKey, playerTeamById) {
+  if (!cache.totals) return teamTotalsFromWeek(row.stats, teamKey, playerTeamById);
+  let byTeam = cache.totals.get(row);
+  if (!byTeam) {
+    byTeam = new Map();
+    cache.totals.set(row, byTeam);
+  }
+  let totals = byTeam.get(teamKey);
+  if (!totals) {
+    totals = teamTotalsFromWeek(row.stats, teamKey, playerTeamById);
+    byTeam.set(teamKey, totals);
+  }
+  return totals;
+}
+
 function coverageLabel(passRate) {
   if (!Number.isFinite(passRate)) return "";
   if (passRate >= 0.58) return "pass-heavy";
@@ -540,20 +581,20 @@ export function buildWeeklyPlayerModel({
   const pos = weeklyPosition(position);
   const teamKey = normalizeNflTeam(team);
   const id = String(playerId || "");
-  const rows = orderedWeekRows(context?.weekRows);
+  const cache = contextRows(context);
   const games = [];
   const seenWeeks = new Set();
 
-  rows.forEach((row) => {
+  cache.rows.forEach((row) => {
     const weekKey = `${row?.season}:${Number(row?.week)}`;
     if (seenWeeks.has(weekKey)) return;
     seenWeeks.add(weekKey);
     const stats = row?.stats?.[id];
     if (!playedNflGame(stats)) return;
-    const totals = teamTotalsFromWeek(row.stats, teamKey, context?.teamById);
+    const totals = rowTeamTotals(cache, row, teamKey, context?.teamById);
     const scheduled = lookupScheduledOpponent(context?.scheduleIndex, row.season, row.week, teamKey);
     if (scheduled.bye) return;
-    const paired = opponentsFromTeamStats(row.stats);
+    const paired = rowOpponentPairs(cache, row);
     const opponent = scheduled.opponent || paired[teamKey] || "";
     games.push({
       season: row.season,
