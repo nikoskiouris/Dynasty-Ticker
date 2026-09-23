@@ -144,6 +144,15 @@ test("exact lineup stays fast for a full league of deep rosters", () => {
   assert.ok(elapsed < 800, `lineup solves took ${elapsed}ms`);
 });
 
+test("past-week best lineups use that week's points, not this week's start chance", () => {
+  const body = appSource.slice(
+    appSource.indexOf("function computeOptimalPointsForSide"),
+    appSource.indexOf("function getSimulation"),
+  );
+  assert.match(body, /buildOptimalStartingLineup\([^;]*\{ thisWeek: false \}\)/);
+  assert.match(appSource, /startChance: thisWeek \? weeklyModelForAsset\(asset\)\?\.score : undefined/);
+});
+
 test("teams page reuses one power board and paints before the cold solve", () => {
   assert.match(appSource, /function buildPowerProfiles\(\) \{\s*return getLeaguePowerBoard\(\)\.profiles;/);
   assert.match(appSource, /function renderPowerDashboard\(\) \{[\s\S]*getLeaguePowerBoard\(\)/);

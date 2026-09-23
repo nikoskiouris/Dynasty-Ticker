@@ -3024,7 +3024,8 @@ function computeOptimalPointsForSide(side) {
     values[`player:${playerId}`] = Number(side.playersPoints?.[playerId]) || 0;
     return { assetId: `player:${playerId}`, name: String(playerId), assetType: "player", raw };
   });
-  const lineup = buildOptimalStartingLineup(assets, getStarterRosterSlots(state.league), values);
+  // A past week's best lineup is picked by the points that week, not this week's start chance.
+  const lineup = buildOptimalStartingLineup(assets, getStarterRosterSlots(state.league), values, { thisWeek: false });
   return lineup.starters.reduce((sum, entry) => sum + (entry.asset ? values[entry.asset.assetId] || 0 : 0), 0);
 }
 
@@ -10408,13 +10409,13 @@ function compareRosterStrength(left, right) {
   return right.totalValue - left.totalValue;
 }
 
-function buildOptimalStartingLineup(assets, starterSlots, values) {
+function buildOptimalStartingLineup(assets, starterSlots, values, { thisWeek = true } = {}) {
   const playerEntries = assets
     .filter((asset) => asset.assetType === "player")
     .map((asset) => ({
       asset,
       value: lineupFillValue({
-        startChance: weeklyModelForAsset(asset)?.score,
+        startChance: thisWeek ? weeklyModelForAsset(asset)?.score : undefined,
         dynastyValue: getAssetValue(asset, values),
       }),
     }))
