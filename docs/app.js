@@ -217,6 +217,7 @@ import {
   windowCallInputFromDesk,
 } from "./modules/window-call.js";
 import { chooseBestLineup } from "./modules/lineup.js";
+import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
   formatPickWithSelection,
   indexDraftSelections,
@@ -455,6 +456,12 @@ const el = {
 };
 
 const leagueLoader = createLeagueLoader();
+const pageRenderQueue = createPageRenderQueue({
+  render: () => renderActivePage(),
+  isTyping: () => typingInActivePage(),
+  schedule: (run) => (typeof requestAnimationFrame === "function" ? requestAnimationFrame(run) : setTimeout(run, 16)),
+  cancel: (id) => (typeof cancelAnimationFrame === "function" ? cancelAnimationFrame(id) : clearTimeout(id)),
+});
 let leagueLoadAnimationTimer = null;
 let leagueLoadStartedAt = 0;
 let livePoller = null;
@@ -600,6 +607,10 @@ el.workspace?.addEventListener("keydown", handleWorkspaceKeydown);
 el.workspace?.addEventListener("pointerdown", handleWorkspacePointerDown);
 el.workspace?.addEventListener("change", handleWorkspaceChange);
 el.workspace?.addEventListener("input", handleWorkspaceInput);
+el.workspace?.addEventListener("focusout", () => {
+  // Focus lands after focusout; a tap on another field keeps the render held.
+  setTimeout(() => pageRenderQueue.release(), 0);
+});
 syncWeeklyScoreHelp();
 el.playerSearch?.addEventListener("input", () => {
   invalidateResults();
@@ -664,7 +675,7 @@ void hydrateCrowdVotes().then((ok) => {
   refreshCrowdShifts();
   refreshPlayerPositionRanks();
   if (state.leagueId) {
-    renderActivePage();
+    requestActivePageRender();
     renderSessionSnapshot();
   }
 });
@@ -822,6 +833,7 @@ function handleRoomTabKeydown(event) {
 }
 
 function renderActivePage() {
+  pageRenderQueue.settle();
   if (!state.leagueId) return;
   syncRoomUi();
   renderLeagueHero();
@@ -838,6 +850,16 @@ function renderActivePage() {
       renderLeagueRoom(room);
   }
   renderTicker();
+}
+
+function requestActivePageRender() {
+  if (!state.leagueId) return;
+  pageRenderQueue.request();
+}
+
+function typingInActivePage() {
+  const active = document.activeElement;
+  return isTextEntry(active) && Boolean(el.pages[state.activePage]?.contains(active));
 }
 
 function renderLeagueRoom(room) {
@@ -1948,7 +1970,7 @@ async function runLeagueLoad(leagueId, token) {
         invalidateSeasonCaches();
         hydrateManagerSelector();
         syncTradeModeUi();
-        renderActivePage();
+        requestActivePageRender();
         const me = getMyRoster();
         setStatus(
           me
@@ -1962,7 +1984,7 @@ async function runLeagueLoad(leagueId, token) {
         state.playerMetadataLoaded = false;
         state.playerMetadataFailed = true;
         syncTradeModeUi();
-        renderActivePage();
+        requestActivePageRender();
         setStatus(
           `Loaded ${state.leagueName}, but could not pull full NFL names (${err.message}). You can still use the app.`,
           { ok: true }
@@ -2067,11 +2089,11 @@ function startLivePolling() {
       state.livePolling = shouldPollLive(nextModel, state.nflState);
       renderSessionSnapshot();
       renderTicker();
-      if (state.activePage === "league") renderActivePage();
+      if (state.activePage === "league") requestActivePageRender();
     },
     onSimRefresh: () => {
       state.simCache = { key: "", result: null };
-      if (state.activePage === "league") renderActivePage();
+      if (state.activePage === "league") requestActivePageRender();
     },
   });
   livePoller.start();
@@ -2324,7 +2346,7 @@ async function loadDraftSelectionIndex(historyEntries = []) {
   });
 
   leagueTradeSideCache = { key: "", sides: [] };
-  renderActivePage();
+  requestActivePageRender();
 }
 
 async function loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts = []) {
@@ -2444,7 +2466,7 @@ async function loadTrendingPlayers() {
     state.trendingDrops = [];
     state.trendingLoaded = false;
   } finally {
-    renderActivePage();
+    requestActivePageRender();
   }
 }
 
@@ -2455,7 +2477,7 @@ async function loadLeagueTransactions(leagueId, league) {
   state.transactionsFailed = false;
   state.transactionWeeksLoaded = 0;
   state.transactionLoadError = "";
-  renderActivePage();
+  requestActivePageRender();
 
   const weeks = buildTransactionWeeks(league);
   try {
@@ -2497,7 +2519,7 @@ async function loadLeagueTransactions(leagueId, league) {
     state.transactionLoadError = err.message || "Could not load Sleeper transactions.";
   } finally {
     if (state.leagueId === loadLeagueId) {
-      renderActivePage();
+      requestActivePageRender();
     }
   }
 }
@@ -2513,7 +2535,7 @@ async function loadLeagueHistoryTransactions(historyEntries = []) {
   state.historyTransactionsFailed = false;
   state.historyTransactionLeaguesLoaded = 0;
   state.historyTransactionLoadError = "";
-  renderActivePage();
+  requestActivePageRender();
 
   if (historicalEntries.length === 0) return;
 
@@ -2566,7 +2588,7 @@ async function loadLeagueHistoryTransactions(historyEntries = []) {
     state.historyTransactionLoadError = err.message || "Could not load archived Sleeper transactions.";
   } finally {
     if (state.leagueId === activeLeagueId) {
-      renderActivePage();
+      requestActivePageRender();
     }
   }
 }
@@ -2597,7 +2619,7 @@ async function loadLeagueHistoryMatchups(historyEntries = []) {
   state.historyMatchupsFailed = false;
   state.historyMatchupLeaguesLoaded = 0;
   state.historyMatchupLoadError = "";
-  renderActivePage();
+  requestActivePageRender();
 
   if (entries.length === 0) return;
 
@@ -2641,7 +2663,7 @@ async function loadLeagueHistoryMatchups(historyEntries = []) {
           state.seasonLoadError = "";
           invalidateSeasonCaches();
           renderSessionSnapshot();
-          renderActivePage();
+          requestActivePageRender();
           livePoller?.resume();
         }
       }
@@ -2651,7 +2673,7 @@ async function loadLeagueHistoryMatchups(historyEntries = []) {
         state.seasonLoadError = loadedWeeks > 0 ? "" : "Sleeper did not return matchups for the current season.";
         invalidateSeasonCaches();
         renderSessionSnapshot();
-        renderActivePage();
+        requestActivePageRender();
         livePoller?.resume();
       }
     }
@@ -2672,7 +2694,7 @@ async function loadLeagueHistoryMatchups(historyEntries = []) {
     state.historyMatchupLoadError = err.message || "Could not load archived Sleeper matchups.";
   } finally {
     if (state.leagueId === activeLeagueId) {
-      renderActivePage();
+      requestActivePageRender();
     }
   }
 }
@@ -2858,7 +2880,7 @@ function hydrateManagerSelector() {
   pruneExcludedOutgoingAssets();
   renderPlayerSearch();
   renderSessionSnapshot();
-  renderActivePage();
+  requestActivePageRender();
   updateUrlState({ mode: "replace" });
   requestAnimationFrame(() => {
     if (epoch !== managerSelectorHydrateEpoch) return;
@@ -15530,7 +15552,7 @@ function applyValuationBundle(bundle, { rerender = true } = {}) {
 
   if (rerender) {
     renderPlayerSearch();
-    renderActivePage();
+    requestActivePageRender();
     renderSessionSnapshot();
   }
 
@@ -15707,7 +15729,7 @@ function applyRemoteCrowdVotes(remote, { rerender = true } = {}) {
   refreshCrowdShifts();
   refreshPlayerPositionRanks();
   if (rerender && state.leagueId) {
-    renderActivePage();
+    requestActivePageRender();
     renderSessionSnapshot();
   }
   return true;
