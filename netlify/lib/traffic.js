@@ -466,7 +466,7 @@ export function wrapLambdaHandler(visitHandler) {
   };
 }
 
-async function readVisitBody(req) {
+export async function readVisitBody(req) {
   const declared = Number(req.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > 2000) return {};
   let text = "";

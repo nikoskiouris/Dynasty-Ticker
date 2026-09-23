@@ -107,6 +107,29 @@ Switching people from IP + browser to a browser id makes each existing browser l
 
 The old third-party `page-views-api.ratneshc.com` counter is retired. It only counted a browser once, missed private windows, and could not tell traffic from people.
 
+### Searched usernames
+
+The live site saves a Sleeper username only after someone searches it **and clicks one of its leagues**. A typo never reaches a league click, so it is never saved. If a username has exactly one league, the desk opens it without a click, so that search is not saved either. Loading by league ID or a shared link has no username, so nothing is saved.
+
+The list is one CSV in Netlify Blobs: store `desk-users`, key `searched-users.csv`. One row per username:
+
+```
+username,user_id,first_seen,last_seen,searches
+```
+
+- **username** — lowercase Sleeper username, as Sleeper returned it (not what was typed).
+- **user_id** — Sleeper user id. It stays the same if the username changes.
+- **first_seen / last_seen** — UTC.
+- **searches** — how many searches ended in a league click. Clicking a second league from the same results does not count twice.
+
+Download it from Netlify: **Data & Storage → Blobs → desk-users → searched-users.csv**. Or from a terminal, after `npm install`:
+
+```
+NETLIFY_AUTH_TOKEN=... NETLIFY_SITE_ID=... node scripts/searched_users.mjs
+```
+
+That writes `searched-users.csv` (gitignored). **This repo is public. Never commit that file.** There is no public URL for the list; `/api/searched-user` only accepts writes from dynastyticker.com. Localhost and the GitHub Pages preview never send a username.
+
 ## CLI
 
 ```bash

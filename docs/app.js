@@ -248,7 +248,7 @@ import {
   buildPageDescription,
   tickerDurationSeconds,
 } from "./modules/site.js";
-import { recordDeskUse, recordDeskVisit } from "./modules/visits.js";
+import { recordDeskUse, recordDeskVisit, recordSearchedUser, searchedUserPick } from "./modules/visits.js";
 import {
   DEFAULT_RATHER_FORMAT,
   buildRatherBoard,
@@ -666,6 +666,14 @@ function noteDeskUse() {
   if (deskUseNoted) return;
   deskUseNoted = true;
   void recordDeskUse();
+}
+let searchedUserNoted = false;
+function noteSearchedUser(leagueId) {
+  if (searchedUserNoted) return;
+  const pick = searchedUserPick({ sleeperUser: state.sleeperUser, userLeagues: state.userLeagues, leagueId });
+  if (!pick) return;
+  searchedUserNoted = true;
+  void recordSearchedUser(pick);
 }
 void recordDeskVisit();
 bootFromUrl();
@@ -1653,6 +1661,7 @@ function handleLeaguePickClick(event) {
   if (!button) return;
   const leagueId = parseLeagueId(button.dataset.leagueId);
   if (!leagueId) return;
+  noteSearchedUser(leagueId);
   if (el.leagueId) el.leagueId.value = leagueId;
   void loadLeagueById(leagueId);
 }
@@ -1754,6 +1763,7 @@ async function runUserLeagueSearch(username) {
     const season = String(nflState?.league_season || nflState?.season || new Date().getUTCFullYear());
     const { user, leagues } = await fetchUserLeagues(sleeper, username, uniqueSeasons(season, 1));
     state.sleeperUser = user;
+    searchedUserNoted = false;
     state.userLeagues = sortUserLeagues(leagues, season);
     renderLeaguePicker(state.userLeagues, season);
     setUsernameError("");

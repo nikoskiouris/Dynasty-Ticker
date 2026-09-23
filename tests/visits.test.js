@@ -11,8 +11,11 @@ import {
   readOrCreateVisitorId,
   recordDeskUse,
   recordDeskVisit,
+  recordSearchedUser,
   renderSecretNumbers,
   renderTrafficReport,
+  searchedUserPick,
+  searchedUserUrl,
   shouldTrackVisit,
   sourceHost,
   visitCountUrl,
@@ -264,4 +267,59 @@ test("desk use posts an active event and skips localhost", async () => {
     fetchFn: async () => ({ ok: true }),
     location: { hostname: "localhost", pathname: "/" },
   }), false);
+});
+
+test("a searched username counts only when the clicked league came from that user's results", () => {
+  const sleeperUser = { username: "NikoSkiouris", user_id: "457505734542774272", display_name: "Niko" };
+  const userLeagues = [{ league_id: "1315" }, { league_id: "2000" }];
+  assert.deepEqual(searchedUserPick({ sleeperUser, userLeagues, leagueId: "1315" }), {
+    username: "NikoSkiouris",
+    userId: "457505734542774272",
+  });
+  assert.equal(searchedUserPick({ sleeperUser, userLeagues, leagueId: "9999" }), null);
+  assert.equal(searchedUserPick({ sleeperUser, userLeagues, leagueId: "" }), null);
+  assert.equal(searchedUserPick({ sleeperUser, userLeagues: [], leagueId: "1315" }), null);
+  assert.equal(searchedUserPick({ sleeperUser: null, userLeagues, leagueId: "1315" }), null);
+  assert.equal(searchedUserPick({ sleeperUser: { username: "  ", user_id: "1" }, userLeagues, leagueId: "1315" }), null);
+});
+
+test("recordSearchedUser posts the Sleeper username on the live host only", async () => {
+  const calls = [];
+  const ok = await recordSearchedUser({
+    username: "NikoSkiouris",
+    userId: "457505734542774272",
+    retryDelayMs: 0,
+    location: { hostname: "dynastyticker.com", pathname: "/" },
+    fetchFn: async (url, options) => {
+      calls.push({ url, method: options.method, body: JSON.parse(options.body) });
+      return calls.length === 1 ? { ok: false, status: 503 } : { ok: true, status: 200 };
+    },
+  });
+  assert.equal(ok, true);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url, "https://dynastyticker.com/api/searched-user");
+  assert.equal(calls[0].method, "POST");
+  assert.deepEqual(calls[0].body, { username: "NikoSkiouris", userId: "457505734542774272" });
+  assert.deepEqual(calls[1].body, calls[0].body);
+  assert.equal(searchedUserUrl({ hostname: "www.dynastyticker.com", protocol: "https:" }), "https://www.dynastyticker.com/api/searched-user");
+
+  const skipped = [];
+  const fetchFn = async (url) => {
+    skipped.push(url);
+    return { ok: true };
+  };
+  assert.equal(await recordSearchedUser({ username: "niko", fetchFn, location: { hostname: "localhost", pathname: "/" } }), false);
+  assert.equal(await recordSearchedUser({ username: "niko", fetchFn, location: { hostname: "nikoskiouris.github.io", pathname: "/Dynasty-Ticker/" } }), false);
+  assert.equal(await recordSearchedUser({ username: " ", fetchFn, location: { hostname: "dynastyticker.com", pathname: "/" } }), false);
+  assert.equal(skipped.length, 0);
+});
+
+test("the desk saves a searched username on a league click, not on a lone-league auto-open", () => {
+  const app = readFileSync(join(docs, "app.js"), "utf8");
+  const pickClick = app.match(/function handleLeaguePickClick\(event\) \{[\s\S]*?\n\}/)?.[0] || "";
+  assert.match(pickClick, /noteSearchedUser\(leagueId\)/);
+  const search = app.match(/async function runUserLeagueSearch\(username\) \{[\s\S]*?\n\}/)?.[0] || "";
+  assert.match(search, /state\.sleeperUser = user;\s*searchedUserNoted = false;/);
+  assert.doesNotMatch(search, /noteSearchedUser|recordSearchedUser/);
+  assert.match(app, /searchedUserPick\(\{ sleeperUser: state\.sleeperUser, userLeagues: state\.userLeagues, leagueId \}\)/);
 });
