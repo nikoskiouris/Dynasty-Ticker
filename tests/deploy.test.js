@@ -172,7 +172,7 @@ test("develop publishes a GitHub Pages preview and not the live site", () => {
     assert.equal(existsSync(join(dest, "sitemap.xml")), false);
     assert.equal(existsSync(join(dest, "_redirects")), false);
     assert.match(read("docs/robots.txt"), /Sitemap: https:\/\/dynastyticker\.com\/sitemap\.xml/);
-    assert.match(read("docs/_redirects"), /\/api\/visit/);
+    assert.match(read("docs/_redirects"), /\/api\/searched-user/);
   } finally {
     rmSync(dest, { recursive: true, force: true });
   }

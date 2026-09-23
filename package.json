@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "debug": "node scripts/debug_invariants.mjs && python3 scripts/debug_invariants.py",
-    "test": "node --check docs/app.js && node --check docs/modules/visits.js && node --check docs/modules/rather-crowd.js && node --check netlify/lib/traffic.js && node --check netlify/lib/rather-crowd.js && node --check netlify/lib/searched-users.js && node --check netlify/functions/visit.js && node --check netlify/functions/rather-vote.js && node --check netlify/functions/searched-user.js && node --check scripts/searched_users.mjs && node --test tests/*.test.js && python3 -m unittest discover -s tests/python -p 'test_*.py' && npm run debug",
+    "test": "node --check docs/app.js && node --check docs/modules/visits.js && node --check docs/modules/rather-crowd.js && node --check netlify/lib/traffic.js && node --check netlify/lib/rather-crowd.js && node --check netlify/lib/searched-users.js && node --check netlify/functions/rather-vote.js && node --check netlify/functions/searched-user.js && node --check scripts/searched_users.mjs && node --test tests/*.test.js && python3 -m unittest discover -s tests/python -p 'test_*.py' && npm run debug",
     "serve": "python3 -m http.server 4173 --directory docs"
   },
   "dependencies": {

@@ -83,7 +83,12 @@ export function applySearchedUser(text, { username, userId = "", now = new Date(
   } else {
     rows.push({ username: name, userId: id, firstSeen: stamp, lastSeen: stamp, searches: 1 });
   }
-  return renderSearchedUsers(rows);
+  const rendered = renderSearchedUsers(rows);
+  const kept = new Set(parseSearchedUsers(rendered).map((row) => row.username));
+  if (rows.some((row) => !kept.has(row.username))) {
+    throw new Error("refusing to drop a saved username");
+  }
+  return rendered;
 }
 
 function jsonResponse(body, { status = 200, headers = {} } = {}) {
@@ -161,8 +166,9 @@ export function createSearchedUserHandler({
       } catch {
         return jsonResponse({ error: "store", retryable: true }, { status: 503 });
       }
-      const next = applySearchedUser(snapshot.text, { username, userId, now });
+      let next;
       try {
+        next = applySearchedUser(snapshot.text, { username, userId, now });
         if (await writeSearchedUsersSnapshot(store, next, snapshot)) return jsonResponse({ ok: true });
       } catch {
         return jsonResponse({ error: "store", retryable: true }, { status: 503 });
