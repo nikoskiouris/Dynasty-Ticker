@@ -49,6 +49,7 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
       allPlayWins: 0,
       allPlayLosses: 0,
       allPlayTies: 0,
+      expectedWins: 0,
       high: null,
       low: null,
       benchPoints: 0,
@@ -69,7 +70,7 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     const { games, byes } = groupGames(rows, teams);
     const isPlayoff = week >= playoffStart;
     const isFinal = week <= weekState.finalThroughWeek;
-    const hasPoints = rows.some((row) => Number(row?.points) > 0);
+    const hasPoints = rows.some((row) => matchupPoints(row) > 0);
     const isCurrent = !isFinal && week === weekState.currentWeek;
     weeks.push({
       week,
@@ -85,7 +86,6 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     });
   });
 
-  const teamCount = teams.size;
   weeks.filter((entry) => entry.isFinal && !entry.isPlayoff).forEach((entry) => {
     const weekScores = [];
     entry.games.forEach((game) => {
@@ -114,12 +114,20 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     weekScores.forEach((score) => {
       const team = teams.get(score.rosterId);
       if (!team) return;
+      let wins = 0;
+      let losses = 0;
+      let ties = 0;
       weekScores.forEach((other) => {
         if (other.rosterId === score.rosterId) return;
-        if (score.points > other.points) team.allPlayWins += 1;
-        else if (score.points < other.points) team.allPlayLosses += 1;
-        else team.allPlayTies += 1;
+        if (score.points > other.points) wins += 1;
+        else if (score.points < other.points) losses += 1;
+        else ties += 1;
       });
+      team.allPlayWins += wins;
+      team.allPlayLosses += losses;
+      team.allPlayTies += ties;
+      const opponents = wins + losses + ties;
+      if (opponents > 0) team.expectedWins += (wins + ties / 2) / opponents;
     });
 
     if (medianGames && weekScores.length >= 2) {
@@ -133,6 +141,8 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
         } else if (score.points < medianValue) {
           team.medianLosses += 1;
           team.losses += 1;
+        } else {
+          team.ties += 1;
         }
       });
     }
@@ -150,12 +160,11 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
       team.pa = team.sleeperRecord.pa;
     }
     const gamesPlayed = team.scores.length;
-    const opponentsPerWeek = Math.max(1, teamCount - 1);
     team.gamesPlayed = gamesPlayed;
     team.avg = gamesPlayed ? team.pf / gamesPlayed : 0;
     team.std = gamesPlayed > 1 ? standardDeviation(team.scores) : 0;
     team.allPlayGames = team.allPlayWins + team.allPlayLosses + team.allPlayTies;
-    team.expectedWins = team.allPlayGames ? (team.allPlayWins + team.allPlayTies / 2) / opponentsPerWeek : 0;
+    team.expectedWins = round2(team.expectedWins || 0);
     team.headToHeadWins = team.results.filter((result) => result.result === "W").length;
     team.luck = gamesPlayed ? round2(team.headToHeadWins - team.expectedWins) : 0;
     team.allPlayRecord = `${team.allPlayWins}-${team.allPlayLosses}${team.allPlayTies ? `-${team.allPlayTies}` : ""}`;
@@ -1040,9 +1049,7 @@ export function compareStandings(a, b) {
 
 export function pointsAgainstFromSettings(settings = {}) {
   if (settings?.fpts_against == null && settings?.fpts_against_decimal == null) return null;
-  const whole = Number(settings.fpts_against);
-  const decimal = Number(settings.fpts_against_decimal);
-  return (Number.isFinite(whole) ? whole : 0) + (Number.isFinite(decimal) ? decimal : 0) / 100;
+  return sleeperPoints(settings.fpts_against, settings.fpts_against_decimal);
 }
 
 export function compareRosterRecord(a, b) {
@@ -1189,7 +1196,7 @@ function normalizeSide(row, teams) {
     rosterId,
     name: team?.name || `Roster ${rosterId}`,
     avatar: team?.avatar || null,
-    points: round2(Number(row?.custom_points ?? row?.points) || 0),
+    points: round2(matchupPoints(row)),
     starters: Array.isArray(row?.starters) ? row.starters.map(String) : [],
     startersPoints: Array.isArray(row?.starters_points) ? row.starters_points.map(Number) : [],
     players: Array.isArray(row?.players) ? row.players.map(String) : [],
@@ -1269,7 +1276,7 @@ function resolveWeekState(league, nflState, weekRows, lastWeek) {
 function inferCurrentWeek(weekRows) {
   let latest = 0;
   weekRows.forEach((rows, week) => {
-    if (Array.isArray(rows) && rows.some((row) => Number(row?.points) > 0)) latest = Math.max(latest, Number(week));
+    if (Array.isArray(rows) && rows.some((row) => matchupPoints(row) > 0)) latest = Math.max(latest, Number(week));
   });
   return Math.max(1, latest || 1);
 }
@@ -1278,11 +1285,26 @@ function computePlayoffRounds(playoffTeams, roundType) {
   return playoffWeekCount(playoffTeams, roundType);
 }
 
+export function matchupPoints(row) {
+  const raw = row?.custom_points ?? row?.points;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : 0;
+}
+
+export function sleeperPoints(wholeRaw, decimalRaw) {
+  if (wholeRaw == null && decimalRaw == null) return null;
+  const whole = Number(wholeRaw);
+  const decimal = Number(decimalRaw);
+  const wholeValue = Number.isFinite(whole) ? whole : 0;
+  if (Number.isFinite(whole) && !Number.isInteger(whole)) return round2(whole);
+  if (!Number.isFinite(decimal) || decimal === 0) return round2(wholeValue);
+  const fraction = Math.abs(decimal) < 1 ? decimal : decimal / 100;
+  return round2(wholeValue + fraction);
+}
+
 function decimalStat(roster, wholeKey, decimalKey) {
   const settings = roster?.settings || {};
-  const whole = Number(settings[wholeKey]);
-  const decimal = Number(settings[decimalKey]);
-  return round2((Number.isFinite(whole) ? whole : 0) + (Number.isFinite(decimal) ? decimal : 0) / 100);
+  return sleeperPoints(settings[wholeKey], settings[decimalKey]) ?? 0;
 }
 
 function teamLabel(model, rosterId) {

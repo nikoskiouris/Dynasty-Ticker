@@ -13,6 +13,7 @@ import {
   scoreUpcomingWeekAngles,
   compareRosterRecord,
   pointsAgainstFromSettings,
+  sleeperPoints,
   transactionWeekEnd,
 } from "./modules/season.js";
 import {
@@ -3028,7 +3029,7 @@ function buildSimPriors(model) {
         ownerId: roster?.owner_id != null ? String(roster.owner_id) : "",
         rosterId: String(roster?.roster_id),
         games,
-        pf: Number(settings.fpts || 0) + Number(settings.fpts_decimal || 0) / 100,
+        pf: sleeperPoints(settings.fpts, settings.fpts_decimal) ?? 0,
       };
     })
     .filter((row) => row.games > 0 && row.pf > 0);
@@ -7823,10 +7824,7 @@ function buildManagerKey(userId, leagueId, rosterId) {
 
 function extractRosterDecimalStat(roster, wholeKey, decimalKey) {
   const settings = roster?.settings || {};
-  const whole = Number(settings[wholeKey] || 0);
-  const decimal = Number(settings[decimalKey] || 0);
-  if (!Number.isFinite(whole) && !Number.isFinite(decimal)) return 0;
-  return (Number.isFinite(whole) ? whole : 0) + (Number.isFinite(decimal) ? decimal : 0) / 100;
+  return sleeperPoints(settings[wholeKey], settings[decimalKey]) ?? 0;
 }
 
 function calculateRankVolatility(ranks) {
@@ -15169,7 +15167,7 @@ function displayNameForUser(user, fallback) {
 function extractRosterPoints(roster) {
   const settings = roster?.settings || {};
   if (settings.fpts == null) return null;
-  return Number(settings.fpts) + Number(settings.fpts_decimal || 0) / 100;
+  return sleeperPoints(settings.fpts, settings.fpts_decimal);
 }
 
 function formatPreviousYearRankLabel(rank, totalTeams) {

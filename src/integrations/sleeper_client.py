@@ -65,10 +65,23 @@ def _display_name_for_user(user: dict | None, fallback: str) -> str:
 def _extract_roster_points(roster: dict) -> float | None:
     settings = roster.get("settings") or {}
     whole = settings.get("fpts")
-    decimal = settings.get("fpts_decimal", 0)
-    if whole is None:
+    if whole is None or isinstance(whole, bool):
         return None
-    return float(whole) + float(decimal) / 100
+    return sleeper_points(whole, settings.get("fpts_decimal", 0))
+
+
+def sleeper_points(whole, decimal) -> float:
+    whole_value = float(whole)
+    if not whole_value.is_integer():
+        return round(whole_value, 2)
+    if decimal is None or isinstance(decimal, bool):
+        decimal_value = 0.0
+    else:
+        decimal_value = float(decimal)
+    if decimal_value == 0:
+        return round(whole_value, 2)
+    fraction = decimal_value if abs(decimal_value) < 1 else decimal_value / 100
+    return round(whole_value + fraction, 2)
 
 
 def _ordinal(rank: int) -> str:
