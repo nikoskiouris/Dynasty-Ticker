@@ -307,6 +307,51 @@ test("player sheet keeps weekly and dynasty on separate badges", () => {
   assert.ok(!html.includes(NO_RECENT_GAMES) || model.games.length === 0);
 });
 
+test("league-wide week data is read once per context, not once per player", () => {
+  let scans = 0;
+  const players = {};
+  const weekStats = (week) => {
+    const stats = {
+      TEAM_SEA: { rec_tgt: 36, rush_att: 24, off_yd: 360 + week, opp_off_yd: 290 },
+      TEAM_NE: { rec_tgt: 31, rush_att: 27, off_yd: 290, opp_off_yd: 360 + week },
+    };
+    for (let index = 0; index < 40; index += 1) {
+      stats[`p${index}`] = { gp: 1, rec_tgt: 2 + ((index + week) % 6), rush_att: index % 4, pts_ppr: 4 + ((index * 3 + week) % 17) };
+    }
+    return new Proxy(stats, {
+      ownKeys(target) {
+        scans += 1;
+        return Reflect.ownKeys(target);
+      },
+    });
+  };
+  for (let index = 0; index < 40; index += 1) {
+    players[`p${index}`] = { team: index % 2 ? "SEA" : "NE", position: ["WR", "RB", "TE"][index % 3] };
+  }
+  const context = buildWeeklyContext({
+    season: "2026",
+    week: 4,
+    schedule: { games: [{ season: "2026", week: 4, home: "SEA", away: "ARI" }, { season: "2026", week: 4, home: "NE", away: "BUF" }] },
+    players,
+    weekRows: [1, 2, 3].map((week) => ({ season: "2026", week, stats: weekStats(week) })),
+  });
+  const modelFor = (playerId, ctx) => buildWeeklyPlayerModel({
+    playerId,
+    name: playerId,
+    position: players[playerId].position,
+    team: players[playerId].team,
+    dynastyValue: 1000,
+    context: ctx,
+  });
+  const before = scans;
+  const models = Object.keys(players).map((playerId) => modelFor(playerId, context));
+  assert.ok(scans - before <= 3, `40 players rescanned the week ${scans - before} times`);
+  assert.ok(models.some((model) => model.games.length === 3));
+  Object.keys(players).forEach((playerId, index) => {
+    assert.deepEqual(models[index], modelFor(playerId, { ...context }));
+  });
+});
+
 test("weekly score help popup explains start chance", () => {
   const button = renderWeeklyScoreHelpButton({ open: false });
   assert.match(button, /data-action="toggle-weekly-help"/);
