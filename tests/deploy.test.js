@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync, accessSync, constants } from "node:fs";
+import { readFileSync, accessSync, constants, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -147,6 +148,42 @@ test("Netlify git builds are stopped at the site so merges never start a job", (
   assert.match(dry.stdout, /Would stop Netlify git builds/);
 });
 
+test("develop publishes a GitHub Pages preview and not the live site", () => {
+  accessSync(join(root, "scripts/stage_pages_preview.sh"), constants.X_OK);
+  const workflow = read(".github/workflows/preview-pages.yml");
+  assert.match(workflow, /branches:\s*\[develop\]/);
+  assert.match(workflow, /stage_pages_preview\.sh/);
+  assert.match(workflow, /actions\/deploy-pages@v4/);
+  assert.match(workflow, /group: pages-preview/);
+  assert.doesNotMatch(workflow, /deploy_live_site/);
+  assert.doesNotMatch(workflow, /branches:\s*\[prod\]/);
+  assert.doesNotMatch(workflow, /cname/i);
+  assert.doesNotMatch(workflow, /dynastyticker\.com/);
+
+  const dest = mkdtempSync(join(tmpdir(), "pages-preview-"));
+  try {
+    const staged = spawnSync("bash", [join(root, "scripts/stage_pages_preview.sh"), dest], {
+      encoding: "utf8",
+    });
+    assert.equal(staged.status, 0, staged.stderr);
+    assert.equal(readFileSync(join(dest, "robots.txt"), "utf8"), "User-agent: *\nDisallow: /\n");
+    assert.equal(existsSync(join(dest, ".nojekyll")), true);
+    assert.equal(existsSync(join(dest, "index.html")), true);
+    assert.equal(existsSync(join(dest, "sitemap.xml")), false);
+    assert.equal(existsSync(join(dest, "_redirects")), false);
+    assert.match(read("docs/robots.txt"), /Sitemap: https:\/\/dynastyticker\.com\/sitemap\.xml/);
+    assert.match(read("docs/_redirects"), /\/api\/visit/);
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+
+  const refused = spawnSync("bash", [join(root, "scripts/stage_pages_preview.sh"), join(root, "docs")], {
+    encoding: "utf8",
+  });
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /Refusing to stage/);
+});
+
 test("agents land work on develop and release from prod", () => {
   const agents = read("AGENTS.md");
   assert.match(agents, /Open PRs against \*\*`develop`\*\*/);
@@ -158,6 +195,9 @@ test("agents land work on develop and release from prod", () => {
   assert.match(readme, /merged into `prod`/);
   assert.match(readme, /do \*\*not\*\* mean credits were spent/i);
   assert.match(readme, /Stopped builds/);
+  assert.match(readme, /nikoskiouris\.github\.io\/Dynasty-Ticker/);
+  assert.match(readme, /Do \*\*not\*\* add a custom domain/);
+  assert.match(agents, /github\.io\/Dynasty-Ticker/);
   assert.doesNotMatch(readme, /Stop auto publishing so Netlify does not start/);
 
   const tests = read(".github/workflows/test.yml");
