@@ -2,6 +2,7 @@ import { SITE_ORIGIN } from "./site.js";
 
 export const VISIT_TRACK_PATH = "/api/visit";
 export const VISIT_COUNT_PATH = "/api/views";
+export const SEARCHED_USER_PATH = "/api/searched-user";
 export const VISITOR_STORAGE_KEY = "dynasty_ticker_visitor";
 export const VISIT_RETRY_LIMIT = 2;
 export const VISIT_RETRY_DELAY_MS = 40;
@@ -53,6 +54,10 @@ export function visitTrackUrl(location = globalThis.location) {
 
 export function visitCountUrl(location = globalThis.location) {
   return `${originFrom(location)}${VISIT_COUNT_PATH}`;
+}
+
+export function searchedUserUrl(location = globalThis.location) {
+  return `${originFrom(location)}${SEARCHED_USER_PATH}`;
 }
 
 export function shouldTrackVisit({
@@ -120,8 +125,8 @@ async function postDeskEvent(body, {
   fetchFn,
   location,
   retryDelayMs = VISIT_RETRY_DELAY_MS,
+  url = visitTrackUrl(location),
 } = {}) {
-  const url = visitTrackUrl(location);
   const payload = JSON.stringify(body);
   for (let attempt = 0; attempt <= VISIT_RETRY_LIMIT; attempt += 1) {
     try {
@@ -171,6 +176,36 @@ export async function recordDeskUse({
     visitorId: readOrCreateVisitorId(storage),
     kind: "active",
   }, { fetchFn, location, retryDelayMs });
+}
+
+// Only a league from the searched user's own results counts, and only once
+// that league has loaded. A typo never loads a league. The saved name is the
+// one Sleeper returned, so a misspelling cannot become its own person.
+export function searchedUserPick({ sleeperUser, userLeagues, leagueId } = {}) {
+  const username = String(sleeperUser?.username ?? "").trim();
+  const id = String(leagueId ?? "").trim();
+  if (!username || !id) return null;
+  const listed = (Array.isArray(userLeagues) ? userLeagues : [])
+    .some((league) => String(league?.league_id ?? "") === id);
+  if (!listed) return null;
+  return { username, userId: String(sleeperUser?.user_id ?? "").trim() };
+}
+
+export async function recordSearchedUser({
+  username,
+  userId = "",
+  fetchFn = globalThis.fetch,
+  location = globalThis.location,
+  retryDelayMs,
+} = {}) {
+  if (typeof fetchFn !== "function") return false;
+  if (!shouldTrackVisit({ location })) return false;
+  const name = String(username ?? "").trim();
+  if (!name) return false;
+  return postDeskEvent({
+    username: name,
+    userId: String(userId ?? "").trim(),
+  }, { fetchFn, location, retryDelayMs, url: searchedUserUrl(location) });
 }
 
 function raceTimeout(promise, timeoutMs) {

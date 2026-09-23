@@ -38,7 +38,7 @@
       <main class="legal-card legal-prose">
         <p class="eyebrow">Privacy</p>
         <h1>What this ticker stores, and what it never sees.</h1>
-        <p class="muted">Last updated September 21, 2026. Dynasty Ticker is a static website at <a href="https://dynastyticker.com/">dynastyticker.com</a>. It talks to Sleeper from your browser. There is no Dynasty Ticker account.</p>
+        <p class="muted">Last updated September 23, 2026. Dynasty Ticker is a static website at <a href="https://dynastyticker.com/">dynastyticker.com</a>. It talks to Sleeper from your browser. There is no Dynasty Ticker account.</p>
 
         <h2>Who we are</h2>
         <p>Dynasty Ticker is the open-source project at <a href="https://github.com/nikoskiouris/Dynasty-Ticker">github.com/nikoskiouris/Dynasty-Ticker</a>. Contact is GitHub issues on that repo, not a mailbox or street address.</p>
@@ -62,8 +62,11 @@
 
         <h2>Cookies, ads, and the desk tally</h2>
         <p>This app does not set cookies, does not show ads, and does not install Google Analytics or any other third-party tracker.</p>
-        <p>The live site keeps its own tally of opens. Your browser stores a random id under <code>dynasty_ticker_visitor</code> and sends it with that tally so a reload counts as the same browser. The host stores a hash of the id, not the id itself. If storage is blocked, the fallback is a hash of the IP address and browser string. The tally also records whether this browser loaded a league or saved a “who would you rather have” pick, the referring site host (not the full link), and whether the open was the home page, a shared league link, or a legal page. It does not store your Sleeper username or the league id. Days roll over at midnight US Eastern. Clear site data to reset the id.</p>
+        <p>The live site keeps its own tally of opens. Your browser stores a random id under <code>dynasty_ticker_visitor</code> and sends it with that tally so a reload counts as the same browser. The host stores a hash of the id, not the id itself. If storage is blocked, the fallback is a hash of the IP address and browser string. The tally also records whether this browser loaded a league or saved a “who would you rather have” pick, the referring site host (not the full link), and whether the open was the home page, a shared league link, or a legal page. The tally does not store your Sleeper username or the league id. Days roll over at midnight US Eastern. Clear site data to reset the id.</p>
         <p>The site host and the Sleeper API may log ordinary request metadata on their side. That is their infrastructure, not a pixel we added.</p>
+
+        <h2>Searched usernames</h2>
+        <p>When you search a Sleeper username and one of that user's leagues actually opens, the live site saves that username on the site host. Next to it the host keeps the public Sleeper user id, when it was first and last opened, and how many times. A typo never opens a league, so it is not saved. The saved name is the one Sleeper returns, so a misspelling stays the same person instead of a new one. The league id is not saved. The list is not shown anywhere on the site.</p>
 
         <h2>Share links</h2>
         <p>Share URLs are ordinary query strings (<code>league</code>, <code>me</code>, <code>tab</code>, <code>week</code>, <code>tone</code>). Anyone with the link can open the same public Sleeper league view. Do not put secrets in the URL. There are none to put.</p>
@@ -72,7 +75,7 @@
         <p>This is a fantasy-football tool. It is not directed at children under 13, and it does not ask for personal profiles beyond a public Sleeper username you type yourself.</p>
 
         <h2>Contact</h2>
-        <p>Questions or deletion requests (for anything we actually control, which is the source code and this policy): <a href="https://github.com/nikoskiouris/Dynasty-Ticker/issues">open a GitHub issue</a>.</p>
+        <p>Questions or deletion requests (for anything we actually control: the source code, this policy, and the saved username list): <a href="https://github.com/nikoskiouris/Dynasty-Ticker/issues">open a GitHub issue</a>.</p>
       </main>
       <footer class="legal-foot">
         <a href="./terms.html">Terms</a>
