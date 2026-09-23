@@ -89,6 +89,30 @@ test("usernames are lowercased and anything that could break a CSV cell is refus
   assert.equal(cleanSleeperUserId(""), "");
 });
 
+test("a new username is added and every username already in the file stays", () => {
+  const existing = [
+    "username,user_id,first_seen,last_seen,searches",
+    "alpha,1,2026-09-01T00:00:00Z,2026-09-01T00:00:00Z,4",
+    "beta,2,2026-09-02T00:00:00Z,2026-09-02T00:00:00Z,1",
+    "gamma,3,2026-09-03T00:00:00Z,2026-09-03T00:00:00Z,2",
+  ].join("\n") + "\n";
+  const csv = applySearchedUser(existing, { username: "delta", userId: "4", now: NOW });
+  assert.deepEqual(parseSearchedUsers(csv).map((row) => [row.username, row.searches]), [
+    ["alpha", 4],
+    ["beta", 1],
+    ["gamma", 2],
+    ["delta", 1],
+  ]);
+  const again = applySearchedUser(csv, { username: "beta", userId: "2", now: LATER });
+  assert.deepEqual(parseSearchedUsers(again).map((row) => [row.username, row.searches, row.firstSeen]), [
+    ["alpha", 4, "2026-09-01T00:00:00Z"],
+    ["beta", 2, "2026-09-02T00:00:00Z"],
+    ["gamma", 2, "2026-09-03T00:00:00Z"],
+    ["delta", 1, "2026-09-23T21:05:09Z"],
+  ]);
+  assert.equal(parseSearchedUsers(again).find((row) => row.username === "beta").lastSeen, "2026-09-30T13:00:00Z");
+});
+
 test("a new username adds one row; the same name later bumps it instead of repeating it", () => {
   let csv = applySearchedUser("", { username: "NikoSkiouris", userId: "457505734542774272", now: NOW });
   assert.equal(csv, `${SEARCHED_USERS_HEADER}\nnikoskiouris,457505734542774272,2026-09-23T21:05:09Z,2026-09-23T21:05:09Z,1\n`);
@@ -139,6 +163,23 @@ test("the handler saves a live league pick to the CSV blob", async () => {
 
   assert.deepEqual(parseSearchedUsers(store.text()).map((row) => [row.username, row.searches]), [["nikoskiouris", 2]]);
   assert.ok(store.keys.every((key) => key === SEARCHED_USERS_KEY));
+});
+
+test("the handler adds to the stored list and leaves the rows already there", async () => {
+  const existing = [
+    "username,user_id,first_seen,last_seen,searches",
+    "alpha,1,2026-09-01T00:00:00Z,2026-09-01T00:00:00Z,4",
+    "beta,2,2026-09-02T00:00:00Z,2026-09-02T00:00:00Z,1",
+  ].join("\n") + "\n";
+  const store = memoryTextStore(existing);
+  const handler = createSearchedUserHandler({ getStore: () => store, nowFn: () => NOW });
+  const saved = await handler(post({ username: "gamma", userId: "3" }));
+  assert.equal(saved.status, 200);
+  assert.deepEqual(parseSearchedUsers(store.text()).map((row) => [row.username, row.userId, row.searches]), [
+    ["alpha", "1", 4],
+    ["beta", "2", 1],
+    ["gamma", "3", 1],
+  ]);
 });
 
 test("the list is write-only and only the live site can write", async () => {
@@ -218,6 +259,8 @@ test("the download script needs Netlify credentials and its output stays out of 
 test("the privacy policy says usernames are saved only after a league opens", () => {
   const privacy = readFileSync(join(root, "docs/privacy.html"), "utf8");
   assert.match(privacy, /<h2>Searched usernames<\/h2>/);
+  assert.match(privacy, /adds that username to a list/);
+  assert.match(privacy, /Every other username already on the list stays/);
   assert.match(privacy, /leagues actually opens/);
   assert.match(privacy, /typo/i);
   assert.match(privacy, /misspelling stays the same person/);

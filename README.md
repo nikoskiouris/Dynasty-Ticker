@@ -80,36 +80,17 @@ Cut a release: open a PR from `develop` into `prod` and merge it (or push `devel
 
 ### Traffic
 
-Two different numbers. Do not mix them. Do not buy another tracker.
+**Netlify Web Analytics** counts people who hit the site. In the project sidebar: **Analytics & metrics → Web analytics**. Unique visitors are distinct IP addresses. Pageviews are real page loads, not the WordPress scan 404s (those sit under resources-not-found). It updates about hourly. Ad blockers do not hide visits. The free window is about 7 days. The 30-day range costs extra. Skip it for now. Do not use **Observability** for the user count. That one includes bots. **Real user monitoring** is page speed, not users.
 
-1. **Netlify Web Analytics — how many people hit the site.** Already on. In the project sidebar: **Analytics & metrics → Web analytics**. Unique visitors are distinct IP addresses. Pageviews are real page loads, not the WordPress scan 404s (those sit under resources-not-found). It updates about hourly. Ad blockers do not hide visits. The free window is about 7 days. The 30-day range costs extra. Skip it for now. Do not use **Observability** for the user count. That one includes bots. **Real user monitoring** is page speed, not users.
+A week in mid-September 2026 read **557 unique visitors** and **879 pageviews**, almost all on `/` because the desk is one page. Treat that as roughly **400 real people** that week, not 557 humans. China, Germany, and Singapore add scanner IPs. Someone on Wi-Fi and cell data can count twice.
 
-   A week in mid-September 2026 read **557 unique visitors** and **879 pageviews**, almost all on `/` because the desk is one page. Treat that as roughly **400 real people** that week, not 557 humans. China, Germany, and Singapore add scanner IPs. Someone on Wi-Fi and cell data can count twice.
-
-2. **Desk tally — who actually used the app.** Netlify cannot see this, because a league load, a vote, and a bounce are all `/`. The live site POSTs to `/api/visit` (same host, no cookies, no Google Analytics). Print it with:
-
-```
-python3 scripts/desk_visits.py
-```
-
-- **views** — full page loads that ran JavaScript. Reloads count. Obvious crawlers do not.
-- **people** — distinct browsers. A random id in localStorage (`dynasty_ticker_visitor`) is hashed and stored. The same browser counts once per period even if the IP changes. Two browsers are two people. Private windows and cleared storage look new. If storage is blocked, the fallback is a hash of IP plus user-agent, which can merge people on one network.
-- **active** — people who loaded a league or saved a “who would you rather have” pick. A landing-page bounce is a view and a person, not active.
-- **days** — the last 14 US Eastern dates. Today and the week start at midnight Eastern. The week is Monday–Sunday.
-- **sources** — referring site host only. Direct means no referrer, or a hop from this site.
-- **landings** — home, shared league link, or legal page. The league id is not stored.
-
-Today, this week, this calendar year, and all-time are the four periods. A failed save retries with the same event id so a blip does not double-count.
-
-This people number will not match Netlify’s 557. Netlify counts IPs that downloaded the page. The desk counts browsers that ran it, then marks who loaded a league or voted.
-
-Switching people from IP + browser to a browser id makes each existing browser look new once. All-time people steps up by the returning browsers. After that it stays put.
-
-The old third-party `page-views-api.ratneshc.com` counter is retired. It only counted a browser once, missed private windows, and could not tell traffic from people.
+Who actually opened a league is the searched-username list below. The old desk tally and `/secret-numbers` page are gone. The old third-party `page-views-api.ratneshc.com` counter stays retired.
 
 ### Searched usernames
 
 The live site saves a Sleeper username only after someone searches it **and one of that user's leagues actually opens**. A click and a one-league auto-open both count. A typo never opens a league, so it is never saved. The saved name is the one Sleeper returns, so a misspelling stays on the same row instead of becoming a new person. A search that only shows the league list, a league ID / URL load, and a shared link save nothing.
+
+Each save reads the CSV already stored, adds a row or updates that username, and writes the full list back. Old rows stay. A save never replaces the file with only the newest name.
 
 The list is one CSV in Netlify Blobs: store `desk-users`, key `searched-users.csv`. One row per username:
 
@@ -120,7 +101,7 @@ username,user_id,first_seen,last_seen,searches
 - **username** — lowercase Sleeper username, as Sleeper returned it (not what was typed).
 - **user_id** — Sleeper user id. It stays the same if the username changes.
 - **first_seen / last_seen** — UTC.
-- **searches** — how many searches ended in a loaded league. Opening a second league from the same results does not count twice.
+- **searches** — how many searches ended in a loaded league. Opening a second league from the same results does not count twice. A repeat leaves every other username on the list.
 
 Download it from Netlify: **Data & Storage → Blobs → desk-users → searched-users.csv**. Or from a terminal, after `npm install`:
 

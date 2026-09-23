@@ -248,7 +248,7 @@ import {
   buildPageDescription,
   tickerDurationSeconds,
 } from "./modules/site.js";
-import { recordDeskUse, recordDeskVisit, recordSearchedUser, searchedUserPick } from "./modules/visits.js";
+import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
 import {
   DEFAULT_RATHER_FORMAT,
   buildRatherBoard,
@@ -661,12 +661,6 @@ applyTheme(readStoredTheme(), { persist: false });
 state.applyLeagueBoard = readApplyLeagueBoard();
 renderSessionSnapshot();
 syncTradeModeUi();
-let deskUseNoted = false;
-function noteDeskUse() {
-  if (deskUseNoted) return;
-  deskUseNoted = true;
-  void recordDeskUse();
-}
 let searchedUserNoted = false;
 function noteSearchedUser(leagueId) {
   if (searchedUserNoted) return;
@@ -675,7 +669,6 @@ function noteSearchedUser(leagueId) {
   searchedUserNoted = true;
   void recordSearchedUser(pick);
 }
-void recordDeskVisit();
 bootFromUrl();
 void bootLandingRather();
 void hydrateCrowdVotes().then((ok) => {
@@ -1950,7 +1943,6 @@ async function runLeagueLoad(leagueId, token) {
       state.pendingWeek = null;
     }
     showAppPages();
-    noteDeskUse();
     noteSearchedUser(leagueId);
     scrollLoadedWorkspaceIntoView();
     setMobileRailOpen(false);
@@ -15851,7 +15843,6 @@ async function chooseRatherPlayer(winnerId) {
   }
 
   recordRatherVote({ ...vote, at: Date.now(), format: DEFAULT_RATHER_FORMAT });
-  noteDeskUse();
   applyRemoteCrowdVotes(remote);
   if (pair.key) pushRatherRecentKey(pair.key);
 

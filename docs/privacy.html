@@ -53,20 +53,18 @@
           <li>A short-lived cache of Sleeper NFL player metadata</li>
           <li>A local copy of “who would you rather have” picks if the public vote host is unreachable. Live votes are stored on the site host, not only in this browser.</li>
           <li>Whether you turned on the optional league board, which prices players from this league’s own completed trades.</li>
-          <li>A random id (<code>dynasty_ticker_visitor</code>) used only for the desk tally below</li>
         </ul>
         <p>Clear site data in your browser to wipe the local copy.</p>
 
         <h2>Public rather votes</h2>
         <p>Landing-page “who would you rather have” picks are stored anonymously on the site host so they can slightly nudge player values for everyone. A vote is two Sleeper player ids, a format label, and a timestamp. A hashed IP plus browser string is used only to slow spam. Votes do not overwrite KeepTradeCut or Sleeper trade-market files.</p>
 
-        <h2>Cookies, ads, and the desk tally</h2>
+        <h2>Cookies and ads</h2>
         <p>This app does not set cookies, does not show ads, and does not install Google Analytics or any other third-party tracker.</p>
-        <p>The live site keeps its own tally of opens. Your browser stores a random id under <code>dynasty_ticker_visitor</code> and sends it with that tally so a reload counts as the same browser. The host stores a hash of the id, not the id itself. If storage is blocked, the fallback is a hash of the IP address and browser string. The tally also records whether this browser loaded a league or saved a “who would you rather have” pick, the referring site host (not the full link), and whether the open was the home page, a shared league link, or a legal page. The tally does not store your Sleeper username or the league id. Days roll over at midnight US Eastern. Clear site data to reset the id.</p>
         <p>The site host and the Sleeper API may log ordinary request metadata on their side. That is their infrastructure, not a pixel we added.</p>
 
         <h2>Searched usernames</h2>
-        <p>When you search a Sleeper username and one of that user's leagues actually opens, the live site saves that username on the site host. Next to it the host keeps the public Sleeper user id, when it was first and last opened, and how many times. A typo never opens a league, so it is not saved. The saved name is the one Sleeper returns, so a misspelling stays the same person instead of a new one. The league id is not saved. The list is not shown anywhere on the site.</p>
+        <p>When you search a Sleeper username and one of that user's leagues actually opens, the live site adds that username to a list on the site host. Next to it the host keeps the public Sleeper user id, when it was first and last opened, and how many times. A later open updates that same row. Every other username already on the list stays. A typo never opens a league, so it is not saved. The saved name is the one Sleeper returns, so a misspelling stays the same person instead of a new one. The league id is not saved. The list is not shown anywhere on the site.</p>
 
         <h2>Share links</h2>
         <p>Share URLs are ordinary query strings (<code>league</code>, <code>me</code>, <code>tab</code>, <code>week</code>, <code>tone</code>). Anyone with the link can open the same public Sleeper league view. Do not put secrets in the URL. There are none to put.</p>
@@ -82,9 +80,5 @@
         <a href="https://github.com/nikoskiouris/Dynasty-Ticker/issues">Contact</a>
       </footer>
     </div>
-    <script type="module">
-      import { recordDeskVisit } from "./modules/visits.js";
-      void recordDeskVisit();
-    </script>
   </body>
 </html>

@@ -20,18 +20,6 @@
   force = true
 
 [[redirects]]
-  from = "/api/visit"
-  to = "/.netlify/functions/visit"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/views"
-  to = "/.netlify/functions/visit"
-  status = 200
-  force = true
-
-[[redirects]]
   from = "/api/rather-vote"
   to = "/.netlify/functions/rather-vote"
   status = 200
