@@ -23,6 +23,7 @@ import {
   matchupPoints,
   mulberry32,
   normalCdf,
+  playoffLockStatus,
   pointsAgainstFromSettings,
   simulateSeason,
   sleeperPoints,
@@ -33,8 +34,9 @@ import {
   applyElitePlayerValuePremium,
   CROWD_MAX_ABS_SHIFT,
   crowdShiftsFromVotes,
+  findPickCatalogValue,
 } from "../docs/modules/values.js";
-import { weeksForWeeklyValue } from "../docs/modules/weekly-value.js";
+import { indexNflSchedule, weeksForWeeklyValue, buildWeeklyPlayerModel } from "../docs/modules/weekly-value.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -276,6 +278,7 @@ check("playoff sim hands out every spot and one title", () => {
     weekRows: new Map([
       [1, [side(1, 1, 110), side(2, 1, 90), side(3, 2, 100), side(4, 2, 80)]],
       [2, [side(1, 1, 0), side(3, 1, 0), side(2, 2, 0), side(4, 2, 0)]],
+      [3, [side(1, 1, 0), side(4, 1, 0), side(2, 2, 0), side(3, 2, 0)]],
     ]),
     nflState: { season: "2026", week: 2, season_type: "regular" },
   });
@@ -341,6 +344,105 @@ check("rather picks a close fight when one exists", () => {
   return "";
 });
 
+check("scoreless final week is not a pile of ties", () => {
+  const model = buildSeasonModel({
+    league: leagueFixture({ lastScored: 2, leg: 3 }),
+    rosters: rosters(4),
+    users: users(4),
+    weekRows: new Map([
+      [1, [side(1, 1, 100), side(2, 1, 80), side(3, 2, 90), side(4, 2, 70)]],
+      [2, [side(1, 1, 0), side(3, 1, 0), side(2, 2, 0), side(4, 2, 0)]],
+      [3, [side(1, 1, 0), side(4, 1, 0), side(2, 2, 0), side(3, 2, 0)]],
+    ]),
+  });
+  const alpha = model.teams.get("1");
+  if (alpha.wins !== 1 || alpha.ties !== 0 || alpha.losses !== 0) {
+    return `record ${alpha.wins}-${alpha.losses}-${alpha.ties}`;
+  }
+  return "";
+});
+
+check("partial slate does not clinch or simulate", () => {
+  const model = buildSeasonModel({
+    league: leagueFixture({ lastScored: 1, leg: 2, playoffTeams: 2 }),
+    rosters: rosters(4),
+    users: users(4),
+    weekRows: new Map([
+      [1, [side(1, 1, 110), side(2, 1, 90), side(3, 2, 100), side(4, 2, 80)]],
+    ]),
+  });
+  if (!model.scheduleIncomplete) return "schedule looked complete";
+  const locks = playoffLockStatus(model);
+  if (locks.clinched.size || locks.eliminated.size) {
+    return `locks ${[...locks.clinched].join(",")} / ${[...locks.eliminated].join(",")}`;
+  }
+  if (simulateSeason(model, { iterations: 20, seed: 1 })) return "sim ran on a partial slate";
+  const alpha = model.teams.get("1");
+  if (alpha.wins !== 1) return `wins ${alpha.wins}`;
+  return "";
+});
+
+check("one roster cannot bank two games in the same week", () => {
+  const model = buildSeasonModel({
+    league: leagueFixture({ lastScored: 1, leg: 2 }),
+    rosters: rosters(4),
+    users: users(4),
+    weekRows: new Map([
+      [1, [side(1, 1, 50), side(2, 1, 40), side(1, 2, 90), side(3, 2, 10), side(4, 3, 70), side(2, 3, 60)]],
+      [2, [side(1, 1, 0), side(2, 1, 0), side(3, 2, 0), side(4, 2, 0)]],
+      [3, [side(1, 1, 0), side(3, 1, 0), side(2, 2, 0), side(4, 2, 0)]],
+    ]),
+  });
+  const alpha = model.teams.get("1");
+  if (alpha.gamesPlayed !== 1) return `games ${alpha.gamesPlayed}`;
+  if (alpha.pf !== 90) return `kept the quiet row, pf ${alpha.pf}`;
+  return "";
+});
+
+check("2020 lookback stops at week 17", () => {
+  const weeks = weeksForWeeklyValue({ season: "2021", week: 1, previousSeason: "2020", count: 2 });
+  if (weeks[1]?.season !== "2020" || weeks[1]?.week !== 17) {
+    return weeks.map((row) => `${row.season}-W${row.week}`).join(",");
+  }
+  return "";
+});
+
+check("bye-week box score does not enter the lookback", () => {
+  const scheduleIndex = indexNflSchedule({
+    games: [
+      { season: "2026", week: 4, home: "BUF", away: "NYJ" },
+      { season: "2026", week: 5, home: "KC", away: "LAC" },
+    ],
+  });
+  const model = buildWeeklyPlayerModel({
+    playerId: "p1",
+    name: "Bye Back",
+    position: "WR",
+    team: "BUF",
+    dynastyValue: 1000,
+    context: {
+      season: "2026",
+      week: 6,
+      scheduleIndex,
+      weekRows: [
+        { season: "2026", week: 5, stats: { p1: { gp: 1, pts_ppr: 20, rec_tgt: 8 } } },
+        { season: "2026", week: 4, stats: { p1: { gp: 1, pts_ppr: 10, rec_tgt: 4 } } },
+      ],
+    },
+  });
+  if (model.recentPoints !== 10) return `recent ${model.recentPoints}`;
+  if (model.games.length !== 1) return `games ${model.games.length}`;
+  return "";
+});
+
+check("past pick catalog does not mark the pick up", () => {
+  const past = findPickCatalogValue({ season: "2024", round: 1, bucket: "any" }, { "pick:2026:r1:any": 5000 });
+  if (past > 5000) return `past pick ${past}`;
+  const future = findPickCatalogValue({ season: "2028", round: 1, bucket: "any" }, { "pick:2026:r1:any": 5000 });
+  if (!(future < 5000)) return `future pick ${future}`;
+  return "";
+});
+
 check("lineup solver does not play the same player twice", () => {
   const candidates = [{ value: 12 }, { value: 9 }, { value: 8 }, { value: 3 }];
   const slots = ["QB", "RB", "WR"].map((slot) => ({ slot }));
@@ -382,6 +484,39 @@ check("sit start keeps a scarce starter when stars crowd the cap", () => {
     ],
   });
   if (hurt.starters[0]?.player?.id !== "ok") return `started ${hurt.starters[0]?.player?.id}`;
+  const inactive = buildSitStart({
+    slots: ["RB"],
+    week: 3,
+    players: [
+      { id: "inact", name: "Shelf", position: "RB", positions: ["RB"], playerStatus: "Inactive", weekly: { score: 99, position: "RB" }, dynastyValue: 1 },
+      { id: "ok", name: "Active", position: "RB", positions: ["RB"], weekly: { score: 40, position: "RB" }, dynastyValue: 1 },
+    ],
+  });
+  if (inactive.starters[0]?.player?.id !== "ok") return `started ${inactive.starters[0]?.player?.id}`;
+  const ghost = buildSitStart({
+    slots: ["WR", "WR"],
+    week: 3,
+    players: [
+      { id: "x", name: "X", position: "WR", positions: ["WR"], weekly: { score: 7, position: "WR" }, dynastyValue: 1 },
+      { id: "y", name: "Y", position: "WR", positions: ["WR"], weekly: { score: null, position: "WR" }, dynastyValue: 9000 },
+      { id: "z", name: "Z", position: "WR", positions: ["WR"], weekly: { score: 80, position: "WR" }, dynastyValue: 1 },
+    ],
+  });
+  if (ghost.closeCalls.some((call) => call.starterId === "y" || call.challengerId === "y")) {
+    return "null score entered a close call";
+  }
+  const generic = Array.from({ length: 11 }, (_, index) => `G${index}`);
+  const wide = buildSitStart({
+    slots: ["S0", "S1", ...generic],
+    week: 3,
+    players: [
+      { id: "A", name: "A", canFill: (slot) => slot === "S0" || slot === "S1", weekly: { score: 10 }, dynastyValue: 1 },
+      { id: "B", name: "B", canFill: (slot) => slot === "S0", weekly: { score: 9 }, dynastyValue: 1 },
+      { id: "C", name: "C", canFill: (slot) => slot === "S1", weekly: { score: 8 }, dynastyValue: 1 },
+    ],
+  });
+  const wideIds = wide.starters.map((entry) => entry.player?.id);
+  if (wideIds[0] !== "B" || wideIds[1] !== "A") return `wide lineup ${wideIds.filter(Boolean).join(",")}`;
   return "";
 });
 

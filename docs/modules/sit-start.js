@@ -14,6 +14,8 @@ export const SIT_NO_ELIGIBLE = "No eligible starter";
 export const SIT_START_HINT = "League slots. Bye, out, no team, and missing opponent sit. Dynasty only breaks ties.";
 
 const EXACT_SLOT_LIMIT = 12;
+const EXACT_SLOT_HARD_LIMIT = 18;
+const EXACT_NODE_BUDGET = 200000;
 const EXACT_CANDIDATE_LIMIT = 20;
 const WEEKLY_SKILL = new Set(["QB", "RB", "WR", "TE"]);
 const SIT_INJURY = new Set([
@@ -28,6 +30,13 @@ const SIT_INJURY = new Set([
   "cov",
   "injured reserve",
   "injured_reserve",
+]);
+const SIT_ROSTER = new Set([
+  "inactive",
+  "retired",
+  "reserve_retired",
+  "reserve/did_not_report",
+  "did_not_report",
 ]);
 
 const SLOT_LABELS = {
@@ -61,6 +70,7 @@ export function injurySitReason(injuryStatus, playerStatus) {
   const injuryKey = injury.toLowerCase();
   if (injury && SIT_INJURY.has(injuryKey)) return `Sit — ${injury}`;
   const status = String(playerStatus || "").trim().toLowerCase();
+  if (SIT_ROSTER.has(status)) return "Sit — Inactive";
   if (SIT_INJURY.has(status) || status.includes("injured reserve") || status.includes("pup")) {
     return "Sit — IR";
   }
@@ -186,7 +196,14 @@ export function closeCallReason({ starter, challenger, slotLabel } = {}) {
   return `${label}: ${startName} over ${sitName} — ${why}`;
 }
 
-function chooseBestLineup(slotEntries, candidates, slotIndex, usedMask, memo) {
+function chooseBestLineup(slotEntries, candidates, slotIndex, usedMask, memo, budget) {
+  if (budget) {
+    budget.nodes += 1;
+    if (budget.aborted || budget.nodes > budget.limit) {
+      budget.aborted = true;
+      return { score: Number.NEGATIVE_INFINITY, picks: [] };
+    }
+  }
   const memoKey = `${slotIndex}:${usedMask.toString()}`;
   if (memo.has(memoKey)) return memo.get(memoKey);
   if (slotIndex >= slotEntries.length) {
@@ -202,14 +219,16 @@ function chooseBestLineup(slotEntries, candidates, slotIndex, usedMask, memo) {
     const candidateBit = 1n << BigInt(candidateIndex);
     if ((usedMask & candidateBit) !== 0n) continue;
     if (!playerCanFillSlot(candidates[candidateIndex], slot)) continue;
-    const child = chooseBestLineup(slotEntries, candidates, slotIndex + 1, usedMask | candidateBit, memo);
+    const child = chooseBestLineup(slotEntries, candidates, slotIndex + 1, usedMask | candidateBit, memo, budget);
+    if (budget?.aborted) return { score: Number.NEGATIVE_INFINITY, picks: [] };
     const totalScore = candidates[candidateIndex].fillValue + child.score;
     if (totalScore > bestResult.score) {
       bestResult = { score: totalScore, picks: [candidateIndex, ...child.picks] };
     }
   }
 
-  const skipChild = chooseBestLineup(slotEntries, candidates, slotIndex + 1, usedMask, memo);
+  const skipChild = chooseBestLineup(slotEntries, candidates, slotIndex + 1, usedMask, memo, budget);
+  if (budget?.aborted) return { score: Number.NEGATIVE_INFINITY, picks: [] };
   if (skipChild.score > bestResult.score) {
     bestResult = { score: skipChild.score, picks: [null, ...skipChild.picks] };
   }
@@ -282,9 +301,7 @@ function fillLineup(slots, candidates) {
     if (eligibleDiff !== 0) return eligibleDiff;
     return slotFlexWeight(left.slot) - slotFlexWeight(right.slot);
   });
-  const plan = slotEntries.length <= EXACT_SLOT_LIMIT && pool.length <= EXACT_CANDIDATE_LIMIT
-    ? chooseBestLineup(slotEntries, pool, 0, 0n, new Map())
-    : chooseGreedyLineup(slotEntries, pool);
+  const plan = solveLineup(slotEntries, pool) || chooseGreedyLineup(slotEntries, pool);
   return slotEntries
     .map((entry, index) => ({
       slot: entry.slot,
@@ -295,6 +312,22 @@ function fillLineup(slots, candidates) {
     .map(({ slot, player }) => ({ slot, player }));
 }
 
+function solveLineup(slotEntries, pool) {
+  if (pool.length > EXACT_CANDIDATE_LIMIT || slotEntries.length > EXACT_SLOT_HARD_LIMIT) return null;
+  const budget = slotEntries.length <= EXACT_SLOT_LIMIT
+    ? null
+    : { nodes: 0, limit: EXACT_NODE_BUDGET, aborted: false };
+  const plan = chooseBestLineup(slotEntries, pool, 0, 0n, new Map(), budget);
+  if (budget?.aborted) return null;
+  return plan;
+}
+
+function finiteWeeklyScore(value) {
+  if (value == null || value === "") return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
 function buildCloseCalls(starters, eligible) {
   const starterIds = new Set(starters.filter((entry) => entry.player).map((entry) => entry.player.id));
   const calls = [];
@@ -302,14 +335,14 @@ function buildCloseCalls(starters, eligible) {
 
   starters.forEach((entry) => {
     if (!entry.player) return;
-    const startChance = Number(entry.player.weekly?.score);
-    if (!Number.isFinite(startChance)) return;
+    const startChance = finiteWeeklyScore(entry.player.weekly?.score);
+    if (startChance == null) return;
     const challenger = eligible
       .filter((player) => !starterIds.has(player.id) && !usedChallengers.has(player.id) && playerCanFillSlot(player, entry.slot))
       .sort((left, right) => Number(right.weekly?.score) - Number(left.weekly?.score) || right.fillValue - left.fillValue)[0];
     if (!challenger) return;
-    const sitChance = Number(challenger.weekly?.score);
-    if (!Number.isFinite(sitChance)) return;
+    const sitChance = finiteWeeklyScore(challenger.weekly?.score);
+    if (sitChance == null) return;
     const gap = Math.abs(startChance - sitChance);
     if (gap > CLOSE_CALL_GAP) return;
     usedChallengers.add(challenger.id);

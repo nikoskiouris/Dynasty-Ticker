@@ -15,10 +15,19 @@ import {
   crowdShiftsFromVotes,
   applyCrowdShift,
   applyElitePlayerValuePremium,
+  findPickCatalogValue,
   getGlobalMaxPlayerValue,
   KTC_GLOBAL_MAX_FALLBACK,
   CROWD_MAX_ABS_SHIFT,
 } from "../docs/modules/values.js";
+
+test("an older pick season is not marked up from a later catalog row", () => {
+  const values = { "pick:2026:r1:any": 5000 };
+  assert.equal(findPickCatalogValue({ season: "2024", round: 1, bucket: "any" }, values), 5000);
+  const future = findPickCatalogValue({ season: "2028", round: 1, bucket: "any" }, values);
+  assert.ok(future < 5000);
+  assert.equal(future, Math.round(5000 * (0.88 ** 2)));
+});
 
 test("global max follows players, not a pricey pick", () => {
   const values = {

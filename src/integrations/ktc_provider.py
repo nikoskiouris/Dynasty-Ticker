@@ -93,7 +93,16 @@ class KeepTradeCutProvider:
             return None
         if time.time() - self.cache_file.stat().st_mtime > self.ttl_seconds:
             return None
-        return json.loads(self.cache_file.read_text(encoding="utf-8"))
+        payload = json.loads(self.cache_file.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            return None
+        values: dict[str, int] = {}
+        for asset_id, raw in payload.items():
+            value = _coerce_value(raw)
+            if value is None:
+                continue
+            values[str(asset_id)] = value
+        return values or None
 
     def _write_cache(self, values: dict[str, int]) -> None:
         self.cache_file.parent.mkdir(parents=True, exist_ok=True)

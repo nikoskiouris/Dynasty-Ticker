@@ -36,8 +36,12 @@ class PackageAdjustmentResult:
 class ValuationService:
     def __init__(self, values: dict[str, int]):
         self._values = values
-        adjusted_values = [self._apply_elite_player_premium(asset_id, value) for asset_id, value in values.items()]
-        self._max_value = max(max(adjusted_values, default=0), KTC_GLOBAL_MAX_FALLBACK)
+        player_values = [
+            self._apply_elite_player_premium(asset_id, value)
+            for asset_id, value in values.items()
+            if str(asset_id).startswith("player:")
+        ]
+        self._max_value = max(max(player_values, default=0), KTC_GLOBAL_MAX_FALLBACK)
 
     def get_asset_value(self, asset_id: str) -> int | None:
         exact = self._values.get(asset_id)
@@ -100,6 +104,17 @@ class ValuationService:
     def calculate_package_adjustment(self, my_values: list[int], their_values: list[int]) -> PackageAdjustmentResult:
         my_base_value = sum(my_values)
         their_base_value = sum(their_values)
+        if len(my_values) == len(their_values):
+            return PackageAdjustmentResult(
+                my_base_value=my_base_value,
+                their_base_value=their_base_value,
+                my_adjusted_value=my_base_value,
+                their_adjusted_value=their_base_value,
+                package_adjustment=0,
+                package_adjustment_side=None,
+                even_value=0,
+            )
+
         trade_max_value = max([0, *my_values, *their_values])
 
         if trade_max_value <= 0:

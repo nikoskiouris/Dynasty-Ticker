@@ -56,6 +56,7 @@ function player(id, extras = {}) {
     dynastyValue: extras.dynastyValue ?? 1000,
     injuryStatus: extras.injuryStatus || "",
     playerStatus: extras.playerStatus || "Active",
+    canFill: extras.canFill,
     weekly: extras.weekly === null ? null : (extras.weekly || weekly({ position: extras.position || "WR", ...extras })),
     asset: extras.asset || { assetId: `player:${id}`, name: extras.name || id },
   };
@@ -225,6 +226,45 @@ test("deep rosters still solve the scarce slot instead of a greedy local pick", 
   const bySlot = Object.fromEntries(board.starters.map((row) => [row.slot, row.player?.id]));
   assert.equal(bySlot.A, "Y");
   assert.equal(bySlot.B, "X");
+});
+
+test("inactive roster status sits, and a null score is not a close call", () => {
+  assert.equal(injurySitReason("", "Inactive"), "Sit — Inactive");
+  assert.equal(injurySitReason("Questionable", "Active"), "");
+  const board = buildSitStart({
+    slots: ["RB"],
+    week: 3,
+    players: [
+      player("shelf", { name: "Shelf", position: "RB", playerStatus: "Inactive", weekly: weekly({ position: "RB", score: 99 }) }),
+      player("active", { name: "Active", position: "RB", weekly: weekly({ position: "RB", score: 40 }) }),
+    ],
+  });
+  assert.equal(board.starters[0].player.name, "Active");
+  const calls = buildSitStart({
+    slots: ["WR", "WR"],
+    week: 3,
+    players: [
+      player("x", { name: "X", weekly: weekly({ score: 7 }) }),
+      player("y", { name: "Y", dynastyValue: 9000, weekly: weekly({ score: null }) }),
+      player("z", { name: "Z", weekly: weekly({ score: 80 }) }),
+    ],
+  });
+  assert.equal(calls.closeCalls.some((call) => call.starter.name === "Y" || call.challenger.name === "Y"), false);
+});
+
+test("idp-sized slates still solve the scarce slot", () => {
+  const generic = Array.from({ length: 11 }, (_, index) => `G${index}`);
+  const board = buildSitStart({
+    slots: ["S0", "S1", ...generic],
+    week: 3,
+    players: [
+      player("A", { weekly: weekly({ score: 10 }), canFill: (slot) => slot === "S0" || slot === "S1" }),
+      player("B", { weekly: weekly({ score: 9 }), canFill: (slot) => slot === "S0" }),
+      player("C", { weekly: weekly({ score: 8 }), canFill: (slot) => slot === "S1" }),
+    ],
+  });
+  assert.equal(board.starters[0].player.id, "B");
+  assert.equal(board.starters[1].player.id, "A");
 });
 
 test("sit/start callout has loading and error states", () => {
