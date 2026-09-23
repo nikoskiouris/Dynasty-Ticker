@@ -178,8 +178,9 @@ export async function recordDeskUse({
   }, { fetchFn, location, retryDelayMs });
 }
 
-// Only a league from the searched user's own results counts, so a typo that
-// never reaches a league pick is never saved.
+// Only a league from the searched user's own results counts, and only once
+// that league has loaded. A typo never loads a league. The saved name is the
+// one Sleeper returned, so a misspelling cannot become its own person.
 export function searchedUserPick({ sleeperUser, userLeagues, leagueId } = {}) {
   const username = String(sleeperUser?.username ?? "").trim();
   const id = String(leagueId ?? "").trim();

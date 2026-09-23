@@ -109,7 +109,7 @@ The old third-party `page-views-api.ratneshc.com` counter is retired. It only co
 
 ### Searched usernames
 
-The live site saves a Sleeper username only after someone searches it **and clicks one of its leagues**. A typo never reaches a league click, so it is never saved. If a username has exactly one league, the desk opens it without a click, so that search is not saved either. Loading by league ID or a shared link has no username, so nothing is saved.
+The live site saves a Sleeper username only after someone searches it **and one of that user's leagues actually opens**. A click and a one-league auto-open both count. A typo never opens a league, so it is never saved. The saved name is the one Sleeper returns, so a misspelling stays on the same row instead of becoming a new person. A search that only shows the league list, a league ID / URL load, and a shared link save nothing.
 
 The list is one CSV in Netlify Blobs: store `desk-users`, key `searched-users.csv`. One row per username:
 
@@ -120,7 +120,7 @@ username,user_id,first_seen,last_seen,searches
 - **username** — lowercase Sleeper username, as Sleeper returned it (not what was typed).
 - **user_id** — Sleeper user id. It stays the same if the username changes.
 - **first_seen / last_seen** — UTC.
-- **searches** — how many searches ended in a league click. Clicking a second league from the same results does not count twice.
+- **searches** — how many searches ended in a loaded league. Opening a second league from the same results does not count twice.
 
 Download it from Netlify: **Data & Storage → Blobs → desk-users → searched-users.csv**. Or from a terminal, after `npm install`:
 

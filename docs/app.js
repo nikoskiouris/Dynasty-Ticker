@@ -1661,7 +1661,6 @@ function handleLeaguePickClick(event) {
   if (!button) return;
   const leagueId = parseLeagueId(button.dataset.leagueId);
   if (!leagueId) return;
-  noteSearchedUser(leagueId);
   if (el.leagueId) el.leagueId.value = leagueId;
   void loadLeagueById(leagueId);
 }
@@ -1952,6 +1951,7 @@ async function runLeagueLoad(leagueId, token) {
     }
     showAppPages();
     noteDeskUse();
+    noteSearchedUser(leagueId);
     scrollLoadedWorkspaceIntoView();
     setMobileRailOpen(false);
     setStatus(`Loaded ${state.leagueName}. Player names are still syncing...`, { loading: true });

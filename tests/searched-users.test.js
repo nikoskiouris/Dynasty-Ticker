@@ -215,10 +215,11 @@ test("the download script needs Netlify credentials and its output stays out of 
   assert.match(readFileSync(join(root, ".gitignore"), "utf8"), /^searched-users\.csv$/m);
 });
 
-test("the privacy policy says usernames are saved only after a league pick", () => {
+test("the privacy policy says usernames are saved only after a league opens", () => {
   const privacy = readFileSync(join(root, "docs/privacy.html"), "utf8");
   assert.match(privacy, /<h2>Searched usernames<\/h2>/);
-  assert.match(privacy, /pick one of its leagues/);
+  assert.match(privacy, /leagues actually opens/);
   assert.match(privacy, /typo/i);
+  assert.match(privacy, /misspelling stays the same person/);
   assert.doesNotMatch(privacy, /It does not store your Sleeper username/);
 });
