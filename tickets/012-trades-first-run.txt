@@ -7,6 +7,9 @@ Done
 Shipped
 #77
 
+Superseded
+Partly, 2026-09-25 (#92, #97). The complaint still stands: the trade page has to explain itself. The fix proposed here (open on Partners, calculator one tap away) was replaced in #92: Trade opens on You give / You get for everyone, and Find a trade holds partners, shop, and target. Judge later changes by whether a first-time user can explain the verdict, not by which room opens first.
+
 Priority
 P0
 

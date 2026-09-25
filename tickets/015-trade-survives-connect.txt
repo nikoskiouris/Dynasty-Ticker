@@ -1,0 +1,34 @@
+Title
+A trade you built survives connecting Sleeper
+
+Status
+Done
+
+Shipped
+#97
+
+Priority
+P0 — breaks the main journey
+
+Area
+Trade calculator, league load, Players → Trade, Review trade (`docs/app.js`, `docs/modules/trade-draft.js`, `docs/modules/value-calc.js`)
+
+Description
+The journey: find a player, add him to a trade, build the other side, read the verdict, connect Sleeper for team context, see the same trade with roster impact, and adjust it without starting over.
+
+Connecting must keep the draft, keep the visitor on Trade, and say who owns each piece. Team impact shows when you give yours and get from one team. Anything that does not fit is explained, never swapped or dropped. The calculator price is the Players price with or without a league.
+
+Why
+Owner direction, 2026-09-25 (AGENTS.md, Product purpose). Not from the player note.
+
+Current product (before #97)
+League load cleared both calculators and jumped to My League. The connected calculator was a second implementation with its own state, an alphabetical default partner, and star-premium prices (Jahmyr Gibbs 13,830 there, 10,321 on Players). Add to trade with a league open wrote to the hidden public calculator. Shop and target ideas had no Review trade. Back from the public calculator left the site.
+
+Acceptance
+- Same assets, same sides, same totals after connecting (a format change is named, not silent).
+- Each piece says who has it. Ready trades show both teams' lineup impact.
+- Mismatches are listed per piece; nothing changes without a tap. Swap sides only when it fixes every piece.
+- Add to trade with a league open lands on the side his owner implies.
+- Review trade from partner, shop, and target ideas opens the same editable trade; a replaced draft can be brought back.
+- Team switch, league switch, and reload keep the draft. Back stays on the site.
+- Regression tests: `tests/trade-draft.test.js`.

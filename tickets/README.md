@@ -1,6 +1,6 @@
 # Dynasty Ticker — Ticket Product Outline
 
-Random user feedback, turned into tickets. **Do not delete ticket files.** When one ships, mark it Done and keep it for history.
+Random user feedback, turned into tickets. **Do not delete ticket files.** When one ships, mark it Done and keep it for history. Tickets 015 and later come from the owner's product direction (AGENTS.md, Product purpose) and from gaps found while checking it. Where an older ticket's fix conflicts with that direction, the ticket carries a `Superseded` note.
 
 The product already has a league desk, a tank/contend call, trade match, a calculator, find-deals, a landing “rather” duel, weekly start chance on the roster, sit/start this week, and next-year 1sts/2nds with Dynasty Nerds mock names.
 
@@ -30,6 +30,9 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [007](007-assets-to-move-on.txt) | Assets to move on from for capital | P1 |
 | [008](008-aging-stars-on-bad-teams.txt) | Target aging stars on tanking teams | P1 |
 | [014](014-redraft-values.txt) | Redraft rest-of-season values | P1 |
+| [016](016-one-price-every-screen.txt) | One price for a player on every screen | P0 |
+| [017](017-ideas-explain-why.txt) | Trade ideas say what they do and why the other team says yes | P1 |
+| [018](018-returning-manager-resume.txt) | Returning manager lands back on their league and team | P1 |
 
 ## Done
 
@@ -43,6 +46,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [013](013-trade-desk-freeze.txt) | Deal finder / calculator freeze | P0 | [#64](https://github.com/nikoskiouris/Dynasty-Ticker/pull/64) |
 | [010](010-league-first-landing.txt) | League is the product; rather is not the homepage | P0 | [#81](https://github.com/nikoskiouris/Dynasty-Ticker/pull/81) |
 | [011](011-rather-pairing.txt) | Rather pairing still produces no-brainers | P1 | [#81](https://github.com/nikoskiouris/Dynasty-Ticker/pull/81) |
+| [015](015-trade-survives-connect.txt) | A trade you built survives connecting Sleeper | P0 | [#97](https://github.com/nikoskiouris/Dynasty-Ticker/pull/97) |
 
 ## Shipped before this board
 
@@ -50,7 +54,7 @@ These were in the same player note. They never had ticket files. Git history has
 
 - **Tank / rebuild / contend.** Teams → Call. Playoff odds, lineup rank, age, and pick capital. Headline plus moves.
 - **Ticker speed.** Loop is at least 50s, about 9s per name. That complaint is closed.
-- **Calculator not on first paint.** Landing is jobs + username search, not the calculator. Trades opens on Partners. Ticket 012 tracks that first screen.
+- **Calculator not on first paint.** Landing is jobs + username search, not the calculator. Trades opens on Partners. Ticket 012 tracks that first screen. *Superseded by #92: Trade opens on the calculator for everyone, before or after a league.*
 
 ## Source
 
