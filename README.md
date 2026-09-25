@@ -46,7 +46,7 @@ Refresh rankings with `python scripts/update_ktc_values.py`. Refresh the Sleeper
 
 The live app is a static site on **Netlify**. Public URL: `https://dynastyticker.com/`. Unreleased `develop` also goes to GitHub Pages as a preview: `https://nikoskiouris.github.io/Dynasty-Ticker/`.
 
-**Work on `develop`. Live site updates only when `develop` is merged into `prod`.** That merge cuts a GitHub Release. GitHub Actions then scrapes market files and uploads with the Netlify CLI. Merges to `develop` (or leftover `main`) do not publish.
+**Work on `develop`. Live site updates only when `develop` is merged into `prod`.** That merge cuts a GitHub Release. GitHub Actions then scrapes market files and uploads with the Netlify CLI. Merges to `develop` (or leftover `main`) do not publish the live site.
 
 Netlify emails on a GitHub merge do **not** mean credits were spent. On credit plans, a **successful production deploy** costs 15 credits. Skipped, canceled, and failed git deploys cost 0, but they still start a job and still email you. **Stop builds** (not “stop auto publishing”) is the switch that prevents the job from existing. This repo turns that on through the Netlify API. Bandwidth, web requests, and functions still use credits when people visit the site.
 
@@ -59,9 +59,9 @@ Netlify emails on a GitHub merge do **not** mean credits were spent. On credit p
    - `NETLIFY_AUTH_TOKEN` — Netlify user access token (User settings → Applications → New access token).
    - `NETLIFY_SITE_ID` — Site API ID (Site configuration → Site details).
 7. GitHub Actions runs `.github/workflows/stop-netlify-git-builds.yml` so Netlify **Build status = Stopped builds**. Confirm in Netlify: **Project configuration → Build & deploy → Continuous deployment → Build settings → Stopped builds**. Do **not** use “Stop auto publishing”; that still starts a canceled production job. `netlify.toml` skip/refuse scripts are only a backup.
-8. Repo **Settings → Pages**: source is **GitHub Actions**. `.github/workflows/preview-pages.yml` publishes `docs/` from `develop` to `https://nikoskiouris.github.io/Dynasty-Ticker/`. That URL is the unreleased preview. Do **not** add a custom domain there. Visit counts and rather votes stay on dynastyticker.com only.
+8. Repo **Settings → Pages**: source is **GitHub Actions**. A push to `develop` runs `.github/workflows/refresh-pages-preview.yml`, which starts `.github/workflows/preview-pages.yml` on `main`. That job checks out `develop` and publishes `docs/` to `https://nikoskiouris.github.io/Dynasty-Ticker/`. Pages only allows deploys from `main`. That URL is the unreleased preview. Do **not** add a custom domain there. Visit counts and rather votes stay on dynastyticker.com only.
 
-Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Tests: `.github/workflows/test.yml`. Unreleased preview: `.github/workflows/preview-pages.yml`.
+Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Tests: `.github/workflows/test.yml`. Unreleased preview: `.github/workflows/refresh-pages-preview.yml` starts `.github/workflows/preview-pages.yml` on `main`.
 
 ### Traffic
 

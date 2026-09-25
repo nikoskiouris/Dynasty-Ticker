@@ -151,14 +151,25 @@ test("Netlify git builds are stopped at the site so merges never start a job", (
 test("develop publishes a GitHub Pages preview and not the live site", () => {
   accessSync(join(root, "scripts/stage_pages_preview.sh"), constants.X_OK);
   const workflow = read(".github/workflows/preview-pages.yml");
-  assert.match(workflow, /branches:\s*\[develop\]/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /ref: develop/);
   assert.match(workflow, /stage_pages_preview\.sh/);
   assert.match(workflow, /actions\/deploy-pages@v4/);
   assert.match(workflow, /group: pages-preview/);
   assert.doesNotMatch(workflow, /deploy_live_site/);
   assert.doesNotMatch(workflow, /branches:\s*\[prod\]/);
+  assert.doesNotMatch(workflow, /branches:\s*\[develop\]/);
   assert.doesNotMatch(workflow, /cname/i);
   assert.doesNotMatch(workflow, /dynastyticker\.com/);
+
+  const relay = read(".github/workflows/refresh-pages-preview.yml");
+  assert.match(relay, /branches:\s*\[develop\]/);
+  assert.match(relay, /preview-pages\.yml --ref main/);
+  assert.doesNotMatch(relay, /deploy_live_site/);
+  assert.doesNotMatch(relay, /actions\/deploy-pages/);
+  assert.doesNotMatch(relay, /environment:/);
+  assert.doesNotMatch(relay, /cname/i);
+  assert.doesNotMatch(relay, /dynastyticker\.com/);
 
   const dest = mkdtempSync(join(tmpdir(), "pages-preview-"));
   try {

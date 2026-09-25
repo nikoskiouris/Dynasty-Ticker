@@ -1,0 +1,25 @@
+name: Refresh Pages preview
+
+# develop cannot deploy straight to GitHub Pages.
+# Ask the main workflow to publish this tree. No Netlify call.
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: pages-preview-relay
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish develop to GitHub Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run preview-pages.yml --ref main
