@@ -42,7 +42,7 @@ export const DESK_MORE_JOBS = Object.freeze([
     page: "teams",
     room: "call",
     label: "Tank or contend",
-    blurb: "Desk call for your roster",
+    blurb: "Tank, all in, or middle",
   },
   {
     id: "mock",
@@ -69,7 +69,7 @@ export const DESK_MORE_JOBS = Object.freeze([
     id: "lab",
     page: "trades",
     room: "lab",
-    label: "Find deals",
+    label: "Shop a player",
     blurb: "Shop, target, or blockbuster",
   },
 ]);

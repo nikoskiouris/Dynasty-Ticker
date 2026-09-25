@@ -1157,6 +1157,7 @@ function renderTradesRoom(room) {
       renderTradeMatchRoom();
       break;
     case "lab":
+    case "ask":
       break;
     default:
       renderTradeLogDesk();
@@ -1339,7 +1340,7 @@ function goLeagueHome() {
     el.landingUsername?.focus();
     return;
   }
-  openRoom("league", HOME_ROOM);
+  openRoom("league", "scores");
 }
 
 function getTradeMode() {
@@ -1481,9 +1482,12 @@ function scrollActiveTabIntoView() {
 function renderSessionSnapshot() {
   document.body.classList.toggle("league-loaded", Boolean(state.leagueId));
   if (el.mobileChromeTitle) {
+    const you = getMyRoster()?.manager?.displayName || "";
     el.mobileChromeTitle.textContent = publicRanksOpen && !state.leagueId
       ? "Player ranks"
-      : (state.leagueName || "Your Sleeper league");
+      : state.leagueName
+        ? (you ? `${you} · ${state.leagueName}` : state.leagueName)
+        : "Your Sleeper league";
   }
   if (el.chromeLeagueLabel) {
     el.chromeLeagueLabel.textContent = state.leagueName || "Not loaded";
@@ -1518,8 +1522,8 @@ function renderLeagueHero() {
   if (!el.heroTitle) return;
   if (!state.leagueId || !state.league) {
     el.heroEyebrow.textContent = "Sleeper dynasty league";
-    el.heroTitle.textContent = "Your league. Pick a job.";
-    el.heroLede.textContent = "See this week, scout a roster, make a trade, or open league history.";
+    el.heroTitle.textContent = "Your Sleeper league";
+    el.heroLede.textContent = "Type a username. Scores open first.";
     if (el.leagueAvatar) el.leagueAvatar.innerHTML = brandMarkAvatarHtml();
     return;
   }
@@ -3239,7 +3243,7 @@ function renderStartRoom() {
   const deskJobs = deskJobsForLeague(state.league);
   host.innerHTML = renderDeskJobsMarkup({
     heading: me ? `What do you want to do, ${me}?` : "What do you want to do?",
-    hint: "Pick a job. Everything else stays one tap away in the tabs.",
+    hint: "Scores are already open. These jump somewhere else.",
     more: true,
     action: "go",
     jobs: deskJobs.jobs,
@@ -3331,7 +3335,7 @@ function renderPulseStrip(model, sim, profiles) {
     },
     myCall
       ? {
-        label: "Ticker call",
+        label: "Tank or contend",
         page: "teams",
         room: "call",
         value: myCall.shortLabel,
@@ -3340,8 +3344,8 @@ function renderPulseStrip(model, sim, profiles) {
       }
       : {
         label: hotTeam ? "Hot hand" : "Power leader",
-        page: "league",
-        room: hotTeam ? "standings" : "power",
+        page: hotTeam ? "league" : "teams",
+        room: hotTeam ? "standings" : "roster",
         value: hotTeam ? hotTeam.name : topPower?.managerName || "TBD",
         detail: hotTeam ? `${hotTeam.streak.length} straight wins` : topPower ? `${topPower.score}/100 power score` : "values syncing",
         tone: "rose",
@@ -3427,6 +3431,8 @@ function renderScoreboardPanel(model, sim) {
           <h2>${escapeHtml(entry.label)} ${weekStatusChip(entry)}</h2>
         </div>
         <div class="week-nav">
+          <button type="button" class="ghost-btn" data-action="go" data-page="league" data-room="standings">Standings</button>
+          <button type="button" class="ghost-btn" data-action="go" data-page="league" data-room="awards">Awards</button>
           <button type="button" class="ghost-btn" data-action="home-week" data-week="${previousWeek ?? ""}" ${previousWeek == null ? "disabled" : ""}>Prev</button>
           <span>${index + 1} / ${weeksWithGames.length}</span>
           <button type="button" class="ghost-btn" data-action="home-week" data-week="${nextWeek ?? ""}" ${nextWeek == null ? "disabled" : ""}>Next</button>
@@ -3740,12 +3746,12 @@ async function finishTeamsPagePaint(generation) {
 
 function syncLeagueFormatCopy() {
   const teamsHint = document.querySelector("#teams-tab-hint");
-  if (teamsHint) teamsHint.textContent = pageHintForLeague("teams", state.league) || "Roster, tank or contend, mock";
+  if (teamsHint) teamsHint.textContent = pageHintForLeague("teams", state.league) || "Rank, tank or contend, who stayed";
   const gridCopy = document.querySelector("#teams-grid-copy");
   if (gridCopy) {
     gridCopy.textContent = leagueTypeId(state.league) === "redraft"
       ? "Ranked by current power. Sit/start is this week. Tap a card for the scout."
-      : "Ranked by dynasty power score. Your team is outlined. Tap any card to open its scout card, desk call, and lineup below, or start a trade.";
+      : "Your team is outlined. Tap a team for the rank, the tank or contend call, and the lineup.";
   }
   const powerCopy = document.querySelector("#power-section-copy");
   if (powerCopy) {
@@ -4295,7 +4301,7 @@ function renderWindowCallBanner(call) {
   if (!call) return "";
   return `
     <button type="button" class="window-call-banner ${call.tone}" data-action="go" data-page="teams" data-room="call">
-      <span class="eyebrow">Desk call</span>
+      <span class="eyebrow">Tank or contend</span>
       <strong>${escapeHtml(call.label)}</strong>
       <small>${escapeHtml(call.headline)} · ${call.confidence}% confidence</small>
     </button>
@@ -4364,7 +4370,7 @@ function renderWindowCallDashboard() {
     ${renderLensPicker(roster)}
     <article class="window-call-hero ${call.tone}">
       <div>
-        <span class="eyebrow">${other ? `${escapeHtml(roster.manager.displayName)} · desk call` : "Desk call"}</span>
+        <span class="eyebrow">${other ? `${escapeHtml(roster.manager.displayName)} · tank or contend` : "Tank or contend"}</span>
         <h2>${escapeHtml(call.label)}</h2>
         <p>${escapeHtml(call.headline)}</p>
         <p class="muted">${escapeHtml(call.summary)}</p>
@@ -4406,10 +4412,10 @@ function renderWindowCallDashboard() {
         ${call.moves.map((move) => `<li>${escapeHtml(move)}</li>`).join("")}
       </ol>
       <div class="window-call-actions">
-        <button type="button" class="ghost-btn" data-action="go" data-page="teams" data-room="roster">Scout card</button>
+        <button type="button" class="ghost-btn" data-action="go" data-page="teams" data-room="roster">This team</button>
         ${other
           ? `<button type="button" class="ghost-btn" data-action="calc-with" data-roster-id="${roster.rosterId}">Build a trade</button>`
-          : `<button type="button" class="ghost-btn" data-action="go" data-page="trades" data-room="lab">Find deals</button>`}
+          : `<button type="button" class="ghost-btn" data-action="go" data-page="trades" data-room="lab">Shop a player</button>`}
       </div>
     </section>
     <section class="workspace-panel">
@@ -4475,7 +4481,7 @@ function renderLoyaltyDashboard() {
   if (!host) return;
   const roster = getLensRoster();
   if (!roster) {
-    host.innerHTML = `<p class="muted">Pick a manager to open DNA, charms, and tenure.</p>`;
+    host.innerHTML = `<p class="muted">Pick a manager to see who stayed.</p>`;
     return;
   }
 
@@ -4514,7 +4520,7 @@ function renderLoyaltyDashboard() {
       <div>
         <span class="eyebrow">Loyalty</span>
         <h3>${escapeHtml(roster.manager.displayName)}</h3>
-        <p class="muted">${loyaltyTierLabel(score)} desk · iron share ${iron}%${longest ? ` · ${escapeHtml(longest.name)} ${longest.consecutiveSeasons} szn` : ""}</p>
+        <p class="muted">${loyaltyTierLabel(score)} · ${iron}% still here from last year${longest ? ` · ${escapeHtml(longest.name)} ${longest.consecutiveSeasons} seasons` : ""}</p>
         ${takeover ? `<p class="muted small takeover-note">Took over from ${escapeHtml(takeover.fromName)}.</p>` : ""}
       </div>
       <div class="loyalty-score">
@@ -4526,7 +4532,7 @@ function renderLoyaltyDashboard() {
       <div class="career-chip${career.titles ? " champ" : ""}"><span>Titles</span><strong>${career.titles}</strong></div>
       <div class="career-chip"><span>Career</span><strong>${escapeHtml(career.recordLabel)}</strong></div>
       <div class="career-chip"><span>Avg finish</span><strong>${career.avgFinish == null ? "—" : career.avgFinish.toFixed(1)}</strong></div>
-      <div class="career-chip"><span>DNA keep</span><strong>${Math.round((dna.overlap || 0) * 100)}%</strong></div>
+      <div class="career-chip"><span>Kept</span><strong>${Math.round((dna.overlap || 0) * 100)}%</strong></div>
     </div>
     <div class="dna-board">
       <article class="dna-col kept">
