@@ -3796,6 +3796,26 @@ button.weekly-help-close:hover {
   appearance: none;
 }
 
+.calc-search-wrap {
+  position: relative;
+}
+
+.calc-suggest {
+  position: absolute;
+  z-index: 6;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.3rem);
+  margin-top: 0;
+  max-height: 14rem;
+  box-shadow: var(--shadow);
+}
+
+.calc-list:empty,
+.calc-suggest:empty {
+  display: none;
+}
+
 .calc-item {
   -webkit-user-select: none;
   user-select: none;

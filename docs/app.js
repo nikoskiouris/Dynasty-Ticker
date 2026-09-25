@@ -5785,13 +5785,15 @@ function renderValueCalcPane(side, label) {
       <div class="calc-selected">
         ${renderValueCalcSelectedMarkup(side)}
       </div>
-      ${renderCalcSearchInput({
-        query,
-        side,
-        input: "value-search",
-        placeholder: "Player or pick, like 2026 early 1st",
-      })}
-      <div class="calc-list" id="value-list-${side}">${renderValueCalcAssetList(side)}</div>
+      <div class="calc-search-wrap">
+        ${renderCalcSearchInput({
+          query,
+          side,
+          input: "value-search",
+          placeholder: "Player or pick, like 2026 early 1st",
+        })}
+        <div class="calc-list calc-suggest" id="value-list-${side}">${renderValueCalcAssetList(side)}</div>
+      </div>
     </section>
   `;
 }
