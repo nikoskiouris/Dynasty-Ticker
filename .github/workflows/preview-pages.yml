@@ -1,0 +1,42 @@
+name: Preview unreleased site
+
+# GitHub Pages only allows the main branch to deploy.
+# This job still publishes the develop tree. It never calls Netlify.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-preview
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Stage preview
+        run: bash scripts/stage_pages_preview.sh "$RUNNER_TEMP/pages"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload preview
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/pages
+
+      - name: Deploy preview
+        id: deployment
+        uses: actions/deploy-pages@v4
