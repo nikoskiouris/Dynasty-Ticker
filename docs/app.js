@@ -284,8 +284,6 @@ const ELITE_MAX_OUTGOING_PACKAGE_SIZE = 4;
 const ELITE_TARGET_VALUE_THRESHOLD = 7000;
 const STAR_TARGET_VALUE_THRESHOLD = 5000;
 const MIN_OUTGOING_ASSET_VALUE = 450;
-const LINEUP_EXACT_SOLVER_CANDIDATE_LIMIT = 14;
-const LINEUP_EXACT_SOLVER_SLOT_LIMIT = 11;
 const LINEUP_CANDIDATE_FLOOR = 6;
 const LINEUP_CANDIDATE_BUFFER = 2;
 const ELITE_TARGET_ANCHOR_SHARE_BASE = 0.48;
@@ -10403,7 +10401,8 @@ function buildRosterAfterTrade(roster, incomingAssets, outgoingAssets) {
 
 function evaluateRosterStrength(roster, values, league) {
   const starterSlots = getStarterRosterSlots(league);
-  const lineupResult = buildOptimalStartingLineup(roster.assets, starterSlots, values);
+  // Starter XP is dynasty price. This week's start chance belongs to sit/start only.
+  const lineupResult = buildOptimalStartingLineup(roster.assets, starterSlots, values, { thisWeek: false });
 
   return {
     lineup: lineupResult.starters,
@@ -10433,7 +10432,7 @@ function compareRosterStrength(left, right) {
   return right.totalValue - left.totalValue;
 }
 
-function buildOptimalStartingLineup(assets, starterSlots, values, { thisWeek = true } = {}) {
+function buildOptimalStartingLineup(assets, starterSlots, values, { thisWeek = false } = {}) {
   const playerEntries = assets
     .filter((asset) => asset.assetType === "player")
     .map((asset) => ({
@@ -10454,9 +10453,11 @@ function buildOptimalStartingLineup(assets, starterSlots, values, { thisWeek = t
       return getSlotFlexWeight(left.slot) - getSlotFlexWeight(right.slot);
     });
 
-  const bestPlan = (shouldUseExactLineupSolver(slotEntries, candidates)
-    && chooseBestLineup(slotEntries, candidates, (candidate, slot) => assetCanFillRosterSlot(candidate.asset, slot)))
-    || chooseGreedyLineup(slotEntries, candidates);
+  const bestPlan = chooseBestLineup(
+    slotEntries,
+    candidates,
+    (candidate, slot) => assetCanFillRosterSlot(candidate.asset, slot),
+  ) || chooseGreedyLineup(slotEntries, candidates);
   const starters = bestPlan.picks
     .map((candidateIndex, slotIndex) => ({
       slot: slotEntries[slotIndex].slot,
@@ -10477,11 +10478,6 @@ function buildOptimalStartingLineup(assets, starterSlots, values, { thisWeek = t
     benchAssets,
     benchValue: Math.round(benchAssets.reduce((sum, asset) => sum + getAssetValue(asset, values), 0)),
   };
-}
-
-function shouldUseExactLineupSolver(slotEntries, candidates) {
-  return slotEntries.length <= LINEUP_EXACT_SOLVER_SLOT_LIMIT
-    && candidates.length <= LINEUP_EXACT_SOLVER_CANDIDATE_LIMIT;
 }
 
 function chooseGreedyLineup(slotEntries, candidates) {
