@@ -19,7 +19,11 @@ jobs:
   relay:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Publish develop to GitHub Pages
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run preview-pages.yml --ref main
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run preview-pages.yml --ref main --repo "$GITHUB_REPOSITORY"
