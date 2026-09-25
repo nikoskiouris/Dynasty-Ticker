@@ -100,10 +100,10 @@ test("the desk saves a searched username only after that user's league loads", (
   const search = app.match(/async function runUserLeagueSearch\(username\) \{[\s\S]*?\n\}/)?.[0] || "";
   assert.match(search, /state\.sleeperUser = user;\s*searchedUserNoted = false;/);
   assert.doesNotMatch(search, /noteSearchedUser|recordSearchedUser/);
-  const load = app.match(/async function runLeagueLoad\(leagueId, token\) \{[\s\S]*?\n\}/)?.[0] || "";
+  const load = app.match(/async function runLeagueLoad\(leagueId, token[^)]*\) \{[\s\S]*?\n\}/)?.[0] || "";
   const opened = load.slice(0, load.indexOf("} catch (err)"));
   const failed = load.slice(load.indexOf("} catch (err)"));
-  assert.match(opened, /showAppPages\(\);\s*noteSearchedUser\(leagueId\);/);
+  assert.match(opened, /showAppPages\([^)]*\);\s*noteSearchedUser\(leagueId\);/);
   assert.doesNotMatch(failed, /noteSearchedUser/);
   assert.match(app, /searchedUserPick\(\{ sleeperUser: state\.sleeperUser, userLeagues: state\.userLeagues, leagueId \}\)/);
 });

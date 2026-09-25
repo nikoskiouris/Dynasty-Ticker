@@ -3917,6 +3917,147 @@ button.weekly-help-close:hover {
   grid-column: 1 / -1;
 }
 
+.draft-basis {
+  display: grid;
+  justify-items: end;
+  gap: 0.25rem;
+}
+
+.draft-basis-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.draft-basis-label,
+.draft-partner span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.draft-basis-line {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: 0.8rem;
+  text-align: right;
+}
+
+.draft-pane-title {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.draft-pane-title strong {
+  overflow-wrap: anywhere;
+}
+
+.draft-partner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.draft-partner select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.selected-token-price {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.selected-token.is-mismatch,
+.calc-pane.team-b .selected-token.is-mismatch {
+  background: var(--amber-soft);
+  color: var(--amber);
+  box-shadow: inset 0 0 0 1px var(--amber);
+}
+
+.draft-notes:empty,
+.draft-team:empty,
+#draft-notice:empty {
+  display: none;
+}
+
+.draft-note-list {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted-strong);
+  font-size: 0.8rem;
+}
+
+/* Browse lists open only while the box has focus and sit in the flow, so they never
+   cover the other side's box on a phone. Typed results float until picked. */
+.calc-suggest.is-browse {
+  position: static;
+  margin-top: 0.35rem;
+  max-height: 16rem;
+  box-shadow: none;
+}
+
+.calc-search-wrap:not(:focus-within) .calc-suggest.is-browse {
+  display: none;
+}
+
+.draft-notice,
+.draft-team-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-tint);
+}
+
+.draft-notice p,
+.draft-team-card p {
+  margin: 0.2rem 0 0;
+  font-size: 0.86rem;
+}
+
+.draft-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.draft-team {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.draft-team-card {
+  background: var(--panel-soft);
+}
+
+.draft-team-card.is-waiting {
+  border-style: dashed;
+}
+
+.draft-package {
+  margin: 0 0 0.4rem;
+  color: var(--muted-strong);
+  font-size: 0.82rem;
+}
+
+.trade-card-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* Trade cards ------------------------------------------------------------- */
 
 .idea-group {
@@ -6140,6 +6281,20 @@ button.weekly-help-close:hover {
   .calc-summary,
   .calc-grid {
     grid-template-columns: 1fr;
+  }
+
+  .calc-heading {
+    flex-direction: column;
+  }
+
+  .draft-basis,
+  .draft-basis-row {
+    justify-items: start;
+    justify-content: flex-start;
+  }
+
+  .draft-basis-line {
+    text-align: left;
   }
 
   .action-panel button {

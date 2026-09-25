@@ -118,7 +118,7 @@ test("desk uses the capped search and cached calculator baseline", () => {
   assert.match(app, /from "\.\/modules\/trade-packages\.js"/);
   assert.match(app, /walkPackagePairs/);
   assert.match(app, /getCachedLeagueStrengthBaseline/);
-  assert.match(app, /patchCalculatorAfterToggle/);
+  assert.match(app, /patchTradeDraft\(\[side\]\)/);
   assert.match(app, /OUTGOING_POOL_LIMIT = 14/);
   assert.match(app, /DEFAULT_MAX_OUTGOING_PACKAGE_SIZE = 3/);
   assert.match(app, /ELITE_MAX_OUTGOING_PACKAGE_SIZE = 4/);

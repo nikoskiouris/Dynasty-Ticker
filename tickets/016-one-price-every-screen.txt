@@ -1,0 +1,32 @@
+Title
+One price for a player on every screen
+
+Status
+Open
+
+Priority
+P0 — trust; needs an owner decision
+
+Area
+Values (`docs/modules/values.js` `getAssetValue`), roster sheet, Find a trade cards, power, team impact
+
+Description
+Players and the calculator show the market price. Every other league screen shows `getAssetValue`, which multiplies players by a star premium (up to 1.34x), adds crowd-vote shifts, and adds the TE premium. Jahmyr Gibbs is 10,321 on Players and in the calculator, and 13,830 on the roster sheet and in trade cards. Team impact inside the calculator uses the premium numbers too, and says so.
+
+The product conflict: the README promises "elite players still get a premium", and the trade finder relies on it, while AGENTS.md asks for one identified price. Decide before building:
+
+1. Show the market price everywhere and keep the star premium only inside package math (the calculator's uneven-package credit already does this), or
+2. Keep the premium, but label it as a separate "lineup value" wherever it appears.
+
+Crowd votes also move league tools but not the Players price. Pick one place they count, and show it.
+
+Why
+Found while fixing ticket 015. A manager who looks a player up and then opens My League sees two different numbers with no explanation.
+
+Current product
+Calculator: market price, labeled adjustments. Everywhere else: premium values with no label.
+
+Acceptance
+- The same player shows the same headline number on Players, Trade, and My League, or the second number is labeled as a different measure.
+- Recommendation fairness filters and the calculator verdict agree on a Reviewed trade within the stated adjustment.
+- No change in published market files.
