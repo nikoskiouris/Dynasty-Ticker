@@ -14,10 +14,7 @@ export const LEAGUE_TYPES = Object.freeze({
     keepsPlayers: false,
     futurePicks: false,
     horizon: "season",
-    hiddenRooms: Object.freeze([
-      { page: "teams", room: "loyalty" },
-      { page: "teams", room: "mock" },
-    ]),
+    hiddenRooms: Object.freeze([]),
   },
   keeper: {
     id: "keeper",
@@ -79,7 +76,7 @@ export function hiddenRoomsForLeague(league) {
 }
 
 export function roomsForPage(page, league) {
-  const rooms = (PAGE_ROOMS[page] || []).filter((room) => !(page === "league" && room === HOME_ROOM));
+  const rooms = PAGE_ROOMS[page] || [];
   if (!league) return rooms;
   const hidden = new Set(
     hiddenRoomsForLeague(league)
@@ -102,8 +99,8 @@ export function visibleRoomFor(page, room, league) {
 }
 
 export function roomLabelFor(page, room, league) {
-  if (leagueTypeId(league) === "redraft" && page === "teams" && room === "call") {
-    return "In it or out";
+  if (leagueTypeId(league) === "redraft" && page === "league" && room === "team") {
+    return "My team";
   }
   return ROOM_LABELS[page]?.[room] || room || "";
 }
@@ -113,28 +110,24 @@ export function roomHintFor(page, room, league) {
     if (page === "league" && room === "power") {
       return "This-year roster board. Prices are still dynasty for now";
     }
-    if (page === "teams" && room === "call") {
-      return "Playoff push, bubble, or out";
-    }
-    if (page === "teams" && room === "roster") {
-      return "Sit/start this week and scout card";
+    if (page === "league" && room === "team") {
+      return "Sit/start this week and your outlook";
     }
   }
   return ROOM_HINTS[page]?.[room] || "";
 }
 
 export function roomDescriptionFor(page, room, league) {
-  if (leagueTypeId(league) === "redraft" && page === "teams" && room === "call") {
-    return "Ticker call for this roster: push for the playoffs, sit on the bubble, or you are out. Built from playoff odds and this year's lineup.";
+  if (leagueTypeId(league) === "redraft" && page === "league" && room === "team") {
+    return "Your outlook for this season: push, bubble, or out. Then the roster.";
   }
   return "";
 }
 
 export function pageHintForLeague(page, league) {
-  if (page === "teams" && leagueTypeId(league) === "redraft") {
-    return "Roster, in it or out";
+  if (page === "league" && leagueTypeId(league) === "redraft") {
+    return "Your team, this week, and the league";
   }
-  if (page === "teams") return PAGE_HINTS.teams || "";
   return PAGE_HINTS[page] || "";
 }
 

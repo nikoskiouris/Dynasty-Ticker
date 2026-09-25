@@ -275,7 +275,7 @@ export function renderLeagueBoardMarkup(board, { applied = false, formatNumber =
       <div class="panel-heading">
         <div>
           <span class="eyebrow">League board</span>
-          <h2>Room taste, on tap</h2>
+          <h2>League estimate</h2>
         </div>
         <button
           type="button"

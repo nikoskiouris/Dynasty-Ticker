@@ -668,6 +668,9 @@ function noteSearchedUser(leagueId) {
   void recordSearchedUser(pick);
 }
 bootFromUrl();
+if (!parseShareParams(window.location.search).leagueId) {
+  setActivePage("players", { history: "silent" });
+}
 void bootLandingRather();
 void hydrateCrowdVotes().then((ok) => {
   if (!ok) return;
@@ -752,8 +755,9 @@ function showAppPages() {
   const pending = state.pendingPlace;
   state.pendingPlace = null;
   state.pendingJobId = "";
-  const page = pending && PAGE_IDS.includes(pending.page) ? pending.page : state.activePage || DEFAULT_PAGE;
+  const page = pending && PAGE_IDS.includes(pending.page) ? pending.page : "league";
   if (pending?.room) setRoom(page, pending.room);
+  else setRoom("league", "team");
   clampRoomsToLeague();
   setActivePage(page, { history: "replace", scroll: "top" });
 }
@@ -833,26 +837,24 @@ function handleRoomTabKeydown(event) {
 
 function renderActivePage() {
   pageRenderQueue.settle();
-  if (!state.leagueId) return;
   syncRoomUi();
   renderLeagueHero();
   const page = state.activePage;
   const room = getRoom(page);
-  switch (page) {
-    case "teams":
-      renderTeamsRoom(room);
-      break;
-    case "trades":
-      renderTradesRoom(room);
-      break;
-    default:
-      renderLeagueRoom(room);
+  if (page === "players") {
+    renderRankHost(el.ranksDashboard);
+    if (state.leagueId) renderPassportDesk();
+    if (!rankValuesReady() || !ratherPromptContext?.previousSeason) void ensureRankExtras();
+  } else if (page === "trades") {
+    renderTradesRoom(room);
+  } else if (state.leagueId) {
+    renderLeagueRoom(room);
   }
   renderTicker();
 }
 
 function requestActivePageRender() {
-  if (!state.leagueId) return;
+  if (!state.leagueId && state.activePage === "league") return;
   pageRenderQueue.request();
 }
 
@@ -863,23 +865,29 @@ function typingInActivePage() {
 
 function renderLeagueRoom(room) {
   switch (room) {
-    case "start":
-      renderStartRoom();
+    case "team":
+      renderTeamsPage();
+      renderWindowCallDashboard();
+      renderMockBoard();
       break;
-    case "standings":
+    case "board":
       renderStandingsRoom();
-      break;
-    case "power":
       renderPowerRoom();
+      renderTeamsGrid();
       break;
-    case "awards":
-      renderAwardsPage();
+    case "activity":
+      renderTradeLogDesk();
       break;
     case "history":
       renderLeagueHistoryRoom();
+      renderAwardsPage();
+      renderLoyaltyDashboard();
+      break;
+    case "scores":
+      renderScoresRoom();
       break;
     default:
-      renderScoresRoom();
+      renderTeamsPage();
   }
 }
 
@@ -1037,7 +1045,7 @@ function renderRankHost(host) {
 
 function renderRankSurfaces() {
   if (publicRanksOpen) renderRankHost(el.publicRanksBoard);
-  if (state.leagueId && state.activePage === "trades" && getRoom("trades") === "ranks") {
+  if (state.activePage === "players") {
     renderRankHost(el.ranksDashboard);
   }
 }
@@ -1092,14 +1100,15 @@ async function ensureRankExtras() {
     console.warn("Could not load player ranks", err);
   }
   rankBoardCache = { key: "", rows: [] };
-  if (publicRanksOpen || (state.leagueId && state.activePage === "trades" && getRoom("trades") === "ranks")) {
+  if (publicRanksOpen || state.activePage === "players") {
     renderRankSurfaces();
   }
 }
 
 function openPublicRanks({ history = "push" } = {}) {
-  if (state.leagueId) {
-    openRoom("trades", "ranks");
+  if (state.leagueId || document.querySelector("#players-page")) {
+    openRoom("players", "ranks", { history });
+    document.querySelector("#landing")?.classList.add("hidden");
     return;
   }
   const already = publicRanksOpen;
@@ -1142,26 +1151,11 @@ function closePublicRanks({ fromHistory = false } = {}) {
 
 function renderTradesRoom(room) {
   syncTradeModeUi();
-  switch (room) {
-    case "calculator":
-      renderCalculator();
-      break;
-    case "value":
-      renderValueCalculator();
-      break;
-    case "ranks":
-      renderRankHost(el.ranksDashboard);
-      if (!rankValuesReady() || !ratherPromptContext?.previousSeason) void ensureRankExtras();
-      break;
-    case "match":
-      renderTradeMatchRoom();
-      break;
-    case "lab":
-    case "ask":
-      break;
-    default:
-      renderTradeLogDesk();
+  if (room === "find") {
+    renderTradeMatchRoom();
+    return;
   }
+  renderUnifiedCalculator();
 }
 
 function renderHistoryRoom() {
@@ -1340,7 +1334,7 @@ function goLeagueHome() {
     el.landingUsername?.focus();
     return;
   }
-  openRoom("league", "scores");
+  openRoom("league", "team");
 }
 
 function getTradeMode() {
@@ -1606,7 +1600,7 @@ function renderRoomNav(page, room) {
 function syncTradeModeUi() {
   const room = getRoom("trades");
   const mode = getTradeMode();
-  const isLab = room === "lab" && state.activePage === "trades";
+  const isLab = room === "find" && state.activePage === "trades";
   const searchEnabled = isLab && mode !== "surprise";
   const selectedAsset = getCurrentPrimaryAsset();
   const copyByMode = {
@@ -2992,8 +2986,8 @@ function renderPowerDashboard() {
       </div>
     </div>
     <div class="power-stat-grid">
-      ${renderPowerStat("Starter XP", formatNumber(profile.metrics.starterValue), profile.componentLabels.starter)}
-      ${renderPowerStat("Bench XP", formatNumber(profile.metrics.benchValue), profile.componentLabels.bench)}
+      ${renderPowerStat("Starter value", formatNumber(profile.metrics.starterValue), profile.componentLabels.starter)}
+      ${renderPowerStat("Bench value", formatNumber(profile.metrics.benchValue), profile.componentLabels.bench)}
       ${showPicks ? renderPowerStat("Pick Vault", formatNumber(profile.assetSummary.pickValue), `${profile.assetSummary.firstRoundPickCount} firsts`) : ""}
       ${renderPowerStat("Timeline", profile.assetSummary.averageAgeLabel, profile.componentLabels.timeline)}
     </div>
@@ -3268,11 +3262,8 @@ function renderStandingsRoom() {
   const model = getSeasonModel();
   const sim = getSimulation(model);
   el.standingsDashboard.innerHTML = `
-    <div class="home-two-col">
-      ${renderStandingsPanel(model, sim)}
-      ${renderPlayoffOddsPanel(model, sim)}
-    </div>
-    ${renderLuckIndexPanel(model)}
+    ${renderStandingsPanel(model, sim)}
+    <details class="workspace-panel"><summary>More league numbers</summary>${renderPlayoffOddsPanel(model, sim)}${renderLuckIndexPanel(model)}</details>
   `;
 }
 
@@ -3336,7 +3327,7 @@ function renderPulseStrip(model, sim, profiles) {
     myCall
       ? {
         label: "Tank or contend",
-        page: "teams",
+        page: "league",
         room: "call",
         value: myCall.shortLabel,
         detail: myCall.headline,
@@ -3344,7 +3335,7 @@ function renderPulseStrip(model, sim, profiles) {
       }
       : {
         label: hotTeam ? "Hot hand" : "Power leader",
-        page: hotTeam ? "league" : "teams",
+        page: "league",
         room: hotTeam ? "standings" : "roster",
         value: hotTeam ? hotTeam.name : topPower?.managerName || "TBD",
         detail: hotTeam ? `${hotTeam.streak.length} straight wins` : topPower ? `${topPower.score}/100 power score` : "values syncing",
@@ -3462,7 +3453,7 @@ function renderWeekAnglesPanel(model, sim) {
           <span class="eyebrow">Upcoming week</span>
           <h2>${escapeHtml(angles.label || "This week")} · dark horses</h2>
         </div>
-        <p class="section-copy">Win% from the scoring-profile sim (empirical-Bayes mean/std, Gaussian matchup CDF, Monte Carlo playoff bubble). Not a KTC roster check.</p>
+        <p class="section-copy">Playoff odds from this season's scores. Open details if you want the model.</p>
       </div>
       <div class="award-grid week-angles-grid">
         ${angles.cards.map(renderAwardCard).join("")}
@@ -3724,7 +3715,7 @@ function renderTeamsPage() {
 }
 
 function teamsRosterVisible() {
-  return state.activePage === "teams" && getRoom("teams") === "roster";
+  return state.activePage === "league" && getRoom("league") === "team";
 }
 
 async function finishTeamsPagePaint(generation) {
@@ -3746,7 +3737,7 @@ async function finishTeamsPagePaint(generation) {
 
 function syncLeagueFormatCopy() {
   const teamsHint = document.querySelector("#teams-tab-hint");
-  if (teamsHint) teamsHint.textContent = pageHintForLeague("teams", state.league) || "Rank, tank or contend, who stayed";
+  if (teamsHint) teamsHint.textContent = pageHintForLeague("league", state.league) || "Your team, this week, and the league";
   const gridCopy = document.querySelector("#teams-grid-copy");
   if (gridCopy) {
     gridCopy.textContent = leagueTypeId(state.league) === "redraft"
@@ -3765,7 +3756,7 @@ function renderMockBoard() {
   const host = el.mockDashboard;
   if (!host) return;
   void ensureMockDraftsLoaded().then(() => {
-    if (getRoom("teams") !== "mock") return;
+    if (getRoom("league") !== "team") return;
     paintMockBoard();
   });
   paintMockBoard();
@@ -3846,9 +3837,9 @@ function openMockBoardAt(round, slot) {
   const n = Number(slot);
   if (!Number.isFinite(rnd) || !Number.isFinite(n) || rnd < 1 || n < 1) return;
   state.mockFocus = { round: rnd, slot: n };
-  const onMock = state.activePage === "teams" && getRoom("teams") === "mock";
+  const onMock = state.activePage === "league" && getRoom("league") === "team";
   if (onMock) paintMockBoard();
-  else openRoom("teams", "mock", { history: "push", scroll: "preserve" });
+  else openRoom("league", "team", { history: "push", scroll: "preserve" });
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => revealMockFocus());
   });
@@ -4300,7 +4291,7 @@ function renderLensPicker(roster, { label = "Viewing", extra = "" } = {}) {
 function renderWindowCallBanner(call) {
   if (!call) return "";
   return `
-    <button type="button" class="window-call-banner ${call.tone}" data-action="go" data-page="teams" data-room="call">
+    <button type="button" class="window-call-banner ${call.tone}" data-action="go" data-page="league" data-room="team">
       <span class="eyebrow">Tank or contend</span>
       <strong>${escapeHtml(call.label)}</strong>
       <small>${escapeHtml(call.headline)} · ${call.confidence}% confidence</small>
@@ -4412,7 +4403,7 @@ function renderWindowCallDashboard() {
         ${call.moves.map((move) => `<li>${escapeHtml(move)}</li>`).join("")}
       </ol>
       <div class="window-call-actions">
-        <button type="button" class="ghost-btn" data-action="go" data-page="teams" data-room="roster">This team</button>
+        <button type="button" class="ghost-btn" data-action="go" data-page="league" data-room="team">This team</button>
         ${other
           ? `<button type="button" class="ghost-btn" data-action="calc-with" data-roster-id="${roster.rosterId}">Build a trade</button>`
           : `<button type="button" class="ghost-btn" data-action="go" data-page="trades" data-room="lab">Shop a player</button>`}
@@ -4902,12 +4893,12 @@ async function ensureWeeklyValueContext() {
       state.weeklyValue.loaded = true;
       state.weeklyValue.error = "";
       rebuildWeeklyValueContext();
-      if (state.activePage === "teams") renderRosterSheet();
+      if (state.activePage === "league" && getRoom("league") === "team") renderRosterSheet();
       return state.weeklyValue;
     } catch (err) {
       state.weeklyValue.error = err?.message || "Could not load weekly stats";
       state.weeklyValue.loaded = true;
-      if (state.activePage === "teams") renderRosterSheet();
+      if (state.activePage === "league" && getRoom("league") === "team") renderRosterSheet();
       return state.weeklyValue;
     } finally {
       state.weeklyValue.loading = false;
@@ -5347,11 +5338,23 @@ function calcAssetsFor(roster, side) {
   return roster ? roster.assets.filter((asset) => ids.has(asset.assetId)) : [];
 }
 
+function blankCalcHost() {
+  return el.calculatorShell || el.valueCalculatorShell;
+}
+
+function renderUnifiedCalculator() {
+  if (!getMyRoster()) {
+    renderValueCalculator();
+    return;
+  }
+  renderCalculator();
+}
+
 function renderCalculator() {
   if (!el.calculatorShell) return;
   const me = getMyRoster();
   if (!me) {
-    el.calculatorShell.innerHTML = `<p class="muted">Choose your team in the rail to open the calculator.</p>`;
+    renderUnifiedCalculator();
     return;
   }
   const partner = getCalcPartnerRoster();
@@ -5528,45 +5531,51 @@ function renderCalculatorVerdict(me, partner) {
     `;
   }
   const idea = buildCalculatorIdea(me, partner, myAssets, theirAssets);
-  const gap = idea.theirAdjustedValue - idea.myAdjustedValue;
-  const pct = idea.pctDiff;
-  let verdictLabel;
-  let verdictClass;
-  if (pct <= 5) {
-    verdictLabel = "Dead even";
-    verdictClass = "good";
-  } else if (pct <= 12) {
-    verdictLabel = gap > 0 ? "Fair, leans your way" : `Fair, leans ${partner.manager.displayName}`;
-    verdictClass = "good";
-  } else if (pct <= 22) {
-    verdictLabel = gap > 0 ? "Favors you" : `Favors ${partner.manager.displayName}`;
-    verdictClass = gap > 0 ? "good" : "bad";
-  } else {
-    verdictLabel = gap > 0 ? "Lopsided in your favor" : `Lopsided for ${partner.manager.displayName}`;
-    verdictClass = gap > 0 ? "good" : "bad";
-  }
+  const rawGive = Math.round(myAssets.reduce((sum, asset) => sum + getAssetValue(asset, state.values), 0));
+  const rawGet = Math.round(theirAssets.reduce((sum, asset) => sum + getAssetValue(asset, state.values), 0));
+  const shared = valueCalcVerdict(rawGive, rawGet);
+  const gap = shared.gap;
+  const pct = shared.pct;
+  const verdictLabel = shared.label === "Favors Get"
+    ? "Favors you"
+    : shared.label === "Favors Give"
+      ? `Favors ${partner.manager.displayName}`
+      : shared.label === "Lopsided for Get"
+        ? "Lopsided in your favor"
+        : shared.label === "Lopsided for Give"
+          ? `Lopsided for ${partner.manager.displayName}`
+          : shared.label === "Fair, leans Get"
+            ? "Fair, leans your way"
+            : shared.label === "Fair, leans Give"
+              ? `Fair, leans ${partner.manager.displayName}`
+              : shared.label;
+  const verdictClass = shared.tone;
   const evenUp = Math.abs(gap) >= 150 ? findClosestValuationPick(Math.abs(gap), state.values, state.valueNameMap) : null;
   const evenSide = gap > 0 ? "You" : partner.manager.displayName;
-  const maxSide = Math.max(idea.myAdjustedValue, idea.theirAdjustedValue, 1);
+  const maxSide = Math.max(rawGive, rawGet, 1);
   const offerText = buildOfferText(me, partner, myAssets, theirAssets, idea, verdictLabel);
   return `
     <section class="calc-summary ${verdictClass}">
       <div class="calc-summary-main">
         <span class="analytics-kicker">Ticker verdict</span>
         <h3>${escapeHtml(verdictLabel)}</h3>
-        <p>Adjusted value: you send ${formatNumber(idea.myAdjustedValue)}, you receive ${formatNumber(idea.theirAdjustedValue)} (${pct}% apart). Consolidation premium ${idea.packageAdjustment ? `${formatNumber(idea.packageAdjustment)} on ${idea.packageAdjustmentSide === "my" ? "your" : "their"} side` : "not needed"}.</p>
+        <p>You give ${formatNumber(rawGive)}. You get ${formatNumber(rawGet)}. ${pct}% apart.</p>
+        <details class="calc-method">
+          <summary>How this number works</summary>
+          <p>Headline uses the same market total as the public calculator. Package adjustment ${idea.packageAdjustment ? `adds ${formatNumber(idea.packageAdjustment)} on the ${idea.packageAdjustmentSide === "my" ? "give" : "get"} side` : "does not change the headline"}.</p>
+        </details>
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenSide)} add${evenSide === "You" ? "" : "s"} roughly ${formatNumber(Math.round(Math.abs(gap)))} in value, about a ${escapeHtml(evenUp.name)} (${formatNumber(evenUp.value)}).</p>` : ""}
       </div>
       <div class="calc-bars">
         <div class="calc-bar team-a">
           <span>You send</span>
-          <div class="meter-track"><span style="width:${Math.round(idea.myAdjustedValue / maxSide * 100)}%"></span></div>
-          <strong>${formatNumber(idea.myAdjustedValue)}</strong>
+          <div class="meter-track"><span style="width:${Math.round(rawGive / maxSide * 100)}%"></span></div>
+          <strong>${formatNumber(rawGive)}</strong>
         </div>
         <div class="calc-bar team-b">
           <span>You receive</span>
-          <div class="meter-track"><span style="width:${Math.round(idea.theirAdjustedValue / maxSide * 100)}%"></span></div>
-          <strong>${formatNumber(idea.theirAdjustedValue)}</strong>
+          <div class="meter-track"><span style="width:${Math.round(rawGet / maxSide * 100)}%"></span></div>
+          <strong>${formatNumber(rawGet)}</strong>
         </div>
       </div>
       <div class="calc-actions">
@@ -5642,6 +5651,23 @@ function openCalculatorWith(rosterId) {
   openRoom("trades", "calculator");
 }
 
+function openReviewedTrade(encoded) {
+  let payload = null;
+  try {
+    payload = JSON.parse(decodeURIComponent(String(encoded || "")));
+  } catch {
+    payload = null;
+  }
+  if (!payload) return;
+  const give = Array.isArray(payload.give) ? payload.give : [];
+  const get = Array.isArray(payload.get) ? payload.get : [];
+  if (payload.partnerId) state.calc.partnerRosterId = Number(payload.partnerId);
+  state.calc.myAssetIds = new Set(give);
+  state.calc.theirAssetIds = new Set(get);
+  invalidateResults();
+  openRoom("trades", "calculator");
+}
+
 function addValueCalcAsset(side, assetId, name, value, kind) {
   if (!assetId) return false;
   const normalizedSide = side === "right" ? "right" : "left";
@@ -5657,7 +5683,7 @@ function addValueCalcAsset(side, assetId, name, value, kind) {
 }
 
 function patchValueCalculator(side) {
-  const host = el.valueCalculatorShell;
+  const host = blankCalcHost();
   if (!host?.querySelector(".calc-grid")) {
     renderValueCalculator();
     return;
@@ -5694,7 +5720,7 @@ function settleCalcSearch(kind, side) {
 }
 
 function renderValueCalculator() {
-  const host = el.valueCalculatorShell;
+  const host = blankCalcHost();
   if (!host) return;
   if (Object.keys(state.values).length === 0) {
     host.innerHTML = `<p class="muted">Values are still loading. The blank calculator uses market prices, not a specific roster.</p>`;
@@ -5710,10 +5736,10 @@ function renderValueCalculator() {
     })}
     <div class="panel-heading calc-heading">
       <div>
-        <span class="eyebrow">Trade Calculator</span>
-        <h2>Any assets</h2>
+        <span class="eyebrow">Trade</span>
+        <h2>You give / You get</h2>
       </div>
-      <p class="section-copy">Search any player or pick, same box. Not tied to two rosters.</p>
+      <p class="section-copy">Search any player or pick. Connect a league when you want your roster and team impact.</p>
     </div>
     <div class="calc-grid">
       ${renderValueCalcPane("left", "Give")}
@@ -5734,9 +5760,7 @@ function renderValueCalcTotalMarkup(side) {
 
 function renderValueCalcSelectedMarkup(side) {
   const selected = state.valueCalc[side] || [];
-  if (!selected.length) {
-    return `<span class="muted small">Search a player or pick, like 2026 early 1st.</span>`;
-  }
+  if (!selected.length) return "";
   return selected.map((item) => `
     <button type="button" class="selected-token" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" title="Remove">
       ${renderSelectedTokenLabel(item)}
@@ -5761,22 +5785,22 @@ function renderValueCalcPane(side, label) {
       <div class="calc-selected">
         ${renderValueCalcSelectedMarkup(side)}
       </div>
-      ${renderCalcSearchInput({
-        query,
-        side,
-        input: "value-search",
-        placeholder: "Search players and picks",
-      })}
-      <div class="calc-list" id="value-list-${side}">${renderValueCalcAssetList(side)}</div>
+      <div class="calc-search-wrap">
+        ${renderCalcSearchInput({
+          query,
+          side,
+          input: "value-search",
+          placeholder: "Player or pick, like 2026 early 1st",
+        })}
+        <div class="calc-list calc-suggest" id="value-list-${side}">${renderValueCalcAssetList(side)}</div>
+      </div>
     </section>
   `;
 }
 
 function renderValueCalcAssetList(side) {
   const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
-  if (!query.trim()) {
-    return `<div class="player-item muted">Type a player or pick, like 2026 early 1st.</div>`;
-  }
+  if (!query.trim()) return "";
   const assets = listValueCalcAssets(
     state.values,
     withPlayerDirectoryNames(state.valueNameMap, state.players),
@@ -5832,7 +5856,7 @@ function renderValueCalculatorVerdict(leftTotal, rightTotal) {
 }
 
 function refreshValueCalculatorLists(side) {
-  const host = el.valueCalculatorShell;
+  const host = blankCalcHost();
   if (!host?.querySelector(".calc-grid")) {
     renderValueCalculator();
     return;
@@ -5850,9 +5874,9 @@ function openTradeFile(tradeId, managerKey) {
   prepareDeskPush();
   state.selectedTradeId = id;
   state.selectedTradeManagerKey = String(managerKey || "");
-  setRoom("trades", "log");
-  if (state.activePage !== "trades") {
-    setActivePage("trades", { history: "push", scroll: "top", prepared: true });
+  setRoom("league", "activity");
+  if (state.activePage !== "league") {
+    setActivePage("league", { history: "push", scroll: "top", prepared: true });
     return;
   }
   renderActivePage();
@@ -5867,7 +5891,7 @@ function openTradeFile(tradeId, managerKey) {
 
 function renderTicker() {
   if (!el.ticker || !el.tickerTrack) return;
-  if (!state.leagueId || !state.league) {
+  if (!state.leagueId || !state.league || state.activePage === "trades") {
     tickerController?.destroy();
     tickerController = null;
     tickerFingerprint = "";
@@ -5987,7 +6011,7 @@ function handleWorkspaceClick(event) {
       break;
     case "rank-calc":
       addValueCalcAsset("left", target.dataset.assetId, target.dataset.name, target.dataset.value, target.dataset.kind);
-      openRoom("trades", "value");
+      openRoom("trades", "calculator");
       break;
     case "open-mock-pick": {
       openMockBoardAt(target.dataset.mockRound, target.dataset.mockSlot);
@@ -6017,12 +6041,16 @@ function handleWorkspaceClick(event) {
     }
     case "set-lens-teams": {
       setLensRoster(target.dataset.rosterId);
-      openRoom("teams", "roster");
+      openRoom("league", "team");
       el.powerSection?.scrollIntoView({ behavior: "smooth", block: "start" });
       break;
     }
     case "calc-with": {
       openCalculatorWith(target.dataset.rosterId);
+      break;
+    }
+    case "review-trade": {
+      openReviewedTrade(target.dataset.trade);
       break;
     }
     case "open-player": {
@@ -9870,11 +9898,19 @@ function renderMatchTradeCard(idea) {
     afterRank: idea.impactAnalysis?.mySide?.after?.rank,
     totalTeams: idea.impactAnalysis?.mySide?.before?.totalTeams
       || idea.impactAnalysis?.mySide?.after?.totalTeams,
+    benefit: idea.pitch || idea.summary || "",
   });
+  const payload = encodeURIComponent(JSON.stringify({
+    partnerId: idea.theirRosterId || idea.partnerRosterId || idea.counterpartyRosterId || "",
+    give: (idea.myAssets || []).map((asset) => asset.assetId),
+    get: (idea.theirAssets || []).map((asset) => asset.assetId),
+  }));
   return `
     <article class="match-trade-card">
       <p class="match-trade-offer">${escapeHtml(copy.offer)}</p>
+      ${copy.why ? `<p class="match-trade-rank">${escapeHtml(copy.why)}</p>` : ""}
       ${copy.rank ? `<p class="match-trade-rank">${escapeHtml(copy.rank)}</p>` : ""}
+      <button type="button" class="ghost-btn" data-action="review-trade" data-trade="${payload}">Review trade</button>
     </article>
   `;
 }
@@ -14758,7 +14794,7 @@ function renderPickVaultIntro(picks = []) {
   if (!season) return "";
   const hasOverlay = picks.some((asset) => asset.raw?.mockProspectName);
   const note = hasOverlay ? `${formatMockSourceLine(state.mockDrafts)} ` : "";
-  return `<p class="muted small pick-mock-note">${escapeHtml(note)}<button type="button" class="inline-link" data-action="go" data-page="teams" data-room="mock">Full board</button></p>`;
+  return `<p class="muted small pick-mock-note">${escapeHtml(note)}<button type="button" class="inline-link" data-action="go" data-page="league" data-room="team">Full board</button></p>`;
 }
 
 function renderPickVaultRow(asset, values) {

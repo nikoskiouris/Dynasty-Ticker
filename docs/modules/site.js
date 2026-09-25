@@ -13,7 +13,7 @@ export const STORAGE_NOTICE_KEY = "dynasty_ticker_storage_notice";
 
 export const DEFAULT_TITLE = "Dynasty Ticker — Your Sleeper dynasty league";
 export const DEFAULT_DESCRIPTION =
-  "Your Sleeper dynasty league, live. Scores, rosters, trades, and history in one desk.";
+  "See what your players are worth, check a trade, and find your team's next move.";
 
 export function tickerDurationSeconds(itemCount) {
   const count = Math.max(0, Number(itemCount) || 0);
@@ -21,35 +21,34 @@ export function tickerDurationSeconds(itemCount) {
 }
 
 export const PAGE_META = {
+  players: {
+    title: PAGE_LABELS.players,
+    description: "Search a player and see what he is worth. Add him to a trade.",
+  },
   league: {
     title: PAGE_LABELS.league,
-    description: "Live scores, standings, playoff odds, power rankings, weekly awards, and league history.",
-  },
-  teams: {
-    title: PAGE_LABELS.teams,
-    description: "Scout any roster: sit/start this week, tank-or-contend call, bench, pick vault, player passport, and the 2027 mock board.",
+    description: "Your outlook, this week's scores, standings, and league history.",
   },
   trades: {
     title: PAGE_LABELS.trades,
-    description: "Find a partner who has your holes, use the calculator, or shop a name.",
+    description: "One calculator: you give and you get. Find a deal that opens in that same calculator.",
   },
 };
 
 const ROOM_DESCRIPTIONS = {
-  league: {
-    history: "Last season's champion, the title hall, and a short record book.",
+  players: {
+    ranks: "Player and pick values. Open one, then add him to a trade.",
   },
-  teams: {
-    roster: "Sit/start this week for this roster. League slots, close-call reasons, bye and missing opponent sit.",
-    mock: "Dynasty Nerds Superflex 2-round rookie mock. 1sts and 2nds get names; 3rds stay pick labels.",
-    call: "Ticker call for this roster: tank, go all in, or stay in the middle. Built from playoff odds, lineup rank, age, and pick capital.",
-    passports: "Player passport: who owned each player, season by season.",
+  league: {
+    team: "Your outlook, why, and the roster. The rest of the league is one step away.",
+    scores: "This week's matchups.",
+    board: "One league table: record, playoff odds, and roster rank.",
+    activity: "Past trades for your team and the league.",
+    history: "Last season's champion, titles, records, and who stayed.",
   },
   trades: {
-    value: "Blank trade calculator: search any player or pick and build both sides.",
-    ranks: "Player and pick values from Sleeper trades mixed with the crowd. Open one to see the pick he equals.",
-    calculator: "Two-team calculator: pick a partner and tap assets on both sides.",
-    match: "Match with teams that have the positions you need, want what you can spare, or are tanking while you contend.",
+    calculator: "You give and you get. Same verdict with or without a league. A league adds roster picks and team impact.",
+    find: "Shop one of yours, target one of theirs, or find a partner. Review trade opens the calculator.",
   },
 };
 
