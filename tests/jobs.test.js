@@ -27,17 +27,17 @@ test("desk jobs map to real rooms and stay unique", () => {
     assert.ok(job.blurb);
   }
   assert.equal(DESK_JOBS.length, 4);
-  assert.equal(jobById("week")?.room, "scores");
-  assert.equal(jobById("trade")?.room, "match");
-  assert.equal(jobById("match")?.page, "trades");
+  assert.equal(jobById("players")?.room, "ranks");
+  assert.equal(jobById("trade")?.room, "calculator");
+  assert.equal(jobById("find")?.page, "trades");
   assert.equal(jobById("missing"), null);
   assert.equal(jobById("lab", { includeMore: false }), null);
 });
 
 test("landing hint names the chosen job", () => {
   assert.equal(landingSearchHint(null), DEFAULT_LANDING_HINT);
-  assert.match(landingSearchHint(jobById("week")), /this week's scores/);
-  assert.match(landingSearchHint(jobById("trade")), /make a trade/);
+  assert.match(landingSearchHint(jobById("players")), /look up a player/);
+  assert.match(landingSearchHint(jobById("trade")), /check a trade/);
 });
 
 test("job markup is buttons that deep-link into rooms", () => {
@@ -50,34 +50,32 @@ test("job markup is buttons that deep-link into rooms", () => {
   });
   assert.match(html, /What do you want to do\?/);
   assert.match(html, /data-action="go"/);
-  assert.match(html, /data-job="week"[^>]*data-page="league"[^>]*data-room="scores"/);
+  assert.match(html, /data-job="players"[^>]*data-page="players"[^>]*data-room="ranks"/);
   assert.match(html, /desk-job active[^>]*data-job="trade"/);
   assert.match(html, /Or jump to a tool/);
-  assert.match(html, /Find a partner/);
-  assert.match(html, /Tank or contend/);
-  assert.match(html, /Rookie mock/);
+  assert.match(html, /This week/);
+  assert.match(html, /History/);
   assert.equal(renderJobButton(null), "");
 });
 
 test("redraft desk jobs drop mock and rename the call", () => {
   const { jobs, more } = deskJobsForLeague({ settings: { type: 0 } });
-  assert.equal(jobs.find((job) => job.id === "team")?.blurb, "Sit/start, in it or out");
-  assert.equal(more.find((job) => job.id === "call")?.label, "In it or out");
-  assert.equal(more.some((job) => job.id === "mock"), false);
-  assert.equal(more.some((job) => job.id === "call"), true);
+  assert.equal(jobs.find((job) => job.id === "team")?.blurb, "This week and your outlook");
+  assert.equal(more.some((job) => job.id === "week"), true);
   const dynasty = deskJobsForLeague({ settings: { type: 2 } });
-  assert.equal(dynasty.more.some((job) => job.id === "mock"), true);
+  assert.equal(dynasty.jobs.some((job) => job.id === "team"), true);
 });
 
 test("landing HTML leads with the username and skips the job quiz", () => {
   const index = readFileSync(join(docs, "index.html"), "utf8");
-  assert.match(index, />Your dynasty league, live\.</);
+  assert.match(index, />See a value\. Check a trade\. Then your team\.</);
   assert.doesNotMatch(index, />What do you want to do\?</);
   assert.doesNotMatch(index, /id="landing-jobs"/);
   assert.match(index, /id="landing-job-hint"/);
   assert.match(index, /id="landing-league-picker"/);
   assert.match(index, /id="start-dashboard"/);
-  assert.match(index, /data-room-panel="start"/);
-  assert.match(index, /Got an offer\?/);
+  assert.match(index, /data-room-panel="team"/);
+  assert.match(index, /Check an offer or find a deal/);
+  assert.doesNotMatch(index, /Got an offer\?/);
   assert.doesNotMatch(index, /id="landing-features"/);
 });

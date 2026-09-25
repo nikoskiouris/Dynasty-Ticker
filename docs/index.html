@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Dynasty Ticker — Your Sleeper dynasty league</title>
-    <meta name="description" content="Your Sleeper dynasty league, live. Scores, rosters, trades, and history in one desk." />
+    <meta name="description" content="See what your players are worth, check a trade, and find your team's next move." />
     <meta name="theme-color" content="#eef3f2" />
     <script>
       try {
@@ -17,7 +17,7 @@
       } catch (err) {}
     </script>
     <meta property="og:title" content="Dynasty Ticker — Your Sleeper dynasty league" />
-    <meta property="og:description" content="Your Sleeper dynasty league, live. Scores, rosters, trades, and history in one desk." />
+    <meta property="og:description" content="See what your players are worth, check a trade, and find your team's next move." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://dynastyticker.com/" />
     <meta property="og:image" content="https://dynastyticker.com/og-image.jpg" />
@@ -26,7 +26,7 @@
     <meta property="og:image:alt" content="Dynasty Ticker: your league on a live ticker" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Dynasty Ticker — Your Sleeper dynasty league" />
-    <meta name="twitter:description" content="Your Sleeper dynasty league, live. Scores, rosters, trades, and history in one desk." />
+    <meta name="twitter:description" content="See what your players are worth, check a trade, and find your team's next move." />
     <meta name="twitter:image" content="https://dynastyticker.com/og-image.jpg" />
     <link rel="canonical" href="https://dynastyticker.com/" />
     <link rel="icon" href="./favicon.ico" sizes="any" />
@@ -200,19 +200,19 @@
           </dl>
         </header>
 
-        <div class="desk-nav hidden" id="desk-nav">
-          <nav class="workspace-tabs" id="page-tabs" role="tablist" aria-label="League pages">
-            <button id="league-tab" class="page-tab active" type="button" role="tab" aria-selected="true" aria-controls="league-page" tabindex="0" data-page="league">
-              <span class="tab-copy"><strong>Week</strong><small>Scores, standings, awards</small></span>
-            </button>
-            <button id="teams-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="teams-page" tabindex="-1" data-page="teams">
-              <span class="tab-copy"><strong>My team</strong><small id="teams-tab-hint">Rank, tank or contend, who stayed</small></span>
+        <div class="desk-nav" id="desk-nav">
+          <nav class="workspace-tabs" id="page-tabs" role="tablist" aria-label="What you can do">
+            <button id="players-tab" class="page-tab active" type="button" role="tab" aria-selected="true" aria-controls="players-page" tabindex="0" data-page="players">
+              <span class="tab-copy"><strong>Players</strong><small>What is he worth?</small></span>
             </button>
             <button id="trades-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades">
-              <span class="tab-copy"><strong>Trade</strong><small>Check a deal, shop a player, find a partner</small></span>
+              <span class="tab-copy"><strong>Trade</strong><small>Check an offer or find a deal</small></span>
+            </button>
+            <button id="league-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="league-page" tabindex="-1" data-page="league">
+              <span class="tab-copy"><strong>My League</strong><small id="teams-tab-hint">Your team, this week, the league</small></span>
             </button>
           </nav>
-          <nav class="room-nav" id="room-nav" role="tablist" aria-label="Rooms on this page"></nav>
+          <nav class="room-nav" id="room-nav" role="tablist" aria-label="On this page"></nav>
         </div>
 
         <div id="ticker" class="ticker hidden" aria-label="League ticker" aria-pressed="false" title="Tap to pause or resume. Drag to scrub.">
@@ -229,8 +229,8 @@
                 <img class="brand-wordmark brand-wordmark--light" src="./brand/wordmark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
                 <img class="brand-wordmark brand-wordmark--dark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" aria-hidden="true" />
               </span>
-              <h2>Your dynasty league, live.</h2>
-              <p class="landing-lede">Type your Sleeper username. Then pick the league.</p>
+              <h2>See a value. Check a trade. Then your team.</h2>
+              <p class="landing-lede">Players and the calculator work now. Connect Sleeper when you want your roster, partners, and team impact.</p>
               <form id="landing-username-form" class="landing-search" novalidate>
                 <label for="landing-username">Sleeper username</label>
                 <div class="landing-search-row">
@@ -250,8 +250,8 @@
                 </div>
                 <p id="landing-username-error" class="field-error" hidden role="alert"></p>
               </form>
-              <p id="landing-job-hint" class="muted landing-job-hint">Type your Sleeper username, then pick a league.</p>
-              <button type="button" id="open-public-ranks" class="ghost-btn landing-ranks-btn" data-action="open-public-ranks">Check player values</button>
+              <p id="landing-job-hint" class="muted landing-job-hint">Type your Sleeper username to connect your roster, trade partners, and team impact.</p>
+              <button type="button" id="open-public-ranks" class="ghost-btn landing-ranks-btn" data-action="open-public-ranks">Look up a player</button>
               <div id="landing-league-picker" class="league-picker landing-league-picker hidden" data-league-picker></div>
               <p id="landing-loading" class="landing-loading hidden" aria-live="polite">
                 <span class="status-loader" aria-hidden="true"></span>
@@ -274,198 +274,80 @@
           </div>
         </section>
 
-        <div id="league-page" class="workspace-page app-page hidden" role="tabpanel" aria-labelledby="league-tab">
-          <div class="room" data-room-panel="start">
-            <div id="start-dashboard" class="dashboard start-dashboard"></div>
-          </div>
-          <div class="room hidden" data-room-panel="scores">
-            <div id="scores-dashboard" class="dashboard"></div>
+        <div id="players-page" class="workspace-page app-page" role="tabpanel" aria-labelledby="players-tab">
+          <div class="room" data-room-panel="ranks">
+            <section class="workspace-panel" id="ranks-section">
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow">Players</span>
+                  <h2>What is he worth?</h2>
+                </div>
+                <p class="section-copy">Search a name. Add him to a trade when you want a verdict.</p>
+              </div>
+              <div id="ranks-dashboard"></div>
+            </section>
             <div id="landing-rather" class="landing-rather">
               <div class="rather-panel landing-rather-pending">
                 <h2 id="rather-title">Who would you rather have?</h2>
                 <p class="rather-format" id="rather-format">PPR 12-man Superflex</p>
-                <p class="rather-format-detail" id="rather-format-detail">Ticker Superflex ranks · full PPR scoring · 12-man league · Superflex QB</p>
+                <p class="rather-format-detail" id="rather-format-detail">Optional. Vote after you have a value.</p>
                 <p class="muted">Loading a close matchup…</p>
               </div>
             </div>
-          </div>
-          <div class="room hidden" data-room-panel="standings">
-            <div id="standings-dashboard" class="dashboard"></div>
-          </div>
-          <div class="room hidden" data-room-panel="power">
-            <div id="power-board-dashboard" class="dashboard"></div>
-          </div>
-          <div class="room hidden" data-room-panel="awards">
-            <div id="awards-dashboard" class="dashboard"></div>
-          </div>
-          <div class="room hidden" data-room-panel="history">
-            <div id="history-dashboard" class="dashboard analytics-dashboard">
-              <p class="muted">Load a league to open league history.</p>
-            </div>
-          </div>
-        </div>
-
-        <div id="teams-page" class="workspace-page app-page hidden" role="tabpanel" aria-labelledby="teams-tab">
-          <div class="room" data-room-panel="roster">
-            <section class="workspace-panel" id="teams-section">
-              <div class="panel-heading">
-                <div>
-                  <span class="eyebrow">Teams</span>
-                  <h2>How the league ranks</h2>
-                </div>
-                <p class="section-copy" id="teams-grid-copy">Your team is outlined. Tap a team for the rank, the tank or contend call, and the lineup.</p>
-              </div>
-              <div id="teams-grid" class="teams-grid"></div>
-            </section>
-
-            <section class="workspace-panel" id="power-section">
-              <div class="panel-heading">
-                <div>
-                  <span class="eyebrow">This team</span>
-                  <h2 id="power-heading">Rank and call</h2>
-                </div>
-                <p class="section-copy" id="power-section-copy">Power score, tank or contend, lineup rank, and where the roster is strong.</p>
-              </div>
-              <div id="power-dashboard" class="power-dashboard">
-                <p class="muted">Load values to score this roster.</p>
-              </div>
-            </section>
-
-            <section class="workspace-panel" id="roster-sheet-section">
-              <div class="panel-heading">
-                <div>
-                  <span class="eyebrow">Roster Sheet</span>
-                  <h2 id="roster-sheet-heading">Sit/start, bench, and picks</h2>
-                </div>
-                <p class="section-copy weekly-help-copy">
-                  <span>Sit/start this week. Close calls get a matchup or usage why. Bye, no team, and missing opponent sit. Tap a player for start chance.</span>
-                  <button
-                    type="button"
-                    id="weekly-help-btn"
-                    class="weekly-help-btn"
-                    data-action="toggle-weekly-help"
-                    aria-expanded="false"
-                    aria-haspopup="dialog"
-                    aria-controls="weekly-help-pop"
-                    title="What this start chance means"
-                  >
-                    <span aria-hidden="true">i</span>
-                    <span class="sr-only">What this start chance means</span>
-                  </button>
-                </p>
-              </div>
-              <div id="roster-sheet" class="roster-sheet"></div>
-              <div id="weekly-help-layer-host"></div>
-            </section>
-          </div>
-          <div class="room hidden" data-room-panel="call">
-            <div id="window-call-dashboard" class="window-call-dashboard"></div>
-          </div>
-          <div class="room hidden" data-room-panel="loyalty">
-            <div id="loyalty-dashboard" class="loyalty-dashboard"></div>
-          </div>
-          <div class="room hidden" data-room-panel="passports">
-            <div id="passport-dashboard" class="dashboard"></div>
-          </div>
-          <div class="room hidden" data-room-panel="mock">
-            <div id="mock-dashboard" class="dashboard mock-dashboard"></div>
+            <details class="workspace-panel" id="passport-fold">
+              <summary>Ownership history</summary>
+              <div id="passport-dashboard" class="dashboard"></div>
+            </details>
           </div>
         </div>
 
         <div id="trades-page" class="workspace-page app-page hidden" role="tabpanel" aria-labelledby="trades-tab">
-          <div class="room" data-room-panel="ask">
-            <section class="workspace-panel">
-              <div class="panel-heading">
-                <div>
-                  <span class="eyebrow">Trade</span>
-                  <h2>Got an offer?</h2>
-                </div>
-                <p class="section-copy">Yes checks the two sides. No shops a player or finds a partner.</p>
-              </div>
-              <div class="desk-jobs" role="group" aria-label="Got an offer?">
-                <button type="button" class="desk-job" data-action="go" data-page="trades" data-room="calculator">
-                  <strong>Yes. Check it.</strong>
-                  <small>Build both sides and get a verdict</small>
-                </button>
-                <button type="button" class="desk-job" data-action="go" data-page="trades" data-room="lab">
-                  <strong>Shop a player</strong>
-                  <small>One of mine, or one of theirs</small>
-                </button>
-                <button type="button" class="desk-job" data-action="go" data-page="trades" data-room="match">
-                  <strong>Find a partner</strong>
-                  <small>Who has your holes</small>
-                </button>
-              </div>
+          <div class="room" data-room-panel="calculator">
+            <section class="workspace-panel" id="calculator-section">
+              <div id="calculator-shell" class="calculator-shell"></div>
             </section>
-          </div>
-          <div class="room hidden" data-room-panel="value">
-            <section class="workspace-panel" id="value-calculator-section">
+            <section class="workspace-panel hidden" id="value-calculator-section">
               <div id="value-calculator-shell" class="calculator-shell"></div>
             </section>
           </div>
-
-          <div class="room hidden" data-room-panel="ranks">
-            <section class="workspace-panel" id="ranks-section">
-              <div class="panel-heading">
-                <div>
-                  <span class="eyebrow">Values</span>
-                  <h2>Player ranks</h2>
-                </div>
-              </div>
-              <div id="ranks-dashboard"></div>
-            </section>
-          </div>
-
-          <div class="room hidden" data-room-panel="match">
+          <div class="room hidden" data-room-panel="find">
             <section class="workspace-panel" id="trade-match-section">
               <div class="panel-heading">
                 <div>
-                  <span class="eyebrow">Trade match</span>
-                  <h2>Find a partner</h2>
+                  <span class="eyebrow">Find a trade</span>
+                  <h2>A deal you can open</h2>
                 </div>
-                <p class="section-copy">Pairs you with teams that have your holes, need your extras, or are tanking while you contend. Deals have to help the lineup, not swap leftover thirds.</p>
+                <p class="section-copy">Start from a partner, one of yours, or one of theirs. Review trade fills the calculator.</p>
               </div>
               <div id="trade-match-needs" class="match-needs"></div>
             </section>
             <section class="action-panel" id="match-action-panel">
               <div>
-                <span class="eyebrow">Generate</span>
-                <h2>Roster-fit trades</h2>
-                <p id="match-generate-help" class="muted small">Load a league and pick your team.</p>
+                <span class="eyebrow">Partners</span>
+                <h2>Who fits</h2>
+                <p id="match-generate-help" class="muted small">Connect a league to find partners.</p>
               </div>
               <div class="action-panel-cta">
-                <button id="match-generate-btn" type="button" disabled>Find matches</button>
+                <button id="match-generate-btn" type="button" disabled>Find partners</button>
                 <p id="match-generate-error" class="field-error" hidden role="alert"></p>
               </div>
             </section>
             <section class="workspace-panel results-shell" id="trade-match-results">
               <div id="trade-match-dashboard" class="trade-match-dashboard"></div>
             </section>
-          </div>
-
-          <div class="room hidden" data-room-panel="calculator">
-            <section class="workspace-panel" id="calculator-section">
-              <div id="calculator-shell" class="calculator-shell"></div>
-            </section>
-          </div>
-
-          <div class="room hidden" data-room-panel="lab">
             <section class="workspace-panel" id="player-section">
               <div class="panel-heading">
                 <div>
-                  <span class="eyebrow">Shop</span>
-                  <h2>Shop a player</h2>
+                  <span class="eyebrow">One player</span>
+                  <h2>Shop or target</h2>
                 </div>
                 <p class="section-copy">One of yours, or one of theirs. Then search the name.</p>
               </div>
-
               <label class="sr-only" for="trade-mode-select">Trade path</label>
               <select id="trade-mode-select" class="sr-only">
                 <option value="shop">Shop a player or pick I own</option>
                 <option value="acquire">Target someone on another team</option>
-                <option value="surprise">Surprise multi-team blockbuster</option>
               </select>
-
               <div class="mode-card-grid" role="group" aria-label="Whose player">
                 <button class="mode-card active" type="button" data-trade-mode="shop" aria-pressed="true">
                   <span>Mine</span>
@@ -478,9 +360,8 @@
                   <small>What do I send for this player?</small>
                 </button>
               </div>
-
-              <p id="trade-mode-help" class="muted small mode-note">Pick one of your players or picks and the app will search the league for returns.</p>
-              <label id="player-search-label" for="player-search">Search players and picks on other rosters</label>
+              <p id="trade-mode-help" class="muted small mode-note">Pick one of your players or picks.</p>
+              <label id="player-search-label" for="player-search">Search players and picks</label>
               <div id="target-search-shell" class="target-search-shell">
                 <div id="target-chip" class="selected-token hidden">
                   <span id="target-chip-label" class="selected-token-label"></span>
@@ -490,24 +371,22 @@
               </div>
               <div id="player-results" class="list"></div>
             </section>
-
             <section class="action-panel" id="settings-section">
               <div>
-                <span class="eyebrow">Generate</span>
-                <h2>Trade ideas</h2>
-                <p id="generate-help" class="muted small">Choose a trade path first.</p>
+                <span class="eyebrow">Ideas</span>
+                <h2>Offers for that player</h2>
+                <p id="generate-help" class="muted small">Connect a league, then pick a player.</p>
               </div>
               <div class="action-panel-cta">
-                <button id="generate-btn" type="button" disabled>Find Trades</button>
+                <button id="generate-btn" type="button" disabled>Find trades</button>
                 <p id="generate-error" class="field-error" hidden role="alert"></p>
               </div>
             </section>
-
             <section class="workspace-panel hidden results-shell" id="results-section">
               <div class="panel-heading">
                 <div>
                   <span class="eyebrow">Results</span>
-                  <h2>Trade board</h2>
+                  <h2>Trade ideas</h2>
                 </div>
                 <p id="results-subtitle" class="muted section-copy"></p>
               </div>
@@ -518,13 +397,74 @@
               </div>
             </section>
           </div>
+        </div>
 
-          <div class="room hidden" data-room-panel="log">
+        <div id="league-page" class="workspace-page app-page hidden" role="tabpanel" aria-labelledby="league-tab">
+          <div class="room" data-room-panel="team">
+            <div id="start-dashboard" class="dashboard start-dashboard hidden"></div>
+            <section class="workspace-panel" id="power-section">
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow">Your team</span>
+                  <h2 id="power-heading">Outlook</h2>
+                </div>
+                <p class="section-copy" id="power-section-copy">Compete, hold, or rebuild, then the roster. League ranks live under League.</p>
+              </div>
+              <div id="power-dashboard" class="power-dashboard">
+                <p class="muted">Connect Sleeper to see your team.</p>
+              </div>
+              <div id="window-call-dashboard" class="window-call-dashboard"></div>
+            </section>
+            <section class="workspace-panel" id="roster-sheet-section">
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow">Roster</span>
+                  <h2 id="roster-sheet-heading">Starters, bench, and picks</h2>
+                </div>
+                <p class="section-copy weekly-help-copy">
+                  <span>Sit/start this week. Close calls get a matchup or usage why. Start, consider, or sit.</span>
+                  <button type="button" id="weekly-help-btn" class="weekly-help-btn" data-action="toggle-weekly-help" aria-expanded="false" aria-haspopup="dialog" aria-controls="weekly-help-pop" title="What this start score means">
+                    <span aria-hidden="true">i</span>
+                    <span class="sr-only">What this start score means</span>
+                  </button>
+                </p>
+              </div>
+              <div id="roster-sheet" class="roster-sheet"></div>
+              <div id="weekly-help-layer-host"></div>
+            </section>
+            <details class="workspace-panel" id="mock-fold">
+              <summary>Picks and mock</summary>
+              <div id="mock-dashboard" class="dashboard mock-dashboard"></div>
+            </details>
+          </div>
+          <div class="room hidden" data-room-panel="scores">
+            <div id="scores-dashboard" class="dashboard"></div>
+          </div>
+          <div class="room hidden" data-room-panel="board">
+            <section class="workspace-panel" id="teams-section">
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow">League</span>
+                  <h2>How the league ranks</h2>
+                </div>
+                <p class="section-copy" id="teams-grid-copy">Your team is outlined. Tap a team to view it.</p>
+              </div>
+              <div id="teams-grid" class="teams-grid"></div>
+            </section>
+            <div id="standings-dashboard" class="dashboard"></div>
+            <div id="power-board-dashboard" class="dashboard"></div>
+          </div>
+          <div class="room hidden" data-room-panel="activity">
             <div id="trade-log-dashboard" class="dashboard"></div>
           </div>
+          <div class="room hidden" data-room-panel="history">
+            <div id="history-dashboard" class="dashboard analytics-dashboard">
+              <p class="muted">Connect a league to open history.</p>
+            </div>
+            <div id="awards-dashboard" class="dashboard"></div>
+            <div id="loyalty-dashboard" class="loyalty-dashboard"></div>
+          </div>
         </div>
-      </main>
-    </div>
 
     <div id="site-dock" class="site-dock">
       <div id="sticky-mobile-cta" class="sticky-mobile-cta" hidden>

@@ -30,28 +30,19 @@ test("Sleeper type 0/1/2 maps to redraft, keeper, dynasty", () => {
   assert.equal(leagueTypeLabel(leagueWithType(2)), "Dynasty");
 });
 
-test("redraft hides loyalty and the rookie mock, keeper and dynasty do not", () => {
+test("three destinations stay short for every league type", () => {
   const redraft = leagueWithType(0);
   const keeper = leagueWithType(1);
   const dynasty = leagueWithType(2);
-  assert.deepEqual(
-    hiddenRoomsForLeague(redraft).map((row) => `${row.page}:${row.room}`).sort(),
-    ["teams:loyalty", "teams:mock"],
-  );
+  assert.equal(hiddenRoomsForLeague(redraft).length, 0);
   assert.equal(hiddenRoomsForLeague(keeper).length, 0);
   assert.equal(hiddenRoomsForLeague(dynasty).length, 0);
-  assert.equal(isRoomVisible("teams", "loyalty", redraft), false);
-  assert.equal(isRoomVisible("teams", "mock", redraft), false);
-  assert.equal(isRoomVisible("teams", "call", redraft), true);
-  assert.equal(isRoomVisible("teams", "loyalty", dynasty), true);
-  assert.ok(!roomsForPage("teams", redraft).includes("loyalty"));
-  assert.ok(roomsForPage("teams", dynasty).includes("mock"));
-  assert.equal(visibleRoomFor("teams", "loyalty", redraft), "roster");
-  assert.equal(visibleRoomFor("teams", "call", redraft), "call");
-  assert.ok(!roomsForPage("league").includes("start"));
-  assert.equal(visibleRoomFor("league", "start"), "start");
-  assert.deepEqual(roomsForPage("teams"), ["roster", "call", "loyalty", "passports", "mock"]);
-  assert.deepEqual(roomsForPage("trades"), ["ask", "calculator", "lab", "match", "log", "value", "ranks"]);
+  assert.deepEqual(roomsForPage("players"), ["ranks"]);
+  assert.deepEqual(roomsForPage("trades"), ["calculator", "find"]);
+  assert.deepEqual(roomsForPage("league"), ["team", "scores", "board", "activity", "history"]);
+  assert.equal(visibleRoomFor("league", "team"), "team");
+  assert.equal(isRoomVisible("trades", "calculator", redraft), true);
+  assert.equal(isRoomVisible("league", "loyalty", dynasty), false);
 });
 
 test("only dynasty invents a future pick grid", () => {
@@ -64,9 +55,9 @@ test("only dynasty invents a future pick grid", () => {
 
 test("redraft copy names the season call and warns about dynasty prices", () => {
   const redraft = leagueWithType(0);
-  assert.equal(roomLabelFor("teams", "call", redraft), "In it or out");
-  assert.equal(roomLabelFor("teams", "call", leagueWithType(2)), "Tank or contend");
-  assert.equal(pageHintForLeague("teams", redraft), "Roster, in it or out");
+  assert.equal(roomLabelFor("league", "team", redraft), "My team");
+  assert.equal(roomLabelFor("league", "team", leagueWithType(2)), "My team");
+  assert.equal(pageHintForLeague("league", redraft), "Your team, this week, and the league");
   assert.match(marketCaveat(redraft), /redraft/i);
   assert.match(marketCaveat(redraft), /dynasty market/i);
   assert.equal(marketCaveat(leagueWithType(2)), "");

@@ -325,9 +325,7 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
   const photo = row.photoUrl
     ? `<img class="rather-photo" src="${escapeHtml(row.photoUrl)}" alt="" />`
     : "";
-  const calc = leagueOpen
-    ? `<button type="button" class="ghost-btn" data-action="rank-calc" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-value="${escapeHtml(String(row.value))}" data-kind="${escapeHtml(row.kind)}">Add to calculator</button>`
-    : "";
+  const calc = `<button type="button" class="ghost-btn" data-action="rank-calc" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-value="${escapeHtml(String(row.value))}" data-kind="${escapeHtml(row.kind)}">Add to trade</button>`;
   return `
     <article class="ranks-card">
       <div class="ranks-card-main">
@@ -352,7 +350,7 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
       ${facts.length ? `<dl class="ranks-facts">${facts.map((fact) => `<div><dt>${escapeHtml(fact.label)}</dt><dd>${escapeHtml(fact.value)}</dd></div>`).join("")}</dl>` : ""}
       ${held || league ? `<p class="ranks-held">${escapeHtml([held, league].filter(Boolean).join(" "))}</p>` : ""}
       ${neighbors.length ? `
-        <h3>Same money</h3>
+        <h3>Similar value</h3>
         <div class="ranks-neighbors">
           ${neighbors.map((neighbor) => renderRankNeighbor(neighbor)).join("")}
         </div>

@@ -3,74 +3,60 @@ import { isRoomVisible, leagueTypeId } from "./league-format.js";
 
 export const DESK_JOBS = Object.freeze([
   {
-    id: "week",
-    page: "league",
-    room: "scores",
-    label: "See this week",
-    blurb: "Scores, standings, and awards",
-    cta: "open this week's scores",
-  },
-  {
-    id: "team",
-    page: "teams",
-    room: "roster",
-    label: "Scout a team",
-    blurb: "Sit/start, tank or contend, who stayed",
-    cta: "scout a roster",
+    id: "players",
+    page: "players",
+    room: "ranks",
+    label: "Players",
+    blurb: "What is this player worth?",
+    cta: "look up a player",
   },
   {
     id: "trade",
     page: "trades",
-    room: "match",
-    label: "Make a trade",
-    blurb: "Find a partner, then the calculator",
-    cta: "make a trade",
+    room: "calculator",
+    label: "Check a trade",
+    blurb: "You give and you get",
+    cta: "check a trade",
   },
   {
-    id: "history",
+    id: "team",
     page: "league",
-    room: "history",
-    label: "League history",
-    blurb: "Last champion, titles, records",
-    cta: "open league history",
+    room: "team",
+    label: "My team",
+    blurb: "Outlook, roster, and next move",
+    cta: "see your team",
+  },
+  {
+    id: "find",
+    page: "trades",
+    room: "find",
+    label: "Find a trade",
+    blurb: "Shop, target, or a partner",
+    cta: "find a trade",
   },
 ]);
 
 export const DESK_MORE_JOBS = Object.freeze([
   {
-    id: "call",
-    page: "teams",
-    room: "call",
-    label: "Tank or contend",
-    blurb: "Tank, all in, or middle",
+    id: "week",
+    page: "league",
+    room: "scores",
+    label: "This week",
+    blurb: "Matchups and scores",
   },
   {
-    id: "mock",
-    page: "teams",
-    room: "mock",
-    label: "Rookie mock",
-    blurb: "2027 SF board, 1sts and 2nds",
+    id: "board",
+    page: "league",
+    room: "board",
+    label: "League",
+    blurb: "Standings and ranks",
   },
   {
-    id: "match",
-    page: "trades",
-    room: "match",
-    label: "Find a partner",
-    blurb: "Who has your holes",
-  },
-  {
-    id: "ranks",
-    page: "trades",
-    room: "ranks",
-    label: "Player values",
-    blurb: "Ranks and the pick they equal",
-  },
-  {
-    id: "lab",
-    page: "trades",
-    room: "lab",
-    label: "Shop a player",
-    blurb: "Shop, target, or blockbuster",
+    id: "history",
+    page: "league",
+    room: "history",
+    label: "History",
+    blurb: "Titles, records, who stayed",
   },
 ]);
 
@@ -78,8 +64,7 @@ export const DEFAULT_LANDING_HINT = "Type your Sleeper username, then pick a lea
 
 function relabelJobForLeague(job, league) {
   if (!job || leagueTypeId(league) !== "redraft") return job;
-  if (job.id === "team") return { ...job, blurb: "Sit/start, in it or out" };
-  if (job.id === "call") return { ...job, label: "In it or out", blurb: "Playoff push, bubble, or out" };
+  if (job.id === "team") return { ...job, blurb: "This week and your outlook" };
   return job;
 }
 

@@ -19,28 +19,13 @@ Open `docs/` locally (`npm run serve`) or [dynastyticker.com](https://dynastytic
 Share URLs are ordinary query strings: `?league=&me=&tab=&view=&week=&tone=`. `tab` is the page, `view` is the room inside it. Old links (`tab=trader`, `tab=analytics`, `tab=team`, `view=passport`, `tab=recap`, ...) still resolve.
 
 ### Pages
-Three pages. Each page has a row of rooms under it, so every feature is at most two taps away. Opening a league (or tapping the logo / home icon) lands on the start jobs screen, which is not a League subtab.
+Three jobs. Players and Trade work before a league is connected.
 
-1. **League** — this season.
-   - **Scores** — live scoreboard with pre-game win%, pulse tiles that jump to the right room.
-   - **Standings** — overall / divisions, all-play, luck index.
-   - **Power** — dynasty value board (starters, depth, picks, age). Tap a team to open its scout card.
-   - **Awards** — weekly honors (marked live if the week is still going) and season superlatives.
-   - **League History** — last season's champion, title hall, and a short record book.
-2. **Teams** — every roster.
-   - **Roster** — tap any team: power scout card, optimal lineup, bench, nicknames, pick vault, season log, jump into a trade.
-   - **Call** — tank, all in, or stay in the middle, from playoff odds, lineup rank, age, and pick capital.
-   - **Loyalty** — kept / gone / new since last season, iron share, DNA keep rate.
-   - **Player passport** — who owned each player, season by season.
-   - **Mock** — Dynasty Nerds Superflex 2-round rookie mock. 1sts and 2nds get names; 3rds stay pick labels.
-   - A **Viewing** picker on Loyalty and Passports switches which roster you are looking at.
-3. **Trades** — deals.
-   - **Calculator** — blank board: search any player or pick in one box.
-   - **Ranks** — player and pick values. Open a name for the pick he equals, crowd versus Sleeper trades, and who has him in this league. The same board opens from the landing page with no league.
-   - **Partners** — one recommended trade per complementary roster: send this for that, and the starting lineup rank change.
-   - **Two teams** — build both sides from two rosters and get a verdict.
-   - **Find deals** — shop an asset, target a player, or generate a blockbuster.
-   - **Log** — graded trade log with the trade wire. Tap a row to open the trade file (record since, market now, later finishes). Optional league board reads this room’s taste.
+1. **Players** — search a name, see the value, add him to a trade. Voting is optional underneath.
+2. **Trade** — one calculator (you give / you get). Find a trade shops, targets, or finds a partner, then **Review trade** opens that same calculator.
+3. **My League** — your outlook and roster first. This week, the league table, activity, and history sit beside that. Tank-or-contend, who stayed, awards, and the mock live inside those views.
+
+Old links (`tab=trader`, `tab=teams`, `view=calculator`, `view=ranks`, ...) still open the matching job.
 
 ### Live Sunday scores
 The app polls Sleeper matchups on the NFL window (Thu–Mon UTC) and whenever the current week already has points. Scoreboard, ticker, and awards refresh. The 4000-season Monte Carlo does **not** rerun on every point tick. It refreshes when a week finals, remaining games change, or ~3 minutes have passed.

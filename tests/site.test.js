@@ -30,27 +30,27 @@ test("document titles and descriptions change with tab and league", () => {
   assert.equal(buildDocumentTitle({}), DEFAULT_TITLE);
   assert.equal(
     buildDocumentTitle({ page: "league", leagueName: "Try Hard or Die Hard", loaded: true }),
-    "Week · Try Hard or Die Hard — Dynasty Ticker"
+    "My League · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "league", leagueName: "Try Hard or Die Hard", loaded: true, room: "scores" }),
-    "Week · Try Hard or Die Hard — Dynasty Ticker"
+    "This week · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "recap", leagueName: "Try Hard or Die Hard", loaded: true }),
-    "Week · Try Hard or Die Hard — Dynasty Ticker"
+    "This week · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "team", leagueName: "Try Hard or Die Hard", loaded: true }),
-    "My team · Try Hard or Die Hard — Dynasty Ticker"
+    "My League · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "teams", leagueName: "Try Hard or Die Hard", loaded: true, room: "mock" }),
-    "Mock · Try Hard or Die Hard — Dynasty Ticker"
+    "My League · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "teams", leagueName: "Try Hard or Die Hard", loaded: true, room: "call" }),
-    "Tank or contend · Try Hard or Die Hard — Dynasty Ticker"
+    "My League · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({
@@ -60,15 +60,15 @@ test("document titles and descriptions change with tab and league", () => {
       room: "call",
       league: { settings: { type: 0 } },
     }),
-    "In it or out · Sunday Squad — Dynasty Ticker"
+    "My League · Sunday Squad — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "trades", leagueName: "Try Hard or Die Hard", loaded: true, room: "lab" }),
-    "Shop a player · Try Hard or Die Hard — Dynasty Ticker"
+    "Find a trade · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "trades", leagueName: "Try Hard or Die Hard", loaded: true, room: "match" }),
-    "Find a partner · Try Hard or Die Hard — Dynasty Ticker"
+    "Find a trade · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "trader", leagueName: "Try Hard or Die Hard", loaded: true }),
@@ -92,12 +92,12 @@ test("document titles and descriptions change with tab and league", () => {
   );
   assert.match(
     buildPageDescription({ page: "trades", room: "value", leagueName: "Demo", loaded: true }),
-    /blank trade calculator/i
+    /You give and you get/i
   );
-  assert.match(buildPageDescription({ page: "teams", room: "call", loaded: true }), /tank/);
-  assert.match(buildPageDescription({ page: "trades", room: "calculator", loaded: true }), /two-team calculator/i);
-  assert.match(buildPageDescription({ page: "trades", room: "log", loaded: true }), /Past trades/);
-  assert.match(buildPageDescription({ page: "trades", room: "match", loaded: true }), /positions you need/i);
+  assert.match(buildPageDescription({ page: "league", room: "team", loaded: true }), /outlook/);
+  assert.match(buildPageDescription({ page: "trades", room: "calculator", loaded: true }), /You give and you get/i);
+  assert.match(buildPageDescription({ page: "league", room: "activity", loaded: true }), /Past trades/);
+  assert.match(buildPageDescription({ page: "trades", room: "find", loaded: true }), /Review trade/i);
   assert.equal(buildPageDescription({}), DEFAULT_DESCRIPTION);
 });
 
@@ -166,11 +166,11 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.equal(existsSync(join(docs, "modules/recap-card.js")), false);
   assert.match(index, /id="landing-rather"/);
   assert.match(index, /id="open-public-ranks"/);
-  assert.match(index, /Check player values/);
+  assert.match(index, /Look up a player/);
   assert.match(index, /id="public-ranks"/);
   assert.match(index, /id="ranks-dashboard"/);
   assert.match(index, /id="landing-username"/);
-  assert.match(index, />Your dynasty league, live\.</);
+  assert.match(index, />See a value\. Check a trade\. Then your team\.</);
   assert.match(index, /Type your Sleeper username/);
   assert.doesNotMatch(index, /id="landing-jobs"/);
   assert.match(index, /brand\/wordmark\.svg/);
@@ -182,6 +182,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /League Command Center/);
   assert.match(index, /id="landing-league-picker"/);
   assert.match(index, /id="start-dashboard"/);
+  assert.match(index, /data-room-panel="team"/);
   assert.doesNotMatch(index, /id="landing-features"/);
   assert.doesNotMatch(index, /class="landing-features"/);
   assert.doesNotMatch(index, /step-badge accent/);
@@ -199,14 +200,14 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="theme-toggle-btn"[^>]*aria-pressed="true"/);
   assert.doesNotMatch(index, /data-theme="dark"/);
   assert.match(index, /family=Inter:/);
-  for (const page of ["league", "teams", "trades"]) {
+  for (const page of ["players", "trades", "league"]) {
     assert.match(index, new RegExp(`data-page="${page}"`));
     assert.match(index, new RegExp(`id="${page}-page"`));
   }
   assert.doesNotMatch(index, /data-page="history"/);
   assert.doesNotMatch(index, /id="history-page"/);
   assert.match(index, /id="room-nav"/);
-  for (const room of ["start", "scores", "standings", "power", "awards", "history", "roster", "mock", "call", "loyalty", "passports", "log", "match", "value", "ranks", "calculator", "lab", "ask"]) {
+  for (const room of ["ranks", "calculator", "find", "team", "scores", "board", "activity", "history"]) {
     assert.match(index, new RegExp(`data-room-panel="${room}"`), room);
   }
   assert.doesNotMatch(index, /data-room-panel="recap"/);
@@ -222,13 +223,14 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="match-generate-btn"/);
   assert.match(index, /id="find-more-btn"/);
   assert.match(index, />Find more</);
-  assert.match(index, />Find matches</);
-  assert.match(index, /Check a deal, shop a player, find a partner/);
-  assert.match(index, /Got an offer\?/);
-  const tradesPage = index.slice(index.indexOf('id="trades-page"'), index.indexOf('id="site-dock"'));
+  assert.match(index, />Find partners</);
+  assert.match(index, /Check an offer or find a deal/);
+  assert.match(index, /Review trade fills the calculator/);
+  assert.doesNotMatch(index, /Got an offer\?/);
+  const tradesPage = index.slice(index.indexOf('id="trades-page"'), index.indexOf('id="league-page"'));
   assert.deepEqual(
     [...tradesPage.matchAll(/data-room-panel="([^"]+)"/g)].map((row) => row[1]),
-    ["ask", "value", "ranks", "match", "calculator", "lab", "log"],
+    ["calculator", "find"],
   );
   assert.match(index, /id="history-dashboard"/);
   assert.match(index, /id="mobile-home-btn"/);
@@ -401,14 +403,15 @@ test("storage notice CSS does not override the hidden attribute", () => {
   assert.doesNotMatch(css, /\.storage-notice\s*\{[^}]*display:\s*flex/s);
 });
 
-test("phone desk nav puts pages on top and rooms on the bottom", () => {
+test("phone desk nav keeps pages on top and rooms with the page", () => {
   const css = readDocs("styles.css");
   assert.match(css, /Phone desk nav: page tabs stick under the header/);
-  assert.match(css, /room strip pins to the bottom edge/);
+  assert.match(css, /Room controls stay with the page/);
   assert.doesNotMatch(css, /page tabs pin to the bottom edge/);
   assert.match(css, /\.workspace-tabs \{[^}]*position:\s*sticky/s);
   assert.match(css, /\.workspace-tabs \{[^}]*order:\s*-1/s);
-  assert.match(css, /\.room-nav \{[^}]*position:\s*fixed/s);
+  assert.match(css, /\.room-nav \{[^}]*position:\s*sticky/s);
+  assert.doesNotMatch(css, /\.room-nav \{[^}]*position:\s*fixed/s);
   assert.doesNotMatch(
     css,
     /\.asset-row-top,\s*\.asset-item \{[^}]*flex-direction:\s*column/s

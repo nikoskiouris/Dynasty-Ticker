@@ -751,7 +751,7 @@ select.is-invalid {
 
 .workspace-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
   padding: 0 0.4rem;
 }
@@ -5868,9 +5868,9 @@ button.weekly-help-close:hover {
     font-size: 0.78rem;
   }
 
-  /* Phone desk nav: page tabs stick under the header, the
-     room strip pins to the bottom edge. display: contents drops
-     the sticky/backdrop box so the fixed room bar is not trapped inside it.
+  /* Phone desk nav: page tabs stick under the header.
+     Room controls stay with the page, not in a bottom strip.
+     display: contents drops the sticky box so the room bar is not trapped.
      iPad stays on the inline stacked desk-nav (this query is 700px max). */
   .desk-nav {
     display: contents;
@@ -5908,12 +5908,12 @@ button.weekly-help-close:hover {
   }
 
   .room-nav {
-    position: fixed;
-    top: auto;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 20;
+    position: sticky;
+    top: calc(6.2rem + env(safe-area-inset-top));
+    right: auto;
+    bottom: auto;
+    left: auto;
+    z-index: 11;
     overflow-x: auto;
     overflow-y: hidden;
     overscroll-behavior-x: contain;
@@ -7926,3 +7926,12 @@ button.ranks-row.you {
   }
 }
 
+
+body:not(.league-loaded) .control-rail .league-module,
+body:not(.league-loaded) #identity-section,
+body.league-loaded #landing,
+body.league-loaded .state-grid {
+  display: none;
+}
+body.league-loaded .league-hero { padding-block: 0.35rem; }
+body.league-loaded .workspace-lede { display: none; }
