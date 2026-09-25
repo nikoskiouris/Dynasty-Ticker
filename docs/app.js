@@ -1312,7 +1312,7 @@ function applyDeskPopState(historyState) {
     if (parsed.tab) state.pendingPlace = { page: parsed.tab, room: parsed.view };
     if (parsed.week) state.pendingWeek = parsed.week;
     if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
-    void loadLeagueById(parsed.leagueId);
+    void loadLeagueById(parsed.leagueId, { fromHistory: true });
     return;
   }
   applyDeskPlaceFromHistory(parsed, historyState);
@@ -1855,12 +1855,12 @@ async function loadLeague() {
   return loadLeagueById(leagueId);
 }
 
-async function loadLeagueById(leagueId) {
+async function loadLeagueById(leagueId, { fromHistory = false } = {}) {
   if (!leagueId) return;
-  return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token));
+  return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
 }
 
-async function runLeagueLoad(leagueId, token) {
+async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
   try {
     if (!leagueLoader.isCurrent(token)) return;
     startLeagueLoadingUi();
@@ -1888,12 +1888,18 @@ async function runLeagueLoad(leagueId, token) {
     if (!leagueLoader.isCurrent(token)) return;
 
     const sameLeague = String(state.leagueId || "") === String(leagueId);
+    // Switching leagues is a new place, so Back returns to the league you left.
+    const switchingLeagues = Boolean(state.leagueId) && !sameLeague && !fromHistory;
     const keepPlace = placeAfterConnect({
       activePage: state.activePage,
       tradesRoom: getRoom("trades"),
       selectedAssetId: state.ranks?.selectedId || "",
       pendingPlace: state.pendingPlace,
     });
+    if (switchingLeagues && typeof history?.pushState === "function") {
+      prepareDeskPush();
+      history.pushState(history.state, "", `${window.location.pathname}${window.location.search}`);
+    }
     state.targetAsset = null;
     state.shopAsset = null;
     state.selectedOutgoingAssetIds.clear();
