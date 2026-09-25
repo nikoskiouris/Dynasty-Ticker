@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Dynasty Ticker — Your Sleeper dynasty league</title>
     <meta name="description" content="Your Sleeper dynasty league, live. Scores, rosters, trades, and history in one desk." />
-    <meta name="theme-color" content="#eef3f2" />
+    <meta name="theme-color" content="#e6e3dc" />
     <script>
       try {
         var storedTheme = localStorage.getItem("dynasty_ticker_theme");
         if (storedTheme === "dark" || storedTheme === "light") {
           document.documentElement.setAttribute("data-theme", storedTheme);
           var themeColor = document.querySelector('meta[name="theme-color"]');
-          if (themeColor) themeColor.setAttribute("content", storedTheme === "dark" ? "#071018" : "#eef3f2");
+          if (themeColor) themeColor.setAttribute("content", storedTheme === "dark" ? "#141311" : "#e6e3dc");
         }
       } catch (err) {}
     </script>
@@ -35,7 +35,7 @@
     <link rel="manifest" href="./site.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>

@@ -8,8 +8,8 @@ export const THEME_STORAGE_KEY = "dynasty_ticker_theme";
 export const PLAYERS_CACHE_KEY = "fda_players_nfl_cache_v1";
 export const DEFAULT_THEME = "light";
 export const THEME_COLORS = {
-  light: "#eef3f2",
-  dark: "#071018",
+  light: "#e6e3dc",
+  dark: "#141311",
 };
 
 export function emptyDealBoard() {
