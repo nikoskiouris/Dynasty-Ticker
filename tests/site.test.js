@@ -331,7 +331,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(app, /renderValueCalculator\(/);
   assert.doesNotMatch(app, /value-pick-board/);
   assert.doesNotMatch(app, /renderValueCalcPickBoard/);
-  assert.match(app, /Search players and picks/);
+  assert.match(app, /Player or pick, like 2026 early 1st/);
   assert.match(app, /listValueCalcAssets/);
   assert.doesNotMatch(readDocs("styles.css"), /value-pick-board/);
   assert.match(app, /function goLeagueHome/);
