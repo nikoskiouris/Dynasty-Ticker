@@ -3996,7 +3996,15 @@ button.weekly-help-close:hover {
   font-size: 0.8rem;
 }
 
-/* Browse lists open only while the box has focus; typed results show until picked. */
+/* Browse lists open only while the box has focus and sit in the flow, so they never
+   cover the other side's box on a phone. Typed results float until picked. */
+.calc-suggest.is-browse {
+  position: static;
+  margin-top: 0.35rem;
+  max-height: 16rem;
+  box-shadow: none;
+}
+
 .calc-search-wrap:not(:focus-within) .calc-suggest.is-browse {
   display: none;
 }
