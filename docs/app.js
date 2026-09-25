@@ -5736,10 +5736,10 @@ function renderValueCalculator() {
     })}
     <div class="panel-heading calc-heading">
       <div>
-        <span class="eyebrow">Trade Calculator</span>
-        <h2>Any assets</h2>
+        <span class="eyebrow">Trade</span>
+        <h2>You give / You get</h2>
       </div>
-      <p class="section-copy">Search any player or pick, same box. Not tied to two rosters.</p>
+      <p class="section-copy">Search any player or pick. Connect a league when you want your roster and team impact.</p>
     </div>
     <div class="calc-grid">
       ${renderValueCalcPane("left", "Give")}
