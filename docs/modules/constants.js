@@ -11,24 +11,24 @@ export const PAGE_IDS = ["league", "teams", "trades"];
 export const DEFAULT_PAGE = "league";
 export const HOME_ROOM = "start";
 export const PAGE_LABELS = {
-  league: "League",
-  teams: "Teams",
-  trades: "Trades",
+  league: "Week",
+  teams: "My team",
+  trades: "Trade",
 };
 export const PAGE_HINTS = {
-  league: "Scores, standings, history",
-  teams: "Roster, tank or contend, mock",
-  trades: "Partners, calculator, deals",
+  league: "Scores, standings, awards",
+  teams: "Rank, tank or contend, who stayed",
+  trades: "Check a deal, shop a player, find a partner",
 };
 export const PAGE_ROOMS = {
-  league: ["start", "scores", "standings", "power", "awards", "history"],
+  league: ["start", "scores", "standings", "awards", "history"],
   teams: ["roster", "call", "loyalty", "passports", "mock"],
-  trades: ["match", "value", "ranks", "calculator", "lab", "log"],
+  trades: ["ask", "calculator", "lab", "match", "log", "value", "ranks"],
 };
 export const DEFAULT_ROOMS = {
-  league: "start",
+  league: "scores",
   teams: "roster",
-  trades: "match",
+  trades: "ask",
 };
 export const ROOM_LABELS = {
   league: {
@@ -37,7 +37,7 @@ export const ROOM_LABELS = {
     standings: "Standings",
     power: "Power",
     awards: "Awards",
-    history: "League History",
+    history: "History",
   },
   teams: {
     roster: "Roster",
@@ -47,12 +47,13 @@ export const ROOM_LABELS = {
     mock: "Mock",
   },
   trades: {
-    value: "Calculator",
+    ask: "Got an offer?",
+    value: "Any player",
     ranks: "Ranks",
-    calculator: "Two teams",
-    match: "Partners",
-    lab: "Find deals",
-    log: "Log",
+    calculator: "Check a trade",
+    match: "Find a partner",
+    lab: "Shop a player",
+    log: "Past trades",
   },
 };
 export const ROOM_HINTS = {
@@ -67,17 +68,18 @@ export const ROOM_HINTS = {
   teams: {
     roster: "Sit/start this week, scout card, picks",
     call: "Tank, all in, or stay in the middle",
-    loyalty: "Roster DNA, ironmen, charms",
+    loyalty: "Who you kept from last year",
     passports: "Who owned each player, season by season",
     mock: "2027 SF rookie mock board",
   },
   trades: {
     value: "Blank board: search any player or pick in one box",
     ranks: "Players, picks, and the pick they equal",
-    calculator: "Build both sides from two rosters and get a verdict",
+    ask: "Yes checks the offer. No shops a player or finds a partner.",
+    calculator: "Build both sides and get a verdict",
     match: "Teams that have your holes and need your extras",
-    lab: "Shop an asset, acquire a target, blockbuster",
-    log: "Graded past deals and the league wire",
+    lab: "Shop one of yours, or one of theirs",
+    log: "Past trades in this league",
   },
 };
 
@@ -111,8 +113,8 @@ export const PLACE_ALIASES = {
   odds: { page: "league", room: "standings" },
   playoffs: { page: "league", room: "standings" },
   luck: { page: "league", room: "standings" },
-  power: { page: "league", room: "power" },
-  rankings: { page: "league", room: "power" },
+  power: { page: "teams", room: "roster" },
+  rankings: { page: "teams", room: "roster" },
   awards: { page: "league", room: "awards" },
   recap: { page: "league", room: "scores" },
   history: { page: "league", room: "history" },
@@ -167,6 +169,8 @@ export const PLACE_ALIASES = {
   tradematch: { page: "trades", room: "match" },
   partners: { page: "trades", room: "match" },
   needs: { page: "trades", room: "match" },
+  ask: { page: "trades", room: "ask" },
+  offer: { page: "trades", room: "ask" },
   lab: { page: "trades", room: "lab" },
   generator: { page: "trades", room: "lab" },
   shop: { page: "trades", room: "lab" },
@@ -176,7 +180,7 @@ export const PLACE_ALIASES = {
 };
 // Room words whose meaning depends on the page they were attached to.
 export const SCOPED_ROOM_ALIASES = {
-  league: { now: "scores", home: "start", hall: "history", analytics: "history" },
+  league: { now: "scores", home: "scores", hall: "history", analytics: "history" },
   trades: { history: "log", calculator: "calculator", calc: "calculator" },
 };
 export const DEFAULT_FAIRNESS_PCT = 20;

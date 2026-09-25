@@ -69,18 +69,15 @@ test("redraft desk jobs drop mock and rename the call", () => {
   assert.equal(dynasty.more.some((job) => job.id === "mock"), true);
 });
 
-test("landing HTML leads with the league and lists the four jobs", () => {
+test("landing HTML leads with the username and skips the job quiz", () => {
   const index = readFileSync(join(docs, "index.html"), "utf8");
   assert.match(index, />Your dynasty league, live\.</);
   assert.doesNotMatch(index, />What do you want to do\?</);
-  assert.match(index, /id="landing-jobs"/);
+  assert.doesNotMatch(index, /id="landing-jobs"/);
   assert.match(index, /id="landing-job-hint"/);
   assert.match(index, /id="landing-league-picker"/);
   assert.match(index, /id="start-dashboard"/);
   assert.match(index, /data-room-panel="start"/);
-  for (const job of DESK_JOBS) {
-    assert.match(index, new RegExp(`data-job="${job.id}"`));
-    assert.match(index, new RegExp(job.label.replaceAll("?", "\\?")));
-  }
+  assert.match(index, /Got an offer\?/);
   assert.doesNotMatch(index, /id="landing-features"/);
 });

@@ -68,26 +68,26 @@ test("share params map old recap/home tabs onto league", () => {
     tone: "roast",
   });
   assert.doesNotMatch(url, /tab=/);
-  assert.match(url, /view=scores/);
+  assert.doesNotMatch(url, /view=/);
   assert.match(url, /week=2/);
   assert.match(url, /tone=roast/);
   const parsed = parseShareParams(url.split("?")[1]);
-  assert.equal(parsed.tab, "league");
+  assert.equal(parsed.tab, "");
   assert.equal(parsed.view, "scores");
   assert.equal(parsed.week, 2);
   assert.equal(parsed.tone, "roast");
   assert.equal(parsed.meRosterId, 3);
   assert.equal(parseShareParams("league=1").tab, "");
-  assert.equal(parseShareParams("league=1").view, "start");
+  assert.equal(parseShareParams("league=1").view, "scores");
   assert.equal(parseShareParams("league=1&tab=recap").tab, "league");
   assert.equal(parseShareParams("league=1&tab=recap").view, "scores");
   assert.equal(parseShareParams("league=1&tab=league&view=now").view, "scores");
   assert.equal(parseShareParams("league=1&tab=home").tab, "league");
-  assert.equal(parseShareParams("league=1&tab=home").view, "start");
+  assert.equal(parseShareParams("league=1&tab=home").view, "scores");
   assert.equal(parseShareParams("league=1&tab=team").tab, "teams");
   assert.equal(parseShareParams("league=1&tab=teams").view, "roster");
   assert.equal(parseShareParams("league=1&tab=trader").tab, "trades");
-  assert.equal(parseShareParams("league=1&tab=trader").view, "match");
+  assert.equal(parseShareParams("league=1&tab=trader").view, "ask");
   assert.equal(parseShareParams("league=1&view=start").view, "start");
 });
 
@@ -132,7 +132,7 @@ test("share params move hall, analytics, and records to league history", () => {
   assert.deepEqual(resolveDeskPlace({ view: "records" }), { page: "league", room: "history" });
   assert.deepEqual(resolveDeskPlace({ view: "archive" }), { page: "league", room: "history" });
   assert.deepEqual(resolveDeskPlace({ view: "titles" }), { page: "league", room: "history" });
-  assert.deepEqual(resolveDeskPlace({ tab: "nonsense", view: "nonsense" }), { page: "league", room: "start" });
+  assert.deepEqual(resolveDeskPlace({ tab: "nonsense", view: "nonsense" }), { page: "league", room: "scores" });
   assert.deepEqual(resolveDeskPlace({ tab: "teams", view: "hall" }), { page: "league", room: "history" });
   assert.equal(parseShareParams("league=1&tab=history").tab, "league");
   assert.equal(parseShareParams("league=1&tab=history").view, "history");
@@ -151,10 +151,10 @@ test("desk place helpers know pages and rooms", () => {
   assert.equal(normalizeRoom("trades", "calc"), "calculator");
   assert.equal(normalizeRoom("trades", "tradematch"), "match");
   assert.equal(normalizeRoom("trades", "hall"), "");
-  assert.equal(normalizeRoom("league", "home"), "start");
-  assert.equal(defaultRoomFor("trades"), "match");
-  assert.equal(defaultRoomFor("league"), "start");
-  assert.equal(defaultRoomFor("nope"), "start");
+  assert.equal(normalizeRoom("league", "home"), "scores");
+  assert.equal(defaultRoomFor("trades"), "ask");
+  assert.equal(defaultRoomFor("league"), "scores");
+  assert.equal(defaultRoomFor("nope"), "scores");
   assert.equal(isRoomOf("teams", "loyalty"), true);
   assert.equal(isRoomOf("teams", "mock"), true);
   assert.equal(isRoomOf("teams", "call"), true);
@@ -164,7 +164,8 @@ test("desk place helpers know pages and rooms", () => {
   assert.equal(normalizeRoom("teams", "window"), "call");
   assert.equal(normalizeRoom("trades", "partners"), "match");
   assert.deepEqual(resolveDeskPlace({ view: "start" }), { page: "league", room: "start" });
-  assert.deepEqual(resolveDeskPlace({ tab: "trades" }), { page: "trades", room: "match" });
+  assert.deepEqual(resolveDeskPlace({ tab: "trades" }), { page: "trades", room: "ask" });
+  assert.equal(isRoomOf("trades", "ask"), true);
   assert.deepEqual(resolveDeskPlace({ tab: "trades", view: "calculator" }), { page: "trades", room: "calculator" });
   assert.deepEqual(resolveDeskPlace({ view: "ktc" }), { page: "trades", room: "value" });
   assert.equal(isRoomOf("league", "start"), true);
