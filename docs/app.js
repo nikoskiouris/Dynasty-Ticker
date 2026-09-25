@@ -5760,9 +5760,7 @@ function renderValueCalcTotalMarkup(side) {
 
 function renderValueCalcSelectedMarkup(side) {
   const selected = state.valueCalc[side] || [];
-  if (!selected.length) {
-    return `<span class="muted small">Search a player or pick, like 2026 early 1st.</span>`;
-  }
+  if (!selected.length) return "";
   return selected.map((item) => `
     <button type="button" class="selected-token" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" title="Remove">
       ${renderSelectedTokenLabel(item)}
@@ -5791,7 +5789,7 @@ function renderValueCalcPane(side, label) {
         query,
         side,
         input: "value-search",
-        placeholder: "Search players and picks",
+        placeholder: "Player or pick, like 2026 early 1st",
       })}
       <div class="calc-list" id="value-list-${side}">${renderValueCalcAssetList(side)}</div>
     </section>
@@ -5800,9 +5798,7 @@ function renderValueCalcPane(side, label) {
 
 function renderValueCalcAssetList(side) {
   const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
-  if (!query.trim()) {
-    return `<div class="player-item muted">Type a player or pick, like 2026 early 1st.</div>`;
-  }
+  if (!query.trim()) return "";
   const assets = listValueCalcAssets(
     state.values,
     withPlayerDirectoryNames(state.valueNameMap, state.players),
