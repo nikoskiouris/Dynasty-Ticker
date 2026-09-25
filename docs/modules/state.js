@@ -98,13 +98,7 @@ export function createState() {
     awardsWeek: null,
     selectedTradeId: "",
     selectedTradeManagerKey: "",
-    calc: {
-      partnerRosterId: null,
-      myAssetIds: new Set(),
-      theirAssetIds: new Set(),
-      myQuery: "",
-      theirQuery: "",
-    },
+    // The one trade draft. It outlives league loads, team switches, and reloads in the tab.
     valueCalc: emptyValueCalcState(),
     ranks: {
       query: "",

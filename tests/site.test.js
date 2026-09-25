@@ -219,7 +219,8 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="window-call-dashboard"/);
   assert.match(index, /id="trade-log-dashboard"/);
   assert.match(index, /id="trade-match-dashboard"/);
-  assert.match(index, /id="value-calculator-shell"/);
+  assert.match(index, /id="calculator-shell"/);
+  assert.doesNotMatch(index, /id="value-calculator-shell"/);
   assert.match(index, /id="match-generate-btn"/);
   assert.match(index, /id="find-more-btn"/);
   assert.match(index, />Find more</);
@@ -328,7 +329,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(app, /tickerDurationSeconds\(items\.length\)/);
   assert.match(app, /bindTicker\(/);
   assert.match(app, /pickLatestCrown\(/);
-  assert.match(app, /renderValueCalculator\(/);
+  assert.match(app, /renderTradeDraft\(/);
   assert.doesNotMatch(app, /value-pick-board/);
   assert.doesNotMatch(app, /renderValueCalcPickBoard/);
   assert.match(app, /Player or pick, like 2026 early 1st/);

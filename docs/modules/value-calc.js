@@ -16,6 +16,9 @@ const ROUND_WORD_NAMES = {
   5: "fifth",
 };
 
+// The trade draft. Left is "You give", right is "You get". Items name an asset but never
+// carry a price: totals are priced at render time so a format or market change re-prices
+// every piece the same way.
 export function emptyValueCalcState() {
   return {
     left: [],
@@ -23,12 +26,19 @@ export function emptyValueCalcState() {
     leftQuery: "",
     rightQuery: "",
     nextUid: 1,
+    partnerRosterId: null,
   };
 }
 
 export function isGenericPickAssetId(assetId) {
   const meta = parsePickAssetId(assetId);
   return Boolean(meta && VALUE_CALC_BUCKETS.includes(meta.bucket));
+}
+
+// A league pick is keyed by its original owner's roster id, which only means something
+// inside the league it came from.
+export function isLeaguePickAssetId(assetId) {
+  return /^pick:\d{4}:r\d+:\d+$/.test(String(assetId || ""));
 }
 
 export function searchWords(text) {
@@ -144,21 +154,48 @@ export function withPlayerDirectoryNames(nameMap = {}, players = {}) {
   return names;
 }
 
+function sameDraftAsset(item, asset) {
+  if (String(item?.assetId) !== String(asset?.assetId)) return false;
+  if (!isLeaguePickAssetId(asset.assetId)) return true;
+  return String(item.leagueId || "") === String(asset.leagueId || "");
+}
+
+// Generic picks can repeat (two 2027 early 1sts). A named player or a league pick cannot.
+export function valueCalcHasAsset(state, asset) {
+  if (!asset?.assetId || isGenericPickAssetId(asset.assetId)) return false;
+  return [...(state?.left || []), ...(state?.right || [])].some((item) => sameDraftAsset(item, asset));
+}
+
 export function addValueCalcItem(state, side, asset) {
+  if (!asset?.assetId || valueCalcHasAsset(state, asset)) return state;
   const next = emptyValueCalcState();
   Object.assign(next, state);
   next.left = [...(state?.left || [])];
   next.right = [...(state?.right || [])];
   const key = VALUE_CALC_SIDES.includes(side) ? side : "left";
   const uid = Number(state?.nextUid) > 0 ? Number(state.nextUid) : 1;
-  next[key] = [...next[key], {
+  const assetId = String(asset.assetId);
+  const item = {
     uid: String(uid),
-    assetId: asset.assetId,
-    name: asset.name,
-    value: Number(asset.value) || 0,
-    assetType: asset.assetType || (String(asset.assetId).startsWith("pick:") ? "pick" : "player"),
-  }];
+    assetId,
+    name: String(asset.name || assetId),
+    assetType: asset.assetType === "pick" || asset.assetType === "player"
+      ? asset.assetType
+      : (assetId.startsWith("pick:") ? "pick" : "player"),
+  };
+  if (isLeaguePickAssetId(assetId) && asset.leagueId) item.leagueId = String(asset.leagueId);
+  next[key] = [...next[key], item];
   next.nextUid = uid + 1;
+  return next;
+}
+
+export function swapValueCalcSides(state) {
+  const next = emptyValueCalcState();
+  Object.assign(next, state);
+  next.left = [...(state?.right || [])];
+  next.right = [...(state?.left || [])];
+  next.leftQuery = "";
+  next.rightQuery = "";
   return next;
 }
 
@@ -180,8 +217,8 @@ export function clearValueCalcSides(state) {
   return next;
 }
 
-export function sumValueCalcSide(items = []) {
-  return items.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+export function sumValueCalcSide(items = [], priceOf = null) {
+  return items.reduce((sum, item) => sum + (Number(typeof priceOf === "function" ? priceOf(item) : item.value) || 0), 0);
 }
 
 export function valueCalcVerdict(leftTotal, rightTotal) {
@@ -210,4 +247,18 @@ export function valueCalcVerdict(leftTotal, rightTotal) {
     label = "Add the other side";
   }
   return { left, right, gap, pct, label, tone };
+}
+
+// Same verdict, read from the manager's seat: "Get" is what you receive.
+export function draftVerdictLabel(verdict, { them = "them" } = {}) {
+  const label = String(verdict?.label || "");
+  const other = String(them || "them");
+  return {
+    "Favors Get": "Favors you",
+    "Favors Give": `Favors ${other}`,
+    "Lopsided for Get": "Lopsided in your favor",
+    "Lopsided for Give": `Lopsided for ${other}`,
+    "Fair, leans Get": "Fair, leans your way",
+    "Fair, leans Give": `Fair, leans ${other}`,
+  }[label] || label;
 }
