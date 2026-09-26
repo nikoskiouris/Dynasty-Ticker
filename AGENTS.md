@@ -10,7 +10,7 @@ Dynasty Ticker helps a dynasty manager answer three connected questions:
 
 Players and the calculator must work without a league. Connecting Sleeper adds ownership, roster impact, and league context to the task already underway. It must never reset that task. A good visit ends with: "I understand the answer, why I should trust it, and what I can do next."
 
-Competing with KeepTradeCut is a hypothesis we earn with trustworthy numbers and useful league context. More features or more elaborate formulas do not prove it.
+Trustworthy numbers and useful league context are the product. More features or more elaborate formulas do not prove it.
 
 ## Decision priorities
 
@@ -26,11 +26,11 @@ Explicit current instructions from the owner win. If one conflicts with an older
 
 What follows from that:
 
-- **One price.** The Players page market price (Sleeper trades mixed with KeepTradeCut, in the active format) is the number the calculator uses, with or without a league. Format (Superflex / 1QB), TE premium, the league board, and the uneven-package credit are shown as labeled adjustments. League screens outside the calculator still use the star-premium value; see ticket 016 before changing either side.
+- **One price.** The Players page market price (Sleeper trades across many dynasty leagues, in the active format) is the number the calculator uses, with or without a league. Format (Superflex / 1QB), TE premium, the league board, and the uneven-package credit are shown as labeled adjustments. League screens outside the calculator still use the star-premium value; see ticket 016 before changing either side.
 - **Three questions stay separate:** the market price, whether it fits my team, and why the other manager would say yes.
 - **Never erase work.** League loads, team switches, Review trade, and Clear keep or restore the trade draft (`state.valueCalc`). An ownership mismatch is explained, not "fixed" by swapping players.
 - **Label uncertainty.** Estimates, stale data, and heuristic scores say what they are. A score is not a probability. An honest empty state beats a filler deal.
-- **Evidence is not proof.** KeepTradeCut, completed Sleeper trades, and crowd votes have different strengths. Do not claim they beat a baseline without a holdout test.
+- **Evidence is not proof.** The bundled prior, completed Sleeper trades, and crowd votes have different strengths. Do not claim they beat a baseline without a holdout test.
 - **Keep capabilities, give each a clear home.** Consolidate duplicate implementations. Explain any removal in the PR. Old links keep working.
 - **Feedback names a problem, not a fix.** "I don't understand this page" is a comprehension problem. Moving a button is one guess; check that it solved the problem.
 

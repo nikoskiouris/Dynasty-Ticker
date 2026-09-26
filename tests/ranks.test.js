@@ -50,6 +50,7 @@ test("board ranks players and drops retired, defense, and unnamed scrubs", () =>
     values,
     names,
     nflPlayers,
+    minPickSeason: 2027,
     ktcValues: { "player:1": 8000, "player:2": 7600 },
     tradeValues: { "player:1": 9800, "player:2": 6400 },
     tradeCounts: { "player:1": 2, "player:2": 1.4 },
@@ -78,6 +79,25 @@ test("board ranks players and drops retired, defense, and unnamed scrubs", () =>
   assert.ok(rows.findIndex((row) => row.assetId === "pick:2027:r1:any") < rows.findIndex((row) => row.assetId === "player:5"));
 });
 
+test("past drafts stay off the board, including the pick line", () => {
+  const rows = buildRankBoard({
+    minPickSeason: 2027,
+    values: {
+      ...values,
+      "pick:2025:r1:any": 7214,
+      "pick:2025:r1:early": 7800,
+      "pick:2026:r1:any": 4470,
+      "pick:2026:r1:early": 5198,
+    },
+    names,
+    nflPlayers,
+  });
+  assert.equal(rows.some((row) => String(row.season) === "2025" || String(row.season) === "2026"), false);
+  assert.equal(rows.some((row) => /2025|2026/.test(row.name)), false);
+  assert.equal(rows.some((row) => /2025|2026/.test(row.pickLine || "")), false);
+  assert.equal(rows.some((row) => row.assetId === "pick:2027:r1:any"), true);
+});
+
 test("pick line and tape stay one sentence", () => {
   assert.equal(
     pickEqualLine(9000, { phrase: "2027 early 1st", value: 7000 }, { phrase: "2027 early 1st", value: 7000 }),
@@ -96,7 +116,7 @@ test("pick line and tape stay one sentence", () => {
 });
 
 test("filters keep the tradable board and search finds the cheap name", () => {
-  const rows = buildRankBoard({ values, names, nflPlayers });
+  const rows = buildRankBoard({ values, names, nflPlayers, minPickSeason: 2027 });
   const all = filterRankRows(rows, { position: "ALL" });
   assert.equal(all.some((row) => row.assetId === "player:4"), false);
   assert.equal(all.some((row) => row.assetId === "player:3"), true);
@@ -118,6 +138,7 @@ test("filters keep the tradable board and search finds the cheap name", () => {
 
 test("markup escapes names and opens the selected card", () => {
   const rows = buildRankBoard({
+    minPickSeason: 2027,
     values: { ...values, "player:7": 2200 },
     names: { ...names, "player:7": "<script>Bad</script>" },
     nflPlayers: {

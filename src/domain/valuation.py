@@ -104,7 +104,7 @@ class ValuationService:
     def calculate_package_adjustment(self, my_values: list[int], their_values: list[int]) -> PackageAdjustmentResult:
         my_base_value = sum(my_values)
         their_base_value = sum(their_values)
-        if len(my_values) == len(their_values):
+        if len(my_values) <= 1 and len(their_values) <= 1:
             return PackageAdjustmentResult(
                 my_base_value=my_base_value,
                 their_base_value=their_base_value,
@@ -116,7 +116,14 @@ class ValuationService:
             )
 
         trade_max_value = max([0, *my_values, *their_values])
+        previous_max = self._max_value
+        self._max_value = max(self._max_value, trade_max_value)
+        try:
+            return self._package_adjustment_from_curve(my_base_value, their_base_value, my_values, their_values, trade_max_value)
+        finally:
+            self._max_value = previous_max
 
+    def _package_adjustment_from_curve(self, my_base_value, their_base_value, my_values, their_values, trade_max_value):
         if trade_max_value <= 0:
             return PackageAdjustmentResult(
                 my_base_value=my_base_value,

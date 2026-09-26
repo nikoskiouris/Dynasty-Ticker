@@ -245,7 +245,10 @@ function hardWindowOverride(input, axes) {
   if (Number.isFinite(playoffPct) && playoffPct <= 3 && late) return "tank";
   if (Number.isFinite(playoffPct) && playoffPct <= 10 && veryLate) return "tank";
   if (input.clinched || titlePct >= 22) return "all-in";
-  if (Number.isFinite(playoffPct) && playoffPct >= 82) return "all-in";
+  // Week 3 can already show 80% playoff odds for a 2-0 middle roster.
+  // Lock all-in only once the race is real, or the lineup itself is elite.
+  const oddsMature = axes.seasonProgress >= 0.45;
+  if (Number.isFinite(playoffPct) && playoffPct >= 82 && (oddsMature || axes.nowScore >= 80)) return "all-in";
   return null;
 }
 
@@ -259,25 +262,28 @@ function scoreWindowPressure(input, axes) {
   let allIn = nowScore * 1.04;
   let tank = (100 - nowScore) * 1.03;
   let middle = 48 + Math.max(0, 16 - Math.abs(nowScore - 52) * 0.4);
+  // Early Monte Carlo odds make every 2-0 team look like a champion.
+  const oddsMature = seasonProgress >= 0.45;
+  const eliteNow = nowScore >= 80;
 
   if (!season && nowScore >= 62 && aging) allIn += 16;
-  if (!season && nowScore >= 68 && pickPoor) allIn += 10;
-  if (titlePct >= 10) allIn += 10;
-  if (titlePct >= 18) allIn += 8;
-  if (playoffPct != null && playoffPct >= 68) allIn += 14;
-  if (playoffPct != null && playoffPct >= 52 && nowScore >= 56) allIn += 8;
+  if (!season && eliteNow && pickPoor) allIn += 10;
+  if (titlePct >= 10 && (oddsMature || eliteNow)) allIn += 10;
+  if (titlePct >= 18 && (oddsMature || eliteNow)) allIn += 8;
+  if (playoffPct != null && playoffPct >= 68 && (oddsMature || eliteNow)) allIn += 14;
+  if (playoffPct != null && playoffPct >= 52 && (oddsMature || eliteNow)) allIn += 8;
   if (input.clinched) allIn += 12;
   if (input.playoffsStarted && nowScore >= 58) allIn += 10;
-  if (nowScore >= 74) allIn += 8;
+  if (eliteNow) allIn += 8;
 
   if (input.eliminated) tank += 26;
   if (playoffPct != null && playoffPct <= 10 && seasonProgress >= 0.32) tank += 16;
   if (playoffPct != null && playoffPct <= 20 && seasonProgress >= 0.52) tank += 12;
-  if (nowScore <= 38) tank += 12;
-  if (!season && nowScore <= 46 && (young || pickRich)) tank += 12;
+  if (nowScore <= 30) tank += 12;
+  if (!season && nowScore <= 46 && futureScore >= 55 && (young || pickRich)) tank += 12;
   if (!season && nowScore <= 50 && aging && !pickRich) tank += 14;
   if (lastPlacePct >= 32 && nowScore <= 52) tank += 8;
-  if (!season && futureScore >= 68 && nowScore <= 48) tank += 8;
+  if (!season && futureScore >= 58 && nowScore <= 42) tank += 10;
 
   if (nowScore >= 66) tank -= 22;
   if (playoffPct != null && playoffPct >= 48) tank -= 16;
@@ -287,15 +293,21 @@ function scoreWindowPressure(input, axes) {
 
   if (!season && nowScore >= 44 && nowScore <= 66 && futureScore >= 40 && futureScore <= 72) middle += 10;
   if (playoffPct != null && playoffPct >= 26 && playoffPct <= 58 && titlePct < 12) middle += 12;
-  if (!season && Math.abs(nowScore - futureScore) <= 12 && nowScore >= 42 && nowScore <= 64) middle += 8;
+  if (!season && Math.abs(nowScore - futureScore) <= 12 && nowScore >= 42 && nowScore <= 72) middle += 8;
   if (!season && nowScore >= 70 && young && !pickPoor) middle += 6;
+  // Neither a title core nor a rebuild. This is the lane that was getting emptied.
+  if (!season && nowScore >= 33 && nowScore <= 76 && futureScore >= 28 && futureScore <= 78) middle += 18;
+  // Winning a little, with no pick vault, in September. Stay put.
+  if (!season && !oddsMature && nowScore >= 55 && nowScore <= 78 && futureScore <= 45) middle += 12;
 
   const gap = Math.abs(allIn - tank);
-  if (gap >= 20) middle -= 12;
-  if (gap >= 30) middle -= 10;
+  if (eliteNow || nowScore <= 30) {
+    if (gap >= 20) middle -= 12;
+    if (gap >= 30) middle -= 10;
+  }
   if (input.eliminated) middle -= 22;
-  if (playoffPct != null && playoffPct >= 75) middle -= 16;
-  if (titlePct >= 18) middle -= 12;
+  if (playoffPct != null && playoffPct >= 75 && (oddsMature || eliteNow)) middle -= 16;
+  if (titlePct >= 18 && (oddsMature || eliteNow)) middle -= 12;
 
   return { "all-in": allIn, middle, tank };
 }

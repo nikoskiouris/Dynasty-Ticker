@@ -273,6 +273,7 @@ h5 {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .mobile-chrome,
@@ -282,15 +283,17 @@ h5 {
 }
 
 .control-rail {
-  position: sticky;
+  /* Fixed so Safari does not treat a sticky viewport-tall rail as extra page height. */
+  position: fixed;
   top: 0;
-  align-self: start;
+  left: 0;
+  z-index: 20;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  min-height: 100vh;
-  min-height: 100dvh;
-  max-height: 100vh;
+  width: 300px;
+  height: 100vh;
+  height: 100dvh;
   max-height: 100dvh;
   overflow-x: hidden;
   overflow-y: auto;
@@ -891,6 +894,7 @@ select.is-invalid {
 }
 
 .workspace {
+  grid-column: 2;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -2523,7 +2527,7 @@ body:not(.league-loaded) .workspace-header {
 
 .sheet-row {
   display: grid;
-  grid-template-columns: 3.4rem minmax(0, 1fr) minmax(10.25rem, auto);
+  grid-template-columns: 2.8rem minmax(0, 1fr) auto;
   gap: 0.75rem;
   align-items: center;
   padding: 0.55rem 0.7rem;
@@ -2675,7 +2679,11 @@ a.inline-link:hover {
 
 .sheet-player strong {
   overflow: hidden;
-  font-size: 0.88rem;
+  font-family: var(--font-display);
+  font-size: 1.28rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2688,8 +2696,11 @@ a.inline-link:hover {
 
 .nickname {
   color: var(--violet);
+  font-family: var(--font-body);
+  font-size: 0.62em;
   font-style: normal;
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: 0;
 }
 
 .injury {
@@ -2705,26 +2716,21 @@ a.inline-link:hover {
 
 .sheet-metrics {
   display: grid;
-  gap: 0.28rem;
-  min-width: 10.25rem;
-  padding: 0.4rem 0.6rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel);
+  justify-items: end;
+  gap: 0.05rem;
+  min-width: 4.4rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .weekly-chip,
 .dynasty-chip {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  line-height: 1.2;
-}
-
-.dynasty-chip {
-  padding-top: 0.28rem;
-  border-top: 1px solid var(--line);
+  justify-content: flex-end;
+  gap: 0.35rem;
+  line-height: 1;
 }
 
 .weekly-chip small,
@@ -2745,12 +2751,16 @@ a.inline-link:hover {
 
 .weekly-chip strong {
   color: var(--blue);
-  font-size: 0.98rem;
+  font-family: var(--font-display);
+  font-size: 1.72rem;
   font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
 }
 
 .dynasty-chip strong {
-  font-size: 0.9rem;
+  color: var(--muted);
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
@@ -2760,7 +2770,7 @@ a.inline-link:hover {
 
 @media (max-width: 700px) {
   .sheet-row {
-    grid-template-columns: 2.5rem minmax(0, 1fr) minmax(8.9rem, auto);
+    grid-template-columns: 2.3rem minmax(0, 1fr) auto;
     gap: 0.5rem;
     padding: 0.5rem 0.55rem;
   }
@@ -2770,8 +2780,8 @@ a.inline-link:hover {
   }
 
   .sheet-metrics {
-    min-width: 8.9rem;
-    padding: 0.32rem 0.48rem;
+    min-width: 3.8rem;
+    padding: 0;
   }
 }
 
@@ -2798,8 +2808,11 @@ a.inline-link:hover {
 }
 
 .player-week-head h3 {
-  margin: 0.1rem 0 0;
-  font-size: 1.2rem;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
 .player-week-scores {
@@ -2838,8 +2851,8 @@ a.inline-link:hover {
 .weekly-score-badge strong,
 .dynasty-value-badge strong {
   font-family: var(--font-display);
-  font-size: 1.45rem;
-  line-height: 1.1;
+  font-size: 2.15rem;
+  line-height: 0.95;
 }
 
 .weekly-score-max {
@@ -3001,7 +3014,10 @@ button.weekly-help-close:hover {
 }
 
 .week-input strong {
-  font-size: 1.05rem;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
 .week-input small {
@@ -3651,12 +3667,24 @@ button.weekly-help-close:hover {
   color: var(--team-a);
 }
 
+.league-board-panel .section-copy {
+  max-width: none;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
 .league-bias-list {
-  margin: 0;
+  margin: 0.35rem 0 0;
   padding-left: 1.15rem;
   display: grid;
   gap: 0.35rem;
-  color: var(--muted-strong);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  text-align: left;
 }
 
 .league-board-examples {
@@ -4794,8 +4822,8 @@ button.weekly-help-close:hover {
   display: block;
   overflow-wrap: anywhere;
   font-family: var(--font-display);
-  font-size: 1.2rem;
-  line-height: 1.1;
+  font-size: 1.85rem;
+  line-height: 1;
 }
 
 .power-lane h4 {
@@ -5547,6 +5575,10 @@ button.weekly-help-close:hover {
     grid-template-columns: 270px minmax(0, 1fr);
   }
 
+  .control-rail {
+    width: 270px;
+  }
+
   .workspace-header {
     grid-template-columns: 1fr;
   }
@@ -5776,6 +5808,10 @@ button.weekly-help-close:hover {
     align-content: start;
   }
 
+  .workspace {
+    grid-column: auto;
+  }
+
   .mobile-chrome {
     position: sticky;
     top: 0;
@@ -5953,6 +5989,22 @@ button.weekly-help-close:hover {
   .control-rail.is-open,
   body.rail-open .control-rail {
     transform: translateX(0);
+  }
+
+  /* Before a league, this drawer is only a logo and Dark mode.
+     Search and the moon already sit on the page, so keep the empty menu shut. */
+  body:not(.league-loaded) #mobile-rail-toggle {
+    display: none;
+  }
+
+  body:not(.league-loaded) .mobile-chrome {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  body:not(.league-loaded) .control-rail,
+  body:not(.league-loaded) .rail-backdrop,
+  body:not(.league-loaded) .rail-backdrop.open {
+    display: none !important;
   }
 
   .mobile-rail-close {
@@ -6528,8 +6580,10 @@ body.dock-visible {
 }
 
 .window-call-banner {
-  display: grid;
-  gap: 0.2rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
   width: 100%;
   padding: 0.9rem 1rem;
   color: inherit;
@@ -6549,9 +6603,17 @@ body.dock-visible {
 
 .window-call-banner strong,
 .window-call-hero h2 {
-  margin: 0.1rem 0 0.15rem;
-  font-size: 1.35rem;
+  margin: 0;
+  font-size: 2rem;
   letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.window-call-banner-score {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .window-call-banner small,
@@ -6674,7 +6736,10 @@ body.dock-visible {
 }
 
 .window-call-signal strong {
-  font-size: 1.05rem;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
 .window-call-moves {
@@ -8102,6 +8167,7 @@ button.ranks-row.you {
 }
 
 
+/* Landing owns the username search. The rail form comes back once a league is open. */
 body:not(.league-loaded) .control-rail .league-module,
 body:not(.league-loaded) #identity-section,
 body.league-loaded #landing,

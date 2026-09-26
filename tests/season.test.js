@@ -13,6 +13,7 @@ import {
   blendSimPrior,
   playoffLockStatus,
   scoreUpcomingWeekAngles,
+  pickWeekAngleCards,
   resolveUpcomingWeekEntry,
   compareRosterRecord,
   playoffWeekCount,
@@ -433,8 +434,46 @@ test("upcoming week dark horses use scoring distributions, not a value check", (
   assert.ok(!horseNames.includes("Alpha"));
   assert.ok(angles.cards.some((card) => card.kind === "dark-horse"));
   assert.ok(angles.trapGames.some((card) => card.teamName === "Charlie" && card.opponentName === "Bravo"));
+  const bravoCard = angles.cards.find((card) => card.teamName === "Bravo");
+  assert.ok(bravoCard);
+  assert.ok(!angles.cards.some((card) => card.kind === "trap" && String(card.matchupId) === String(bravoCard.matchupId)));
   assert.match(angles.darkHorses[0].detail, /scoring-profile|boom tail/i);
   assert.doesNotMatch(angles.darkHorses[0].detail, /KTC roster rank|raw KTC/i);
+});
+
+test("week angle cards tell each matchup once", () => {
+  const horse = (matchupId, name) => ({
+    kind: "dark-horse",
+    title: "Dark horse",
+    rosterId: `${matchupId}-dog`,
+    teamName: name,
+    opponentRosterId: `${matchupId}-fav`,
+    matchupId,
+  });
+  const trap = (matchupId, name) => ({
+    kind: "trap",
+    title: "Trap game",
+    rosterId: `${matchupId}-fav`,
+    teamName: name,
+    opponentRosterId: `${matchupId}-dog`,
+    matchupId,
+  });
+  const cards = pickWeekAngleCards({
+    darkHorses: [horse("g1", "Niko"), horse("g2", "Ben"), horse("g3", "Juan")],
+    trapGames: [trap("g1", "Logan"), trap("g4", "Other")],
+    leverageGames: [{ kind: "leverage", title: "Highest leverage", rosterId: "chris", teamName: "Chris", opponentRosterId: "yian", matchupId: "g5" }],
+  });
+  const kinds = cards.map((card) => `${card.kind}:${card.matchupId}`);
+  assert.deepEqual(kinds, ["dark-horse:g1", "dark-horse:g2", "leverage:g5", "dark-horse:g3"]);
+  assert.ok(!cards.some((card) => card.kind === "trap"));
+  assert.equal(new Set(cards.map((card) => card.matchupId)).size, cards.length);
+
+  const filled = pickWeekAngleCards({
+    darkHorses: [horse("g1", "Niko"), horse("g2", "Ben"), horse("g3", "Juan")],
+    trapGames: [trap("g1", "Logan"), trap("g2", "Skol")],
+  });
+  assert.deepEqual(filled.map((card) => card.matchupId), ["g1", "g2", "g3"]);
+  assert.ok(filled.every((card) => card.kind === "dark-horse"));
 });
 
 test("a scoreless final week does not mint ties", () => {

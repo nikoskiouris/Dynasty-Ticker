@@ -46,7 +46,7 @@ test("document titles and descriptions change with tab and league", () => {
   );
   assert.equal(
     buildDocumentTitle({ page: "teams", leagueName: "Try Hard or Die Hard", loaded: true, room: "mock" }),
-    "My League · Try Hard or Die Hard — Dynasty Ticker"
+    "League · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "teams", leagueName: "Try Hard or Die Hard", loaded: true, room: "call" }),
@@ -339,6 +339,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(app, /from "\.\/modules\/recap/);
   assert.match(readDocs("styles.css"), /--ticker-duration: 60s/);
   assert.match(readDocs("styles.css"), /\.ticker\.is-bound \.ticker-track/);
+  assert.match(readDocs("styles.css"), /body:not\(\.league-loaded\) #mobile-rail-toggle/);
+  assert.match(readDocs("styles.css"), /body:not\(\.league-loaded\) \.rail-backdrop\.open/);
+  assert.match(app, /shouldOpen = Boolean\(open\) && isPhoneLayout\(\) && Boolean\(state\.leagueId\)/);
 
   const terms = readDocs("terms.html");
   assert.match(terms, /theme-color" content="#eef3f2"/);
@@ -404,6 +407,29 @@ test("storage notice CSS does not override the hidden attribute", () => {
   assert.doesNotMatch(css, /\.storage-notice\s*\{[^}]*display:\s*flex/s);
 });
 
+test("side rail is fixed so the page cannot scroll a blank screen past the last card", () => {
+  const css = readDocs("styles.css");
+  assert.match(css, /\.control-rail \{[^}]*position:\s*fixed/s);
+  assert.match(css, /\.workspace \{[^}]*grid-column:\s*2/s);
+  assert.match(css, /\.workspace \{\s*grid-column:\s*auto/s);
+  assert.doesNotMatch(css, /\.control-rail \{[^}]*position:\s*sticky/s);
+});
+
+test("weekly honors, season superlatives, and the rookie mock sit on the matching tabs", () => {
+  const index = readDocs("index.html");
+  const team = index.match(/data-room-panel="team"[\s\S]*?data-room-panel="scores"/)[0];
+  const scores = index.match(/data-room-panel="scores"[\s\S]*?data-room-panel="board"/)[0];
+  const board = index.match(/data-room-panel="board"[\s\S]*?data-room-panel="activity"/)[0];
+  const history = index.match(/data-room-panel="history"[\s\S]*?<\/div>\s*<\/div>/)[0];
+  assert.doesNotMatch(team, /mock-dashboard|weekly-honors|superlatives/);
+  assert.match(scores, /id="weekly-honors-dashboard"/);
+  assert.doesNotMatch(scores, /superlatives-dashboard|mock-dashboard/);
+  assert.match(board, /id="superlatives-dashboard"/);
+  assert.match(board, /id="mock-dashboard"/);
+  assert.match(board, /Rookie mock/);
+  assert.doesNotMatch(history, /awards-dashboard|weekly-honors|superlatives|mock-dashboard/);
+});
+
 test("phone desk nav keeps pages on top and rooms with the page", () => {
   const css = readDocs("styles.css");
   assert.match(css, /Phone desk nav: page tabs stick under the header/);
@@ -428,6 +454,28 @@ test("ticker loops slower so names stay readable", () => {
   assert.equal(tickerDurationSeconds(4), 50);
   assert.equal(tickerDurationSeconds(8), 72);
   assert.equal(tickerDurationSeconds(12), 108);
+});
+
+test("the site never names KeepTradeCut", () => {
+  const namesBrand = (text) => /KeepTradeCut|keeptradecut|keep trade cut/i.test(text) || /\bKTC\b/.test(text);
+  const hits = [];
+  function walk(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(path);
+        continue;
+      }
+      if (!/\.(html|js|css|svg|md|txt)$/i.test(entry.name)) continue;
+      if (namesBrand(readFileSync(path, "utf8"))) hits.push(path.slice(docs.length + 1));
+    }
+  }
+  walk(docs);
+  for (const name of ["README.md", "AGENTS.md"]) {
+    const path = join(docs, "..", name);
+    if (namesBrand(readFileSync(path, "utf8"))) hits.push(name);
+  }
+  assert.deepEqual(hits, []);
 });
 
 test("product name Dynasty Ticker never shares the repo with the old brand", () => {

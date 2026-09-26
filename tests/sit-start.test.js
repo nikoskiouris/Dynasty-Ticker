@@ -166,11 +166,10 @@ test("WR3 vs Flex close call uses matchup and usage, not dynasty", () => {
   assert.ok(nicoCall.gap <= CLOSE_CALL_GAP);
   const html = renderSitStartCallout(board);
   assert.match(html, /data-sit-start="ready"/);
-  assert.match(html, /Sit \/ start/);
   assert.match(html, /Nico over Diggs/);
   assert.match(html, /<li>WR3: Nico over Diggs — Nico: 24% targets, Easy vs ARI\. Diggs: 11% targets, Hard vs SF<\/li>/);
   assert.doesNotMatch(html, /<li>[^<]*dynasty/i);
-  assert.match(html, new RegExp(SIT_START_HINT.replaceAll("/", "\\/")));
+  assert.doesNotMatch(html, new RegExp(SIT_START_HINT.replaceAll("/", "\\/")));
 });
 
 test("close-call copy names matchup or usage", () => {
@@ -195,8 +194,7 @@ test("locks with a fat gap are not close calls", () => {
   });
   assert.equal(board.starters[0].player.name, "Lock");
   assert.equal(board.closeCalls.length, 0);
-  const html = renderSitStartCallout(board);
-  assert.match(html, /No close calls this week/);
+  assert.equal(renderSitStartCallout(board), "");
 });
 
 test("deep rosters still solve the scarce slot instead of a greedy local pick", () => {
@@ -268,7 +266,7 @@ test("idp-sized slates still solve the scarce slot", () => {
 });
 
 test("sit/start callout has loading and error states", () => {
-  assert.match(renderSitStartCallout(null, { loading: true, week: 2 }), /Loading this week's sit\/start/);
+  assert.match(renderSitStartCallout(null, { loading: true, week: 2 }), /Loading sit\/start/);
   assert.match(renderSitStartCallout({ week: 2 }, { error: "stats down" }), /stats down/);
   assert.equal(renderSitStartCallout(null), "");
   const css = readFileSync(join(docs, "styles.css"), "utf8");
@@ -281,6 +279,7 @@ test("sit/start callout has loading and error states", () => {
   assert.match(app, />Start</);
   assert.match(app, />Sit</);
   const index = readFileSync(join(docs, "index.html"), "utf8");
-  assert.match(index, /Sit\/start this week/);
-  assert.match(index, /Close calls get a matchup or usage why/);
+  assert.match(index, /id="weekly-help-btn"/);
+  assert.doesNotMatch(index, /Sit\/start this week/);
+  assert.doesNotMatch(index, /Close calls get a matchup or usage why/);
 });

@@ -1,7 +1,7 @@
 import { escapeHtml, formatNumber } from "./html.js";
 import { renderPlayerFace } from "./player-face.js";
 import { ordinal } from "./season.js";
-import { isInactivePlayerAsset, parsePickAssetId } from "./values.js";
+import { isInactivePlayerAsset, parsePickAssetId, upcomingDraftSeason } from "./values.js";
 import { playerAgeFromNfl, playerInitials, sleeperPlayerThumbUrl } from "./rather.js";
 
 export const RANK_LIST_FLOOR = 1500;
@@ -97,8 +97,9 @@ export function buildRankBoard({
   nflPlayers = {},
   owners = {},
   noteFor = null,
+  minPickSeason = upcomingDraftSeason(),
 } = {}) {
-  const picks = collectRankPicks(values);
+  const picks = collectRankPicks(values, minPickSeason);
   const pickById = new Map(picks.map((pick) => [pick.assetId, pick]));
   const bestPick = picks.reduce((best, pick) => (!best || pick.value > best.value ? pick : best), null);
   const players = [];
@@ -403,12 +404,14 @@ function rankEyebrow(row) {
   return [row?.boardRank, overall].filter(Boolean).join(" · ");
 }
 
-function collectRankPicks(values) {
+function collectRankPicks(values, minSeason) {
+  const floor = Number(minSeason);
   const picks = [];
   for (const [assetId, rawValue] of Object.entries(values || {})) {
     const meta = parsePickAssetId(assetId);
     const value = Number(rawValue);
     if (!meta || !Number.isFinite(value) || value <= 0) continue;
+    if (Number.isFinite(floor) && Number(meta.season) < floor) continue;
     if (meta.round < 1 || meta.round > 3) continue;
     if (meta.round > 1 && meta.bucket !== "any") continue;
     picks.push({

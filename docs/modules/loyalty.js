@@ -188,7 +188,7 @@ export function finishesAfterTrade(rows = [], trade = {}) {
   });
 }
 
-// Fleece is a market steal, not raw KTC delta: log-ratio of the packages,
+// Fleece is a market steal, not a raw price gap: log-ratio of the packages,
 // relative lopsidedness, and the star that moved. Heater is the record
 // after the deal: Bayesian shrink toward .500 plus a Wilson lower bound
 // so 2-0 cannot beat a real sample. Impact still waits on games piling up.
@@ -275,10 +275,10 @@ export function buildTradeRecap({
     ? `Since the deal the ticker is ${since.label} (${Math.round((Number(since.winPct) || 0) * 100)}%).`
     : "No games have posted after this one yet, so the record is still blank.";
   const marketBit = Math.abs(Number(delta) || 0) < 200
-    ? "Today's KTC still calls it even."
+    ? "Today's price still calls it even."
     : Number(delta) > 0
-      ? `Today's KTC says ${managerName} is up ${Math.round(delta)}.`
-      : `Today's KTC says ${managerName} is down ${Math.round(Math.abs(delta))}.`;
+      ? `Today's price says ${managerName} is up ${Math.round(delta)}.`
+      : `Today's price says ${managerName} is down ${Math.round(Math.abs(delta))}.`;
   const finishBit = finishes.length
     ? ` Later finishes: ${finishes.map((row) => `${row.season} ${row.label}`).join(", ")}.`
     : "";

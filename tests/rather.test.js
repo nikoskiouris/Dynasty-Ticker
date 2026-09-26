@@ -407,7 +407,8 @@ test("renderRatherMarkup shows headline, format detail, and two players", () => 
   assert.match(html, /id="rather-skip"/);
   assert.match(html, />Skip</);
   assert.match(html, /aria-label="Skip this matchup"/);
-  assert.match(html, /Sleeper trades mixed with KeepTradeCut/);
+  assert.match(html, /Sleeper trades from many dynasty leagues/);
+  assert.doesNotMatch(html, /KeepTradeCut|keeptradecut|\bKTC\b/i);
   assert.match(html, /not NFL depth charts/);
   assert.match(html, /public ticker board for everyone/);
   assert.doesNotMatch(html, /Desk Crowd/);

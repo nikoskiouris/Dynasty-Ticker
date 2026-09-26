@@ -401,11 +401,7 @@
             <div id="start-dashboard" class="dashboard start-dashboard hidden"></div>
             <section class="workspace-panel" id="power-section">
               <div class="panel-heading">
-                <div>
-                  <span class="eyebrow">Your team</span>
-                  <h2 id="power-heading">Outlook</h2>
-                </div>
-                <p class="section-copy" id="power-section-copy">Compete, hold, or rebuild, then the roster. League ranks live under League.</p>
+                <h2 id="power-heading">Outlook</h2>
               </div>
               <div id="power-dashboard" class="power-dashboard">
                 <p class="muted">Connect Sleeper to see your team.</p>
@@ -414,28 +410,19 @@
             </section>
             <section class="workspace-panel" id="roster-sheet-section">
               <div class="panel-heading">
-                <div>
-                  <span class="eyebrow">Roster</span>
-                  <h2 id="roster-sheet-heading">Starters, bench, and picks</h2>
-                </div>
-                <p class="section-copy weekly-help-copy">
-                  <span>Sit/start this week. Close calls get a matchup or usage why. Start, consider, or sit.</span>
-                  <button type="button" id="weekly-help-btn" class="weekly-help-btn" data-action="toggle-weekly-help" aria-expanded="false" aria-haspopup="dialog" aria-controls="weekly-help-pop" title="What this start score means">
-                    <span aria-hidden="true">i</span>
-                    <span class="sr-only">What this start score means</span>
-                  </button>
-                </p>
+                <h2 id="roster-sheet-heading">Roster</h2>
+                <button type="button" id="weekly-help-btn" class="weekly-help-btn" data-action="toggle-weekly-help" aria-expanded="false" aria-haspopup="dialog" aria-controls="weekly-help-pop" title="What this start score means">
+                  <span aria-hidden="true">i</span>
+                  <span class="sr-only">What this start score means</span>
+                </button>
               </div>
               <div id="roster-sheet" class="roster-sheet"></div>
               <div id="weekly-help-layer-host"></div>
             </section>
-            <details class="workspace-panel" id="mock-fold">
-              <summary>Picks and mock</summary>
-              <div id="mock-dashboard" class="dashboard mock-dashboard"></div>
-            </details>
           </div>
           <div class="room hidden" data-room-panel="scores">
             <div id="scores-dashboard" class="dashboard"></div>
+            <div id="weekly-honors-dashboard" class="dashboard"></div>
           </div>
           <div class="room hidden" data-room-panel="board">
             <section class="workspace-panel" id="teams-section">
@@ -449,7 +436,12 @@
               <div id="teams-grid" class="teams-grid"></div>
             </section>
             <div id="standings-dashboard" class="dashboard"></div>
+            <div id="superlatives-dashboard" class="dashboard"></div>
             <div id="power-board-dashboard" class="dashboard"></div>
+            <details class="workspace-panel" id="mock-fold">
+              <summary>Rookie mock</summary>
+              <div id="mock-dashboard" class="dashboard mock-dashboard"></div>
+            </details>
           </div>
           <div class="room hidden" data-room-panel="activity">
             <div id="trade-log-dashboard" class="dashboard"></div>
@@ -458,7 +450,6 @@
             <div id="history-dashboard" class="dashboard analytics-dashboard">
               <p class="muted">Connect a league to open history.</p>
             </div>
-            <div id="awards-dashboard" class="dashboard"></div>
             <div id="loyalty-dashboard" class="loyalty-dashboard"></div>
           </div>
         </div>

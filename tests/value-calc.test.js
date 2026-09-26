@@ -45,7 +45,7 @@ test("blank calculator searches any player, not a roster", () => {
 });
 
 test("blank calculator searches players and generic picks in one list", () => {
-  const mixed = listValueCalcAssets(values, names, { query: "2027 1st" });
+  const mixed = listValueCalcAssets(values, names, { query: "2027 1st", minSeason: 2027 });
   assert.deepEqual(mixed.map((row) => row.assetId).sort(), [
     "pick:2027:r1:early",
     "pick:2027:r1:late",
@@ -54,25 +54,31 @@ test("blank calculator searches players and generic picks in one list", () => {
   assert.equal(mixed.some((row) => row.assetId === "pick:2027:r2:early"), false);
   assert.equal(mixed.some((row) => row.assetId === "pick:2027:r1:any"), false);
 
-  const middle = listValueCalcAssets(values, names, { query: "middle 1st" });
+  const middle = listValueCalcAssets(values, names, { query: "middle 1st", minSeason: 2027 });
   assert.deepEqual(middle.map((row) => row.assetId), ["pick:2027:r1:mid"]);
 
-  const firsts = listValueCalcAssets(values, names, { query: "2027 early 1st" });
+  const firsts = listValueCalcAssets(values, names, { query: "2027 early 1st", minSeason: 2027 });
   assert.deepEqual(firsts.map((row) => row.assetId), ["pick:2027:r1:early"]);
 
   const playerHit = listValueCalcAssets(values, names, { query: "bijan" });
   assert.equal(playerHit.length, 1);
   assert.equal(playerHit[0].assetType, "player");
 
-  const ranked = listValueCalcAssets(values, names, { query: "early" });
+  const ranked = listValueCalcAssets(values, names, { query: "early", minSeason: 2027 });
   assert.ok(ranked[0].value >= ranked[ranked.length - 1].value);
   assert.ok(ranked.every((row) => row.assetType === "pick"));
 });
 
 test("generic picks stay early middle late, not a specific team's pick", () => {
-  const picks = listGenericPicks(values, names);
-  assert.deepEqual(picks.map((pick) => pick.bucket), ["early", "early", "mid", "late", "early"]);
+  const picks = listGenericPicks(values, names, { minSeason: 2027 });
+  assert.deepEqual(picks.map((pick) => pick.assetId), [
+    "pick:2027:r1:early",
+    "pick:2027:r1:mid",
+    "pick:2027:r1:late",
+    "pick:2027:r2:early",
+  ]);
   assert.equal(picks.some((pick) => pick.bucket === "any"), false);
+  assert.equal(picks.some((pick) => pick.season === "2026"), false);
 });
 
 test("blank calculator adds, sums, and grades both sides", () => {
@@ -100,15 +106,17 @@ test("searching Brian finds Brian Thomas and Brian Robinson", () => {
   assert.ok(rows.some((row) => row.name === "Brian Robinson"));
 });
 
-test("market file search finds 2026 firsts and named players together", () => {
+test("market file search finds the next firsts and named players together", () => {
   const csv = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/data/ktc_values_sf.csv"), "utf8");
   const { values: marketValues, nameMap } = parseCsvValues(csv);
-  const firsts = listValueCalcAssets(marketValues, nameMap, { query: "2026 1st", limit: 20 });
+  const firsts = listValueCalcAssets(marketValues, nameMap, { query: "2027 1st", limit: 20, minSeason: 2027 });
   assert.ok(firsts.length >= 3);
-  assert.ok(firsts.every((row) => row.assetType === "pick" && row.season === "2026" && row.round === 1));
+  assert.ok(firsts.every((row) => row.assetType === "pick" && row.season === "2027" && row.round === 1));
   assert.ok(firsts.some((row) => row.bucket === "early"));
   assert.ok(firsts.some((row) => row.bucket === "mid"));
   assert.ok(firsts.some((row) => row.bucket === "late"));
+  const drafted = listValueCalcAssets(marketValues, nameMap, { query: "2026 1st", limit: 20, minSeason: 2027 });
+  assert.equal(drafted.length, 0);
 
   const bijan = listValueCalcAssets(marketValues, nameMap, { query: "bijan", limit: 5 });
   assert.equal(bijan[0].assetType, "player");
@@ -134,6 +142,8 @@ test("live ktc json names survive an empty format nameMap", () => {
   const bundle = pickValueBundle(composed, "sf");
   const bijan = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "bijan", limit: 5 });
   assert.match(bijan[0].name, /Bijan/i);
-  const firsts = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "2026 1st", limit: 8 });
-  assert.ok(firsts.some((row) => row.assetType === "pick"));
+  const firsts = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "2027 1st", limit: 8, minSeason: 2027 });
+  assert.ok(firsts.some((row) => row.assetType === "pick" && row.season === "2027"));
+  const drafted = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "2026 1st", limit: 8, minSeason: 2027 });
+  assert.equal(drafted.length, 0);
 });

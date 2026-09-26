@@ -3,6 +3,7 @@ import {
   formatPickBucketLabel,
   getPickBucketAliases,
   parsePickAssetId,
+  upcomingDraftSeason,
 } from "./values.js";
 
 export const VALUE_CALC_SIDES = Object.freeze(["left", "right"]);
@@ -97,7 +98,8 @@ function sliceValueCalcRows(rows, limit) {
   return Number.isFinite(Number(limit)) && Number(limit) > 0 ? rows.slice(0, Number(limit)) : rows;
 }
 
-export function listGenericPicks(values = {}, names = {}) {
+export function listGenericPicks(values = {}, names = {}, { minSeason = upcomingDraftSeason() } = {}) {
+  const floor = Number(minSeason);
   return Object.entries(values)
     .filter(([assetId, value]) => isGenericPickAssetId(assetId) && Number.isFinite(Number(value)))
     .map(([assetId, value]) => {
@@ -113,6 +115,7 @@ export function listGenericPicks(values = {}, names = {}) {
         bucketLabel: formatPickBucketLabel(meta.bucket),
       };
     })
+    .filter((pick) => !Number.isFinite(floor) || Number(pick.season) >= floor)
     .sort((a, b) => Number(a.season) - Number(b.season) || a.round - b.round || VALUE_CALC_BUCKETS.indexOf(a.bucket) - VALUE_CALC_BUCKETS.indexOf(b.bucket));
 }
 
@@ -128,11 +131,11 @@ function listValueCalcPlayerRows(values = {}, names = {}) {
     }));
 }
 
-export function listValueCalcAssets(values = {}, names = {}, { query = "", limit = 40, kinds = ["player", "pick"] } = {}) {
+export function listValueCalcAssets(values = {}, names = {}, { query = "", limit = 40, kinds = ["player", "pick"], minSeason } = {}) {
   const want = new Set(kinds);
   const rows = [];
   if (want.has("player")) rows.push(...listValueCalcPlayerRows(values, names));
-  if (want.has("pick")) rows.push(...listGenericPicks(values, names));
+  if (want.has("pick")) rows.push(...listGenericPicks(values, names, { minSeason }));
   return sliceValueCalcRows(
     rows.filter((row) => valueCalcAssetMatchesQuery(row, query)).sort(sortValueCalcRows),
     limit

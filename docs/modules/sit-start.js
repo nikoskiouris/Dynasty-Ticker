@@ -377,41 +377,15 @@ export function renderSitStartCallout(board, { loading = false, error = "", week
   const weekNum = Number(board?.week) || Number(week) || 0;
   const weekLabel = weekNum > 0 ? ` · W${weekNum}` : "";
   if (loading) {
-    return `
-      <section class="sit-start-board" data-sit-start="loading">
-        <header class="sit-start-head">
-          <span class="eyebrow">This week${escapeHtml(weekLabel)}</span>
-          <h4>Sit / start</h4>
-        </header>
-        <p class="muted small lineup-basis">Loading this week's sit/start…</p>
-      </section>
-    `;
+    return `<p class="muted small" data-sit-start="loading">Loading sit/start${escapeHtml(weekLabel)}…</p>`;
   }
   if (error) {
-    return `
-      <section class="sit-start-board" data-sit-start="error">
-        <header class="sit-start-head">
-          <span class="eyebrow">This week${escapeHtml(weekLabel)}</span>
-          <h4>Sit / start</h4>
-        </header>
-        <p class="muted small lineup-basis">Sit/start unavailable (${escapeHtml(error)}). Dynasty lineup still shows.</p>
-      </section>
-    `;
+    return `<p class="muted small" data-sit-start="error">${escapeHtml(error)}</p>`;
   }
   if (!board) return "";
   const calls = (board.closeCalls || [])
     .map((call) => `<li>${escapeHtml(call.reason)}</li>`)
     .join("");
-  return `
-    <section class="sit-start-board" data-sit-start="ready">
-      <header class="sit-start-head">
-        <span class="eyebrow">This week${escapeHtml(weekLabel)}</span>
-        <h4>Sit / start</h4>
-      </header>
-      <p class="muted small lineup-basis">${escapeHtml(SIT_START_HINT)}</p>
-      ${calls
-        ? `<ul class="sit-start-calls">${calls}</ul>`
-        : `<p class="muted small">No close calls this week.</p>`}
-    </section>
-  `;
+  if (!calls) return "";
+  return `<ul class="sit-start-calls" data-sit-start="ready">${calls}</ul>`;
 }

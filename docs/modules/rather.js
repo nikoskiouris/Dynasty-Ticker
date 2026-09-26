@@ -332,7 +332,7 @@ export function renderRatherMarkup(pair, format = DEFAULT_RATHER_FORMAT, options
   const right = pair?.right || {};
   const skipLabel = options.skipLabel || "Skip";
   const note = options.note
-    || "Your pick slightly nudges the public ticker board for everyone. These ranks are ours, not NFL depth charts. The prior is Sleeper trades mixed with KeepTradeCut.";
+    || "Your pick slightly nudges the public ticker board for everyone. These ranks are ours, not NFL depth charts. The prior is Sleeper trades from many dynasty leagues.";
   const status = options.status || "";
   const matchup = options.matchup || formatRatherMatchup(left, right);
   return `

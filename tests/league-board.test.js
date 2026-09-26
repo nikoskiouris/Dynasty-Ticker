@@ -9,6 +9,7 @@ import {
   packagesFromTransaction,
   readApplyLeagueBoard,
   renderLeagueBoardMarkup,
+  selectNotableBiases,
   shouldShowLeagueAlt,
   writeApplyLeagueBoard,
 } from "../docs/modules/league-board.js";
@@ -124,6 +125,50 @@ test("league overlay stays off until apply, and too few trades stay empty", () =
   const on = getAssetValue(asset, values, { leagueShifts: board.shifts, applyLeagueBoard: true });
   assert.equal(off, 4200);
   assert.ok(on > off);
+});
+
+test("league taste only calls out a real premium, not the whole roster", () => {
+  const row = (id, label, shift) => ({
+    id,
+    label,
+    shift,
+    sentence: `${label} ${Math.round(shift * 100)}`,
+  });
+  const crowded = selectNotableBiases([
+    row("pos:QB", "quarterbacks", 0.18),
+    row("boom", "boom-or-bust skill players", 0.16),
+    row("age:youth", "young players", 0.12),
+    row("pos:RB", "running backs", 0.12),
+    row("age:vet", "veterans", 0.12),
+    row("pos:WR", "wide receivers", 0.10),
+    row("pos:TE", "tight ends", 0.02),
+    row("pick", "draft picks", 0.01),
+  ]);
+  assert.deepEqual(crowded.map((bias) => bias.id), ["pos:QB", "boom"]);
+
+  const onePremium = selectNotableBiases([
+    row("pos:WR", "wide receivers", 0.14),
+    row("pos:RB", "running backs", 0.03),
+    row("pos:QB", "quarterbacks", 0.02),
+    row("pos:TE", "tight ends", 0.01),
+    row("age:youth", "young players", 0.04),
+    row("age:vet", "veterans", 0.02),
+    row("boom", "boom-or-bust skill players", 0.03),
+    row("pick", "draft picks", 0),
+  ]);
+  assert.deepEqual(onePremium.map((bias) => bias.id), ["pos:WR"]);
+
+  const bothAges = selectNotableBiases([
+    row("age:youth", "young players", 0.2),
+    row("age:vet", "veterans", 0.18),
+    row("pos:WR", "wide receivers", 0.02),
+    row("pos:RB", "running backs", 0.01),
+    row("pos:QB", "quarterbacks", 0),
+    row("pos:TE", "tight ends", 0),
+    row("boom", "boom-or-bust skill players", 0.02),
+    row("pick", "draft picks", 0),
+  ]);
+  assert.deepEqual(bothAges.map((bias) => bias.id), []);
 });
 
 test("packagesFromTransaction ignores waivers and one-sided junk", () => {

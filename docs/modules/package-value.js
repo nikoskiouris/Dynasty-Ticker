@@ -1,6 +1,5 @@
-// Consolidation math for uneven packages, in the style of KeepTradeCut's value
-// adjustment: one better player is worth more than the same total spread across
-// more pieces.
+// Consolidation math for uneven packages: one better player is worth more than
+// the same total spread across more pieces.
 const KTC_RAW_BASE = 0.10;
 const KTC_RAW_ELITE_WEIGHT = 0.08;
 const KTC_RAW_TRADE_WEIGHT = 0.11;
@@ -49,10 +48,10 @@ export function calculatePackageAdjustment({ myValues, theirValues, globalMaxVal
   const myBaseValue = myValues.reduce((sum, value) => sum + value, 0);
   const theirBaseValue = theirValues.reduce((sum, value) => sum + value, 0);
 
-  // A consolidation premium only makes sense when one side is actually consolidating.
-  // Equal-sized packages, especially elite one-for-one swaps, should remain legible from
-  // the displayed individual market values instead of receiving another nonlinear bump.
-  if (myValues.length === theirValues.length) {
+  // A straight swap stays at the listed prices. Any package of two or more runs the
+  // stud curve, even when both sides send the same number of pieces. Two lesser
+  // pieces are not worth one better piece that adds up to the same total.
+  if (myValues.length <= 1 && theirValues.length <= 1) {
     return {
       myBaseValue,
       theirBaseValue,
@@ -65,6 +64,7 @@ export function calculatePackageAdjustment({ myValues, theirValues, globalMaxVal
   }
 
   const tradeMaxValue = Math.max(0, ...myValues, ...theirValues);
+  globalMaxValue = Math.max(tradeMaxValue, Number(globalMaxValue) || 0);
 
   if (!tradeMaxValue) {
     return {

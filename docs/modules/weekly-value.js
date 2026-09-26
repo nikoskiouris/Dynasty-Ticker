@@ -74,7 +74,7 @@ export function weeklyScoreHelpLines() {
     "Top-tier names belong in the 90s. A healthy RB1 vs an average defense should sit near 90, not 60.",
     `Blends role, last ${WEEKLY_LOOKBACK_WEEKS} games of PPR, drops, and this week's opponent. Matchup barely moves a lock; it matters more at 50/50.`,
     "Not dynasty trade price. Last week alone does not set it.",
-    "Sit/start uses this number. Bye, out, no team, and missing opponent sit. Dynasty price only breaks ties.",
+    "Sit/start uses this number. Out and IR are 0% until that designation comes off. Questionable stays available. Bye, no team, and a missing opponent still sit. Dynasty price only breaks ties.",
   ];
 }
 
@@ -569,6 +569,20 @@ function averageShare(games, key) {
   return mean(rows.map((game) => game[key]));
 }
 
+function designationText(value) {
+  return String(value || "").trim().toLowerCase().replace(/[_/-]+/g, " ").replace(/\s+/g, " ");
+}
+
+export function weeklyUnavailableReason(injuryStatus, playerStatus) {
+  const injury = designationText(injuryStatus);
+  const status = designationText(playerStatus);
+  if (injury === "out" || /\bout\b/.test(injury)) return "Out";
+  if (injury === "ir" || /\bir\b/.test(injury) || injury.includes("injured reserve")) return "IR";
+  if (status === "out" || /\bout\b/.test(status)) return "Out";
+  if (status === "ir" || /\bir\b/.test(status) || status.includes("injured reserve")) return "IR";
+  return "";
+}
+
 export function buildWeeklyPlayerModel({
   playerId,
   name,
@@ -577,6 +591,8 @@ export function buildWeeklyPlayerModel({
   dynastyValue,
   seasonStats = {},
   context,
+  injuryStatus,
+  playerStatus,
 } = {}) {
   const pos = weeklyPosition(position);
   const teamKey = normalizeNflTeam(team);
@@ -633,19 +649,22 @@ export function buildWeeklyPlayerModel({
     ? { score: null, label: "", ratio: null }
     : opponentEase({ ptsAllowed: defense?.ptsAllowed, leagueAvg });
 
-  const scored = noTeam
-    ? { score: 0, complete: false, missing: [NOT_ON_TEAM], matchupMult: 1 }
-    : scoreWeeklyValue({
-        position: pos,
-        recentPoints,
-        seasonPointsPerGame,
-        targetShare: pos === "QB" ? null : targetShare,
-        rushShare,
-        dropPct,
-        opponentPtsAllowed: defense?.ptsAllowed,
-        opponentLeagueAvg: leagueAvg,
-        doubleTeamRate: null,
-      });
+  const unavailable = weeklyUnavailableReason(injuryStatus, playerStatus);
+  const scored = unavailable
+    ? { score: 0, complete: false, missing: [], matchupMult: 1 }
+    : noTeam
+      ? { score: 0, complete: false, missing: [NOT_ON_TEAM], matchupMult: 1 }
+      : scoreWeeklyValue({
+          position: pos,
+          recentPoints,
+          seasonPointsPerGame,
+          targetShare: pos === "QB" ? null : targetShare,
+          rushShare,
+          dropPct,
+          opponentPtsAllowed: defense?.ptsAllowed,
+          opponentLeagueAvg: leagueAvg,
+          doubleTeamRate: null,
+        });
 
   const opponentDetail = noTeam
     ? NOT_ON_TEAM
@@ -671,6 +690,7 @@ export function buildWeeklyPlayerModel({
     score: scored.score,
     complete: scored.complete,
     missing: scored.missing,
+    unavailable,
     bye: Boolean(upcoming.bye),
     noTeam,
     opponentMissing: !noTeam && !upcoming.bye && !opponent,
@@ -748,6 +768,7 @@ export function weeklyScoreParts(score) {
 }
 
 export function weeklyScoreSuppressed(model) {
+  if (model?.unavailable) return false;
   return Boolean(model?.bye || model?.opponentMissing);
 }
 
@@ -758,13 +779,11 @@ export function weeklyScoreChipLabel(model) {
 
 export function renderWeeklyPlayerSheet(model, { helpOpen = false } = {}) {
   if (!model) return "";
-  const missingNote = model.complete
-    ? "Every usage and matchup input is in."
-    : `Missing: ${model.missing.join(", ")}.`;
   const parts = weeklyScoreSuppressed(model)
     ? { value: "—", max: "" }
     : weeklyScoreParts(model.score);
   const dynasty = model.dynastyValue == null ? "—" : formatNumber(Math.round(model.dynastyValue));
+  const meta = [model.position, model.team, model.unavailable].filter(Boolean).join(" · ");
   const games = (model.games || []).map((game) => {
     const bits = [
       Number.isFinite(game.pts) ? `${formatWeeklyPoints(game.pts)} PPR` : "",
@@ -785,32 +804,26 @@ export function renderWeeklyPlayerSheet(model, { helpOpen = false } = {}) {
       <header class="player-week-head">
         ${renderPlayerFace(model.playerId, model.name, { size: "md" })}
         <div class="player-week-copy">
-          <span class="player-week-kicker">
-            <span class="eyebrow">This week</span>
-            ${renderWeeklyScoreHelpButton({ open: helpOpen })}
-          </span>
           <h3>${escapeHtml(model.name)}</h3>
-          <p class="muted small">${escapeHtml([model.position, model.team].filter(Boolean).join(" · "))}</p>
+          ${meta ? `<p class="muted small">${escapeHtml(meta)}</p>` : ""}
         </div>
         <div class="player-week-scores">
-          <div class="weekly-score-badge" title="Chance you should start them this week. Not dynasty value.">
-            <small>${WEEKLY_SCORE_LABEL}</small>
+          <div class="weekly-score-badge" title="${escapeHtml(WEEKLY_SCORE_HINT)}">
+            <small class="sr-only">${WEEKLY_SCORE_LABEL}</small>
             <strong>${escapeHtml(parts.value)}${parts.max ? `<span class="weekly-score-max">${escapeHtml(parts.max)}</span>` : ""}</strong>
           </div>
-          <div class="dynasty-value-badge" title="Market dynasty value, not this week’s start chance">
-            <small>${DYNASTY_SCORE_LABEL}</small>
+          <div class="dynasty-value-badge" title="${escapeHtml(DYNASTY_SCORE_LABEL)}">
+            <small class="sr-only">${DYNASTY_SCORE_LABEL}</small>
             <strong>${escapeHtml(dynasty)}</strong>
           </div>
+          ${renderWeeklyScoreHelpButton({ open: helpOpen })}
         </div>
       </header>
-      <p class="player-week-note">${escapeHtml(WEEKLY_SCORE_HINT)}</p>
-      <p class="player-week-missing muted small">${escapeHtml(missingNote)}</p>
       <div class="week-input-grid">
         ${model.inputs.map((input) => `
-          <section class="week-input ${input.missing ? "missing" : ""} ${input.tone || ""}" data-week-input="${escapeHtml(input.id)}">
+          <section class="week-input ${input.missing ? "missing" : ""} ${input.tone || ""}" data-week-input="${escapeHtml(input.id)}" title="${escapeHtml(input.missing || input.detail)}">
             <span>${escapeHtml(input.label)}</span>
             <strong>${escapeHtml(input.value)}</strong>
-            <small>${escapeHtml(input.missing || input.detail)}</small>
           </section>
         `).join("")}
       </div>
@@ -819,11 +832,8 @@ export function renderWeeklyPlayerSheet(model, { helpOpen = false } = {}) {
         ${games
           ? `<ol>${games}</ol>`
           : `<p class="muted small">${escapeHtml(NO_RECENT_GAMES)}</p>`}
-        ${Number.isFinite(model.seasonPointsPerGame)
-          ? `<p class="muted small">Season ${escapeHtml(formatWeeklyPoints(model.seasonPointsPerGame))} PPR/game.</p>`
-          : ""}
       </div>
-      <button type="button" class="ghost-btn week-sheet-close" data-action="close-player">Close player</button>
+      <button type="button" class="ghost-btn week-sheet-close" data-action="close-player">Close</button>
     </article>
   `;
 }
