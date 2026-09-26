@@ -40,7 +40,7 @@ Sleeper trades first, a bundled prior for thin names:
 - Optional **league board** inferred from this league’s own trades (positions, youth, boom-bust skill players, and specific names). Apply it when you want room prices.
 - TE premium bump only when Sleeper has extra TE reception points (`bonus_rec_te` / `rec_te`). Plain PPR Superflex is not TEP.
 - Missing assets get a position/age estimate labeled **est**.
-- The calculator uses the Players price in both modes. Uneven packages get a visible consolidation credit on the side with the best player. League screens outside the calculator still apply an elite premium per player; ticket 016 tracks making that one price.
+- The calculator uses the Players price in both modes. A package of two or more gives a stud credit to the side with the best piece, even when both sides send the same number. A one-for-one stays at the listed prices. League screens outside the calculator still apply an elite premium per player; ticket 016 tracks making that one price.
 
 Refresh rankings with `python scripts/update_ktc_values.py`. Refresh the Sleeper trade market with `python scripts/update_sleeper_trade_market.py`. Refresh the 2027 Superflex rookie mock with `python scripts/update_dynasty_rookie_mock.py` (Dynasty Nerds 2-round board; 1sts and 2nds get names, 3rds do not). A Monday GitHub Action commits that JSON to `develop` if the board changed. It does not publish the live site. Live deploys try the scrapes and keep the last files if a source is down.
 

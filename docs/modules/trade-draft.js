@@ -35,9 +35,9 @@ export function draftMarketPrice(asset, { values = {}, nameMap = {}, catalog = n
 
 const DRAFT_ASSET_ID = /^(?:player:[A-Za-z0-9_.-]+|pick:\d{4}:r\d+:[A-Za-z0-9_-]+)$/;
 
-// The one verdict, with or without a league. Pane totals stay the plain market sums; an
-// uneven package adds a visible consolidation credit to the side with the best player,
-// and the verdict compares those adjusted totals.
+// The one verdict, with or without a league. Pane totals stay the plain market sums.
+// A package of two or more adds a stud credit, even when both sides send the same
+// number of pieces. A straight one-for-one stays at the listed prices.
 export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxValue = 9999 } = {}) {
   const clean = (list) => (Array.isArray(list) ? list : []).map((value) => Math.max(0, Number(value) || 0));
   const giveList = clean(giveValues);
