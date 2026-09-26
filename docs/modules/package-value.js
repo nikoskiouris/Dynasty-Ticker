@@ -1,6 +1,5 @@
-// Consolidation math for uneven packages, in the style of KeepTradeCut's value
-// adjustment: one better player is worth more than the same total spread across
-// more pieces.
+// Consolidation math for uneven packages: one better player is worth more than
+// the same total spread across more pieces.
 const KTC_RAW_BASE = 0.10;
 const KTC_RAW_ELITE_WEIGHT = 0.08;
 const KTC_RAW_TRADE_WEIGHT = 0.11;
