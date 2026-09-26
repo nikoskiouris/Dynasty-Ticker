@@ -46,7 +46,7 @@ test("document titles and descriptions change with tab and league", () => {
   );
   assert.equal(
     buildDocumentTitle({ page: "teams", leagueName: "Try Hard or Die Hard", loaded: true, room: "mock" }),
-    "My League · Try Hard or Die Hard — Dynasty Ticker"
+    "League · Try Hard or Die Hard — Dynasty Ticker"
   );
   assert.equal(
     buildDocumentTitle({ page: "teams", leagueName: "Try Hard or Die Hard", loaded: true, room: "call" }),
@@ -402,6 +402,21 @@ test("storage notice CSS does not override the hidden attribute", () => {
   const css = readDocs("styles.css");
   assert.match(css, /\.storage-notice:not\(\[hidden\]\)\s*\{[^}]*display:\s*flex/s);
   assert.doesNotMatch(css, /\.storage-notice\s*\{[^}]*display:\s*flex/s);
+});
+
+test("weekly honors, season superlatives, and the rookie mock sit on the matching tabs", () => {
+  const index = readDocs("index.html");
+  const team = index.match(/data-room-panel="team"[\s\S]*?data-room-panel="scores"/)[0];
+  const scores = index.match(/data-room-panel="scores"[\s\S]*?data-room-panel="board"/)[0];
+  const board = index.match(/data-room-panel="board"[\s\S]*?data-room-panel="activity"/)[0];
+  const history = index.match(/data-room-panel="history"[\s\S]*?<\/div>\s*<\/div>/)[0];
+  assert.doesNotMatch(team, /mock-dashboard|weekly-honors|superlatives/);
+  assert.match(scores, /id="weekly-honors-dashboard"/);
+  assert.doesNotMatch(scores, /superlatives-dashboard|mock-dashboard/);
+  assert.match(board, /id="superlatives-dashboard"/);
+  assert.match(board, /id="mock-dashboard"/);
+  assert.match(board, /Rookie mock/);
+  assert.doesNotMatch(history, /awards-dashboard|weekly-honors|superlatives|mock-dashboard/);
 });
 
 test("phone desk nav keeps pages on top and rooms with the page", () => {

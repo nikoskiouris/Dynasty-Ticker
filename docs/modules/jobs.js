@@ -42,14 +42,14 @@ export const DESK_MORE_JOBS = Object.freeze([
     page: "league",
     room: "scores",
     label: "This week",
-    blurb: "Matchups and scores",
+    blurb: "Matchups, scores, and weekly honors",
   },
   {
     id: "board",
     page: "league",
     room: "board",
     label: "League",
-    blurb: "Standings and ranks",
+    blurb: "Standings, season honors, and the rookie mock",
   },
   {
     id: "history",

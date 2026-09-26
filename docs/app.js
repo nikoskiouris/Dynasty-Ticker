@@ -419,7 +419,8 @@ const el = {
   rosterSheetHeading: document.querySelector("#roster-sheet-heading"),
   weeklyHelpBtn: document.querySelector("#weekly-help-btn"),
   weeklyHelpLayerHost: document.querySelector("#weekly-help-layer-host"),
-  awardsDashboard: document.querySelector("#awards-dashboard"),
+  weeklyHonorsDashboard: document.querySelector("#weekly-honors-dashboard"),
+  superlativesDashboard: document.querySelector("#superlatives-dashboard"),
   loyaltyDashboard: document.querySelector("#loyalty-dashboard"),
   windowCallDashboard: document.querySelector("#window-call-dashboard"),
   passportDashboard: document.querySelector("#passport-dashboard"),
@@ -891,23 +892,24 @@ function renderLeagueRoom(room) {
     case "team":
       renderTeamsPage();
       renderWindowCallDashboard();
-      renderMockBoard();
       break;
     case "board":
       renderStandingsRoom();
       renderPowerRoom();
       renderTeamsGrid();
+      renderSeasonSuperlatives();
+      renderMockBoard();
       break;
     case "activity":
       renderTradeLogDesk();
       break;
     case "history":
       renderLeagueHistoryRoom();
-      renderAwardsPage();
       renderLoyaltyDashboard();
       break;
     case "scores":
       renderScoresRoom();
+      renderWeeklyHonors();
       break;
     default:
       renderTeamsPage();
@@ -3799,7 +3801,7 @@ function renderMockBoard() {
   const host = el.mockDashboard;
   if (!host) return;
   void ensureMockDraftsLoaded().then(() => {
-    if (getRoom("league") !== "team") return;
+    if (getRoom("league") !== "board") return;
     paintMockBoard();
   });
   paintMockBoard();
@@ -3880,11 +3882,15 @@ function openMockBoardAt(round, slot) {
   const n = Number(slot);
   if (!Number.isFinite(rnd) || !Number.isFinite(n) || rnd < 1 || n < 1) return;
   state.mockFocus = { round: rnd, slot: n };
-  const onMock = state.activePage === "league" && getRoom("league") === "team";
+  const onMock = state.activePage === "league" && getRoom("league") === "board";
   if (onMock) paintMockBoard();
-  else openRoom("league", "team", { history: "push", scroll: "preserve" });
+  else openRoom("league", "board", { history: "push", scroll: "preserve" });
   window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(() => revealMockFocus());
+    window.requestAnimationFrame(() => {
+      const fold = document.querySelector("#mock-fold");
+      if (fold) fold.open = true;
+      revealMockFocus();
+    });
   });
 }
 
@@ -5192,10 +5198,11 @@ function renderRosterSheet() {
 // Awards
 // ---------------------------------------------------------------------------
 
-function renderAwardsPage() {
-  if (!el.awardsDashboard) return;
+function renderWeeklyHonors() {
+  const host = el.weeklyHonorsDashboard;
+  if (!host) return;
   if (!state.league || state.normalizedRosters.length === 0) {
-    el.awardsDashboard.innerHTML = `<p class="muted">Load a league to open the awards room.</p>`;
+    host.innerHTML = `<p class="muted">Load a league to open weekly honors.</p>`;
     return;
   }
   const model = getSeasonModel();
@@ -5207,9 +5214,8 @@ function renderAwardsPage() {
     playerPosition: playerPositionById,
     optimalPoints: state.playerMetadataLoaded ? computeOptimalPointsForSide : null,
   }) : null;
-  const superlatives = computeSeasonSuperlatives(model);
 
-  el.awardsDashboard.innerHTML = `
+  host.innerHTML = `
     <section class="workspace-panel">
       <div class="panel-heading">
         <div>
@@ -5227,7 +5233,19 @@ function renderAwardsPage() {
         ? `<div class="award-grid">${weekly.awards.map(renderAwardCard).join("")}</div>`
         : `<p class="muted analytics-empty">${state.seasonLoaded ? "No scores posted yet this season. Honors appear once Week 1 kicks off." : "Syncing matchups from Sleeper…"}</p>`}
     </section>
+  `;
+}
 
+function renderSeasonSuperlatives() {
+  const host = el.superlativesDashboard;
+  if (!host) return;
+  if (!state.league || state.normalizedRosters.length === 0) {
+    host.innerHTML = `<p class="muted">Load a league to open season superlatives.</p>`;
+    return;
+  }
+  const model = getSeasonModel();
+  const superlatives = computeSeasonSuperlatives(model);
+  host.innerHTML = `
     <section class="workspace-panel">
       <div class="panel-heading">
         <div>
@@ -5240,17 +5258,6 @@ function renderAwardsPage() {
         ? `<div class="award-grid">${superlatives.map(renderAwardCard).join("")}</div>`
         : `<p class="muted analytics-empty">Superlatives unlock after the first finalized week.</p>`}
     </section>
-
-    <div class="room-links">
-      <button type="button" class="room-link" data-action="go" data-page="league" data-room="standings">
-        <strong>Luck index</strong>
-        <span>Who the schedule loves, next to the standings.</span>
-      </button>
-      <button type="button" class="room-link" data-action="go" data-page="league" data-room="history">
-        <strong>League history</strong>
-        <span>Last champion, titles, and a few records.</span>
-      </button>
-    </div>
   `;
 }
 
@@ -6228,7 +6235,7 @@ function handleWorkspaceClick(event) {
     }
     case "awards-week": {
       state.awardsWeek = Number(target.dataset.week);
-      renderAwardsPage();
+      renderWeeklyHonors();
       break;
     }
     case "open-trade": {
