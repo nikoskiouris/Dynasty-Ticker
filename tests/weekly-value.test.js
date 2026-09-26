@@ -31,6 +31,7 @@ import {
   renderWeeklyScoreHelpButton,
   renderWeeklyScoreHelpPop,
   scoreWeeklyValue,
+  weeklyUnavailableReason,
   targetShareFromStats,
   weeksForWeeklyValue,
 } from "../docs/modules/weekly-value.js";
@@ -469,4 +470,84 @@ test("unsigned players are 0% this week, even with leftover box scores", () => {
   assert.match(renderWeeklyPlayerSheet(unsigned), /weekly-score-badge[\s\S]*<strong>0<span class="weekly-score-max">%<\/span>/);
   assert.equal(fa.score, 0);
   assert.equal(fa.noTeam, true);
+});
+
+test("IR and Out are 0% this week until the designation comes off", () => {
+  assert.equal(weeklyUnavailableReason("IR"), "IR");
+  assert.equal(weeklyUnavailableReason("Out"), "Out");
+  assert.equal(weeklyUnavailableReason("", "Injured Reserve"), "IR");
+  assert.equal(weeklyUnavailableReason("injured_reserve"), "IR");
+  assert.equal(weeklyUnavailableReason("Questionable"), "");
+  assert.equal(weeklyUnavailableReason("Doubtful"), "");
+  assert.equal(weeklyUnavailableReason("PUP"), "");
+  assert.equal(weeklyUnavailableReason("", "Active"), "");
+
+  const context = buildWeeklyContext({
+    season: "2026",
+    week: 2,
+    schedule: {
+      games: [
+        { season: "2026", week: 1, home: "NYG", away: "DAL" },
+        { season: "2026", week: 2, home: "NYG", away: "KC" },
+        { season: "2026", week: 2, home: "SEA", away: "ARI" },
+      ],
+    },
+    players: {
+      dart: { team: "NYG", position: "QB" },
+      222: { team: "NE", position: "WR" },
+    },
+    weekRows: [
+      {
+        season: "2026",
+        week: 1,
+        stats: {
+          dart: { gp: 1, pts_ppr: 24, pass_att: 32 },
+          222: { gp: 1, rec_tgt: 8, rec_drop: 0, rec: 6, pts_ppr: 22 },
+          TEAM_NYG: { rec_tgt: 30, rush_att: 20, off_yd: 340, opp_off_yd: 280, opp_pass_fd: 12, opp_rush_fd: 8, opp_fd: 20 },
+          TEAM_NE: { rec_tgt: 35, rec_drop: 1, rush_att: 20, off_yd: 280, opp_off_yd: 340, opp_pass_fd: 14, opp_rush_fd: 7, opp_fd: 21 },
+        },
+      },
+    ],
+  });
+  const base = {
+    playerId: "dart",
+    name: "Jaxson Dart",
+    position: "QB",
+    team: "NYG",
+    dynastyValue: 8818,
+    seasonStats: { gp: 1, pts_ppr: 24 },
+    context,
+  };
+  const available = buildWeeklyPlayerModel(base);
+  const ir = buildWeeklyPlayerModel({ ...base, injuryStatus: "IR" });
+  const out = buildWeeklyPlayerModel({ ...base, name: "Jayden Reed", injuryStatus: "Out" });
+  const questionable = buildWeeklyPlayerModel({ ...base, injuryStatus: "Questionable" });
+  const cleared = buildWeeklyPlayerModel({ ...base, injuryStatus: "", playerStatus: "Active" });
+  const byeIr = buildWeeklyPlayerModel({
+    ...base,
+    team: "BUF",
+    injuryStatus: "IR",
+  });
+
+  assert.ok(available.score > 0, `healthy score ${available.score} should stay above 0`);
+  assert.equal(ir.score, 0);
+  assert.equal(ir.unavailable, "IR");
+  assert.equal(weeklyScoreChipLabel(ir), "0%");
+  assert.equal(ir.dynastyValue, 8818);
+  assert.match(renderWeeklyPlayerSheet(ir), /On IR/);
+  assert.match(renderWeeklyPlayerSheet(ir), /weekly-score-badge[\s\S]*<strong>0<span class="weekly-score-max">%<\/span>/);
+  assert.equal(out.score, 0);
+  assert.equal(out.unavailable, "Out");
+  assert.equal(weeklyScoreChipLabel(out), "0%");
+  assert.match(renderWeeklyPlayerSheet(out), /Out\. Start chance is 0/);
+  assert.equal(questionable.unavailable, "");
+  assert.equal(questionable.score, available.score);
+  assert.ok(questionable.score > 0);
+  assert.equal(cleared.score, available.score);
+  assert.equal(weeklyScoreChipLabel(byeIr), "0%");
+  assert.equal(byeIr.score, 0);
+
+  const appSource = readFileSync(join(docs, "app.js"), "utf8");
+  assert.match(appSource, /injuryStatus: asset\.raw\?\.injury_status/);
+  assert.match(appSource, /playerStatus: asset\.raw\?\.status/);
 });

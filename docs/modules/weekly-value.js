@@ -74,7 +74,7 @@ export function weeklyScoreHelpLines() {
     "Top-tier names belong in the 90s. A healthy RB1 vs an average defense should sit near 90, not 60.",
     `Blends role, last ${WEEKLY_LOOKBACK_WEEKS} games of PPR, drops, and this week's opponent. Matchup barely moves a lock; it matters more at 50/50.`,
     "Not dynasty trade price. Last week alone does not set it.",
-    "Sit/start uses this number. Bye, out, no team, and missing opponent sit. Dynasty price only breaks ties.",
+    "Sit/start uses this number. Out and IR are 0% until that designation comes off. Questionable stays available. Bye, no team, and a missing opponent still sit. Dynasty price only breaks ties.",
   ];
 }
 
@@ -569,6 +569,20 @@ function averageShare(games, key) {
   return mean(rows.map((game) => game[key]));
 }
 
+function designationText(value) {
+  return String(value || "").trim().toLowerCase().replace(/[_/-]+/g, " ").replace(/\s+/g, " ");
+}
+
+export function weeklyUnavailableReason(injuryStatus, playerStatus) {
+  const injury = designationText(injuryStatus);
+  const status = designationText(playerStatus);
+  if (injury === "out" || /\bout\b/.test(injury)) return "Out";
+  if (injury === "ir" || /\bir\b/.test(injury) || injury.includes("injured reserve")) return "IR";
+  if (status === "out" || /\bout\b/.test(status)) return "Out";
+  if (status === "ir" || /\bir\b/.test(status) || status.includes("injured reserve")) return "IR";
+  return "";
+}
+
 export function buildWeeklyPlayerModel({
   playerId,
   name,
@@ -577,6 +591,8 @@ export function buildWeeklyPlayerModel({
   dynastyValue,
   seasonStats = {},
   context,
+  injuryStatus,
+  playerStatus,
 } = {}) {
   const pos = weeklyPosition(position);
   const teamKey = normalizeNflTeam(team);
@@ -633,19 +649,22 @@ export function buildWeeklyPlayerModel({
     ? { score: null, label: "", ratio: null }
     : opponentEase({ ptsAllowed: defense?.ptsAllowed, leagueAvg });
 
-  const scored = noTeam
-    ? { score: 0, complete: false, missing: [NOT_ON_TEAM], matchupMult: 1 }
-    : scoreWeeklyValue({
-        position: pos,
-        recentPoints,
-        seasonPointsPerGame,
-        targetShare: pos === "QB" ? null : targetShare,
-        rushShare,
-        dropPct,
-        opponentPtsAllowed: defense?.ptsAllowed,
-        opponentLeagueAvg: leagueAvg,
-        doubleTeamRate: null,
-      });
+  const unavailable = weeklyUnavailableReason(injuryStatus, playerStatus);
+  const scored = unavailable
+    ? { score: 0, complete: false, missing: [], matchupMult: 1 }
+    : noTeam
+      ? { score: 0, complete: false, missing: [NOT_ON_TEAM], matchupMult: 1 }
+      : scoreWeeklyValue({
+          position: pos,
+          recentPoints,
+          seasonPointsPerGame,
+          targetShare: pos === "QB" ? null : targetShare,
+          rushShare,
+          dropPct,
+          opponentPtsAllowed: defense?.ptsAllowed,
+          opponentLeagueAvg: leagueAvg,
+          doubleTeamRate: null,
+        });
 
   const opponentDetail = noTeam
     ? NOT_ON_TEAM
@@ -671,6 +690,7 @@ export function buildWeeklyPlayerModel({
     score: scored.score,
     complete: scored.complete,
     missing: scored.missing,
+    unavailable,
     bye: Boolean(upcoming.bye),
     noTeam,
     opponentMissing: !noTeam && !upcoming.bye && !opponent,
@@ -748,6 +768,7 @@ export function weeklyScoreParts(score) {
 }
 
 export function weeklyScoreSuppressed(model) {
+  if (model?.unavailable) return false;
   return Boolean(model?.bye || model?.opponentMissing);
 }
 
@@ -758,9 +779,11 @@ export function weeklyScoreChipLabel(model) {
 
 export function renderWeeklyPlayerSheet(model, { helpOpen = false } = {}) {
   if (!model) return "";
-  const missingNote = model.complete
-    ? "Every usage and matchup input is in."
-    : `Missing: ${model.missing.join(", ")}.`;
+  const missingNote = model.unavailable
+    ? `${model.unavailable === "Out" ? "Out" : "On IR"}. Start chance is 0 until that designation comes off.`
+    : model.complete
+      ? "Every usage and matchup input is in."
+      : `Missing: ${model.missing.join(", ")}.`;
   const parts = weeklyScoreSuppressed(model)
     ? { value: "—", max: "" }
     : weeklyScoreParts(model.score);
