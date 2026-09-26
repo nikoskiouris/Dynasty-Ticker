@@ -13,6 +13,8 @@ export const LEAGUE_BOARD_ATTR_SHRINK = 3;
 export const LEAGUE_BOARD_SHOW_RATIO = 0.04;
 export const LEAGUE_BOARD_SHOW_ABS = 150;
 export const BOOM_BUST_SCORE_FLOOR = 0.55;
+export const LEAGUE_BOARD_BIAS_FLOOR = 0.1;
+export const LEAGUE_BOARD_BIAS_GAP = 0.04;
 
 const ATTR_WEIGHTS = {
   position: 0.22,
@@ -212,7 +214,7 @@ export function buildLeagueBoard({
     });
   });
 
-  const biases = [
+  const biases = selectNotableBiases([
     biasRow("pos:WR", "wide receivers", posShifts.WR),
     biasRow("pos:RB", "running backs", posShifts.RB),
     biasRow("pos:QB", "quarterbacks", posShifts.QB),
@@ -221,7 +223,7 @@ export function buildLeagueBoard({
     biasRow("age:vet", "veterans", ageShifts.vet),
     biasRow("boom", "boom-or-bust skill players", boomShifts.boom),
     biasRow("pick", "draft picks", posShifts.PICK),
-  ].filter(Boolean).sort((a, b) => Math.abs(b.shift) - Math.abs(a.shift) || a.label.localeCompare(b.label));
+  ]);
 
   examples.sort((a, b) => {
     const aPlayer = String(a.assetId).startsWith("player:") ? 0 : 1;
@@ -287,7 +289,7 @@ export function renderLeagueBoardMarkup(board, { applied = false, formatNumber =
       </div>
       <p class="section-copy">${escapeHtml(board?.summary || emptyLeagueBoard().summary)}</p>
       <p class="muted small">Market stays Sleeper trades from many dynasty leagues, mixed with KeepTradeCut. This overlay is just your room.${status ? ` ${escapeHtml(status)}.` : ""}</p>
-      ${biases.length ? `<ul class="league-bias-list">${biases.map((bias) => `<li>${escapeHtml(bias.sentence)}</li>`).join("")}</ul>` : ""}
+      ${biases.length > 1 ? `<ul class="league-bias-list">${biases.slice(1).map((bias) => `<li>${escapeHtml(bias.sentence)}</li>`).join("")}</ul>` : ""}
       ${examples.length ? `<div class="league-board-examples">${examples.slice(0, 4).map((row) => `
         <article class="league-board-example">
           <strong>${exampleName(row)}</strong>
@@ -355,15 +357,39 @@ function shrinkBucket(bucket, shrink) {
 }
 
 function biasRow(id, label, shift) {
-  if (!Number.isFinite(shift) || Math.abs(shift) < 0.04) return null;
-  const pct = Math.round(shift * 100);
-  const verb = shift > 0 ? "pays up" : "discounts";
+  const numeric = Number(shift);
+  const value = Number.isFinite(numeric) ? numeric : 0;
+  const pct = Math.round(value * 100);
+  const verb = value > 0 ? "pays up" : "discounts";
   return {
     id,
     label,
-    shift,
+    shift: value,
     sentence: `This league ${verb} for ${label} (${pct > 0 ? "+" : ""}${pct}%).`,
   };
+}
+
+export function selectNotableBiases(rows) {
+  const measured = (Array.isArray(rows) ? rows : []).filter((row) => row && Number.isFinite(row.shift));
+  if (!measured.length) return [];
+  const shifts = measured.map((row) => row.shift).sort((a, b) => a - b);
+  const mid = Math.floor(shifts.length / 2);
+  const median = shifts.length % 2 ? shifts[mid] : (shifts[mid - 1] + shifts[mid]) / 2;
+  let kept = measured.filter((row) => (
+    (row.shift >= LEAGUE_BOARD_BIAS_FLOOR && row.shift >= median + LEAGUE_BOARD_BIAS_GAP)
+    || (row.shift <= -LEAGUE_BOARD_BIAS_FLOOR && row.shift <= median - LEAGUE_BOARD_BIAS_GAP)
+  ));
+  const youth = kept.find((row) => row.id === "age:youth");
+  const vet = kept.find((row) => row.id === "age:vet");
+  if (youth && vet && Math.sign(youth.shift) === Math.sign(vet.shift)) {
+    const gap = Math.abs(Math.abs(youth.shift) - Math.abs(vet.shift));
+    kept = gap >= 0.06
+      ? kept.filter((row) => row.id !== (Math.abs(youth.shift) >= Math.abs(vet.shift) ? vet.id : youth.id))
+      : kept.filter((row) => row.id !== "age:youth" && row.id !== "age:vet");
+  }
+  return kept
+    .sort((a, b) => Math.abs(b.shift) - Math.abs(a.shift) || a.label.localeCompare(b.label))
+    .slice(0, 3);
 }
 
 function recencyWeight(created, now) {
