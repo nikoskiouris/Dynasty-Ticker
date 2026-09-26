@@ -5955,6 +5955,22 @@ button.weekly-help-close:hover {
     transform: translateX(0);
   }
 
+  /* Before a league, this drawer is only a logo and Dark mode.
+     Search and the moon already sit on the page, so keep the empty menu shut. */
+  body:not(.league-loaded) #mobile-rail-toggle {
+    display: none;
+  }
+
+  body:not(.league-loaded) .mobile-chrome {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  body:not(.league-loaded) .control-rail,
+  body:not(.league-loaded) .rail-backdrop,
+  body:not(.league-loaded) .rail-backdrop.open {
+    display: none !important;
+  }
+
   .mobile-rail-close {
     display: grid;
     place-items: center;
@@ -8102,6 +8118,7 @@ button.ranks-row.you {
 }
 
 
+/* Landing owns the username search. The rail form comes back once a league is open. */
 body:not(.league-loaded) .control-rail .league-module,
 body:not(.league-loaded) #identity-section,
 body.league-loaded #landing,

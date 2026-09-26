@@ -1472,7 +1472,7 @@ function isPhoneLayout() {
 }
 
 function setMobileRailOpen(open) {
-  const shouldOpen = Boolean(open) && isPhoneLayout();
+  const shouldOpen = Boolean(open) && isPhoneLayout() && Boolean(state.leagueId);
   if (!shouldOpen && el.controlRail?.contains(document.activeElement)) {
     el.mobileRailToggle?.focus();
   }
@@ -1506,6 +1506,9 @@ function scrollActiveTabIntoView() {
 
 function renderSessionSnapshot() {
   document.body.classList.toggle("league-loaded", Boolean(state.leagueId));
+  if (!state.leagueId && document.body.classList.contains("rail-open")) {
+    setMobileRailOpen(false);
+  }
   if (el.mobileChromeTitle) {
     const you = getMyRoster()?.manager?.displayName || "";
     el.mobileChromeTitle.textContent = publicRanksOpen && !state.leagueId

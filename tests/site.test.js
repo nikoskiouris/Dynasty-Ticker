@@ -339,6 +339,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(app, /from "\.\/modules\/recap/);
   assert.match(readDocs("styles.css"), /--ticker-duration: 60s/);
   assert.match(readDocs("styles.css"), /\.ticker\.is-bound \.ticker-track/);
+  assert.match(readDocs("styles.css"), /body:not\(\.league-loaded\) #mobile-rail-toggle/);
+  assert.match(readDocs("styles.css"), /body:not\(\.league-loaded\) \.rail-backdrop\.open/);
+  assert.match(app, /shouldOpen = Boolean\(open\) && isPhoneLayout\(\) && Boolean\(state\.leagueId\)/);
 
   const terms = readDocs("terms.html");
   assert.match(terms, /theme-color" content="#eef3f2"/);
