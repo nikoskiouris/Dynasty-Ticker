@@ -420,7 +420,8 @@ const el = {
   rosterSheetHeading: document.querySelector("#roster-sheet-heading"),
   weeklyHelpBtn: document.querySelector("#weekly-help-btn"),
   weeklyHelpLayerHost: document.querySelector("#weekly-help-layer-host"),
-  awardsDashboard: document.querySelector("#awards-dashboard"),
+  weeklyHonorsDashboard: document.querySelector("#weekly-honors-dashboard"),
+  superlativesDashboard: document.querySelector("#superlatives-dashboard"),
   loyaltyDashboard: document.querySelector("#loyalty-dashboard"),
   windowCallDashboard: document.querySelector("#window-call-dashboard"),
   passportDashboard: document.querySelector("#passport-dashboard"),
@@ -741,7 +742,9 @@ function setRoom(page, room) {
 
 function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
   const nextPage = PAGE_IDS.includes(page) ? page : DEFAULT_PAGE;
-  const nextRoom = clampRoom(nextPage, isRoomOf(nextPage, room) ? room : defaultRoomFor(nextPage));
+  const place = resolveDeskPlace({ tab: nextPage, view: room || "" });
+  const aliased = place.page === nextPage ? place.room : "";
+  const nextRoom = clampRoom(nextPage, isRoomOf(nextPage, room) ? room : (aliased || defaultRoomFor(nextPage)));
   const samePlace = state.activePage === nextPage && getRoom(nextPage) === nextRoom && !state.selectedTradeId;
   if (samePlace && history === "push") return;
   if (history === "push") prepareDeskPush();
@@ -892,23 +895,24 @@ function renderLeagueRoom(room) {
     case "team":
       renderTeamsPage();
       renderWindowCallDashboard();
-      renderMockBoard();
       break;
     case "board":
       renderStandingsRoom();
       renderPowerRoom();
       renderTeamsGrid();
+      renderSeasonSuperlatives();
+      renderMockBoard();
       break;
     case "activity":
       renderTradeLogDesk();
       break;
     case "history":
       renderLeagueHistoryRoom();
-      renderAwardsPage();
       renderLoyaltyDashboard();
       break;
     case "scores":
       renderScoresRoom();
+      renderWeeklyHonors();
       break;
     default:
       renderTeamsPage();
@@ -3472,7 +3476,6 @@ function renderScoreboardPanel(model, sim) {
         </div>
         <div class="week-nav">
           <button type="button" class="ghost-btn" data-action="go" data-page="league" data-room="standings">Standings</button>
-          <button type="button" class="ghost-btn" data-action="go" data-page="league" data-room="awards">Awards</button>
           <button type="button" class="ghost-btn" data-action="home-week" data-week="${previousWeek ?? ""}" ${previousWeek == null ? "disabled" : ""}>Prev</button>
           <span>${index + 1} / ${weeksWithGames.length}</span>
           <button type="button" class="ghost-btn" data-action="home-week" data-week="${nextWeek ?? ""}" ${nextWeek == null ? "disabled" : ""}>Next</button>
@@ -3805,7 +3808,7 @@ function renderMockBoard() {
   const host = el.mockDashboard;
   if (!host) return;
   void ensureMockDraftsLoaded().then(() => {
-    if (getRoom("league") !== "team") return;
+    if (getRoom("league") !== "board") return;
     paintMockBoard();
   });
   paintMockBoard();
@@ -3886,11 +3889,15 @@ function openMockBoardAt(round, slot) {
   const n = Number(slot);
   if (!Number.isFinite(rnd) || !Number.isFinite(n) || rnd < 1 || n < 1) return;
   state.mockFocus = { round: rnd, slot: n };
-  const onMock = state.activePage === "league" && getRoom("league") === "team";
+  const onMock = state.activePage === "league" && getRoom("league") === "board";
   if (onMock) paintMockBoard();
-  else openRoom("league", "team", { history: "push", scroll: "preserve" });
+  else openRoom("league", "board", { history: "push", scroll: "preserve" });
   window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(() => revealMockFocus());
+    window.requestAnimationFrame(() => {
+      const fold = document.querySelector("#mock-fold");
+      if (fold) fold.open = true;
+      revealMockFocus();
+    });
   });
 }
 
@@ -5198,10 +5205,11 @@ function renderRosterSheet() {
 // Awards
 // ---------------------------------------------------------------------------
 
-function renderAwardsPage() {
-  if (!el.awardsDashboard) return;
+function renderWeeklyHonors() {
+  const host = el.weeklyHonorsDashboard;
+  if (!host) return;
   if (!state.league || state.normalizedRosters.length === 0) {
-    el.awardsDashboard.innerHTML = `<p class="muted">Load a league to open the awards room.</p>`;
+    host.innerHTML = `<p class="muted">Load a league to open weekly honors.</p>`;
     return;
   }
   const model = getSeasonModel();
@@ -5213,9 +5221,8 @@ function renderAwardsPage() {
     playerPosition: playerPositionById,
     optimalPoints: state.playerMetadataLoaded ? computeOptimalPointsForSide : null,
   }) : null;
-  const superlatives = computeSeasonSuperlatives(model);
 
-  el.awardsDashboard.innerHTML = `
+  host.innerHTML = `
     <section class="workspace-panel">
       <div class="panel-heading">
         <div>
@@ -5233,7 +5240,19 @@ function renderAwardsPage() {
         ? `<div class="award-grid">${weekly.awards.map(renderAwardCard).join("")}</div>`
         : `<p class="muted analytics-empty">${state.seasonLoaded ? "No scores posted yet this season. Honors appear once Week 1 kicks off." : "Syncing matchups from Sleeper…"}</p>`}
     </section>
+  `;
+}
 
+function renderSeasonSuperlatives() {
+  const host = el.superlativesDashboard;
+  if (!host) return;
+  if (!state.league || state.normalizedRosters.length === 0) {
+    host.innerHTML = `<p class="muted">Load a league to open season superlatives.</p>`;
+    return;
+  }
+  const model = getSeasonModel();
+  const superlatives = computeSeasonSuperlatives(model);
+  host.innerHTML = `
     <section class="workspace-panel">
       <div class="panel-heading">
         <div>
@@ -5246,17 +5265,6 @@ function renderAwardsPage() {
         ? `<div class="award-grid">${superlatives.map(renderAwardCard).join("")}</div>`
         : `<p class="muted analytics-empty">Superlatives unlock after the first finalized week.</p>`}
     </section>
-
-    <div class="room-links">
-      <button type="button" class="room-link" data-action="go" data-page="league" data-room="standings">
-        <strong>Luck index</strong>
-        <span>Who the schedule loves, next to the standings.</span>
-      </button>
-      <button type="button" class="room-link" data-action="go" data-page="league" data-room="history">
-        <strong>League history</strong>
-        <span>Last champion, titles, and a few records.</span>
-      </button>
-    </div>
   `;
 }
 
@@ -6133,6 +6141,14 @@ function handleWorkspaceClick(event) {
     case "go": {
       if (target.dataset.room === "mock") state.mockFocus = null;
       openRoom(target.dataset.page, target.dataset.room);
+      if (target.dataset.openMock === "1" || target.dataset.room === "mock") {
+        window.requestAnimationFrame(() => {
+          const fold = document.querySelector("#mock-fold");
+          if (!fold) return;
+          fold.open = true;
+          fold.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
       break;
     }
     case "open-public-ranks":
@@ -6230,7 +6246,7 @@ function handleWorkspaceClick(event) {
     }
     case "awards-week": {
       state.awardsWeek = Number(target.dataset.week);
-      renderAwardsPage();
+      renderWeeklyHonors();
       break;
     }
     case "open-trade": {
@@ -14843,7 +14859,7 @@ function renderPickVaultIntro(picks = []) {
   if (!season) return "";
   const hasOverlay = picks.some((asset) => asset.raw?.mockProspectName);
   const note = hasOverlay ? `${formatMockSourceLine(state.mockDrafts)} ` : "";
-  return `<p class="muted small pick-mock-note">${escapeHtml(note)}<button type="button" class="inline-link" data-action="go" data-page="league" data-room="team">Full board</button></p>`;
+  return `<p class="muted small pick-mock-note">${escapeHtml(note)}<button type="button" class="inline-link" data-action="go" data-page="league" data-room="board" data-open-mock="1">Full board</button></p>`;
 }
 
 function renderPickVaultRow(asset, values) {

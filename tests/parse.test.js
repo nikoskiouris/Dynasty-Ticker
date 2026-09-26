@@ -118,7 +118,8 @@ test("share params move old trade rooms to their new pages", () => {
   assert.equal(parseShareParams("league=1&tab=trades&view=shop").view, "find");
   assert.equal(parseShareParams("league=1&tab=trades&view=match").view, "find");
   assert.equal(parseShareParams("league=1&view=tradematch").view, "find");
-  assert.equal(parseShareParams("league=1&tab=awards").view, "history");
+  assert.equal(parseShareParams("league=1&tab=awards").view, "scores");
+  assert.equal(parseShareParams("league=1&view=mock").view, "board");
 });
 
 test("share params move hall, analytics, and records to league history", () => {
