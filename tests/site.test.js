@@ -404,6 +404,14 @@ test("storage notice CSS does not override the hidden attribute", () => {
   assert.doesNotMatch(css, /\.storage-notice\s*\{[^}]*display:\s*flex/s);
 });
 
+test("side rail is fixed so the page cannot scroll a blank screen past the last card", () => {
+  const css = readDocs("styles.css");
+  assert.match(css, /\.control-rail \{[^}]*position:\s*fixed/s);
+  assert.match(css, /\.workspace \{[^}]*grid-column:\s*2/s);
+  assert.match(css, /\.workspace \{\s*grid-column:\s*auto/s);
+  assert.doesNotMatch(css, /\.control-rail \{[^}]*position:\s*sticky/s);
+});
+
 test("phone desk nav keeps pages on top and rooms with the page", () => {
   const css = readDocs("styles.css");
   assert.match(css, /Phone desk nav: page tabs stick under the header/);
