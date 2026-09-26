@@ -741,7 +741,9 @@ function setRoom(page, room) {
 
 function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
   const nextPage = PAGE_IDS.includes(page) ? page : DEFAULT_PAGE;
-  const nextRoom = clampRoom(nextPage, isRoomOf(nextPage, room) ? room : defaultRoomFor(nextPage));
+  const place = resolveDeskPlace({ tab: nextPage, view: room || "" });
+  const aliased = place.page === nextPage ? place.room : "";
+  const nextRoom = clampRoom(nextPage, isRoomOf(nextPage, room) ? room : (aliased || defaultRoomFor(nextPage)));
   const samePlace = state.activePage === nextPage && getRoom(nextPage) === nextRoom && !state.selectedTradeId;
   if (samePlace && history === "push") return;
   if (history === "push") prepareDeskPush();
@@ -3468,7 +3470,6 @@ function renderScoreboardPanel(model, sim) {
         </div>
         <div class="week-nav">
           <button type="button" class="ghost-btn" data-action="go" data-page="league" data-room="standings">Standings</button>
-          <button type="button" class="ghost-btn" data-action="go" data-page="league" data-room="awards">Awards</button>
           <button type="button" class="ghost-btn" data-action="home-week" data-week="${previousWeek ?? ""}" ${previousWeek == null ? "disabled" : ""}>Prev</button>
           <span>${index + 1} / ${weeksWithGames.length}</span>
           <button type="button" class="ghost-btn" data-action="home-week" data-week="${nextWeek ?? ""}" ${nextWeek == null ? "disabled" : ""}>Next</button>
@@ -6138,6 +6139,14 @@ function handleWorkspaceClick(event) {
     case "go": {
       if (target.dataset.room === "mock") state.mockFocus = null;
       openRoom(target.dataset.page, target.dataset.room);
+      if (target.dataset.openMock === "1" || target.dataset.room === "mock") {
+        window.requestAnimationFrame(() => {
+          const fold = document.querySelector("#mock-fold");
+          if (!fold) return;
+          fold.open = true;
+          fold.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
       break;
     }
     case "open-public-ranks":
@@ -14848,7 +14857,7 @@ function renderPickVaultIntro(picks = []) {
   if (!season) return "";
   const hasOverlay = picks.some((asset) => asset.raw?.mockProspectName);
   const note = hasOverlay ? `${formatMockSourceLine(state.mockDrafts)} ` : "";
-  return `<p class="muted small pick-mock-note">${escapeHtml(note)}<button type="button" class="inline-link" data-action="go" data-page="league" data-room="team">Full board</button></p>`;
+  return `<p class="muted small pick-mock-note">${escapeHtml(note)}<button type="button" class="inline-link" data-action="go" data-page="league" data-room="board" data-open-mock="1">Full board</button></p>`;
 }
 
 function renderPickVaultRow(asset, values) {
