@@ -4991,7 +4991,7 @@ function weeklyModelForAsset(asset) {
     weeklyModelCache.key = cacheKey;
     weeklyModelCache.models = new Map();
   }
-  const assetKey = String(asset.assetId);
+  const assetKey = [asset.assetId, asset.raw?.injury_status || "", asset.raw?.status || ""].join(":");
   if (weeklyModelCache.models.has(assetKey)) return weeklyModelCache.models.get(assetKey);
   const model = buildWeeklyPlayerModel({
     playerId,
@@ -5001,6 +5001,8 @@ function weeklyModelForAsset(asset) {
     dynastyValue: getAssetValue(asset),
     seasonStats: state.weeklyValue.seasonStats?.[playerId] || {},
     context: state.weeklyValue.context,
+    injuryStatus: asset.raw?.injury_status,
+    playerStatus: asset.raw?.status,
   });
   weeklyModelCache.models.set(assetKey, model);
   return model;
