@@ -81,6 +81,7 @@ import {
   buildPickLookupMeta,
   buildPickValueLookupIds,
   findPickCatalogValue,
+  tradablePickSeason,
   playerPositionForRaw,
   playerPositionForAsset,
   playerAgeForAsset,
@@ -992,6 +993,7 @@ function cachedRankRows() {
     state.leagueId || "",
     state.normalizedRosters?.length || 0,
     state.meRosterId || "",
+    nextRookieDraftSeason(),
   ].join("|");
   if (rankBoardCache.key === key) return rankBoardCache.rows;
   const ktc = pickValueBundle(state.ktcBundles, format);
@@ -1007,6 +1009,7 @@ function cachedRankRows() {
       nflPlayers: players,
       owners: rankOwners(),
       noteFor: rankPlayerNote,
+      minPickSeason: nextRookieDraftSeason(),
     }),
   };
   return rankBoardCache.rows;
@@ -5795,11 +5798,7 @@ function renderDraftSuggestions(side, view) {
 }
 
 function nextRookieDraftSeason() {
-  const season = Number(state.nflState?.league_season || state.nflState?.season);
-  const type = String(state.nflState?.season_type || "");
-  if (Number.isFinite(season) && season > 2000) return type === "regular" || type === "post" ? season + 1 : season;
-  const now = new Date();
-  return now.getUTCFullYear() + (now.getUTCMonth() >= 8 ? 1 : 0);
+  return tradablePickSeason(state.nflState);
 }
 
 // A pick that can still be traded, close to the gap. Past drafts are already players.
