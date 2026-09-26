@@ -98,6 +98,94 @@ test("bubble mixed roster stays in the middle", () => {
   assert.ok(result.nowScore > 35 && result.nowScore < 70);
 });
 
+test("early season keeps the fence: balanced, thin capital, and flat rosters stay middle", () => {
+  const early = { currentWeek: 3, gamesPlayed: 2, remainingTeamGames: 12 };
+  const balanced = callFor({
+    ...early,
+    rank: 6,
+    powerScore: 70,
+    starterPercentile: 0.48,
+    pickPercentile: 0.72,
+    averageAge: 24.8,
+    youthCount: 10,
+    veteranCount: 8,
+    firstRoundPickCount: 5,
+    playoffPct: 55,
+    titlePct: 6,
+    winPct: 1,
+  });
+  const thinCapital = callFor({
+    ...early,
+    rank: 5,
+    powerScore: 78,
+    starterPercentile: 0.55,
+    pickPercentile: 0.22,
+    averageAge: 26.3,
+    youthCount: 8,
+    veteranCount: 9,
+    firstRoundPickCount: 1,
+    playoffPct: 80,
+    titlePct: 13,
+    winPct: 1,
+  });
+  const flat = callFor({
+    ...early,
+    rank: 9,
+    powerScore: 58,
+    starterPercentile: 0.36,
+    pickPercentile: 0.28,
+    averageAge: 25.7,
+    youthCount: 6,
+    veteranCount: 9,
+    firstRoundPickCount: 1,
+    playoffPct: 21,
+    titlePct: 2,
+    winPct: 0.5,
+    lastPlacePct: 14,
+  });
+  const rebuild = callFor({
+    ...early,
+    rank: 10,
+    powerScore: 48,
+    starterPercentile: 0.2,
+    pickPercentile: 0.75,
+    averageAge: 24.4,
+    youthCount: 9,
+    veteranCount: 5,
+    firstRoundPickCount: 3,
+    playoffPct: 14,
+    titlePct: 1,
+    winPct: 0,
+    lastPlacePct: 18,
+  });
+  const elite = callFor({
+    ...early,
+    rank: 2,
+    powerScore: 94,
+    starterPercentile: 0.9,
+    pickPercentile: 0.7,
+    averageAge: 24.9,
+    youthCount: 12,
+    veteranCount: 5,
+    firstRoundPickCount: 4,
+    playoffPct: 80,
+    titlePct: 15,
+    winPct: 1,
+  });
+
+  assert.equal(balanced.id, "middle");
+  assert.ok(balanced.nowScore >= 50 && balanced.nowScore <= 70);
+  assert.equal(thinCapital.id, "middle");
+  assert.ok(thinCapital.nowScore >= 60 && thinCapital.nowScore <= 76);
+  assert.ok(thinCapital.futureScore <= 45);
+  assert.equal(flat.id, "middle");
+  assert.ok(flat.nowScore >= 33 && flat.nowScore <= 46);
+  assert.equal(rebuild.id, "tank");
+  assert.ok(rebuild.futureScore >= 58);
+  assert.equal(elite.id, "all-in");
+  assert.ok(elite.nowScore >= 80);
+});
+
 test("eliminated teams tank even with a decent core", () => {
   const result = callFor({
     rank: 8,
