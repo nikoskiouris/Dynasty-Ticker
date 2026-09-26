@@ -25,6 +25,15 @@ export function isTickerTap(movedPx, threshold = TICKER_TAP_PX) {
   return Math.abs(Number(movedPx) || 0) < Number(threshold);
 }
 
+export function tickerGestureIntent(dx, dy, threshold = TICKER_TAP_PX) {
+  const x = Math.abs(Number(dx) || 0);
+  const y = Math.abs(Number(dy) || 0);
+  const gate = Number(threshold) || 0;
+  if (x < gate && y < gate) return "pending";
+  if (y > x) return "scroll";
+  return "scrub";
+}
+
 export function bindTicker(root, track, {
   durationSeconds = 60,
   paused = false,
@@ -41,8 +50,10 @@ export function bindTicker(root, track, {
   const viewport = root.querySelector(".ticker-viewport") || root;
   const durationMs = Math.max(1000, (Number(durationSeconds) || 60) * 1000);
   let isPaused = Boolean(paused);
+  let armed = false;
   let dragging = false;
   let startX = 0;
+  let startY = 0;
   let startTime = 0;
   let moved = 0;
   let animation = null;
@@ -69,11 +80,9 @@ export function bindTicker(root, track, {
     else animation.play();
   }
 
-  function onPointerDown(event) {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
+  function beginScrub(event) {
     dragging = true;
-    moved = 0;
-    startX = event.clientX;
+    armed = false;
     if (!animation) ensureAnimation();
     startTime = animation?.currentTime || 0;
     animation?.pause();
@@ -85,26 +94,64 @@ export function bindTicker(root, track, {
     }
   }
 
+  function onPointerDown(event) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    armed = true;
+    dragging = false;
+    moved = 0;
+    startX = event.clientX;
+    startY = event.clientY;
+    if (event.pointerType === "mouse") beginScrub(event);
+  }
+
   function onPointerMove(event) {
-    if (!dragging) return;
+    if (!armed && !dragging) return;
     const dx = event.clientX - startX;
-    moved = Math.max(moved, Math.abs(dx));
+    const dy = event.clientY - startY;
+    if (!dragging) {
+      const intent = tickerGestureIntent(dx, dy);
+      if (intent !== "scrub") {
+        if (intent === "scroll") armed = false;
+        return;
+      }
+      beginScrub(event);
+    }
+    moved = Math.max(moved, Math.abs(event.clientX - startX));
     const cycle = cycleWidth();
     if (!animation || !cycle) return;
     const startOffset = tickerOffsetFromTime(startTime, durationMs, cycle);
-    animation.currentTime = tickerTimeFromOffset(startOffset - dx, durationMs, cycle);
+    animation.currentTime = tickerTimeFromOffset(startOffset - (event.clientX - startX), durationMs, cycle);
   }
 
-  function onPointerUp() {
-    if (!dragging) return;
+  function finishGesture() {
+    const wasActive = dragging || armed;
+    const tapped = wasActive && isTickerTap(moved);
+    armed = false;
     dragging = false;
     viewport.classList.remove("is-dragging");
-    if (isTickerTap(moved)) isPaused = !isPaused;
+    if (!wasActive) return;
+    if (tapped) isPaused = !isPaused;
     if (!animation) ensureAnimation();
     if (isPaused) animation?.pause();
     else animation?.play();
     root.classList.toggle("is-paused", isPaused);
     root.setAttribute("aria-pressed", String(isPaused));
+  }
+
+  function onPointerUp() {
+    finishGesture();
+  }
+
+  function onPointerCancel() {
+    const wasDragging = dragging;
+    armed = false;
+    dragging = false;
+    viewport.classList.remove("is-dragging");
+    if (wasDragging && animation && !isPaused) animation.play();
+  }
+
+  function onPointerLeave() {
+    if (!dragging) armed = false;
   }
 
   root.classList.add("is-bound");
@@ -119,7 +166,8 @@ export function bindTicker(root, track, {
   viewport.addEventListener("pointerdown", onPointerDown);
   viewport.addEventListener("pointermove", onPointerMove);
   viewport.addEventListener("pointerup", onPointerUp);
-  viewport.addEventListener("pointercancel", onPointerUp);
+  viewport.addEventListener("pointercancel", onPointerCancel);
+  viewport.addEventListener("pointerleave", onPointerLeave);
 
   return {
     get paused() {
@@ -134,7 +182,8 @@ export function bindTicker(root, track, {
       viewport.removeEventListener("pointerdown", onPointerDown);
       viewport.removeEventListener("pointermove", onPointerMove);
       viewport.removeEventListener("pointerup", onPointerUp);
-      viewport.removeEventListener("pointercancel", onPointerUp);
+      viewport.removeEventListener("pointercancel", onPointerCancel);
+      viewport.removeEventListener("pointerleave", onPointerLeave);
       viewport.classList.remove("is-dragging");
       root.classList.remove("is-bound", "is-paused");
     },
