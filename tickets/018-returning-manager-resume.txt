@@ -1,0 +1,27 @@
+Title
+A returning manager lands back on their league and team
+
+Status
+Open
+
+Priority
+P1
+
+Area
+Landing, league search, local storage (`docs/modules/parse.js` `bootSearchFieldValues`, `docs/privacy.html`)
+
+Description
+The app remembers nothing about the manager between visits. A returning visitor types the Sleeper username again, picks the league again, and waits for it to load before the task they came for. The trade draft only lasts for the tab (#97).
+
+Offer "Open Try Hard or Die Hard as NikoSkiouris" on the landing when this browser opened that league before, with a way to forget it. Keep Players and the calculator usable while the league loads.
+
+Why
+AGENTS.md: returning users should resume their team or task without unnecessary setup.
+
+Current product
+Share links (`?league=&me=`) resume a league. A plain visit to the homepage does not.
+
+Acceptance
+- A second visit in the same browser opens the last league and team in one tap.
+- "Forget this league" clears it. The privacy page lists what is stored.
+- A visitor who never connected sees no change.

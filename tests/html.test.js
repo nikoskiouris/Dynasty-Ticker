@@ -24,7 +24,16 @@ test("partner idea copy is send/receive plus a starter rank line", () => {
     totalTeams: 12,
   });
   assert.equal(copy.offer, "Send Ja'Marr Chase and 2027 1st for Bijan Robinson");
-  assert.equal(copy.rank, "It'll change your starting lineup rank from 8th/12 to 4th/12");
+  assert.equal(copy.rank, "Starting lineup rank moves from 8th/12 to 4th/12.");
+  const same = formatMatchIdeaCopy({
+    sendNames: ["A"],
+    receiveNames: ["B"],
+    beforeRank: 6,
+    afterRank: 6,
+    totalTeams: 12,
+  });
+  assert.equal(same.rank, "");
+  assert.match(same.why, /stays put/);
 });
 
 test("trade move chips keep pick names, players, and the swap arrow apart", () => {

@@ -1,4 +1,5 @@
 import { escapeHtml } from "./html.js";
+import { chooseBestLineup } from "./lineup.js";
 import {
   formatShare,
   formatWeeklyPoints,
@@ -13,9 +14,6 @@ export const SIT_NO_TEAM = "Sit — not on a team";
 export const SIT_NO_ELIGIBLE = "No eligible starter";
 export const SIT_START_HINT = "League slots. Bye, out, no team, and missing opponent sit. Dynasty only breaks ties.";
 
-const EXACT_SLOT_LIMIT = 12;
-const EXACT_SLOT_HARD_LIMIT = 18;
-const EXACT_NODE_BUDGET = 200000;
 const EXACT_CANDIDATE_LIMIT = 20;
 const WEEKLY_SKILL = new Set(["QB", "RB", "WR", "TE"]);
 const SIT_INJURY = new Set([
@@ -196,47 +194,6 @@ export function closeCallReason({ starter, challenger, slotLabel } = {}) {
   return `${label}: ${startName} over ${sitName} — ${why}`;
 }
 
-function chooseBestLineup(slotEntries, candidates, slotIndex, usedMask, memo, budget) {
-  if (budget) {
-    budget.nodes += 1;
-    if (budget.aborted || budget.nodes > budget.limit) {
-      budget.aborted = true;
-      return { score: Number.NEGATIVE_INFINITY, picks: [] };
-    }
-  }
-  const memoKey = `${slotIndex}:${usedMask.toString()}`;
-  if (memo.has(memoKey)) return memo.get(memoKey);
-  if (slotIndex >= slotEntries.length) {
-    const emptyResult = { score: 0, picks: [] };
-    memo.set(memoKey, emptyResult);
-    return emptyResult;
-  }
-
-  let bestResult = { score: Number.NEGATIVE_INFINITY, picks: [] };
-  const slot = slotEntries[slotIndex].slot;
-
-  for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
-    const candidateBit = 1n << BigInt(candidateIndex);
-    if ((usedMask & candidateBit) !== 0n) continue;
-    if (!playerCanFillSlot(candidates[candidateIndex], slot)) continue;
-    const child = chooseBestLineup(slotEntries, candidates, slotIndex + 1, usedMask | candidateBit, memo, budget);
-    if (budget?.aborted) return { score: Number.NEGATIVE_INFINITY, picks: [] };
-    const totalScore = candidates[candidateIndex].fillValue + child.score;
-    if (totalScore > bestResult.score) {
-      bestResult = { score: totalScore, picks: [candidateIndex, ...child.picks] };
-    }
-  }
-
-  const skipChild = chooseBestLineup(slotEntries, candidates, slotIndex + 1, usedMask, memo, budget);
-  if (budget?.aborted) return { score: Number.NEGATIVE_INFINITY, picks: [] };
-  if (skipChild.score > bestResult.score) {
-    bestResult = { score: skipChild.score, picks: [null, ...skipChild.picks] };
-  }
-
-  memo.set(memoKey, bestResult);
-  return bestResult;
-}
-
 function chooseGreedyLineup(slotEntries, candidates) {
   const used = new Set();
   const picks = [];
@@ -313,13 +270,11 @@ function fillLineup(slots, candidates) {
 }
 
 function solveLineup(slotEntries, pool) {
-  if (pool.length > EXACT_CANDIDATE_LIMIT || slotEntries.length > EXACT_SLOT_HARD_LIMIT) return null;
-  const budget = slotEntries.length <= EXACT_SLOT_LIMIT
-    ? null
-    : { nodes: 0, limit: EXACT_NODE_BUDGET, aborted: false };
-  const plan = chooseBestLineup(slotEntries, pool, 0, 0n, new Map(), budget);
-  if (budget?.aborted) return null;
-  return plan;
+  return chooseBestLineup(slotEntries, pool, playerCanFillSlot, { valueFor: fillValueOf });
+}
+
+function fillValueOf(player) {
+  return player.fillValue;
 }
 
 function finiteWeeklyScore(value) {

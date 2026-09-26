@@ -7,6 +7,9 @@ Done
 Shipped
 #81
 
+Superseded
+Partly, 2026-09-25 (#92, #97). The league makes answers personal, but Players and the calculator must work first without one (AGENTS.md, Product purpose). "Calculator belongs as a small link after the league is loaded" no longer applies: Trade opens on the calculator for everyone. Rather staying off the first screen still holds.
+
 Priority
 P0 — product positioning
 

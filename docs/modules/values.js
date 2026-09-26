@@ -15,6 +15,9 @@ export const VALUES_SF_PATH = "./data/ktc_values_sf.csv";
 export const VALUES_ONE_QB_PATH = "./data/ktc_values_1qb.csv";
 export const PICK_YEAR_DISCOUNT = 0.88;
 
+// Shared default so calls without a name map reuse one lookup cache entry.
+const NO_NAMES = Object.freeze({});
+
 const TEP_MULTIPLIERS = {
   0: 1,
   1: 1.06,
@@ -330,11 +333,29 @@ function adjustPickAcrossYears(value, sourceSeason, targetSeason) {
   return Math.max(1, Math.round(value * Math.max(0.5, factor)));
 }
 
-export function findPickCatalogValue(meta, values, valueNameMap = {}, catalog = null) {
+const pickCatalogs = new WeakMap();
+
+function cachedPickCatalog(values, valueNameMap) {
+  if (!values || typeof values !== "object") return buildPickValuationCatalog(values, valueNameMap);
+  const names = valueNameMap && typeof valueNameMap === "object" ? valueNameMap : NO_NAMES;
+  let byNames = pickCatalogs.get(values);
+  if (!byNames) {
+    byNames = new WeakMap();
+    pickCatalogs.set(values, byNames);
+  }
+  let catalog = byNames.get(names);
+  if (!catalog) {
+    catalog = buildPickValuationCatalog(values, names);
+    byNames.set(names, catalog);
+  }
+  return catalog;
+}
+
+export function findPickCatalogValue(meta, values, valueNameMap = NO_NAMES, catalog = null) {
   if (!meta) return null;
   const list = Array.isArray(catalog) && catalog.length > 0
     ? catalog
-    : buildPickValuationCatalog(values, valueNameMap);
+    : cachedPickCatalog(values, valueNameMap);
   const desiredBuckets = meta.round === 1
     ? [...getPickBucketAliases(meta.bucket), "any"]
     : ["any"];
@@ -354,7 +375,7 @@ export function findPickCatalogValue(meta, values, valueNameMap = {}, catalog = 
   return nearest ? adjustPickAcrossYears(nearest.value, nearest.season, meta.season) : null;
 }
 
-export function resolvePickAssetValue(asset, values, valueNameMap = {}, catalog = null) {
+export function resolvePickAssetValue(asset, values, valueNameMap = NO_NAMES, catalog = null) {
   for (const candidateId of buildPickValueLookupIds(asset)) {
     if (Number.isFinite(values?.[candidateId])) return values[candidateId];
   }
@@ -377,21 +398,43 @@ export function playerNameForAsset(asset) {
   ).trim();
 }
 
-export function findMarketValueByPlayerName(name, values, valueNameMap = {}) {
-  const want = normalizePlayerValueName(name);
-  if (!want) return null;
-  const matches = [];
-  for (const [assetId, label] of Object.entries(valueNameMap || {})) {
+// Every value lookup that misses by id falls back to a name match, so the name map is
+// indexed once per map object. Maps are built whole and never edited after use.
+const playerNameIndexes = new WeakMap();
+
+function playerNameIndex(valueNameMap) {
+  if (!valueNameMap || typeof valueNameMap !== "object") return null;
+  const cached = playerNameIndexes.get(valueNameMap);
+  if (cached) return cached;
+  const index = new Map();
+  for (const [assetId, label] of Object.entries(valueNameMap)) {
     if (!String(assetId).startsWith("player:")) continue;
-    if (normalizePlayerValueName(label) !== want) continue;
-    const value = Number(values?.[assetId]);
-    if (!Number.isFinite(value) || value <= 0) continue;
-    matches.push(value);
+    const key = normalizePlayerValueName(label);
+    if (!key) continue;
+    const assetIds = index.get(key);
+    if (assetIds) assetIds.push(assetId);
+    else index.set(key, [assetId]);
   }
-  return matches.length === 1 ? matches[0] : null;
+  playerNameIndexes.set(valueNameMap, index);
+  return index;
 }
 
-export function lookupMarketValue(asset, values, valueNameMap = {}, catalog = null) {
+export function findMarketValueByPlayerName(name, values, valueNameMap = NO_NAMES) {
+  const want = normalizePlayerValueName(name);
+  if (!want) return null;
+  const assetIds = playerNameIndex(valueNameMap)?.get(want);
+  if (!assetIds) return null;
+  let match = null;
+  for (const assetId of assetIds) {
+    const value = Number(values?.[assetId]);
+    if (!Number.isFinite(value) || value <= 0) continue;
+    if (match != null) return null;
+    match = value;
+  }
+  return match;
+}
+
+export function lookupMarketValue(asset, values, valueNameMap = NO_NAMES, catalog = null) {
   const exact = values?.[asset?.assetId];
   if (Number.isFinite(exact)) return { value: exact, estimated: false };
   const named = findMarketValueByPlayerName(playerNameForAsset(asset), values, valueNameMap);
@@ -519,7 +562,7 @@ export function applyLeagueShift(assetId, value, shifts, { scale = 1 } = {}) {
 
 export function getAssetValue(asset, values, options = {}) {
   const {
-    valueNameMap = {},
+    valueNameMap = NO_NAMES,
     pickCatalog = null,
     league = null,
     crowdShifts = null,
@@ -563,7 +606,7 @@ function clampLeagueShift(value) {
 }
 
 export function isEstimatedAsset(asset, values, options = {}) {
-  const { valueNameMap = {}, pickCatalog = null } = options;
+  const { valueNameMap = NO_NAMES, pickCatalog = null } = options;
   return lookupMarketValue(asset, values, valueNameMap, pickCatalog).estimated;
 }
 

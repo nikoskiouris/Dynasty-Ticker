@@ -46,14 +46,15 @@ export function formatStarterRankLabel(rank, totalTeams) {
   return `${label}/${total}`;
 }
 
-export function formatMatchIdeaCopy({ sendNames, receiveNames, beforeRank, afterRank, totalTeams } = {}) {
+export function formatMatchIdeaCopy({ sendNames, receiveNames, beforeRank, afterRank, totalTeams, benefit = "" } = {}) {
   const offer = `Send ${joinNameList(sendNames)} for ${joinNameList(receiveNames)}`;
   const before = formatStarterRankLabel(beforeRank, totalTeams);
   const after = formatStarterRankLabel(afterRank, totalTeams);
-  const rank = before && after
-    ? `It'll change your starting lineup rank from ${before} to ${after}`
-    : "";
-  return { offer, rank };
+  const rankMoved = before && after && before !== after;
+  const rank = rankMoved ? `Starting lineup rank moves from ${before} to ${after}.` : "";
+  const why = String(benefit || "").trim()
+    || (rankMoved ? "" : "Lineup rank stays put. Check depth, age, and picks in the calculator.");
+  return { offer, rank, why };
 }
 
 export function clamp(value, min, max) {
