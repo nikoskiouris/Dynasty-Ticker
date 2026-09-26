@@ -3411,11 +3411,11 @@ function renderPulseStrip(model, sim, profiles) {
   return `
     <div class="pulse-grid">
       ${tiles.map((tile) => `
-        <button type="button" class="pulse-tile ${tile.tone}" data-action="go" data-page="${tile.page}" data-room="${tile.room}" title="Open ${escapeHtml(ROOM_LABELS[tile.page]?.[tile.room] || tile.room)}">
+        <div class="pulse-tile ${tile.tone}">
           <span>${escapeHtml(tile.label)}</span>
           <strong>${escapeHtml(tile.value)}</strong>
           <small>${escapeHtml(tile.detail)}</small>
-        </button>
+        </div>
       `).join("")}
     </div>
   `;
@@ -3469,7 +3469,6 @@ function renderScoreboardPanel(model, sim) {
           <h2>${escapeHtml(entry.label)} ${weekStatusChip(entry)}</h2>
         </div>
         <div class="week-nav">
-          <button type="button" class="ghost-btn" data-action="go" data-page="league" data-room="standings">Standings</button>
           <button type="button" class="ghost-btn" data-action="home-week" data-week="${previousWeek ?? ""}" ${previousWeek == null ? "disabled" : ""}>Prev</button>
           <span>${index + 1} / ${weeksWithGames.length}</span>
           <button type="button" class="ghost-btn" data-action="home-week" data-week="${nextWeek ?? ""}" ${nextWeek == null ? "disabled" : ""}>Next</button>
@@ -4341,10 +4340,10 @@ function renderLensPicker(roster, { label = "Viewing", extra = "" } = {}) {
 function renderWindowCallBanner(call) {
   if (!call) return "";
   return `
-    <button type="button" class="window-call-banner ${call.tone}" data-action="go" data-page="league" data-room="team">
+    <div class="window-call-banner ${call.tone}">
       <strong>${escapeHtml(call.label)}</strong>
       <span class="window-call-banner-score">${call.confidence}%</span>
-    </button>
+    </div>
   `;
 }
 
@@ -4445,7 +4444,6 @@ function renderWindowCallDashboard() {
         ${call.moves.map((move) => `<li>${escapeHtml(move)}</li>`).join("")}
       </ol>
       <div class="window-call-actions">
-        <button type="button" class="ghost-btn" data-action="go" data-page="league" data-room="team">This team</button>
         ${other
           ? `<button type="button" class="ghost-btn" data-action="calc-with" data-roster-id="${roster.rosterId}">Build a trade</button>`
           : `<button type="button" class="ghost-btn" data-action="go" data-page="trades" data-room="lab">Shop a player</button>`}

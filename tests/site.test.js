@@ -236,6 +236,10 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="history-dashboard"/);
   assert.match(index, /id="mobile-home-btn"/);
   assert.match(index, /data-action="league-home"/);
+  assert.doesNotMatch(index, /id="mobile-chrome-title"[^>]*data-action/);
+  assert.doesNotMatch(index, /id="hero-title"[^>]*data-action/);
+  assert.doesNotMatch(index, /id="league-avatar"[^>]*data-action/);
+  assert.doesNotMatch(index, /brand-lockup[^>]*data-action/);
   assert.match(index, /class="home-glyph"/);
   assert.doesNotMatch(index, /id="records-dashboard"/);
   assert.doesNotMatch(index, /id="mobile-share-btn"/);
@@ -325,6 +329,10 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(privacy, /Last league ID/);
 
   const app = readDocs("app.js");
+  assert.doesNotMatch(app, /class="pulse-tile \$\{tile\.tone\}" data-action/);
+  assert.doesNotMatch(app, /class="window-call-banner \$\{call\.tone\}" data-action/);
+  assert.doesNotMatch(app, />This team</);
+  assert.doesNotMatch(app, /data-room="standings">Standings/);
   assert.doesNotMatch(app, /Last league remembered/);
   assert.match(app, /tickerDurationSeconds\(items\.length\)/);
   assert.match(app, /bindTicker\(/);

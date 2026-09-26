@@ -1878,18 +1878,6 @@ body:not(.league-loaded) .workspace-header {
   color: inherit;
   text-align: left;
   box-shadow: none;
-  cursor: pointer;
-}
-
-.pulse-tile:hover {
-  transform: translateY(-1px);
-  filter: none;
-  background: var(--panel-tint);
-}
-
-.pulse-tile:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
 }
 
 .pulse-tile.gold {
@@ -6611,17 +6599,6 @@ body.dock-visible {
   padding: 0.9rem 1rem;
   color: inherit;
   text-align: left;
-  cursor: pointer;
-}
-
-.window-call-banner:hover {
-  border-color: var(--line-strong);
-  transform: translateY(-1px);
-}
-
-.window-call-banner:focus-visible {
-  outline: none;
-  box-shadow: var(--focus);
 }
 
 .window-call-banner strong,
@@ -7874,14 +7851,6 @@ button.rather-skip {
   .passport-stamp strong {
     transform: none;
   }
-}
-
-[data-action="league-home"] {
-  cursor: pointer;
-}
-
-#hero-title[data-action="league-home"] {
-  display: inline-block;
 }
 
 #home-btn {
