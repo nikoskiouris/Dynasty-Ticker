@@ -286,7 +286,7 @@ export function renderLeagueBoardMarkup(board, { applied = false, formatNumber =
         >${escapeHtml(applyLabel)}</button>
       </div>
       <p class="section-copy">${escapeHtml(board?.summary || emptyLeagueBoard().summary)}</p>
-      <p class="muted small">Market stays Sleeper trades from many dynasty leagues, mixed with KeepTradeCut. This overlay is just your room.${status ? ` ${escapeHtml(status)}.` : ""}</p>
+      <p class="muted small">Market stays Sleeper trades from many dynasty leagues. This overlay is just your room.${status ? ` ${escapeHtml(status)}.` : ""}</p>
       ${biases.length ? `<ul class="league-bias-list">${biases.map((bias) => `<li>${escapeHtml(bias.sentence)}</li>`).join("")}</ul>` : ""}
       ${examples.length ? `<div class="league-board-examples">${examples.slice(0, 4).map((row) => `
         <article class="league-board-example">

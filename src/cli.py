@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Suggest dynasty trades using Sleeper + KeepTradeCut values.")
+    parser = argparse.ArgumentParser(description="Suggest dynasty trades using Sleeper values.")
     parser.add_argument("--me", required=True, help="Your Sleeper display name.")
     parser.add_argument("--target-manager", required=True, help="Manager to trade with.")
     parser.add_argument("--target-player", required=True, help="Player you want to acquire.")
@@ -124,7 +124,7 @@ def main() -> int:
             else:
                 print("   Package adjustment: none")
             print(
-                f"   KTC-style total: you {format_value(suggestion.my_adjusted_value)} vs them {format_value(suggestion.their_adjusted_value)} "
+                f"   Adjusted total: you {format_value(suggestion.my_adjusted_value)} vs them {format_value(suggestion.their_adjusted_value)} "
                 f"(diff {suggestion.pct_diff}%)"
             )
             print(f"   Add value to even: {format_value(suggestion.even_value)}")

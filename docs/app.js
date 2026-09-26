@@ -4596,7 +4596,7 @@ function renderLoyaltyDashboard() {
       <article class="loyalty-card">
         <span>Biggest miss</span>
         ${miss ? renderPlayerLabel(miss.name, facePlayerId(miss), { size: "md", tag: "strong" }) : "<strong>Clean books</strong>"}
-        <small>${miss ? `Now ${formatNumber(Math.round(miss.value))} · ${miss.season || ""} W${miss.week || "?"} vs ${miss.partnerName || "rival"}` : "Nobody you shipped is a KTC monster."}</small>
+        <small>${miss ? `Now ${formatNumber(Math.round(miss.value))} · ${miss.season || ""} W${miss.week || "?"} vs ${miss.partnerName || "rival"}` : "Nobody you shipped is a big name now."}</small>
       </article>
       <article class="loyalty-card">
         <span>New core</span>
@@ -5817,12 +5817,12 @@ function findEvenUpPick(gap, values) {
 function renderDraftMethod(view) {
   const { basis } = view;
   const lines = [
-    `Each price is the Players page price: Sleeper trades mixed with KeepTradeCut, ${rankFormatLabel(basis.format)}.`,
+    `Each price is the Players page price: Sleeper trades across many dynasty leagues, ${rankFormatLabel(basis.format)}.`,
   ];
   if (basis.tep) lines.push(`This league pays extra for tight end catches, so tight ends count ${Math.round((tepMultiplier(basis.tep) - 1) * 100)}% more here.`);
   if (basis.leagueBoard) lines.push("League board is on: prices lean toward what this league has paid in its own trades.");
   if ([...view.priced.values()].some((row) => row.estimated)) lines.push("est means there is no market price yet. That number is a position and age estimate.");
-  lines.push("When one side sends fewer, better pieces, it gets a consolidation credit in the style of KeepTradeCut's value adjustment. Equal-size packages get none.");
+  lines.push("When one side sends fewer, better pieces, it gets a consolidation credit. Equal-size packages get none.");
   lines.push("The verdict compares the two sides after that credit. Team impact is a separate question: does this help your starting lineup?");
   return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
 }
@@ -7765,7 +7765,7 @@ function renderTradeWireBoard() {
           <span class="eyebrow">Trade wire</span>
           <h3>Hottest since and biggest fleece</h3>
         </div>
-        <p class="section-copy">Hottest since is the Bayesian-shrunk record after the deal, with a Wilson floor so 2-0 cannot beat a real sample. Fleece is log-ratio plus package lopsidedness plus the star that moved — not a raw KTC dump.</p>
+        <p class="section-copy">Hottest since is the Bayesian-shrunk record after the deal, with a Wilson floor so 2-0 cannot beat a real sample. Fleece is log-ratio plus package lopsidedness plus the star that moved — not a raw price dump.</p>
       </div>
       <div class="trade-wire-grid">
         ${renderTradeAwardCard("Hottest since", "Best shrunk record after the deal. Wilson sample required.", awards.heater, "won")}
@@ -10128,7 +10128,7 @@ function renderTradeCard(idea, index, values) {
           </div>
           <div class="trade-metric">
             <strong>Elite premium</strong>
-            Top players are weighted above raw KTC package value.
+            Top players are weighted above raw package value.
           </div>
           <div class="trade-metric">
             <strong>Even-up value</strong>
@@ -14765,11 +14765,11 @@ function marketBoardHint() {
   const leagues = Number(meta?.leagueCount);
   let hint = "";
   if (Number.isFinite(trades) && trades > 0 && Number.isFinite(leagues) && leagues > 0) {
-    hint = `Sleeper trade market from ${formatNumber(trades)} completed dynasty trades across ${formatNumber(leagues)} leagues, mixed with KeepTradeCut.`;
+    hint = `Sleeper trade market from ${formatNumber(trades)} completed dynasty trades across ${formatNumber(leagues)} leagues.`;
   } else if (state.applyLeagueBoard) {
     hint = "Calculator, find-deals, and power now use this room's prices.";
   } else {
-    hint = "Numbers are the Sleeper trade market mixed with KeepTradeCut. League prices stay on the side until you apply them.";
+    hint = "Numbers are the Sleeper trade market. League prices stay on the side until you apply them.";
   }
   return caveat ? `${caveat} ${hint}` : hint;
 }

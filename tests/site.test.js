@@ -430,6 +430,28 @@ test("ticker loops slower so names stay readable", () => {
   assert.equal(tickerDurationSeconds(12), 108);
 });
 
+test("the site never names KeepTradeCut", () => {
+  const namesBrand = (text) => /KeepTradeCut|keeptradecut|keep trade cut/i.test(text) || /\bKTC\b/.test(text);
+  const hits = [];
+  function walk(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(path);
+        continue;
+      }
+      if (!/\.(html|js|css|svg|md|txt)$/i.test(entry.name)) continue;
+      if (namesBrand(readFileSync(path, "utf8"))) hits.push(path.slice(docs.length + 1));
+    }
+  }
+  walk(docs);
+  for (const name of ["README.md", "AGENTS.md"]) {
+    const path = join(docs, "..", name);
+    if (namesBrand(readFileSync(path, "utf8"))) hits.push(name);
+  }
+  assert.deepEqual(hits, []);
+});
+
 test("product name Dynasty Ticker never shares the repo with the old brand", () => {
   const banned = /dynasty[\s._-]*desk/i;
   const skipDir = new Set([".git", "node_modules", ".cursor"]);

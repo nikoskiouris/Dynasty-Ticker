@@ -98,7 +98,7 @@ test("a missing RB is not priced like a starter over a missing QB", () => {
   assert.ok(jaydenVal > kalebVal);
 });
 
-test("missing sleeper id still uses the KeepTradeCut name", () => {
+test("missing sleeper id still uses the market name", () => {
   const jayden = {
     assetId: "player:stale",
     assetType: "player",
