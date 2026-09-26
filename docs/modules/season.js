@@ -768,25 +768,40 @@ export function scoreUpcomingWeekAngles(model, sim = null, { weekEntry = null } 
   };
 }
 
+function weekAngleMatchupKey(item) {
+  if (item?.matchupId != null && item.matchupId !== "") return `m:${item.matchupId}`;
+  const ids = [item?.rosterId, item?.opponentRosterId].map((id) => String(id ?? "")).sort();
+  return `r:${ids.join(":")}`;
+}
+
 export function pickWeekAngleCards({
   darkHorses = [],
-  trapGames = [],
+  trapGames: _trapGames = [],
   leverageGames = [],
   tossUps = [],
 } = {}, { max = 4 } = {}) {
   const cards = [];
-  const seen = new Set();
+  const seenMatchups = new Set();
   const push = (item) => {
-    if (!item || cards.length >= max) return;
-    const key = `${item.kind}:${item.rosterId}:${item.matchupId}`;
-    if (seen.has(key)) return;
-    seen.add(key);
+    if (!item || cards.length >= max) return false;
+    const matchup = weekAngleMatchupKey(item);
+    if (seenMatchups.has(matchup)) return false;
+    seenMatchups.add(matchup);
     cards.push(item);
+    return true;
   };
+  const takeFirstFresh = (list) => {
+    for (const item of list) {
+      if (push(item)) return;
+    }
+  };
+  // Trap game is the favorite side of a dark-horse matchup. The dog card already says it.
   darkHorses.slice(0, 2).forEach(push);
-  push(trapGames[0]);
-  push(leverageGames[0]);
-  push(tossUps[0]);
+  takeFirstFresh(leverageGames);
+  takeFirstFresh(tossUps);
+  darkHorses.slice(2).forEach(push);
+  leverageGames.forEach(push);
+  tossUps.forEach(push);
   return cards.slice(0, max);
 }
 
