@@ -812,7 +812,7 @@ export function renderWeeklyPlayerSheet(model, { helpOpen = false } = {}) {
           ? `<ol>${games}</ol>`
           : `<p class="muted small">${escapeHtml(NO_RECENT_GAMES)}</p>`}
       </div>
-      <button type="button" class="ghost-btn week-sheet-close" data-action="close-player">Close player</button>
+      <button type="button" class="ghost-btn week-sheet-close" data-action="close-player">Close</button>
     </article>
   `;
 }
