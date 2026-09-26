@@ -10,6 +10,8 @@ import {
   isEstimatedAsset,
   parsePickAssetId,
   resolvePickAssetValue,
+  tradablePickSeason,
+  upcomingDraftSeason,
   fetchValuationBundles,
   pickValueBundle,
   crowdShiftsFromVotes,
@@ -21,6 +23,25 @@ import {
   KTC_GLOBAL_MAX_FALLBACK,
   CROWD_MAX_ABS_SHIFT,
 } from "../docs/modules/values.js";
+
+test("only picks after the NFL draft stay tradable", () => {
+  assert.equal(upcomingDraftSeason(new Date("2026-04-25T12:00:00Z")), 2026);
+  assert.equal(upcomingDraftSeason(new Date("2026-04-26T12:00:00Z")), 2027);
+  assert.equal(upcomingDraftSeason(new Date("2026-09-26T12:00:00Z")), 2027);
+  assert.equal(upcomingDraftSeason(new Date("2027-02-01T12:00:00Z")), 2027);
+  assert.equal(
+    tradablePickSeason({ league_season: "2026", season_type: "regular" }, new Date("2026-09-26T12:00:00Z")),
+    2027,
+  );
+  assert.equal(
+    tradablePickSeason({ season: "2026", season_type: "off" }, new Date("2026-02-01T12:00:00Z")),
+    2026,
+  );
+  assert.equal(
+    tradablePickSeason({ season: "2026", season_type: "off" }, new Date("2026-05-10T12:00:00Z")),
+    2027,
+  );
+});
 
 test("an older pick season is not marked up from a later catalog row", () => {
   const values = { "pick:2026:r1:any": 5000 };

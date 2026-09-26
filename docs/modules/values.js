@@ -15,6 +15,26 @@ export const VALUES_SF_PATH = "./data/ktc_values_sf.csv";
 export const VALUES_ONE_QB_PATH = "./data/ktc_values_1qb.csv";
 export const PICK_YEAR_DISCOUNT = 0.88;
 
+// The NFL draft ends in late April. After that, this year's picks are players.
+export function upcomingDraftSeason(now = new Date()) {
+  const date = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  if (month > 3 || (month === 3 && day >= 26)) return year + 1;
+  return year;
+}
+
+// Generic picks on the board are only years that can still be traded.
+export function tradablePickSeason(nflState = null, now = new Date()) {
+  const calendar = upcomingDraftSeason(now);
+  const season = Number(nflState?.league_season ?? nflState?.season);
+  const type = String(nflState?.season_type || "").toLowerCase();
+  if (!Number.isFinite(season) || season < 2000) return calendar;
+  if (type === "regular" || type === "post" || type === "pre") return Math.max(season + 1, calendar);
+  return Math.max(season, calendar);
+}
+
 // Shared default so calls without a name map reuse one lookup cache entry.
 const NO_NAMES = Object.freeze({});
 
