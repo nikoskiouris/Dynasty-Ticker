@@ -5817,12 +5817,12 @@ function findEvenUpPick(gap, values) {
 function renderDraftMethod(view) {
   const { basis } = view;
   const lines = [
-    `Each price is the Players page price: Sleeper trades mixed with KeepTradeCut, ${rankFormatLabel(basis.format)}.`,
+    `Each price is the Players page price: Sleeper trades across many dynasty leagues, ${rankFormatLabel(basis.format)}.`,
   ];
   if (basis.tep) lines.push(`This league pays extra for tight end catches, so tight ends count ${Math.round((tepMultiplier(basis.tep) - 1) * 100)}% more here.`);
   if (basis.leagueBoard) lines.push("League board is on: prices lean toward what this league has paid in its own trades.");
   if ([...view.priced.values()].some((row) => row.estimated)) lines.push("est means there is no market price yet. That number is a position and age estimate.");
-  lines.push("When one side sends fewer, better pieces, it gets a consolidation credit in the style of KeepTradeCut's value adjustment. Equal-size packages get none.");
+  lines.push("The best piece counts for more than the same total split into lesser pieces, even when both sides send the same number. A straight one-for-one stays at the listed prices.");
   lines.push("The verdict compares the two sides after that credit. Team impact is a separate question: does this help your starting lineup?");
   return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
 }
@@ -5846,7 +5846,7 @@ function renderDraftVerdict(view) {
         <span class="analytics-kicker">Market verdict</span>
         <h3>${escapeHtml(label)}</h3>
         <p>You give ${formatNumber(model.give)}. You get ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : adjustment ? "" : ` ${verdict.pct}% apart.`}</p>
-        ${adjustment ? `<p class="draft-package"><strong>Package adjustment:</strong> +${formatNumber(adjustment.amount)} to ${credited}, which has the best player in an uneven deal. After it the sides are ${verdict.pct}% apart.</p>` : ""}
+        ${adjustment ? `<p class="draft-package"><strong>Package adjustment:</strong> +${formatNumber(adjustment.amount)} to ${credited}, which has the best player. After it the sides are ${verdict.pct}% apart.</p>` : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenSide)} add${evenSide === "You" || evenSide === "They" ? "" : "s"} about ${formatNumber(Math.round(Math.abs(verdict.gap)))}, roughly a ${escapeHtml(evenUp.name)} (${formatNumber(evenUp.value)}).</p>` : ""}
         <details class="calc-method">
           <summary>How this number works</summary>

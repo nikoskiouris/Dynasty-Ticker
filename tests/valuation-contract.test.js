@@ -8,13 +8,27 @@ import { calculatePackageAdjustment } from "../docs/modules/package-value.js";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const app = readFileSync(join(root, "docs/app.js"), "utf8");
 
-test("equal-sized calculator packages do not receive a consolidation premium", () => {
-  const elite = calculatePackageAdjustment({ myValues: [10321], theirValues: [9996], globalMaxValue: 10321 });
-  assert.equal(elite.packageAdjustment, 0);
-  assert.equal(elite.myAdjustedValue, 10321);
-  assert.equal(elite.theirAdjustedValue, 9996);
-  const twoForTwo = calculatePackageAdjustment({ myValues: [9000, 1000], theirValues: [5000, 5000], globalMaxValue: 10321 });
-  assert.equal(twoForTwo.packageAdjustment, 0);
+test("a stud package costs more than the same total in lesser pieces", () => {
+  const swap = calculatePackageAdjustment({ myValues: [10321], theirValues: [9996], globalMaxValue: 10321 });
+  assert.equal(swap.packageAdjustment, 0);
+  assert.equal(swap.myAdjustedValue, 10321);
+  assert.equal(swap.theirAdjustedValue, 9996);
+
+  const studAndJunk = calculatePackageAdjustment({ myValues: [9000, 1000], theirValues: [5000, 5000], globalMaxValue: 10321 });
+  assert.equal(studAndJunk.packageAdjustmentSide, "my");
+  assert.ok(studAndJunk.packageAdjustment > 2000);
+
+  const twoLateFirstsForStud = calculatePackageAdjustment({
+    myValues: [7055, 5023],
+    theirValues: [11735, 1305],
+    globalMaxValue: 14000,
+  });
+  assert.equal(twoLateFirstsForStud.packageAdjustmentSide, "their");
+  assert.ok(twoLateFirstsForStud.packageAdjustment > 4000);
+  const apart = Math.abs(twoLateFirstsForStud.myAdjustedValue - twoLateFirstsForStud.theirAdjustedValue)
+    / Math.max(twoLateFirstsForStud.myAdjustedValue, twoLateFirstsForStud.theirAdjustedValue);
+  assert.ok(apart > 0.25);
+
   const oneForTwo = calculatePackageAdjustment({ myValues: [10321], theirValues: [7700, 7300], globalMaxValue: 10321 });
   assert.equal(oneForTwo.packageAdjustmentSide, "my");
   assert.ok(oneForTwo.packageAdjustment > 0);
