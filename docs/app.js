@@ -3013,10 +3013,6 @@ function renderPowerDashboard() {
     });
   const insights = buildSleeperInsightCards(profile, context);
   const windowCall = buildWindowCallForProfile(profile);
-  const trendNote = state.trendingLoaded
-    ? "Sleeper market trends loaded"
-    : "Sleeper market trends syncing";
-
   const showPicks = leagueUsesFuturePicks(state.league) || Number(profile.assetSummary.pickValue) > 0
     || Number(profile.assetSummary.firstRoundPickCount) > 0;
   el.powerDashboard.innerHTML = `
@@ -3028,21 +3024,19 @@ function renderPowerDashboard() {
       </div>
       <div class="power-hero-copy">
         <div class="power-title-row">
-          <h3>${profile.managerName} Power Level</h3>
+          <h3>${profile.managerName}</h3>
           <span class="power-tier ${profile.tierClass}">${profile.grade}</span>
         </div>
-        <p>${profile.laneLabel} • ${formatStarterRank(profile.rank, profile.totalTeams)} lineup • ${formatNumber(profile.metrics.starterValue)} starter value</p>
         <div class="power-badge-row">
           ${profile.badges.map((badge) => `<span class="power-badge">${badge}</span>`).join("")}
-          <span class="power-badge muted-badge">${trendNote}</span>
         </div>
       </div>
     </div>
     <div class="power-stat-grid">
-      ${renderPowerStat("Starter value", formatNumber(profile.metrics.starterValue), profile.componentLabels.starter)}
-      ${renderPowerStat("Bench value", formatNumber(profile.metrics.benchValue), profile.componentLabels.bench)}
-      ${showPicks ? renderPowerStat("Pick Vault", formatNumber(profile.assetSummary.pickValue), `${profile.assetSummary.firstRoundPickCount} firsts`) : ""}
-      ${renderPowerStat("Timeline", profile.assetSummary.averageAgeLabel, profile.componentLabels.timeline)}
+      ${renderPowerStat("Starter value", formatNumber(profile.metrics.starterValue))}
+      ${renderPowerStat("Bench value", formatNumber(profile.metrics.benchValue))}
+      ${showPicks ? renderPowerStat("Pick Vault", formatNumber(profile.assetSummary.pickValue)) : ""}
+      ${renderPowerStat("Timeline", profile.assetSummary.averageAgeLabel)}
     </div>
     <div class="power-lanes">
       <section class="power-lane">
@@ -4348,9 +4342,8 @@ function renderWindowCallBanner(call) {
   if (!call) return "";
   return `
     <button type="button" class="window-call-banner ${call.tone}" data-action="go" data-page="league" data-room="team">
-      <span class="eyebrow">Tank or contend</span>
       <strong>${escapeHtml(call.label)}</strong>
-      <small>${escapeHtml(call.headline)} · ${call.confidence}% confidence</small>
+      <span class="window-call-banner-score">${call.confidence}%</span>
     </button>
   `;
 }
@@ -4416,16 +4409,9 @@ function renderWindowCallDashboard() {
   host.innerHTML = `
     ${renderLensPicker(roster)}
     <article class="window-call-hero ${call.tone}">
-      <div>
-        <span class="eyebrow">${other ? `${escapeHtml(roster.manager.displayName)} · tank or contend` : "Tank or contend"}</span>
-        <h2>${escapeHtml(call.label)}</h2>
-        <p>${escapeHtml(call.headline)}</p>
-        <p class="muted">${escapeHtml(call.summary)}</p>
-      </div>
+      <h2>${escapeHtml(call.label)}</h2>
       <div class="window-call-confidence">
-        <span>Confidence</span>
         <strong>${call.confidence}%</strong>
-        <small>${season ? `${call.nowScore} this year` : `${call.nowScore} this year · ${call.futureScore} future`}</small>
       </div>
     </article>
     <div class="window-call-axes">
@@ -4491,23 +4477,21 @@ function renderWindowCallDashboard() {
 
 function renderWindowCallAxis(label, score, detail) {
   return `
-    <section class="window-call-axis">
+    <section class="window-call-axis" title="${escapeHtml(detail)}">
       <div class="window-call-axis-top">
         <strong>${escapeHtml(label)}</strong>
         <span>${score}/99</span>
       </div>
       <div class="meter-track" aria-hidden="true"><span style="width:${score}%"></span></div>
-      <p>${escapeHtml(detail)}</p>
     </section>
   `;
 }
 
 function renderWindowCallSignal(signal) {
   return `
-    <section class="window-call-signal ${signal.lean || ""}">
+    <section class="window-call-signal ${signal.lean || ""}" title="${escapeHtml(signal.detail || "")}">
       <span>${escapeHtml(signal.label)}</span>
       <strong>${escapeHtml(signal.value)}</strong>
-      <small>${escapeHtml(signal.detail || "")}</small>
     </section>
   `;
 }
@@ -5031,9 +5015,7 @@ function renderRosterSheet() {
     .sort((a, b) => Number(a.raw?.season) - Number(b.raw?.season) || Number(a.raw?.round) - Number(b.raw?.round) || getAssetValue(b, values) - getAssetValue(a, values));
   const showPicks = leagueUsesFuturePicks(state.league) || picks.length > 0;
   if (el.rosterSheetHeading) {
-    el.rosterSheetHeading.textContent = showPicks
-      ? `${roster.manager.displayName}: sit/start, bench, and picks`
-      : `${roster.manager.displayName}: sit/start and bench`;
+    el.rosterSheetHeading.textContent = roster.manager.displayName;
   }
   const model = getSeasonModel();
   const team = model?.teams.get(String(roster.rosterId));
@@ -5093,6 +5075,7 @@ function renderRosterSheet() {
     const playerId = playerIdFromAssetId(asset.assetId);
     const nickname = roster.nicknames?.[playerId];
     const injury = String(asset.raw?.injury_status || "").trim();
+    const team = String(asset.raw?.team || "").trim();
     const weekly = weeklyFor(asset);
     const weeklyLabel = state.weeklyValue?.loading && !state.weeklyValue?.context
       ? "…"
@@ -5106,22 +5089,25 @@ function renderRosterSheet() {
       extra.closeCall ? "close-call" : "",
       open ? "open" : "",
     ].filter(Boolean).join(" ");
+    const meta = [
+      team ? escapeHtml(team) : "",
+      injury ? `<span class="injury">${escapeHtml(injury)}</span>` : "",
+    ].filter(Boolean).join(" · ");
     return `
-      <button type="button" class="${rowClass}" data-action="open-player" data-player-id="${escapeHtml(playerId)}" aria-pressed="${open ? "true" : "false"}">
+      <button type="button" class="${rowClass}" data-action="open-player" data-player-id="${escapeHtml(playerId)}" aria-pressed="${open ? "true" : "false"}"${note ? ` title="${escapeHtml(note)}"` : ""}>
         <span class="sheet-slot">${escapeHtml(slotLabel)}</span>
         <div class="sheet-player">
           ${renderPlayerFace(playerId, asset.name, { size: "sm" })}
           <strong>${escapeHtml(asset.name)}${nickname ? ` <em class="nickname">“${escapeHtml(nickname)}”</em>` : ""}</strong>
-          <span>${escapeHtml(formatPlayerPositionLabel(asset))}${asset.raw?.team ? ` · ${escapeHtml(asset.raw.team)}` : ""}${Number.isFinite(playerAgeForAsset(asset)) ? ` · ${playerAgeForAsset(asset)}y` : ""}${injury ? ` · <span class="injury">${escapeHtml(injury)}</span>` : ""}</span>
-          ${note ? `<small class="sheet-why">${escapeHtml(note)}</small>` : ""}
+          ${meta ? `<span>${meta}</span>` : ""}
         </div>
         <span class="sheet-metrics">
           <span class="weekly-chip"${weekly?.missing?.length ? ` title="${escapeHtml(weekly.missing.join(", "))}"` : ""}>
-            <small>${WEEKLY_SCORE_LABEL}</small>
+            <small class="sr-only">${WEEKLY_SCORE_LABEL}</small>
             <strong>${escapeHtml(weeklyLabel)}</strong>
           </span>
           <span class="dynasty-chip">
-            <small>Dynasty</small>
+            <small class="sr-only">Dynasty</small>
             <strong class="mono">${formatNumber(getAssetValue(asset, values))}</strong>
           </span>
         </span>
@@ -5144,10 +5130,10 @@ function renderRosterSheet() {
 
   el.rosterSheet.innerHTML = `
     <div class="sheet-summary">
-      ${renderPowerStat("Starters", formatNumber(strength.starterValue), `${strength.lineup.filter((entry) => entry.asset).length}/${strength.lineup.length} slots filled`)}
-      ${renderPowerStat("Bench", formatNumber(strength.benchValue), `${strength.benchHighlights.length ? `${summary.playerCount} players rostered` : "no bench"}`)}
-      ${showPicks ? renderPowerStat("Pick vault", formatNumber(summary.pickValue), `${summary.pickCount} picks · ${summary.firstRoundPickCount} firsts`) : ""}
-      ${renderPowerStat("Avg age", summary.averageAgeLabel, `${summary.youthCount} youth · ${summary.veteranCount} vets · ${summary.injuredCount} flagged`)}
+      ${renderPowerStat("Starters", formatNumber(strength.starterValue))}
+      ${renderPowerStat("Bench", formatNumber(strength.benchValue))}
+      ${showPicks ? renderPowerStat("Pick vault", formatNumber(summary.pickValue)) : ""}
+      ${renderPowerStat("Avg age", summary.averageAgeLabel)}
     </div>
     ${selectedWeekly
       ? renderWeeklyPlayerSheet(selectedWeekly, { helpOpen: Boolean(state.weeklyValue?.helpOpen) })
@@ -5156,15 +5142,11 @@ function renderRosterSheet() {
             <header class="player-week-head">
               ${renderPlayerFace(selectedId, selectedAsset.name, { size: "md" })}
               <div class="player-week-copy">
-                <span class="player-week-kicker">
-                  <span class="eyebrow">This week</span>
-                  ${renderWeeklyScoreHelpButton({ open: Boolean(state.weeklyValue?.helpOpen) })}
-                </span>
                 <h3>${escapeHtml(selectedAsset.name)}</h3>
               </div>
+              ${renderWeeklyScoreHelpButton({ open: Boolean(state.weeklyValue?.helpOpen) })}
             </header>
-            <p class="player-week-note">${state.weeklyValue?.loading ? "Loading matchup and usage…" : WEEKLY_SCORE_HINT}</p>
-            <button type="button" class="ghost-btn week-sheet-close" data-action="close-player">Close player</button>
+            <button type="button" class="ghost-btn week-sheet-close" data-action="close-player">Close</button>
           </article>`
         : ""}
     ${renderSitStartCallout(sitStart, {
@@ -5180,7 +5162,7 @@ function renderRosterSheet() {
               note: entry.rowNote,
               closeCall: String(entry.rowNote || "").startsWith("Close vs"),
             })
-          : `<div class="sheet-row empty"><span class="sheet-slot">${escapeHtml(entry.slotLabel || formatRosterSlotLabel(entry.slot))}</span><div class="sheet-player"><strong class="muted">${escapeHtml(entry.rowNote || "Open slot")}</strong><small class="sheet-why">Bye, out, or missing opponent. Nobody silent-starts here.</small></div></div>`).join("")}
+          : `<div class="sheet-row empty"><span class="sheet-slot">${escapeHtml(entry.slotLabel || formatRosterSlotLabel(entry.slot))}</span><div class="sheet-player"><strong>${escapeHtml(entry.rowNote || "Open")}</strong></div></div>`).join("")}
       </section>
       <section class="sheet-column">
         <h4>Sit</h4>
@@ -8657,12 +8639,11 @@ function median(values) {
   return Math.round((sorted[middle - 1] + sorted[middle]) / 2);
 }
 
-function renderPowerStat(label, value, detail) {
+function renderPowerStat(label, value) {
   return `
     <section class="power-stat">
       <span>${label}</span>
       <strong>${value}</strong>
-      <small>${detail}</small>
     </section>
   `;
 }

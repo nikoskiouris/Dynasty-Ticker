@@ -2527,7 +2527,7 @@ body:not(.league-loaded) .workspace-header {
 
 .sheet-row {
   display: grid;
-  grid-template-columns: 3.4rem minmax(0, 1fr) minmax(10.25rem, auto);
+  grid-template-columns: 2.8rem minmax(0, 1fr) auto;
   gap: 0.75rem;
   align-items: center;
   padding: 0.55rem 0.7rem;
@@ -2679,7 +2679,11 @@ a.inline-link:hover {
 
 .sheet-player strong {
   overflow: hidden;
-  font-size: 0.88rem;
+  font-family: var(--font-display);
+  font-size: 1.28rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2692,8 +2696,11 @@ a.inline-link:hover {
 
 .nickname {
   color: var(--violet);
+  font-family: var(--font-body);
+  font-size: 0.62em;
   font-style: normal;
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: 0;
 }
 
 .injury {
@@ -2709,26 +2716,21 @@ a.inline-link:hover {
 
 .sheet-metrics {
   display: grid;
-  gap: 0.28rem;
-  min-width: 10.25rem;
-  padding: 0.4rem 0.6rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel);
+  justify-items: end;
+  gap: 0.05rem;
+  min-width: 4.4rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .weekly-chip,
 .dynasty-chip {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  line-height: 1.2;
-}
-
-.dynasty-chip {
-  padding-top: 0.28rem;
-  border-top: 1px solid var(--line);
+  justify-content: flex-end;
+  gap: 0.35rem;
+  line-height: 1;
 }
 
 .weekly-chip small,
@@ -2749,12 +2751,16 @@ a.inline-link:hover {
 
 .weekly-chip strong {
   color: var(--blue);
-  font-size: 0.98rem;
+  font-family: var(--font-display);
+  font-size: 1.72rem;
   font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
 }
 
 .dynasty-chip strong {
-  font-size: 0.9rem;
+  color: var(--muted);
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
@@ -2764,7 +2770,7 @@ a.inline-link:hover {
 
 @media (max-width: 700px) {
   .sheet-row {
-    grid-template-columns: 2.5rem minmax(0, 1fr) minmax(8.9rem, auto);
+    grid-template-columns: 2.3rem minmax(0, 1fr) auto;
     gap: 0.5rem;
     padding: 0.5rem 0.55rem;
   }
@@ -2774,8 +2780,8 @@ a.inline-link:hover {
   }
 
   .sheet-metrics {
-    min-width: 8.9rem;
-    padding: 0.32rem 0.48rem;
+    min-width: 3.8rem;
+    padding: 0;
   }
 }
 
@@ -2802,8 +2808,11 @@ a.inline-link:hover {
 }
 
 .player-week-head h3 {
-  margin: 0.1rem 0 0;
-  font-size: 1.2rem;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
 .player-week-scores {
@@ -2842,8 +2851,8 @@ a.inline-link:hover {
 .weekly-score-badge strong,
 .dynasty-value-badge strong {
   font-family: var(--font-display);
-  font-size: 1.45rem;
-  line-height: 1.1;
+  font-size: 2.15rem;
+  line-height: 0.95;
 }
 
 .weekly-score-max {
@@ -3005,7 +3014,10 @@ button.weekly-help-close:hover {
 }
 
 .week-input strong {
-  font-size: 1.05rem;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
 .week-input small {
@@ -4810,8 +4822,8 @@ button.weekly-help-close:hover {
   display: block;
   overflow-wrap: anywhere;
   font-family: var(--font-display);
-  font-size: 1.2rem;
-  line-height: 1.1;
+  font-size: 1.85rem;
+  line-height: 1;
 }
 
 .power-lane h4 {
@@ -6568,8 +6580,10 @@ body.dock-visible {
 }
 
 .window-call-banner {
-  display: grid;
-  gap: 0.2rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
   width: 100%;
   padding: 0.9rem 1rem;
   color: inherit;
@@ -6589,9 +6603,17 @@ body.dock-visible {
 
 .window-call-banner strong,
 .window-call-hero h2 {
-  margin: 0.1rem 0 0.15rem;
-  font-size: 1.35rem;
+  margin: 0;
+  font-size: 2rem;
   letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.window-call-banner-score {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .window-call-banner small,
@@ -6714,7 +6736,10 @@ body.dock-visible {
 }
 
 .window-call-signal strong {
-  font-size: 1.05rem;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
 .window-call-moves {

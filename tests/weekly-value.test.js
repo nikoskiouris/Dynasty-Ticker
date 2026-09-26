@@ -534,12 +534,12 @@ test("IR and Out are 0% this week until the designation comes off", () => {
   assert.equal(ir.unavailable, "IR");
   assert.equal(weeklyScoreChipLabel(ir), "0%");
   assert.equal(ir.dynastyValue, 8818);
-  assert.match(renderWeeklyPlayerSheet(ir), /On IR/);
+  assert.match(renderWeeklyPlayerSheet(ir), /IR/);
   assert.match(renderWeeklyPlayerSheet(ir), /weekly-score-badge[\s\S]*<strong>0<span class="weekly-score-max">%<\/span>/);
   assert.equal(out.score, 0);
   assert.equal(out.unavailable, "Out");
   assert.equal(weeklyScoreChipLabel(out), "0%");
-  assert.match(renderWeeklyPlayerSheet(out), /Out\. Start chance is 0/);
+  assert.match(renderWeeklyPlayerSheet(out), /Out/);
   assert.equal(questionable.unavailable, "");
   assert.equal(questionable.score, available.score);
   assert.ok(questionable.score > 0);
