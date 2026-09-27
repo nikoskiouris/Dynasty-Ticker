@@ -430,6 +430,24 @@ test("weekly honors, season superlatives, and the rookie mock sit on the matchin
   assert.doesNotMatch(history, /awards-dashboard|weekly-honors|superlatives|mock-dashboard/);
 });
 
+test("phone scrolling stays put while the URL bar moves", () => {
+  const css = readDocs("styles.css");
+  const phone = css.slice(css.indexOf("Phone only."));
+  assert.match(phone, /scroll-behavior:\s*auto/);
+  assert.match(phone, /\.app-frame \{[^}]*min-height:\s*100svh/s);
+  assert.doesNotMatch(phone, /100dvh/);
+  assert.match(phone, /\.control-rail \{[^}]*height:\s*0/s);
+  assert.match(phone, /\.control-rail \{[^}]*backdrop-filter:\s*none/s);
+  assert.match(phone, /\.mobile-chrome \{[^}]*backdrop-filter:\s*none/s);
+  assert.match(phone, /\.workspace-tabs \{[^}]*overflow:\s*visible/s);
+  assert.match(phone, /\.workspace-tabs \{[^}]*backdrop-filter:\s*none/s);
+  assert.match(phone, /\.room-nav \{[^}]*overflow:\s*visible/s);
+  assert.match(phone, /\.room-nav \{[^}]*backdrop-filter:\s*none/s);
+  assert.match(css, /\.room-nav-scroll \{[^}]*overflow-x:\s*auto/s);
+  assert.match(readDocs("app.js"), /room-nav-scroll/);
+  assert.doesNotMatch(readDocs("app.js"), /scrollIntoView\(\{ inline: "center"/);
+});
+
 test("phone desk nav keeps pages on top and rooms with the page", () => {
   const css = readDocs("styles.css");
   assert.match(css, /Phone desk nav: page tabs stick under the header/);

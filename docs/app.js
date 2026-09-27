@@ -1501,14 +1501,19 @@ function setMobileRailOpen(open) {
   syncSiteDock();
 }
 
+function scrollChildIntoStrip(strip, child) {
+  if (!strip || !child || typeof strip.getBoundingClientRect !== "function") return;
+  const parentRect = strip.getBoundingClientRect();
+  const childRect = child.getBoundingClientRect();
+  if (childRect.left >= parentRect.left + 8 && childRect.right <= parentRect.right - 8) return;
+  if (typeof strip.scrollTo !== "function") return;
+  const delta = childRect.left - parentRect.left - (parentRect.width - childRect.width) / 2;
+  strip.scrollTo({ left: (Number(strip.scrollLeft) || 0) + delta, behavior: "auto" });
+}
+
 function scrollActiveTabIntoView() {
   const active = [...(el.pageTabButtons || [])].find((button) => button.classList.contains("active"));
-  if (!active || !el.pageTabs) return;
-  const parentRect = el.pageTabs.getBoundingClientRect();
-  const activeRect = active.getBoundingClientRect();
-  if (activeRect.left < parentRect.left + 8 || activeRect.right > parentRect.right - 8) {
-    active.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
-  }
+  scrollChildIntoStrip(el.pageTabs, active);
 }
 
 function renderSessionSnapshot() {
@@ -1612,11 +1617,12 @@ function renderRoomNav(page, room) {
   const rooms = visibleRooms(page);
   const navKey = `${page}:${leagueTypeId(state.league)}`;
   if (el.roomNav.dataset.navKey !== navKey) {
-    el.roomNav.innerHTML = rooms.map((id) => `
+    const buttons = rooms.map((id) => `
       <button type="button" class="room-tab" role="tab" data-room="${escapeHtml(id)}" title="${escapeHtml(roomHintFor(page, id, state.league))}">
         ${escapeHtml(roomLabelFor(page, id, state.league) || id)}
       </button>
     `).join("");
+    el.roomNav.innerHTML = buttons ? `<div class="room-nav-scroll">${buttons}</div>` : "";
     el.roomNav.dataset.navKey = navKey;
     el.roomNav.dataset.page = page;
     el.roomNav.setAttribute("aria-label", `${PAGE_LABELS[page] || "Page"} rooms`);
@@ -1629,13 +1635,7 @@ function renderRoomNav(page, room) {
     button.tabIndex = isActive ? 0 : -1;
     if (isActive) activeButton = button;
   });
-  if (activeButton && typeof activeButton.scrollIntoView === "function") {
-    const parentRect = el.roomNav.getBoundingClientRect();
-    const rect = activeButton.getBoundingClientRect();
-    if (rect.left < parentRect.left + 8 || rect.right > parentRect.right - 8) {
-      activeButton.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
-    }
-  }
+  scrollChildIntoStrip(el.roomNav.querySelector(".room-nav-scroll") || el.roomNav, activeButton);
 }
 
 function syncTradeModeUi() {
