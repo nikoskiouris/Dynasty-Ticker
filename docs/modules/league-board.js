@@ -264,11 +264,10 @@ function exampleName(row) {
   return `<span class="player-name">${face}<span class="player-name-text">${name}</span></span>`;
 }
 
-export function renderLeagueBoardMarkup(board, { applied = false, formatNumber = String } = {}) {
+export function renderLeagueBoardMarkup(board, { formatNumber = String } = {}) {
   const ready = Boolean(board?.ready);
   const biases = Array.isArray(board?.biases) ? board.biases : [];
   const examples = Array.isArray(board?.examples) ? board.examples : [];
-  const applyLabel = applied ? "Using league board" : "Apply league board";
   const status = ready
     ? `${board.tradeCount} local trade${board.tradeCount === 1 ? "" : "s"} read`
     : `${board?.tradeCount || 0} local trade${(board?.tradeCount || 0) === 1 ? "" : "s"} so far`;
@@ -276,46 +275,29 @@ export function renderLeagueBoardMarkup(board, { applied = false, formatNumber =
     <section class="workspace-panel league-board-panel">
       <div class="panel-heading">
         <div>
-          <span class="eyebrow">League board</span>
-          <h2>League estimate</h2>
+          <span class="eyebrow">League tendencies</span>
+          <h2>What this room trades for</h2>
         </div>
-        <button
-          type="button"
-          class="ghost-btn league-board-apply${applied ? " is-on" : ""}"
-          data-action="toggle-league-board"
-          aria-pressed="${applied ? "true" : "false"}"
-          ${ready ? "" : "disabled"}
-        >${escapeHtml(applyLabel)}</button>
       </div>
       <p class="section-copy">${escapeHtml(board?.summary || emptyLeagueBoard().summary)}</p>
-      <p class="muted small">Market stays Sleeper trades from many dynasty leagues. This overlay is just your room.${status ? ` ${escapeHtml(status)}.` : ""}</p>
+      <p class="muted small">This is context, not a second price. Dynasty Ticker's full-PPR model value stays the same everywhere. ${escapeHtml(status)}.</p>
       ${biases.length > 1 ? `<ul class="league-bias-list">${biases.slice(1).map((bias) => `<li>${escapeHtml(bias.sentence)}</li>`).join("")}</ul>` : ""}
       ${examples.length ? `<div class="league-board-examples">${examples.slice(0, 4).map((row) => `
         <article class="league-board-example">
           <strong>${exampleName(row)}</strong>
-          <span>market ${escapeHtml(formatNumber(row.marketValue))}</span>
-          <span>your league ${escapeHtml(formatNumber(row.leagueValue))}</span>
+          <span>model ${escapeHtml(formatNumber(row.marketValue))}</span>
         </article>`).join("")}</div>` : ""}
     </section>
   `;
 }
 
-export function renderValueBoardBar({ applied = false, ready = false, formatNumber = String, marketHint = "" } = {}) {
+export function renderValueBoardBar({ marketHint = "" } = {}) {
   return `
     <div class="value-board-bar">
       <div>
-        <span class="analytics-kicker">${applied ? "League board on" : "Open market"}</span>
-        <p>${escapeHtml(marketHint || (applied
-          ? "Calculator, find-deals, and power now use this room's prices."
-          : "Numbers are the Sleeper trade market. League prices stay on the side until you apply them."))}</p>
+        <span class="analytics-kicker">Dynasty Ticker model</span>
+        <p>${escapeHtml(marketHint || "One full-PPR model price everywhere. League context does not reprice players.")}</p>
       </div>
-      <button
-        type="button"
-        class="ghost-btn league-board-apply${applied ? " is-on" : ""}"
-        data-action="toggle-league-board"
-        aria-pressed="${applied ? "true" : "false"}"
-        ${ready ? "" : "disabled"}
-      >${applied ? "Using league board" : "Apply league board"}</button>
     </div>
   `;
 }
