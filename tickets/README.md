@@ -30,7 +30,6 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [007](007-assets-to-move-on.txt) | Assets to move on from for capital | P1 |
 | [008](008-aging-stars-on-bad-teams.txt) | Target aging stars on tanking teams | P1 |
 | [014](014-redraft-values.txt) | Redraft rest-of-season values | P1 |
-| [016](016-one-price-every-screen.txt) | One price for a player on every screen | P0 |
 | [017](017-ideas-explain-why.txt) | Trade ideas say what they do and why the other team says yes | P1 |
 | [018](018-returning-manager-resume.txt) | Returning manager lands back on their league and team | P1 |
 
@@ -47,6 +46,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [010](010-league-first-landing.txt) | League is the product; rather is not the homepage | P0 | [#81](https://github.com/nikoskiouris/Dynasty-Ticker/pull/81) |
 | [011](011-rather-pairing.txt) | Rather pairing still produces no-brainers | P1 | [#81](https://github.com/nikoskiouris/Dynasty-Ticker/pull/81) |
 | [015](015-trade-survives-connect.txt) | A trade you built survives connecting Sleeper | P0 | [#97](https://github.com/nikoskiouris/Dynasty-Ticker/pull/97) |
+| [016](016-one-price-every-screen.txt) | One price for a player on every screen | P0 | [#111](https://github.com/nikoskiouris/Dynasty-Ticker/pull/111) |
 
 ## Shipped before this board
 
