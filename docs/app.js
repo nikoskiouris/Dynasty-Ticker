@@ -656,7 +656,6 @@ el.seasonsDashboard?.addEventListener("click", handleHistoryCompareClick);
 el.seasonsDashboard?.addEventListener("change", handleHistoryCompareChange);
 
 applyTheme(readStoredTheme(), { persist: false });
-state.applyLeagueBoard = false;
 state.valueCalc = readStoredDraft() || state.valueCalc;
 renderSessionSnapshot();
 syncTradeModeUi();
