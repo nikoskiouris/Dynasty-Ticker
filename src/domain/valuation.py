@@ -2,18 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-KTC_RAW_BASE = 0.10
-KTC_RAW_ELITE_WEIGHT = 0.08
-KTC_RAW_TRADE_WEIGHT = 0.11
-KTC_RAW_DEPTH_WEIGHT = 0.18
-KTC_GLOBAL_MAX_FALLBACK = 9999
-ELITE_VALUE_PREMIUM_TIERS = (
-    (9000, 1.32),
-    (8000, 1.27),
-    (7000, 1.21),
-    (6000, 1.15),
-    (5000, 1.09),
-)
+PACKAGE_RAW_BASE = 0.10
+PACKAGE_RAW_ELITE_WEIGHT = 0.08
+PACKAGE_RAW_TRADE_WEIGHT = 0.11
+PACKAGE_RAW_DEPTH_WEIGHT = 0.18
 
 
 @dataclass
@@ -37,16 +29,16 @@ class ValuationService:
     def __init__(self, values: dict[str, int]):
         self._values = values
         player_values = [
-            self._apply_elite_player_premium(asset_id, value)
+            int(value)
             for asset_id, value in values.items()
-            if str(asset_id).startswith("player:")
+            if str(asset_id).startswith("player:") and isinstance(value, (int, float)) and value > 0
         ]
-        self._max_value = max(max(player_values, default=0), KTC_GLOBAL_MAX_FALLBACK)
+        self._max_value = max(player_values, default=1)
 
     def get_asset_value(self, asset_id: str) -> int | None:
         exact = self._values.get(asset_id)
         if exact is not None:
-            return self._apply_elite_player_premium(asset_id, exact)
+            return exact
 
         if asset_id.startswith("pick:"):
             any_id = asset_id.rsplit(":", 1)[0] + ":any"
@@ -54,9 +46,6 @@ class ValuationService:
 
         return None
 
-    def _apply_elite_player_premium(self, asset_id: str, base_value: int) -> int:
-        if not asset_id.startswith("player:"):
-            return base_value
 
         for floor, multiplier in ELITE_VALUE_PREMIUM_TIERS:
             if base_value >= floor:
@@ -70,22 +59,22 @@ class ValuationService:
     def max_value(self) -> int:
         return self._max_value
 
-    def calculate_ktc_raw_adjustment(self, player_value: int | float, trade_max_value: int | float) -> float:
+    def calculate_package_raw_adjustment(self, player_value: int | float, trade_max_value: int | float) -> float:
         if player_value <= 0 or trade_max_value <= 0:
             return 0.0
 
         return float(player_value) * (
-            KTC_RAW_BASE
-            + KTC_RAW_ELITE_WEIGHT * (float(player_value) / self._max_value) ** 8
-            + KTC_RAW_TRADE_WEIGHT * (float(player_value) / float(trade_max_value)) ** 1.3
-            + KTC_RAW_DEPTH_WEIGHT * (float(player_value) / (self._max_value + 2000)) ** 1.28
+            PACKAGE_RAW_BASE
+            + PACKAGE_RAW_ELITE_WEIGHT * (float(player_value) / self._max_value) ** 8
+            + PACKAGE_RAW_TRADE_WEIGHT * (float(player_value) / float(trade_max_value)) ** 1.3
+            + PACKAGE_RAW_DEPTH_WEIGHT * (float(player_value) / (self._max_value + 2000)) ** 1.28
         )
 
     def find_even_value(self, target_raw_gap: float, trade_max_value: int) -> int:
         if target_raw_gap <= 0:
             return 0
 
-        max_reachable_raw = self.calculate_ktc_raw_adjustment(self._max_value, self._max_value)
+        max_reachable_raw = self.calculate_package_raw_adjustment(self._max_value, self._max_value)
         if target_raw_gap >= max_reachable_raw:
             return self._max_value
 
@@ -93,7 +82,7 @@ class ValuationService:
         high = float(self._max_value)
         for _ in range(50):
             mid = (low + high) / 2
-            raw_value = self.calculate_ktc_raw_adjustment(mid, max(trade_max_value, mid))
+            raw_value = self.calculate_package_raw_adjustment(mid, max(trade_max_value, mid))
             if raw_value < target_raw_gap:
                 low = mid
             else:
@@ -135,8 +124,8 @@ class ValuationService:
                 even_value=0,
             )
 
-        my_raw_value = sum(self.calculate_ktc_raw_adjustment(value, trade_max_value) for value in my_values)
-        their_raw_value = sum(self.calculate_ktc_raw_adjustment(value, trade_max_value) for value in their_values)
+        my_raw_value = sum(self.calculate_package_raw_adjustment(value, trade_max_value) for value in my_values)
+        their_raw_value = sum(self.calculate_package_raw_adjustment(value, trade_max_value) for value in their_values)
 
         if abs(my_raw_value - their_raw_value) < 1e-6:
             return PackageAdjustmentResult(
