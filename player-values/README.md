@@ -92,7 +92,7 @@ Replacement is estimated from a **12-team reference league**, not a hard-coded Q
 - 2 FLEX
 - 12 bench slots
 
-Superflex adds one Superflex starter per team. The model fills the reference lineups from historical PPR production, then allocates the bench on scarcity-adjusted roster claims. The best remaining player at each position becomes the feasible alternative.
+Superflex adds one Superflex starter per team. The model fills the reference lineups from historical PPR production, then allocates the bench on scarcity-adjusted roster claims. Quarterback benches stop at **2 per team in 1QB** and **3 per team in Superflex**, so the league cannot roster every quarterback and call the alternative zero. The best remaining player at each position is the feasible alternative. If that pool is empty, the last rostered player is the alternative.
 
 RB/WR/TE replacement is shared across formats at launch. Superflex therefore changes only QB player values. Future picks may differ because rookie-QB demand changes the expected rookie board.
 
@@ -106,9 +106,9 @@ Those are documented future inputs, not silent zeroes.
 
 A future pick is not an arbitrary percentage of a veteran.
 
-Historical rookie classes are ordered from information available at draft time: NFL draft investment, position, and age when available. The builder measures the discounted above-replacement production those rookies actually produced.
+Historical rookie classes are ordered from information available at draft time: NFL draft pick, then a format shift for quarterbacks, then age. Each year older than 23 moves a prospect back 4 picks. 1QB moves quarterbacks back 32 picks. Superflex moves them back only 8, so the same quarterback is earlier than in 1QB and still does not jump a whole round of skill players. `config.json` owns those shifts.
 
-For each format it estimates historical outcome distributions for rookie-draft slots, then aggregates slots 1-4 / 5-8 / 9-12 into early / mid / late firsts and twelve-pick blocks into later rounds. Superflex can order quarterbacks differently, so picks may differ by format.
+The builder measures the discounted above-replacement production those ordered rookies actually produced, then aggregates slots 1-4 / 5-8 / 9-12 into early / mid / late firsts and twelve-pick blocks into later rounds. If a later bucket's history comes out higher, the published price is capped at the earlier bucket. Early is worth at least as much as mid, and mid at least as much as late.
 
 This remains intentionally conservative until college-production inputs are added.
 
@@ -116,7 +116,7 @@ This remains intentionally conservative until college-production inputs are adde
 
 `player-values/validation.json` is generated with the snapshot.
 
-The current holdout test is narrower than the final product claim. It asks: after a completed season, how well do learned age/availability transitions predict the next season's above-replacement production versus simply carrying forward the prior PPR rate?
+The current holdout test is narrower than the final product claim. It asks: after a completed season, how well do learned age/availability transitions predict the next season's above-replacement production versus simply carrying forward the prior PPR rate? Transition tables and replacement levels are both frozen at the training cutoff before those seasons.
 
 The report includes both MAEs. It does **not** claim to validate:
 - eight-year career calibration
@@ -129,7 +129,7 @@ A model does not earn a stronger claim until a test measures it.
 
 ## Data
 
-The builder downloads public nflverse weekly player statistics plus player/draft metadata, then uses Sleeper for current player IDs, teams, ages/status, and NFL week.
+The builder downloads public nflverse weekly player statistics plus player/draft metadata, then uses Sleeper for current player IDs, teams, ages/status, and NFL week. Identity joins on `gsis_id`, then ESPN id, then a unique name and position. Players with `active: false`, a retired or inactive status, or no game since the previous season are left out. A two-way player charted on defense still counts when the weekly row has targets or carries.
 
 No KTC value, completed-trade fitted price, crowd-vote shift, or other fantasy-market ranking is an input. Upstream files and hashes are recorded in snapshot metadata.
 

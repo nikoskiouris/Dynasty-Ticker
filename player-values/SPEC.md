@@ -1,10 +1,27 @@
 # Dynasty Ticker: independent player valuation specification
 
-Prepared September 28, 2026. Proposed design, not an implemented or validated model.
+Prepared September 28, 2026.
 
-The owner-defined scope is two dynasty markets: 1QB full PPR and Superflex full PPR. No TE, RB, or other positional scoring bonuses. No imported KTC values or other dynasty price targets are required. Skill-position football projections are shared between formats. QB and pick valuation must account for format.
+## What is running
 
-This document defines a complete first feature inventory, the equations that connect those features to value, provisional numeric settings, training targets, and validation requirements. Feature coefficients have not been estimated. Numeric prototype settings below are engineering hypotheses, not established fantasy-football facts.
+`player-values/build.py` is the shipped model (`football-forecast-v1`). It writes `docs/data/player_values.json`. The running math is in `player-values/README.md`:
+
+- eight seasons of expected full-PPR points per game above a 12-team reference replacement
+- annual discount 0.85, owned by `config.json`
+- display scale 20, the same ruler in both formats
+- one shared RB/WR/TE price; Superflex changes the QB alternative only
+
+Sections 4–10 are the target design (routes, weekly lineup simulation, joint scenarios). The builder does not run that design. A number in the snapshot comes from the shipped formula, not from an unestimated feature coefficient in those sections.
+
+Shipped rules:
+
+- Each reference team keeps at most 2 quarterbacks in 1QB and 3 in Superflex. The alternative is the best player left outside that roster. If the historical pool is smaller than the cap, the alternative is the last rostered player. Replacement is never zero.
+- A player with no game since the previous season is left out. `active: false` and retired or inactive statuses are left out.
+- Sleeper joins nflverse on `gsis_id`, then ESPN id, then a unique name at the same position, then a unique name. A second player with the same name at another position does not block the match. A defensive chart with real targets or carries, such as a two-way receiver, counts as an offensive player.
+- Future-pick prices use historical rookie outcomes, then a decreasing smooth so an earlier pick is worth at least as much as a later pick. A missing catalog year in the app slides by the same 0.85 discount.
+- The holdout freezes transition tables and replacement levels at `validationTrainingThrough` (2020). It measures one-year above-replacement error only.
+
+The owner-defined scope is two dynasty markets: 1QB full PPR and Superflex full PPR. No TE, RB, or other positional scoring bonuses. No imported KTC values or other dynasty price targets. Skill-position football projections are shared between formats. QB and pick valuation must account for format.
 
 ## 1. What the number means
 
@@ -358,6 +375,8 @@ Use the same football forecast for a player in either fantasy format. Josh Allen
 
 The format changes the value of the alternative available at QB. Estimate that alternative from a reference roster/startup allocation and plausible substitutes. Do not equate the QB alternative mechanically to QB13 in 1QB or QB25 in SF; bench depth, byes, roster availability, and flex eligibility matter.
 
+Shipped v1 uses that roster idea with an explicit cap in `config.json`: 2 quarterbacks per team in 1QB and 3 in Superflex. The bench stops taking quarterbacks at the cap, so the alternative stays a real player. An empty waiver pool uses the last rostered player instead of zero.
+
 For RB/WR/TE, start with a shared valuation baseline. Permit small format departures only from consistent lineup-demand modeling or strong market evidence. Do not manufacture separate non-QB prices from small samples.
 
 TE scarcity remains part of roster utility even with no TE premium scoring. A top TE can create lineup advantage while receiving exactly the same PPR points per catch as a WR.
@@ -375,6 +394,8 @@ Value a fantasy rookie pick as a probability-weighted choice among the players l
 7. Use historical class distributions when future class information is thin.
 
 Do not add a second 12% annual pick discount if the same delay is already accounted for in the discounted contribution model. Do not assume future classes are equally strong once credible evidence exists.
+
+Shipped v1 orders historical rookies by NFL draft pick, a format quarterback shift in `config.json`, and age. 1QB moves quarterbacks back a round. Superflex moves them back 8 picks, so they stay earlier than in 1QB. Published bucket prices are then capped so a later pick cannot outrank an earlier one. The app's fallback for a year missing from the snapshot uses the same 0.85 annual discount as `config.json`.
 
 ## 13. Optional market price from our own evidence
 
@@ -448,6 +469,8 @@ Train on as-of joins. A contract signed in March cannot appear in a prediction d
 Compare against simple football-only baselines, such as age-adjusted prior production and opportunity-based projections.
 
 Use rolling historical cutoffs: train only on earlier information, predict subsequent periods, and keep validation players/seasons appropriately grouped. For any market calibration, withhold later trades and entire league/voter clusters.
+
+The shipped holdout freezes both the transition tables and the replacement levels at `validationTrainingThrough`. Scoring a later season with a replacement fit on that same season is not this test. The published claim is one-year above-replacement error against a persistence baseline. It does not claim eight-year calibration or that the rookie board matches real dynasty drafts. The snapshot still has to keep early firsts ahead of mid firsts and mid firsts ahead of late firsts.
 
 Evaluate:
 

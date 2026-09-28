@@ -14,6 +14,17 @@
     "SUPER_FLEX": 1
   },
   "referenceBenchSlots": 12,
+  "qbRosterCapPerTeam": {
+    "oneQb": 2,
+    "sf": 3
+  },
+  "rookieBoard": {
+    "agePickPenalty": 4,
+    "pickShift": {
+      "oneQb": {"QB": -32, "RB": 0, "WR": 0, "TE": 0},
+      "sf": {"QB": -8, "RB": 0, "WR": 0, "TE": 0}
+    }
+  },
   "fantasyWeeks": 17,
   "opportunityHalfLifeGames": 4,
   "efficiencyHalfLifeGames": 32,

@@ -45,7 +45,7 @@ test("an older pick season is not marked up from a later catalog row", () => {
   assert.equal(findPickCatalogValue({ season: "2024", round: 1, bucket: "any" }, values), 5000);
   const future = findPickCatalogValue({ season: "2028", round: 1, bucket: "any" }, values);
   assert.ok(future < 5000);
-  assert.equal(future, Math.round(5000 * (0.88 ** 2)));
+  assert.equal(future, Math.round(5000 * (0.85 ** 2)));
 });
 
 test("global max follows players, not a pricey pick", () => {
@@ -167,7 +167,7 @@ test("pick lookup time-discounts a nearest-year fallback", () => {
   assert.equal(resolvePickAssetValue(pick, values), 6100);
   const future = { assetId: "pick:2029:r2:any", assetType: "pick", raw: { season: 2029, round: 2 } };
   const catalogValues = { "pick:2027:r2:any": 3200 };
-  assert.equal(resolvePickAssetValue(future, catalogValues), 2478);
+  assert.equal(resolvePickAssetValue(future, catalogValues), Math.round(3200 * (0.85 ** 2)));
   assert.deepEqual(parsePickAssetId("pick:2028:r1:early"), { season: "2028", round: 1, bucket: "early" });
 });
 

@@ -25,6 +25,14 @@ CONFIG = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
 OUTPUT = REPO / "docs" / "data" / "player_values.json"
 VALIDATION = ROOT / "validation.json"
 POSITIONS = ("QB", "RB", "WR", "TE")
+TWO_WAY_POSITIONS = {"CB", "DB", "S", "FS", "SS", "LB", "ILB", "OLB", "DE", "DT", "EDGE", "DL", "NB"}
+RETIRED_STATUSES = {"retired", "inactive", "reserve_retired", "reserve/did_not_report", "did_not_report"}
+REQUIRED_ASSETS = {
+    "player:6794": "Justin Jefferson",
+    "player:8151": "Kenneth Walker",
+    "player:12530": "Travis Hunter",
+}
+EXCLUDED_ASSETS = ("player:167", "player:4634")
 
 PLAYERS_URL = "https://github.com/nflverse/nflverse-data/releases/download/players/players.csv"
 DRAFT_URL = "https://github.com/nflverse/nflverse-data/releases/download/draft_picks/draft_picks.csv"
@@ -62,6 +70,87 @@ def name_variants(value):
         tokens.pop()
         variants.add(normalized_name(" ".join(tokens)))
     return [item for item in variants if item]
+
+
+def chart_position(row):
+    """Offensive role used for scoring. Two-way players can be charted at CB and still catch passes."""
+    position = str(row.get("position") or "").upper()
+    carries = num(row.get("carries"))
+    targets = num(row.get("targets"))
+    if position in POSITIONS:
+        return position
+    if position in TWO_WAY_POSITIONS and carries + targets > 0:
+        return "WR" if targets >= carries else "RB"
+    return ""
+
+
+def offensive_position(player):
+    primary = str(player.get("position") or "").upper()
+    if primary in POSITIONS:
+        return primary
+    for raw in player.get("fantasy_positions") or []:
+        position = str(raw or "").upper()
+        if position in POSITIONS:
+            return position
+    return ""
+
+
+def player_is_listable(player):
+    if player.get("active") is False:
+        return False
+    status = str(player.get("status") or "").strip().lower()
+    return status not in RETIRED_STATUSES
+
+
+def played_recently(last_season, current_season):
+    if last_season is None:
+        return True
+    return int(last_season) >= int(current_season) - 1
+
+
+def build_identity_index(meta):
+    by_espn = defaultdict(list)
+    by_name = defaultdict(list)
+    by_name_pos = defaultdict(list)
+    for pid, row in meta.items():
+        espn = str(row.get("espn_id") or "").strip()
+        if espn and espn.lower() != "nan":
+            by_espn[espn].append(pid)
+        position = str(row.get("position") or "").upper()
+        label = row.get("display_name") or row.get("football_name") or row.get("full_name")
+        for variant in name_variants(label):
+            by_name[variant].append(pid)
+            if position:
+                by_name_pos[(variant, position)].append(pid)
+    return {
+        "espn": {key: sorted(set(values)) for key, values in by_espn.items()},
+        "name": {key: sorted(set(values)) for key, values in by_name.items()},
+        "namePos": {key: sorted(set(values)) for key, values in by_name_pos.items()},
+    }
+
+
+def resolve_nfl_id(player, identity, position):
+    gsis = str(player.get("gsis_id") or "").strip()
+    if gsis:
+        return gsis, "gsis"
+    espn = str(player.get("espn_id") or "").strip()
+    if espn:
+        hits = identity["espn"].get(espn, [])
+        if len(hits) == 1:
+            return hits[0], "espn"
+    label = player.get("full_name") or f"{player.get('first_name', '')} {player.get('last_name', '')}"
+    pos_hits = []
+    name_hits = []
+    for variant in name_variants(label):
+        pos_hits.extend(identity["namePos"].get((variant, position), []))
+        name_hits.extend(identity["name"].get(variant, []))
+    pos_hits = sorted(set(pos_hits))
+    if len(pos_hits) == 1:
+        return pos_hits[0], "name-position"
+    name_hits = sorted(set(name_hits))
+    if len(name_hits) == 1 and position in POSITIONS:
+        return name_hits[0], "name"
+    return "", ""
 
 
 def http_bytes(url):
@@ -182,15 +271,11 @@ def load_inputs(cache, refresh=True):
     sleeper_path = fetch(cache, "sleeper_players.json", SLEEPER_PLAYERS_URL, refresh=refresh)
 
     meta = {}
-    names = defaultdict(list)
     for row in read_csv(player_path):
         pid = str(row.get("gsis_id") or "").strip()
         if not pid:
             continue
         meta[pid] = dict(row)
-        label = row.get("display_name") or row.get("football_name") or row.get("full_name")
-        for variant in name_variants(label):
-            names[variant].append(pid)
 
     for row in read_csv(draft_path):
         pid = str(row.get("gsis_id") or "").strip()
@@ -217,7 +302,7 @@ def load_inputs(cache, refresh=True):
             return
         if season == current_season and week >= current_week:
             return
-        position = str(row.get("position") or "").upper()
+        position = chart_position(row)
         if position not in POSITIONS:
             return
         pid = str(row.get("player_id") or row.get("gsis_id") or "").strip()
@@ -272,7 +357,7 @@ def load_inputs(cache, refresh=True):
         "currentSeason": current_season,
         "currentWeek": current_week,
         "meta": meta,
-        "nameIndex": names,
+        "identity": build_identity_index(meta),
         "weekly": weekly,
         "teamWeeks": team_weeks,
         "sleeper": sleeper,
@@ -341,12 +426,13 @@ def _starter_pool(values, position_counts, flex_count=0, superflex_count=0):
     return remaining, rostered
 
 
-def _allocate_bench(remaining, rostered, bench_slots):
+def _allocate_bench(remaining, rostered, bench_slots, qb_cap=None):
     """Allocate bench spots by scarcity-adjusted PPR.
 
     A raw-PPR bench draft would over-roster quarterbacks because QB scoring uses a
     different numerical range. Normalize each candidate by the last required starter
-    at his position, then take the strongest remaining roster claims.
+    at his position, then take the strongest remaining roster claims. Stop adding
+    quarterbacks once the format roster cap is full so a real QB remains available.
     """
     starter_floor = {}
     for position in POSITIONS:
@@ -355,9 +441,12 @@ def _allocate_bench(remaining, rostered, bench_slots):
     for _ in range(bench_slots):
         candidates = []
         for position in POSITIONS:
-            if remaining[position]:
-                ppg = remaining[position][0]
-                candidates.append((ppg / starter_floor[position], ppg, position))
+            if not remaining[position]:
+                continue
+            if position == "QB" and qb_cap is not None and len(rostered["QB"]) >= qb_cap:
+                continue
+            ppg = remaining[position][0]
+            candidates.append((ppg / starter_floor[position], ppg, position))
         if not candidates:
             break
         _, _, position = max(candidates)
@@ -365,11 +454,51 @@ def _allocate_bench(remaining, rostered, bench_slots):
     return remaining, rostered
 
 
-def learn_replacement(rows, through):
-    """Estimate the feasible alternative from the documented reference league."""
+def _replacement_ppg(remaining, rostered, position):
+    """Best player left outside the reference roster.
+
+    When the historical pool is smaller than the roster, the last rostered player
+    is that alternative. Zero means the pool was empty, which is not a player.
+    """
+    if remaining[position]:
+        return float(remaining[position][0])
+    if rostered[position]:
+        return float(rostered[position][-1])
+    return None
+
+
+def allocate_reference_league(values, fmt):
+    """Fill one reference league and return replacement points per game by position."""
     teams = int(CONFIG["referenceTeams"])
     lineup = CONFIG["referenceLineup"]
     bench_slots = teams * int(CONFIG["referenceBenchSlots"])
+    caps = CONFIG["qbRosterCapPerTeam"]
+    qb_cap = teams * int(caps["sf"] if fmt == "sf" else caps["oneQb"])
+    base_counts = {
+        "QB": teams * int(lineup["QB"]),
+        "RB": teams * int(lineup["RB"]),
+        "WR": teams * int(lineup["WR"]),
+        "TE": teams * int(lineup["TE"]),
+    }
+    remaining, rostered = _starter_pool(
+        values,
+        base_counts,
+        flex_count=teams * int(lineup["FLEX"]),
+        superflex_count=teams * int(lineup["SUPER_FLEX"]) if fmt == "sf" else 0,
+    )
+    remaining, rostered = _allocate_bench(remaining, rostered, bench_slots, qb_cap=qb_cap)
+    output = {}
+    for position in POSITIONS:
+        replacement = _replacement_ppg(remaining, rostered, position)
+        if replacement is None or replacement <= 0:
+            return None
+        output[position] = replacement
+    return output
+
+
+def learn_replacement(rows, through):
+    """Estimate the feasible alternative from the documented reference league."""
+    teams = int(CONFIG["referenceTeams"])
     samples = {"sf": defaultdict(list), "oneQb": defaultdict(list)}
     by_year_position = defaultdict(list)
 
@@ -387,23 +516,12 @@ def learn_replacement(rows, through):
         if any(len(values[position]) < teams for position in POSITIONS):
             continue
 
-        base_counts = {
-            "QB": teams * int(lineup["QB"]),
-            "RB": teams * int(lineup["RB"]),
-            "WR": teams * int(lineup["WR"]),
-            "TE": teams * int(lineup["TE"]),
-        }
         for fmt in ("oneQb", "sf"):
-            remaining, rostered = _starter_pool(
-                values,
-                base_counts,
-                flex_count=teams * int(lineup["FLEX"]),
-                superflex_count=teams * int(lineup["SUPER_FLEX"]) if fmt == "sf" else 0,
-            )
-            remaining, rostered = _allocate_bench(remaining, rostered, bench_slots)
+            allocated = allocate_reference_league(values, fmt)
+            if not allocated:
+                continue
             for position in POSITIONS:
-                replacement = remaining[position][0] if remaining[position] else 0.0
-                samples[fmt][position].append(replacement)
+                samples[fmt][position].append(allocated[position])
 
     result = {"sf": {}, "oneQb": {}}
     for fmt in result:
@@ -483,10 +601,15 @@ def current_profile(pid, player, inputs, baselines):
     team_weeks = inputs["teamWeeks"]
     season = inputs["currentSeason"]
     current_week = inputs["currentWeek"]
-    position = str(player.get("position") or ((player.get("fantasy_positions") or [""])[0]) or "").upper()
+    position = offensive_position(player)
     if position not in POSITIONS:
         return None
     rows = weekly.get(pid, [])
+    last_season = rows[-1]["season"] if rows else None
+    if not played_recently(last_season, season):
+        return None
+    if not rows and int(num(player.get("years_exp"), 99)) > 2:
+        return None
     recent = rows[-48:]
     role_rows = recent[-16:]
     eff_rows = recent[-32:]
@@ -571,6 +694,7 @@ def current_profile(pid, player, inputs, baselines):
         "experience": experience,
         "draftPick": None if draft_pick >= 999 else int(draft_pick),
         "careerGames": len(rows),
+        "lastSeason": last_season,
         "currentGames": sum(1 for row in rows if row["season"] == season),
         "projectedPpg": projected_ppg,
         "roleOppPerGame": projected_opp,
@@ -647,18 +771,18 @@ def rookie_slot_samples(meta, rows, replacement, scale, current_season):
             continue
         by_year[year].append((pid, pick, position, age_for(player, year) or 23.0))
 
-    bonus = {
-        "sf": {"QB": 1.15, "RB": 0.55, "WR": 0.50, "TE": 0.15},
-        "oneQb": {"QB": 0.15, "RB": 0.55, "WR": 0.50, "TE": 0.15},
-    }
+    board_config = CONFIG["rookieBoard"]
+    age_penalty = float(board_config["agePickPenalty"])
     output = {"sf": defaultdict(list), "oneQb": defaultdict(list)}
     for fmt in output:
+        shift = board_config["pickShift"][fmt]
         for year, rookies in sorted(by_year.items()):
             board = sorted(
                 rookies,
                 key=lambda row: (
-                    -(4.8 - math.log1p(row[1]) + bonus[fmt][row[2]] - max(0.0, row[3] - 23) * 0.05),
+                    row[1] - float(shift.get(row[2], 0)) + max(0.0, row[3] - 23) * age_penalty,
                     row[1],
+                    row[0],
                 ),
             )
             for slot, (pid, _, _, _) in enumerate(board[:60], start=1):
@@ -667,31 +791,66 @@ def rookie_slot_samples(meta, rows, replacement, scale, current_season):
     return output
 
 
+def force_descending(values):
+    """Keep an earlier pick worth at least as much as the next one. Later noise cannot jump the line."""
+    output = []
+    for value in values:
+        output.append(value if not output else min(value, output[-1]))
+    return output
+
+
+def _bucket_median(samples_for_fmt, slots):
+    values = [value for slot in slots for value in samples_for_fmt.get(slot, [])]
+    if not values:
+        return None
+    return float(median(values))
+
+
 def pick_values(samples, current_season):
     output = {"sf": {}, "oneQb": {}, "names": {}}
+    raw = {}
+    for fmt in ("sf", "oneQb"):
+        firsts = [
+            _bucket_median(samples[fmt], range(1, 5)),
+            _bucket_median(samples[fmt], range(5, 9)),
+            _bucket_median(samples[fmt], range(9, 13)),
+        ]
+        rounds = [
+            _bucket_median(samples[fmt], range((round_number - 1) * 12 + 1, round_number * 12 + 1))
+            for round_number in range(1, 6)
+        ]
+        if any(value is None for value in firsts + rounds):
+            raise RuntimeError(f"Missing rookie outcome samples for {fmt}")
+        early, mid, late = force_descending(firsts)
+        round_values = force_descending(rounds)
+        any_first = _bucket_median(samples[fmt], range(1, 13))
+        any_first = min(early, max(late, any_first))
+        raw[fmt] = {"early": early, "mid": mid, "late": late, "any": any_first, "rounds": round_values}
+
     for year in range(current_season + 1, current_season + 7):
         delay = float(CONFIG["annualDiscount"]) ** max(1, year - current_season)
         for round_number in range(1, 6):
             aid = f"pick:{year}:r{round_number}:any"
             output["names"][aid] = f"{year} Round {round_number}"
-            slots = range((round_number - 1) * 12 + 1, round_number * 12 + 1)
             for fmt in ("sf", "oneQb"):
-                values = [value for slot in slots for value in samples[fmt].get(slot, [])]
-                if values:
-                    output[fmt][aid] = max(1, round(median(values) * delay))
-        for bucket, slots in (("early", range(1, 5)), ("mid", range(5, 9)), ("late", range(9, 13))):
+                output[fmt][aid] = max(1, round(raw[fmt]["rounds"][round_number - 1] * delay))
+        for bucket in ("early", "mid", "late"):
             aid = f"pick:{year}:r1:{bucket}"
             output["names"][aid] = f"{year} {bucket.title()} 1st"
             for fmt in ("sf", "oneQb"):
-                values = [value for slot in slots for value in samples[fmt].get(slot, [])]
-                if values:
-                    output[fmt][aid] = max(1, round(median(values) * delay))
+                output[fmt][aid] = max(1, round(raw[fmt][bucket] * delay))
+        aid = f"pick:{year}:r1:any"
+        for fmt in ("sf", "oneQb"):
+            output[fmt][aid] = max(1, round(raw[fmt]["any"] * delay))
     return output
 
 
-def backtest(rows, replacement):
+def backtest(rows, replacement=None):
+    through = int(CONFIG["validationTrainingThrough"])
+    if replacement is None:
+        replacement = learn_replacement(rows, through=through)
     retention, survival, generic = learn_transitions(
-        rows, replacement, through_origin=int(CONFIG["validationTrainingThrough"])
+        rows, replacement, through_origin=through
     )
     errors = []
     naive_errors = []
@@ -726,7 +885,8 @@ def backtest(rows, replacement):
         "n": len(errors),
         "mae": round(sum(errors) / len(errors), 3) if errors else None,
         "persistenceMae": round(sum(naive_errors) / len(naive_errors), 3) if naive_errors else None,
-        "scope": "one-year SF above-replacement; transition tables frozen before holdout origins",
+        "scope": "one-year SF above-replacement; transitions and replacement frozen at validationTrainingThrough",
+        "replacementThrough": int(CONFIG["validationTrainingThrough"]),
         "bySeasonPosition": {
             key: {
                 "n": value[0],
@@ -768,9 +928,53 @@ def validate(bundle):
     if sf_players != one_players:
         raise RuntimeError("Format player coverage differs")
     for asset_id in sf_players:
-        position = bundle["players"].get(asset_id, {}).get("position")
+        info = bundle["players"].get(asset_id, {})
+        position = info.get("position")
         if position in ("RB", "WR", "TE") and bundle["sf"][asset_id] != bundle["oneQb"][asset_id]:
             raise RuntimeError(f"Non-QB changed by format: {asset_id}")
+        last_season = info.get("lastSeason")
+        season = int(bundle.get("season") or 0)
+        if season and last_season is not None and int(last_season) < season - 1 and bundle["sf"][asset_id] > 0:
+            raise RuntimeError(f"Stale player still priced: {asset_id}")
+    replacement = bundle.get("meta", {}).get("replacementPpg") or {}
+    for fmt in ("sf", "oneQb"):
+        for position in POSITIONS:
+            value = (replacement.get(fmt) or {}).get(position)
+            if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+                raise RuntimeError(f"Replacement for {fmt} {position} is not a real player: {value}")
+    for fmt in ("sf", "oneQb"):
+        _assert_pick_order(bundle[fmt])
+    for asset_id, label in REQUIRED_ASSETS.items():
+        if bundle["sf"].get(asset_id, 0) <= 0 or bundle["oneQb"].get(asset_id, 0) <= 0:
+            raise RuntimeError(f"Missing priced player {label} ({asset_id})")
+    for asset_id in EXCLUDED_ASSETS:
+        if bundle["sf"].get(asset_id, 0) > 0 or bundle["oneQb"].get(asset_id, 0) > 0:
+            raise RuntimeError(f"Excluded player still priced: {asset_id}")
+
+
+def _assert_pick_order(values):
+    years = sorted({
+        int(key.split(":")[1])
+        for key in values
+        if key.startswith("pick:") and key.split(":")[1].isdigit()
+    })
+    for year in years:
+        early = values.get(f"pick:{year}:r1:early")
+        mid = values.get(f"pick:{year}:r1:mid")
+        late = values.get(f"pick:{year}:r1:late")
+        if None not in (early, mid, late) and not (early >= mid >= late):
+            raise RuntimeError(f"{year} firsts are out of order: {early} {mid} {late}")
+        any_first = values.get(f"pick:{year}:r1:any")
+        if None not in (early, any_first, late) and not (early >= any_first >= late):
+            raise RuntimeError(f"{year} round-1 any sits outside early/late")
+        rounds = [values.get(f"pick:{year}:r{rnd}:any") for rnd in range(1, 6)]
+        if None not in rounds and rounds != sorted(rounds, reverse=True):
+            raise RuntimeError(f"{year} rounds are out of order: {rounds}")
+    for earlier, later in zip(years, years[1:]):
+        early = values.get(f"pick:{earlier}:r1:early")
+        nxt = values.get(f"pick:{later}:r1:early")
+        if None not in (early, nxt) and early < nxt:
+            raise RuntimeError(f"Later early first outranks an earlier class: {earlier} {early} < {later} {nxt}")
 
 
 def build(cache, refresh=True):
@@ -782,35 +986,29 @@ def build(cache, refresh=True):
     baselines = position_baselines(rows, through=current_season - 1)
     learned = learn_transitions(rows, replacement, through_origin=current_season)
 
-    name_index = inputs["nameIndex"]
+    identity = inputs["identity"]
     projected = {}
     player_meta = {}
     names = {}
+    chosen = {}
 
-    for sleeper_id, player in sorted(inputs["sleeper"].items()):
-        if not isinstance(player, dict):
+    for sleeper_id, player in inputs["sleeper"].items():
+        if not isinstance(player, dict) or not player_is_listable(player):
             continue
-        position = str(player.get("position") or ((player.get("fantasy_positions") or [""])[0]) or "").upper()
+        position = offensive_position(player)
         if position not in POSITIONS:
             continue
-        status = str(player.get("status") or "").lower()
-        if player.get("active") is False and status in {"retired", "inactive", "reserve_retired"}:
-            continue
-
-        pid = str(player.get("gsis_id") or "").strip()
-        mapped_by = "gsis"
-        if not pid:
-            label = player.get("full_name") or f"{player.get('first_name','')} {player.get('last_name','')}"
-            hits = []
-            for variant in name_variants(label):
-                hits.extend(name_index.get(variant, []))
-            hits = sorted(set(hits))
-            if len(hits) == 1:
-                pid = hits[0]
-                mapped_by = "name"
+        pid, mapped_by = resolve_nfl_id(player, identity, position)
         if not pid:
             continue
+        rank = {"gsis": 0, "espn": 1, "name-position": 2, "name": 3}[mapped_by]
+        team_rank = 0 if str(player.get("team") or "").strip() else 1
+        candidate = (rank, team_rank, str(sleeper_id), sleeper_id, player, position, mapped_by)
+        current = chosen.get(pid)
+        if current is None or candidate < current:
+            chosen[pid] = candidate
 
+    for pid, (_rank, _team_rank, _sort_id, sleeper_id, player, position, mapped_by) in sorted(chosen.items()):
         profile = current_profile(pid, player, inputs, baselines)
         if not profile:
             continue
@@ -828,6 +1026,7 @@ def build(cache, refresh=True):
             "draftPick": profile["draftPick"],
             "confidence": "established" if profile["careerGames"] >= 32 else ("developing" if profile["careerGames"] >= 12 else "thin"),
             "sourceMapping": mapped_by,
+            "lastSeason": profile["lastSeason"],
             "components": {
                 "projectedPpg": round(profile["projectedPpg"], 3),
                 "roleOppPerGame": round(profile["roleOppPerGame"], 3),
@@ -844,7 +1043,7 @@ def build(cache, refresh=True):
 
     scale = float(CONFIG["displayScale"])
 
-    validation = backtest(rows, replacement)
+    validation = backtest(rows)
     bundle = {
         "schemaVersion": int(CONFIG["schemaVersion"]),
         "modelVersion": CONFIG["modelVersion"],
@@ -864,6 +1063,8 @@ def build(cache, refresh=True):
             "replacementPpg": replacement,
             "referenceLineup": CONFIG["referenceLineup"],
             "referenceBenchSlots": int(CONFIG["referenceBenchSlots"]),
+            "qbRosterCapPerTeam": CONFIG["qbRosterCapPerTeam"],
+            "rookieBoard": CONFIG["rookieBoard"],
             "validation": validation,
             "sourceManifest": manifest(inputs["sourcePaths"]),
             "status": "provisional football forecast",
@@ -878,7 +1079,7 @@ def build(cache, refresh=True):
                 "No contract guarantee model",
                 "No college production model yet",
                 "Current injuries use designation-level availability only",
-                "Replacement comes from a modeled 12-team reference roster allocation, not observed waiver inventories",
+                "Replacement comes from a modeled 12-team reference roster, capped at 2 QBs per team in 1QB and 3 in Superflex",
             ],
         },
     }

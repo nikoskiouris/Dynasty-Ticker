@@ -46,12 +46,6 @@ class ValuationService:
 
         return None
 
-
-        for floor, multiplier in ELITE_VALUE_PREMIUM_TIERS:
-            if base_value >= floor:
-                return round(base_value * multiplier)
-        return base_value
-
     def get_many(self, asset_ids: list[str]) -> list[ValuationResult]:
         return [ValuationResult(asset_id=a, value=self.get_asset_value(a)) for a in asset_ids]
 

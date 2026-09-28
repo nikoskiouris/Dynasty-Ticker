@@ -2,7 +2,8 @@ import { ordinal } from "./season.js";
 
 export const PLAYER_VALUES_PATH = "./data/player_values.json";
 export const PLAYER_VALUE_MODEL_VERSION = "football-forecast-v1";
-export const PICK_YEAR_DISCOUNT = 0.88;
+// Same annual discount as player-values/config.json. A missing pick year uses this ruler.
+export const PICK_YEAR_DISCOUNT = 0.85;
 
 // The NFL draft ends in late April. After that, this year's picks are players.
 export function upcomingDraftSeason(now = new Date()) {

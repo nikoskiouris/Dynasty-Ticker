@@ -301,13 +301,6 @@ const MAX_TARGET_ANCHOR_SHARE = 0.64;
 const ELITE_FRAGMENTATION_TAX_PER_EXTRA_ASSET = 180;
 const STAR_FRAGMENTATION_TAX_PER_EXTRA_ASSET = 120;
 const BASE_FRAGMENTATION_TAX_PER_EXTRA_ASSET = 70;
-const ELITE_VALUE_PREMIUM_TIERS = [
-  { floor: 9000, multiplier: 1.32 },
-  { floor: 8000, multiplier: 1.27 },
-  { floor: 7000, multiplier: 1.21 },
-  { floor: 6000, multiplier: 1.15 },
-  { floor: 5000, multiplier: 1.09 },
-];
 const PACKAGE_DIVERSITY_OVERLAP_RATIO = 0.55;
 const PACKAGE_DIVERSITY_VALUE_OVERLAP_RATIO = 0.72;
 const DEFAULT_MULTI_TEAM_COUNT = 3;

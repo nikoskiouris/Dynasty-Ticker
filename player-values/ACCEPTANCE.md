@@ -13,3 +13,6 @@ This folder owns Dynasty Ticker's player-value system.
 - The build uses football data, not another dynasty-ranking provider or an existing fantasy-market price.
 - Model inputs, assumptions, validation, data freshness, and known gaps are documented and emitted in the snapshot.
 - A failed refresh never overwrites the last valid snapshot.
+- Replacement points per game are above zero for QB, RB, WR, and TE in both formats.
+- Early firsts are worth at least as much as mid firsts, and mid firsts at least as much as late firsts.
+- Inactive or long-gone players are not given a positive price.

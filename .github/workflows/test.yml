@@ -22,11 +22,9 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build player values
-        run: python3 player-values/build.py
-
       - name: Install
         run: npm install
 
+      # Pin the committed snapshot. A live rebuild would hide a bad player_values.json.
       - name: Run tests
         run: npm test
