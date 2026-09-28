@@ -51,9 +51,10 @@ test("board ranks players and drops retired, defense, and unnamed scrubs", () =>
     names,
     nflPlayers,
     minPickSeason: 2027,
-    ktcValues: { "player:1": 8000, "player:2": 7600 },
-    tradeValues: { "player:1": 9800, "player:2": 6400 },
-    tradeCounts: { "player:1": 2, "player:2": 1.4 },
+    modelPlayers: {
+      "player:1": { confidence: "established", components: { projectedPpg: 18.4, availability: 0.91, roleOppPerGame: 19.2 } },
+      "player:2": { confidence: "developing", components: { projectedPpg: 17.8, availability: 0.88, roleOppPerGame: 9.7 } },
+    },
     owners: { "player:1": { name: "Niko", mine: true } },
   });
   const ids = rows.map((row) => row.assetId);
@@ -63,12 +64,13 @@ test("board ranks players and drops retired, defense, and unnamed scrubs", () =>
   assert.equal(rows[0].boardRank, "RB1");
   assert.equal(rows[0].overallRank, 1);
   assert.equal(rows[0].owner.mine, true);
-  assert.equal(rows[0].tape.tone, "up");
+  assert.equal(rows[0].tape.tone, "model");
+  assert.match(rows[0].tape.line, /established NFL sample/);
   assert.equal(rows[0].pickLine, "Worth more than a 2027 early 1st.");
   const chase = rows.find((row) => row.assetId === "player:2");
   assert.equal(chase.pickLine, "Worth about a 2027 early 1st.");
   assert.equal(chase.boardRank, "WR1");
-  assert.equal(chase.tape.tone, "down");
+  assert.match(chase.tape.line, /developing NFL sample/);
   const even = rows.find((row) => row.assetId === "player:5");
   assert.equal(even.pickLine, "Worth about a 2027 late 1st.");
   assert.equal(even.pickEqual.value, 5000);
@@ -107,8 +109,9 @@ test("pick line and tape stay one sentence", () => {
   assert.equal(pickEqualLine(1300, { phrase: "2027 1st", value: 1000 }), "A step above a 2027 1st.");
   assert.equal(pickEqualLine(800, { phrase: "2027 1st", value: 1000 }), "A step under a 2027 1st.");
   assert.equal(pickEqualLine(4000, { phrase: "2028 3rd", value: 1000 }), "Closest pick is a 2028 3rd.");
-  assert.equal(marketTape({ ktcValue: 1000, tradeValue: 1000, tradeCount: 2 }).line, "Sleeper trades and the crowd agree.");
-  assert.match(marketTape({ ktcValue: 1000, tradeCount: 0 }).line, /Not enough Sleeper trades/);
+  assert.match(marketTape({ confidence: "established" }).line, /established NFL sample/);
+  assert.match(marketTape({ confidence: "thin" }).line, /thin NFL sample/);
+  assert.match(marketTape({ kind: "pick" }).line, /Historical rookie-outcome/);
   assert.equal(ownerLine({ mine: true }, { leagueOpen: true }), "You have him.");
   assert.equal(ownerLine({ name: "Demetri" }, { leagueOpen: true }), "Demetri has him.");
   assert.equal(ownerLine(null, { leagueOpen: true }), "Nobody in this league has him.");
