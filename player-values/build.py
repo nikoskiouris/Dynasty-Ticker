@@ -50,6 +50,20 @@ def normalized_name(value):
     return "".join(ch for ch in str(value or "").lower() if ch.isalnum())
 
 
+def name_variants(value):
+    """Stable lookup variants without treating a suffix mismatch as a new player."""
+    raw = str(value or "").strip()
+    if not raw:
+        return []
+    tokens = raw.replace(".", " ").split()
+    variants = {normalized_name(raw)}
+    suffixes = {"jr", "sr", "ii", "iii", "iv", "v"}
+    while tokens and tokens[-1].lower() in suffixes:
+        tokens.pop()
+        variants.add(normalized_name(" ".join(tokens)))
+    return [item for item in variants if item]
+
+
 def http_bytes(url):
     request = urllib.request.Request(url, headers={"User-Agent": "DynastyTickerPlayerValues/1.0"})
     with urllib.request.urlopen(request, timeout=90) as response:
@@ -175,8 +189,8 @@ def load_inputs(cache, refresh=True):
             continue
         meta[pid] = dict(row)
         label = row.get("display_name") or row.get("football_name") or row.get("full_name")
-        if normalized_name(label):
-            names[normalized_name(label)].append(pid)
+        for variant in name_variants(label):
+            names[variant].append(pid)
 
     for row in read_csv(draft_path):
         pid = str(row.get("gsis_id") or "").strip()
@@ -787,7 +801,10 @@ def build(cache, refresh=True):
         mapped_by = "gsis"
         if not pid:
             label = player.get("full_name") or f"{player.get('first_name','')} {player.get('last_name','')}"
-            hits = name_index.get(normalized_name(label), [])
+            hits = []
+            for variant in name_variants(label):
+                hits.extend(name_index.get(variant, []))
+            hits = sorted(set(hits))
             if len(hits) == 1:
                 pid = hits[0]
                 mapped_by = "name"
