@@ -39,7 +39,7 @@ There is one player-value system: `player-values/`.
 - Age, NFL experience, opportunity, efficiency, availability, team environment, draft investment for thin samples, and position-specific career retention feed an eight-season football forecast.
 - Value is discounted usable PPR production above a reference alternative, converted with one fixed 20× display ruler.
 - RB/WR/TE use the same player value in both formats. Superflex changes QB scarcity; future pick values can also differ by format.
-- No KTC values, fitted Sleeper-trade prices, TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices, or age/position fallback guesses feed the published player price.
+- No imported external dynasty rankings, fitted trade-market prices, TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices, or age/position fallback guesses feed the published player price.
 - Players, Trade, My League, trade matching, and the Python CLI all read `docs/data/player_values.json`.
 - League trade history and crowd votes remain useful context/preferences, but they do not create a second player price.
 - Package consolidation credit can still affect a trade verdict without changing any player's listed price.
