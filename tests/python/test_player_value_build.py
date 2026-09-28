@@ -84,6 +84,16 @@ class PlayerValueBuildTests(unittest.TestCase):
             "WR",
         )
 
+    def test_short_slump_does_not_erase_a_season_of_work(self):
+        slump = [{"opportunities": 10}] * 30 + [{"opportunities": 2}] * 4
+        lost_season = [{"opportunities": 10}] * 17 + [{"opportunities": 3}] * 17
+        slump_opp, _trend = build.smoothed_role(slump)
+        lost_opp, _trend = build.smoothed_role(lost_season)
+        self.assertGreater(slump_opp, 7.5)
+        self.assertLess(lost_opp, slump_opp)
+        self.assertGreaterEqual(build.CONFIG["opportunityHalfLifeGames"], 17)
+        self.assertLessEqual(build.CONFIG["roleTrendWeight"], 0.2)
+
     def test_points_ignore_defense_and_return_scores(self):
         row = {
             "fantasy_points_ppr": 21.3,

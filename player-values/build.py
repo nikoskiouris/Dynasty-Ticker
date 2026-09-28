@@ -223,6 +223,29 @@ def weighted_average(rows, field, half_life):
     return sum(num(row.get(field)) * weight for row, weight in zip(rows, weights)) / total if total else 0.0
 
 
+def smoothed_role(rows):
+    """Expected opportunities for a dynasty hold, not a redraft week.
+
+    The half-life is about one season. A short slump nudges the role. A full
+    season of lost work is what actually changes it.
+    """
+    role_rows = rows[-int(CONFIG["opportunityWindowGames"]):]
+    role_opp = weighted_average(role_rows, "opportunities", float(CONFIG["opportunityHalfLifeGames"]))
+    recent_n = int(CONFIG["roleTrendRecentGames"])
+    prior_n = int(CONFIG["roleTrendPriorGames"])
+    trend_rows = role_rows[-(recent_n + prior_n):]
+    recent_block = trend_rows[-recent_n:]
+    prior_block = trend_rows[:-recent_n]
+    if len(prior_block) < 4 or not recent_block:
+        role_trend = 1.0
+    else:
+        last_role = sum(row["opportunities"] for row in recent_block) / len(recent_block)
+        prior_role = sum(row["opportunities"] for row in prior_block) / len(prior_block)
+        role_trend = clamp(last_role / prior_role, 0.70, 1.30) if prior_role > 0 else 1.0
+    projected = role_opp * (1 + float(CONFIG["roleTrendWeight"]) * (role_trend - 1))
+    return projected, role_trend
+
+
 def age_for(meta, season):
     birth = str(meta.get("birth_date") or "").strip()
     if birth:
@@ -618,10 +641,8 @@ def current_profile(pid, player, inputs, baselines):
         return None
     if not rows and int(num(player.get("years_exp"), 99)) > 2:
         return None
-    recent = rows[-48:]
-    role_rows = recent[-16:]
-    eff_rows = recent[-32:]
-    role_opp = weighted_average(role_rows, "opportunities", float(CONFIG["opportunityHalfLifeGames"]))
+    eff_rows = rows[-int(CONFIG["efficiencyWindowGames"]):]
+    projected_opp, role_trend = smoothed_role(rows)
     ppr_rate = weighted_average(eff_rows, "ppr", float(CONFIG["efficiencyHalfLifeGames"]))
     opp_rate = weighted_average(eff_rows, "opportunities", float(CONFIG["efficiencyHalfLifeGames"]))
     raw_eff = ppr_rate / opp_rate if opp_rate > 0 else baselines[position]["efficiency"]
@@ -629,13 +650,6 @@ def current_profile(pid, player, inputs, baselines):
     shrink = 120 if position == "QB" else 80
     weight = evidence / (evidence + shrink) if evidence else 0.0
     efficiency = raw_eff * weight + baselines[position]["efficiency"] * (1 - weight)
-
-    recent4 = role_rows[-4:]
-    prior8 = role_rows[-12:-4]
-    last_role = sum(row["opportunities"] for row in recent4) / max(1, len(recent4))
-    prior_role = sum(row["opportunities"] for row in prior8) / max(1, len(prior8))
-    role_trend = clamp(last_role / prior_role, 0.70, 1.30) if prior_role > 0 else 1.0
-    projected_opp = role_opp * (1 + 0.30 * (role_trend - 1))
 
     team = str(player.get("team") or (rows[-1]["team"] if rows else "") or "").upper()
     team_current = [
@@ -1073,6 +1087,16 @@ def build(cache, refresh=True):
             "referenceBenchSlots": int(CONFIG["referenceBenchSlots"]),
             "qbRosterCapPerTeam": CONFIG["qbRosterCapPerTeam"],
             "rookieBoard": CONFIG["rookieBoard"],
+            "recency": {
+                "opportunityHalfLifeGames": int(CONFIG["opportunityHalfLifeGames"]),
+                "opportunityWindowGames": int(CONFIG["opportunityWindowGames"]),
+                "efficiencyHalfLifeGames": int(CONFIG["efficiencyHalfLifeGames"]),
+                "efficiencyWindowGames": int(CONFIG["efficiencyWindowGames"]),
+                "teamContextHalfLifeGames": int(CONFIG["teamContextHalfLifeGames"]),
+                "roleTrendRecentGames": int(CONFIG["roleTrendRecentGames"]),
+                "roleTrendPriorGames": int(CONFIG["roleTrendPriorGames"]),
+                "roleTrendWeight": float(CONFIG["roleTrendWeight"]),
+            },
             "validation": validation,
             "sourceManifest": manifest(inputs["sourcePaths"]),
             "status": "provisional football forecast",

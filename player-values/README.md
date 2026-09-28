@@ -48,12 +48,12 @@ Historical players who lose jobs or leave the league remain in the training popu
 - pass attempts
 - carries
 - targets
-- recent games with offensive involvement
+- games with offensive involvement over about the last two seasons
 - team carry/target/attempt environment
 - target share and carry share
-- recent role trajectory
+- role trajectory across the recent season, not the last month
 
-Recent opportunity uses a four-game half-life.
+This is a dynasty price. Opportunity uses a 17-game half-life across the last 34 games. A four-game slump nudges the role. It does not replace the prior season. A role that stays smaller for a full season does change the forecast.
 
 ### Efficiency
 - completion rate
@@ -64,7 +64,7 @@ Recent opportunity uses a four-game half-life.
 - receiving yards and TDs per target
 - full-PPR points per opportunity
 
-Efficiency uses a 32-game half-life and small samples shrink toward historical position baselines.
+Efficiency uses a 32-game half-life across the last 48 games. Small samples shrink toward historical position baselines.
 
 ### Availability and health
 - recent multi-season availability

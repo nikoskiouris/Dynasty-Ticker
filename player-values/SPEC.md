@@ -20,6 +20,7 @@ Shipped rules:
 - Sleeper joins nflverse on `gsis_id`, then ESPN id, then a unique name at the same position, then a unique name. A second player with the same name at another position does not block the match. Points are offensive productivity only: passing, rushing, and receiving. Tackles, sacks, passes defended, return yards, return scores, and opponent defense are not inputs. A defensive chart still counts the weeks that have real targets or carries, and those weeks are scored from the offensive box score.
 - Future-pick prices use historical rookie outcomes, then a decreasing smooth so an earlier pick is worth at least as much as a later pick. A missing catalog year in the app slides by the same 0.85 discount.
 - The holdout freezes transition tables and replacement levels at `validationTrainingThrough` (2020). It measures one-year above-replacement error only.
+- Opportunity memory is dynasty-length. The half-life is 17 games over the last 34. Efficiency uses a 32-game half-life over the last 48. A short slump applies only a small role nudge. `config.json` owns those windows.
 
 The owner-defined scope is two dynasty markets: 1QB full PPR and Superflex full PPR. No TE, RB, or other positional scoring bonuses. No imported KTC values or other dynasty price targets. Skill-position football projections are shared between formats. QB and pick valuation must account for format.
 
@@ -302,9 +303,9 @@ Instead, assign inputs to specific conditional forecasts. Train separate models 
 | Passing/rushing/receiving scoring | Section 2 | Fixed scoring rules |
 | Annual discount | 0.85 | Provisional preference parameter; test and calibrate |
 | Explicit career horizon | 8 seasons | Provisional computational choice; test tail sensitivity |
-| Opportunity recency half-life | 4 played games | Prototype smoothing for current role; reset/condition on confirmed role changes |
-| Efficiency recency half-life | 32 played games | Prototype smoothing that keeps a longer ability history |
-| Team-context recency half-life | 8 team games | Prototype smoothing; coaching/QB changes require conditioning |
+| Opportunity recency half-life | 17 played games over the last 34 | Dynasty role. A month does not replace a season |
+| Efficiency recency half-life | 32 played games over the last 48 | Longer ability history than the current role |
+| Team-context recency half-life | 17 team games | One week does not define the offense; coaching changes still need a separate feed |
 | External dynasty-price contribution | 0 | No KTC or imported dynasty prices |
 | Independent age bonus | 0 | Age already changes future performance and survival |
 | Independent team bonus | 0 | Context already changes opportunities and rates |
