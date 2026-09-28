@@ -3,14 +3,21 @@
   "modelVersion": "football-forecast-v1",
   "annualDiscount": 0.85,
   "horizonYears": 8,
+  "displayScale": 20,
   "referenceTeams": 12,
-  "replacementRanks": {
-    "oneQb": {"QB": 18, "RB": 48, "WR": 60, "TE": 18},
-    "sf": {"QB": 30, "RB": 48, "WR": 60, "TE": 18}
+  "referenceLineup": {
+    "QB": 1,
+    "RB": 2,
+    "WR": 3,
+    "TE": 1,
+    "FLEX": 2,
+    "SUPER_FLEX": 1
   },
-  "roleHalfLifeGames": 4,
+  "referenceBenchSlots": 12,
+  "fantasyWeeks": 17,
+  "opportunityHalfLifeGames": 4,
   "efficiencyHalfLifeGames": 32,
-  "displayTargetTopSkill": 12000,
+  "teamContextHalfLifeGames": 8,
   "historyStartSeason": 2012,
   "pickHistoryStartSeason": 2018,
   "validationTrainingThrough": 2020,
