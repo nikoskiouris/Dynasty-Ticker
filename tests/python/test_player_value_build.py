@@ -124,10 +124,14 @@ class PlayerValueBuildTests(unittest.TestCase):
 
     def test_one_top12_does_not_lock_a_veteran_role(self):
         developing = build.role_security({"experience": 2, "resume": {"top5Finishes": 0, "top12Finishes": 1}})
+        two_finishes = build.role_security({"experience": 3, "resume": {"top5Finishes": 1, "top12Finishes": 2}})
         one_year = build.role_security({"experience": 4, "resume": {"top5Finishes": 0, "top12Finishes": 1}})
+        rookie = build.role_security({"experience": 1, "resume": {"top5Finishes": 0, "top12Finishes": 0}})
         proven = build.role_security({"experience": 6, "resume": {"top5Finishes": 3, "top12Finishes": 4}})
         self.assertEqual(developing, 1.0)
+        self.assertEqual(two_finishes, 1.0)
         self.assertLess(one_year, 1.0)
+        self.assertLess(rookie, 1.0)
         self.assertEqual(proven, 1.0)
 
     def test_thin_old_age_keeps_the_last_measured_decline(self):

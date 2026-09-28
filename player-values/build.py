@@ -826,14 +826,19 @@ def transition(position, age, tier, retention, survival, generic):
 
 
 def role_security(profile):
-    """A veteran needs repeated top finishes before a hot year becomes an eight-year role."""
+    """Repeated top-12 seasons lock a role. One hot year does not. A rookie with no top-12 finish does not either."""
     resume = CONFIG["resume"]
     info = profile.get("resume") or {}
-    if int(profile.get("experience") or 0) < int(resume["roleSecurityExperience"]):
+    top5 = int(info.get("top5Finishes") or 0)
+    top12 = int(info.get("top12Finishes") or 0)
+    experience = int(profile.get("experience") or 0)
+    if experience < int(resume["roleSecurityExperience"]):
+        if experience <= 1 and top5 == 0 and top12 == 0:
+            return float(resume["roleSecurityRookie"])
         return 1.0
-    if int(info.get("top5Finishes") or 0) >= 2 or int(info.get("top12Finishes") or 0) >= 3:
+    if top5 >= 2 or top12 >= 2:
         return 1.0
-    if int(info.get("top12Finishes") or 0) >= 1 or int(info.get("top5Finishes") or 0) >= 1:
+    if top12 >= 1 or top5 >= 1:
         return float(resume["roleSecurityOneFinish"])
     return float(resume["roleSecurityNone"])
 
@@ -927,7 +932,7 @@ def current_profile(pid, player, inputs, baselines, finishes=None, anchors=None)
         )
     injury = str(player.get("injury_status") or "").upper()
     # IR can wipe a season. A weekly Out, Doubtful, or Questionable tag is a short absence.
-    injury_multiplier = {"IR": 0.50, "OUT": 0.85, "DOUBTFUL": 0.90, "QUESTIONABLE": 0.95}.get(injury, 1.0)
+    injury_multiplier = {"IR": 0.50, "OUT": 0.90, "DOUBTFUL": 0.90, "QUESTIONABLE": 0.95}.get(injury, 1.0)
 
     return {
         "position": position,

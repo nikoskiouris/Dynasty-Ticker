@@ -23,7 +23,7 @@ Shipped rules:
 - Opportunity memory is dynasty-length. The half-life is 17 games over the last 34. Efficiency uses a 32-game half-life over the last 48. A short slump applies only a small role nudge. `config.json` owns those windows.
 - Season-long positional finishes pull a cold forecast up toward a player's typical top-5 seasons. A long run fades slower than one finish. One top-12 season is a small nudge. The pull does not add a second bonus on top of a player who is already producing at that level.
 - Draft slot does the same while a player is young, but only partway toward the 75th percentile of that bucket. A better young producer stays ahead of a higher pick. The pull is full at age 22 and gone by 29.
-- Past the last age with enough players to measure, scoring keeps declining at that last measured rate instead of freezing. A player under 26 who missed time does not keep that low game rate for the whole horizon. A veteran needs repeated top-12 seasons before one hot year is an eight-year role. A weekly Out tag trims this season. IR cuts the year.
+- Past the last age with enough players to measure, scoring keeps declining at that last measured rate instead of freezing. A player under 26 who missed time does not keep that low game rate for the whole horizon. Two top-12 seasons lock a role. One hot year does not. A rookie with no top-12 finish does not get that role locked for eight years. A weekly Out tag trims this season. IR cuts the year.
 
 The owner-defined scope is two dynasty markets: 1QB full PPR and Superflex full PPR. No TE, RB, or other positional scoring bonuses. No imported KTC values or other dynasty price targets. Skill-position football projections are shared between formats. QB and pick valuation must account for format.
 

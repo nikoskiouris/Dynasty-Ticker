@@ -86,7 +86,7 @@ A season-long finish is total offensive PPR at the position, minimum 8 games. Ra
 Early-career production by draft bucket sets an anchor. A top-10 pick keeps part of the 75th percentile of that bucket. A late pick does not. The pull only goes up, only after 4 games, and it fades with seasons of evidence. It is smaller than the production gap between two young players, so a better producer stays ahead of a higher pick who has not produced. It is full at age 22 and gone by 29.
 
 ### Age
-Age still changes year-to-year retention and the chance of keeping a fantasy role. Once an age has too few players to measure, the forecast keeps that last decline and trims it again for each year past the sample. A player under 26 who missed time is pulled back toward a normal game rate. A veteran needs repeated top-12 seasons before one hot year is treated as an eight-year role. A weekly Out tag trims the rest of this season. IR is the designation that cuts the year.
+Age still changes year-to-year retention and the chance of keeping a fantasy role. Once an age has too few players to measure, the forecast keeps that last decline and trims it again for each year past the sample. A player under 26 who missed time is pulled back toward a normal game rate. Two top-12 seasons lock a role. One hot year does not. A rookie with no top-12 finish does not get that role locked for the whole horizon. A weekly Out tag trims the rest of this season. IR is the designation that cuts the year.
 
 ### Position and format
 Replacement is estimated from a **12-team reference league**, not a hard-coded QB18/RB48 lookup. The builder allocates:
