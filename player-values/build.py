@@ -345,6 +345,15 @@ def _age_scale(age, full_age, gone_age):
     return clamp((gone_age - age) / (gone_age - full_age), 0.0, 1.0)
 
 
+def finish_age_keep(age, top5):
+    """Long runs of top-5 seasons fade slower than one old finish."""
+    resume = CONFIG["resume"]
+    annual = float(resume["ageFadePerYear"]) - min(int(top5), int(resume["ageFadeTop5Cap"])) * float(resume["ageFadeReliefPerTop5"])
+    annual = max(0.02, annual)
+    years = max(0.0, float(age) - float(resume["finishAgeFull"]))
+    return clamp(1 - annual * years, 0.0, 1.0)
+
+
 def finish_tier(rank):
     resume = CONFIG["resume"]
     rank = int(rank)
@@ -386,8 +395,16 @@ def apply_resume(projected_ppg, finishes, draft_pick, age, position, current_sea
         clout += weight
         weighted_ppg += float(finish["ppg"]) * weight
 
-    age_keep = _age_scale(age, float(resume["finishAgeFull"]), float(resume["finishAgeGone"]))
+    age_keep = finish_age_keep(age, top5)
     established = weighted_ppg / clout if clout else None
+    top5_ppg = [float(finish["ppg"]) for finish in (finishes or []) if int(finish["rank"]) <= 5]
+    if established is not None and len(top5_ppg) >= 3:
+        share = clamp(
+            (top5 - float(resume["peakMixStart"])) / float(resume["peakMixSpan"]),
+            0.0,
+            float(resume["peakMixMax"]),
+        )
+        established = established * (1 - share) + median(top5_ppg) * share
     ppg = float(projected_ppg)
     finish_blend = 0.0
     if established is not None and established > ppg:
@@ -775,14 +792,50 @@ def learn_transitions(rows, replacement, through_origin):
     return retention, survival, generic
 
 
+def _keep_rate(position, age_bucket, tier, retention, generic):
+    """Year-to-year scoring change. A thin old age borrows the last measured decline.
+
+    Defaulting that age to 1.0 freezes a 32-year-old at his current rate for the
+    whole horizon. The last measured rate is reused. A long career is not punished
+    again just for outliving the sample.
+    """
+    exact = retention.get((position, age_bucket, tier), [])
+    if len(exact) >= 12:
+        return median(exact), 0
+    for past in range(age_bucket - 1, 20, -1):
+        older = retention.get((position, past, tier), [])
+        if len(older) >= 12:
+            return median(older), age_bucket - past
+    broad = generic.get((position, age_bucket), [])
+    if len(broad) >= 12:
+        return median(broad), 0
+    for past in range(age_bucket - 1, 20, -1):
+        older = generic.get((position, past), [])
+        if len(older) >= 12:
+            return median(older), age_bucket - past
+    return (0.92 if age_bucket >= 30 else 1.0), 0
+
+
 def transition(position, age, tier, retention, survival, generic):
     age_bucket = int(round(age))
     exact = retention.get((position, age_bucket, tier), [])
-    broad = generic.get((position, age_bucket), [])
-    keep = median(exact) if len(exact) >= 12 else (median(broad) if len(broad) >= 12 else 1.0)
+    keep, _years_past = _keep_rate(position, age_bucket, tier, retention, generic)
     survived, total = survival.get((position, age_bucket, tier), (0, 0))
     probability = (survived + 8.0) / (total + 10.0) if total else 0.80
     return clamp(keep, 0.55, 1.18), clamp(probability, 0.35, 0.98), len(exact), total
+
+
+def role_security(profile):
+    """A veteran needs repeated top finishes before a hot year becomes an eight-year role."""
+    resume = CONFIG["resume"]
+    info = profile.get("resume") or {}
+    if int(profile.get("experience") or 0) < int(resume["roleSecurityExperience"]):
+        return 1.0
+    if int(info.get("top5Finishes") or 0) >= 2 or int(info.get("top12Finishes") or 0) >= 3:
+        return 1.0
+    if int(info.get("top12Finishes") or 0) >= 1 or int(info.get("top5Finishes") or 0) >= 1:
+        return float(resume["roleSecurityOneFinish"])
+    return float(resume["roleSecurityNone"])
 
 
 def current_profile(pid, player, inputs, baselines, finishes=None, anchors=None):
@@ -865,8 +918,16 @@ def current_profile(pid, player, inputs, baselines, finishes=None, anchors=None)
         0.45,
         0.98,
     )
+    if age <= float(CONFIG["resume"]["youngAvailabilityAge"]):
+        pull = float(CONFIG["resume"]["youngAvailabilityPull"])
+        availability = clamp(
+            availability * (1 - pull) + baselines[position]["availability"] * pull,
+            0.45,
+            0.98,
+        )
     injury = str(player.get("injury_status") or "").upper()
-    injury_multiplier = {"IR": 0.50, "OUT": 0.55, "DOUBTFUL": 0.72, "QUESTIONABLE": 0.88}.get(injury, 1.0)
+    # IR can wipe a season. A weekly Out, Doubtful, or Questionable tag is a short absence.
+    injury_multiplier = {"IR": 0.50, "OUT": 0.85, "DOUBTFUL": 0.90, "QUESTIONABLE": 0.95}.get(injury, 1.0)
 
     return {
         "position": position,
@@ -907,7 +968,7 @@ def career_value(profile, fmt, replacement, learned, current_week):
             games = remaining * availability * profile["injuryMultiplier"]
         else:
             keep, survives, sample, _ = transition(position, age + horizon - 1, tier, retention, survival, generic)
-            ppg *= keep
+            ppg *= keep * role_security(profile)
             alive *= survives
             games = int(CONFIG["fantasyWeeks"]) * availability * alive
         advantage = max(0.0, ppg - threshold) * games

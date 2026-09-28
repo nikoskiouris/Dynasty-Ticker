@@ -122,6 +122,28 @@ class PlayerValueBuildTests(unittest.TestCase):
         self.assertEqual(veteran, 10.0)
         self.assertGreater(high_info["draftBlend"], 0)
 
+    def test_one_top12_does_not_lock_a_veteran_role(self):
+        developing = build.role_security({"experience": 2, "resume": {"top5Finishes": 0, "top12Finishes": 1}})
+        one_year = build.role_security({"experience": 4, "resume": {"top5Finishes": 0, "top12Finishes": 1}})
+        proven = build.role_security({"experience": 6, "resume": {"top5Finishes": 3, "top12Finishes": 4}})
+        self.assertEqual(developing, 1.0)
+        self.assertLess(one_year, 1.0)
+        self.assertEqual(proven, 1.0)
+
+    def test_thin_old_age_keeps_the_last_measured_decline(self):
+        retention = {("RB", 31, "elite"): [0.70] * 12}
+        keep, _surv, _n, _total = build.transition("RB", 34, "elite", retention, {}, {})
+        self.assertLess(keep, 0.85)
+        self.assertGreater(keep, 0.55)
+
+    def test_long_top5_run_outlasts_one_old_finish(self):
+        long_run = [{"season": 2016 + index, "rank": 1, "ppg": 18.0} for index in range(8)]
+        one_finish = [{"season": 2018, "rank": 3, "ppg": 17.0}]
+        veteran, _info = build.apply_resume(11.0, long_run, 80, 36, "TE", 2026, 12, {}, 160)
+        one_hit, _info = build.apply_resume(11.0, one_finish, 80, 34, "WR", 2026, 12, {}, 160)
+        self.assertGreater(veteran, 13)
+        self.assertGreater(veteran, one_hit)
+
     def test_short_slump_does_not_erase_a_season_of_work(self):
         slump = [{"opportunities": 10}] * 30 + [{"opportunities": 2}] * 4
         lost_season = [{"opportunities": 10}] * 17 + [{"opportunities": 3}] * 17
