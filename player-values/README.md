@@ -129,7 +129,7 @@ A model does not earn a stronger claim until a test measures it.
 
 ## Data
 
-The builder downloads public nflverse weekly player statistics plus player/draft metadata, then uses Sleeper for current player IDs, teams, ages/status, and NFL week. Identity joins on `gsis_id`, then ESPN id, then a unique name and position. Players with `active: false`, a retired or inactive status, or no game since the previous season are left out. A two-way player charted on defense still counts when the weekly row has targets or carries.
+The builder downloads public nflverse weekly player statistics plus player/draft metadata, then uses Sleeper for current player IDs, teams, ages/status, and NFL week. Identity joins on `gsis_id`, then ESPN id, then a unique name and position. Players with `active: false`, a retired or inactive status, or no game since the previous season are left out. Prices use the offensive box score only. Defensive stats, return scores, and opponent defense are not inputs. A two-way player charted on defense still counts on weeks with targets or carries, and those weeks score only the passes, rushes, and catches.
 
 No KTC value, completed-trade fitted price, crowd-vote shift, or other fantasy-market ranking is an input. Upstream files and hashes are recorded in snapshot metadata.
 

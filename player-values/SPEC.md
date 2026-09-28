@@ -17,7 +17,7 @@ Shipped rules:
 
 - Each reference team keeps at most 2 quarterbacks in 1QB and 3 in Superflex. The alternative is the best player left outside that roster. If the historical pool is smaller than the cap, the alternative is the last rostered player. Replacement is never zero.
 - A player with no game since the previous season is left out. `active: false` and retired or inactive statuses are left out.
-- Sleeper joins nflverse on `gsis_id`, then ESPN id, then a unique name at the same position, then a unique name. A second player with the same name at another position does not block the match. A defensive chart with real targets or carries, such as a two-way receiver, counts as an offensive player.
+- Sleeper joins nflverse on `gsis_id`, then ESPN id, then a unique name at the same position, then a unique name. A second player with the same name at another position does not block the match. Points are offensive productivity only: passing, rushing, and receiving. Tackles, sacks, passes defended, return yards, return scores, and opponent defense are not inputs. A defensive chart still counts the weeks that have real targets or carries, and those weeks are scored from the offensive box score.
 - Future-pick prices use historical rookie outcomes, then a decreasing smooth so an earlier pick is worth at least as much as a later pick. A missing catalog year in the app slides by the same 0.85 discount.
 - The holdout freezes transition tables and replacement levels at `validationTrainingThrough` (2020). It measures one-year above-replacement error only.
 

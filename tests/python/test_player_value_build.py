@@ -75,11 +75,27 @@ class PlayerValueBuildTests(unittest.TestCase):
 
     def test_two_way_receiving_charts_as_a_receiver(self):
         self.assertEqual(build.chart_position({"position": "CB", "targets": 8, "carries": 0}), "WR")
-        self.assertEqual(build.chart_position({"position": "CB", "targets": 0, "carries": 0}), "")
+        self.assertEqual(
+            build.chart_position({"position": "CB", "targets": 0, "carries": 0, "def_tackles_solo": 8}),
+            "",
+        )
         self.assertEqual(
             build.offensive_position({"position": "DB", "fantasy_positions": ["DB", "WR"]}),
             "WR",
         )
+
+    def test_points_ignore_defense_and_return_scores(self):
+        row = {
+            "fantasy_points_ppr": 21.3,
+            "special_teams_tds": 1,
+            "def_tackles_solo": 4,
+            "def_sacks": 1,
+            "def_interceptions": 1,
+            "receptions": 6,
+            "receiving_yards": 33,
+        }
+        self.assertAlmostEqual(build.ppr(row), 9.3)
+        self.assertAlmostEqual(build.ppr({"fantasy_points_ppr": 12, "special_teams_tds": 2}), 0.0)
 
     def test_holdout_freezes_replacement_at_the_training_cutoff(self):
         seen = {}

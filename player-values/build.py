@@ -73,7 +73,11 @@ def name_variants(value):
 
 
 def chart_position(row):
-    """Offensive role used for scoring. Two-way players can be charted at CB and still catch passes."""
+    """Offensive role for a weekly row.
+
+    A defensive chart counts only when that week has carries or targets.
+    Tackle-only weeks stay out. The points still come from the offensive box score.
+    """
     position = str(row.get("position") or "").upper()
     carries = num(row.get("carries"))
     targets = num(row.get("targets"))
@@ -176,9 +180,13 @@ def read_csv(path):
 
 
 def ppr(row):
-    direct = num(row.get("fantasy_points_ppr"), float("nan"))
-    if math.isfinite(direct):
-        return direct
+    """Full-PPR points from offensive productivity only.
+
+    Pass, rush, and catch counting stats are the whole score. Published
+    fantasy_points_ppr is ignored because it can add return scores and, on a
+    defensive chart, non-offensive events. Tackles, sacks, passes defended,
+    return yards, and return scores are not inputs.
+    """
     scoring = CONFIG["scoring"]
     interceptions = num(row.get("passing_interceptions", row.get("interceptions")))
     fumbles = sum(num(row.get(key)) for key in (
@@ -1073,6 +1081,9 @@ def build(cache, refresh=True):
                 "Sleeper trade-fitted prices",
                 "crowd-vote price shifts",
                 "league-specific prices",
+                "defensive stats",
+                "return scores",
+                "opponent defense",
             ],
             "knownGaps": [
                 "No live route participation or first-read target feed",
