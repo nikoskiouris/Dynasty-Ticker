@@ -7,14 +7,14 @@ from datetime import datetime
 from src.domain.valuation import ValuationService
 from src.engine.trade_generator import TradeGenerator
 from src.engine.validation import ValidationError, find_asset_by_name, find_manager_roster
-from src.integrations.ktc_provider import KeepTradeCutProvider
+from src.integrations.player_value_provider import PlayerValueProvider, league_value_format
 from src.integrations.sleeper_client import SleeperClient, build_league_context
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Suggest dynasty trades using Sleeper values.")
+    parser = argparse.ArgumentParser(description="Suggest dynasty trades using Dynasty Ticker independent full-PPR values.")
     parser.add_argument("--me", required=True, help="Your Sleeper display name.")
     parser.add_argument("--target-manager", required=True, help="Manager to trade with.")
     parser.add_argument("--target-player", required=True, help="Player you want to acquire.")
@@ -23,7 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--season", default=str(datetime.utcnow().year), help="Season for league discovery.")
     parser.add_argument("--max-results", type=int, default=5)
     parser.add_argument("--fairness-pct", type=float, default=15.0)
-    parser.add_argument("--ktc-url", help="Optional JSON endpoint that returns [{'asset_id':..., 'value':...}]")
+    parser.add_argument("--value-file", help="Optional path to a football-forecast player_values.json snapshot.")
     parser.add_argument(
         "--allow-extra-target-assets",
         action="store_true",
@@ -96,7 +96,8 @@ def main() -> int:
         their_roster = find_manager_roster(ctx, args.target_manager)
         target_asset = find_asset_by_name(their_roster, args.target_player)
 
-        values = KeepTradeCutProvider().load_values(source_url=args.ktc_url)
+        value_format = league_value_format(league)
+        values = PlayerValueProvider(args.value_file).load_values(value_format)
         valuation = ValuationService(values)
         generator = TradeGenerator(valuation=valuation, fairness_pct=args.fairness_pct)
         suggestions = generator.generate(
