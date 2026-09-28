@@ -211,19 +211,18 @@ test("the draft survives a reload in the same tab and rejects junk", () => {
   assert.match(serializeDraft(draft), /"v":1/);
 });
 
-test("calculator price is the Players page price; the league star premium stays out", () => {
+test("calculator, Players, and league tools use the exact same canonical value", () => {
   const values = { "player:9221": 10321, "player:12508": 6000, "pick:2027:r1:mid": 6100 };
-  const star = { assetId: "player:9221", name: "Jahmyr Gibbs", assetType: "player", raw: { position: "RB" } };
-  assert.equal(draftMarketPrice(star, { values }).value, 10321);
-  assert.ok(getAssetValue(star, values) > 13000, "league tools still apply the star premium");
+  const gibbs = { assetId: "player:9221", name: "Jahmyr Gibbs", assetType: "player", raw: { position: "RB" } };
   const te = { assetId: "player:12508", name: "Tyler Warren", assetType: "player", raw: { position: "TE" } };
-  assert.equal(draftMarketPrice(te, { values }).value, 6000);
-  assert.equal(draftMarketPrice(te, { values, tep: 2 }).value, 6720);
-  assert.equal(draftMarketPrice(star, { values, tep: 2 }).value, 10321, "TE premium only touches tight ends");
+  assert.equal(draftMarketPrice(gibbs, { values }).value, 10321);
+  assert.equal(getAssetValue(gibbs, values), 10321);
+  assert.equal(draftMarketPrice(te, { values, tep: 3, leagueShifts: { "player:12508": 0.25 } }).value, 6000);
+  assert.equal(getAssetValue(te, values, { league: { scoring_settings: { bonus_rec_te: 1.5 } }, crowdShifts: { "player:12508": 0.08 }, leagueShifts: { "player:12508": 0.25 }, applyLeagueBoard: true }), 6000);
   const leaguePick = { assetId: "pick:2027:r1:5", name: "2027 1st", assetType: "pick", valueAssetId: "pick:2027:r1:mid", raw: { season: "2027", round: 1, ktcBucket: "mid" } };
   assert.equal(draftMarketPrice(leaguePick, { values }).value, 6100);
   const unknown = draftMarketPrice({ assetId: "player:1", name: "Nobody", assetType: "player", raw: { position: "WR", age: 24 } }, { values });
-  assert.equal(unknown.estimated, true);
+  assert.deepEqual(unknown, { value: 0, estimated: true });
 });
 
 test("one verdict: market totals stay visible, an uneven package gets a labeled credit", () => {
