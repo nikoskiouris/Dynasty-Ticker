@@ -27,13 +27,6 @@ export function tradablePickSeason(nflState = null, now = new Date()) {
 // Shared default so calls without a name map reuse one lookup cache entry.
 const NO_NAMES = Object.freeze({});
 
-const TEP_MULTIPLIERS = {
-  0: 1,
-  1: 1.06,
-  2: 1.12,
-  3: 1.18,
-};
-
 // Sleeper "Reception Bonus - TE" stacks on top of `rec`. Missing/zero is not TEP.
 const TE_REC_BONUS_KEYS = ["bonus_rec_te", "rec_te", "bonus_te_rec"];
 
@@ -59,11 +52,6 @@ export function tepLevelFromScoring(scoring = {}) {
 
 export function tepLevel(league) {
   return tepLevelFromScoring(league?.scoring_settings || {});
-}
-
-export function tepMultiplier(level) {
-  const key = Number(level) || 0;
-  return TEP_MULTIPLIERS[key] ?? 1;
 }
 
 export function selectValueFormat(league) {
@@ -155,12 +143,6 @@ export function isInactivePlayerAsset(asset) {
     if (Number.isFinite(age) && age >= 30) return true;
   }
   return false;
-}
-
-export function estimatedValue() {
-  // The independent snapshot is the only source of player prices.
-  // A missing row is missing evidence, not permission to invent a position/age price.
-  return 0;
 }
 
 export function normalizePickBucket(bucket) {
@@ -514,15 +496,6 @@ export function applyCrowdShift(assetId, value, shifts, { scale = 1 } = {}) {
   if (!Number.isFinite(shift) || shift === 0) return value;
   const weight = Number.isFinite(scale) ? Math.max(0, Math.min(1, scale)) : 1;
   const capped = clampCrowdShift(shift * weight);
-  return Math.max(1, Math.round(value * (1 + capped)));
-}
-
-export function applyLeagueShift(assetId, value, shifts, { scale = 1 } = {}) {
-  if (!Number.isFinite(value) || value <= 0) return value;
-  const shift = Number(shifts?.[assetId]);
-  if (!Number.isFinite(shift) || shift === 0) return value;
-  const weight = Number.isFinite(scale) ? Math.max(0, Math.min(1, scale)) : 1;
-  const capped = clampLeagueShift(shift * weight);
   return Math.max(1, Math.round(value * (1 + capped)));
 }
 
