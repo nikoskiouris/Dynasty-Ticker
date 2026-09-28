@@ -1,6 +1,5 @@
 export const API_BASE = "https://api.sleeper.app/v1";
 export const SLEEPER_AVATAR_BASE = "https://sleepercdn.com/avatars/thumbs/";
-export const SAMPLE_VALUES_PATH = "./data/ktc_values_sample.csv";
 export const PLAYERS_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 export const SIM_ITERATIONS = 4000;
 // Three jobs: Players, Trade, My League.
