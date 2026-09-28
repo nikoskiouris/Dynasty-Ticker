@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "modelVersion": "football-forecast-v1",
+  "annualDiscount": 0.85,
+  "horizonYears": 8,
+  "referenceTeams": 12,
+  "replacementRanks": {
+    "oneQb": {"QB": 18, "RB": 48, "WR": 60, "TE": 18},
+    "sf": {"QB": 30, "RB": 48, "WR": 60, "TE": 18}
+  },
+  "roleHalfLifeGames": 4,
+  "efficiencyHalfLifeGames": 32,
+  "displayTargetTopSkill": 12000,
+  "historyStartSeason": 2012,
+  "pickHistoryStartSeason": 2018,
+  "validationTrainingThrough": 2020,
+  "validationSeasons": [2021, 2022, 2023, 2024, 2025],
+  "scoring": {
+    "passingYard": 0.04,
+    "passingTd": 4,
+    "interception": -2,
+    "rushingYard": 0.1,
+    "rushingTd": 6,
+    "reception": 1,
+    "receivingYard": 0.1,
+    "receivingTd": 6,
+    "twoPoint": 2,
+    "fumbleLost": -2
+  }
+}
