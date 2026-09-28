@@ -5,32 +5,14 @@ import {
   valueCalcVerdict,
 } from "./value-calc.js";
 import { calculatePackageAdjustment } from "./package-value.js";
-import {
-  LEAGUE_BOARD_ESTIMATED_SCALE,
-  applyLeagueShift,
-  lookupMarketValue,
-  playerPositionForAsset,
-  tepMultiplier,
-} from "./values.js";
+import { lookupMarketValue } from "./values.js";
 
 export const TRADE_DRAFT_STORAGE_KEY = "dynasty_ticker_trade_draft_v1";
 
-// One price for the calculator, with or without a league: the Players page market price
-// in the active format. A TE premium league or an applied league board are the only
-// adjustments, and the caller labels both. The star premium used by league tools is not
-// part of this number.
-export function draftMarketPrice(asset, { values = {}, nameMap = {}, catalog = null, tep = 0, leagueShifts = null } = {}) {
+// The calculator reads the exact same canonical snapshot as Players and My League.
+export function draftMarketPrice(asset, { values = {}, nameMap = {}, catalog = null } = {}) {
   const lookup = lookupMarketValue(asset, values, nameMap, catalog);
-  let value = Number(lookup.value) || 0;
-  if (tep && asset?.assetType === "player" && playerPositionForAsset(asset) === "TE") {
-    value = value * tepMultiplier(tep);
-  }
-  if (leagueShifts) {
-    value = applyLeagueShift(String(asset?.assetId || ""), Math.round(value), leagueShifts, {
-      scale: lookup.estimated ? LEAGUE_BOARD_ESTIMATED_SCALE : 1,
-    });
-  }
-  return { value: Math.round(value), estimated: Boolean(lookup.estimated) };
+  return { value: Math.round(Number(lookup.value) || 0), estimated: Boolean(lookup.estimated) };
 }
 
 const DRAFT_ASSET_ID = /^(?:player:[A-Za-z0-9_.-]+|pick:\d{4}:r\d+:[A-Za-z0-9_-]+)$/;
