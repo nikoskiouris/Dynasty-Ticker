@@ -199,7 +199,7 @@ def load_inputs(cache, refresh=True):
         week = int(num(row.get("week"), 0))
         if season < int(CONFIG["historyStartSeason"]) or season > current_season:
             return
-        if str(row.get("season_type") or "REG").upper() != "REG" or week < 1 or week > 18:
+        if str(row.get("season_type") or "REG").upper() != "REG" or week < 1 or week > int(CONFIG["fantasyWeeks"]):
             return
         if season == current_season and week >= current_week:
             return
@@ -290,24 +290,121 @@ def summaries(meta, weekly):
     return result
 
 
+def _starter_pool(values, position_counts, flex_count=0, superflex_count=0):
+    """Allocate reference starters across the whole 12-team league.
+
+    Position slots are filled first. FLEX then chooses RB/WR/TE by PPR rate and
+    Superflex chooses the best remaining QB/RB/WR/TE. This is a league allocation,
+    not a hard-coded QB18/RB48 replacement rank.
+    """
+    remaining = {position: sorted(values.get(position, []), reverse=True)[:] for position in POSITIONS}
+    rostered = {position: [] for position in POSITIONS}
+    for position, count in position_counts.items():
+        for _ in range(min(count, len(remaining[position]))):
+            rostered[position].append(remaining[position].pop(0))
+
+    for _ in range(flex_count):
+        candidates = [
+            (remaining[position][0], position)
+            for position in ("RB", "WR", "TE")
+            if remaining[position]
+        ]
+        if not candidates:
+            break
+        _, position = max(candidates)
+        rostered[position].append(remaining[position].pop(0))
+
+    for _ in range(superflex_count):
+        candidates = [
+            (remaining[position][0], position)
+            for position in POSITIONS
+            if remaining[position]
+        ]
+        if not candidates:
+            break
+        _, position = max(candidates)
+        rostered[position].append(remaining[position].pop(0))
+    return remaining, rostered
+
+
+def _allocate_bench(remaining, rostered, bench_slots):
+    """Allocate bench spots by scarcity-adjusted PPR.
+
+    A raw-PPR bench draft would over-roster quarterbacks because QB scoring uses a
+    different numerical range. Normalize each candidate by the last required starter
+    at his position, then take the strongest remaining roster claims.
+    """
+    starter_floor = {}
+    for position in POSITIONS:
+        starter_floor[position] = max(0.1, min(rostered[position]) if rostered[position] else 1.0)
+
+    for _ in range(bench_slots):
+        candidates = []
+        for position in POSITIONS:
+            if remaining[position]:
+                ppg = remaining[position][0]
+                candidates.append((ppg / starter_floor[position], ppg, position))
+        if not candidates:
+            break
+        _, _, position = max(candidates)
+        rostered[position].append(remaining[position].pop(0))
+    return remaining, rostered
+
+
 def learn_replacement(rows, through):
+    """Estimate the feasible alternative from the documented reference league."""
+    teams = int(CONFIG["referenceTeams"])
+    lineup = CONFIG["referenceLineup"]
+    bench_slots = teams * int(CONFIG["referenceBenchSlots"])
+    samples = {"sf": defaultdict(list), "oneQb": defaultdict(list)}
     by_year_position = defaultdict(list)
+
     for row in rows.values():
         if row["season"] > through or row["games"] < 8:
             continue
         by_year_position[(row["season"], row["position"])].append(row["ppg"])
-    replacement = {"sf": {}, "oneQb": {}}
-    for fmt, ranks in CONFIG["replacementRanks"].items():
-        for position, rank in ranks.items():
-            samples = []
-            for (_, pos), values in by_year_position.items():
-                if pos != position or len(values) < int(rank):
-                    continue
-                samples.append(sorted(values, reverse=True)[int(rank) - 1])
-            if not samples:
-                raise RuntimeError(f"No replacement samples for {fmt} {position}")
-            replacement[fmt][position] = round(median(samples), 4)
-    return replacement
+
+    seasons = sorted({season for season, _ in by_year_position})
+    for season in seasons:
+        values = {
+            position: list(by_year_position.get((season, position), []))
+            for position in POSITIONS
+        }
+        if any(len(values[position]) < teams for position in POSITIONS):
+            continue
+
+        base_counts = {
+            "QB": teams * int(lineup["QB"]),
+            "RB": teams * int(lineup["RB"]),
+            "WR": teams * int(lineup["WR"]),
+            "TE": teams * int(lineup["TE"]),
+        }
+        for fmt in ("oneQb", "sf"):
+            remaining, rostered = _starter_pool(
+                values,
+                base_counts,
+                flex_count=teams * int(lineup["FLEX"]),
+                superflex_count=teams * int(lineup["SUPER_FLEX"]) if fmt == "sf" else 0,
+            )
+            remaining, rostered = _allocate_bench(remaining, rostered, bench_slots)
+            for position in POSITIONS:
+                replacement = remaining[position][0] if remaining[position] else 0.0
+                samples[fmt][position].append(replacement)
+
+    result = {"sf": {}, "oneQb": {}}
+    for fmt in result:
+        for position in POSITIONS:
+            values = samples[fmt][position]
+            if not values:
+                raise RuntimeError(f"No reference-league replacement samples for {fmt} {position}")
+            result[fmt][position] = round(median(values), 4)
+
+    # Owner-defined launch behavior: skill-position player values share one ruler.
+    for position in ("RB", "WR", "TE"):
+        shared = round((result["sf"][position] + result["oneQb"][position]) / 2, 4)
+        result["sf"][position] = shared
+        result["oneQb"][position] = shared
+    return result
 
 
 def position_baselines(rows, through):
@@ -379,7 +476,7 @@ def current_profile(pid, player, inputs, baselines):
     recent = rows[-48:]
     role_rows = recent[-16:]
     eff_rows = recent[-32:]
-    role_opp = weighted_average(role_rows, "opportunities", float(CONFIG["roleHalfLifeGames"]))
+    role_opp = weighted_average(role_rows, "opportunities", float(CONFIG["opportunityHalfLifeGames"]))
     ppr_rate = weighted_average(eff_rows, "ppr", float(CONFIG["efficiencyHalfLifeGames"]))
     opp_rate = weighted_average(eff_rows, "opportunities", float(CONFIG["efficiencyHalfLifeGames"]))
     raw_eff = ppr_rate / opp_rate if opp_rate > 0 else baselines[position]["efficiency"]
@@ -408,7 +505,7 @@ def current_profile(pid, player, inputs, baselines):
         if year == season
         for value in weeks.values()
     ]
-    team_volume = median([row["attempts"] + row["carries"] for row in team_current]) if team_current else 0
+    team_volume = weighted_average(team_current, "attempts", float(CONFIG["teamContextHalfLifeGames"])) + weighted_average(team_current, "carries", float(CONFIG["teamContextHalfLifeGames"])) if team_current else 0
     league_volume = median([row["attempts"] + row["carries"] for row in league_current]) if league_current else 0
     team_context = clamp(team_volume / league_volume, 0.90, 1.10) if team_volume and league_volume else 1.0
     projected_opp *= 1 + 0.20 * (team_context - 1)
@@ -486,13 +583,13 @@ def career_value(profile, fmt, replacement, learned, current_week):
     for horizon in range(int(CONFIG["horizonYears"])):
         sample = 0
         if horizon == 0:
-            remaining = max(0, 17 - max(0, current_week - 1))
+            remaining = max(0, int(CONFIG["fantasyWeeks"]) - max(0, current_week - 1))
             games = remaining * availability * profile["injuryMultiplier"]
         else:
             keep, survives, sample, _ = transition(position, age + horizon - 1, tier, retention, survival, generic)
             ppg *= keep
             alive *= survives
-            games = 17 * availability * alive
+            games = int(CONFIG["fantasyWeeks"]) * availability * alive
         advantage = max(0.0, ppg - threshold) * games
         discount = float(CONFIG["annualDiscount"]) ** horizon
         discounted = advantage * discount
@@ -599,10 +696,10 @@ def backtest(rows, replacement):
             )
             predicted = max(
                 0.0, row["ppg"] * keep - replacement["sf"][row["position"]]
-            ) * 17 * survives
+            ) * int(CONFIG["fantasyWeeks"]) * survives
             naive = max(
                 0.0, row["ppg"] - replacement["sf"][row["position"]]
-            ) * 17
+            ) * int(CONFIG["fantasyWeeks"])
             model_error = abs(predicted - actual)
             naive_error = abs(naive - actual)
             errors.append(model_error)
@@ -728,14 +825,7 @@ def build(cache, refresh=True):
             "forecast": {"sf": sf_forecast, "oneQb": one_forecast},
         }
 
-    skill_values = sorted(
-        row["sf"] for row in projected.values()
-        if row["position"] in {"RB", "WR", "TE"} and row["sf"] > 0
-    )
-    if len(skill_values) < 5:
-        raise RuntimeError("Not enough skill-position forecasts to calibrate display scale")
-    anchor = median(skill_values[-5:])
-    scale = float(CONFIG["displayTargetTopSkill"]) / anchor if anchor > 0 else 1.0
+    scale = float(CONFIG["displayScale"])
 
     validation = backtest(rows, replacement)
     bundle = {
@@ -753,8 +843,10 @@ def build(cache, refresh=True):
             "referenceTeams": int(CONFIG["referenceTeams"]),
             "annualDiscount": float(CONFIG["annualDiscount"]),
             "horizonYears": int(CONFIG["horizonYears"]),
-            "displayScale": round(scale, 6),
+            "displayScale": scale,
             "replacementPpg": replacement,
+            "referenceLineup": CONFIG["referenceLineup"],
+            "referenceBenchSlots": int(CONFIG["referenceBenchSlots"]),
             "validation": validation,
             "sourceManifest": manifest(inputs["sourcePaths"]),
             "status": "provisional football forecast",
@@ -769,7 +861,7 @@ def build(cache, refresh=True):
                 "No contract guarantee model",
                 "No college production model yet",
                 "Current injuries use designation-level availability only",
-                "Replacement ranks are explicit product assumptions, not observed waiver inventories",
+                "Replacement comes from a modeled 12-team reference roster allocation, not observed waiver inventories",
             ],
         },
     }
@@ -808,7 +900,7 @@ def build(cache, refresh=True):
         "players": len(player_meta),
         "sfAssets": len(bundle["sf"]),
         "oneQbAssets": len(bundle["oneQb"]),
-        "displayScale": round(scale, 3),
+        "displayScale": scale,
         "holdout": validation,
     }, indent=2))
 
