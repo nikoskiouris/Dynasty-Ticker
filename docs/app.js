@@ -66,8 +66,6 @@ import {
   coerceValueMap,
   getAssetValue as marketAssetValue,
   isEstimatedAsset as marketIsEstimated,
-  estimatedValue,
-  applyElitePlayerValuePremium,
   buildPickValuationCatalog,
   resolvePickAssetValue,
   parsePickAssetId,
@@ -87,28 +85,16 @@ import {
   playerAgeForAsset,
   isInactivePlayerAsset,
   leagueHasSuperflex,
-  tepLevel,
-  tepMultiplier,
   crowdShiftsFromVotes,
-  applyLeagueShift,
   getGlobalMaxPlayerValue,
-  KTC_GLOBAL_MAX_FALLBACK,
 } from "./modules/values.js";
-import {
-  composeValuationBundles,
-  fetchTradeMarketBundle,
-  pickTradeMarket,
-} from "./modules/trade-market.js";
 import {
   ageBucketForAsset,
   buildLeagueBoard,
   emptyLeagueBoard,
   isBoomBustAsset,
-  readApplyLeagueBoard,
   renderLeagueBoardMarkup,
   renderValueBoardBar,
-  shouldShowLeagueAlt,
-  writeApplyLeagueBoard,
 } from "./modules/league-board.js";
 import { createLivePoller, liveUpdateMatchesLeague, shouldPollLive, shouldRefreshSim, weekRowsFingerprint } from "./modules/live.js";
 import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
@@ -510,16 +496,10 @@ let ratherPromptContext = {
   previousSeason: "",
 };
 
-function getAssetValue(asset, values = state.values, extra = {}) {
-  const { applyLeagueBoard, ...rest } = extra;
+function getAssetValue(asset, values = state.values) {
   return marketAssetValue(asset, values, {
     valueNameMap: state.valueNameMap,
     pickCatalog: state.pickValueCatalog,
-    league: state.league,
-    crowdShifts: state.crowdShifts,
-    leagueShifts: state.leagueBoard?.shifts,
-    ...rest,
-    applyLeagueBoard: applyLeagueBoard ?? state.applyLeagueBoard,
   });
 }
 
@@ -676,7 +656,7 @@ el.seasonsDashboard?.addEventListener("click", handleHistoryCompareClick);
 el.seasonsDashboard?.addEventListener("change", handleHistoryCompareChange);
 
 applyTheme(readStoredTheme(), { persist: false });
-state.applyLeagueBoard = readApplyLeagueBoard();
+state.applyLeagueBoard = false;
 state.valueCalc = readStoredDraft() || state.valueCalc;
 renderSessionSnapshot();
 syncTradeModeUi();
@@ -1000,16 +980,12 @@ function cachedRankRows() {
     nextRookieDraftSeason(),
   ].join("|");
   if (rankBoardCache.key === key) return rankBoardCache.rows;
-  const ktc = pickValueBundle(state.ktcBundles, format);
-  const trade = pickTradeMarket(state.tradeMarketBundle, format);
   rankBoardCache = {
     key,
     rows: buildRankBoard({
       values,
-      ktcValues: ktc.values,
-      tradeValues: trade.values,
-      tradeCounts: trade.counts,
       names: state.valueBundles?.names || bundle?.nameMap || state.valueNameMap || {},
+      modelPlayers: state.valueBundles?.players || {},
       nflPlayers: players,
       owners: rankOwners(),
       noteFor: rankPlayerNote,
@@ -1032,11 +1008,6 @@ function rankViewModel() {
     selectedId: state.ranks?.selectedId || "",
     caveat: state.league ? marketCaveat(state.league) : "",
     leagueOpen: Boolean(state.leagueId),
-    leagueValueFor: (row) => {
-      if (!state.leagueBoard?.ready || row?.kind !== "player") return null;
-      const league = applyLeagueShift(row.assetId, row.value, state.leagueBoard.shifts);
-      return shouldShowLeagueAlt(row.value, league) ? league : null;
-    },
   });
 }
 
@@ -1103,13 +1074,7 @@ function syncRankUrl() {
 async function ensureRankExtras() {
   try {
     if (!rankValuesReady()) {
-      const [ktcBundles, tradeBundle] = await Promise.all([
-        fetchValuationBundles(),
-        fetchTradeMarketBundle(),
-      ]);
-      state.ktcBundles = ktcBundles;
-      state.tradeMarketBundle = tradeBundle;
-      state.valueBundles = composeValuationBundles(ktcBundles, tradeBundle);
+      state.valueBundles = await fetchValuationBundles();
       if (!state.leagueId) {
         const bundle = pickValueBundle(state.valueBundles, activeRankFormat());
         state.values = bundle.values || {};
@@ -2074,13 +2039,10 @@ function invalidateSeasonModelCache() {
 }
 
 function valuationCacheVersion() {
-  const sourceVersion = state.valueBundles?.valuationVersion
-    || state.tradeMarketBundle?.meta?.updatedAt
+  const sourceVersion = state.valueBundles?.asOf
+    || state.valueBundles?.modelVersion
     || "local";
-  const leagueBasis = state.applyLeagueBoard
-    ? `league:${Number(state.leagueBoard?.tradeCount || 0)}`
-    : "market";
-  return `${sourceVersion}:${Number(state.valuationRevision || 0)}:${leagueBasis}`;
+  return `${sourceVersion}:${Number(state.valuationRevision || 0)}`;
 }
 
 function simSignature(model) {
@@ -4721,7 +4683,7 @@ function renderTradeLogDesk() {
   host.innerHTML = `
     ${renderLensPicker(roster, { label: "Trade file" })}
     ${renderLeagueBoardMarkup(state.leagueBoard || emptyLeagueBoard(), {
-      applied: state.applyLeagueBoard,
+      applied: false,
       formatNumber,
     })}
     <section class="workspace-panel trade-analyzer">
@@ -5380,16 +5342,12 @@ function forgetDraftPartner() {
 
 function draftBasis() {
   if (state.leagueId && state.league) {
-    const board = Boolean(state.applyLeagueBoard && state.leagueBoard?.ready);
     return {
       connected: true,
       format: selectValueFormat(state.league),
-      tep: tepLevel(state.league),
-      leagueBoard: board,
       values: state.values,
       nameMap: state.valueNameMap,
       catalog: state.pickValueCatalog,
-      leagueShifts: board ? state.leagueBoard.shifts : null,
     };
   }
   const format = activeRankFormat();
@@ -5401,12 +5359,9 @@ function draftBasis() {
       basis: {
         connected: false,
         format,
-        tep: 0,
-        leagueBoard: false,
         values: bundle.values || {},
         nameMap: bundle.nameMap || {},
         catalog: null,
-        leagueShifts: null,
       },
     };
   }
@@ -5470,11 +5425,7 @@ function renderTradeDraft() {
   }
   const view = buildDraftView();
   host.innerHTML = `
-    ${renderValueBoardBar({
-      applied: state.applyLeagueBoard,
-      ready: Boolean(state.leagueBoard?.ready),
-      marketHint: marketBoardHint(),
-    })}
+    ${renderValueBoardBar({ marketHint: marketBoardHint() })}
     <div class="panel-heading calc-heading">
       <div>
         <span class="eyebrow">Trade</span>
@@ -5547,17 +5498,14 @@ function refreshDraftSuggestions(side) {
 function renderDraftBasis(view) {
   const { basis } = view;
   if (basis.connected) {
-    const bits = [`Priced for your league: ${rankFormatLabel(basis.format)}`];
-    if (basis.tep) bits.push(`TE premium +${Math.round((tepMultiplier(basis.tep) - 1) * 100)}% on tight ends`);
-    if (basis.leagueBoard) bits.push("league board on");
-    return `<p class="draft-basis-line">${escapeHtml(bits.join(" · "))}</p>`;
+    return `<p class="draft-basis-line">Full PPR · ${escapeHtml(rankFormatLabel(basis.format))} · same model price everywhere</p>`;
   }
   return `
     <div class="draft-basis-row" role="group" aria-label="Scoring format">
       <span class="draft-basis-label">Priced for</span>
       ${["sf", "oneQb"].map((format) => `<button type="button" class="ranks-chip${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}">${escapeHtml(rankFormatLabel(format))}</button>`).join("")}
     </div>
-    <p class="draft-basis-line muted small">Same prices as Players.</p>
+    <p class="draft-basis-line muted small">Full PPR. Same model prices as Players and My League.</p>
   `;
 }
 
@@ -5809,13 +5757,14 @@ function findEvenUpPick(gap, values) {
 function renderDraftMethod(view) {
   const { basis } = view;
   const lines = [
-    `Each price is the Players page price: Sleeper trades across many dynasty leagues, ${rankFormatLabel(basis.format)}.`,
+    `Every listed price comes from Dynasty Ticker's independent football forecast: full PPR, ${rankFormatLabel(basis.format)}.`,
+    "Age, role, efficiency, availability, team environment, draft investment, and position-specific career retention feed the forecast. Connecting a league never changes a player's price.",
   ];
-  if (basis.tep) lines.push(`This league pays extra for tight end catches, so tight ends count ${Math.round((tepMultiplier(basis.tep) - 1) * 100)}% more here.`);
-  if (basis.leagueBoard) lines.push("League board is on: prices lean toward what this league has paid in its own trades.");
-  if ([...view.priced.values()].some((row) => row.estimated)) lines.push("est means there is no market price yet. That number is a position and age estimate.");
-  lines.push("The best piece counts for more than the same total split into lesser pieces, even when both sides send the same number. A straight one-for-one stays at the listed prices.");
-  lines.push("The verdict compares the two sides after that credit. Team impact is a separate question: does this help your starting lineup?");
+  if ([...view.priced.values()].some((row) => row.estimated)) {
+    lines.push("Unavailable means the current model snapshot has no supported price for that asset; Dynasty Ticker does not invent a fallback.");
+  }
+  lines.push("The best piece counts for more than the same total split into lesser pieces. That package credit changes the trade verdict, not any player's listed price.");
+  lines.push("Team impact is separate from price: it asks whether the move helps your starting lineup.");
   return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
 }
 
@@ -6311,14 +6260,6 @@ function handleWorkspaceClick(event) {
         feedback.classList.remove("hidden");
         setTimeout(() => feedback.classList.add("hidden"), 1600);
       });
-      break;
-    }
-    case "toggle-league-board": {
-      if (target.disabled) return;
-      state.applyLeagueBoard = !state.applyLeagueBoard;
-      writeApplyLeagueBoard(state.applyLeagueBoard);
-      renderActivePage();
-      renderSessionSnapshot();
       break;
     }
     default:
@@ -9036,7 +8977,7 @@ function describeLeagueFormat(league) {
     pprLabel,
     `${slots.length} starters`,
   ];
-  if (tepLevel(league) > 0) parts.push("TE premium");
+  if (Number(scoring.bonus_rec_te || scoring.rec_te || 0) > 0) parts.push("TE bonus (values stay full PPR)");
   if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi`);
   if (leagueUsesFuturePicks(league) && draftRounds > 0) parts.push(`${draftRounds}-round rookie draft`);
   return parts.join(" • ");
@@ -14170,7 +14111,7 @@ function buildTradeSearchContext({ myRoster, targetAsset, values, fairnessPct, t
       requiredAssetIds: requiredOutgoingAssetIds,
       targetValue,
     }),
-    globalMaxValue: Math.max(state.globalMaxPlayerValue || KTC_GLOBAL_MAX_FALLBACK, targetValue),
+    globalMaxValue: Math.max(state.globalMaxPlayerValue || 1, targetValue),
     effectiveFairnessPct: getEffectiveFairnessPct(fairnessPct, tradeLab.tradeVibe),
   };
 }
@@ -14759,17 +14700,10 @@ function setButtonLoading(button, isLoading, loadingText = "Loading...") {
 
 function marketBoardHint() {
   const caveat = marketCaveat(state.league);
-  const meta = state.valueBundles?.tradeMeta || state.tradeMarketBundle?.meta;
-  const trades = Number(meta?.tradeCount);
-  const leagues = Number(meta?.leagueCount);
-  let hint = "";
-  if (Number.isFinite(trades) && trades > 0 && Number.isFinite(leagues) && leagues > 0) {
-    hint = `Sleeper trade market from ${formatNumber(trades)} completed dynasty trades across ${formatNumber(leagues)} leagues.`;
-  } else if (state.applyLeagueBoard) {
-    hint = "Calculator, find-deals, and power now use this room's prices.";
-  } else {
-    hint = "Numbers are the Sleeper trade market. League prices stay on the side until you apply them.";
-  }
+  const meta = state.valueBundles?.meta || {};
+  const model = state.valueBundles?.modelVersion || "football model";
+  const asOf = state.valueBundles?.asOf ? ` Updated ${String(state.valueBundles.asOf).slice(0, 10)}.` : "";
+  const hint = `Independent full-PPR football forecast (${model}). League settings and local trades do not reprice players.${asOf}`;
   return caveat ? `${caveat} ${hint}` : hint;
 }
 
@@ -14789,7 +14723,7 @@ function refreshLeagueBoard() {
 function resolveLeagueBoardAsset(token) {
   if (token?.assetType === "player" || token?.playerId) {
     const asset = buildTransactionPlayerAsset(token.playerId);
-    const marketValue = getAssetValue(asset, state.values, { applyLeagueBoard: false });
+    const marketValue = getAssetValue(asset, state.values);
     return {
       ...token,
       asset,
@@ -14802,7 +14736,7 @@ function resolveLeagueBoardAsset(token) {
     };
   }
   const asset = buildTransactionPickAsset(token.pick);
-  const marketValue = getAssetValue(asset, state.values, { applyLeagueBoard: false });
+  const marketValue = getAssetValue(asset, state.values);
   const season = asset.raw?.season != null ? String(asset.raw.season) : "";
   const round = Number(asset.raw?.round);
   const pickName = Number.isFinite(round)
@@ -14821,16 +14755,11 @@ function resolveLeagueBoardAsset(token) {
 }
 
 function renderAssetValueBadge(asset, values = state.values) {
-  const used = getAssetValue(asset, values);
-  const market = getAssetValue(asset, values, { applyLeagueBoard: false });
-  const league = getAssetValue(asset, values, { applyLeagueBoard: true });
-  const showAlt = Boolean(state.leagueBoard?.ready) && shouldShowLeagueAlt(market, league);
-  const altLabel = state.applyLeagueBoard ? "market" : "your league";
-  const altValue = state.applyLeagueBoard ? market : league;
+  const value = getAssetValue(asset, values);
+  const missing = isEstimatedAsset(asset, values);
   return `
-    <span class="asset-value-badge${showAlt ? " has-alt" : ""}">
-      <strong>${formatNumber(used)}</strong>
-      ${showAlt ? `<small class="value-alt">${altLabel} ${formatNumber(altValue)}</small>` : ""}
+    <span class="asset-value-badge">
+      <strong>${missing ? "Unavailable" : formatNumber(value)}</strong>
     </span>
   `;
 }
@@ -14880,23 +14809,12 @@ function renderPickVaultRow(asset, values) {
 }
 
 function renderAssetValuePlain(asset, values = state.values) {
-  const used = getAssetValue(asset, values);
-  const market = getAssetValue(asset, values, { applyLeagueBoard: false });
-  const league = getAssetValue(asset, values, { applyLeagueBoard: true });
-  const showAlt = Boolean(state.leagueBoard?.ready) && shouldShowLeagueAlt(market, league);
-  const altLabel = state.applyLeagueBoard ? "market" : "your league";
-  const altValue = state.applyLeagueBoard ? market : league;
-  return `${formatNumber(used)}${showAlt ? `<small class="value-alt">${altLabel} ${formatNumber(altValue)}</small>` : ""}`;
+  return isEstimatedAsset(asset, values) ? "Unavailable" : formatNumber(getAssetValue(asset, values));
 }
 
 function formatAssetSecondaryLabel(asset, values) {
-  const parts = [formatNumber(getAssetValue(asset, values))];
-  const market = getAssetValue(asset, values, { applyLeagueBoard: false });
-  const league = getAssetValue(asset, values, { applyLeagueBoard: true });
-  if (state.leagueBoard?.ready && shouldShowLeagueAlt(market, league)) {
-    parts.push(state.applyLeagueBoard ? `mkt ${formatNumber(market)}` : `league ${formatNumber(league)}`);
-  }
-  if (isEstimatedAsset(asset, values)) parts.push("est");
+  const missing = isEstimatedAsset(asset, values);
+  const parts = [missing ? "Unavailable" : formatNumber(getAssetValue(asset, values))];
   if (asset.assetType === "player") {
     const position = formatPlayerPositionLabel(asset);
     if (position) parts.push(position);
@@ -14938,7 +14856,7 @@ function refreshPlayerPositionRanks() {
     listed.push({ assetId, playerId, name, value });
   });
   const nextRankMap = {};
-  buildRatherBoard(listed, nflPlayers, state.crowdShifts).forEach((row) => {
+  buildRatherBoard(listed, nflPlayers, null).forEach((row) => {
     if (row.position && row.positionRank) nextRankMap[row.assetId] = row.boardRank;
   });
   state.playerPositionRankByAssetId = nextRankMap;
@@ -15536,22 +15454,8 @@ function futureFirstMockMeta(pick, { userById, rosterById, assignedDraftSlot = n
   };
 }
 
-async function loadValues(optionalUrl) {
-  if (optionalUrl) {
-    const payload = await fetch(optionalUrl).then((response) => {
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
-    });
-    return coerceValueMap(payload);
-  }
-
-  const [ktcBundles, tradeBundle] = await Promise.all([
-    fetchValuationBundles(),
-    fetchTradeMarketBundle(),
-  ]);
-  state.ktcBundles = ktcBundles;
-  state.tradeMarketBundle = tradeBundle;
-  state.valueBundles = composeValuationBundles(ktcBundles, tradeBundle);
+async function loadValues() {
+  state.valueBundles = await fetchValuationBundles();
   return pickValueBundle(state.valueBundles, selectValueFormat(state.league));
 }
 
@@ -15584,7 +15488,7 @@ async function ensureMockDraftsLoaded() {
 
 async function ensureValuesLoaded(optionalUrl = "") {
   if (optionalUrl) {
-    return applyValuationBundle(await loadValues(optionalUrl), { rerender: false });
+    return applyValuationBundle(await loadValues(), { rerender: false });
   }
 
   const format = selectValueFormat(state.league);
@@ -15610,6 +15514,7 @@ async function ensureValuesLoaded(optionalUrl = "") {
 
 function applyValuationBundle(bundle, { rerender = true } = {}) {
   state.valueFormat = selectValueFormat(state.league);
+  state.valuationRevision = Number(state.valuationRevision || 0) + 1;
   state.values = bundle?.values && typeof bundle.values === "object" ? bundle.values : {};
   state.valueNameMap = bundle?.nameMap && typeof bundle.nameMap === "object" ? bundle.nameMap : {};
   refreshCrowdShifts();
@@ -15699,7 +15604,7 @@ function syncDocumentMeta() {
   if (publicRanksOpen && !state.leagueId) {
     applyDocumentMeta(document, {
       title: "Ranks — Dynasty Ticker",
-      description: "Player and pick values from Sleeper trades mixed with the crowd. Open one to see the pick he equals.",
+      description: "Independent full-PPR dynasty player and pick values from football production, role, age, availability, and team context.",
     });
     return;
   }
@@ -15728,13 +15633,7 @@ async function bootLandingRather() {
   el.landingRather.innerHTML = renderLandingRatherPlaceholder();
   try {
     if (!state.valueBundles?.sf?.values || !Object.keys(state.valueBundles.sf.values).length) {
-      const [ktcBundles, tradeBundle] = await Promise.all([
-        fetchValuationBundles(),
-        fetchTradeMarketBundle(),
-      ]);
-      state.ktcBundles = ktcBundles;
-      state.tradeMarketBundle = tradeBundle;
-      state.valueBundles = composeValuationBundles(ktcBundles, tradeBundle);
+      state.valueBundles = await fetchValuationBundles();
     }
     const cachedPlayers = getPlayersCache()?.players || {};
     if (Object.keys(cachedPlayers).length) {
@@ -15796,7 +15695,6 @@ function refreshCrowdShifts() {
   state.crowdShifts = crowdShiftsFromVotes(crowdVoteSource(), ratherMarketValues(), {
     format: state.valueFormat || "sf",
   });
-  state.valuationRevision = Number(state.valuationRevision || 0) + 1;
 }
 
 let crowdRefreshTimer = null;
@@ -15853,7 +15751,7 @@ function showNextRatherMatchup({ status = "" } = {}) {
   const boarded = buildRatherBoard(
     listRatherPlayers(values, names, { minValue: 1 }),
     nflPlayers,
-    state.crowdShifts
+    null
   );
   const rankById = new Map(boarded.map((row) => [row.assetId, row]));
   const pairPool = listed.map((row) => {
