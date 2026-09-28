@@ -26,11 +26,11 @@ Explicit current instructions from the owner win. If one conflicts with an older
 
 What follows from that:
 
-- **One price.** The Players page market price (Sleeper trades across many dynasty leagues, in the active format) is the number the calculator uses, with or without a league. Format (Superflex / 1QB), TE premium, the league board, and the uneven-package credit are shown as labeled adjustments. League screens outside the calculator still use the star-premium value; see ticket 016 before changing either side.
+- **One price.** Dynasty Ticker's generated full-PPR football forecast is the single published player price. Players, Trade, My League, trade matching, and the CLI read the same snapshot. Superflex vs 1QB may change QB value; RB/WR/TE stay shared at launch. TE/RB scoring premiums, star multipliers, crowd votes, and league-specific overlays never create a second player price. Package consolidation can change a trade verdict without changing listed player prices.
 - **Three questions stay separate:** the market price, whether it fits my team, and why the other manager would say yes.
 - **Never erase work.** League loads, team switches, Review trade, and Clear keep or restore the trade draft (`state.valueCalc`). An ownership mismatch is explained, not "fixed" by swapping players.
 - **Label uncertainty.** Estimates, stale data, and heuristic scores say what they are. A score is not a probability. An honest empty state beats a filler deal.
-- **Evidence is not proof.** The bundled prior, completed Sleeper trades, and crowd votes have different strengths. Do not claim they beat a baseline without a holdout test.
+- **Evidence is not proof.** Football forecasts, league trade history, and crowd votes answer different questions. Do not claim predictive superiority without chronological holdout tests, and do not feed contextual trade/vote evidence into the canonical player price unless a future owner decision explicitly adds a validated calibration layer.
 - **Keep capabilities, give each a clear home.** Consolidate duplicate implementations. Explain any removal in the PR. Old links keep working.
 - **Feedback names a problem, not a fix.** "I don't understand this page" is a comprehension problem. Moving a button is one guess; check that it solved the problem.
 
