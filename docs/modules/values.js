@@ -1,18 +1,7 @@
 import { ordinal } from "./season.js";
 
-export const ELITE_VALUE_PREMIUM_TIERS = [
-  { floor: 9000, multiplier: 1.32 },
-  { floor: 8000, multiplier: 1.27 },
-  { floor: 7000, multiplier: 1.21 },
-  { floor: 6000, multiplier: 1.15 },
-  { floor: 5000, multiplier: 1.09 },
-];
-
-export const KTC_GLOBAL_MAX_FALLBACK = 9999;
-export const SAMPLE_VALUES_PATH = "./data/ktc_values_sample.csv";
-export const VALUES_JSON_PATH = "./data/ktc_values.json";
-export const VALUES_SF_PATH = "./data/ktc_values_sf.csv";
-export const VALUES_ONE_QB_PATH = "./data/ktc_values_1qb.csv";
+export const PLAYER_VALUES_PATH = "./data/player_values.json";
+export const PLAYER_VALUE_MODEL_VERSION = "football-forecast-v1";
 export const PICK_YEAR_DISCOUNT = 0.88;
 
 // The NFL draft ends in late April. After that, this year's picks are players.
@@ -168,45 +157,10 @@ export function isInactivePlayerAsset(asset) {
   return false;
 }
 
-export function estimatedValue(asset) {
-  if (asset?.assetType === "pick") return 2200;
-  if (isInactivePlayerAsset(asset)) return 0;
-  const position = playerPositionForAsset(asset);
-  const age = Number(asset?.raw?.age || 26);
-  const baseByPos = {
-    QB: 1600,
-    RB: 1200,
-    WR: 1200,
-    TE: 1000,
-    K: 100,
-    DEF: 400,
-  };
-  const base = baseByPos[position] || 800;
-  const ageModifier = Math.max(-500, (26 - age) * 35);
-  return Math.max(300, Math.round(base + ageModifier));
-}
-
-function interpolateMultiplier(baseValue) {
-  const ascending = [
-    { floor: 4500, multiplier: 1 },
-    ...[...ELITE_VALUE_PREMIUM_TIERS].reverse(),
-    { floor: 10000, multiplier: 1.34 },
-  ];
-  if (baseValue <= ascending[0].floor) return 1;
-  for (let index = 1; index < ascending.length; index += 1) {
-    const low = ascending[index - 1];
-    const high = ascending[index];
-    if (baseValue > high.floor) continue;
-    const span = high.floor - low.floor;
-    const progress = span > 0 ? (baseValue - low.floor) / span : 1;
-    return low.multiplier + progress * (high.multiplier - low.multiplier);
-  }
-  return ascending[ascending.length - 1].multiplier;
-}
-
-export function applyElitePlayerValuePremium(asset, baseValue) {
-  if (asset?.assetType !== "player" || !Number.isFinite(baseValue)) return baseValue;
-  return Math.round(baseValue * interpolateMultiplier(baseValue));
+export function estimatedValue() {
+  // The independent snapshot is the only source of player prices.
+  // A missing row is missing evidence, not permission to invent a position/age price.
+  return 0;
 }
 
 export function normalizePickBucket(bucket) {
@@ -463,15 +417,7 @@ export function lookupMarketValue(asset, values, valueNameMap = NO_NAMES, catalo
     const resolvedPickValue = resolvePickAssetValue(asset, values, valueNameMap, catalog);
     if (Number.isFinite(resolvedPickValue)) return { value: resolvedPickValue, estimated: false };
   }
-  return { value: estimatedValue(asset), estimated: true };
-}
-
-export function adjustLeagueValue(asset, baseValue, league) {
-  let value = applyElitePlayerValuePremium(asset, baseValue);
-  if (asset?.assetType === "player" && playerPositionForAsset(asset) === "TE") {
-    value = Math.round(value * tepMultiplier(tepLevel(league)));
-  }
-  return value;
+  return { value: 0, estimated: true };
 }
 
 export const CROWD_LEARNING_RATE = 0.028;
@@ -584,27 +530,8 @@ export function getAssetValue(asset, values, options = {}) {
   const {
     valueNameMap = NO_NAMES,
     pickCatalog = null,
-    league = null,
-    crowdShifts = null,
-    leagueShifts = null,
-    applyLeagueBoard = false,
   } = options;
-  const lookup = lookupMarketValue(asset, values, valueNameMap, pickCatalog);
-  let value = adjustLeagueValue(asset, lookup.value, league);
-  const assetId = String(asset?.assetId || "");
-  const isPlayer = asset?.assetType === "player" || assetId.startsWith("player:");
-  const isPick = asset?.assetType === "pick" || assetId.startsWith("pick:");
-  if (isPlayer && crowdShifts) {
-    value = applyCrowdShift(assetId, value, crowdShifts, {
-      scale: lookup.estimated ? CROWD_ESTIMATED_SCALE : 1,
-    });
-  }
-  if (applyLeagueBoard && leagueShifts && (isPlayer || isPick)) {
-    value = applyLeagueShift(assetId, value, leagueShifts, {
-      scale: lookup.estimated ? LEAGUE_BOARD_ESTIMATED_SCALE : 1,
-    });
-  }
-  return value;
+  return lookupMarketValue(asset, values, valueNameMap, pickCatalog).value;
 }
 
 function clampLogGap(value) {
@@ -631,8 +558,7 @@ export function isEstimatedAsset(asset, values, options = {}) {
 }
 
 export function getGlobalMaxPlayerValue(values, tradeMaxValue = 0) {
-  const floor = Number.isFinite(tradeMaxValue) ? tradeMaxValue : 0;
-  let maxValue = Math.max(KTC_GLOBAL_MAX_FALLBACK, floor);
+  let maxValue = Math.max(1, Number.isFinite(tradeMaxValue) ? tradeMaxValue : 0);
   for (const [assetId, value] of Object.entries(values || {})) {
     if (!String(assetId).startsWith("player:")) continue;
     if (Number.isFinite(value) && value > maxValue) maxValue = value;
@@ -661,30 +587,25 @@ async function readJsonIfOk(fetchImpl, path) {
 }
 
 export async function fetchValuationBundles(fetchImpl = globalThis.fetch) {
-  const jsonBundle = await readJsonIfOk(fetchImpl, VALUES_JSON_PATH);
-  if (jsonBundle && (jsonBundle.sf || jsonBundle.oneQb || jsonBundle.values)) {
-    if (jsonBundle.sf || jsonBundle.oneQb) {
-      const sf = coerceValueMap(jsonBundle.sf || {});
-      const oneQb = coerceValueMap(jsonBundle.oneQb || {});
-      const names = jsonBundle.names && typeof jsonBundle.names === "object"
-        ? jsonBundle.names
-        : { ...sf.nameMap, ...oneQb.nameMap };
-      return {
-        sf: { values: sf.values, nameMap: { ...names, ...sf.nameMap } },
-        oneQb: { values: oneQb.values, nameMap: { ...names, ...oneQb.nameMap } },
-        names,
-      };
-    }
-    const coerced = coerceValueMap(jsonBundle);
-    return { sf: coerced, oneQb: coerced, names: coerced.nameMap };
+  const payload = await readJsonIfOk(fetchImpl, PLAYER_VALUES_PATH);
+  if (!payload || typeof payload !== "object") {
+    throw new Error("Independent player values did not load.");
   }
-
-  const [sfCsv, oneQbCsv, sampleCsv] = await Promise.all([
-    readTextIfOk(fetchImpl, VALUES_SF_PATH),
-    readTextIfOk(fetchImpl, VALUES_ONE_QB_PATH),
-    readTextIfOk(fetchImpl, SAMPLE_VALUES_PATH),
-  ]);
-  const sf = parseCsvValues(sfCsv || sampleCsv);
-  const oneQb = oneQbCsv ? parseCsvValues(oneQbCsv) : { values: {}, nameMap: {} };
-  return { sf, oneQb, names: { ...sf.nameMap, ...oneQb.nameMap } };
+  if (payload.modelVersion !== PLAYER_VALUE_MODEL_VERSION) {
+    throw new Error(`Unsupported player-value model: ${payload.modelVersion || "missing"}`);
+  }
+  const sf = coerceValueMap(payload.sf || {});
+  const oneQb = coerceValueMap(payload.oneQb || {});
+  const names = payload.names && typeof payload.names === "object"
+    ? payload.names
+    : { ...sf.nameMap, ...oneQb.nameMap };
+  return {
+    sf: { values: sf.values, nameMap: { ...names, ...sf.nameMap } },
+    oneQb: { values: oneQb.values, nameMap: { ...names, ...oneQb.nameMap } },
+    names,
+    players: payload.players && typeof payload.players === "object" ? payload.players : {},
+    meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {},
+    modelVersion: payload.modelVersion,
+    asOf: payload.asOf || "",
+  };
 }
