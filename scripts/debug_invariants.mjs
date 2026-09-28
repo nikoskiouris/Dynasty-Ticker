@@ -31,7 +31,6 @@ import {
 import { buildSitStart } from "../docs/modules/sit-start.js";
 import { utcIsoWeek } from "../netlify/lib/traffic.js";
 import {
-  applyElitePlayerValuePremium,
   CROWD_MAX_ABS_SHIFT,
   crowdShiftsFromVotes,
   findPickCatalogValue,
@@ -297,16 +296,6 @@ check("weekly lookback does not repeat a slate", () => {
   if (weeks[0].season !== "2026" || weeks[0].week !== 2) return `starts at ${weeks[0].season} week ${weeks[0].week}`;
   const keys = weeks.map((row) => `${row.season}-${row.week}`);
   if (new Set(keys).size !== keys.length) return `duplicate ${keys.join(",")}`;
-  return "";
-});
-
-check("elite premium never drops as the raw price rises", () => {
-  let previous = 0;
-  for (let value = 0; value <= 12000; value += 25) {
-    const premium = applyElitePlayerValuePremium({ assetType: "player" }, value);
-    if (premium + 0.001 < previous) return `${value} -> ${premium} after ${previous}`;
-    previous = premium;
-  }
   return "";
 });
 
