@@ -3,8 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseCsvValues, pickValueBundle } from "../docs/modules/values.js";
-import { composeValuationBundles } from "../docs/modules/trade-market.js";
+import { pickValueBundle } from "../docs/modules/values.js";
 import {
   addValueCalcItem,
   clearValueCalcSides,
@@ -17,6 +16,15 @@ import {
   valueCalcVerdict,
   withPlayerDirectoryNames,
 } from "../docs/modules/value-calc.js";
+
+function publishedBundle() {
+  const json = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/data/player_values.json"), "utf8"));
+  return pickValueBundle({
+    sf: { values: json.sf, nameMap: json.names || {} },
+    oneQb: { values: json.oneQb, nameMap: json.names || {} },
+    names: json.names || {},
+  }, "sf");
+}
 
 const values = {
   "player:1": 9000,
@@ -98,27 +106,25 @@ test("blank calculator adds, sums, and grades both sides", () => {
   assert.deepEqual(state.right, []);
 });
 
-test("searching Brian finds Brian Thomas and Brian Robinson", () => {
-  const csv = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/data/ktc_values_sf.csv"), "utf8");
-  const { values: marketValues, nameMap } = parseCsvValues(csv);
-  const rows = listValueCalcAssets(marketValues, nameMap, { query: "Brian" });
+test("published model search finds Brian Thomas and Brian Robinson", () => {
+  const bundle = publishedBundle();
+  const rows = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "Brian" });
   assert.ok(rows.some((row) => row.name === "Brian Thomas"));
   assert.ok(rows.some((row) => row.name === "Brian Robinson"));
 });
 
-test("market file search finds the next firsts and named players together", () => {
-  const csv = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/data/ktc_values_sf.csv"), "utf8");
-  const { values: marketValues, nameMap } = parseCsvValues(csv);
-  const firsts = listValueCalcAssets(marketValues, nameMap, { query: "2027 1st", limit: 20, minSeason: 2027 });
+test("published model search finds future firsts and named players together", () => {
+  const bundle = publishedBundle();
+  const firsts = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "2027 1st", limit: 20, minSeason: 2027 });
   assert.ok(firsts.length >= 3);
   assert.ok(firsts.every((row) => row.assetType === "pick" && row.season === "2027" && row.round === 1));
   assert.ok(firsts.some((row) => row.bucket === "early"));
   assert.ok(firsts.some((row) => row.bucket === "mid"));
   assert.ok(firsts.some((row) => row.bucket === "late"));
-  const drafted = listValueCalcAssets(marketValues, nameMap, { query: "2026 1st", limit: 20, minSeason: 2027 });
+  const drafted = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "2026 1st", limit: 20, minSeason: 2027 });
   assert.equal(drafted.length, 0);
 
-  const bijan = listValueCalcAssets(marketValues, nameMap, { query: "bijan", limit: 5 });
+  const bijan = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "bijan", limit: 5 });
   assert.equal(bijan[0].assetType, "player");
   assert.match(bijan[0].name, /Bijan/i);
 });
@@ -129,21 +135,10 @@ test("player directory names fill a blank name map so search still works", () =>
   assert.equal(rows[0].name, "Bijan Robinson");
 });
 
-test("live ktc json names survive an empty format nameMap", () => {
-  const json = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/data/ktc_values.json"), "utf8"));
-  const composed = composeValuationBundles(
-    {
-      sf: { values: json.sf, nameMap: {} },
-      oneQb: { values: json.oneQb, nameMap: {} },
-      names: json.names,
-    },
-    { sf: { values: {}, counts: {} }, oneQb: { values: {}, counts: {} }, names: {} }
-  );
-  const bundle = pickValueBundle(composed, "sf");
+test("published snapshot names survive the format wrapper", () => {
+  const bundle = publishedBundle();
   const bijan = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "bijan", limit: 5 });
   assert.match(bijan[0].name, /Bijan/i);
   const firsts = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "2027 1st", limit: 8, minSeason: 2027 });
   assert.ok(firsts.some((row) => row.assetType === "pick" && row.season === "2027"));
-  const drafted = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "2026 1st", limit: 8, minSeason: 2027 });
-  assert.equal(drafted.length, 0);
 });
