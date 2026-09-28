@@ -29,31 +29,20 @@ export function foldRankQuery(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-export function marketTape({ ktcValue, tradeValue, tradeCount } = {}) {
-  const ktc = Number(ktcValue);
-  const trade = Number(tradeValue);
-  const count = Number(tradeCount) || 0;
-  const hasKtc = Number.isFinite(ktc) && ktc > 0;
-  const hasTrade = Number.isFinite(trade) && trade > 0 && count >= TAPE_TRADE_FLOOR;
-  if (hasTrade && hasKtc) {
-    const ratio = trade / ktc;
-    if (ratio >= 1.12) {
-      return { tone: "up", line: "Sleeper trades pay more than the crowd.", crowd: ktc, trades: trade };
-    }
-    if (ratio <= 0.88) {
-      return { tone: "down", line: "The crowd is ahead of the Sleeper trades.", crowd: ktc, trades: trade };
-    }
-    return { tone: "even", line: "Sleeper trades and the crowd agree.", crowd: ktc, trades: trade };
+export function marketTape({ confidence = "", kind = "player" } = {}) {
+  if (kind === "pick") {
+    return { tone: "model", line: "Historical rookie-outcome estimate." };
   }
-  if (hasTrade) {
-    return { tone: "up", line: "Sleeper trades set this price.", crowd: null, trades: trade };
+  if (confidence === "established") {
+    return { tone: "model", line: "Football forecast with an established NFL sample." };
   }
-  return {
-    tone: "crowd",
-    line: "Crowd price. Not enough Sleeper trades to move it.",
-    crowd: hasKtc ? ktc : null,
-    trades: null,
-  };
+  if (confidence === "developing") {
+    return { tone: "model", line: "Football forecast with a developing NFL sample." };
+  }
+  if (confidence === "thin") {
+    return { tone: "model", line: "Football forecast with a thin NFL sample; the young-player prior matters more." };
+  }
+  return { tone: "model", line: "Independent full-PPR football forecast." };
 }
 
 export function pickEqualLine(value, pick, best) {
@@ -80,7 +69,7 @@ export function ownerLine(owner, { leagueOpen = false, kind = "player" } = {}) {
 }
 
 export function rankBoardNote({ format = "sf", leagueFormat = "", caveat = "" } = {}) {
-  const base = "Desk price. Sleeper trades mixed with the crowd. The pick is the closest one.";
+  const base = "Dynasty Ticker model price. Full PPR football forecast; the pick is the closest one.";
   const peek = leagueFormat && format && format !== leagueFormat
     ? ` Peeking at ${rankFormatLabel(format)}. Your league is ${rankFormatLabel(leagueFormat)}.`
     : "";
@@ -90,9 +79,7 @@ export function rankBoardNote({ format = "sf", leagueFormat = "", caveat = "" } 
 
 export function buildRankBoard({
   values = {},
-  ktcValues = {},
-  tradeValues = {},
-  tradeCounts = {},
+  modelPlayers = {},
   names = {},
   nflPlayers = {},
   owners = {},
@@ -118,11 +105,8 @@ export function buildRankBoard({
     const age = playerAgeFromNfl(raw);
     const team = String(raw?.team || "").trim().toUpperCase();
     const pickEqual = closestPick(value, picks);
-    const tape = marketTape({
-      ktcValue: ktcValues?.[assetId],
-      tradeValue: tradeValues?.[assetId],
-      tradeCount: tradeCounts?.[assetId],
-    });
+    const model = modelPlayers?.[assetId] || null;
+    const tape = marketTape({ confidence: model?.confidence, kind: "player" });
     players.push({
       assetId,
       playerId,
@@ -135,6 +119,7 @@ export function buildRankBoard({
       pickEqual,
       pickLine: pickEqualLine(value, pickEqual, bestPick),
       tape,
+      model,
       owner: owners?.[assetId] || null,
       note: typeof noteFor === "function" ? String(noteFor(playerId, raw) || "") : "",
       photoUrl: sleeperPlayerThumbUrl(playerId),
@@ -155,11 +140,8 @@ export function buildRankBoard({
       age: null,
       pickEqual: null,
       pickLine: "",
-      tape: marketTape({
-        ktcValue: ktcValues?.[pick.assetId],
-        tradeValue: tradeValues?.[pick.assetId],
-        tradeCount: tradeCounts?.[pick.assetId],
-      }),
+      tape: marketTape({ kind: "pick" }),
+      model: null,
       owner: null,
       note: "",
       photoUrl: "",
@@ -315,9 +297,17 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
   const league = Number.isFinite(row.leagueValue)
     ? `Your league: ${formatNumber(row.leagueValue)}.`
     : "";
+  const components = row?.model?.components || {};
   const facts = [
-    Number.isFinite(row.tape?.crowd) ? { label: "Crowd", value: formatNumber(Math.round(row.tape.crowd)) } : null,
-    Number.isFinite(row.tape?.trades) ? { label: "Trades", value: formatNumber(Math.round(row.tape.trades)) } : null,
+    Number.isFinite(Number(components.projectedPpg))
+      ? { label: "Projected PPR/G", value: Number(components.projectedPpg).toFixed(1) }
+      : null,
+    Number.isFinite(Number(components.availability))
+      ? { label: "Availability", value: `${Math.round(Number(components.availability) * 100)}%` }
+      : null,
+    Number.isFinite(Number(components.roleOppPerGame))
+      ? { label: "Opportunities/G", value: Number(components.roleOppPerGame).toFixed(1) }
+      : null,
   ].filter(Boolean);
   const spread = Array.isArray(row.spread) && row.spread.length > 1
     ? row.spread.map((item) => `${item.label} ${formatNumber(item.value)}`).join(" · ")
@@ -344,7 +334,7 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
         </div>
         <div class="ranks-card-price">
           <strong>${escapeHtml(formatNumber(row.value))}</strong>
-          <span>Desk</span>
+          <span>Model</span>
         </div>
       </div>
       <p class="ranks-tape ranks-tape-${escapeHtml(row.tape?.tone || "crowd")}">${escapeHtml(row.tape?.line || "")}</p>
