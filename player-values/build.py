@@ -133,7 +133,7 @@ def build_identity_index(meta):
     }
 
 
-def resolve_nfl_id(player, identity, position):
+def resolve_nfl_id(player, identity, position, active_pids=None):
     gsis = str(player.get("gsis_id") or "").strip()
     if gsis:
         return gsis, "gsis"
@@ -154,6 +154,10 @@ def resolve_nfl_id(player, identity, position):
     name_hits = sorted(set(name_hits))
     if len(name_hits) == 1 and position in POSITIONS:
         return name_hits[0], "name"
+    if active_pids and position in POSITIONS:
+        recent = [pid for pid in name_hits if pid in active_pids]
+        if len(recent) == 1:
+            return recent[0], "name-recent"
     return "", ""
 
 
@@ -270,6 +274,161 @@ def draft_bucket(pick):
     if pick <= 200:
         return "day3"
     return "late"
+
+
+def percentile(values, q):
+    ordered = sorted(float(value) for value in values)
+    if not ordered:
+        return None
+    if len(ordered) == 1:
+        return ordered[0]
+    index = (len(ordered) - 1) * float(q)
+    low = int(index)
+    high = min(low + 1, len(ordered) - 1)
+    frac = index - low
+    return ordered[low] * (1 - frac) + ordered[high] * frac
+
+
+def positional_finishes(rows, current_season):
+    """Season-long PPR rank at the position. Rank 1 is the WR1, RB1, and so on."""
+    minimum = int(CONFIG["resume"]["minFinishGames"])
+    pools = defaultdict(list)
+    for (pid, season), row in rows.items():
+        if season >= current_season or row["games"] < minimum:
+            continue
+        pools[(season, row["position"])].append(row)
+    finishes = defaultdict(list)
+    for (season, position), pool in pools.items():
+        pool.sort(key=lambda row: row["ppr"], reverse=True)
+        for rank, row in enumerate(pool, start=1):
+            finishes[row["id"]].append({
+                "season": season,
+                "position": position,
+                "rank": rank,
+                "ppg": row["ppg"],
+                "points": row["ppr"],
+                "games": row["games"],
+            })
+    return finishes
+
+
+def draft_ppg_anchors(rows, meta):
+    """Early-career points per game by draft bucket. High picks keep the upper part of that history."""
+    resume = CONFIG["resume"]
+    early = int(resume["draftEarlySeasons"])
+    minimum = int(resume["minFinishGames"])
+    samples = defaultdict(list)
+    for (pid, season), row in rows.items():
+        if row["games"] < minimum:
+            continue
+        info = meta.get(pid, {})
+        draft_year = int(num(info.get("draft_year"), 0))
+        pick = int(num(info.get("draft_pick"), 999))
+        if draft_year <= 0 or pick >= 999:
+            continue
+        year_index = season - draft_year
+        if year_index < 0 or year_index >= early:
+            continue
+        samples[(row["position"], draft_bucket(pick))].append(row["ppg"])
+    anchors = {}
+    q = float(resume["draftPercentile"])
+    for key, values in samples.items():
+        if len(values) < 8:
+            continue
+        anchors[key] = round(percentile(values, q), 3)
+    return anchors
+
+
+def _age_scale(age, full_age, gone_age):
+    if gone_age <= full_age:
+        return 1.0 if age <= full_age else 0.0
+    return clamp((gone_age - age) / (gone_age - full_age), 0.0, 1.0)
+
+
+def finish_tier(rank):
+    resume = CONFIG["resume"]
+    rank = int(rank)
+    if rank <= 5:
+        return float(resume["top5Weight"])
+    if rank <= 12:
+        return float(resume["top12Weight"])
+    if rank <= 24:
+        return float(resume["top24Weight"])
+    return 0.0
+
+
+def apply_resume(projected_ppg, finishes, draft_pick, age, position, current_season, evidence_seasons, anchors, career_games):
+    """Pull a cold stretch up toward proven finishes and, while young, toward draft capital.
+
+    The pull only goes up. A player already scoring above that résumé stays there.
+    Age shrinks both pulls. Old production and an old draft card stop paying.
+    """
+    resume = CONFIG["resume"]
+    decay = float(resume["finishDecay"])
+    last_completed = int(current_season) - 1
+    clout = 0.0
+    weighted_ppg = 0.0
+    top5 = 0
+    top12 = 0
+    best = None
+    for finish in finishes or []:
+        rank = int(finish["rank"])
+        best = rank if best is None else min(best, rank)
+        if rank <= 5:
+            top5 += 1
+        if rank <= 12:
+            top12 += 1
+        tier = finish_tier(rank)
+        if tier <= 0:
+            continue
+        years_ago = max(0, last_completed - int(finish["season"]))
+        weight = tier * (decay ** years_ago)
+        clout += weight
+        weighted_ppg += float(finish["ppg"]) * weight
+
+    age_keep = _age_scale(age, float(resume["finishAgeFull"]), float(resume["finishAgeGone"]))
+    established = weighted_ppg / clout if clout else None
+    ppg = float(projected_ppg)
+    finish_blend = 0.0
+    if established is not None and established > ppg:
+        finish_blend = min(
+            float(resume["maxFinishBlend"]),
+            clout / float(resume["finishCloutDivisor"]),
+        ) * age_keep
+        ppg = ppg * (1 - finish_blend) + established * finish_blend
+
+    bucket = draft_bucket(draft_pick)
+    capital = float(CONFIG["resume"]["capital"].get(bucket, 0))
+    youth = _age_scale(age, float(resume["draftYouthAge"]), float(resume["draftGoneAge"]))
+    evidence_left = clamp(1 - float(evidence_seasons) / float(resume["draftEvidenceSeasons"]), 0.0, 1.0)
+    draft_blend = min(
+        float(resume["maxDraftBlend"]),
+        capital * youth * (
+            float(resume["draftEvidenceFloor"])
+            + (1 - float(resume["draftEvidenceFloor"])) * evidence_left
+        ),
+    )
+    anchor = (anchors or {}).get((position, bucket))
+    if (
+        anchor is not None
+        and float(anchor) > ppg
+        and draft_blend > 0
+        and int(career_games) >= int(resume["minDraftGames"])
+    ):
+        ppg = ppg * (1 - draft_blend) + float(anchor) * draft_blend
+    else:
+        draft_blend = 0.0
+    return ppg, {
+        "top5Finishes": top5,
+        "top12Finishes": top12,
+        "bestFinish": best,
+        "finishClout": round(clout, 3),
+        "finishBlend": round(finish_blend, 3),
+        "ageKeep": round(age_keep, 3),
+        "draftBlend": round(draft_blend, 3),
+        "draftAnchorPpg": None if anchor is None else round(float(anchor), 3),
+        "draftBucket": bucket,
+    }
 
 
 def manifest(paths):
@@ -626,7 +785,7 @@ def transition(position, age, tier, retention, survival, generic):
     return clamp(keep, 0.55, 1.18), clamp(probability, 0.35, 0.98), len(exact), total
 
 
-def current_profile(pid, player, inputs, baselines):
+def current_profile(pid, player, inputs, baselines, finishes=None, anchors=None):
     weekly = inputs["weekly"]
     meta = inputs["meta"]
     team_weeks = inputs["teamWeeks"]
@@ -674,24 +833,24 @@ def current_profile(pid, player, inputs, baselines):
     rookie_year = int(num(meta.get(pid, {}).get("rookie_season") or meta.get(pid, {}).get("draft_year"), season))
     experience = int(num(player.get("years_exp"), max(0, season - rookie_year)))
     draft_pick = num(meta.get(pid, {}).get("draft_pick"), 999)
-
-    if experience <= 2 and len(rows) < 24:
-        peer_ppg = []
-        wanted = draft_bucket(draft_pick)
-        for other_id, other_rows in weekly.items():
-            if not other_rows or other_rows[0]["position"] != position:
-                continue
-            other_meta = meta.get(other_id, {})
-            if draft_bucket(other_meta.get("draft_pick")) != wanted:
-                continue
-            other_rookie = int(num(other_meta.get("draft_year") or other_meta.get("rookie_season"), 0))
-            rookie_games = [row for row in other_rows if row["season"] == other_rookie]
-            if len(rookie_games) >= 4:
-                peer_ppg.append(sum(row["ppr"] for row in rookie_games) / len(rookie_games))
-        if peer_ppg:
-            prior_weight = {0: 0.45, 1: 0.25, 2: 0.10}.get(experience, 0.0)
-            prior_weight *= 1 - 0.6 * min(1.0, len(rows) / 16)
-            projected_ppg = projected_ppg * (1 - prior_weight) + median(peer_ppg) * prior_weight
+    games_by_season = defaultdict(int)
+    for row in rows:
+        if row["season"] < season:
+            games_by_season[row["season"]] += 1
+    evidence_seasons = sum(
+        1 for count in games_by_season.values() if count >= int(CONFIG["resume"]["minFinishGames"])
+    )
+    projected_ppg, resume_info = apply_resume(
+        projected_ppg,
+        (finishes or {}).get(pid, []),
+        draft_pick,
+        age,
+        position,
+        season,
+        evidence_seasons,
+        anchors or {},
+        len(rows),
+    )
 
     recent_seasons = (season - 2, season - 1, season)
     played = sum(1 for row in rows if row["season"] in recent_seasons)
@@ -725,6 +884,7 @@ def current_profile(pid, player, inputs, baselines):
         "teamContext": team_context,
         "availability": availability,
         "injuryMultiplier": injury_multiplier,
+        "resume": resume_info,
     }
 
 
@@ -1007,6 +1167,13 @@ def build(cache, refresh=True):
     replacement = learn_replacement(rows, through=current_season - 1)
     baselines = position_baselines(rows, through=current_season - 1)
     learned = learn_transitions(rows, replacement, through_origin=current_season)
+    finishes = positional_finishes(rows, current_season)
+    anchors = draft_ppg_anchors(rows, inputs["meta"])
+    active_pids = {
+        pid
+        for pid, weekly_rows in inputs["weekly"].items()
+        if weekly_rows and played_recently(weekly_rows[-1]["season"], current_season)
+    }
 
     identity = inputs["identity"]
     projected = {}
@@ -1020,10 +1187,10 @@ def build(cache, refresh=True):
         position = offensive_position(player)
         if position not in POSITIONS:
             continue
-        pid, mapped_by = resolve_nfl_id(player, identity, position)
+        pid, mapped_by = resolve_nfl_id(player, identity, position, active_pids)
         if not pid:
             continue
-        rank = {"gsis": 0, "espn": 1, "name-position": 2, "name": 3}[mapped_by]
+        rank = {"gsis": 0, "espn": 1, "name-position": 2, "name-recent": 3, "name": 4}[mapped_by]
         team_rank = 0 if str(player.get("team") or "").strip() else 1
         candidate = (rank, team_rank, str(sleeper_id), sleeper_id, player, position, mapped_by)
         current = chosen.get(pid)
@@ -1031,7 +1198,7 @@ def build(cache, refresh=True):
             chosen[pid] = candidate
 
     for pid, (_rank, _team_rank, _sort_id, sleeper_id, player, position, mapped_by) in sorted(chosen.items()):
-        profile = current_profile(pid, player, inputs, baselines)
+        profile = current_profile(pid, player, inputs, baselines, finishes, anchors)
         if not profile:
             continue
         sf_raw, sf_forecast = career_value(profile, "sf", replacement, learned, current_week)
@@ -1059,6 +1226,7 @@ def build(cache, refresh=True):
                 "injuryCurrentMultiplier": profile["injuryMultiplier"],
                 "careerGames": profile["careerGames"],
                 "currentSeasonGames": profile["currentGames"],
+                "resume": profile["resume"],
             },
             "forecast": {"sf": sf_forecast, "oneQb": one_forecast},
         }
@@ -1087,6 +1255,10 @@ def build(cache, refresh=True):
             "referenceBenchSlots": int(CONFIG["referenceBenchSlots"]),
             "qbRosterCapPerTeam": CONFIG["qbRosterCapPerTeam"],
             "rookieBoard": CONFIG["rookieBoard"],
+            "draftAnchors": {
+                f"{position}:{bucket}": value
+                for (position, bucket), value in sorted(anchors.items())
+            },
             "recency": {
                 "opportunityHalfLifeGames": int(CONFIG["opportunityHalfLifeGames"]),
                 "opportunityWindowGames": int(CONFIG["opportunityWindowGames"]),

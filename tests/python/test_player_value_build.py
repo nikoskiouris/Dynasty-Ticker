@@ -84,6 +84,44 @@ class PlayerValueBuildTests(unittest.TestCase):
             "WR",
         )
 
+    def test_recent_name_breaks_a_retired_namesake(self):
+        identity = build.build_identity_index({
+            "00-0007024": {"display_name": "Marvin Harrison", "position": "WR"},
+            "00-0039849": {"display_name": "Marvin Harrison Jr.", "position": "WR"},
+        })
+        pid, how = build.resolve_nfl_id(
+            {"full_name": "Marvin Harrison", "position": "WR"},
+            identity,
+            "WR",
+            active_pids={"00-0039849"},
+        )
+        self.assertEqual((pid, how), ("00-0039849", "name-recent"))
+
+    def test_top_finishes_lift_a_down_year_and_age_shrinks_that_lift(self):
+        finishes = [
+            {"season": 2022, "rank": 1, "ppg": 22.0},
+            {"season": 2024, "rank": 2, "ppg": 19.0},
+            {"season": 2021, "rank": 4, "ppg": 19.0},
+        ]
+        young, young_info = build.apply_resume(12.0, finishes, 22, 27, "WR", 2026, 5, {}, 80)
+        old, _old_info = build.apply_resume(12.0, finishes, 22, 34, "WR", 2026, 5, {}, 80)
+        hot, _hot_info = build.apply_resume(24.0, finishes, 22, 27, "WR", 2026, 5, {}, 80)
+        self.assertGreater(young, 15)
+        self.assertGreater(young, old)
+        self.assertGreaterEqual(young_info["top5Finishes"], 3)
+        self.assertEqual(hot, 24.0)
+
+    def test_high_draft_pick_keeps_a_young_player_above_a_cold_stretch(self):
+        anchors = {("WR", "top10"): 16.0, ("WR", "day3"): 8.0}
+        high, high_info = build.apply_resume(10.0, [], 4, 24, "WR", 2026, 2, anchors, 20)
+        late, _late_info = build.apply_resume(10.0, [], 180, 24, "WR", 2026, 2, anchors, 20)
+        veteran, _veteran_info = build.apply_resume(10.0, [], 4, 32, "WR", 2026, 2, anchors, 20)
+        self.assertGreater(high, 12)
+        self.assertGreater(high, late)
+        self.assertEqual(late, 10.0)
+        self.assertEqual(veteran, 10.0)
+        self.assertGreater(high_info["draftBlend"], 0)
+
     def test_short_slump_does_not_erase_a_season_of_work(self):
         slump = [{"opportunities": 10}] * 30 + [{"opportunities": 2}] * 4
         lost_season = [{"opportunities": 10}] * 17 + [{"opportunities": 3}] * 17

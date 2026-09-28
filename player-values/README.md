@@ -79,8 +79,14 @@ Availability changes expected games. It is not another final-value multiplier.
 
 A good offense does not receive a flat value bonus; it changes expected opportunity.
 
-### Draft investment / young-player prior
-NFL draft slot stabilizes thin young-player samples. Its influence decays quickly with NFL evidence. Established NFL role and production dominate after a meaningful sample.
+### Positional finishes
+A season-long finish is total offensive PPR at the position, minimum 8 games. Rank 1 is the WR1. Top-5, top-12, and top-24 seasons pull a cold forecast back up toward the points per game from those seasons. The pull only goes up. A player already scoring above that résumé stays there. Recent finishes count more. The pull is full through age 28 and gone by 36.
+
+### Draft investment
+Early-career production by draft bucket sets an anchor. A top-10 pick keeps the 75th percentile of that bucket. A late pick does not. The pull only goes up, only after 4 games, and it fades with seasons of evidence. It is full at age 22 and gone by 29, so a young first-rounder keeps value through a slow start and a veteran does not live on his draft card.
+
+### Age
+Age still changes year-to-year retention and the chance of keeping a fantasy role. It also decides how much finish history and draft capital remain in the forecast.
 
 ### Position and format
 Replacement is estimated from a **12-team reference league**, not a hard-coded QB18/RB48 lookup. The builder allocates:

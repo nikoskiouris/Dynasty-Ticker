@@ -38,6 +38,15 @@ class PlayerValueSnapshotTests(unittest.TestCase):
         self.assertEqual(walker["position"], "RB")
         self.assertGreater(self.data["sf"]["player:8151"], 1000)
 
+        harrison = players["player:11628"]
+        self.assertEqual(harrison["position"], "WR")
+        self.assertEqual(harrison["draftPick"], 4)
+        self.assertLess(harrison["age"], 26)
+        self.assertGreater(self.data["sf"]["player:11628"], 0)
+        self.assertGreater(harrison["components"]["resume"]["draftBlend"], 0)
+
+        self.assertGreaterEqual(jefferson["components"]["resume"]["top5Finishes"], 3)
+
         for asset_id in ("player:167", "player:4634"):
             self.assertLessEqual(self.data["sf"].get(asset_id, 0), 0)
             self.assertLessEqual(self.data["oneQb"].get(asset_id, 0), 0)
