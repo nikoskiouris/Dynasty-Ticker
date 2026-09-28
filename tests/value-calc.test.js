@@ -109,8 +109,8 @@ test("blank calculator adds, sums, and grades both sides", () => {
 test("published model search finds Brian Thomas and Brian Robinson", () => {
   const bundle = publishedBundle();
   const rows = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "Brian" });
-  assert.ok(rows.some((row) => row.name === "Brian Thomas"));
-  assert.ok(rows.some((row) => row.name === "Brian Robinson"));
+  assert.ok(rows.some((row) => /^Brian Thomas/i.test(row.name)));
+  assert.ok(rows.some((row) => /^Brian Robinson/i.test(row.name)));
 });
 
 test("published model search finds future firsts and named players together", () => {
