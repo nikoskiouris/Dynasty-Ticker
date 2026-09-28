@@ -28,7 +28,7 @@ raw_value(format) =
   )
 ```
 
-A single multiplicative display scale turns those football-utility units into readable Dynasty Ticker points. It changes no rankings or trade ratios.
+The fixed display conversion is **20 points per discounted point of lineup advantage**. It is the same ruler across formats and dates; values are never renormalized to make the top player equal 10,000.
 
 The annual discount starts at **0.85** and the horizon at **eight seasons**. Those are explicit product assumptions, not discovered constants; `config.json` owns them.
 
@@ -83,14 +83,18 @@ A good offense does not receive a flat value bonus; it changes expected opportun
 NFL draft slot stabilizes thin young-player samples. Its influence decays quickly with NFL evidence. Established NFL role and production dominate after a meaningful sample.
 
 ### Position and format
-Replacement is defined in a 12-team reference league. Initial replacement ranks are:
+Replacement is estimated from a **12-team reference league**, not a hard-coded QB18/RB48 lookup. The builder allocates:
 
-| Format | QB | RB | WR | TE |
-| --- | ---: | ---: | ---: | ---: |
-| 1QB | 18 | 48 | 60 | 18 |
-| Superflex | 30 | 48 | 60 | 18 |
+- 1 QB
+- 2 RB
+- 3 WR
+- 1 TE
+- 2 FLEX
+- 12 bench slots
 
-Only QB player values therefore differ by format.
+Superflex adds one Superflex starter per team. The model fills the reference lineups from historical PPR production, then allocates the bench on scarcity-adjusted roster claims. The best remaining player at each position becomes the feasible alternative.
+
+RB/WR/TE replacement is shared across formats at launch. Superflex therefore changes only QB player values. Future picks may differ because rookie-QB demand changes the expected rookie board.
 
 ## Inputs deliberately not faked
 
