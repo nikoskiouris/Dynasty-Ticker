@@ -44,7 +44,7 @@ There is one player-value system: `player-values/`.
 - League trade history and crowd votes remain useful context/preferences, but they do not create a second player price.
 - Package consolidation credit can still affect a trade verdict without changing any player's listed price.
 
-The complete design and caveats live in `player-values/SPEC.md`; implementation details are in `player-values/README.md`. Refresh with `python3 player-values/build.py`. The refresh validates before atomically replacing the last good snapshot. The 2027 Superflex rookie mock remains a separate display feature and refreshes with `python3 scripts/update_dynasty_rookie_mock.py`.
+The complete design and caveats live in `player-values/SPEC.md`; implementation details are in `player-values/README.md`. The current chronological one-year holdout covers 1,605 player-season observations and reports 43.25 MAE versus 56.86 for the persistence baseline; this validates that narrow retention target, not eight-year market-price accuracy. Refresh with `python3 player-values/build.py`. The refresh validates before atomically replacing the last good snapshot. The 2027 Superflex rookie mock remains a separate display feature and refreshes with `python3 scripts/update_dynasty_rookie_mock.py`.
 
 ## Live site (dynastyticker.com)
 
