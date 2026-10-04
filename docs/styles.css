@@ -282,7 +282,8 @@ h5 {
 
 .mobile-chrome,
 .rail-backdrop,
-.mobile-rail-close {
+.mobile-rail-close,
+.phone-desk {
   display: none;
 }
 
@@ -6022,22 +6023,6 @@ button.weekly-help-close:hover {
     transform: translateX(0);
   }
 
-  /* Before a league, this drawer is only a logo and Dark mode.
-     Search and the moon already sit on the page, so keep the empty menu shut. */
-  body:not(.league-loaded) #mobile-rail-toggle {
-    display: none;
-  }
-
-  body:not(.league-loaded) .mobile-chrome {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  body:not(.league-loaded) .control-rail,
-  body:not(.league-loaded) .rail-backdrop,
-  body:not(.league-loaded) .rail-backdrop.open {
-    display: none !important;
-  }
-
   .mobile-rail-close {
     display: grid;
     place-items: center;
@@ -6047,7 +6032,7 @@ button.weekly-help-close:hover {
     margin-left: auto;
     padding: 0;
     border: 1px solid var(--rail-line);
-    border-radius: 10px;
+    border-radius: 0;
     background: var(--rail-2);
     color: var(--rail-text);
     font-size: 1.35rem;
@@ -6083,15 +6068,11 @@ button.weekly-help-close:hover {
   }
 
   .workspace {
-    padding: 0.75rem max(0.75rem, env(safe-area-inset-right)) calc(4.8rem + env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+    padding: 0.75rem max(0.75rem, env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
   }
 
-  body.dock-visible .workspace-tabs {
-    bottom: calc(4.4rem + env(safe-area-inset-bottom));
-  }
-
-  .league-loaded .workspace {
-    padding-bottom: calc(4.6rem + env(safe-area-inset-bottom));
+  body.dock-visible .workspace {
+    padding-bottom: calc(4.8rem + env(safe-area-inset-bottom));
   }
 
   .workspace-header {
@@ -6116,115 +6097,90 @@ button.weekly-help-close:hover {
     font-size: 0.78rem;
   }
 
-  /* Phone desk nav: page tabs sit in a fixed ink dock.
-     Room controls stay with the page.
-     display: contents drops the sticky box so the room bar is not trapped.
-     iPad stays on the inline stacked desk-nav (this query is 700px max).
-     The dock does not scroll, so the URL bar cannot yank it. */
-  .desk-nav {
-    display: contents;
-  }
-
-  .desk-nav.hidden {
-    display: none !important;
-  }
-
-  .workspace-tabs {
-    position: fixed;
-    top: auto;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 30;
-    order: -1;
-    display: flex;
-    gap: 0;
-    overflow: visible;
-    margin: 0;
-    padding: 0.2rem 0.35rem max(0.2rem, env(safe-area-inset-bottom));
-    border: 0;
-    border-top: 2px solid var(--field);
-    border-radius: 0;
-    background: #14120e;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    box-shadow: none;
-  }
-
-  .workspace-tabs::-webkit-scrollbar {
+  /* Phone desk nav: sections live in the side board.
+     Tap a section and its rooms drop open.
+     The page itself is the info. */
+  .workspace-tabs,
+  .room-nav {
     display: none;
   }
 
-  .room-nav {
-    position: sticky;
-    top: calc(3.75rem + env(safe-area-inset-top));
-    right: auto;
-    bottom: auto;
-    left: auto;
-    z-index: 11;
-    overflow: visible;
-    margin: 0;
-    padding: 0.4rem 0.5rem;
+  .phone-desk {
+    display: grid;
+    gap: 0;
+  }
+
+  .phone-desk-page {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 2.8rem;
+    padding: 0.55rem 0.15rem;
+    border: 0;
+    border-bottom: 1px solid var(--rail-line);
+    border-radius: 0;
+    background: transparent;
+    color: var(--rail-text);
+    text-align: left;
+    box-shadow: none;
+  }
+
+  .phone-desk-page span:first-child {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .phone-desk-page.active {
+    box-shadow: inset 3px 0 0 var(--field);
+  }
+
+  .phone-desk-chevron {
+    flex: 0 0 auto;
+    width: 0.45rem;
+    height: 0.45rem;
+    margin-right: 0.2rem;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: translateY(-0.1rem) rotate(45deg);
+  }
+
+  .phone-desk-group.is-open .phone-desk-chevron {
+    transform: translateY(0.15rem) rotate(-135deg);
+  }
+
+  .phone-desk-rooms {
+    display: none;
+    padding: 0.1rem 0 0.35rem 0.35rem;
+  }
+
+  .phone-desk-group.is-open .phone-desk-rooms {
+    display: grid;
+  }
+
+  .phone-desk-room {
+    width: 100%;
+    min-height: 2.35rem;
+    padding: 0.4rem 0.35rem;
     border: 0;
     border-bottom: 1px solid var(--line);
     border-radius: 0;
-    background: var(--bg);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    background: transparent;
+    color: var(--rail-muted);
+    text-align: left;
+    font-size: 0.95rem;
+    font-weight: 600;
     box-shadow: none;
   }
 
-  .room-nav-scroll {
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .room-tab {
-    padding: 0.42rem 0.85rem;
-    font-size: 0.8rem;
-  }
-
-  .page-tab {
-    flex: 1 1 0;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 0.12rem;
-    min-width: 0;
-    min-height: 2.85rem;
-    padding: 0.35rem 0.15rem 0.45rem;
-    border: 0;
-    border-radius: 0;
+  .phone-desk-room.active,
+  .phone-desk-room.active:hover {
+    color: var(--rail-text);
     background: transparent;
-    color: #b7ad9e;
-  }
-
-  .page-tab:hover {
-    background: transparent;
-    color: #f3efe6;
-  }
-
-  .page-tab.active {
-    background: transparent;
-    color: #f3efe6;
-    box-shadow: inset 0 -3px 0 var(--field);
-  }
-
-  .tab-copy {
-    justify-items: center;
-    text-align: center;
-  }
-
-  .tab-copy small {
-    display: none;
-  }
-
-  .tab-copy strong {
-    overflow: hidden;
-    max-width: 100%;
-    font-size: 0.76rem;
-    line-height: 1.15;
-    white-space: nowrap;
+    box-shadow: inset 0 -2px 0 var(--field);
   }
 
   .ticker-label {

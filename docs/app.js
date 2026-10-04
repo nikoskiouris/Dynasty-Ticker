@@ -450,6 +450,7 @@ const el = {
   mobileHomeBtn: document.querySelector("#mobile-home-btn"),
   railBackdrop: document.querySelector("#rail-backdrop"),
   controlRail: document.querySelector("#control-rail"),
+  phoneDesk: document.querySelector("#phone-desk"),
   heroTitle: document.querySelector("#hero-title"),
   heroLede: document.querySelector("#hero-lede"),
   heroEyebrow: document.querySelector("#hero-eyebrow"),
@@ -474,6 +475,7 @@ let lastSimSignature = "";
 let leagueTradeSideCache = { key: "", sides: [] };
 let franchiseIndexCache = { key: "", index: null };
 let applyingHistory = false;
+let phoneDeskCollapsed = false;
 let managerSelectorHydrating = false;
 let managerSelectorHydrateEpoch = 0;
 let ratherPromptPair = null;
@@ -558,6 +560,7 @@ el.mobileRailToggle?.addEventListener("click", () => {
     requestAnimationFrame(() => el.mobileRailClose?.focus());
   }
 });
+el.phoneDesk?.addEventListener("click", handlePhoneDeskClick);
 el.mobileRailClose?.addEventListener("click", () => setMobileRailOpen(false));
 el.railBackdrop?.addEventListener("click", () => setMobileRailOpen(false));
 el.deskBoardClose?.addEventListener("click", () => {
@@ -808,6 +811,7 @@ function hideAppPages() {
 
 function setActivePage(page, { history = "replace", scroll = "preserve", prepared = false } = {}) {
   const nextPage = PAGE_IDS.includes(page) ? page : DEFAULT_PAGE;
+  if (nextPage !== state.activePage) phoneDeskCollapsed = false;
   if (history === "push" && !prepared) prepareDeskPush();
   state.activePage = nextPage;
   if (nextPage !== "players") releaseRankBoardTools();
@@ -1528,7 +1532,7 @@ function setDeskBoardShut(shut) {
 }
 
 function setMobileRailOpen(open) {
-  const shouldOpen = Boolean(open) && isPhoneLayout() && Boolean(state.leagueId);
+  const shouldOpen = Boolean(open) && isPhoneLayout();
   if (!shouldOpen && el.controlRail?.contains(document.activeElement)) {
     el.mobileRailToggle?.focus();
   }
@@ -1567,9 +1571,6 @@ function scrollActiveTabIntoView() {
 
 function renderSessionSnapshot() {
   document.body.classList.toggle("league-loaded", Boolean(state.leagueId));
-  if (!state.leagueId && document.body.classList.contains("rail-open")) {
-    setMobileRailOpen(false);
-  }
   if (el.mobileChromeTitle) {
     const you = getMyRoster()?.manager?.displayName || "";
     el.mobileChromeTitle.textContent = publicRanksOpen && !state.leagueId
@@ -1659,6 +1660,7 @@ function syncRoomUi() {
     panel.classList.toggle("hidden", panel.dataset.roomPanel !== room);
   });
   renderRoomNav(page, room);
+  renderPhoneDesk();
 }
 
 function renderRoomNav(page, room) {
@@ -1685,6 +1687,58 @@ function renderRoomNav(page, room) {
     if (isActive) activeButton = button;
   });
   scrollChildIntoStrip(el.roomNav.querySelector(".room-nav-scroll") || el.roomNav, activeButton);
+}
+
+function phoneDeskRoomLabel(page, room) {
+  const label = roomLabelFor(page, room, state.league) || room;
+  if (label === (PAGE_LABELS[page] || page)) return pageHintForLeague(page, state.league) || label;
+  return label;
+}
+
+function renderPhoneDesk() {
+  if (!el.phoneDesk) return;
+  const expanded = phoneDeskCollapsed ? "" : state.activePage;
+  el.phoneDesk.innerHTML = PAGE_IDS.map((page) => {
+    const rooms = visibleRooms(page);
+    const open = page === expanded;
+    const active = page === state.activePage;
+    const current = getRoom(page);
+    return `
+      <div class="phone-desk-group${open ? " is-open" : ""}">
+        <button type="button" class="phone-desk-page${active ? " active" : ""}" data-phone-page="${escapeHtml(page)}" aria-expanded="${open ? "true" : "false"}">
+          <span>${escapeHtml(PAGE_LABELS[page] || page)}</span>
+          <span class="phone-desk-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="phone-desk-rooms">
+          ${rooms.map((room) => `
+            <button type="button" class="phone-desk-room${active && room === current ? " active" : ""}" data-phone-room="${escapeHtml(room)}" data-page="${escapeHtml(page)}">
+              ${escapeHtml(phoneDeskRoomLabel(page, room))}
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function handlePhoneDeskClick(event) {
+  const roomButton = event.target.closest("[data-phone-room]");
+  if (roomButton) {
+    openRoom(roomButton.dataset.page, roomButton.dataset.phoneRoom, { history: "push", scroll: "top" });
+    setMobileRailOpen(false);
+    return;
+  }
+  const pageButton = event.target.closest("[data-phone-page]");
+  if (!pageButton) return;
+  const page = pageButton.dataset.phonePage;
+  if (!PAGE_IDS.includes(page)) return;
+  if (page !== state.activePage) {
+    phoneDeskCollapsed = false;
+    setActivePage(page, { history: "push", scroll: "top" });
+    return;
+  }
+  phoneDeskCollapsed = !phoneDeskCollapsed;
+  renderPhoneDesk();
 }
 
 function syncTradeModeUi() {
