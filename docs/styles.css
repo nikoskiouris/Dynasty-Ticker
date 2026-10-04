@@ -8277,8 +8277,9 @@ button.ranks-row.you {
 }
 
 
-/* Landing owns the username search. The rail form comes back once a league is open. */
-body:not(.league-loaded) .control-rail .league-module,
+/* Landing owns the username search until the wide board is the control panel.
+   Then the rail form is the way in, and the stage is the board. */
+body:not(.league-loaded):not(.board-tools-live) .control-rail .league-module,
 body:not(.league-loaded) #identity-section,
 body.league-loaded #landing,
 body.league-loaded .state-grid {
@@ -8287,8 +8288,8 @@ body.league-loaded .state-grid {
 body.league-loaded .league-hero { padding-block: 0.35rem; }
 body.league-loaded .workspace-lede { display: none; }
 
-/* Before a league, the rail is a masthead, not an empty sidebar.
-   The poster stays on Players. Trade and My League open on the tool. */
+/* Before a league, an empty rail is a masthead.
+   Players keeps a real board. Trade and My League open on the tool. */
 @media (min-width: 701px) {
   body:not(.league-loaded):not(.board-tools-live) .app-frame {
     grid-template-columns: minmax(0, 1fr);
@@ -8405,6 +8406,15 @@ body:not(.league-loaded):has(#league-page:not(.hidden)) #sticky-mobile-cta {
 
 .board-tools input::placeholder {
   color: var(--rail-placeholder);
+}
+
+.board-tools button.ranks-chip {
+  margin-right: 0;
+}
+
+html:not(.desk-shut) body.board-tools-live #landing,
+html:not(.desk-shut) body.board-tools-live #sticky-mobile-cta {
+  display: none;
 }
 
 @media (min-width: 701px) and (min-height: 501px),
