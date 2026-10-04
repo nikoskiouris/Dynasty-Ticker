@@ -8219,6 +8219,7 @@ body.league-loaded .workspace-lede { display: none; }
 @media (min-width: 701px) {
   body:not(.league-loaded):not(.board-tools-live) .app-frame {
     grid-template-columns: minmax(0, 1fr);
+    align-content: start;
   }
 
   body:not(.league-loaded):not(.board-tools-live) .control-rail {
@@ -8226,6 +8227,7 @@ body.league-loaded .workspace-lede { display: none; }
     display: flex;
     flex-direction: row;
     align-items: center;
+    align-self: start;
     gap: 1rem;
     width: auto;
     height: auto;
@@ -8234,7 +8236,7 @@ body.league-loaded .workspace-lede { display: none; }
     overflow: visible;
     padding: 0.7rem 1.4rem;
     border-right: 0;
-    border-bottom: 3px solid var(--text);
+    border-bottom: 1px solid var(--line);
   }
 
   body:not(.league-loaded):not(.board-tools-live) .brand-panel {
@@ -8838,7 +8840,6 @@ html:not(.desk-shut) body.board-tools-live #landing .landing-search,
 html:not(.desk-shut) body.board-tools-live #landing .landing-job-hint,
 html:not(.desk-shut) body.board-tools-live #landing .landing-ranks-btn,
 html:not(.desk-shut) body.board-tools-live #landing .brand-lockup--landing,
-html:not(.desk-shut) body.board-tools-live #landing .signal-path,
 html:not(.desk-shut) body.board-tools-live #landing #landing-league-picker,
 html:not(.desk-shut) body.board-tools-live #landing .landing-loading {
   display: none;
