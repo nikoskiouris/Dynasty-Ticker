@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Dynasty Ticker — Your Sleeper dynasty league</title>
     <meta name="description" content="See what your players are worth, check a trade, and find your team's next move." />
-    <meta name="theme-color" content="#f3efe6" />
+    <meta name="theme-color" content="#f4f4f6" />
     <script>
       try {
         var storedTheme = localStorage.getItem("dynasty_ticker_theme");
         if (storedTheme === "dark" || storedTheme === "light") {
           document.documentElement.setAttribute("data-theme", storedTheme);
           var themeColor = document.querySelector('meta[name="theme-color"]');
-          if (themeColor) themeColor.setAttribute("content", storedTheme === "dark" ? "#14120e" : "#f3efe6");
+          if (themeColor) themeColor.setAttribute("content", storedTheme === "dark" ? "#09090b" : "#f4f4f6");
         }
         if (localStorage.getItem("dynasty_ticker_board") === "shut") {
           document.documentElement.classList.add("desk-shut");
@@ -38,10 +38,11 @@
     <link rel="manifest" href="./site.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,680&family=IBM+Plex+Mono:wght@500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <div class="signal-progress" aria-hidden="true"></div>
     <div class="app-frame">
       <header class="mobile-chrome" id="mobile-chrome">
         <button
@@ -241,11 +242,14 @@
 
         <section class="empty-workspace" id="landing">
           <div class="landing-hero">
-            <div class="landing-copy">
+            <div class="landing-copy signal-hero">
               <span class="brand-lockup brand-lockup--landing">
                 <img class="brand-wordmark brand-wordmark--light" src="./brand/wordmark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
                 <img class="brand-wordmark brand-wordmark--dark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" aria-hidden="true" />
               </span>
+              <p class="signal-kicker">Sleeper dynasty league</p>
+              <p class="signal-display">Price the player. Check the deal. See the week.</p>
+              <p class="signal-lede">One search opens your league. Three doors after that. Nothing else in the way.</p>
               <form id="landing-username-form" class="landing-search" novalidate>
                 <label for="landing-username">Sleeper username</label>
                 <div class="landing-search-row">
@@ -274,6 +278,48 @@
               </p>
             </div>
           </div>
+          <section class="signal-doors" aria-label="What this desk does">
+            <p class="signal-kicker">Pick a door</p>
+            <h2 class="signal-title">What do you want to know?</h2>
+            <div class="signal-door-grid">
+              <button type="button" class="signal-door" data-action="go" data-page="players" data-room="ranks">
+                <span>01</span>
+                <strong>What is he worth?</strong>
+                <small>A price, before the argument starts.</small>
+              </button>
+              <button type="button" class="signal-door" data-action="go" data-page="trades" data-room="calculator">
+                <span>02</span>
+                <strong>Check the offer</strong>
+                <small>Check an offer or find a deal.</small>
+              </button>
+              <button type="button" class="signal-door" data-action="go" data-page="league" data-room="team">
+                <span>03</span>
+                <strong>Your next move</strong>
+                <small>Your team, this week, the league.</small>
+              </button>
+            </div>
+          </section>
+          <section class="signal-path" aria-label="How you start">
+            <p class="signal-kicker">How you move</p>
+            <h2 class="signal-title">Three steps. Then the league is open.</h2>
+            <ol class="signal-steps">
+              <li>
+                <span>1</span>
+                <strong>Name the manager</strong>
+                <p>Sleeper username. The leagues on that account show up.</p>
+              </li>
+              <li>
+                <span>2</span>
+                <strong>Pick the league</strong>
+                <p>One tap. Roster, partners, and this week connect.</p>
+              </li>
+              <li>
+                <span>3</span>
+                <strong>Use a door</strong>
+                <p>Price, trade, or the week. Every other room is one more tap.</p>
+              </li>
+            </ol>
+          </section>
         </section>
 
         <section id="public-ranks" class="public-ranks hidden" hidden>
