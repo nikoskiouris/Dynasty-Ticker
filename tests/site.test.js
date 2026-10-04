@@ -372,7 +372,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(readDocs("site.webmanifest"), /"theme_color": "#f3efe6"/);
   assert.match(readDocs("styles.css"), /Sunday wire/);
   assert.match(readDocs("styles.css"), /Phone landing: search first/);
-  assert.match(readDocs("styles.css"), /Phone desk nav: page tabs stick under the header/);
+  assert.match(readDocs("styles.css"), /Phone desk nav: page tabs sit in a fixed ink dock/);
 
   assert.ok(statSync(join(docs, "og-image.jpg")).size < 120_000);
   assert.match(OG_IMAGE_URL, /og-image\.jpg$/);
@@ -456,12 +456,12 @@ test("phone scrolling stays put while the URL bar moves", () => {
   assert.doesNotMatch(readDocs("app.js"), /scrollIntoView\(\{ inline: "center"/);
 });
 
-test("phone desk nav keeps pages on top and rooms with the page", () => {
+test("phone desk nav keeps pages in a fixed dock and rooms with the page", () => {
   const css = readDocs("styles.css");
-  assert.match(css, /Phone desk nav: page tabs stick under the header/);
+  assert.match(css, /Phone desk nav: page tabs sit in a fixed ink dock/);
   assert.match(css, /Room controls stay with the page/);
   assert.doesNotMatch(css, /page tabs pin to the bottom edge/);
-  assert.match(css, /\.workspace-tabs \{[^}]*position:\s*sticky/s);
+  assert.match(css, /\.workspace-tabs \{[^}]*position:\s*fixed/s);
   assert.match(css, /\.workspace-tabs \{[^}]*order:\s*-1/s);
   assert.match(css, /\.room-nav \{[^}]*position:\s*sticky/s);
   assert.doesNotMatch(css, /\.room-nav \{[^}]*position:\s*fixed/s);

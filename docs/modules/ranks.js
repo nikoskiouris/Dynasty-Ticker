@@ -262,7 +262,24 @@ export function renderRanksBody(view) {
   const list = rows.length
     ? `<div class="ranks-list">${rows.map((row) => renderRankRow(row, row.assetId === view?.card?.assetId)).join("")}</div>`
     : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
-  return `${card}${list}`;
+  return `${renderRanksShelf(rows)}${card}${list}`;
+}
+
+function renderRanksShelf(rows) {
+  const faces = (Array.isArray(rows) ? rows : [])
+    .filter((row) => row?.kind === "player" && row.playerId)
+    .slice(0, 8);
+  if (faces.length < 4) return "";
+  return `
+    <div class="ranks-shelf" aria-label="Top names">
+      ${faces.map((row) => `
+        <button type="button" class="ranks-shelf-item" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}" aria-label="${escapeHtml(row.name)}">
+          ${renderPlayerFace(row.playerId, row.name, { size: "md" })}
+          <strong>${escapeHtml(formatNumber(row.value))}</strong>
+        </button>
+      `).join("")}
+    </div>
+  `;
 }
 
 function renderRankChip(action, key, value, label, activeValue) {

@@ -6103,7 +6103,11 @@ button.weekly-help-close:hover {
   }
 
   .workspace {
-    padding: 0.75rem max(0.75rem, env(safe-area-inset-right)) calc(1.1rem + env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+    padding: 0.75rem max(0.75rem, env(safe-area-inset-right)) calc(4.8rem + env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+  }
+
+  body.dock-visible .workspace-tabs {
+    bottom: calc(4.4rem + env(safe-area-inset-bottom));
   }
 
   .league-loaded .workspace {
@@ -6132,10 +6136,11 @@ button.weekly-help-close:hover {
     font-size: 0.78rem;
   }
 
-  /* Phone desk nav: page tabs stick under the header.
-     Room controls stay with the page, not in a bottom strip.
+  /* Phone desk nav: page tabs sit in a fixed ink dock.
+     Room controls stay with the page.
      display: contents drops the sticky box so the room bar is not trapped.
-     iPad stays on the inline stacked desk-nav (this query is 700px max). */
+     iPad stays on the inline stacked desk-nav (this query is 700px max).
+     The dock does not scroll, so the URL bar cannot yank it. */
   .desk-nav {
     display: contents;
   }
@@ -6145,20 +6150,22 @@ button.weekly-help-close:hover {
   }
 
   .workspace-tabs {
-    position: sticky;
-    top: calc(3.75rem + env(safe-area-inset-top));
-    z-index: 12;
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
     order: -1;
     display: flex;
-    gap: 0.2rem;
-    /* A sticky bar that is also a scrollport jumps on phones. Tabs fit, so this one does not scroll. */
+    gap: 0;
     overflow: visible;
-    margin: -0.75rem calc(-1 * max(0.75rem, env(safe-area-inset-right))) 0 calc(-1 * max(0.75rem, env(safe-area-inset-left)));
-    padding: 0.1rem max(0.35rem, env(safe-area-inset-right)) 0 max(0.35rem, env(safe-area-inset-left));
+    margin: 0;
+    padding: 0.2rem 0.35rem max(0.2rem, env(safe-area-inset-bottom));
     border: 0;
-    border-bottom: 1px solid var(--line);
+    border-top: 2px solid var(--field);
     border-radius: 0;
-    background: var(--bg);
+    background: #14120e;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     box-shadow: none;
@@ -6170,7 +6177,7 @@ button.weekly-help-close:hover {
 
   .room-nav {
     position: sticky;
-    top: calc(6.8rem + env(safe-area-inset-top));
+    top: calc(3.75rem + env(safe-area-inset-top));
     right: auto;
     bottom: auto;
     left: auto;
@@ -6205,12 +6212,22 @@ button.weekly-help-close:hover {
     gap: 0.12rem;
     min-width: 0;
     min-height: 2.85rem;
-    padding: 0.28rem 0.15rem;
+    padding: 0.35rem 0.15rem 0.45rem;
+    border: 0;
     border-radius: 0;
+    background: transparent;
+    color: #b7ad9e;
+  }
+
+  .page-tab:hover {
+    background: transparent;
+    color: #f3efe6;
   }
 
   .page-tab.active {
-    box-shadow: inset 0 -2px 0 var(--blue);
+    background: transparent;
+    color: #f3efe6;
+    box-shadow: inset 0 -3px 0 var(--field);
   }
 
   .tab-copy {
@@ -8007,6 +8024,53 @@ button.ranks-chip.active:hover {
   color: var(--text);
 }
 
+.ranks-shelf {
+  display: flex;
+  gap: 0.85rem;
+  margin: 0 0 1rem;
+  padding-bottom: 0.15rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ranks-shelf::-webkit-scrollbar {
+  display: none;
+}
+
+button.ranks-shelf-item {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: center;
+  align-content: start;
+  gap: 0.35rem;
+  width: 5.1rem;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+}
+
+button.ranks-shelf-item:hover {
+  transform: none;
+  filter: none;
+  background: transparent;
+  color: var(--text);
+}
+
+button.ranks-shelf-item .player-face {
+  width: 4.6rem;
+  height: 4.6rem;
+}
+
+button.ranks-shelf-item strong {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .ranks-list,
 .ranks-neighbors {
   display: grid;
@@ -8105,8 +8169,8 @@ button.ranks-row.you {
 
 .ranks-headshot {
   position: relative;
-  width: 3.4rem;
-  height: 3.4rem;
+  width: 5.2rem;
+  height: 5.2rem;
   overflow: hidden;
   border: 2px solid var(--line-strong);
   border-radius: 50%;
@@ -8148,9 +8212,11 @@ button.ranks-row.you {
 .ranks-card-price strong {
   display: block;
   font-family: var(--font-display);
-  font-size: 1.7rem;
+  font-size: clamp(2.8rem, 8vw, 4.6rem);
+  font-weight: 800;
+  letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
-  line-height: 1;
+  line-height: 0.84;
 }
 
 .ranks-card-price span,
@@ -8278,7 +8344,6 @@ body:not(.league-loaded):has(#league-page:not(.hidden)) #sticky-mobile-cta {
 .award-value,
 .record-value,
 .asset-value-badge,
-.ranks-card-price strong,
 .ranks-facts dd,
 .state-grid dd {
   font-family: var(--font-mono);
