@@ -1,0 +1,1312 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Claim slip — Dynasty Ticker</title>
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#c4bba6" />
+    <style>
+      @font-face {
+        font-family: Shoulders;
+        src: url("fonts/fC1_PZJEZG-e9gHhdI4-NBbfd2ys3SjJCx1czNDu.woff2") format("woff2");
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: Literata;
+        src: url("fonts/or3PQ6P12-iJxAIgLa78DkTtAoDhk0oVpaK3YLanFLHpPf2TbLi4J_HWTA.woff2") format("woff2");
+        font-weight: 400 700;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: Literata;
+        src: url("fonts/or3NQ6P12-iJxAIgLYT1PLs1a-t7PU0AbeE9KPxYzNiCp1OUedn8VrLmTkiS.woff2") format("woff2");
+        font-weight: 400 700;
+        font-style: italic;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Ticket Mono";
+        src: url("fonts/J7aHnp1uDWRBEqV98dVQztYldFcLowEF.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+      }
+
+      :root {
+        --paper: #efe6cf;
+        --ink: #241810;
+        --maroon: #7a1f2b;
+        --cream: #f4ecd9;
+        --live: #f6d56a;
+        --agate: #5e5348;
+        --counter: #c4bba6;
+        --rule: rgba(36, 24, 16, 0.22);
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body { margin: 0; }
+
+      body {
+        min-height: 100vh;
+        background: var(--counter);
+        color: var(--ink);
+        font-family: Literata, "Iowan Old Style", Palatino, "Palatino Linotype", serif;
+        font-size: 16px;
+        line-height: 1.4;
+      }
+
+      ::selection { background: var(--maroon); color: var(--cream); }
+
+      :focus { outline: none; }
+      :focus-visible {
+        outline: 2px solid var(--maroon);
+        outline-offset: 2px;
+      }
+
+      button, input { font: inherit; color: inherit; }
+
+      .desk {
+        display: grid;
+        grid-template-columns: minmax(200px, 260px) auto minmax(200px, 280px);
+        gap: 40px;
+        align-items: start;
+        justify-content: center;
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 36px 28px 64px;
+      }
+
+      .kicker, .kill, .phone-label, .why-label {
+        margin: 0;
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .kicker { color: var(--maroon); }
+
+      .notes h1, .killed h2 {
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        line-height: 0.88;
+        margin: 8px 0 12px;
+      }
+
+      .notes h1 { font-size: 52px; max-width: 8ch; }
+
+      .notes p, .killed p { margin: 0 0 12px; font-size: 15.5px; }
+
+      .notes ol, .cut {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .notes ol li, .cut li {
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 12px;
+        letter-spacing: 0.03em;
+        padding: 4px 0;
+        border-top: 1px solid var(--rule);
+      }
+
+      .notes h2 {
+        margin: 22px 0 6px;
+        font-family: Literata, serif;
+        font-size: 15px;
+        font-style: italic;
+        font-weight: 650;
+      }
+
+      .phone-col { text-align: center; zoom: 0.78; }
+
+      .phone-label {
+        margin: 0 0 10px;
+        color: var(--agate);
+        text-align: left;
+      }
+
+      .phone-slot { margin: 0 auto; }
+
+      .phone {
+        width: 390px;
+        height: 844px;
+        background: var(--paper);
+        color: var(--ink);
+        border: 10px solid #16110e;
+        border-radius: 36px;
+        overflow: hidden;
+        text-align: left;
+      }
+
+      .screen { display: none; height: 100%; background: var(--paper); }
+      .screen.is-on { display: flex; flex-direction: column; min-height: 0; }
+
+      .band {
+        background: var(--maroon);
+        color: var(--cream);
+        padding: 16px 16px 14px;
+      }
+
+      .band .win-kicker {
+        margin: 0 0 6px;
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .band h1 {
+        margin: 0;
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 800;
+        font-size: 48px;
+        line-height: 0.8;
+        letter-spacing: 0.015em;
+        text-transform: uppercase;
+      }
+
+      .band .deck {
+        margin: 8px 0 0;
+        font-style: italic;
+        font-size: 14px;
+      }
+
+      .band-tight { padding: 12px 16px 10px; }
+      .band-tight h1 { font-size: 36px; }
+
+      .holes {
+        height: 16px;
+        background-color: var(--paper);
+        background-image: radial-gradient(circle at 8px 8px, #16110e 3px, transparent 3.4px);
+        background-size: 16px 16px;
+        background-repeat: repeat-x;
+      }
+
+      .tape {
+        background: var(--ink);
+        color: var(--cream);
+        overflow: hidden;
+        height: 26px;
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .tape-track {
+        display: flex;
+        width: max-content;
+        animation: crawl 32s linear infinite;
+      }
+
+      .tape-track span { white-space: nowrap; padding-right: 1.5ch; line-height: 26px; }
+
+      @keyframes crawl {
+        from { transform: translateX(0); }
+        to { transform: translateX(-50%); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .tape-track { animation: none; }
+      }
+
+      body.still .tape-track { animation: none; }
+
+      .sheet {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        padding: 14px 16px 16px;
+      }
+
+      .ask {
+        margin: 0 0 4px;
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 800;
+        font-size: 28px;
+        line-height: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+      }
+
+      .jobs { list-style: none; margin: 0; padding: 0; }
+
+      .jobs button {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        gap: 6px;
+        text-align: left;
+        background: transparent;
+        border: 0;
+        border-bottom: 1px solid var(--rule);
+        border-radius: 0;
+        padding: 7px 0 7px 2px;
+        cursor: pointer;
+      }
+
+      .jobs button[aria-pressed="true"] { box-shadow: inset 3px 0 0 var(--maroon); padding-left: 8px; }
+
+      .jobs .num {
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--maroon);
+        padding-top: 5px;
+      }
+
+      .jobs strong {
+        display: block;
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 700;
+        font-size: 22px;
+        line-height: 0.95;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .jobs em {
+        display: block;
+        margin-top: 1px;
+        font-size: 13px;
+        color: var(--agate);
+      }
+
+      .jobs button:hover strong, .jobs button[aria-pressed="true"] strong { color: var(--maroon); }
+
+      .name-line { margin-top: 14px; }
+
+      .name-line label {
+        display: block;
+        margin-bottom: 2px;
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .name-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
+
+      .name-line input {
+        width: 100%;
+        border: 0;
+        border-bottom: 1.5px solid var(--ink);
+        border-radius: 0;
+        background: transparent;
+        padding: 6px 0;
+        font-family: Literata, serif;
+        font-size: 18px;
+      }
+
+      .name-line input:focus-visible {
+        outline: none;
+        border-bottom-color: var(--maroon);
+      }
+
+      .name-line input::placeholder { color: #8d7f6e; font-style: italic; }
+
+      #find-btn {
+        background: var(--maroon);
+        color: var(--cream);
+        border: 0;
+        border-radius: 0;
+        padding: 8px 14px 6px;
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 700;
+        font-size: 20px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+
+      #find-btn:hover { background: #641824; }
+
+      .err {
+        margin: 6px 0 0;
+        color: var(--maroon);
+        font-style: italic;
+        font-size: 14px;
+      }
+
+      .leagues { list-style: none; margin: 10px 0 0; padding: 0; }
+
+      .leagues button {
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: 0;
+        border-top: 1px solid var(--rule);
+        border-radius: 0;
+        padding: 8px 0;
+        cursor: pointer;
+      }
+
+      .leagues strong {
+        display: block;
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 700;
+        font-size: 22px;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        line-height: 1;
+      }
+
+      .leagues small { font-style: italic; color: var(--agate); font-size: 13px; }
+      .leagues button:hover strong { color: var(--maroon); }
+
+      .poll { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--ink); }
+
+      .poll .win-kicker {
+        margin: 0;
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .poll h2 {
+        margin: 2px 0 8px;
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 800;
+        font-size: 26px;
+        line-height: 0.88;
+        text-transform: uppercase;
+      }
+
+      .side {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      .who {
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        line-height: 0.9;
+      }
+
+      .side[data-lead="true"] .who { font-size: 28px; }
+      .side[data-lead="false"] .who { font-size: 18px; color: var(--agate); }
+
+      .pct {
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 12px;
+      }
+
+      .bar {
+        height: 8px;
+        margin: 6px 0;
+        background: var(--ink);
+        display: flex;
+      }
+
+      .bar i {
+        display: block;
+        height: 100%;
+        background: var(--maroon);
+        width: 62%;
+      }
+
+      .mark {
+        min-height: 1.2em;
+        margin: 4px 0 0;
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--maroon);
+      }
+
+      .index {
+        display: flex;
+        gap: 14px;
+        align-items: baseline;
+        padding: 8px 16px 0;
+      }
+
+      .index button {
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        padding: 0 0 4px;
+        cursor: pointer;
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 700;
+        font-size: 16px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--agate);
+      }
+
+      .index button[aria-current="page"] {
+        color: var(--ink);
+        box-shadow: inset 0 -2px 0 var(--maroon);
+      }
+
+      .index .index-new {
+        margin-left: auto;
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.12em;
+      }
+
+      .game { padding: 8px 0 6px; border-bottom: 1px solid var(--rule); }
+      .game.yours { box-shadow: inset 3px 0 0 var(--maroon); padding-left: 8px; }
+
+      .game-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: baseline;
+        gap: 10px;
+      }
+
+      .club b {
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 700;
+        font-size: 24px;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        line-height: 1;
+      }
+
+      .you-mark {
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-style: normal;
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--maroon);
+        margin-right: 4px;
+      }
+
+      .score {
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 800;
+        font-size: 28px;
+        line-height: 0.9;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .score.live {
+        background: var(--maroon);
+        color: var(--live);
+        padding: 1px 5px 0;
+      }
+
+      .game-meta {
+        margin: 2px 0 0;
+        font-style: italic;
+        font-size: 13px;
+        color: var(--agate);
+      }
+
+      .final {
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-style: normal;
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-right: 6px;
+        color: var(--ink);
+      }
+
+      .stripe { height: 8px; background: var(--maroon); flex: none; }
+
+      .roster-name, .book-title, .slip-head h1 {
+        margin: 4px 0 0;
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 800;
+        font-size: 42px;
+        line-height: 0.84;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+      }
+
+      .col-head, .party-label, .bench-label, .serial {
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .col-head {
+        display: flex;
+        justify-content: space-between;
+        margin: 12px 0 2px;
+      }
+
+      .line {
+        display: grid;
+        grid-template-columns: 36px 1fr auto;
+        gap: 8px;
+        align-items: baseline;
+        padding: 3px 0;
+        border-bottom: 1px solid var(--rule);
+      }
+
+      .pos { font-family: "Ticket Mono", ui-monospace, monospace; font-size: 11px; color: var(--maroon); }
+      .line b {
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 700;
+        font-size: 20px;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+      .line span:last-child {
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .bench-label { margin: 16px 0 4px; }
+      .bench, .rival { margin: 0; font-style: italic; font-size: 15px; }
+
+      .screen[data-screen="slip"].is-on { flex-direction: row; }
+
+      .stub {
+        width: 22px;
+        flex: none;
+        background-color: var(--maroon);
+        background-image: radial-gradient(circle at 11px 10px, var(--paper) 3.5px, transparent 3.8px);
+        background-size: 22px 20px;
+      }
+
+      .slip-main {
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 8px 14px 14px 12px;
+        overflow: auto;
+      }
+
+      .slip-main .index { padding: 4px 0 0; }
+
+      .slip-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .slip-head h1 { font-size: 36px; margin: 0; }
+
+      .asset {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin: 3px 0;
+      }
+
+      .asset span {
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 700;
+        font-size: 22px;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        line-height: 1;
+      }
+
+      .asset i {
+        flex: 1;
+        border-bottom: 1px dotted rgba(36, 24, 16, 0.55);
+        transform: translateY(-4px);
+      }
+
+      .asset b {
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-weight: 400;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .total {
+        display: flex;
+        justify-content: space-between;
+        border-top: 1px solid var(--ink);
+        margin-top: 6px;
+        padding-top: 4px;
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 12px;
+      }
+
+      #sweetener {
+        align-self: flex-start;
+        margin-top: 16px;
+        background: transparent;
+        border: 0;
+        border-bottom: 1px solid var(--ink);
+        border-radius: 0;
+        padding: 0 0 1px;
+        font-family: Literata, serif;
+        font-style: italic;
+        font-size: 15px;
+        cursor: pointer;
+      }
+
+      .stamp-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 28px;
+      }
+
+      .verdict-word {
+        display: block;
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 800;
+        font-size: 32px;
+        line-height: 0.85;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .verdict-num {
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 13px;
+      }
+
+      .stamp {
+        position: relative;
+        width: 84px;
+        height: 84px;
+        border: 2px solid var(--maroon);
+        border-radius: 50%;
+        color: var(--maroon);
+        display: grid;
+        place-items: center;
+        transform: rotate(-12deg);
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 800;
+        font-size: 20px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .stamp::after {
+        content: "";
+        position: absolute;
+        inset: 4px;
+        border: 1px solid var(--maroon);
+        border-radius: 50%;
+      }
+
+      .titles { list-style: none; margin: 14px 0 0; padding: 0; }
+
+      .titles li {
+        display: grid;
+        grid-template-columns: 64px 1fr;
+        align-items: baseline;
+        gap: 8px;
+        border-top: 1px solid var(--rule);
+        padding: 7px 0 4px;
+      }
+
+      .titles span {
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 12px;
+      }
+
+      .titles strong {
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 800;
+        font-size: 32px;
+        line-height: 0.9;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .titles .champ { color: var(--maroon); }
+
+      .sample {
+        margin: auto 0 0;
+        padding-top: 14px;
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #6d6256;
+      }
+
+      .killed h2 { font-size: 28px; margin-bottom: 16px; }
+
+      .study { margin: 0 0 26px; }
+
+      .study h3 {
+        margin: 2px 0 8px;
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 700;
+        font-size: 22px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .kill { color: var(--maroon); }
+
+      .chalk-board {
+        background: #1e4634;
+        color: #e7e1d0;
+        min-height: 132px;
+        padding: 12px 12px 14px;
+      }
+
+      .yards {
+        margin: 0;
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        opacity: 0.75;
+      }
+
+      .chalk-score {
+        margin: 10px 0 0;
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 800;
+        font-size: 34px;
+        line-height: 0.9;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .chalk-score.dim { opacity: 0.55; font-size: 26px; margin-top: 4px; }
+
+      .program-sheet {
+        background: #f6f1e6;
+        color: #1c2744;
+        padding: 12px 12px 16px;
+        border-top: 8px solid #1c2744;
+      }
+
+      .program-sheet p { margin: 0; font-style: italic; font-size: 13px; }
+
+      .program-sheet h4 {
+        margin: 4px 0 8px;
+        font-family: Literata, serif;
+        font-weight: 650;
+        font-style: italic;
+        font-size: 32px;
+        line-height: 0.92;
+      }
+
+      .program-sheet hr {
+        border: 0;
+        border-top: 1px solid #1c2744;
+        margin: 0 0 8px;
+      }
+
+      .why { margin: 8px 0 0; font-size: 14px; color: var(--ink); }
+
+      body.shot {
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+      }
+
+      .meta-kicker {
+        margin: 0;
+        font-family: "Ticket Mono", ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .index.in-sheet { padding-left: 0; padding-right: 0; }
+
+      .marks { list-style: none; margin: 0; padding: 0; }
+
+      .marks li {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        border-top: 1px solid var(--rule);
+        padding: 6px 0;
+        font-size: 14px;
+      }
+
+      .marks span { font-style: italic; color: var(--agate); }
+      .marks b {
+        font-family: Shoulders, "Arial Narrow", Impact, sans-serif;
+        font-weight: 700;
+        font-size: 18px;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      body.shot .desk { display: block; max-width: none; padding: 18px; }
+      body.shot .notes, body.shot .killed { display: none; }
+      body.shot .phone-col { zoom: 1; }
+
+      @media (max-width: 980px) {
+        .desk { grid-template-columns: 1fr; justify-items: center; }
+        .notes, .killed { width: min(420px, 100%); }
+        .notes h1 { max-width: none; }
+        .phone-col { zoom: 1; }
+      }
+
+      @media (max-width: 430px) {
+        .phone-col { zoom: 0.88; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="desk">
+      <aside class="notes">
+        <p class="kicker">Stop slop</p>
+        <h1>Claim slip</h1>
+        <p>Dynasty is a futures window. A score and a trade are paper you hold, so the screen is a pari-mutuel claim slip.</p>
+        <ol>
+          <li>01 Concept, before palette</li>
+          <li>02 Three objects, then one</li>
+          <li>03 Phone size, then a scan</li>
+        </ol>
+        <h2>Cut in the scan</h2>
+        <ul class="cut">
+          <li>Glow and soft shadow</li>
+          <li>One sans for every word</li>
+          <li>Rounded job cards</li>
+          <li>A live pill in teal</li>
+          <li>Yellow anywhere but a live number</li>
+        </ul>
+      </aside>
+
+      <div class="phone-col">
+        <p class="phone-label" id="phone-label">Kept · window · 390 × 844</p>
+        <div class="phone-slot">
+          <div class="phone" id="phone">
+            <section class="screen is-on" data-screen="gate" aria-label="Claim window">
+              <header class="band">
+                <p class="win-kicker">Window 04 · Sunday</p>
+                <h1>Dynasty Ticker</h1>
+                <p class="deck">Futures window for one Sleeper league.</p>
+              </header>
+              <div class="holes" aria-hidden="true"></div>
+              <div class="tape" aria-hidden="true"><div class="tape-track"><span></span><span></span></div></div>
+              <div class="sheet">
+                <p class="ask">What’s the job?</p>
+                <ol class="jobs">
+                  <li>
+                    <button type="button" data-job="week" aria-pressed="true">
+                      <span class="num">01</span>
+                      <span><strong>This week</strong><em>Scores on the slip</em></span>
+                    </button>
+                  </li>
+                  <li>
+                    <button type="button" data-job="roster" aria-pressed="false">
+                      <span class="num">02</span>
+                      <span><strong>One roster</strong><em>Starters, bench, picks</em></span>
+                    </button>
+                  </li>
+                  <li>
+                    <button type="button" data-job="deal" aria-pressed="false">
+                      <span class="num">03</span>
+                      <span><strong>A deal</strong><em>The claim slip</em></span>
+                    </button>
+                  </li>
+                  <li>
+                    <button type="button" data-job="book" aria-pressed="false">
+                      <span class="num">04</span>
+                      <span><strong>The book</strong><em>Titles and the rivalry</em></span>
+                    </button>
+                  </li>
+                </ol>
+                <form id="name-form" class="name-line">
+                  <label for="sleeper-name">Sleeper name</label>
+                  <div class="name-row">
+                    <input id="sleeper-name" name="sleeper-name" autocomplete="off" autocapitalize="none" placeholder="your sleeper name" enterkeyhint="search" />
+                    <button id="find-btn" type="submit">Find</button>
+                  </div>
+                  <p id="name-error" class="err" hidden></p>
+                </form>
+                <ul id="league-list" class="leagues" hidden></ul>
+                <section class="poll" aria-label="Who would you rather">
+                  <p class="win-kicker">Straw poll · PPR · 12 · Superflex</p>
+                  <h2>Who would you rather</h2>
+                  <button type="button" class="side" data-side="chase" data-lead="true">
+                    <span class="who">Ja’Marr Chase</span>
+                    <span class="pct" data-pct="chase">62</span>
+                  </button>
+                  <div class="bar" aria-hidden="true"><i id="rather-bar"></i></div>
+                  <button type="button" class="side" data-side="hall" data-lead="false">
+                    <span class="who">Breece Hall</span>
+                    <span class="pct" data-pct="hall">38</span>
+                  </button>
+                  <p class="mark" id="rather-mark"></p>
+                </section>
+                <p class="sample">Sample slip. Not a live Sleeper pull.</p>
+              </div>
+            </section>
+
+            <section class="screen" data-screen="board" aria-label="Week board">
+              <header class="band band-tight">
+                <p class="win-kicker">Week 6 · three games live</p>
+                <h1 data-league-name>Iron Throne</h1>
+                <p class="deck">You · <span data-you>Niko</span></p>
+              </header>
+              <div class="tape" aria-hidden="true"><div class="tape-track"><span></span><span></span></div></div>
+              <nav class="index" aria-label="Slip index">
+                <button type="button" data-go="board">Week</button>
+                <button type="button" data-go="roster">Roster</button>
+                <button type="button" data-go="slip">Deal</button>
+                <button type="button" data-go="book">Book</button>
+                <button type="button" class="index-new" data-go="gate">Window</button>
+              </nav>
+              <div class="sheet">
+                <article class="game yours">
+                  <div class="game-row">
+                    <span class="club"><i class="you-mark">You</i><b data-you>Niko</b></span>
+                    <span class="score live">112.4</span>
+                  </div>
+                  <div class="game-row">
+                    <span class="club"><b>Demetri</b></span>
+                    <span class="score live">98.1</span>
+                  </div>
+                  <p class="game-meta">Lead 14.3 · about 71%</p>
+                </article>
+                <article class="game">
+                  <div class="game-row">
+                    <span class="club"><b>Chris</b></span>
+                    <span class="score">87.0</span>
+                  </div>
+                  <div class="game-row">
+                    <span class="club"><b>Alex</b></span>
+                    <span class="score">104.6</span>
+                  </div>
+                  <p class="game-meta"><span class="final">Final</span>Alex by 17.6</p>
+                </article>
+                <article class="game">
+                  <div class="game-row">
+                    <span class="club"><b>Priya</b></span>
+                    <span class="score live">121.8</span>
+                  </div>
+                  <div class="game-row">
+                    <span class="club"><b>Jules</b></span>
+                    <span class="score live">76.4</span>
+                  </div>
+                  <p class="game-meta">Priya by 45.4</p>
+                </article>
+                <article class="game">
+                  <div class="game-row">
+                    <span class="club"><b>Morgan</b></span>
+                    <span class="score live">88.4</span>
+                  </div>
+                  <div class="game-row">
+                    <span class="club"><b>Quinn</b></span>
+                    <span class="score live">90.1</span>
+                  </div>
+                  <p class="game-meta">Quinn by 1.7</p>
+                </article>
+                <article class="game">
+                  <div class="game-row">
+                    <span class="club"><b>Sam</b></span>
+                    <span class="score">91.2</span>
+                  </div>
+                  <div class="game-row">
+                    <span class="club"><b>Riley</b></span>
+                    <span class="score">110.4</span>
+                  </div>
+                  <p class="game-meta"><span class="final">Final</span>Riley by 19.2</p>
+                </article>
+                <article class="game">
+                  <div class="game-row">
+                    <span class="club"><b>Casey</b></span>
+                    <span class="score">102.0</span>
+                  </div>
+                  <div class="game-row">
+                    <span class="club"><b>Drew</b></span>
+                    <span class="score">99.4</span>
+                  </div>
+                  <p class="game-meta"><span class="final">Final</span>Casey by 2.6</p>
+                </article>
+                <p class="sample">Sample slip. Not a live Sleeper pull.</p>
+              </div>
+            </section>
+
+            <section class="screen" data-screen="roster" aria-label="Roster slip">
+              <div class="stripe" aria-hidden="true"></div>
+              <nav class="index" aria-label="Slip index">
+                <button type="button" data-go="board">Week</button>
+                <button type="button" data-go="roster">Roster</button>
+                <button type="button" data-go="slip">Deal</button>
+                <button type="button" data-go="book">Book</button>
+                <button type="button" class="index-new" data-go="gate">Window</button>
+              </nav>
+              <div class="sheet">
+                <p class="meta-kicker">Starters by value</p>
+                <h1 class="roster-name" data-you>Niko</h1>
+                <p class="col-head"><span>Lineup</span><span>Value</span></p>
+                <div class="line"><span class="pos">QB</span><b>Jalen Hurts</b><span>8,120</span></div>
+                <div class="line"><span class="pos">RB</span><b>Jahmyr Gibbs</b><span>8,420</span></div>
+                <div class="line"><span class="pos">RB</span><b>Bucky Irving</b><span>3,900</span></div>
+                <div class="line"><span class="pos">WR</span><b>Ja’Marr Chase</b><span>9,100</span></div>
+                <div class="line"><span class="pos">WR</span><b>Drake London</b><span>5,400</span></div>
+                <div class="line"><span class="pos">WR</span><b>George Pickens</b><span>4,800</span></div>
+                <div class="line"><span class="pos">TE</span><b>Trey McBride</b><span>6,200</span></div>
+                <div class="line"><span class="pos">FLX</span><b>Jaylen Waddle</b><span>4,100</span></div>
+                <div class="line"><span class="pos">SF</span><b>Bo Nix</b><span>3,600</span></div>
+                <h2 class="bench-label">Bench</h2>
+                <p class="bench">Tyler Allgeier · Trey Benson · Elijah Arroyo<br />2027 2nd · 2026 3rd</p>
+                <p class="sample">Sample slip. Not a live Sleeper pull.</p>
+              </div>
+            </section>
+
+            <section class="screen" data-screen="slip" aria-label="Deal slip">
+              <div class="stub" aria-hidden="true"></div>
+              <div class="slip-main">
+                <nav class="index" aria-label="Slip index">
+                  <button type="button" data-go="board">Week</button>
+                  <button type="button" data-go="roster">Roster</button>
+                  <button type="button" data-go="slip">Deal</button>
+                  <button type="button" data-go="book">Book</button>
+                  <button type="button" class="index-new" data-go="gate">Window</button>
+                </nav>
+                <div class="slip-head">
+                  <h1>Claim slip</h1>
+                  <span class="serial">No. 00481</span>
+                </div>
+                <p class="party-label"><span data-you>Niko</span> gives</p>
+                <div id="give-list"></div>
+                <p class="party-label">Demetri gives</p>
+                <div id="get-list"></div>
+                <button type="button" id="sweetener">Add your 2027 1st</button>
+                <div class="stamp-row">
+                  <p class="verdict">
+                    <span class="verdict-word" id="verdict-word">Short</span>
+                    <span class="verdict-num" id="verdict-num">1,380</span>
+                  </p>
+                  <div class="stamp" id="stamp">Short</div>
+                </div>
+                <p class="sample">Sample prices. Not a live Sleeper pull.</p>
+              </div>
+            </section>
+
+            <section class="screen" data-screen="book" aria-label="Title book">
+              <div class="sheet book-sheet">
+                <nav class="index in-sheet" aria-label="Slip index">
+                  <button type="button" data-go="board">Week</button>
+                  <button type="button" data-go="roster">Roster</button>
+                  <button type="button" data-go="slip">Deal</button>
+                  <button type="button" data-go="book">Book</button>
+                  <button type="button" class="index-new" data-go="gate">Window</button>
+                </nav>
+                <h1 class="book-title">The book</h1>
+                <ol class="titles">
+                  <li><span>2025</span><strong class="champ" data-you>Niko</strong></li>
+                  <li><span>2024</span><strong>Priya</strong></li>
+                  <li><span>2023</span><strong>Demetri</strong></li>
+                  <li><span>2022</span><strong>Alex</strong></li>
+                </ol>
+                <h2 class="bench-label">Rivalry</h2>
+                <p class="rival"><span data-you>Niko</span> and Demetri, 8–6. <span data-you>Niko</span> leads.</p>
+                <h2 class="bench-label">Marks</h2>
+                <ul class="marks">
+                  <li><span>Biggest week</span><b>Priya 198.4</b></li>
+                  <li><span>Longest run</span><b>Alex, 9</b></li>
+                  <li><span>Playoff misses</span><b>Jules, 3</b></li>
+                </ul>
+                <p class="sample">Sample slip. Not a live Sleeper pull.</p>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <aside class="killed">
+        <h2>Left behind</h2>
+        <article class="study">
+          <p class="kill">Killed</p>
+          <h3>Film room</h3>
+          <div class="chalk-board">
+            <p class="yards">10 20 30 40 50</p>
+            <p class="chalk-score">Niko 112</p>
+            <p class="chalk-score dim">Demetri 98</p>
+          </div>
+          <p class="why">Chalk swallows the numbers. It is a costume, and you cannot read it at a bar.</p>
+        </article>
+        <article class="study">
+          <p class="kill">Killed</p>
+          <h3>Game program</h3>
+          <div class="program-sheet">
+            <p>Official program</p>
+            <h4>Iron Throne</h4>
+            <hr />
+            <p>Week six · navy and cream</p>
+          </div>
+          <p class="why">Fine once. The next screen has no object left, so it falls back into cards.</p>
+        </article>
+      </aside>
+    </main>
+    <script>
+      const IDLE = "NO LEAGUE ON THE SLIP  ·  PICK THE JOB  ·  THEN THE NAME  ·  ";
+      const LIVE = "WK 6  ·  NIKO 112.4  ·  DEMETRI 98.1  ·  PRIYA 121.8  ·  JULES 76.4  ·  MORGAN 88.4  ·  QUINN 90.1  ·  ";
+      const LEAGUES = [
+        { id: "iron", name: "Iron Throne", meta: "12 teams · Superflex · 2026" },
+        { id: "base", name: "Basement Bowl", meta: "10 teams · 1QB · 2025" },
+      ];
+      const GIBBS = { name: "Jahmyr Gibbs", value: 8420 };
+      const FIRST = { name: "2027 1st", value: 4100 };
+      const LAMB = { name: "CeeDee Lamb", value: 9800 };
+      const JOB_SCREEN = { week: "board", roster: "roster", deal: "slip", book: "book" };
+      const SCREEN_LABEL = { gate: "window", board: "week", roster: "roster", slip: "deal", book: "book" };
+
+      const state = { screen: "gate", job: "week", name: "", league: null, sweet: false, chase: 62, voted: false };
+
+      function tapeText() {
+        return state.league ? LIVE : IDLE;
+      }
+
+      function paintTape() {
+        const text = tapeText();
+        for (const span of document.querySelectorAll(".tape-track span")) span.textContent = text;
+      }
+
+      function displayName(name) {
+        if (!name) return "Niko";
+        if (name === name.toLowerCase()) return name.charAt(0).toUpperCase() + name.slice(1);
+        return name;
+      }
+
+      function paintIdentity() {
+        const you = displayName(state.name);
+        for (const el of document.querySelectorAll("[data-you]")) el.textContent = you;
+        const league = state.league ? state.league.name : "Iron Throne";
+        for (const el of document.querySelectorAll("[data-league-name]")) el.textContent = league;
+      }
+
+      function money(n) {
+        return n.toLocaleString("en-US");
+      }
+
+      function assetRow(asset) {
+        return `<div class="asset"><span>${asset.name}</span><i></i><b>${money(asset.value)}</b></div>`;
+      }
+
+      function paintSlip() {
+        const gives = state.sweet ? [GIBBS, FIRST] : [GIBBS];
+        const giveTotal = gives.reduce((sum, asset) => sum + asset.value, 0);
+        const delta = giveTotal - LAMB.value;
+        document.getElementById("give-list").innerHTML = gives.map(assetRow).join("") + `<div class="total"><span>Total</span><span>${money(giveTotal)}</span></div>`;
+        document.getElementById("get-list").innerHTML = assetRow(LAMB) + `<div class="total"><span>Total</span><span>${money(LAMB.value)}</span></div>`;
+        const word = delta === 0 ? "Even" : delta > 0 ? "Rich" : "Short";
+        document.getElementById("verdict-word").textContent = word;
+        document.getElementById("verdict-num").textContent = money(Math.abs(delta));
+        document.getElementById("stamp").textContent = word;
+        document.getElementById("sweetener").textContent = state.sweet ? "Take the 2027 1st back" : "Add your 2027 1st";
+      }
+
+      function paintRather() {
+        const hall = 100 - state.chase;
+        document.querySelector('[data-pct="chase"]').textContent = String(state.chase);
+        document.querySelector('[data-pct="hall"]').textContent = String(hall);
+        document.getElementById("rather-bar").style.width = `${state.chase}%`;
+        document.querySelector('[data-side="chase"]').dataset.lead = state.chase >= hall ? "true" : "false";
+        document.querySelector('[data-side="hall"]').dataset.lead = hall > state.chase ? "true" : "false";
+        const mark = document.getElementById("rather-mark");
+        mark.textContent = state.voted ? `Your mark · ${state.chase >= hall ? "Chase" : "Hall"}` : "";
+      }
+
+      function show(name) {
+        state.screen = name;
+        for (const el of document.querySelectorAll(".screen")) {
+          el.classList.toggle("is-on", el.dataset.screen === name);
+        }
+        for (const btn of document.querySelectorAll("[data-go]")) {
+          if (btn.dataset.go === name) btn.setAttribute("aria-current", "page");
+          else btn.removeAttribute("aria-current");
+        }
+        document.getElementById("phone-label").textContent = `Kept · ${SCREEN_LABEL[name]} · 390 × 844`;
+      }
+
+      document.querySelectorAll("[data-job]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.job = btn.dataset.job;
+          for (const other of document.querySelectorAll("[data-job]")) {
+            other.setAttribute("aria-pressed", other === btn ? "true" : "false");
+          }
+        });
+      });
+
+      document.getElementById("name-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const input = document.getElementById("sleeper-name");
+        const err = document.getElementById("name-error");
+        const name = input.value.trim();
+        if (!name) {
+          err.hidden = false;
+          err.textContent = "Write the Sleeper name.";
+          input.focus();
+          return;
+        }
+        err.hidden = true;
+        state.name = name;
+        paintIdentity();
+        const list = document.getElementById("league-list");
+        list.hidden = false;
+        list.innerHTML = LEAGUES.map((league) => `<li><button type="button" data-league="${league.id}"><strong>${league.name}</strong><small>${league.meta}</small></button></li>`).join("");
+      });
+
+      document.getElementById("league-list").addEventListener("click", (event) => {
+        const btn = event.target.closest("[data-league]");
+        if (!btn) return;
+        state.league = LEAGUES.find((league) => league.id === btn.dataset.league) || LEAGUES[0];
+        paintIdentity();
+        paintTape();
+        show(JOB_SCREEN[state.job] || "board");
+      });
+
+      document.getElementById("phone").addEventListener("click", (event) => {
+        const btn = event.target.closest("[data-go]");
+        if (!btn) return;
+        show(btn.dataset.go);
+      });
+
+      document.getElementById("sweetener").addEventListener("click", () => {
+        state.sweet = !state.sweet;
+        paintSlip();
+      });
+
+      document.querySelectorAll("[data-side]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.voted = true;
+          state.chase = btn.dataset.side === "chase" ? Math.min(80, state.chase + 6) : Math.max(20, state.chase - 8);
+          paintRather();
+        });
+      });
+
+      const params = new URLSearchParams(location.search);
+      if (params.get("shot") === "phone") document.body.classList.add("shot");
+      if (params.get("still") === "1") document.body.classList.add("still");
+      const asked = params.get("screen");
+      if (asked && asked !== "gate" && SCREEN_LABEL[asked]) {
+        state.name = state.name || "Niko";
+        state.league = LEAGUES[0];
+      }
+      paintIdentity();
+      paintTape();
+      paintSlip();
+      paintRather();
+      show(SCREEN_LABEL[asked] ? asked : "gate");
+    </script>
+  </body>
+</html>
