@@ -68,7 +68,7 @@ test("redraft desk jobs drop mock and rename the call", () => {
 
 test("landing HTML leads with the username and skips the job quiz", () => {
   const index = readFileSync(join(docs, "index.html"), "utf8");
-  assert.match(index, />See a value\. Check a trade\. Then your team\.</);
+  assert.doesNotMatch(index, /See a value\. Check a trade\. Then your team\./);
   assert.doesNotMatch(index, />What do you want to do\?</);
   assert.doesNotMatch(index, /id="landing-jobs"/);
   assert.match(index, /id="landing-job-hint"/);

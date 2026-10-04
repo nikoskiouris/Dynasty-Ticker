@@ -5,14 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Dynasty Ticker — Your Sleeper dynasty league</title>
     <meta name="description" content="See what your players are worth, check a trade, and find your team's next move." />
-    <meta name="theme-color" content="#eef3f2" />
+    <meta name="theme-color" content="#f3efe6" />
     <script>
       try {
         var storedTheme = localStorage.getItem("dynasty_ticker_theme");
         if (storedTheme === "dark" || storedTheme === "light") {
           document.documentElement.setAttribute("data-theme", storedTheme);
           var themeColor = document.querySelector('meta[name="theme-color"]');
-          if (themeColor) themeColor.setAttribute("content", storedTheme === "dark" ? "#071018" : "#eef3f2");
+          if (themeColor) themeColor.setAttribute("content", storedTheme === "dark" ? "#14120e" : "#f3efe6");
+        }
+        if (localStorage.getItem("dynasty_ticker_board") === "shut") {
+          document.documentElement.classList.add("desk-shut");
         }
       } catch (err) {}
     </script>
@@ -35,7 +38,7 @@
     <link rel="manifest" href="./site.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -47,10 +50,10 @@
           class="mobile-icon-btn"
           aria-expanded="false"
           aria-controls="control-rail"
-          title="League controls"
+          title="Sections"
         >
           <span class="menu-bars" aria-hidden="true"></span>
-          <span class="sr-only">League controls</span>
+          <span class="sr-only">Sections</span>
         </button>
         <div class="mobile-chrome-copy">
           <span class="brand-lockup brand-lockup--header">
@@ -93,6 +96,16 @@
           <button type="button" id="mobile-rail-close" class="mobile-rail-close" aria-label="Close league controls">
             <span aria-hidden="true">×</span>
           </button>
+          <button type="button" id="desk-board-close" class="desk-board-close" aria-label="Close board" aria-controls="control-rail">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+
+        <nav id="phone-desk" class="phone-desk" aria-label="Sections"></nav>
+
+        <div id="board-tools" class="board-tools" hidden>
+          <p class="eyebrow">Look up</p>
+          <div id="board-tools-slot"></div>
         </div>
 
         <section class="rail-module league-module">
@@ -109,7 +122,7 @@
             <input
               id="sleeper-username"
               name="sleeper-username"
-              placeholder="Search your Sleeper username"
+              placeholder="username"
               autocomplete="off"
               value=""
               autocapitalize="none"
@@ -172,6 +185,10 @@
         </div>
       </aside>
 
+      <button type="button" id="desk-board-open" class="desk-board-open" aria-label="Open board" aria-controls="control-rail">
+        <span class="desk-board-bars" aria-hidden="true"></span>
+      </button>
+
       <main class="workspace">
         <header class="workspace-header" id="workspace-header">
           <div class="league-hero">
@@ -229,8 +246,6 @@
                 <img class="brand-wordmark brand-wordmark--light" src="./brand/wordmark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
                 <img class="brand-wordmark brand-wordmark--dark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" aria-hidden="true" />
               </span>
-              <h2>See a value. Check a trade. Then your team.</h2>
-              <p class="landing-lede">Players and the calculator work now. Connect Sleeper when you want your roster, partners, and team impact.</p>
               <form id="landing-username-form" class="landing-search" novalidate>
                 <label for="landing-username">Sleeper username</label>
                 <div class="landing-search-row">

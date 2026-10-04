@@ -283,9 +283,11 @@ import {
   rankView,
   renderRanksBody,
   renderRanksMarkup,
+  renderRanksToolbar,
 } from "./modules/ranks.js";
 import { fetchRatherCrowdVotes, submitRatherCrowdVote } from "./modules/rather-crowd.js";
 
+const BOARD_STORAGE_KEY = "dynasty_ticker_board";
 const OUTGOING_POOL_LIMIT = 14;
 const DEFAULT_MAX_OUTGOING_PACKAGE_SIZE = 3;
 const ELITE_MAX_OUTGOING_PACKAGE_SIZE = 4;
@@ -438,12 +440,17 @@ const el = {
   mobileChromeTitle: document.querySelector("#mobile-chrome-title"),
   mobileRailToggle: document.querySelector("#mobile-rail-toggle"),
   mobileRailClose: document.querySelector("#mobile-rail-close"),
+  deskBoardClose: document.querySelector("#desk-board-close"),
+  deskBoardOpen: document.querySelector("#desk-board-open"),
+  boardTools: document.querySelector("#board-tools"),
+  boardToolsSlot: document.querySelector("#board-tools-slot"),
   mobileThemeBtn: document.querySelector("#mobile-theme-btn"),
   mobileThemeIcon: document.querySelector("#mobile-theme-icon"),
   mobileThemeLabel: document.querySelector("#mobile-theme-label"),
   mobileHomeBtn: document.querySelector("#mobile-home-btn"),
   railBackdrop: document.querySelector("#rail-backdrop"),
   controlRail: document.querySelector("#control-rail"),
+  phoneDesk: document.querySelector("#phone-desk"),
   heroTitle: document.querySelector("#hero-title"),
   heroLede: document.querySelector("#hero-lede"),
   heroEyebrow: document.querySelector("#hero-eyebrow"),
@@ -468,6 +475,7 @@ let lastSimSignature = "";
 let leagueTradeSideCache = { key: "", sides: [] };
 let franchiseIndexCache = { key: "", index: null };
 let applyingHistory = false;
+let phoneDeskCollapsed = false;
 let managerSelectorHydrating = false;
 let managerSelectorHydrateEpoch = 0;
 let ratherPromptPair = null;
@@ -552,8 +560,17 @@ el.mobileRailToggle?.addEventListener("click", () => {
     requestAnimationFrame(() => el.mobileRailClose?.focus());
   }
 });
+el.phoneDesk?.addEventListener("click", handlePhoneDeskClick);
 el.mobileRailClose?.addEventListener("click", () => setMobileRailOpen(false));
 el.railBackdrop?.addEventListener("click", () => setMobileRailOpen(false));
+el.deskBoardClose?.addEventListener("click", () => {
+  setDeskBoardShut(true);
+  requestAnimationFrame(() => el.deskBoardOpen?.focus());
+});
+el.deskBoardOpen?.addEventListener("click", () => {
+  setDeskBoardShut(false);
+  requestAnimationFrame(() => el.deskBoardClose?.focus());
+});
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   if (state.weeklyValue?.helpOpen) {
@@ -564,6 +581,13 @@ document.addEventListener("keydown", (event) => {
   if (document.body.classList.contains("rail-open")) {
     setMobileRailOpen(false);
     el.mobileRailToggle?.focus();
+    return;
+  }
+  const field = event.target?.closest?.("input, textarea, select");
+  if (field) return;
+  if (!isPhoneLayout() && !document.documentElement.classList.contains("desk-shut")) {
+    setDeskBoardShut(true);
+    el.deskBoardOpen?.focus();
   }
 });
 el.landingRather?.addEventListener("click", handleLandingRatherClick);
@@ -582,6 +606,9 @@ document.addEventListener("keydown", (event) => {
 });
 window.matchMedia(PHONE_LAYOUT_QUERY).addEventListener("change", () => {
   setMobileRailOpen(false);
+  setDeskBoardShut(readDeskBoardShut());
+  if (state.activePage === "players") renderRankSurfaces();
+  else releaseRankBoardTools();
 });
 el.landingUsernameForm?.addEventListener("submit", requestFindLeagues);
 el.stickyFindBtn?.addEventListener("click", focusUsernameSearch);
@@ -595,6 +622,11 @@ el.landingUsername?.addEventListener("input", () => {
 });
 el.leagueId?.addEventListener("input", () => setFieldError(el.leagueId, el.leagueIdError, ""));
 el.workspace?.addEventListener("click", handleWorkspaceClick);
+el.controlRail?.addEventListener("click", (event) => {
+  if (!event.target.closest("#board-tools")) return;
+  handleWorkspaceClick(event);
+});
+el.controlRail?.addEventListener("input", handleWorkspaceInput);
 el.workspace?.addEventListener("keydown", handleWorkspaceKeydown);
 el.workspace?.addEventListener("pointerdown", handleWorkspacePointerDown);
 el.workspace?.addEventListener("change", handleWorkspaceChange);
@@ -649,6 +681,7 @@ el.seasonsDashboard?.addEventListener("click", handleHistoryCompareClick);
 el.seasonsDashboard?.addEventListener("change", handleHistoryCompareChange);
 
 applyTheme(readStoredTheme(), { persist: false });
+setDeskBoardShut(readDeskBoardShut());
 state.valueCalc = readStoredDraft() || state.valueCalc;
 renderSessionSnapshot();
 syncTradeModeUi();
@@ -778,8 +811,10 @@ function hideAppPages() {
 
 function setActivePage(page, { history = "replace", scroll = "preserve", prepared = false } = {}) {
   const nextPage = PAGE_IDS.includes(page) ? page : DEFAULT_PAGE;
+  if (nextPage !== state.activePage) phoneDeskCollapsed = false;
   if (history === "push" && !prepared) prepareDeskPush();
   state.activePage = nextPage;
+  if (nextPage !== "players") releaseRankBoardTools();
 
   PAGE_IDS.forEach((pageId) => {
     const pageEl = el.pages[pageId];
@@ -1003,36 +1038,74 @@ function rankViewModel() {
   });
 }
 
+function releaseRankBoardTools() {
+  document.body.classList.remove("board-tools-live");
+  if (el.boardTools) el.boardTools.hidden = true;
+  if (el.boardToolsSlot) el.boardToolsSlot.replaceChildren();
+}
+
+function rankToolbarHome(host, park) {
+  return park ? el.boardToolsSlot : host;
+}
+
+function paintRankToolbar(toolbar, view, typing) {
+  if (!toolbar) return;
+  toolbar.querySelectorAll("[data-action='rank-pos']").forEach((button) => {
+    const on = button.dataset.pos === view.position;
+    button.classList.toggle("active", on);
+    button.setAttribute("aria-pressed", String(on));
+  });
+  toolbar.querySelectorAll("[data-action='rank-format']").forEach((button) => {
+    const on = button.dataset.format === view.format;
+    button.classList.toggle("active", on);
+    button.setAttribute("aria-pressed", String(on));
+  });
+  const note = toolbar.querySelector(".ranks-note");
+  if (note) note.textContent = view.note;
+  const input = toolbar.querySelector("[data-ranks-query]");
+  if (input && !typing) input.value = view.query;
+}
+
 function renderRankHost(host) {
   if (!host) return;
   const view = rankViewModel();
-  const toolbar = host.querySelector("[data-ranks-toolbar]");
+  const canPark = host === el.ranksDashboard
+    && state.activePage === "players"
+    && !isPhoneLayout()
+    && Boolean(el.boardToolsSlot);
+  const park = canPark && !view.loading;
+
+  if (host === el.ranksDashboard) {
+    document.body.classList.toggle("board-tools-live", park);
+    if (el.boardTools) el.boardTools.hidden = !park;
+  }
+
+  if (view.loading || !host.querySelector("[data-ranks-body]")) {
+    host.innerHTML = renderRanksMarkup(view);
+  }
+
+  if (canPark && el.boardToolsSlot) {
+    const parkedToolbar = el.boardToolsSlot.querySelector("[data-ranks-toolbar]");
+    const hostToolbar = host.querySelector("[data-ranks-toolbar]");
+    if (park) {
+      if (hostToolbar) el.boardToolsSlot.appendChild(hostToolbar);
+      else if (!parkedToolbar) el.boardToolsSlot.innerHTML = renderRanksToolbar(view);
+    } else if (parkedToolbar) {
+      const root = host.querySelector("[data-ranks-root]");
+      if (root) root.prepend(parkedToolbar);
+      else el.boardToolsSlot.replaceChildren();
+    }
+  }
+
+  const toolbar = rankToolbarHome(host, park)?.querySelector("[data-ranks-toolbar]");
   const typing = Boolean(
     toolbar
     && document.activeElement?.matches?.("[data-input='ranks-search']")
-    && host.contains(document.activeElement)
+    && toolbar.contains(document.activeElement)
   );
-  if (!toolbar || view.loading) {
-    host.innerHTML = renderRanksMarkup(view);
-  } else {
-    toolbar.querySelectorAll("[data-action='rank-pos']").forEach((button) => {
-      const on = button.dataset.pos === view.position;
-      button.classList.toggle("active", on);
-      button.setAttribute("aria-pressed", String(on));
-    });
-    toolbar.querySelectorAll("[data-action='rank-format']").forEach((button) => {
-      const on = button.dataset.format === view.format;
-      button.classList.toggle("active", on);
-      button.setAttribute("aria-pressed", String(on));
-    });
-    const note = toolbar.querySelector(".ranks-note");
-    if (note) note.textContent = view.note;
-    const input = toolbar.querySelector("[data-ranks-query]");
-    if (input && !typing) input.value = view.query;
-    const body = host.querySelector("[data-ranks-body]");
-    if (body) body.innerHTML = renderRanksBody(view);
-    else host.innerHTML = renderRanksMarkup(view);
-  }
+  if (!view.loading) paintRankToolbar(toolbar, view, typing);
+  const body = host.querySelector("[data-ranks-body]");
+  if (body && !view.loading) body.innerHTML = renderRanksBody(view);
   bindRatherPhotos(host);
 }
 
@@ -1435,8 +1508,31 @@ function isPhoneLayout() {
   return window.matchMedia(PHONE_LAYOUT_QUERY).matches;
 }
 
+function readDeskBoardShut() {
+  try {
+    return localStorage.getItem(BOARD_STORAGE_KEY) === "shut";
+  } catch {
+    return document.documentElement.classList.contains("desk-shut");
+  }
+}
+
+function setDeskBoardShut(shut) {
+  const next = Boolean(shut);
+  document.documentElement.classList.toggle("desk-shut", next);
+  el.deskBoardOpen?.setAttribute("aria-expanded", String(!next));
+  if (!isPhoneLayout() && el.controlRail) {
+    if (next) el.controlRail.setAttribute("inert", "");
+    else el.controlRail.removeAttribute("inert");
+  }
+  try {
+    localStorage.setItem(BOARD_STORAGE_KEY, next ? "shut" : "open");
+  } catch {
+    // The board still shuts for this visit.
+  }
+}
+
 function setMobileRailOpen(open) {
-  const shouldOpen = Boolean(open) && isPhoneLayout() && Boolean(state.leagueId);
+  const shouldOpen = Boolean(open) && isPhoneLayout();
   if (!shouldOpen && el.controlRail?.contains(document.activeElement)) {
     el.mobileRailToggle?.focus();
   }
@@ -1475,9 +1571,6 @@ function scrollActiveTabIntoView() {
 
 function renderSessionSnapshot() {
   document.body.classList.toggle("league-loaded", Boolean(state.leagueId));
-  if (!state.leagueId && document.body.classList.contains("rail-open")) {
-    setMobileRailOpen(false);
-  }
   if (el.mobileChromeTitle) {
     const you = getMyRoster()?.manager?.displayName || "";
     el.mobileChromeTitle.textContent = publicRanksOpen && !state.leagueId
@@ -1567,6 +1660,7 @@ function syncRoomUi() {
     panel.classList.toggle("hidden", panel.dataset.roomPanel !== room);
   });
   renderRoomNav(page, room);
+  renderPhoneDesk();
 }
 
 function renderRoomNav(page, room) {
@@ -1593,6 +1687,58 @@ function renderRoomNav(page, room) {
     if (isActive) activeButton = button;
   });
   scrollChildIntoStrip(el.roomNav.querySelector(".room-nav-scroll") || el.roomNav, activeButton);
+}
+
+function phoneDeskRoomLabel(page, room) {
+  const label = roomLabelFor(page, room, state.league) || room;
+  if (label === (PAGE_LABELS[page] || page)) return pageHintForLeague(page, state.league) || label;
+  return label;
+}
+
+function renderPhoneDesk() {
+  if (!el.phoneDesk) return;
+  const expanded = phoneDeskCollapsed ? "" : state.activePage;
+  el.phoneDesk.innerHTML = PAGE_IDS.map((page) => {
+    const rooms = visibleRooms(page);
+    const open = page === expanded;
+    const active = page === state.activePage;
+    const current = getRoom(page);
+    return `
+      <div class="phone-desk-group${open ? " is-open" : ""}">
+        <button type="button" class="phone-desk-page${active ? " active" : ""}" data-phone-page="${escapeHtml(page)}" aria-expanded="${open ? "true" : "false"}">
+          <span>${escapeHtml(PAGE_LABELS[page] || page)}</span>
+          <span class="phone-desk-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="phone-desk-rooms">
+          ${rooms.map((room) => `
+            <button type="button" class="phone-desk-room${active && room === current ? " active" : ""}" data-phone-room="${escapeHtml(room)}" data-page="${escapeHtml(page)}">
+              ${escapeHtml(phoneDeskRoomLabel(page, room))}
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function handlePhoneDeskClick(event) {
+  const roomButton = event.target.closest("[data-phone-room]");
+  if (roomButton) {
+    openRoom(roomButton.dataset.page, roomButton.dataset.phoneRoom, { history: "push", scroll: "top" });
+    setMobileRailOpen(false);
+    return;
+  }
+  const pageButton = event.target.closest("[data-phone-page]");
+  if (!pageButton) return;
+  const page = pageButton.dataset.phonePage;
+  if (!PAGE_IDS.includes(page)) return;
+  if (page !== state.activePage) {
+    phoneDeskCollapsed = false;
+    setActivePage(page, { history: "push", scroll: "top" });
+    return;
+  }
+  phoneDeskCollapsed = !phoneDeskCollapsed;
+  renderPhoneDesk();
 }
 
 function syncTradeModeUi() {
@@ -6057,7 +6203,9 @@ function handleWorkspacePointerDown(event) {
 
 function handleWorkspaceClick(event) {
   const target = event.target.closest("[data-action]");
-  if (!target || !el.workspace?.contains(target)) return;
+  const inWorkspace = Boolean(target && el.workspace?.contains(target));
+  const inBoard = Boolean(target && el.boardTools?.contains(target));
+  if (!target || (!inWorkspace && !inBoard)) return;
   if (target.dataset.action === "league-home") return;
   const action = target.dataset.action;
   switch (action) {
@@ -6290,7 +6438,7 @@ function handleWorkspaceInput(event) {
   }
   if (target.dataset.input === "ranks-search") {
     state.ranks.query = target.value;
-    renderRankHost(target.closest("#ranks-dashboard, #public-ranks-board"));
+    renderRankHost(target.closest("#ranks-dashboard, #public-ranks-board") || el.ranksDashboard);
   }
 }
 

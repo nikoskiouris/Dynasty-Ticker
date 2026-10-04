@@ -233,22 +233,28 @@ export function rankView({
   };
 }
 
+export function renderRanksToolbar(view) {
+  return `
+    <div class="ranks-toolbar" data-ranks-toolbar>
+      <input class="ranks-search" type="search" aria-label="Search players and picks" placeholder="Search players and picks" value="${escapeHtml(view?.query || "")}" data-input="ranks-search" data-ranks-query autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
+      <div class="ranks-filters" role="group" aria-label="Position">
+        ${RANK_POSITIONS.map((pos) => renderRankChip("rank-pos", "pos", pos, pos === "ALL" ? "All" : (pos === "PICK" ? "Picks" : pos), view?.position)).join("")}
+      </div>
+      <div class="ranks-filters" role="group" aria-label="Format">
+        ${RANK_FORMATS.map((format) => renderRankChip("rank-format", "format", format, rankFormatLabel(format), view?.format)).join("")}
+      </div>
+      <p class="ranks-note muted">${escapeHtml(view?.note || "")}</p>
+    </div>
+  `;
+}
+
 export function renderRanksMarkup(view) {
   if (view?.loading) {
     return `<div class="ranks" data-ranks-root><p class="muted">Loading player values…</p></div>`;
   }
   return `
     <div class="ranks" data-ranks-root>
-      <div class="ranks-toolbar" data-ranks-toolbar>
-        <input class="ranks-search" type="search" aria-label="Search players and picks" placeholder="Search players and picks" value="${escapeHtml(view?.query || "")}" data-input="ranks-search" data-ranks-query autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
-        <div class="ranks-filters" role="group" aria-label="Position">
-          ${RANK_POSITIONS.map((pos) => renderRankChip("rank-pos", "pos", pos, pos === "ALL" ? "All" : (pos === "PICK" ? "Picks" : pos), view?.position)).join("")}
-        </div>
-        <div class="ranks-filters" role="group" aria-label="Format">
-          ${RANK_FORMATS.map((format) => renderRankChip("rank-format", "format", format, rankFormatLabel(format), view?.format)).join("")}
-        </div>
-        <p class="ranks-note muted">${escapeHtml(view?.note || "")}</p>
-      </div>
+      ${renderRanksToolbar(view)}
       <div data-ranks-body>
         ${renderRanksBody(view)}
       </div>
@@ -262,7 +268,24 @@ export function renderRanksBody(view) {
   const list = rows.length
     ? `<div class="ranks-list">${rows.map((row) => renderRankRow(row, row.assetId === view?.card?.assetId)).join("")}</div>`
     : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
-  return `${card}${list}`;
+  return `${renderRanksShelf(rows)}${card}${list}`;
+}
+
+function renderRanksShelf(rows) {
+  const faces = (Array.isArray(rows) ? rows : [])
+    .filter((row) => row?.kind === "player" && row.playerId)
+    .slice(0, 8);
+  if (faces.length < 4) return "";
+  return `
+    <div class="ranks-shelf" aria-label="Top names">
+      ${faces.map((row) => `
+        <button type="button" class="ranks-shelf-item" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}" aria-label="${escapeHtml(row.name)}">
+          ${renderPlayerFace(row.playerId, row.name, { size: "md" })}
+          <strong>${escapeHtml(formatNumber(row.value))}</strong>
+        </button>
+      `).join("")}
+    </div>
+  `;
 }
 
 function renderRankChip(action, key, value, label, activeValue) {

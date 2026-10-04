@@ -170,7 +170,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="public-ranks"/);
   assert.match(index, /id="ranks-dashboard"/);
   assert.match(index, /id="landing-username"/);
-  assert.match(index, />See a value\. Check a trade\. Then your team\.</);
+  assert.doesNotMatch(index, /See a value\. Check a trade\. Then your team\./);
   assert.match(index, /Type your Sleeper username/);
   assert.doesNotMatch(index, /id="landing-jobs"/);
   assert.match(index, /brand\/wordmark\.svg/);
@@ -194,12 +194,12 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /PPR 12-man Superflex/);
   assert.match(index, /id="username-error"/);
   assert.match(index, /data-theme="light"/);
-  assert.match(index, /theme-color" content="#eef3f2"/);
+  assert.match(index, /theme-color" content="#f3efe6"/);
   assert.match(index, /dynasty_ticker_theme/);
   assert.match(index, />Dark mode</);
   assert.match(index, /id="theme-toggle-btn"[^>]*aria-pressed="true"/);
   assert.doesNotMatch(index, /data-theme="dark"/);
-  assert.match(index, /family=Inter:/);
+  assert.match(index, /family=Barlow\+Condensed:/);
   for (const page of ["players", "trades", "league"]) {
     assert.match(index, new RegExp(`data-page="${page}"`));
     assert.match(index, new RegExp(`id="${page}-page"`));
@@ -301,7 +301,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   const notFound = readDocs("404.html");
   assert.match(notFound, /Page not found/);
   assert.match(notFound, /<h1>/);
-  assert.match(notFound, /theme-color" content="#eef3f2"/);
+  assert.match(notFound, /theme-color" content="#f3efe6"/);
   assert.match(notFound, /data-theme="light"/);
   assert.match(notFound, /brand\/wordmark\.svg/);
   assert.doesNotMatch(notFound, /class="brand-mark"/);
@@ -313,7 +313,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(notFound, /Contact/);
 
   const privacy = readDocs("privacy.html");
-  assert.match(privacy, /theme-color" content="#eef3f2"/);
+  assert.match(privacy, /theme-color" content="#f3efe6"/);
   assert.match(privacy, /brand\/wordmark\.svg/);
   assert.doesNotMatch(privacy, /class="brand-mark"/);
   assert.doesNotMatch(privacy, /League Command Center/);
@@ -347,12 +347,12 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(app, /from "\.\/modules\/recap/);
   assert.match(readDocs("styles.css"), /--ticker-duration: 60s/);
   assert.match(readDocs("styles.css"), /\.ticker\.is-bound \.ticker-track/);
-  assert.match(readDocs("styles.css"), /body:not\(\.league-loaded\) #mobile-rail-toggle/);
-  assert.match(readDocs("styles.css"), /body:not\(\.league-loaded\) \.rail-backdrop\.open/);
-  assert.match(app, /shouldOpen = Boolean\(open\) && isPhoneLayout\(\) && Boolean\(state\.leagueId\)/);
+  assert.match(app, /shouldOpen = Boolean\(open\) && isPhoneLayout\(\)/);
+  assert.doesNotMatch(app, /shouldOpen = Boolean\(open\) && isPhoneLayout\(\) && Boolean\(state\.leagueId\)/);
+  assert.match(readDocs("index.html"), /id="phone-desk"/);
 
   const terms = readDocs("terms.html");
-  assert.match(terms, /theme-color" content="#eef3f2"/);
+  assert.match(terms, /theme-color" content="#f3efe6"/);
   assert.match(terms, /brand\/wordmark\.svg/);
   assert.doesNotMatch(terms, /class="brand-mark"/);
   assert.doesNotMatch(terms, /League Command Center/);
@@ -369,10 +369,10 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
 
   assert.match(readDocs("modules/state.js"), /export const DEFAULT_THEME = "light"/);
   assert.match(readDocs("app.js"), /return DEFAULT_THEME/);
-  assert.match(readDocs("site.webmanifest"), /"theme_color": "#eef3f2"/);
-  assert.match(readDocs("styles.css"), /Daylight mint desk/);
+  assert.match(readDocs("site.webmanifest"), /"theme_color": "#f3efe6"/);
+  assert.match(readDocs("styles.css"), /Sunday wire/);
   assert.match(readDocs("styles.css"), /Phone landing: search first/);
-  assert.match(readDocs("styles.css"), /Phone desk nav: page tabs stick under the header/);
+  assert.match(readDocs("styles.css"), /Phone desk nav: sections live in the side board/);
 
   assert.ok(statSync(join(docs, "og-image.jpg")).size < 120_000);
   assert.match(OG_IMAGE_URL, /og-image\.jpg$/);
@@ -447,23 +447,21 @@ test("phone scrolling stays put while the URL bar moves", () => {
   assert.match(phone, /\.control-rail \{[^}]*height:\s*0/s);
   assert.match(phone, /\.control-rail \{[^}]*backdrop-filter:\s*none/s);
   assert.match(phone, /\.mobile-chrome \{[^}]*backdrop-filter:\s*none/s);
-  assert.match(phone, /\.workspace-tabs \{[^}]*overflow:\s*visible/s);
-  assert.match(phone, /\.workspace-tabs \{[^}]*backdrop-filter:\s*none/s);
-  assert.match(phone, /\.room-nav \{[^}]*overflow:\s*visible/s);
-  assert.match(phone, /\.room-nav \{[^}]*backdrop-filter:\s*none/s);
+  assert.match(phone, /\.workspace-tabs,\s*\.room-nav \{[^}]*display:\s*none/s);
   assert.match(css, /\.room-nav-scroll \{[^}]*overflow-x:\s*auto/s);
   assert.match(readDocs("app.js"), /room-nav-scroll/);
   assert.doesNotMatch(readDocs("app.js"), /scrollIntoView\(\{ inline: "center"/);
 });
 
-test("phone desk nav keeps pages on top and rooms with the page", () => {
+test("phone sections sit in the side board and drop open", () => {
   const css = readDocs("styles.css");
-  assert.match(css, /Phone desk nav: page tabs stick under the header/);
-  assert.match(css, /Room controls stay with the page/);
+  assert.match(css, /Phone desk nav: sections live in the side board/);
+  assert.match(css, /Tap a section and its rooms drop open/);
   assert.doesNotMatch(css, /page tabs pin to the bottom edge/);
-  assert.match(css, /\.workspace-tabs \{[^}]*position:\s*sticky/s);
-  assert.match(css, /\.workspace-tabs \{[^}]*order:\s*-1/s);
-  assert.match(css, /\.room-nav \{[^}]*position:\s*sticky/s);
+  assert.doesNotMatch(css, /Phone desk nav: page tabs sit in a fixed ink dock/);
+  assert.doesNotMatch(css, /\.workspace-tabs \{[^}]*position:\s*fixed/s);
+  assert.match(css, /\.phone-desk-group\.is-open \.phone-desk-rooms \{[^}]*display:\s*grid/s);
+  assert.match(readDocs("app.js"), /data-phone-page/);
   assert.doesNotMatch(css, /\.room-nav \{[^}]*position:\s*fixed/s);
   assert.doesNotMatch(
     css,
@@ -480,6 +478,21 @@ test("ticker loops slower so names stay readable", () => {
   assert.equal(tickerDurationSeconds(4), 50);
   assert.equal(tickerDurationSeconds(8), 72);
   assert.equal(tickerDurationSeconds(12), 108);
+});
+
+test("wide board can shut so the page fills the screen", () => {
+  const css = readDocs("styles.css");
+  const app = readDocs("app.js");
+  const index = readDocs("index.html");
+  assert.match(index, /id="desk-board-close"/);
+  assert.match(index, /id="desk-board-open"/);
+  assert.match(index, /id="board-tools"/);
+  assert.match(index, /dynasty_ticker_board/);
+  assert.match(app, /dynasty_ticker_board/);
+  assert.match(app, /renderRanksToolbar/);
+  assert.match(css, /html\.desk-shut \.workspace \{[^}]*grid-column:\s*1/s);
+  assert.match(css, /html\.desk-shut \.control-rail \{[^}]*display:\s*none !important/s);
+  assert.match(css, /Wide board shuts so the page fills the screen/);
 });
 
 test("the site never names KeepTradeCut", () => {
