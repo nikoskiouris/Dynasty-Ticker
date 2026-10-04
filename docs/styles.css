@@ -8030,6 +8030,7 @@ button.ranks-chip.active:hover {
   margin: 0 0 1rem;
   padding-bottom: 0.15rem;
   overflow-x: auto;
+  scroll-margin-top: calc(4.2rem + env(safe-area-inset-top));
   scrollbar-width: none;
 }
 
