@@ -8290,11 +8290,11 @@ body.league-loaded .workspace-lede { display: none; }
 /* Before a league, the rail is a masthead, not an empty sidebar.
    The poster stays on Players. Trade and My League open on the tool. */
 @media (min-width: 701px) {
-  body:not(.league-loaded) .app-frame {
+  body:not(.league-loaded):not(.board-tools-live) .app-frame {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  body:not(.league-loaded) .control-rail {
+  body:not(.league-loaded):not(.board-tools-live) .control-rail {
     position: static;
     display: flex;
     flex-direction: row;
@@ -8310,22 +8310,22 @@ body.league-loaded .workspace-lede { display: none; }
     border-bottom: 3px solid var(--text);
   }
 
-  body:not(.league-loaded) .brand-panel {
+  body:not(.league-loaded):not(.board-tools-live) .brand-panel {
     padding: 0;
     border-bottom: 0;
   }
 
-  body:not(.league-loaded) .rail-footer {
+  body:not(.league-loaded):not(.board-tools-live) .rail-footer {
     margin: 0 0 0 auto;
     padding: 0;
     border: 0;
   }
 
-  body:not(.league-loaded) .workspace {
+  body:not(.league-loaded):not(.board-tools-live) .workspace {
     grid-column: 1;
   }
 
-  body:not(.league-loaded) .brand-lockup--landing {
+  html:not(.desk-shut) body:not(.league-loaded) .brand-lockup--landing {
     display: none;
   }
 }
@@ -8375,4 +8375,136 @@ body:not(.league-loaded):has(#league-page:not(.hidden)) #sticky-mobile-cta {
 .award-card {
   border-radius: 0;
   background: transparent;
+}
+
+/* Wide board shuts so the page fills the screen.
+   Search and filters live in the board. The stage keeps the names. */
+.desk-board-close,
+.desk-board-open {
+  display: none;
+}
+
+.board-tools {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.board-tools[hidden] {
+  display: none !important;
+}
+
+.board-tools .eyebrow {
+  margin: 0;
+}
+
+.board-tools input {
+  border-color: var(--rail-line);
+  background: var(--rail-input);
+  color: var(--rail-text);
+}
+
+.board-tools input::placeholder {
+  color: var(--rail-placeholder);
+}
+
+@media (min-width: 701px) and (min-height: 501px),
+       (min-width: 701px) and (hover: hover) {
+  .desk-board-close {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 2.2rem;
+    min-width: 2.2rem;
+    min-height: 2.2rem;
+    margin-left: auto;
+    padding: 0;
+    border: 1px solid var(--rail-line);
+    border-radius: 0;
+    background: transparent;
+    color: var(--rail-text);
+    font-family: var(--font-display);
+    font-size: 1.45rem;
+    line-height: 1;
+    box-shadow: none;
+  }
+
+  .desk-board-close:hover {
+    transform: none;
+    filter: none;
+    background: var(--hover-fill);
+  }
+
+  html.desk-shut .app-frame {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html.desk-shut .control-rail {
+    display: none !important;
+  }
+
+  html.desk-shut .workspace {
+    grid-column: 1;
+    padding-left: 3.3rem;
+  }
+
+  html.desk-shut .desk-board-open {
+    display: grid;
+    place-items: center;
+    position: fixed;
+    top: 0.85rem;
+    left: 0;
+    z-index: 25;
+    width: 2.4rem;
+    min-width: 2.4rem;
+    min-height: 2.6rem;
+    padding: 0;
+    border: 0;
+    border-right: 3px solid var(--field);
+    border-radius: 0;
+    background: #14120e;
+    color: #f3efe6;
+    box-shadow: none;
+  }
+
+  html.desk-shut .desk-board-open:hover {
+    transform: none;
+    filter: none;
+    background: #14120e;
+    color: var(--field);
+  }
+
+  .desk-board-bars {
+    position: relative;
+    display: block;
+    width: 0.95rem;
+    height: 2px;
+    background: currentColor;
+  }
+
+  .desk-board-bars::before,
+  .desk-board-bars::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    width: 0.95rem;
+    height: 2px;
+    background: currentColor;
+  }
+
+  .desk-board-bars::before {
+    top: -5px;
+  }
+
+  .desk-board-bars::after {
+    top: 5px;
+  }
+
+  body.board-tools-live #ranks-section {
+    border-top: 0;
+    padding-top: 0.15rem;
+  }
+
+  body.board-tools-live #ranks-section > .panel-heading {
+    display: none;
+  }
 }

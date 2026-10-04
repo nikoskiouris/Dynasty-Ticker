@@ -482,6 +482,21 @@ test("ticker loops slower so names stay readable", () => {
   assert.equal(tickerDurationSeconds(12), 108);
 });
 
+test("wide board can shut so the page fills the screen", () => {
+  const css = readDocs("styles.css");
+  const app = readDocs("app.js");
+  const index = readDocs("index.html");
+  assert.match(index, /id="desk-board-close"/);
+  assert.match(index, /id="desk-board-open"/);
+  assert.match(index, /id="board-tools"/);
+  assert.match(index, /dynasty_ticker_board/);
+  assert.match(app, /dynasty_ticker_board/);
+  assert.match(app, /renderRanksToolbar/);
+  assert.match(css, /html\.desk-shut \.workspace \{[^}]*grid-column:\s*1/s);
+  assert.match(css, /html\.desk-shut \.control-rail \{[^}]*display:\s*none !important/s);
+  assert.match(css, /Wide board shuts so the page fills the screen/);
+});
+
 test("the site never names KeepTradeCut", () => {
   const namesBrand = (text) => /KeepTradeCut|keeptradecut|keep trade cut/i.test(text) || /\bKTC\b/.test(text);
   const hits = [];

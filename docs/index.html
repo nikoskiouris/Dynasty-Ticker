@@ -14,6 +14,9 @@
           var themeColor = document.querySelector('meta[name="theme-color"]');
           if (themeColor) themeColor.setAttribute("content", storedTheme === "dark" ? "#14120e" : "#f3efe6");
         }
+        if (localStorage.getItem("dynasty_ticker_board") === "shut") {
+          document.documentElement.classList.add("desk-shut");
+        }
       } catch (err) {}
     </script>
     <meta property="og:title" content="Dynasty Ticker — Your Sleeper dynasty league" />
@@ -93,6 +96,14 @@
           <button type="button" id="mobile-rail-close" class="mobile-rail-close" aria-label="Close league controls">
             <span aria-hidden="true">×</span>
           </button>
+          <button type="button" id="desk-board-close" class="desk-board-close" aria-label="Close board" aria-controls="control-rail">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+
+        <div id="board-tools" class="board-tools" hidden>
+          <p class="eyebrow">Look up</p>
+          <div id="board-tools-slot"></div>
         </div>
 
         <section class="rail-module league-module">
@@ -171,6 +182,10 @@
           <button id="theme-toggle-btn" type="button" class="ghost-btn" aria-pressed="true" title="Toggle light and dark theme">Dark mode</button>
         </div>
       </aside>
+
+      <button type="button" id="desk-board-open" class="desk-board-open" aria-label="Open board" aria-controls="control-rail">
+        <span class="desk-board-bars" aria-hidden="true"></span>
+      </button>
 
       <main class="workspace">
         <header class="workspace-header" id="workspace-header">
