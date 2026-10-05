@@ -238,15 +238,15 @@
         </div>
 
         <section class="empty-workspace" id="landing">
-          <div class="landing-hero">
+          <div class="landing-hero apple-screen apple-screen-black">
             <div class="landing-copy signal-hero">
               <span class="brand-lockup brand-lockup--landing">
                 <img class="brand-wordmark brand-wordmark--light" src="./brand/wordmark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
                 <img class="brand-wordmark brand-wordmark--dark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" aria-hidden="true" />
               </span>
               <p class="signal-kicker">Sleeper dynasty league</p>
-              <p class="signal-display">Price the player. Check the deal. See the week.</p>
-              <p class="signal-lede">One search opens your league. Three doors after that. Nothing else in the way.</p>
+              <p class="signal-display">Price the player.</p>
+              <p class="signal-lede">Check the deal. See the week.</p>
               <form id="landing-username-form" class="landing-search" novalidate>
                 <label for="landing-username">Sleeper username</label>
                 <div class="landing-search-row">
@@ -262,12 +262,14 @@
                     enterkeyhint="search"
                     aria-describedby="landing-username-error landing-job-hint"
                   />
-                  <button id="landing-find-btn" type="submit">Find leagues</button>
                 </div>
                 <p id="landing-username-error" class="field-error" hidden role="alert"></p>
               </form>
+              <div class="apple-cta-row">
+                <button id="landing-find-btn" type="submit" form="landing-username-form">Find leagues</button>
+                <button type="button" id="open-public-ranks" class="ghost-btn landing-ranks-btn" data-action="open-public-ranks">Look up a player</button>
+              </div>
               <p id="landing-job-hint" class="muted landing-job-hint">Type your Sleeper username to connect your roster, trade partners, and team impact.</p>
-              <button type="button" id="open-public-ranks" class="ghost-btn landing-ranks-btn" data-action="open-public-ranks">Look up a player</button>
               <div id="landing-league-picker" class="league-picker landing-league-picker hidden" data-league-picker></div>
               <p id="landing-loading" class="landing-loading hidden" aria-live="polite">
                 <span class="status-loader" aria-hidden="true"></span>
@@ -276,27 +278,28 @@
             </div>
           </div>
           <section class="signal-doors" aria-label="What this desk does">
-            <p class="signal-kicker">Pick a door</p>
-            <h2 class="signal-title">What do you want to know?</h2>
             <div class="signal-door-grid">
-              <button type="button" class="signal-door" data-action="go" data-page="players" data-room="ranks">
-                <span>01</span>
+              <button type="button" class="signal-door apple-screen apple-screen-gray" data-action="go" data-page="players" data-room="ranks">
+                <span class="apple-eyebrow">Players</span>
                 <strong>What is he worth?</strong>
                 <small>A price, before the argument starts.</small>
+                <span class="apple-pill">Learn more</span>
               </button>
-              <button type="button" class="signal-door" data-action="go" data-page="trades" data-room="calculator">
-                <span>02</span>
+              <button type="button" class="signal-door apple-screen apple-screen-black" data-action="go" data-page="trades" data-room="calculator">
+                <span class="apple-eyebrow">Trade</span>
                 <strong>Check the offer</strong>
                 <small>Check an offer or find a deal.</small>
+                <span class="apple-pill apple-pill-outline">Learn more</span>
               </button>
-              <button type="button" class="signal-door" data-action="go" data-page="league" data-room="team">
-                <span>03</span>
+              <button type="button" class="signal-door apple-screen apple-screen-white" data-action="go" data-page="league" data-room="team">
+                <span class="apple-eyebrow">My League</span>
                 <strong>Your next move</strong>
                 <small>Your team, this week, the league.</small>
+                <span class="apple-pill">Learn more</span>
               </button>
             </div>
           </section>
-          <section class="signal-path" aria-label="How you start">
+          <section class="signal-path apple-screen apple-screen-gray" aria-label="How you start">
             <p class="signal-kicker">How you move</p>
             <h2 class="signal-title">Three steps. Then the league is open.</h2>
             <ol class="signal-steps">
