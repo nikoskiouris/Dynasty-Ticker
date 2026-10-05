@@ -433,6 +433,7 @@ h1,
     position: absolute;
     top: 1.15rem;
     left: 50%;
+    z-index: 13;
     transform: translateX(-50%);
     width: max-content;
     max-width: calc(100% - 22rem);
