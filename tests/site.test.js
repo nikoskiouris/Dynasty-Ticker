@@ -194,12 +194,12 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /PPR 12-man Superflex/);
   assert.match(index, /id="username-error"/);
   assert.match(index, /data-theme="light"/);
-  assert.match(index, /theme-color" content="#f3efe6"/);
+  assert.match(index, /theme-color" content="#f6f1e8"/);
   assert.match(index, /dynasty_ticker_theme/);
   assert.match(index, />Dark mode</);
   assert.match(index, /id="theme-toggle-btn"[^>]*aria-pressed="true"/);
   assert.doesNotMatch(index, /data-theme="dark"/);
-  assert.match(index, /family=Barlow\+Condensed:/);
+  assert.match(index, /family=Instrument\+Serif:/);
   for (const page of ["players", "trades", "league"]) {
     assert.match(index, new RegExp(`data-page="${page}"`));
     assert.match(index, new RegExp(`id="${page}-page"`));
@@ -301,7 +301,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   const notFound = readDocs("404.html");
   assert.match(notFound, /Page not found/);
   assert.match(notFound, /<h1>/);
-  assert.match(notFound, /theme-color" content="#f3efe6"/);
+  assert.match(notFound, /theme-color" content="#f6f1e8"/);
   assert.match(notFound, /data-theme="light"/);
   assert.match(notFound, /brand\/wordmark\.svg/);
   assert.doesNotMatch(notFound, /class="brand-mark"/);
@@ -313,7 +313,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(notFound, /Contact/);
 
   const privacy = readDocs("privacy.html");
-  assert.match(privacy, /theme-color" content="#f3efe6"/);
+  assert.match(privacy, /theme-color" content="#f6f1e8"/);
   assert.match(privacy, /brand\/wordmark\.svg/);
   assert.doesNotMatch(privacy, /class="brand-mark"/);
   assert.doesNotMatch(privacy, /League Command Center/);
@@ -352,7 +352,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(readDocs("index.html"), /id="phone-desk"/);
 
   const terms = readDocs("terms.html");
-  assert.match(terms, /theme-color" content="#f3efe6"/);
+  assert.match(terms, /theme-color" content="#f6f1e8"/);
   assert.match(terms, /brand\/wordmark\.svg/);
   assert.doesNotMatch(terms, /class="brand-mark"/);
   assert.doesNotMatch(terms, /League Command Center/);
@@ -369,8 +369,8 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
 
   assert.match(readDocs("modules/state.js"), /export const DEFAULT_THEME = "light"/);
   assert.match(readDocs("app.js"), /return DEFAULT_THEME/);
-  assert.match(readDocs("site.webmanifest"), /"theme_color": "#f3efe6"/);
-  assert.match(readDocs("styles.css"), /Sunday wire/);
+  assert.match(readDocs("site.webmanifest"), /"theme_color": "#f6f1e8"/);
+  assert.match(readDocs("styles.css"), /burgundy ink/);
   assert.match(readDocs("styles.css"), /Phone landing: search first/);
   assert.match(readDocs("styles.css"), /Phone desk nav: sections live in the side board/);
 

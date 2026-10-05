@@ -1,138 +1,137 @@
 /* ==========================================================================
-   Dynasty Ticker — Sunday wire
-   Newsprint section, ink rules, field-green live bug. Headlines in Barlow
-   Condensed, copy in Public Sans, scores in IBM Plex Mono. Dark is the
-   same section after the presses stop.
+   Dynasty Ticker — Paper desk
+   Warm paper, burgundy ink, serif headlines. Instrument Serif on the big
+   type, Instrument Sans on the controls. Dark is the black casino desk.
    ========================================================================== */
 
 :root {
   color-scheme: light;
-  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
-  --font-body: "Public Sans", "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+  --font-display: "Instrument Serif", "Iowan Old Style", Palatino, serif;
+  --font-body: "Instrument Sans", "Segoe UI", sans-serif;
+  --font-mono: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
 
-  --bg: #f3efe6;
+  --bg: #f6f1e8;
   --bg-glow-1: transparent;
   --bg-glow-2: transparent;
   --bg-glow-3: transparent;
 
-  --rail: #efe8da;
-  --rail-2: #e7dfd0;
-  --rail-line: #1c1915;
-  --rail-text: #1c1915;
-  --rail-muted: #5c564c;
-  --rail-input: #fbf8f2;
-  --rail-placeholder: #8a8174;
-  --backdrop: rgba(20, 18, 14, 0.55);
+  --rail: #f3ece3;
+  --rail-2: #efe6db;
+  --rail-line: rgba(61, 36, 46, 0.14);
+  --rail-text: #2c2422;
+  --rail-muted: #7d6b66;
+  --rail-input: #fffaf5;
+  --rail-placeholder: #9a8680;
+  --backdrop: rgba(22, 12, 16, 0.5);
 
-  --panel: #fbf8f2;
-  --panel-soft: #f7f1e6;
-  --panel-tint: rgba(11, 107, 52, 0.08);
-  --panel-solid: #fffdf8;
-  --line: #d4cbbd;
-  --line-strong: #1c1915;
-  --hover-fill: rgba(28, 25, 21, 0.06);
+  --panel: #fffaf5;
+  --panel-soft: #fbf6f0;
+  --panel-tint: rgba(92, 46, 58, 0.08);
+  --panel-solid: #fffaf5;
+  --line: rgba(61, 36, 46, 0.12);
+  --line-strong: rgba(61, 36, 46, 0.28);
+  --hover-fill: rgba(92, 46, 58, 0.06);
 
-  --text: #1c1915;
-  --muted: #5c564c;
-  --muted-strong: #3a342c;
-  --on-accent: #f3efe6;
-  --link: #0b6b34;
+  --text: #2c2422;
+  --muted: #7d6b66;
+  --muted-strong: #4a3834;
+  --on-accent: #f6f1e8;
+  --link: #5c2e3a;
 
-  --blue: #0b6b34;
-  --blue-soft: rgba(11, 107, 52, 0.1);
-  --violet: #5c3d2e;
-  --violet-soft: rgba(92, 61, 46, 0.1);
-  --green: #0b6b34;
-  --green-soft: rgba(11, 107, 52, 0.12);
-  --amber: #8a5a12;
-  --amber-soft: rgba(138, 90, 18, 0.12);
-  --red: #b42318;
-  --red-soft: rgba(180, 35, 24, 0.1);
-  --teal: #0b6b34;
-  --teal-soft: rgba(11, 107, 52, 0.12);
+  --blue: #5c2e3a;
+  --blue-soft: rgba(92, 46, 58, 0.1);
+  --violet: #1a4f9c;
+  --violet-soft: rgba(26, 79, 156, 0.1);
+  --green: #1d6b45;
+  --green-soft: rgba(29, 107, 69, 0.12);
+  --amber: #9a5b12;
+  --amber-soft: rgba(154, 91, 18, 0.12);
+  --red: #c23b4a;
+  --red-soft: rgba(194, 59, 74, 0.12);
+  --teal: #5c2e3a;
+  --teal-soft: rgba(92, 46, 58, 0.1);
 
-  --team-a: #0b6b34;
-  --team-a-soft: rgba(11, 107, 52, 0.1);
-  --team-a-border: #0b6b34;
-  --team-b: #5c3d2e;
-  --team-b-soft: rgba(92, 61, 46, 0.1);
-  --team-b-border: #5c3d2e;
+  --team-a: #5c2e3a;
+  --team-a-soft: rgba(92, 46, 58, 0.1);
+  --team-a-border: rgba(92, 46, 58, 0.45);
+  --team-b: #1a4f9c;
+  --team-b-soft: rgba(26, 79, 156, 0.1);
+  --team-b-border: rgba(26, 79, 156, 0.45);
 
-  --gradient: #1c1915;
-  --gradient-soft: #efe8da;
+  --gradient: #5c2e3a;
+  --gradient-soft: #f3ece3;
   --shadow: none;
   --shadow-soft: none;
   --lift-shadow: none;
   --accent-glow: transparent;
-  --radius: 0px;
-  --radius-sm: 0px;
-  --focus: 0 0 0 2px #f3efe6, 0 0 0 4px #1c1915;
-  --ink: #1c1915;
-  --paper: #f3efe6;
-  --field: #00b05c;
+  --radius: 18px;
+  --radius-sm: 14px;
+  --focus: 0 0 0 3px rgba(92, 46, 58, 0.28);
+  --ink: #2c2422;
+  --paper: #f6f1e8;
+  --field: #5c2e3a;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #14120e;
+  --bg: #0c0c0e;
   --bg-glow-1: transparent;
   --bg-glow-2: transparent;
   --bg-glow-3: transparent;
 
-  --rail: #1b1814;
-  --rail-2: #242019;
-  --rail-line: #f3efe6;
-  --rail-text: #f3efe6;
-  --rail-muted: #b7ad9e;
-  --rail-input: #242019;
-  --rail-placeholder: #8a8174;
+  --rail: #141416;
+  --rail-2: #1c1c1f;
+  --rail-line: rgba(244, 241, 236, 0.14);
+  --rail-text: #f4f1ec;
+  --rail-muted: #a89e96;
+  --rail-input: #1c1c1f;
+  --rail-placeholder: #8c827a;
   --backdrop: rgba(0, 0, 0, 0.72);
 
-  --panel: #1b1814;
-  --panel-soft: #242019;
-  --panel-tint: rgba(61, 206, 122, 0.1);
-  --panel-solid: #14120e;
-  --line: #3a342c;
-  --line-strong: #f3efe6;
-  --hover-fill: rgba(243, 239, 230, 0.06);
+  --panel: #141416;
+  --panel-soft: #1c1c1f;
+  --panel-tint: rgba(244, 241, 236, 0.06);
+  --panel-solid: #0c0c0e;
+  --line: rgba(244, 241, 236, 0.12);
+  --line-strong: rgba(244, 241, 236, 0.32);
+  --hover-fill: rgba(244, 241, 236, 0.06);
 
-  --text: #f3efe6;
-  --muted: #b7ad9e;
-  --muted-strong: #e4dccf;
-  --on-accent: #14120e;
-  --link: #3dce7a;
+  --text: #f4f1ec;
+  --muted: #a89e96;
+  --muted-strong: #e4dcd4;
+  --on-accent: #141210;
+  --link: #f4f1ec;
 
-  --blue: #3dce7a;
-  --blue-soft: rgba(61, 206, 122, 0.14);
-  --violet: #e6c7a8;
-  --violet-soft: rgba(230, 199, 168, 0.14);
-  --green: #3dce7a;
-  --green-soft: rgba(61, 206, 122, 0.14);
+  --blue: #f4f1ec;
+  --blue-soft: rgba(244, 241, 236, 0.12);
+  --violet: #8eb6ff;
+  --violet-soft: rgba(142, 182, 255, 0.16);
+  --green: #3dcc8a;
+  --green-soft: rgba(61, 204, 138, 0.16);
   --amber: #f0c36a;
-  --amber-soft: rgba(240, 195, 106, 0.14);
-  --red: #ff8b7a;
-  --red-soft: rgba(255, 139, 122, 0.14);
-  --teal: #3dce7a;
-  --teal-soft: rgba(61, 206, 122, 0.14);
+  --amber-soft: rgba(240, 195, 106, 0.16);
+  --red: #ff7a72;
+  --red-soft: rgba(255, 122, 114, 0.16);
+  --teal: #e7b4bc;
+  --teal-soft: rgba(231, 180, 188, 0.16);
 
-  --team-a: #3dce7a;
-  --team-a-soft: rgba(61, 206, 122, 0.12);
-  --team-a-border: #3dce7a;
-  --team-b: #e6c7a8;
-  --team-b-soft: rgba(230, 199, 168, 0.12);
-  --team-b-border: #e6c7a8;
+  --team-a: #f4f1ec;
+  --team-a-soft: rgba(244, 241, 236, 0.1);
+  --team-a-border: rgba(244, 241, 236, 0.4);
+  --team-b: #8eb6ff;
+  --team-b-soft: rgba(142, 182, 255, 0.14);
+  --team-b-border: rgba(142, 182, 255, 0.45);
 
-  --gradient: #f3efe6;
-  --gradient-soft: #242019;
+  --gradient: #f4f1ec;
+  --gradient-soft: #1c1c1f;
   --shadow: none;
   --shadow-soft: none;
   --lift-shadow: none;
   --accent-glow: transparent;
-  --focus: 0 0 0 2px #14120e, 0 0 0 4px #f3efe6;
-  --ink: #f3efe6;
-  --paper: #14120e;
-  --field: #00b05c;
+  --focus: 0 0 0 3px rgba(244, 241, 236, 0.32);
+  --ink: #f4f1ec;
+  --paper: #0c0c0e;
+  --field: #e85d4c;
 }
 
 /* ==========================================================================
@@ -195,37 +194,38 @@ h3,
 h4,
 h5 {
   font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-synthesis: none;
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
 
 h1 {
   margin-bottom: 0.35rem;
-  font-size: clamp(2.2rem, 4.2vw, 3.6rem);
-  line-height: 0.92;
-  font-weight: 800;
-  letter-spacing: 0.015em;
-  text-transform: uppercase;
+  font-size: clamp(2.4rem, 4.6vw, 4rem);
+  line-height: 1.02;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  text-transform: none;
 }
 
 h2 {
   margin-bottom: 0.25rem;
-  font-size: 1.2rem;
+  font-size: 1.35rem;
   line-height: 1.15;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 h3 {
   margin-bottom: 0.25rem;
-  font-size: 1rem;
+  font-size: 1.12rem;
   line-height: 1.2;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 h4,
 h5 {
   margin-bottom: 0.2rem;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .hidden {
@@ -249,12 +249,14 @@ h5 {
 .eyebrow {
   display: inline-flex;
   margin-bottom: 0.25rem;
-  color: var(--green);
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.95rem;
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0;
+  text-transform: none;
   white-space: nowrap;
 }
 
@@ -599,9 +601,10 @@ summary:focus-visible,
 
 button {
   border-color: transparent;
+  border-radius: 999px;
   background: var(--gradient);
   color: var(--on-accent);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 button:hover {
@@ -616,9 +619,7 @@ button:hover {
 #match-generate-btn:hover,
 #sticky-find-btn:hover,
 .legal-btn:hover {
-  background: var(--field);
-  color: #14120e;
-  border-color: var(--field);
+  filter: brightness(1.12);
 }
 
 button:disabled {
@@ -814,11 +815,11 @@ select.is-invalid {
   border-radius: 0;
   background: transparent;
   color: var(--muted);
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
   white-space: nowrap;
   box-shadow: none;
 }
@@ -883,10 +884,11 @@ select.is-invalid {
 .tab-copy strong {
   overflow: hidden;
   font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-synthesis: none;
+  font-size: 1.7rem;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  text-transform: none;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -958,10 +960,11 @@ select.is-invalid {
   height: 4.4rem;
   overflow: hidden;
   border: 2px solid var(--text);
-  border-radius: 0;
+  border-radius: var(--radius);
   background: var(--paper);
   color: var(--text);
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.9rem;
   font-weight: 800;
   box-shadow: none;
@@ -974,8 +977,8 @@ select.is-invalid {
 }
 
 :root[data-theme="dark"] .league-avatar {
-  background: #f3efe6;
-  border-color: #f3efe6;
+  background: #f6f1e8;
+  border-color: #f6f1e8;
 }
 
 .league-avatar .league-mark {
@@ -1069,8 +1072,8 @@ select.is-invalid {
   overflow: hidden;
   border: 0;
   border-radius: 0;
-  background: #14120e;
-  color: #f3efe6;
+  background: #0c0c0e;
+  color: #f6f1e8;
   backdrop-filter: none;
 }
 
@@ -1080,8 +1083,9 @@ select.is-invalid {
   flex: 0 0 auto;
   padding: 0.45rem 0.85rem;
   background: var(--field);
-  color: #14120e;
+  color: #f6f1e8;
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -1116,7 +1120,7 @@ select.is-invalid {
   bottom: 0;
   width: 2.4rem;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, #14120e);
+  background: linear-gradient(90deg, transparent, #0c0c0e);
 }
 
 .ticker-track {
@@ -1146,7 +1150,7 @@ select.is-invalid {
   align-items: center;
   gap: 0.5rem;
   padding-left: 0.12rem;
-  color: #f3efe6;
+  color: #f6f1e8;
   font-family: var(--font-mono);
   font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
@@ -1157,27 +1161,27 @@ select.is-invalid {
   align-items: center;
   padding: 0.1rem 0.45rem;
   border-radius: 999px;
-  background: var(--blue-soft);
-  color: var(--blue);
+  background: rgba(246, 241, 232, 0.14);
+  color: #f6f1e8;
   font-size: 0.66rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .ticker-tag.live {
-  background: var(--red-soft);
-  color: var(--red);
+  background: rgba(232, 93, 76, 0.24);
+  color: #ffb0a4;
 }
 
 .ticker-tag.gold {
-  background: var(--amber-soft);
-  color: var(--amber);
+  background: rgba(240, 195, 106, 0.2);
+  color: #f0c36a;
 }
 
 .ticker-tag.green {
-  background: var(--green-soft);
-  color: var(--green);
+  background: rgba(61, 204, 138, 0.2);
+  color: #8ee0b4;
 }
 
 /* Landing ----------------------------------------------------------------- */
@@ -1282,6 +1286,7 @@ body:not(.league-loaded) .workspace-header {
 
 .desk-job strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 0.92rem;
   letter-spacing: -0.02em;
 }
@@ -1617,6 +1622,7 @@ body:not(.league-loaded) .workspace-header {
   place-items: center;
   color: var(--muted-strong);
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 0.55rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -1660,6 +1666,7 @@ body:not(.league-loaded) .workspace-header {
   background: hsl(var(--hue, 200) 60% 40%);
   color: #fff;
   font-family: var(--font-display);
+  font-synthesis: none;
   font-weight: 800;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
@@ -1936,6 +1943,7 @@ body:not(.league-loaded) .workspace-header {
 .pulse-tile strong {
   overflow: hidden;
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.2rem;
   line-height: 1.15;
   text-overflow: ellipsis;
@@ -2024,6 +2032,7 @@ body:not(.league-loaded) .workspace-header {
 
 .game-side-score strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.35rem;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -2337,6 +2346,7 @@ body:not(.league-loaded) .workspace-header {
 
 .power-score {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.25rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -2400,6 +2410,7 @@ body:not(.league-loaded) .workspace-header {
 .team-card-copy strong {
   overflow: hidden;
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 0.92rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2422,6 +2433,7 @@ body:not(.league-loaded) .workspace-header {
 
 .team-card-score strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.35rem;
   line-height: 1;
 }
@@ -2694,6 +2706,7 @@ a.inline-link:hover {
 .sheet-player strong {
   overflow: hidden;
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.28rem;
   font-weight: 800;
   letter-spacing: -0.03em;
@@ -2766,6 +2779,7 @@ a.inline-link:hover {
 .weekly-chip strong {
   color: var(--blue);
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.72rem;
   font-weight: 800;
   letter-spacing: -0.04em;
@@ -2824,6 +2838,7 @@ a.inline-link:hover {
 .player-week-head h3 {
   margin: 0;
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.85rem;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -2865,6 +2880,7 @@ a.inline-link:hover {
 .weekly-score-badge strong,
 .dynasty-value-badge strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 2.15rem;
   line-height: 0.95;
 }
@@ -3029,6 +3045,7 @@ button.weekly-help-close:hover {
 
 .week-input strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.45rem;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -3116,6 +3133,7 @@ button.weekly-help-close:hover {
 
 .log-chip strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1rem;
 }
 
@@ -3246,6 +3264,7 @@ button.weekly-help-close:hover {
 .award-body strong {
   overflow: hidden;
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 0.98rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3329,6 +3348,7 @@ button.weekly-help-close:hover {
 
 .luck-row > strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -3379,6 +3399,7 @@ button.weekly-help-close:hover {
 
 .record-value {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.1rem;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -3431,6 +3452,7 @@ button.weekly-help-close:hover {
 
 .mode-card strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 0.96rem;
 }
 
@@ -3802,6 +3824,7 @@ button.weekly-help-close:hover {
 
 .calc-pane-total strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.35rem;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -4697,6 +4720,7 @@ button.weekly-help-close:hover {
 
 .power-score-ring strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 2.05rem;
   line-height: 1;
 }
@@ -4740,6 +4764,7 @@ button.weekly-help-close:hover {
   color: var(--muted-strong);
   border: 1px solid var(--line);
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 0.82rem;
 }
 
@@ -4837,6 +4862,7 @@ button.weekly-help-close:hover {
   display: block;
   overflow-wrap: anywhere;
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.85rem;
   line-height: 1;
 }
@@ -4952,6 +4978,7 @@ button.weekly-help-close:hover {
   color: var(--blue);
   overflow-wrap: anywhere;
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.45rem;
   line-height: 1;
 }
@@ -5008,6 +5035,7 @@ button.weekly-help-close:hover {
 
 .season-card-title strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.2rem;
 }
 
@@ -5292,6 +5320,7 @@ button.weekly-help-close:hover {
   margin: 0.2rem 0 0.15rem;
   overflow-wrap: anywhere;
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.2rem;
   line-height: 1.1;
 }
@@ -5449,6 +5478,7 @@ button.weekly-help-close:hover {
 
 .h2h-score strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.8rem;
   line-height: 1;
   color: var(--blue);
@@ -5862,6 +5892,7 @@ button.weekly-help-close:hover {
     display: block;
     overflow: hidden;
     font-family: var(--font-display);
+  font-synthesis: none;
     font-size: 0.92rem;
     line-height: 1.15;
     text-overflow: ellipsis;
@@ -6128,6 +6159,7 @@ button.weekly-help-close:hover {
 
   .phone-desk-page span:first-child {
     font-family: var(--font-display);
+  font-synthesis: none;
     font-size: 1.35rem;
     font-weight: 700;
     letter-spacing: 0.04em;
@@ -6594,6 +6626,7 @@ body.dock-visible {
 
 .window-call-banner-score {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.7rem;
   font-weight: 800;
   line-height: 1;
@@ -6720,6 +6753,7 @@ body.dock-visible {
 
 .window-call-signal strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.45rem;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -7457,6 +7491,7 @@ body.dock-visible {
 
 .room-link strong {
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 0.9rem;
 }
 
@@ -7589,10 +7624,10 @@ body.dock-visible {
 
 .rather-panel h2 {
   margin: 0;
-  font-size: clamp(1.8rem, 4vw, 2.6rem);
-  letter-spacing: 0.02em;
-  line-height: 0.92;
-  text-transform: uppercase;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  text-transform: none;
 }
 
 .rather-format {
@@ -7927,6 +7962,7 @@ button.ranks-chip {
   background: transparent;
   color: var(--muted);
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -8139,6 +8175,7 @@ button.ranks-row.you {
 .ranks-card-price strong {
   display: block;
   font-family: var(--font-display);
+  font-synthesis: none;
   font-size: clamp(2.8rem, 8vw, 4.6rem);
   font-weight: 800;
   letter-spacing: 0.01em;
@@ -8264,7 +8301,7 @@ body:not(.league-loaded):has(#league-page:not(.hidden)) #sticky-mobile-cta {
   display: none;
 }
 
-/* Sunday wire: scores and tags use the mono, leftover pills go square. */
+/* Scores stay tabular. Chips and cards keep the soft product radius. */
 .game-side-score,
 .sheet-value,
 .rank-number,
@@ -8279,29 +8316,12 @@ body:not(.league-loaded):has(#league-page:not(.hidden)) #sticky-mobile-cta {
   letter-spacing: 0;
 }
 
-.feedback-chip,
-.status-chip,
-.you-chip,
-.mini-chip,
-.seed-chip,
-.ticker-tag,
-.log-chip {
-  border-radius: 0;
-}
-
 .team-card,
 .game-card,
 .award-card,
 .standings-row,
 .power-board-row {
   box-shadow: none;
-}
-
-.game-card,
-.team-card,
-.award-card {
-  border-radius: 0;
-  background: transparent;
 }
 
 /* Wide board shuts so the page fills the screen.
@@ -8359,6 +8379,7 @@ html:not(.desk-shut) body.board-tools-live #sticky-mobile-cta {
     background: transparent;
     color: var(--rail-text);
     font-family: var(--font-display);
+  font-synthesis: none;
     font-size: 1.45rem;
     line-height: 1;
     box-shadow: none;
@@ -8397,15 +8418,15 @@ html:not(.desk-shut) body.board-tools-live #sticky-mobile-cta {
     border: 0;
     border-right: 3px solid var(--field);
     border-radius: 0;
-    background: #14120e;
-    color: #f3efe6;
+    background: #0c0c0e;
+    color: #f6f1e8;
     box-shadow: none;
   }
 
   html.desk-shut .desk-board-open:hover {
     transform: none;
     filter: none;
-    background: #14120e;
+    background: #0c0c0e;
     color: var(--field);
   }
 
