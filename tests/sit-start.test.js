@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { siteMarkup } from "./site-markup.js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -278,7 +279,7 @@ test("sit/start callout has loading and error states", () => {
   assert.match(app, /buildSitStart\(/);
   assert.match(app, />Start</);
   assert.match(app, />Sit</);
-  const index = readFileSync(join(docs, "index.html"), "utf8");
+  const index = siteMarkup();
   assert.match(index, /id="weekly-help-btn"/);
   assert.doesNotMatch(index, /Sit\/start this week/);
   assert.doesNotMatch(index, /Close calls get a matchup or usage why/);

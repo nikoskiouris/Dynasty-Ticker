@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { siteMarkup } from "./site-markup.js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -261,6 +262,6 @@ test("league load keeps the draft and there is one calculator", () => {
   assert.doesNotMatch(body, /state\.valueCalc\s*=/, "league load must not replace the trade draft");
   assert.doesNotMatch(body, /emptyValueCalcState\(\)|resetCalculatorState/, "league load must not clear the trade draft");
   assert.doesNotMatch(app, /state\.calc\./, "the roster-only calculator state is gone");
-  const index = readFileSync(join(root, "docs/index.html"), "utf8");
+  const index = siteMarkup();
   assert.equal((index.match(/class="calculator-shell"/g) || []).length, 1);
 });

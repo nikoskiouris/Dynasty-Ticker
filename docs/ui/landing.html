@@ -1,0 +1,54 @@
+<section class="empty-workspace" id="landing">
+  <div class="landing-hero">
+    <div class="landing-copy">
+      <div class="product-hero">
+        <p class="product-kicker">Sleeper dynasty</p>
+        <h2 class="product-hero-title">See the league.<br />Then the next move.</h2>
+        <p class="product-hero-copy">Prices, trades, and your roster. One quiet desk for the whole league.</p>
+      </div>
+      <span class="brand-lockup brand-lockup--landing">
+        <img class="brand-wordmark brand-wordmark--light" src="./brand/wordmark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
+        <img class="brand-wordmark brand-wordmark--dark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" aria-hidden="true" />
+      </span>
+      <form id="landing-username-form" class="landing-search" novalidate>
+        <label for="landing-username">Sleeper username</label>
+        <div class="landing-search-row">
+          <input
+            id="landing-username"
+            name="landing-username"
+            placeholder="Search your Sleeper username"
+            autocomplete="off"
+            value=""
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            enterkeyhint="search"
+            aria-describedby="landing-username-error landing-job-hint"
+          />
+          <button id="landing-find-btn" type="submit">Find leagues</button>
+        </div>
+        <p id="landing-username-error" class="field-error" hidden role="alert"></p>
+      </form>
+      <p id="landing-job-hint" class="muted landing-job-hint">Type your Sleeper username to connect your roster, trade partners, and team impact.</p>
+      <button type="button" id="open-public-ranks" class="ghost-btn landing-ranks-btn" data-action="open-public-ranks">Look up a player</button>
+      <div id="landing-league-picker" class="league-picker landing-league-picker hidden" data-league-picker></div>
+      <p id="landing-loading" class="landing-loading hidden" aria-live="polite">
+        <span class="status-loader" aria-hidden="true"></span>
+        <span id="landing-loading-text">Opening league from Sleeper…</span>
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="public-ranks" class="public-ranks hidden" hidden>
+  <div class="workspace-panel">
+    <div class="panel-heading">
+      <div>
+        <span class="eyebrow">Values</span>
+        <h2>Player ranks</h2>
+      </div>
+      <button type="button" class="ghost-btn" data-action="close-public-ranks">Back</button>
+    </div>
+    <div id="public-ranks-board"></div>
+  </div>
+</section>

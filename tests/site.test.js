@@ -19,6 +19,7 @@ import {
   tickerDurationSeconds,
   writeStorageNoticeDismissed,
 } from "../docs/modules/site.js";
+import { siteMarkup } from "./site-markup.js";
 
 const docs = join(dirname(fileURLToPath(import.meta.url)), "../docs");
 
@@ -148,7 +149,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
     assert.equal(existsSync(join(docs, name)), true, name);
   }
 
-  const index = readDocs("index.html");
+  const index = siteMarkup();
   assert.match(index, /property="og:image"/);
   assert.match(index, /og-image\.jpg/);
   assert.match(index, /rel="canonical"/);
@@ -424,7 +425,7 @@ test("side rail is fixed so the page cannot scroll a blank screen past the last 
 });
 
 test("weekly honors, season superlatives, and the rookie mock sit on the matching tabs", () => {
-  const index = readDocs("index.html");
+  const index = siteMarkup();
   const team = index.match(/data-room-panel="team"[\s\S]*?data-room-panel="scores"/)[0];
   const scores = index.match(/data-room-panel="scores"[\s\S]*?data-room-panel="board"/)[0];
   const board = index.match(/data-room-panel="board"[\s\S]*?data-room-panel="activity"/)[0];
@@ -493,6 +494,24 @@ test("wide board can shut so the page fills the screen", () => {
   assert.match(css, /html\.desk-shut \.workspace \{[^}]*grid-column:\s*1/s);
   assert.match(css, /html\.desk-shut \.control-rail \{[^}]*display:\s*none !important/s);
   assert.match(css, /Wide board shuts so the page fills the screen/);
+});
+
+test("each desk page is its own file and boot mounts them before the app", () => {
+  const index = readDocs("index.html");
+  const boot = readDocs("boot.js");
+  assert.match(index, /id="ui-pages"/);
+  assert.match(index, /src="\.\/boot\.js"/);
+  assert.doesNotMatch(index, /id="players-page"/);
+  assert.doesNotMatch(index, /id="trades-page"/);
+  assert.doesNotMatch(index, /id="league-page"/);
+  for (const file of ["landing.html", "players.html", "trades.html", "league.html"]) {
+    assert.match(boot, new RegExp(`\\./ui/${file.replace(".", "\\.")}`));
+    assert.equal(existsSync(join(docs, "ui", file)), true);
+  }
+  assert.match(boot, /await import\("\.\/app\.js"\)/);
+  assert.match(siteMarkup(), /id="landing-rather"/);
+  assert.match(siteMarkup(), /id="calculator-shell"/);
+  assert.match(siteMarkup(), /id="weekly-help-btn"/);
 });
 
 test("the site never names KeepTradeCut", () => {
