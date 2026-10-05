@@ -1069,10 +1069,7 @@ function paintRankToolbar(toolbar, view, typing) {
 function renderRankHost(host) {
   if (!host) return;
   const view = rankViewModel();
-  const canPark = host === el.ranksDashboard
-    && state.activePage === "players"
-    && !isPhoneLayout()
-    && Boolean(el.boardToolsSlot);
+  const canPark = false;
   const park = canPark && !view.loading;
 
   if (host === el.ranksDashboard) {
