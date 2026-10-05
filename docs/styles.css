@@ -1,138 +1,138 @@
 /* ==========================================================================
-   Dynasty Ticker — Sunday wire
-   Newsprint section, ink rules, field-green live bug. Headlines in Barlow
-   Condensed, copy in Public Sans, scores in IBM Plex Mono. Dark is the
-   same section after the presses stop.
+   Dynasty Ticker — Apple product surface
+   Tokens taken from apple.com styles (main.built.css, homepage.built.css,
+   globalheader.css): SF Pro Text / SF Pro Display, #1d1d1f, #f5f5f7,
+   #0071e3 pills at 980px radius. Dark is a black product tile.
    ========================================================================== */
 
 :root {
   color-scheme: light;
-  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
-  --font-body: "Public Sans", "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+  --font-display: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, Menlo, Monaco, monospace;
 
-  --bg: #f3efe6;
+  --bg: #ffffff;
   --bg-glow-1: transparent;
   --bg-glow-2: transparent;
   --bg-glow-3: transparent;
 
-  --rail: #efe8da;
-  --rail-2: #e7dfd0;
-  --rail-line: #1c1915;
-  --rail-text: #1c1915;
-  --rail-muted: #5c564c;
-  --rail-input: #fbf8f2;
-  --rail-placeholder: #8a8174;
-  --backdrop: rgba(20, 18, 14, 0.55);
+  --rail: rgba(250, 250, 252, 0.8);
+  --rail-2: #f5f5f7;
+  --rail-line: rgba(0, 0, 0, 0.08);
+  --rail-text: #1d1d1f;
+  --rail-muted: #6e6e73;
+  --rail-input: #ffffff;
+  --rail-placeholder: #86868b;
+  --backdrop: rgba(232, 232, 237, 0.4);
 
-  --panel: #fbf8f2;
-  --panel-soft: #f7f1e6;
-  --panel-tint: rgba(11, 107, 52, 0.08);
-  --panel-solid: #fffdf8;
-  --line: #d4cbbd;
-  --line-strong: #1c1915;
-  --hover-fill: rgba(28, 25, 21, 0.06);
+  --panel: #f5f5f7;
+  --panel-soft: #ffffff;
+  --panel-tint: rgba(0, 113, 227, 0.08);
+  --panel-solid: #ffffff;
+  --line: rgba(0, 0, 0, 0.08);
+  --line-strong: #d2d2d7;
+  --hover-fill: rgba(0, 0, 0, 0.04);
 
-  --text: #1c1915;
-  --muted: #5c564c;
-  --muted-strong: #3a342c;
-  --on-accent: #f3efe6;
-  --link: #0b6b34;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --muted-strong: #1d1d1f;
+  --on-accent: #ffffff;
+  --link: #0066cc;
 
-  --blue: #0b6b34;
-  --blue-soft: rgba(11, 107, 52, 0.1);
-  --violet: #5c3d2e;
-  --violet-soft: rgba(92, 61, 46, 0.1);
-  --green: #0b6b34;
-  --green-soft: rgba(11, 107, 52, 0.12);
-  --amber: #8a5a12;
-  --amber-soft: rgba(138, 90, 18, 0.12);
-  --red: #b42318;
-  --red-soft: rgba(180, 35, 24, 0.1);
-  --teal: #0b6b34;
-  --teal-soft: rgba(11, 107, 52, 0.12);
+  --blue: #0071e3;
+  --blue-soft: rgba(0, 113, 227, 0.12);
+  --violet: #6e6e73;
+  --violet-soft: rgba(110, 110, 115, 0.12);
+  --green: #008009;
+  --green-soft: #f5fff6;
+  --amber: #f56300;
+  --amber-soft: #fff9f4;
+  --red: #e30000;
+  --red-soft: #fff2f4;
+  --teal: #008009;
+  --teal-soft: #f5fff6;
 
-  --team-a: #0b6b34;
-  --team-a-soft: rgba(11, 107, 52, 0.1);
-  --team-a-border: #0b6b34;
-  --team-b: #5c3d2e;
-  --team-b-soft: rgba(92, 61, 46, 0.1);
-  --team-b-border: #5c3d2e;
+  --team-a: #0071e3;
+  --team-a-soft: rgba(0, 113, 227, 0.08);
+  --team-a-border: rgba(0, 113, 227, 0.35);
+  --team-b: #f56300;
+  --team-b-soft: #fff9f4;
+  --team-b-border: rgba(245, 99, 0, 0.35);
 
-  --gradient: #1c1915;
-  --gradient-soft: #efe8da;
+  --gradient: #0071e3;
+  --gradient-soft: #f5f5f7;
   --shadow: none;
   --shadow-soft: none;
   --lift-shadow: none;
   --accent-glow: transparent;
-  --radius: 0px;
-  --radius-sm: 0px;
-  --focus: 0 0 0 2px #f3efe6, 0 0 0 4px #1c1915;
-  --ink: #1c1915;
-  --paper: #f3efe6;
-  --field: #00b05c;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --focus: 0 0 0 2px #ffffff, 0 0 0 4px #0071e3;
+  --ink: #1d1d1f;
+  --paper: #f5f5f7;
+  --field: #0076df;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #14120e;
+  --bg: #000000;
   --bg-glow-1: transparent;
   --bg-glow-2: transparent;
   --bg-glow-3: transparent;
 
-  --rail: #1b1814;
-  --rail-2: #242019;
-  --rail-line: #f3efe6;
-  --rail-text: #f3efe6;
-  --rail-muted: #b7ad9e;
-  --rail-input: #242019;
-  --rail-placeholder: #8a8174;
-  --backdrop: rgba(0, 0, 0, 0.72);
+  --rail: rgba(22, 22, 23, 0.8);
+  --rail-2: #1d1d1f;
+  --rail-line: rgba(255, 255, 255, 0.12);
+  --rail-text: #f5f5f7;
+  --rail-muted: #86868b;
+  --rail-input: #1d1d1f;
+  --rail-placeholder: #6e6e73;
+  --backdrop: rgba(51, 51, 54, 0.4);
 
-  --panel: #1b1814;
-  --panel-soft: #242019;
-  --panel-tint: rgba(61, 206, 122, 0.1);
-  --panel-solid: #14120e;
-  --line: #3a342c;
-  --line-strong: #f3efe6;
-  --hover-fill: rgba(243, 239, 230, 0.06);
+  --panel: #1d1d1f;
+  --panel-soft: #272729;
+  --panel-tint: rgba(41, 151, 255, 0.14);
+  --panel-solid: #000000;
+  --line: rgba(255, 255, 255, 0.12);
+  --line-strong: #424245;
+  --hover-fill: rgba(255, 255, 255, 0.06);
 
-  --text: #f3efe6;
-  --muted: #b7ad9e;
-  --muted-strong: #e4dccf;
-  --on-accent: #14120e;
-  --link: #3dce7a;
+  --text: #f5f5f7;
+  --muted: #86868b;
+  --muted-strong: #f5f5f7;
+  --on-accent: #ffffff;
+  --link: #2997ff;
 
-  --blue: #3dce7a;
-  --blue-soft: rgba(61, 206, 122, 0.14);
-  --violet: #e6c7a8;
-  --violet-soft: rgba(230, 199, 168, 0.14);
-  --green: #3dce7a;
-  --green-soft: rgba(61, 206, 122, 0.14);
-  --amber: #f0c36a;
-  --amber-soft: rgba(240, 195, 106, 0.14);
-  --red: #ff8b7a;
-  --red-soft: rgba(255, 139, 122, 0.14);
-  --teal: #3dce7a;
-  --teal-soft: rgba(61, 206, 122, 0.14);
+  --blue: #2997ff;
+  --blue-soft: rgba(41, 151, 255, 0.16);
+  --violet: #86868b;
+  --violet-soft: rgba(134, 134, 139, 0.16);
+  --green: #03a10e;
+  --green-soft: rgba(3, 161, 14, 0.16);
+  --amber: #ff791b;
+  --amber-soft: rgba(255, 121, 27, 0.16);
+  --red: #ff4d4d;
+  --red-soft: rgba(255, 77, 77, 0.16);
+  --teal: #03a10e;
+  --teal-soft: rgba(3, 161, 14, 0.16);
 
-  --team-a: #3dce7a;
-  --team-a-soft: rgba(61, 206, 122, 0.12);
-  --team-a-border: #3dce7a;
-  --team-b: #e6c7a8;
-  --team-b-soft: rgba(230, 199, 168, 0.12);
-  --team-b-border: #e6c7a8;
+  --team-a: #2997ff;
+  --team-a-soft: rgba(41, 151, 255, 0.14);
+  --team-a-border: rgba(41, 151, 255, 0.45);
+  --team-b: #ff791b;
+  --team-b-soft: rgba(255, 121, 27, 0.14);
+  --team-b-border: rgba(255, 121, 27, 0.45);
 
-  --gradient: #f3efe6;
-  --gradient-soft: #242019;
+  --gradient: #0071e3;
+  --gradient-soft: #1d1d1f;
   --shadow: none;
   --shadow-soft: none;
   --lift-shadow: none;
   --accent-glow: transparent;
-  --focus: 0 0 0 2px #14120e, 0 0 0 4px #f3efe6;
-  --ink: #f3efe6;
-  --paper: #14120e;
-  --field: #00b05c;
+  --focus: 0 0 0 2px #000000, 0 0 0 4px #0071e3;
+  --ink: #f5f5f7;
+  --paper: #000000;
+  --field: #0076df;
 }
 
 /* ==========================================================================
@@ -617,7 +617,7 @@ button:hover {
 #sticky-find-btn:hover,
 .legal-btn:hover {
   background: var(--field);
-  color: #14120e;
+  color: var(--on-accent);
   border-color: var(--field);
 }
 
@@ -974,8 +974,8 @@ select.is-invalid {
 }
 
 :root[data-theme="dark"] .league-avatar {
-  background: #f3efe6;
-  border-color: #f3efe6;
+  background: #18181b;
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .league-avatar .league-mark {
@@ -1067,10 +1067,10 @@ select.is-invalid {
   display: flex;
   align-items: stretch;
   overflow: hidden;
-  border: 0;
-  border-radius: 0;
-  background: #14120e;
-  color: #f3efe6;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius);
+  background: #111113;
+  color: #f4f4f5;
   backdrop-filter: none;
 }
 
@@ -1080,7 +1080,7 @@ select.is-invalid {
   flex: 0 0 auto;
   padding: 0.45rem 0.85rem;
   background: var(--field);
-  color: #14120e;
+  color: var(--on-accent);
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 700;
@@ -1116,7 +1116,7 @@ select.is-invalid {
   bottom: 0;
   width: 2.4rem;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, #14120e);
+  background: linear-gradient(90deg, transparent, #111113);
 }
 
 .ticker-track {
@@ -1146,7 +1146,7 @@ select.is-invalid {
   align-items: center;
   gap: 0.5rem;
   padding-left: 0.12rem;
-  color: #f3efe6;
+  color: #f4f4f5;
   font-family: var(--font-mono);
   font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
@@ -8219,6 +8219,7 @@ body.league-loaded .workspace-lede { display: none; }
 @media (min-width: 701px) {
   body:not(.league-loaded):not(.board-tools-live) .app-frame {
     grid-template-columns: minmax(0, 1fr);
+    align-content: start;
   }
 
   body:not(.league-loaded):not(.board-tools-live) .control-rail {
@@ -8226,6 +8227,7 @@ body.league-loaded .workspace-lede { display: none; }
     display: flex;
     flex-direction: row;
     align-items: center;
+    align-self: start;
     gap: 1rem;
     width: auto;
     height: auto;
@@ -8234,7 +8236,7 @@ body.league-loaded .workspace-lede { display: none; }
     overflow: visible;
     padding: 0.7rem 1.4rem;
     border-right: 0;
-    border-bottom: 3px solid var(--text);
+    border-bottom: 1px solid var(--line);
   }
 
   body:not(.league-loaded):not(.board-tools-live) .brand-panel {
@@ -8395,17 +8397,17 @@ html:not(.desk-shut) body.board-tools-live #sticky-mobile-cta {
     min-height: 2.6rem;
     padding: 0;
     border: 0;
-    border-right: 3px solid var(--field);
-    border-radius: 0;
-    background: #14120e;
-    color: #f3efe6;
+    border-right: 0;
+    border-radius: 0 14px 14px 0;
+    background: #18181b;
+    color: #f4f4f5;
     box-shadow: none;
   }
 
   html.desk-shut .desk-board-open:hover {
     transform: none;
     filter: none;
-    background: #14120e;
+    background: #27272a;
     color: var(--field);
   }
 
@@ -8442,5 +8444,1142 @@ html:not(.desk-shut) body.board-tools-live #sticky-mobile-cta {
 
   body.board-tools-live #ranks-section > .panel-heading {
     display: none;
+  }
+}
+
+/* ==========================================================================
+   Apple product surface
+   Measured from apple.com: SF Pro Text 17px / -0.022em, SF Pro Display
+   headlines at 600, button #0071e3 radius 980px, tiles #f5f5f7, nav scrim
+   rgba(250, 250, 252, .8) with saturate(180%) blur(20px).
+   ========================================================================== */
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  line-height: 1.47059;
+}
+
+body::before {
+  content: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+.signal-display,
+.signal-title,
+.signal-door strong,
+.signal-steps strong {
+  font-family: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: -0.002em;
+}
+
+h1,
+.signal-display {
+  font-size: 56px;
+  line-height: 1.07143;
+  letter-spacing: -0.005em;
+  font-weight: 600;
+}
+
+h2,
+.signal-title {
+  font-size: 40px;
+  line-height: 1.1;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 21px;
+  line-height: 1.19048;
+  letter-spacing: 0.011em;
+  font-weight: 600;
+}
+
+a {
+  color: var(--link);
+}
+
+button,
+.legal-btn {
+  width: auto;
+  min-height: 0;
+  border: 1px solid transparent;
+  border-radius: 980px;
+  padding: 9px 16px;
+  background: #0071e3;
+  color: #ffffff;
+  font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.016em;
+  line-height: 1.28577;
+  box-shadow: none;
+}
+
+button:hover,
+.legal-btn:hover {
+  background: #0076df;
+  color: #ffffff;
+  transform: none;
+  filter: none;
+}
+
+button:active,
+.legal-btn:active {
+  background: #006edb;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid #0071e3;
+  outline-offset: 1px;
+  box-shadow: none;
+}
+
+.ghost-btn,
+button.ghost-btn {
+  background: transparent;
+  color: #0066cc;
+  border-color: #0066cc;
+}
+
+.ghost-btn:hover,
+button.ghost-btn:hover {
+  background: #0076df;
+  border-color: transparent;
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .ghost-btn,
+:root[data-theme="dark"] button.ghost-btn {
+  color: #2997ff;
+  border-color: #2997ff;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid #d2d2d7;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1d1d1f;
+  font-size: 17px;
+  letter-spacing: -0.022em;
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea {
+  border-color: #424245;
+  background: #1d1d1f;
+  color: #f5f5f7;
+}
+
+.brand-wordmark--light {
+  filter: grayscale(1) contrast(1.15);
+}
+
+.control-rail {
+  background: rgba(250, 250, 252, 0.8);
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+:root[data-theme="dark"] .control-rail {
+  background: rgba(22, 22, 23, 0.8);
+  border-right-color: rgba(255, 255, 255, 0.12);
+}
+
+.workspace-panel,
+.analytics-panel,
+.action-panel,
+.legal-card,
+.rather-panel,
+.ranks-card,
+.game-card,
+.team-card,
+.award-card {
+  background: #f5f5f7;
+  border: 0;
+  border-radius: 18px;
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .workspace-panel,
+:root[data-theme="dark"] .analytics-panel,
+:root[data-theme="dark"] .action-panel,
+:root[data-theme="dark"] .legal-card,
+:root[data-theme="dark"] .rather-panel,
+:root[data-theme="dark"] .ranks-card,
+:root[data-theme="dark"] .game-card,
+:root[data-theme="dark"] .team-card,
+:root[data-theme="dark"] .award-card {
+  background: #1d1d1f;
+}
+
+.desk-nav {
+  top: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.16);
+  border-radius: 0;
+  background: rgba(250, 250, 252, 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .desk-nav {
+  border-bottom-color: rgba(255, 255, 255, 0.16);
+  background: rgba(22, 22, 23, 0.8);
+}
+
+.workspace-tabs {
+  padding: 0 8px;
+  border-bottom: 0;
+  gap: 0;
+}
+
+.page-tab,
+.room-tab,
+.phone-desk-page,
+.phone-desk-room,
+.mode-card,
+.signal-door,
+button.signal-door {
+  border-radius: 0;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.8);
+  box-shadow: none;
+  font-weight: 400;
+}
+
+:root[data-theme="dark"] .page-tab,
+:root[data-theme="dark"] .room-tab,
+:root[data-theme="dark"] .phone-desk-page,
+:root[data-theme="dark"] .mode-card,
+:root[data-theme="dark"] .signal-door,
+:root[data-theme="dark"] button.signal-door {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.page-tab {
+  min-height: 52px;
+  justify-content: center;
+  text-align: center;
+}
+
+.page-tab:hover,
+.room-tab:hover,
+.phone-desk-page:hover {
+  background: transparent;
+  color: #000000;
+  transform: none;
+  filter: none;
+}
+
+.page-tab.active,
+.page-tab.active:hover {
+  background: transparent;
+  color: #1d1d1f;
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .page-tab.active,
+:root[data-theme="dark"] .page-tab.active:hover {
+  color: #f5f5f7;
+}
+
+.page-tab.active .tab-copy small {
+  color: #6e6e73;
+}
+
+.tab-copy strong,
+.room-tab,
+.phone-desk-page span:first-child {
+  font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.tab-copy small {
+  font-size: 12px;
+  letter-spacing: -0.01em;
+  color: #6e6e73;
+}
+
+.room-tab {
+  margin-right: 18px;
+  padding: 4px 0 8px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+}
+
+.room-tab.active,
+.room-tab.active:hover {
+  background: transparent;
+  color: #1d1d1f;
+  border-bottom-color: #1d1d1f;
+}
+
+:root[data-theme="dark"] .room-tab.active,
+:root[data-theme="dark"] .room-tab.active:hover {
+  color: #f5f5f7;
+  border-bottom-color: #f5f5f7;
+}
+
+.phone-desk-page.active {
+  background: transparent;
+  box-shadow: none;
+  color: #1d1d1f;
+}
+
+.signal-progress {
+  height: 2px;
+  background: #0071e3;
+  animation: signal-grow linear;
+  animation-timeline: scroll(root);
+}
+
+.league-loaded .signal-progress {
+  display: none;
+}
+
+.empty-workspace {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.landing-hero {
+  display: grid;
+  min-height: calc(100svh - 8rem);
+  align-items: center;
+  justify-items: center;
+  padding: 72px 22px 48px;
+  background: #ffffff;
+  text-align: center;
+}
+
+.signal-hero {
+  display: grid;
+  justify-items: center;
+  gap: 0.55rem;
+  width: min(980px, 100%);
+  text-align: center;
+}
+
+.signal-kicker {
+  margin: 0;
+  color: #1d1d1f;
+  font-family: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 0.011em;
+  line-height: 1.19048;
+  text-transform: none;
+}
+
+:root[data-theme="dark"] .signal-kicker,
+:root[data-theme="dark"] .signal-display,
+:root[data-theme="dark"] .signal-title,
+:root[data-theme="dark"] .signal-lede {
+  color: #f5f5f7;
+}
+
+.signal-display {
+  max-width: 14em;
+  margin: 0 auto;
+  color: #1d1d1f;
+}
+
+.signal-lede {
+  max-width: 34rem;
+  margin: 8px auto 0;
+  color: #1d1d1f;
+  font-family: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 21px;
+  font-weight: 400;
+  letter-spacing: 0.011em;
+  line-height: 1.19048;
+}
+
+.landing-search {
+  width: min(520px, 100%);
+  margin: 18px auto 0;
+  text-align: left;
+}
+
+.landing-search label {
+  color: #6e6e73;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.landing-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.landing-search-row input {
+  min-height: 44px;
+  border: 1px solid #d2d2d7;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: none;
+  padding: 0 16px;
+}
+
+.landing-search-row:focus-within {
+  border: 0;
+  box-shadow: none;
+}
+
+.landing-search-row input:focus-visible {
+  outline: 2px solid #0071e3;
+  outline-offset: 1px;
+  border-color: #0071e3;
+}
+
+.landing-search-row button {
+  min-height: 44px;
+  padding: 9px 22px;
+  font-size: 17px;
+  letter-spacing: -0.022em;
+  line-height: 1.17648;
+  border-radius: 980px;
+}
+
+.landing-job-hint {
+  text-align: center;
+  color: #6e6e73;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.016em;
+}
+
+.landing-ranks-btn,
+button.landing-ranks-btn {
+  justify-self: center;
+  width: auto;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #0066cc;
+  font-size: 17px;
+  letter-spacing: -0.022em;
+}
+
+.landing-ranks-btn::after,
+button.landing-ranks-btn::after {
+  content: " ›";
+}
+
+.landing-ranks-btn:hover,
+button.landing-ranks-btn:hover {
+  background: transparent;
+  color: #0071e3;
+  text-decoration: underline;
+}
+
+.signal-doors,
+.signal-path {
+  width: 100%;
+  margin: 0;
+  padding: 72px 22px 80px;
+  text-align: center;
+}
+
+.signal-doors {
+  background: #f5f5f7;
+}
+
+:root[data-theme="dark"] .signal-doors,
+:root[data-theme="dark"] .landing-hero {
+  background: #000000;
+}
+
+.signal-door-grid,
+.signal-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: min(1100px, 100%);
+  margin: 28px auto 0;
+  padding: 0;
+  list-style: none;
+}
+
+.signal-door,
+button.signal-door {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-height: 220px;
+  align-content: center;
+  padding: 36px 24px;
+  border: 0;
+  border-radius: 18px;
+  background: #ffffff;
+  color: #1d1d1f;
+  text-align: center;
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .signal-door,
+:root[data-theme="dark"] button.signal-door {
+  background: #1d1d1f;
+  color: #f5f5f7;
+}
+
+.signal-door:hover,
+button.signal-door:hover {
+  transform: none;
+  filter: none;
+  background: #ffffff;
+  border: 0;
+}
+
+:root[data-theme="dark"] .signal-door:hover,
+:root[data-theme="dark"] button.signal-door:hover {
+  background: #272729;
+}
+
+.signal-door span,
+.signal-steps span {
+  color: #6e6e73;
+  font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.016em;
+}
+
+.signal-door strong,
+.signal-steps strong {
+  font-size: 28px;
+  line-height: 1.14286;
+  letter-spacing: 0.007em;
+}
+
+.signal-door small,
+.signal-steps p {
+  margin: 0;
+  max-width: 24rem;
+  color: #6e6e73;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  line-height: 1.47059;
+}
+
+.signal-steps li {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 8px 12px 0;
+  border: 0;
+}
+
+.ticker {
+  border: 0;
+  border-radius: 0;
+  background: #f5f5f7;
+  color: #1d1d1f;
+}
+
+:root[data-theme="dark"] .ticker {
+  background: #000000;
+  color: #f5f5f7;
+}
+
+.ticker-label {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  color: #0071e3;
+  font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.ticker-label::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 980px;
+  background: #0071e3;
+  box-shadow: none;
+  animation: none;
+}
+
+.ticker-item,
+.ticker-viewport::after {
+  color: #1d1d1f;
+}
+
+:root[data-theme="dark"] .ticker-item {
+  color: #f5f5f7;
+}
+
+.ticker-viewport::after {
+  background: linear-gradient(90deg, transparent, #f5f5f7);
+}
+
+:root[data-theme="dark"] .ticker-viewport::after {
+  background: linear-gradient(90deg, transparent, #000000);
+}
+
+.league-avatar {
+  border: 0;
+  border-radius: 18px;
+  box-shadow: none;
+  background: #f5f5f7;
+}
+
+.feedback-chip,
+.status-chip,
+.you-chip,
+.mini-chip,
+.seed-chip,
+.ticker-tag,
+.log-chip {
+  border-radius: 980px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+html:not(.desk-shut) body.board-tools-live #landing {
+  display: block;
+}
+
+@media (max-width: 1068px) {
+  h1,
+  .signal-display {
+    font-size: 40px;
+    line-height: 1.1;
+    letter-spacing: 0;
+  }
+
+  h2,
+  .signal-title,
+  .signal-door strong,
+  .signal-steps strong {
+    font-size: 28px;
+    line-height: 1.14286;
+    letter-spacing: 0.007em;
+  }
+}
+
+@media (max-width: 734px) {
+  .signal-door-grid,
+  .signal-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-hero {
+    min-height: 0;
+    padding: 36px 16px 28px;
+  }
+
+  h1,
+  .signal-display {
+    font-size: 32px;
+    line-height: 1.125;
+    letter-spacing: 0.002em;
+  }
+
+  .signal-lede,
+  .signal-kicker {
+    font-size: 19px;
+    line-height: 1.21053;
+    letter-spacing: 0.012em;
+  }
+
+  .desk-nav {
+    border-radius: 0;
+  }
+}
+
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  .landing-search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-search-row button {
+    width: 100%;
+  }
+
+  .mobile-chrome {
+    height: 48px;
+    min-height: 48px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(250, 250, 252, 0.8);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  :root[data-theme="dark"] .mobile-chrome {
+    background: rgba(22, 22, 23, 0.8);
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .phone-desk-page {
+    border-radius: 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .phone-desk-page span:first-child {
+    font-size: 17px;
+    letter-spacing: -0.022em;
+  }
+
+  .mobile-icon-btn,
+  .mobile-rail-close {
+    border-radius: 980px;
+    background: #f5f5f7;
+    border-color: transparent;
+  }
+}
+
+/* ==========================================================================
+   Apple homepage composition
+   apple.com is full-bleed chapters: 44px black nav, a viewport of centered
+   type, two pills, then the next viewport. No side board on that page.
+   ========================================================================== */
+
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) {
+  background: #000000;
+}
+
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .app-frame {
+  display: block;
+}
+
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .control-rail,
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .desk-board-open,
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .desk-board-close,
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) #ranks-section,
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) #passport-fold,
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .room-nav,
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) #ticker {
+  display: none !important;
+}
+
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .workspace {
+  display: block;
+  padding: 0;
+  gap: 0;
+  grid-column: 1;
+}
+
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .desk-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: block;
+  height: 44px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: none;
+}
+
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .workspace-tabs {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  gap: 0;
+}
+
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .page-tab {
+  width: auto;
+  min-height: 44px;
+  padding: 0 18px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  opacity: 0.88;
+}
+
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .page-tab .tab-copy small {
+  display: none;
+}
+
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .page-tab .tab-copy strong {
+  color: #f5f5f7;
+  font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .page-tab.active,
+body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .page-tab:hover {
+  background: transparent;
+  opacity: 1;
+  box-shadow: none;
+}
+
+.apple-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 100svh;
+  margin: 0;
+  padding: 88px 24px 72px;
+  border: 0;
+  border-radius: 0;
+  text-align: center;
+  box-shadow: none;
+}
+
+.apple-screen-black {
+  background: #000000;
+  color: #f5f5f7;
+}
+
+.apple-screen-gray {
+  background: #f5f5f7;
+  color: #1d1d1f;
+}
+
+.apple-screen-white {
+  background: #ffffff;
+  color: #1d1d1f;
+}
+
+html:not(.desk-shut) body:not(.league-loaded) .landing-hero .brand-lockup--landing {
+  display: block;
+  margin: 0 auto 14px;
+}
+
+.apple-screen-black .brand-wordmark--light {
+  display: none;
+  filter: none;
+}
+
+.apple-screen-black .brand-wordmark--dark {
+  display: block;
+  height: 28px;
+  margin: 0 auto;
+  filter: none;
+}
+
+.apple-screen-black .signal-kicker,
+.apple-screen-black .signal-display,
+.apple-screen-black .signal-lede,
+.apple-screen-black .signal-title {
+  color: #f5f5f7;
+}
+
+.apple-screen-gray .signal-kicker,
+.apple-screen-gray .signal-title,
+.apple-screen-white .signal-kicker,
+.apple-screen-white .signal-title,
+.apple-screen-gray .signal-door strong,
+.apple-screen-white .signal-door strong {
+  color: #1d1d1f;
+}
+
+.landing-hero .signal-display {
+  max-width: 12em;
+  margin: 0 auto;
+  font-size: 56px;
+  line-height: 1.07143;
+  letter-spacing: -0.005em;
+  font-weight: 600;
+}
+
+.landing-hero .signal-lede {
+  margin: 6px auto 0;
+  color: #f5f5f7;
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: 0.004em;
+  line-height: 1.14;
+}
+
+.landing-hero .signal-kicker {
+  display: none;
+}
+
+.landing-hero .landing-search {
+  width: min(420px, 100%);
+  margin: 22px auto 0;
+}
+
+.landing-hero .landing-search label,
+.landing-hero .landing-job-hint {
+  color: #a1a1a6;
+  text-align: center;
+}
+
+.apple-screen-black .landing-search-row {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.apple-screen-black .landing-search-row input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 980px;
+  background: transparent;
+  color: #f5f5f7;
+  text-align: center;
+}
+
+.apple-screen-black .landing-search-row input::placeholder {
+  color: rgba(245, 245, 247, 0.56);
+}
+
+.apple-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.apple-cta-row #landing-find-btn,
+.apple-screen .apple-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: 980px;
+  background: #0071e3;
+  color: #ffffff;
+  font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.016em;
+  line-height: 1.28;
+}
+
+.apple-cta-row .landing-ranks-btn,
+.apple-cta-row button.landing-ranks-btn {
+  min-height: 36px;
+  padding: 8px 16px;
+  border: 1px solid #2997ff;
+  border-radius: 980px;
+  background: transparent;
+  color: #2997ff;
+  font-size: 14px;
+  letter-spacing: -0.016em;
+  text-decoration: none;
+}
+
+.apple-cta-row .landing-ranks-btn::after,
+.apple-cta-row button.landing-ranks-btn::after {
+  content: none;
+}
+
+.apple-cta-row .landing-ranks-btn:hover,
+.apple-cta-row button.landing-ranks-btn:hover {
+  background: #0071e3;
+  border-color: #0071e3;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.signal-door-grid {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.signal-door.apple-screen {
+  width: 100%;
+  max-width: none;
+  min-height: 100svh;
+  gap: 8px;
+  padding: 80px 24px;
+  border-radius: 0;
+}
+
+.signal-door.apple-screen:hover,
+button.signal-door.apple-screen:hover {
+  transform: none;
+  filter: none;
+}
+
+.signal-door .apple-eyebrow {
+  font-family: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 0.011em;
+  color: inherit;
+}
+
+.apple-screen-black .apple-eyebrow,
+.apple-screen-black.signal-door strong,
+.apple-screen-black.signal-door small {
+  color: #f5f5f7;
+}
+
+.signal-door.apple-screen strong {
+  font-size: 56px;
+  line-height: 1.07143;
+  letter-spacing: -0.005em;
+  font-weight: 600;
+}
+
+.signal-door.apple-screen small {
+  max-width: 28rem;
+  margin-top: 4px;
+  font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 21px;
+  font-weight: 400;
+  letter-spacing: 0.011em;
+  line-height: 1.19;
+  color: #6e6e73;
+}
+
+.apple-screen-black.signal-door small {
+  color: #a1a1a6;
+}
+
+.apple-pill-outline {
+  background: transparent !important;
+  border-color: #2997ff !important;
+  color: #2997ff !important;
+}
+
+.signal-path.apple-screen {
+  min-height: 100svh;
+}
+
+.signal-path .signal-title {
+  max-width: 14em;
+  margin: 0 auto;
+  font-size: 56px;
+  line-height: 1.07143;
+  letter-spacing: -0.005em;
+}
+
+.signal-path .signal-steps {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  width: min(640px, 100%);
+  margin: 28px auto 0;
+}
+
+.signal-path .signal-steps li {
+  border: 0;
+  padding: 0;
+}
+
+.signal-path .signal-steps strong {
+  font-size: 28px;
+  color: #1d1d1f;
+}
+
+.signal-path .signal-steps p,
+.signal-path .signal-steps span {
+  color: #6e6e73;
+}
+
+.empty-workspace {
+  gap: 0;
+  padding: 0;
+  background: transparent;
+}
+
+@media (max-width: 1068px) {
+  .landing-hero .signal-display,
+  .signal-door.apple-screen strong,
+  .signal-path .signal-title {
+    font-size: 40px;
+    line-height: 1.1;
+    letter-spacing: 0;
+  }
+}
+
+@media (max-width: 734px) {
+  .landing-hero .signal-display,
+  .signal-door.apple-screen strong,
+  .signal-path .signal-title {
+    font-size: 32px;
+    line-height: 1.125;
+    letter-spacing: 0.002em;
+  }
+
+  .signal-door-grid,
+  .signal-steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .mobile-chrome {
+    background: rgba(0, 0, 0, 0.92);
+    border-bottom: 0;
+    color: #f5f5f7;
+  }
+
+  body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .mobile-chrome .brand-wordmark--light {
+    display: none;
+  }
+
+  body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .mobile-chrome .brand-wordmark--dark {
+    display: block;
+  }
+
+  body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) #mobile-rail-toggle {
+    visibility: hidden;
+  }
+
+  body:not(.league-loaded):not(:has(#trades-page:not(.hidden))):not(:has(#league-page:not(.hidden))) .mobile-chrome-copy strong {
+    color: #a1a1a6;
   }
 }
