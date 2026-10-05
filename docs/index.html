@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Dynasty Ticker — Your Sleeper dynasty league</title>
     <meta name="description" content="See what your players are worth, check a trade, and find your team's next move." />
-    <meta name="theme-color" content="#f4f4f6" />
+    <meta name="theme-color" content="#f5f5f7" />
     <script>
       try {
         var storedTheme = localStorage.getItem("dynasty_ticker_theme");
         if (storedTheme === "dark" || storedTheme === "light") {
           document.documentElement.setAttribute("data-theme", storedTheme);
           var themeColor = document.querySelector('meta[name="theme-color"]');
-          if (themeColor) themeColor.setAttribute("content", storedTheme === "dark" ? "#09090b" : "#f4f4f6");
+          if (themeColor) themeColor.setAttribute("content", storedTheme === "dark" ? "#000000" : "#f5f5f7");
         }
         if (localStorage.getItem("dynasty_ticker_board") === "shut") {
           document.documentElement.classList.add("desk-shut");
@@ -36,9 +36,6 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="manifest" href="./site.webmanifest" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,680&family=IBM+Plex+Mono:wght@500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
