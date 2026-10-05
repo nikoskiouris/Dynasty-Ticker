@@ -45,6 +45,7 @@ What follows from that:
 
 - Test changes yourself.
 - Record a short screen video of the working change and show it to the user.
+- A launch video of this site follows `.cursor/skills/brag/SKILL.md`.
 - After tests pass, commit, push, update the PR, and keep moving.
 
 ## Git branches
