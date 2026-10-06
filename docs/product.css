@@ -1,0 +1,970 @@
+/* ==========================================================================
+   Product frame
+   The whole desk, drawn like the OnePrompt boards: quiet top nav, a centered
+   serif hero, pill actions, and soft cards instead of a ruled sports section.
+   ========================================================================== */
+
+:root {
+  --product-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+body {
+  background: #0c0c0e;
+}
+
+/* --------------------------------------------------------------------------
+   Type
+   -------------------------------------------------------------------------- */
+
+.product-hero {
+  display: grid;
+  justify-items: center;
+  gap: 0.85rem;
+  margin: 0 auto 1.6rem;
+  max-width: 18em;
+}
+
+.product-kicker,
+.product-hero-copy {
+  margin: 0;
+}
+
+.product-kicker {
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.15rem;
+  font-weight: 400;
+  font-synthesis: none;
+}
+
+.product-hero-title {
+  margin: 0;
+  font-size: clamp(3.4rem, 7vw, 5.6rem);
+  line-height: 0.92;
+  letter-spacing: -0.035em;
+  font-weight: 400;
+}
+
+.product-hero-copy {
+  max-width: 28rem;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+h1,
+.product-hero-title,
+.rather-panel h2,
+.panel-heading h2,
+.tab-copy strong {
+  font-synthesis: none;
+}
+
+/* --------------------------------------------------------------------------
+   Wide desk
+   -------------------------------------------------------------------------- */
+
+@media (min-width: 701px) {
+  .app-frame {
+    min-height: 100vh;
+  }
+
+  .control-rail {
+    background: transparent;
+    border-right: 0;
+    padding: 1.15rem 1.15rem 1.4rem 1.35rem;
+    gap: 1rem;
+  }
+
+  .brand-panel {
+    border-bottom: 0;
+    padding-bottom: 0.2rem;
+  }
+
+  .brand-lockup--rail .brand-wordmark {
+    height: 1.55rem;
+  }
+
+  .rail-module {
+    border: 0;
+    border-radius: 28px;
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+    box-shadow: var(--product-shadow);
+    padding: 1.15rem;
+  }
+
+  .step-badge {
+    border-radius: 999px;
+    border-color: transparent;
+    background: var(--panel-tint);
+    color: var(--link);
+    font-family: var(--font-body);
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  .rail-module h2 {
+    font-size: 1.35rem;
+    font-weight: 400;
+    letter-spacing: -0.03em;
+  }
+
+  .rail-footer {
+    margin-top: auto;
+    padding-top: 0.4rem;
+    border-top: 0;
+  }
+
+  #home-btn {
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: transparent;
+    color: var(--text);
+    min-height: 2.5rem;
+  }
+
+  .workspace {
+    padding: 1.5rem 2.6rem 4.5rem;
+    gap: 1.75rem;
+  }
+
+  .workspace-header {
+    align-items: end;
+    padding: 0.4rem 0 0.2rem;
+    border-bottom: 0;
+  }
+
+  #hero-title {
+    font-size: clamp(2.8rem, 5vw, 4.4rem);
+    line-height: 0.95;
+  }
+
+  .league-avatar {
+    border-radius: 22px;
+    border-width: 0;
+    background: var(--panel);
+    box-shadow: var(--product-shadow);
+  }
+
+  .state-grid {
+    gap: 0.7rem;
+  }
+
+  .state-grid > div {
+    padding: 0.85rem 1rem;
+    border: 0;
+    border-radius: 18px;
+    background: var(--panel);
+    box-shadow: var(--product-shadow);
+  }
+
+  .desk-nav {
+    position: sticky;
+    top: 0.7rem;
+    z-index: 8;
+    border: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--panel) 82%, transparent);
+    box-shadow: var(--product-shadow);
+    backdrop-filter: blur(16px);
+    overflow: visible;
+  }
+
+  .workspace-tabs {
+    padding: 0.35rem 0.45rem;
+  }
+
+  .page-tab {
+    min-height: 0;
+    padding: 0.55rem 1rem;
+    border-radius: 999px;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .page-tab:hover {
+    background: var(--hover-fill);
+  }
+
+  .page-tab.active,
+  .page-tab.active:hover {
+    background: var(--text);
+    color: var(--bg);
+    box-shadow: none;
+  }
+
+  .page-tab.active .tab-copy small {
+    color: color-mix(in srgb, var(--bg) 72%, transparent);
+  }
+
+  .tab-copy strong {
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  .room-nav {
+    border-top: 0;
+    background: transparent;
+    padding: 0.15rem 0.7rem 0.55rem;
+    gap: 0.35rem;
+  }
+
+  .room-tab {
+    padding: 0.38rem 0.8rem;
+    margin-right: 0;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 0.82rem;
+  }
+
+  .room-tab.active,
+  .room-tab.active:hover {
+    border-color: var(--line-strong);
+    border-bottom-color: var(--line-strong);
+    background: var(--panel-soft);
+    color: var(--text);
+  }
+
+  .ticker {
+    border-radius: 18px;
+    margin-top: 0.2rem;
+  }
+
+  .workspace-panel,
+  .analytics-panel,
+  .action-panel,
+  details.workspace-panel {
+    border: 0;
+    border-radius: 28px;
+    background: var(--panel);
+    box-shadow: var(--product-shadow);
+    padding: 1.5rem 1.6rem 1.7rem;
+  }
+
+  .panel-heading {
+    align-items: end;
+    margin-bottom: 1.15rem;
+  }
+
+  .panel-heading h2,
+  .action-panel h2 {
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  .section-copy {
+    text-align: left;
+    font-size: 0.95rem;
+  }
+
+  .empty-workspace {
+    border: 0;
+    padding: 0;
+  }
+
+  button.ranks-row,
+  .standings-row,
+  .asset-item,
+  .log-row,
+  .history-row {
+    border-radius: 16px;
+    padding: 0.8rem 0.85rem;
+  }
+
+  button.ranks-row:hover,
+  .standings-row:hover {
+    background: var(--hover-fill);
+  }
+
+  .ranks-list,
+  .ranks-neighbors,
+  .standings-table {
+    gap: 0.25rem;
+    border-top: 0;
+  }
+
+  .game-card,
+  .team-card,
+  .award-card,
+  .mode-card,
+  .pulse-tile {
+    border: 0;
+    border-radius: 22px;
+    background: var(--panel-soft);
+    box-shadow: var(--product-shadow);
+  }
+
+  .pulse-tile {
+    padding: 1rem 1rem 1.1rem;
+    border-top: 0;
+  }
+
+  .rather-panel {
+    border: 0;
+    padding: 2.5rem 1rem 1rem;
+    text-align: center;
+  }
+
+  .rather-panel h2 {
+    font-size: clamp(2.4rem, 5vw, 4rem);
+    line-height: 0.98;
+  }
+
+  .rather-player,
+  button.rather-player {
+    border: 0;
+    border-radius: 28px;
+    background: var(--panel);
+    box-shadow: var(--product-shadow);
+    padding: 1.3rem 1rem 1.2rem;
+  }
+
+  .mode-card {
+    padding: 1.15rem 1.1rem;
+    text-align: left;
+  }
+
+  .mode-card strong {
+    font-family: var(--font-display);
+    font-size: 1.45rem;
+    font-weight: 400;
+    letter-spacing: -0.03em;
+  }
+
+  .mode-card.active {
+    background: var(--text);
+    color: var(--bg);
+    box-shadow: none;
+  }
+
+  input,
+  select,
+  textarea {
+    border-radius: 999px;
+    min-height: 3rem;
+    padding-inline: 1.05rem;
+    border-color: transparent;
+    background: var(--panel);
+    box-shadow: var(--product-shadow);
+  }
+
+  .rail-module input,
+  .rail-module select {
+    box-shadow: none;
+    background: var(--rail-input);
+  }
+
+  .ghost-btn,
+  button.ghost-btn {
+    border-radius: 999px;
+    border-color: var(--line-strong);
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   First screen: the board, before a league
+   Logo left. Links in the middle. Pill on the right. Hero in the center.
+   -------------------------------------------------------------------------- */
+
+@media (min-width: 701px) {
+  body:not(.league-loaded):not(.board-tools-live) .app-frame {
+    display: block;
+    background: transparent;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .control-rail {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 12;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    padding: 1.35rem 2.4rem 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .brand-panel {
+    padding: 0;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .desk-board-close {
+    display: none;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .rail-footer {
+    margin: 0;
+    justify-self: end;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .workspace {
+    grid-column: 1;
+    width: min(1120px, calc(100% - 4rem));
+    margin: 0 auto;
+    padding: 6.5rem 0 5rem;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .desk-nav {
+    position: absolute;
+    top: 1.15rem;
+    left: 50%;
+    z-index: 13;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 22rem);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .workspace-tabs {
+    justify-content: center;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .page-tab {
+    background: transparent;
+    color: var(--muted);
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .page-tab.active,
+  body:not(.league-loaded):not(.board-tools-live) .page-tab.active:hover {
+    background: transparent;
+    color: var(--text);
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .page-tab.active .tab-copy small {
+    color: var(--muted);
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .tab-copy small {
+    display: none;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .tab-copy strong {
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .room-nav:empty {
+    display: none;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .landing-hero {
+    min-height: calc(100vh - 11rem);
+    place-items: center;
+    align-content: center;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .landing-copy {
+    display: grid;
+    justify-items: center;
+    width: min(760px, 100%);
+    text-align: center;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .landing-search {
+    width: min(640px, 100%);
+    margin-top: 0.4rem;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .landing-search label {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--muted);
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .landing-search-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.7rem;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .landing-search-row input {
+    min-height: 3.3rem;
+    text-align: left;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) #landing-find-btn {
+    min-height: 3.3rem;
+    padding-inline: 1.4rem;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .landing-job-hint {
+    margin-inline: auto;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) #open-public-ranks {
+    margin-top: 0.85rem;
+    min-height: 2.8rem;
+    padding-inline: 1.15rem;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) #ranks-section,
+  body:not(.league-loaded):not(.board-tools-live) .rather-panel {
+    background: transparent;
+    box-shadow: none;
+    padding-inline: 0;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) #ranks-section .panel-heading {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) #ranks-section .panel-heading h2 {
+    font-size: clamp(2.2rem, 4vw, 3.2rem);
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) #ranks-section .section-copy {
+    text-align: center;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   League open: same top bar. No side column.
+   -------------------------------------------------------------------------- */
+
+@media (min-width: 701px) {
+  body.league-loaded .app-frame,
+  body.board-tools-live .app-frame {
+    display: block;
+  }
+
+  body.league-loaded .control-rail,
+  body.board-tools-live .control-rail {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 12;
+    display: flex;
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    padding: 1.2rem 2.2rem 0.6rem;
+    border: 0;
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    box-shadow: none;
+  }
+
+  body.league-loaded .workspace,
+  body.board-tools-live .workspace {
+    width: min(1120px, calc(100% - 3rem));
+    margin: 0 auto;
+    padding: 7.2rem 0 4.5rem;
+  }
+
+  body.league-loaded .desk-nav,
+  body.board-tools-live .desk-nav {
+    position: absolute;
+    top: 1rem;
+    left: 50%;
+    z-index: 13;
+    width: max-content;
+    max-width: calc(100% - 24rem);
+    transform: translateX(-50%);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  body.league-loaded .page-tab.active,
+  body.league-loaded .page-tab.active:hover,
+  body.board-tools-live .page-tab.active,
+  body.board-tools-live .page-tab.active:hover {
+    background: transparent;
+    color: var(--text);
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  body.league-loaded .tab-copy small,
+  body.board-tools-live .tab-copy small {
+    display: none;
+  }
+
+  body.league-loaded .league-module,
+  body.league-loaded #identity-section:not(.hidden) {
+    display: flex;
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 0.55rem;
+    width: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body.league-loaded .league-module .module-heading,
+  body.league-loaded #identity-section .module-heading,
+  body.league-loaded .league-module label,
+  body.league-loaded #identity-section label,
+  body.league-loaded #league-status,
+  body.league-loaded .league-id-fallback {
+    display: none;
+  }
+
+  body.league-loaded .league-module .league-load-form {
+    display: flex;
+    gap: 0.45rem;
+    align-items: center;
+  }
+
+  body.league-loaded .league-module input,
+  body.league-loaded #me-select {
+    width: 14rem;
+    min-height: 2.6rem;
+    box-shadow: none;
+  }
+
+  body.league-loaded .rail-footer {
+    margin: 0 0 0 auto;
+  }
+
+  #desk-board-close,
+  html.desk-shut .desk-board-open {
+    display: none !important;
+  }
+
+  html.desk-shut .control-rail {
+    display: flex !important;
+  }
+
+  html.desk-shut .workspace {
+    padding-left: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Lists, scores, trades, history
+   -------------------------------------------------------------------------- */
+
+.ranks {
+  gap: 1.15rem;
+}
+
+.ranks-toolbar {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  width: min(720px, 100%);
+  margin: 0 auto 0.4rem;
+  text-align: center;
+}
+
+.ranks-search {
+  width: min(560px, 100%);
+  min-height: 3.2rem;
+  border-radius: 999px;
+  text-align: left;
+}
+
+.ranks-filters {
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.ranks-note {
+  max-width: 36rem;
+}
+
+button.ranks-chip {
+  min-height: 2.15rem;
+  margin: 0;
+  padding: 0.25rem 0.85rem;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 1px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-strong);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+button.ranks-chip:hover,
+button.ranks-chip.active,
+button.ranks-chip.active:hover {
+  border-color: transparent;
+  border-bottom-color: transparent;
+  background: var(--text);
+  color: var(--bg);
+  filter: none;
+  transform: none;
+}
+
+.ranks-shelf {
+  justify-content: center;
+  gap: 0.8rem;
+  padding-bottom: 0.4rem;
+}
+
+button.ranks-shelf-item .player-face,
+.player-face,
+.rather-headshot {
+  border-radius: 999px;
+  box-shadow: var(--product-shadow);
+}
+
+.ranks-num,
+.rank-number {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 400;
+  font-synthesis: none;
+}
+
+.ranks-row strong,
+.standings-team strong,
+.team-card-copy strong,
+.game-side-name {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: -0.02em;
+}
+
+.calculator-shell,
+.trade-match-dashboard,
+.power-dashboard,
+.roster-sheet,
+.window-call-dashboard,
+.loyalty-dashboard,
+.analytics-dashboard,
+.mock-dashboard {
+  gap: 1rem;
+}
+
+.calc-pane,
+.trade-side,
+.offer-card,
+.result-card,
+.deal-card,
+.history-card,
+.season-card,
+.record-card,
+.award-card,
+.passport-card,
+.sheet-card {
+  border: 0;
+  border-radius: 22px;
+  background: var(--panel-soft);
+  box-shadow: var(--product-shadow);
+}
+
+.weekly-help-btn,
+.selected-token,
+.feedback-chip,
+.status-chip,
+.you-chip,
+.mini-chip,
+.seed-chip,
+.log-chip,
+.ticker-tag {
+  border-radius: 999px;
+}
+
+details.workspace-panel > summary,
+.league-id-fallback summary {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.15rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.field-error {
+  font-size: 0.84rem;
+}
+
+/* --------------------------------------------------------------------------
+   Phone
+   Same product, stacked. Drawer geometry stays in styles.css.
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  .mobile-chrome {
+    border-bottom: 0;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+  }
+
+  .mobile-icon-btn {
+    border-radius: 999px;
+    border-color: var(--line-strong);
+    background: var(--panel);
+  }
+
+  .mobile-chrome-copy strong {
+    font-size: 1.05rem;
+    font-weight: 400;
+  }
+
+  .product-hero {
+    max-width: none;
+    margin-bottom: 1.1rem;
+  }
+
+  .product-hero-title {
+    font-size: clamp(2.5rem, 12vw, 3.4rem);
+  }
+
+  .ranks-toolbar,
+  .ranks-filters {
+    width: 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+  }
+
+  .ranks-filters {
+    flex-wrap: wrap;
+  }
+
+  .landing-hero {
+    min-height: 0;
+  }
+
+  .landing-copy {
+    text-align: left;
+  }
+
+  .product-hero {
+    justify-items: start;
+  }
+
+  .landing-search-row {
+    grid-template-columns: 1fr;
+  }
+
+  #landing-find-btn,
+  #sticky-find-btn {
+    min-height: 3.1rem;
+  }
+
+  .workspace {
+    padding: 1rem 1rem 5.5rem;
+    gap: 1.2rem;
+  }
+
+  .workspace-panel,
+  .analytics-panel,
+  .action-panel,
+  details.workspace-panel {
+    border: 0;
+    border-radius: 22px;
+    background: var(--panel);
+    box-shadow: var(--product-shadow);
+  }
+
+  .panel-heading h2,
+  .rather-panel h2 {
+    font-size: 2rem;
+    line-height: 1.02;
+  }
+
+  .rather-panel {
+    border: 0;
+    padding-top: 1.4rem;
+  }
+
+  .rather-player,
+  button.rather-player,
+  .team-card,
+  .game-card,
+  .mode-card {
+    border: 0;
+    border-radius: 20px;
+    box-shadow: var(--product-shadow);
+  }
+
+  .empty-workspace {
+    border: 0;
+  }
+
+  button.ranks-row {
+    border-radius: 14px;
+  }
+
+  .sticky-mobile-cta {
+    padding: 0.7rem 1rem calc(0.7rem + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    border-top: 0;
+  }
+
+  #sticky-find-btn {
+    border-radius: 999px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Legal pages share the same paper
+   -------------------------------------------------------------------------- */
+
+.legal-body {
+  background: var(--bg);
+}
+
+.legal-shell {
+  width: min(760px, calc(100% - 2.5rem));
+  margin: 0 auto;
+  padding: 3.5rem 0 4rem;
+}
+
+.legal-top {
+  margin-bottom: 1.5rem;
+}
+
+.legal-shell h1 {
+  font-size: clamp(2.6rem, 6vw, 4.2rem);
+  line-height: 0.96;
+}
+
+.legal-shell h2 {
+  margin-top: 2rem;
+  font-size: 1.7rem;
+}
+
+.legal-shell p,
+.legal-shell li {
+  font-size: 1.02rem;
+  color: var(--muted-strong);
+}
+
+.legal-btn,
+.legal-shell a.legal-btn {
+  display: inline-flex;
+  width: auto;
+  margin-top: 1.4rem;
+  border-radius: 999px;
+}

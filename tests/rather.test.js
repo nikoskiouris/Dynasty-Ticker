@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { siteMarkup } from "./site-markup.js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -455,7 +456,7 @@ test("applyRatherOverlayHidden toggles the hidden attribute", () => {
 });
 
 test("index puts rather on the landing page and never auto-opens a league overlay", () => {
-  const index = readFileSync(join(docs, "index.html"), "utf8");
+  const index = siteMarkup();
   const css = readFileSync(join(docs, "styles.css"), "utf8");
   const app = readFileSync(join(docs, "app.js"), "utf8");
   assert.match(index, /id="landing-rather"/);

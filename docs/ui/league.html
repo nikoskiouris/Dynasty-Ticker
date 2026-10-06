@@ -1,0 +1,57 @@
+<div id="league-page" class="workspace-page app-page hidden" role="tabpanel" aria-labelledby="league-tab" data-page="league">
+  <div class="room" data-room-panel="team">
+    <div id="start-dashboard" class="dashboard start-dashboard hidden"></div>
+    <section class="workspace-panel" id="power-section">
+      <div class="panel-heading">
+        <h2 id="power-heading">Outlook</h2>
+      </div>
+      <div id="power-dashboard" class="power-dashboard">
+        <p class="muted">Connect Sleeper to see your team.</p>
+      </div>
+      <div id="window-call-dashboard" class="window-call-dashboard"></div>
+    </section>
+    <section class="workspace-panel" id="roster-sheet-section">
+      <div class="panel-heading">
+        <h2 id="roster-sheet-heading">Roster</h2>
+        <button type="button" id="weekly-help-btn" class="weekly-help-btn" data-action="toggle-weekly-help" aria-expanded="false" aria-haspopup="dialog" aria-controls="weekly-help-pop" title="What this start score means">
+          <span aria-hidden="true">i</span>
+          <span class="sr-only">What this start score means</span>
+        </button>
+      </div>
+      <div id="roster-sheet" class="roster-sheet"></div>
+      <div id="weekly-help-layer-host"></div>
+    </section>
+  </div>
+  <div class="room hidden" data-room-panel="scores">
+    <div id="scores-dashboard" class="dashboard"></div>
+    <div id="weekly-honors-dashboard" class="dashboard"></div>
+  </div>
+  <div class="room hidden" data-room-panel="board">
+    <section class="workspace-panel" id="teams-section">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">League</span>
+          <h2>How the league ranks</h2>
+        </div>
+        <p class="section-copy" id="teams-grid-copy">Your team is outlined. Tap a team to view it.</p>
+      </div>
+      <div id="teams-grid" class="teams-grid"></div>
+    </section>
+    <div id="standings-dashboard" class="dashboard"></div>
+    <div id="superlatives-dashboard" class="dashboard"></div>
+    <div id="power-board-dashboard" class="dashboard"></div>
+    <details class="workspace-panel" id="mock-fold">
+      <summary>Rookie mock</summary>
+      <div id="mock-dashboard" class="dashboard mock-dashboard"></div>
+    </details>
+  </div>
+  <div class="room hidden" data-room-panel="activity">
+    <div id="trade-log-dashboard" class="dashboard"></div>
+  </div>
+  <div class="room hidden" data-room-panel="history">
+    <div id="history-dashboard" class="dashboard analytics-dashboard">
+      <p class="muted">Connect a league to open history.</p>
+    </div>
+    <div id="loyalty-dashboard" class="loyalty-dashboard"></div>
+  </div>
+</div>

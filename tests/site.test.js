@@ -19,6 +19,7 @@ import {
   tickerDurationSeconds,
   writeStorageNoticeDismissed,
 } from "../docs/modules/site.js";
+import { siteMarkup } from "./site-markup.js";
 
 const docs = join(dirname(fileURLToPath(import.meta.url)), "../docs");
 
@@ -148,7 +149,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
     assert.equal(existsSync(join(docs, name)), true, name);
   }
 
-  const index = readDocs("index.html");
+  const index = siteMarkup();
   assert.match(index, /property="og:image"/);
   assert.match(index, /og-image\.jpg/);
   assert.match(index, /rel="canonical"/);
@@ -173,7 +174,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /See a value\. Check a trade\. Then your team\./);
   assert.match(index, /Type your Sleeper username/);
   assert.doesNotMatch(index, /id="landing-jobs"/);
-  assert.match(index, /brand\/wordmark\.svg/);
+  assert.match(index, /brand\/wordmark-on-dark\.svg/);
   assert.match(index, /class="brand-wordmark/);
   assert.match(index, /class="brand-lockup brand-lockup--landing"/);
   assert.match(index, /id="league-avatar"[\s\S]*brand\/mark\.svg/);
@@ -193,13 +194,15 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /Who would you rather have\?/);
   assert.match(index, /PPR 12-man Superflex/);
   assert.match(index, /id="username-error"/);
-  assert.match(index, /data-theme="light"/);
-  assert.match(index, /theme-color" content="#f3efe6"/);
-  assert.match(index, /dynasty_ticker_theme/);
-  assert.match(index, />Dark mode</);
-  assert.match(index, /id="theme-toggle-btn"[^>]*aria-pressed="true"/);
-  assert.doesNotMatch(index, /data-theme="dark"/);
-  assert.match(index, /family=Barlow\+Condensed:/);
+  assert.match(index, /data-theme="dark"/);
+  assert.match(index, /theme-color" content="#0c0c0e"/);
+  assert.doesNotMatch(index, /dynasty_ticker_theme/);
+  assert.doesNotMatch(index, /id="theme-toggle-btn"/);
+  assert.doesNotMatch(index, /id="mobile-theme-btn"/);
+  assert.doesNotMatch(index, />Light mode</);
+  assert.doesNotMatch(index, />Dark mode</);
+  assert.doesNotMatch(index, /data-theme="light"/);
+  assert.match(index, /family=Instrument\+Serif:/);
   for (const page of ["players", "trades", "league"]) {
     assert.match(index, new RegExp(`data-page="${page}"`));
     assert.match(index, new RegExp(`id="${page}-page"`));
@@ -301,9 +304,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   const notFound = readDocs("404.html");
   assert.match(notFound, /Page not found/);
   assert.match(notFound, /<h1>/);
-  assert.match(notFound, /theme-color" content="#f3efe6"/);
-  assert.match(notFound, /data-theme="light"/);
-  assert.match(notFound, /brand\/wordmark\.svg/);
+  assert.match(notFound, /theme-color" content="#0c0c0e"/);
+  assert.match(notFound, /data-theme="dark"/);
+  assert.match(notFound, /brand\/wordmark-on-dark\.svg/);
   assert.doesNotMatch(notFound, /class="brand-mark"/);
   assert.doesNotMatch(notFound, /League Command Center/);
   assert.doesNotMatch(notFound, /demo league/i);
@@ -313,8 +316,8 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(notFound, /Contact/);
 
   const privacy = readDocs("privacy.html");
-  assert.match(privacy, /theme-color" content="#f3efe6"/);
-  assert.match(privacy, /brand\/wordmark\.svg/);
+  assert.match(privacy, /theme-color" content="#0c0c0e"/);
+  assert.match(privacy, /brand\/wordmark-on-dark\.svg/);
   assert.doesNotMatch(privacy, /class="brand-mark"/);
   assert.doesNotMatch(privacy, /League Command Center/);
   assert.match(privacy, /localStorage/);
@@ -352,8 +355,8 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(readDocs("index.html"), /id="phone-desk"/);
 
   const terms = readDocs("terms.html");
-  assert.match(terms, /theme-color" content="#f3efe6"/);
-  assert.match(terms, /brand\/wordmark\.svg/);
+  assert.match(terms, /theme-color" content="#0c0c0e"/);
+  assert.match(terms, /brand\/wordmark-on-dark\.svg/);
   assert.doesNotMatch(terms, /class="brand-mark"/);
   assert.doesNotMatch(terms, /League Command Center/);
   assert.match(terms, /not affiliated/i);
@@ -367,10 +370,13 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(readDocs("favicon.svg"), /\brx="/);
   assert.match(readDocs("favicon.svg"), /fill="#4b4b51"/);
 
-  assert.match(readDocs("modules/state.js"), /export const DEFAULT_THEME = "light"/);
-  assert.match(readDocs("app.js"), /return DEFAULT_THEME/);
-  assert.match(readDocs("site.webmanifest"), /"theme_color": "#f3efe6"/);
-  assert.match(readDocs("styles.css"), /Sunday wire/);
+  assert.match(readDocs("modules/state.js"), /export const DEFAULT_THEME = "dark"/);
+  assert.match(readDocs("modules/state.js"), /export const THEME_COLOR = "#0c0c0e"/);
+  assert.doesNotMatch(readDocs("modules/state.js"), /THEME_STORAGE_KEY|light:\s*"#f6f1e8"/);
+  assert.doesNotMatch(readDocs("app.js"), /applyTheme|readStoredTheme|THEME_STORAGE_KEY/);
+  assert.doesNotMatch(readDocs("styles.css"), /data-theme="light"|:root\[data-theme="dark"\]/);
+  assert.match(readDocs("site.webmanifest"), /"theme_color": "#0c0c0e"/);
+  assert.match(readDocs("styles.css"), /burgundy ink/);
   assert.match(readDocs("styles.css"), /Phone landing: search first/);
   assert.match(readDocs("styles.css"), /Phone desk nav: sections live in the side board/);
 
@@ -424,7 +430,7 @@ test("side rail is fixed so the page cannot scroll a blank screen past the last 
 });
 
 test("weekly honors, season superlatives, and the rookie mock sit on the matching tabs", () => {
-  const index = readDocs("index.html");
+  const index = siteMarkup();
   const team = index.match(/data-room-panel="team"[\s\S]*?data-room-panel="scores"/)[0];
   const scores = index.match(/data-room-panel="scores"[\s\S]*?data-room-panel="board"/)[0];
   const board = index.match(/data-room-panel="board"[\s\S]*?data-room-panel="activity"/)[0];
@@ -493,6 +499,24 @@ test("wide board can shut so the page fills the screen", () => {
   assert.match(css, /html\.desk-shut \.workspace \{[^}]*grid-column:\s*1/s);
   assert.match(css, /html\.desk-shut \.control-rail \{[^}]*display:\s*none !important/s);
   assert.match(css, /Wide board shuts so the page fills the screen/);
+});
+
+test("each desk page is its own file and boot mounts them before the app", () => {
+  const index = readDocs("index.html");
+  const boot = readDocs("boot.js");
+  assert.match(index, /id="ui-pages"/);
+  assert.match(index, /src="\.\/boot\.js"/);
+  assert.doesNotMatch(index, /id="players-page"/);
+  assert.doesNotMatch(index, /id="trades-page"/);
+  assert.doesNotMatch(index, /id="league-page"/);
+  for (const file of ["landing.html", "players.html", "trades.html", "league.html"]) {
+    assert.match(boot, new RegExp(`\\./ui/${file.replace(".", "\\.")}`));
+    assert.equal(existsSync(join(docs, "ui", file)), true);
+  }
+  assert.match(boot, /await import\("\.\/app\.js"\)/);
+  assert.match(siteMarkup(), /id="landing-rather"/);
+  assert.match(siteMarkup(), /id="calculator-shell"/);
+  assert.match(siteMarkup(), /id="weekly-help-btn"/);
 });
 
 test("the site never names KeepTradeCut", () => {

@@ -1,0 +1,94 @@
+<div id="trades-page" class="workspace-page app-page hidden" role="tabpanel" aria-labelledby="trades-tab" data-page="trades">
+  <div class="room" data-room-panel="calculator">
+    <section class="workspace-panel" id="calculator-section">
+      <div id="calculator-shell" class="calculator-shell"></div>
+    </section>
+  </div>
+  <div class="room hidden" data-room-panel="find">
+    <section class="workspace-panel" id="trade-match-section">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">Find a trade</span>
+          <h2>A deal you can open</h2>
+        </div>
+        <p class="section-copy">Start from a partner, one of yours, or one of theirs. Review trade fills the calculator.</p>
+      </div>
+      <div id="trade-match-needs" class="match-needs"></div>
+    </section>
+    <section class="action-panel" id="match-action-panel">
+      <div>
+        <span class="eyebrow">Partners</span>
+        <h2>Who fits</h2>
+        <p id="match-generate-help" class="muted small">Connect a league to find partners.</p>
+      </div>
+      <div class="action-panel-cta">
+        <button id="match-generate-btn" type="button" disabled>Find partners</button>
+        <p id="match-generate-error" class="field-error" hidden role="alert"></p>
+      </div>
+    </section>
+    <section class="workspace-panel results-shell" id="trade-match-results">
+      <div id="trade-match-dashboard" class="trade-match-dashboard"></div>
+    </section>
+    <section class="workspace-panel" id="player-section">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">One player</span>
+          <h2>Shop or target</h2>
+        </div>
+        <p class="section-copy">One of yours, or one of theirs. Then search the name.</p>
+      </div>
+      <label class="sr-only" for="trade-mode-select">Trade path</label>
+      <select id="trade-mode-select" class="sr-only">
+        <option value="shop">Shop a player or pick I own</option>
+        <option value="acquire">Target someone on another team</option>
+      </select>
+      <div class="mode-card-grid" role="group" aria-label="Whose player">
+        <button class="mode-card active" type="button" data-trade-mode="shop" aria-pressed="true">
+          <span>Mine</span>
+          <strong>One of mine</strong>
+          <small>What can I get for this player?</small>
+        </button>
+        <button class="mode-card" type="button" data-trade-mode="acquire" aria-pressed="false">
+          <span>Theirs</span>
+          <strong>One of theirs</strong>
+          <small>What do I send for this player?</small>
+        </button>
+      </div>
+      <p id="trade-mode-help" class="muted small mode-note">Pick one of your players or picks.</p>
+      <label id="player-search-label" for="player-search">Search players and picks</label>
+      <div id="target-search-shell" class="target-search-shell">
+        <div id="target-chip" class="selected-token hidden">
+          <span id="target-chip-label" class="selected-token-label"></span>
+          <button id="clear-target-btn" type="button" class="selected-token-remove" aria-label="Remove selected target">×</button>
+        </div>
+        <input id="player-search" placeholder="Search player or pick" />
+      </div>
+      <div id="player-results" class="list"></div>
+    </section>
+    <section class="action-panel" id="settings-section">
+      <div>
+        <span class="eyebrow">Ideas</span>
+        <h2>Offers for that player</h2>
+        <p id="generate-help" class="muted small">Connect a league, then pick a player.</p>
+      </div>
+      <div class="action-panel-cta">
+        <button id="generate-btn" type="button" disabled>Find trades</button>
+        <p id="generate-error" class="field-error" hidden role="alert"></p>
+      </div>
+    </section>
+    <section class="workspace-panel hidden results-shell" id="results-section">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">Results</span>
+          <h2>Trade ideas</h2>
+        </div>
+        <p id="results-subtitle" class="muted section-copy"></p>
+      </div>
+      <div id="results-list"></div>
+      <div id="results-more" class="results-more hidden">
+        <button id="find-more-btn" type="button">Find more</button>
+        <p id="find-more-status" class="muted small" hidden role="status"></p>
+      </div>
+    </section>
+  </div>
+</div>
