@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Dynasty Ticker</title>
+    <script src="assets/gsap.min.js"></script>
+    <script src="assets/audio-bass.js"></script>
+    <style>
+      @font-face {
+        font-family: "Inter";
+        src: url("assets/fonts/inter-400.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Inter";
+        src: url("assets/fonts/inter-600.woff2") format("woff2");
+        font-weight: 600;
+        font-style: normal;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Inter";
+        src: url("assets/fonts/inter-800.woff2") format("woff2");
+        font-weight: 800;
+        font-style: normal;
+        font-display: block;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #071018;
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #071018;
+        color: #e7f4f1;
+        font-family: "Inter", sans-serif;
+      }
+      .clip { position: absolute; inset: 0; }
+      .glow {
+        position: absolute;
+        left: 80px;
+        top: 120px;
+        width: 720px;
+        height: 420px;
+        background: radial-gradient(circle at 30% 40%, rgba(46, 230, 197, 0.22), rgba(46, 230, 197, 0) 68%);
+        opacity: 0.2;
+        pointer-events: none;
+      }
+      .pad {
+        position: absolute;
+        left: 96px;
+        right: 96px;
+        top: 78px;
+        bottom: 128px;
+      }
+      .eyebrow {
+        display: block;
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #2ee6c5;
+        opacity: 0;
+      }
+      .hook-line {
+        font-size: 132px;
+        font-weight: 800;
+        letter-spacing: -0.045em;
+        line-height: 0.98;
+        color: #e7f4f1;
+        opacity: 0;
+      }
+      .hook-line.accent { color: #2ee6c5; }
+      .hook-stack { margin-top: 180px; }
+
+      .search-block { width: 760px; opacity: 0; }
+      .field-label {
+        display: block;
+        font-size: 20px;
+        font-weight: 600;
+        color: #c5ddd8;
+        margin-bottom: 12px;
+      }
+      .search-row { display: flex; gap: 16px; }
+      .field {
+        flex: 1;
+        height: 84px;
+        border-radius: 16px;
+        background: #0e1a24;
+        border: 1px solid rgba(46, 230, 197, 0.22);
+        display: flex;
+        align-items: center;
+        padding: 0 28px;
+        font-size: 36px;
+        font-weight: 600;
+        color: #e7f4f1;
+        letter-spacing: -0.02em;
+      }
+      .ch { opacity: 0; }
+      .caret {
+        display: inline-block;
+        width: 3px;
+        height: 36px;
+        margin-left: 4px;
+        background: #2ee6c5;
+        opacity: 0;
+      }
+      .find-btn {
+        height: 84px;
+        padding: 0 32px;
+        border-radius: 16px;
+        background: #2ee6c5;
+        color: #06211c;
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+      }
+      .jobs {
+        margin-top: 36px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .job {
+        height: 118px;
+        border-radius: 16px;
+        background: #0e1a24;
+        border: 1px solid rgba(46, 230, 197, 0.16);
+        display: flex;
+        align-items: center;
+        padding: 0 32px;
+        gap: 28px;
+        opacity: 0;
+      }
+      .job-mark {
+        width: 8px;
+        height: 64px;
+        border-radius: 8px;
+        background: #2ee6c5;
+        flex: 0 0 auto;
+      }
+      .job strong {
+        display: block;
+        font-size: 36px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        color: #e7f4f1;
+      }
+      .job small {
+        display: block;
+        margin-top: 4px;
+        font-size: 22px;
+        font-weight: 400;
+        color: #c5ddd8;
+      }
+
+      .scores-head { opacity: 0; }
+      .scores-title {
+        margin-top: 18px;
+        font-size: 84px;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        line-height: 1;
+      }
+      .match-row {
+        margin-top: 36px;
+        display: flex;
+        gap: 28px;
+      }
+      .match {
+        flex: 1;
+        height: 250px;
+        border-radius: 20px;
+        background: #0e1a24;
+        border: 1px solid rgba(46, 230, 197, 0.16);
+        padding: 32px 36px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        opacity: 0;
+      }
+      .side strong {
+        display: block;
+        font-size: 22px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #c5ddd8;
+        font-weight: 600;
+      }
+      .side em {
+        display: block;
+        margin-top: 8px;
+        font-style: normal;
+        font-size: 72px;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        color: #e7f4f1;
+      }
+      .win {
+        min-width: 148px;
+        height: 72px;
+        padding: 0 18px;
+        border-radius: 999px;
+        background: rgba(46, 230, 197, 0.14);
+        color: #2ee6c5;
+        font-size: 28px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .odds {
+        margin-top: 32px;
+        font-size: 32px;
+        font-weight: 600;
+        color: #e7f4f1;
+        opacity: 0;
+      }
+
+      .verdict-kicker { opacity: 0; }
+      .verdict-title {
+        margin-top: 12px;
+        font-size: 64px;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        opacity: 0;
+      }
+      .sides {
+        margin-top: 36px;
+        display: flex;
+        gap: 28px;
+      }
+      .side-card {
+        flex: 1;
+        height: 220px;
+        border-radius: 20px;
+        background: #0e1a24;
+        border: 1px solid rgba(46, 230, 197, 0.16);
+        padding: 32px 36px;
+        opacity: 0;
+      }
+      .side-card span {
+        display: block;
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #c5ddd8;
+      }
+      .side-card strong {
+        display: block;
+        margin-top: 18px;
+        font-size: 48px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+      .meter {
+        margin-top: 28px;
+        height: 14px;
+        border-radius: 999px;
+        background: rgba(46, 230, 197, 0.12);
+        overflow: hidden;
+      }
+      .meter i {
+        display: block;
+        height: 100%;
+        width: 100%;
+        border-radius: 999px;
+        background: #2ee6c5;
+        transform-origin: left center;
+      }
+      .meter.recv i { background: #5fd0dc; }
+      .stamp {
+        position: absolute;
+        right: 120px;
+        top: 86px;
+        min-width: 420px;
+        height: 92px;
+        padding: 0 28px;
+        border-radius: 16px;
+        background: #2ee6c5;
+        color: #06211c;
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+      }
+      .fine {
+        position: absolute;
+        left: 96px;
+        right: 96px;
+        bottom: 148px;
+        font-size: 28px;
+        font-weight: 600;
+        color: #e7f4f1;
+        opacity: 0;
+      }
+
+      .outro-inner {
+        position: absolute;
+        left: 96px;
+        right: 96px;
+        top: 220px;
+      }
+      .wordmark {
+        width: 860px;
+        height: auto;
+        display: block;
+        opacity: 0;
+      }
+      .outro-line {
+        margin-top: 36px;
+        font-size: 72px;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        color: #2ee6c5;
+        opacity: 0;
+      }
+      .site {
+        margin-top: 18px;
+        font-size: 32px;
+        font-weight: 600;
+        color: #e7f4f1;
+        opacity: 0;
+      }
+
+      .ticker {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 96px;
+        background: #0e1a24;
+        border-top: 1px solid rgba(46, 230, 197, 0.22);
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        opacity: 0;
+      }
+      .live-pill {
+        flex: 0 0 168px;
+        height: 96px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        color: #2ee6c5;
+        border-right: 1px solid rgba(46, 230, 197, 0.18);
+      }
+      .live-dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #2ee6c5;
+      }
+      .ticker-view {
+        flex: 1;
+        overflow: hidden;
+        height: 96px;
+        -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 36px), transparent 100%);
+        mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 36px), transparent 100%);
+      }
+      .ticker-track {
+        height: 96px;
+        display: flex;
+        align-items: center;
+        width: max-content;
+      }
+      .ticker-group {
+        display: flex;
+        align-items: center;
+        gap: 42px;
+        padding-left: 42px;
+      }
+      .chip {
+        font-size: 28px;
+        font-weight: 600;
+        color: #e7f4f1;
+        white-space: nowrap;
+      }
+      .chip b { color: #2ee6c5; font-weight: 800; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="20"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div class="glow" id="glow"></div>
+
+      <section class="clip" id="scene-hook" data-start="0" data-duration="3.3" data-track-index="2">
+        <div class="pad hook-stack">
+          <span class="eyebrow" id="hook-kicker">Sleeper dynasty league</span>
+          <div class="hook-line" id="hook-a" style="margin-top: 28px">Your league.</div>
+          <div class="hook-line accent" id="hook-b">Pick a job.</div>
+        </div>
+      </section>
+
+      <section class="clip" id="scene-jobs" data-start="3.3" data-duration="5.8" data-track-index="3">
+        <div class="pad">
+          <span class="eyebrow" id="jobs-kicker">What do you want to do?</span>
+          <div class="search-block" id="search-block" style="margin-top: 28px">
+            <span class="field-label">Sleeper username</span>
+            <div class="search-row">
+              <div class="field" id="field">
+                <span id="typed"><span class="ch">s</span><span class="ch">u</span><span class="ch">n</span><span class="ch">d</span><span class="ch">a</span><span class="ch">y</span><span class="ch">d</span><span class="ch">e</span><span class="ch">s</span><span class="ch">k</span></span><span class="caret" id="caret"></span>
+              </div>
+              <div class="find-btn" id="find-btn">Find leagues</div>
+            </div>
+          </div>
+          <div class="jobs">
+            <div class="job" id="job-1">
+              <div class="job-mark"></div>
+              <div>
+                <strong>See this week</strong>
+                <small>Scores, standings, and awards</small>
+              </div>
+            </div>
+            <div class="job" id="job-2">
+              <div class="job-mark"></div>
+              <div>
+                <strong>Scout a team</strong>
+                <small>Lineup, tank or contend, who stayed</small>
+              </div>
+            </div>
+            <div class="job" id="job-3">
+              <div class="job-mark"></div>
+              <div>
+                <strong>Make a trade</strong>
+                <small>Calculator, find a partner, shop a player</small>
+              </div>
+            </div>
+            <div class="job" id="job-4">
+              <div class="job-mark"></div>
+              <div>
+                <strong>League history</strong>
+                <small>Titles, seasons, record book</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="clip" id="scene-scores" data-start="9.1" data-duration="4.1" data-track-index="4">
+        <div class="pad">
+          <div class="scores-head" id="scores-head">
+            <span class="eyebrow" style="opacity: 1">Live</span>
+            <div class="scores-title">Live scores.</div>
+          </div>
+          <div class="match-row">
+            <div class="match" id="match-1">
+              <div class="side"><strong>North</strong><em>118.6</em></div>
+              <div class="side"><strong>South</strong><em>104.2</em></div>
+              <div class="win">Win 62%</div>
+            </div>
+            <div class="match" id="match-2">
+              <div class="side"><strong>East</strong><em>96.1</em></div>
+              <div class="side"><strong>West</strong><em>121.4</em></div>
+              <div class="win">Win 41%</div>
+            </div>
+          </div>
+          <div class="odds" id="odds">4,000-season playoff odds.</div>
+        </div>
+      </section>
+
+      <section class="clip" id="scene-verdict" data-start="13.2" data-duration="3.9" data-track-index="5">
+        <div class="pad">
+          <div class="verdict-kicker" id="verdict-kicker">
+            <span class="eyebrow" style="opacity: 1">Trade match</span>
+          </div>
+          <div class="verdict-title" id="verdict-title">Find the other window.</div>
+          <div class="sides">
+            <div class="side-card" id="send-card">
+              <span>You send</span>
+              <strong>2027 1st</strong>
+              <div class="meter"><i id="send-bar"></i></div>
+            </div>
+            <div class="side-card" id="recv-card">
+              <span>You receive</span>
+              <strong>Jahmyr Gibbs</strong>
+              <div class="meter recv"><i id="recv-bar"></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="stamp" id="stamp">Fair, leans your way</div>
+        <div class="fine" id="fine">Deals have to help the lineup, not swap leftover thirds.</div>
+      </section>
+
+      <section class="clip" id="scene-outro" data-start="17.1" data-duration="2.9" data-track-index="6">
+        <div class="outro-inner">
+          <img class="wordmark" id="wordmark" src="assets/brand/wordmark.svg" alt="Dynasty Ticker" />
+          <div class="outro-line" id="outro-line">Pick a job.</div>
+          <div class="site" id="site">dynastyticker.com</div>
+        </div>
+      </section>
+
+      <section class="clip" id="scene-ticker" data-start="0" data-duration="20" data-track-index="1">
+        <div class="ticker" id="ticker">
+          <div class="live-pill"><span class="live-dot" id="live-dot"></span>LIVE</div>
+          <div class="ticker-view" data-layout-allow-overflow data-layout-allow-occlusion>
+            <div class="ticker-track" id="ticker-track">
+              <div class="ticker-group">
+                <span class="chip">Week 6</span>
+                <span class="chip"><b>North</b> 118.6</span>
+                <span class="chip"><b>South</b> 104.2</span>
+                <span class="chip"><b>East</b> 96.1</span>
+                <span class="chip"><b>West</b> 121.4</span>
+                <span class="chip">Awards live</span>
+                <span class="chip">4,000 seasons</span>
+              </div>
+              <div class="ticker-group">
+                <span class="chip">Week 6</span>
+                <span class="chip"><b>North</b> 118.6</span>
+                <span class="chip"><b>South</b> 104.2</span>
+                <span class="chip"><b>East</b> 96.1</span>
+                <span class="chip"><b>West</b> 121.4</span>
+                <span class="chip">Awards live</span>
+                <span class="chip">4,000 seasons</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <audio
+        id="music"
+        src="assets/music/happy-beats-business-moves-vol-10-by-ende-dot-app.mp3"
+        data-start="0"
+        data-duration="20"
+        data-track-index="10"
+        data-volume="1"
+        data-automation='{"version":1,"lanes":[{"target":"volume","points":[{"t":0,"v":0},{"t":0.45,"v":0.34},{"t":18.4,"v":0.34},{"t":19.85,"v":0}]}]}'
+      ></audio>
+      <audio id="sfx-hook" src="assets/sfx/impactSoft_medium_001.ogg" data-start="1.37" data-duration="0.18" data-track-index="11" data-volume="0.45"></audio>
+      <audio id="sfx-find" src="assets/sfx/click_003.ogg" data-start="4.5" data-duration="0.01" data-track-index="12" data-volume="0.55"></audio>
+      <audio id="sfx-job-1" src="assets/sfx/click_003.ogg" data-start="4.64" data-duration="0.01" data-track-index="13" data-volume="0.4"></audio>
+      <audio id="sfx-job-2" src="assets/sfx/click_003.ogg" data-start="5.74" data-duration="0.01" data-track-index="14" data-volume="0.4"></audio>
+      <audio id="sfx-job-3" src="assets/sfx/click_003.ogg" data-start="6.82" data-duration="0.01" data-track-index="15" data-volume="0.4"></audio>
+      <audio id="sfx-job-4" src="assets/sfx/click_003.ogg" data-start="7.9" data-duration="0.01" data-track-index="16" data-volume="0.4"></audio>
+      <audio id="sfx-scores" src="assets/sfx/impactSoft_medium_004.ogg" data-start="9.29" data-duration="0.15" data-track-index="17" data-volume="0.42"></audio>
+      <audio id="sfx-stamp" src="assets/sfx/impactSoft_medium_002.ogg" data-start="15.82" data-duration="0.14" data-track-index="18" data-volume="0.5"></audio>
+      <audio id="sfx-logo" src="assets/sfx/bong_001.ogg" data-start="18.01" data-duration="0.12" data-track-index="19" data-volume="0.55"></audio>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+
+      tl.fromTo("#ticker", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, 0.2);
+      tl.fromTo("#ticker-track", { xPercent: 0 }, { xPercent: -50, duration: 20, ease: "none" }, 0);
+
+      tl.fromTo("#hook-kicker", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.27);
+      tl.fromTo("#hook-a", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.55);
+      tl.fromTo("#hook-b", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 1.37);
+
+      tl.fromTo("#jobs-kicker", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, 3.4);
+      tl.fromTo("#search-block", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 3.5);
+      tl.fromTo("#caret", { opacity: 0 }, { opacity: 1, duration: 0.05 }, 3.55);
+      tl.set("#caret", { opacity: 0 }, 4.48);
+      document.querySelectorAll("#typed .ch").forEach((el, i) => {
+        tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.04 }, 3.62 + i * 0.08);
+      });
+      tl.fromTo("#find-btn", { scale: 1 }, { scale: 0.96, duration: 0.08, yoyo: true, repeat: 1, ease: "power1.inOut" }, 4.5);
+
+      const jobs = [4.64, 5.74, 6.82, 7.9];
+      jobs.forEach((at, index) => {
+        tl.fromTo("#job-" + (index + 1), { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.38, ease: "power3.out" }, at);
+      });
+
+      tl.fromTo("#scores-head", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 9.29);
+      tl.fromTo("#match-1", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 9.83);
+      tl.fromTo("#match-2", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 10.93);
+      tl.fromTo("#odds", { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" }, 11.47);
+
+      tl.fromTo("#verdict-kicker", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 13.28);
+      tl.fromTo("#verdict-title", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 13.4);
+      tl.fromTo("#fine", { opacity: 0 }, { opacity: 1, duration: 0.35 }, 13.45);
+      tl.fromTo("#send-card", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 13.64);
+      tl.fromTo("#recv-card", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 14.73);
+      tl.set("#send-bar", { scaleX: 0 }, 0);
+      tl.set("#recv-bar", { scaleX: 0 }, 0);
+      tl.to("#send-bar", { scaleX: 0.78, duration: 0.45, ease: "power2.out" }, 13.85);
+      tl.to("#recv-bar", { scaleX: 0.88, duration: 0.45, ease: "power2.out" }, 14.9);
+      tl.fromTo("#stamp", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.35, ease: "back.out(1.6)" }, 15.82);
+
+      tl.fromTo("#wordmark", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 18.01);
+      tl.fromTo("#outro-line", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, 18.35);
+      tl.fromTo("#site", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 18.7);
+
+      const bass = window.AUDIO_BASS || [];
+      for (let f = 0; f < bass.length; f++) {
+        const b = bass[f];
+        tl.set("#live-dot", { scale: 1 + b * 0.45 }, f / 30);
+        tl.set("#glow", { opacity: 0.12 + b * 0.4 }, f / 30);
+      }
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
