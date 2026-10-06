@@ -5,21 +5,10 @@
    ========================================================================== */
 
 :root {
-  --product-shadow: 0 18px 50px rgba(44, 28, 32, 0.06);
-  --product-shadow-dark: 0 18px 50px rgba(0, 0, 0, 0.35);
-}
-
-html[data-theme="dark"] {
-  --product-shadow: var(--product-shadow-dark);
+  --product-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
 }
 
 body {
-  background:
-    radial-gradient(80vw 40vh at 50% -10%, rgba(92, 46, 58, 0.06), transparent 60%),
-    var(--bg);
-}
-
-html[data-theme="dark"] body {
   background: #0c0c0e;
 }
 
@@ -127,7 +116,6 @@ h1,
     border-top: 0;
   }
 
-  #theme-toggle-btn,
   #home-btn {
     border-radius: 999px;
     border: 1px solid var(--line-strong);

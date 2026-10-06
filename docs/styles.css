@@ -1,79 +1,16 @@
 /* ==========================================================================
-   Dynasty Ticker — Paper desk
-   Warm paper, burgundy ink, serif headlines. Instrument Serif on the big
-   type, Instrument Sans on the controls. Dark is the black casino desk.
+   Dynasty Ticker — Night desk
+   Black field, ivory type, serif headlines. Instrument Serif on the big
+   type, Instrument Sans on the controls. One theme. Dark only. burgundy ink
+   accents stay in the brand marks and field coral.
    ========================================================================== */
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   --font-display: "Instrument Serif", "Iowan Old Style", Palatino, serif;
   --font-body: "Instrument Sans", "Segoe UI", sans-serif;
   --font-mono: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
 
-  --bg: #f6f1e8;
-  --bg-glow-1: transparent;
-  --bg-glow-2: transparent;
-  --bg-glow-3: transparent;
-
-  --rail: #f3ece3;
-  --rail-2: #efe6db;
-  --rail-line: rgba(61, 36, 46, 0.14);
-  --rail-text: #2c2422;
-  --rail-muted: #7d6b66;
-  --rail-input: #fffaf5;
-  --rail-placeholder: #9a8680;
-  --backdrop: rgba(22, 12, 16, 0.5);
-
-  --panel: #fffaf5;
-  --panel-soft: #fbf6f0;
-  --panel-tint: rgba(92, 46, 58, 0.08);
-  --panel-solid: #fffaf5;
-  --line: rgba(61, 36, 46, 0.12);
-  --line-strong: rgba(61, 36, 46, 0.28);
-  --hover-fill: rgba(92, 46, 58, 0.06);
-
-  --text: #2c2422;
-  --muted: #7d6b66;
-  --muted-strong: #4a3834;
-  --on-accent: #f6f1e8;
-  --link: #5c2e3a;
-
-  --blue: #5c2e3a;
-  --blue-soft: rgba(92, 46, 58, 0.1);
-  --violet: #1a4f9c;
-  --violet-soft: rgba(26, 79, 156, 0.1);
-  --green: #1d6b45;
-  --green-soft: rgba(29, 107, 69, 0.12);
-  --amber: #9a5b12;
-  --amber-soft: rgba(154, 91, 18, 0.12);
-  --red: #c23b4a;
-  --red-soft: rgba(194, 59, 74, 0.12);
-  --teal: #5c2e3a;
-  --teal-soft: rgba(92, 46, 58, 0.1);
-
-  --team-a: #5c2e3a;
-  --team-a-soft: rgba(92, 46, 58, 0.1);
-  --team-a-border: rgba(92, 46, 58, 0.45);
-  --team-b: #1a4f9c;
-  --team-b-soft: rgba(26, 79, 156, 0.1);
-  --team-b-border: rgba(26, 79, 156, 0.45);
-
-  --gradient: #5c2e3a;
-  --gradient-soft: #f3ece3;
-  --shadow: none;
-  --shadow-soft: none;
-  --lift-shadow: none;
-  --accent-glow: transparent;
-  --radius: 18px;
-  --radius-sm: 14px;
-  --focus: 0 0 0 3px rgba(92, 46, 58, 0.28);
-  --ink: #2c2422;
-  --paper: #f6f1e8;
-  --field: #5c2e3a;
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
   --bg: #0c0c0e;
   --bg-glow-1: transparent;
   --bg-glow-2: transparent;
@@ -128,11 +65,14 @@
   --shadow-soft: none;
   --lift-shadow: none;
   --accent-glow: transparent;
+  --radius: 18px;
+  --radius-sm: 14px;
   --focus: 0 0 0 3px rgba(244, 241, 236, 0.32);
   --ink: #f4f1ec;
   --paper: #0c0c0e;
   --field: #e85d4c;
 }
+
 
 /* ==========================================================================
    Base
@@ -154,13 +94,10 @@ body {
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.5;
-  -webkit-font-smoothing: auto;
+  -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-html[data-theme="dark"] body {
-  -webkit-font-smoothing: antialiased;
-}
 
 body::before {
   content: none;
@@ -343,17 +280,6 @@ a.brand-lockup:hover {
   box-shadow: none;
 }
 
-.brand-wordmark--dark {
-  display: none;
-}
-
-:root[data-theme="dark"] .brand-wordmark--light {
-  display: none;
-}
-
-:root[data-theme="dark"] .brand-wordmark--dark {
-  display: block;
-}
 
 .brand-lockup--rail {
   flex: 1 1 auto;
@@ -959,9 +885,9 @@ select.is-invalid {
   width: 4.4rem;
   height: 4.4rem;
   overflow: hidden;
-  border: 2px solid var(--text);
+  border: 2px solid #f6f1e8;
   border-radius: var(--radius);
-  background: var(--paper);
+  background: #f6f1e8;
   color: var(--text);
   font-family: var(--font-display);
   font-synthesis: none;
@@ -974,11 +900,6 @@ select.is-invalid {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-:root[data-theme="dark"] .league-avatar {
-  background: #f6f1e8;
-  border-color: #f6f1e8;
 }
 
 .league-avatar .league-mark {
@@ -5946,19 +5867,6 @@ button.weekly-help-close:hover {
 
   .menu-bars::after {
     top: 5px;
-  }
-
-  .theme-glyph {
-    width: 1.05rem;
-    height: 1.05rem;
-    border-radius: 999px;
-    background: currentColor;
-    box-shadow: none;
-  }
-
-  html[data-theme="light"] .theme-glyph {
-    background: transparent;
-    box-shadow: inset 0.28rem -0.18rem 0 0 currentColor;
   }
 
   .mobile-chrome-actions {

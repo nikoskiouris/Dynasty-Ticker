@@ -8,12 +8,6 @@
     <meta name="theme-color" content="#0c0c0e" />
     <script>
       try {
-        var storedTheme = localStorage.getItem("dynasty_ticker_theme");
-        if (storedTheme === "dark" || storedTheme === "light") {
-          document.documentElement.setAttribute("data-theme", storedTheme);
-          var themeColor = document.querySelector('meta[name="theme-color"]');
-          if (themeColor) themeColor.setAttribute("content", storedTheme === "dark" ? "#0c0c0e" : "#f6f1e8");
-        }
         if (localStorage.getItem("dynasty_ticker_board") === "shut") {
           document.documentElement.classList.add("desk-shut");
         }
@@ -58,8 +52,7 @@
         </button>
         <div class="mobile-chrome-copy">
           <span class="brand-lockup brand-lockup--header">
-            <img class="brand-wordmark brand-wordmark--light" src="./brand/wordmark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
-            <img class="brand-wordmark brand-wordmark--dark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" aria-hidden="true" />
+            <img class="brand-wordmark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
           </span>
           <strong id="mobile-chrome-title">Your Sleeper league</strong>
         </div>
@@ -74,16 +67,6 @@
             <span class="home-glyph" aria-hidden="true"></span>
             <span class="sr-only">League home</span>
           </button>
-          <button
-            type="button"
-            id="mobile-theme-btn"
-            class="mobile-icon-btn"
-            aria-pressed="false"
-            title="Light mode"
-          >
-            <span id="mobile-theme-icon" class="theme-glyph" aria-hidden="true"></span>
-            <span class="sr-only" id="mobile-theme-label">Light mode</span>
-          </button>
         </div>
         <span id="mobile-home-feedback" class="feedback-chip mobile-share-feedback hidden" role="status">Home</span>
       </header>
@@ -91,8 +74,7 @@
       <aside class="control-rail" id="control-rail" aria-label="League controls">
         <div class="brand-panel">
           <span class="brand-lockup brand-lockup--rail">
-            <img class="brand-wordmark brand-wordmark--light" src="./brand/wordmark.svg" width="364" height="57" alt="" decoding="async" />
-            <img class="brand-wordmark brand-wordmark--dark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" />
+            <img class="brand-wordmark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" />
           </span>
           <button type="button" id="mobile-rail-close" class="mobile-rail-close" aria-label="Close league controls">
             <span aria-hidden="true">×</span>
@@ -182,7 +164,6 @@
             <span class="home-glyph" aria-hidden="true"></span>
             <span class="sr-only">League home</span>
           </button>
-          <button id="theme-toggle-btn" type="button" class="ghost-btn" aria-pressed="false" title="Toggle light and dark theme">Light mode</button>
         </div>
       </aside>
 

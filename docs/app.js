@@ -43,7 +43,7 @@ import {
   MATCHUP_FETCH_CHUNK,
   LEAGUE_HISTORY_RECORD_IDS,
 } from "./modules/constants.js";
-import { emptyDealBoard, state, sleeper, THEME_STORAGE_KEY, PLAYERS_CACHE_KEY, DEFAULT_THEME, THEME_COLORS } from "./modules/state.js";
+import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
 import { createLeagueLoader } from "./modules/league-load.js";
 import { apiGet, apiGetWithRetry, fetchUserLeagues, mapInChunks } from "./modules/sleeper.js";
 import {
@@ -420,7 +420,6 @@ const el = {
   ranksDashboard: document.querySelector("#ranks-dashboard"),
   publicRanks: document.querySelector("#public-ranks"),
   publicRanksBoard: document.querySelector("#public-ranks-board"),
-  themeToggleBtn: document.querySelector("#theme-toggle-btn"),
   homeBtn: document.querySelector("#home-btn"),
   landingFindBtn: document.querySelector("#landing-find-btn"),
   landingUsername: document.querySelector("#landing-username"),
@@ -444,9 +443,6 @@ const el = {
   deskBoardOpen: document.querySelector("#desk-board-open"),
   boardTools: document.querySelector("#board-tools"),
   boardToolsSlot: document.querySelector("#board-tools-slot"),
-  mobileThemeBtn: document.querySelector("#mobile-theme-btn"),
-  mobileThemeIcon: document.querySelector("#mobile-theme-icon"),
-  mobileThemeLabel: document.querySelector("#mobile-theme-label"),
   mobileHomeBtn: document.querySelector("#mobile-home-btn"),
   railBackdrop: document.querySelector("#rail-backdrop"),
   controlRail: document.querySelector("#control-rail"),
@@ -551,8 +547,6 @@ el.roomNav?.addEventListener("click", (event) => {
 });
 el.roomNav?.addEventListener("keydown", handleRoomTabKeydown);
 el.pageTabs?.addEventListener("keydown", handlePageTabKeydown);
-el.themeToggleBtn?.addEventListener("click", () => applyTheme(state.theme === "dark" ? "light" : "dark"));
-el.mobileThemeBtn?.addEventListener("click", () => applyTheme(state.theme === "dark" ? "light" : "dark"));
 el.mobileRailToggle?.addEventListener("click", () => {
   const nextOpen = !document.body.classList.contains("rail-open");
   setMobileRailOpen(nextOpen);
@@ -680,7 +674,6 @@ el.matchGenerateBtn?.addEventListener("click", () => {
 el.seasonsDashboard?.addEventListener("click", handleHistoryCompareClick);
 el.seasonsDashboard?.addEventListener("change", handleHistoryCompareChange);
 
-applyTheme(readStoredTheme(), { persist: false });
 setDeskBoardShut(readDeskBoardShut());
 state.valueCalc = readStoredDraft() || state.valueCalc;
 renderSessionSnapshot();
@@ -1219,42 +1212,6 @@ function renderTradesRoom(room) {
 
 function renderHistoryRoom() {
   renderLeagueHistoryRoom();
-}
-
-function readStoredTheme() {
-  try {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    if (stored === "light" || stored === "dark") return stored;
-  } catch {
-    // Storage unavailable; fall through to the default.
-  }
-  return DEFAULT_THEME;
-}
-
-function applyTheme(theme, { persist = true } = {}) {
-  const nextTheme = theme === "dark" ? "dark" : "light";
-  state.theme = nextTheme;
-  document.documentElement.dataset.theme = nextTheme;
-  const themeColor = document.querySelector('meta[name="theme-color"]');
-  if (themeColor) themeColor.content = THEME_COLORS[nextTheme];
-  if (el.themeToggleBtn) {
-    el.themeToggleBtn.textContent = nextTheme === "dark" ? "Light mode" : "Dark mode";
-    el.themeToggleBtn.setAttribute("aria-pressed", String(nextTheme === "light"));
-  }
-  if (el.mobileThemeBtn) {
-    el.mobileThemeBtn.setAttribute("aria-pressed", String(nextTheme === "light"));
-    el.mobileThemeBtn.title = nextTheme === "dark" ? "Light mode" : "Dark mode";
-  }
-  if (el.mobileThemeLabel) {
-    el.mobileThemeLabel.textContent = nextTheme === "dark" ? "Light mode" : "Dark mode";
-  }
-  if (persist) {
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
-    } catch {
-      // Non-fatal.
-    }
-  }
 }
 
 function bootFromUrl() {

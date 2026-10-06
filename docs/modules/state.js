@@ -4,13 +4,9 @@ import { emptyWeeklyValueState } from "./weekly-value.js";
 import { emptyMockDrafts } from "./mock-drafts.js";
 import { emptyValueCalcState } from "./value-calc.js";
 
-export const THEME_STORAGE_KEY = "dynasty_ticker_theme";
 export const PLAYERS_CACHE_KEY = "fda_players_nfl_cache_v1";
 export const DEFAULT_THEME = "dark";
-export const THEME_COLORS = {
-  light: "#f6f1e8",
-  dark: "#0c0c0e",
-};
+export const THEME_COLOR = "#0c0c0e";
 
 export function emptyDealBoard() {
   return {
@@ -119,7 +115,6 @@ export function createState() {
     pendingPlace: null,
     pendingWeek: null,
     pendingTone: "",
-    theme: DEFAULT_THEME,
     sleeperUser: null,
     userLeagues: [],
     livePolling: false,
