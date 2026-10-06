@@ -21,7 +21,7 @@ body {
   justify-items: center;
   gap: 0.85rem;
   margin: 0 auto 1.6rem;
-  max-width: 18em;
+  max-width: 28rem;
 }
 
 .product-kicker,
@@ -38,14 +38,6 @@ body {
   font-synthesis: none;
 }
 
-.product-hero-title {
-  margin: 0;
-  font-size: clamp(3.4rem, 7vw, 5.6rem);
-  line-height: 0.92;
-  letter-spacing: -0.035em;
-  font-weight: 400;
-}
-
 .product-hero-copy {
   max-width: 28rem;
   color: var(--muted);
@@ -54,7 +46,6 @@ body {
 }
 
 h1,
-.product-hero-title,
 .rather-panel h2,
 .panel-heading h2,
 .tab-copy strong {
@@ -834,10 +825,6 @@ details.workspace-panel > summary,
   .product-hero {
     max-width: none;
     margin-bottom: 1.1rem;
-  }
-
-  .product-hero-title {
-    font-size: clamp(2.5rem, 12vw, 3.4rem);
   }
 
   .ranks-toolbar,
