@@ -6,7 +6,13 @@
         <h2 id="power-heading">Outlook</h2>
       </div>
       <div id="power-dashboard" class="power-dashboard">
-        <p class="muted">Connect Sleeper to see your team.</p>
+        <div class="league-empty">
+          <p class="muted">Connect Sleeper to see your team.</p>
+          <div class="calc-actions">
+            <button type="button" data-action="draft-connect">Connect Sleeper</button>
+            <button type="button" class="ghost-btn" data-action="go" data-page="players" data-room="ranks">Look up a player</button>
+          </div>
+        </div>
       </div>
       <div id="window-call-dashboard" class="window-call-dashboard"></div>
     </section>
@@ -50,7 +56,13 @@
   </div>
   <div class="room hidden" data-room-panel="history">
     <div id="history-dashboard" class="dashboard analytics-dashboard">
-      <p class="muted">Connect a league to open history.</p>
+      <div class="league-empty">
+        <p class="muted">Connect Sleeper to open league history.</p>
+        <div class="calc-actions">
+          <button type="button" data-action="draft-connect">Connect Sleeper</button>
+          <button type="button" class="ghost-btn" data-action="go" data-page="players" data-room="ranks">Look up a player</button>
+        </div>
+      </div>
     </div>
     <div id="loyalty-dashboard" class="loyalty-dashboard"></div>
   </div>

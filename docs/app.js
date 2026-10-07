@@ -141,6 +141,7 @@ import { calculatePackageAdjustment, calculatePctDiff } from "./modules/package-
 import { bindTicker } from "./modules/ticker-scrub.js";
 import { leagueHistoryRecords, pickLatestCrown } from "./modules/league-crown.js";
 import { jobById, landingSearchHint, renderDeskJobsMarkup, deskJobsForLeague } from "./modules/jobs.js";
+import { renderLeagueConnectEmpty } from "./modules/empty-league.js";
 import {
   buildTradeMatchProfile,
   countStartableAtPosition,
@@ -381,6 +382,7 @@ const el = {
   playerResults: document.querySelector("#player-results"),
   settingsSection: document.querySelector("#settings-section"),
   generateBtn: document.querySelector("#generate-btn"),
+  generateConnectBtn: document.querySelector("#generate-connect-btn"),
   generateHelp: document.querySelector("#generate-help"),
   resultsSection: document.querySelector("#results-section"),
   resultsSubtitle: document.querySelector("#results-subtitle"),
@@ -411,6 +413,7 @@ const el = {
   tradeMatchNeeds: document.querySelector("#trade-match-needs"),
   tradeMatchDashboard: document.querySelector("#trade-match-dashboard"),
   matchGenerateBtn: document.querySelector("#match-generate-btn"),
+  matchConnectBtn: document.querySelector("#match-connect-btn"),
   matchGenerateHelp: document.querySelector("#match-generate-help"),
   matchGenerateError: document.querySelector("#match-generate-error"),
   ticker: document.querySelector("#ticker"),
@@ -1432,7 +1435,7 @@ function isReadyToGenerate() {
 }
 
 function getGenerateHelpText() {
-  if (!state.meRosterId) return "Load a league and choose your team first.";
+  if (!state.meRosterId) return "Connect Sleeper, then choose your team.";
   const mode = getTradeMode();
   if (mode === "calculator") return "Pick a partner and tap assets on both sides. The ticker grades the deal live.";
   if (mode === "surprise") return "Ready. The app will find a three-team blockbuster.";
@@ -1456,6 +1459,7 @@ function syncGenerateState() {
   if (el.generateHelp) {
     el.generateHelp.textContent = getGenerateHelpText();
   }
+  if (el.generateConnectBtn) el.generateConnectBtn.hidden = Boolean(state.leagueId);
 }
 
 function isPhoneLayout() {
@@ -3039,7 +3043,11 @@ function renderPowerDashboard() {
   if (el.powerHeading) {
     el.powerHeading.textContent = meRoster ? `${meRoster.manager.displayName} scout card` : "Roster power";
   }
-  if (!meRoster || state.normalizedRosters.length === 0) {
+  if (!state.league || state.normalizedRosters.length === 0) {
+    el.powerDashboard.innerHTML = renderLeagueConnectEmpty("Connect Sleeper to see your team.");
+    return;
+  }
+  if (!meRoster) {
     el.powerDashboard.innerHTML = `<p class="muted">Choose your team to generate a power score.</p>`;
     return;
   }
@@ -3321,7 +3329,7 @@ function seasonThroughLabel(model) {
 function leagueRoomEmptyState(host, copy) {
   if (!host) return false;
   if (!state.league || state.normalizedRosters.length === 0) {
-    host.innerHTML = `<p class="muted">${copy}</p>`;
+    host.innerHTML = renderLeagueConnectEmpty(copy);
     return false;
   }
   return true;
@@ -3331,7 +3339,7 @@ function renderStartRoom() {
   const host = el.startDashboard;
   if (!host) return;
   if (!state.league || state.normalizedRosters.length === 0) {
-    host.innerHTML = `<p class="muted">Load a league to pick a job.</p>`;
+    host.innerHTML = renderLeagueConnectEmpty("Connect Sleeper to open your team.");
     return;
   }
   const me = String(getMyRoster()?.manager?.displayName || "").trim();
@@ -3347,7 +3355,7 @@ function renderStartRoom() {
 }
 
 function renderScoresRoom() {
-  if (!leagueRoomEmptyState(el.scoresDashboard, "Load a league to open the scoreboard.")) return;
+  if (!leagueRoomEmptyState(el.scoresDashboard, "Connect Sleeper to open the scoreboard.")) return;
   const model = getSeasonModel();
   const sim = getSimulation(model);
   const profiles = buildPowerProfiles();
@@ -3359,7 +3367,7 @@ function renderScoresRoom() {
 }
 
 function renderStandingsRoom() {
-  if (!leagueRoomEmptyState(el.standingsDashboard, "Load a league to open the standings.")) return;
+  if (!leagueRoomEmptyState(el.standingsDashboard, "Connect Sleeper to open the standings.")) return;
   const model = getSeasonModel();
   const sim = getSimulation(model);
   el.standingsDashboard.innerHTML = `
@@ -3369,7 +3377,7 @@ function renderStandingsRoom() {
 }
 
 function renderPowerRoom() {
-  if (!leagueRoomEmptyState(el.powerBoardDashboard, "Load a league to rank the rosters.")) return;
+  if (!leagueRoomEmptyState(el.powerBoardDashboard, "Connect Sleeper to rank the rosters.")) return;
   const model = getSeasonModel();
   const profiles = buildPowerProfiles();
   el.powerBoardDashboard.innerHTML = profiles.length
@@ -5051,7 +5059,9 @@ function renderRosterSheet() {
   }
   const roster = getLensRoster();
   if (!roster) {
-    el.rosterSheet.innerHTML = `<p class="muted">Choose a team to open the roster sheet.</p>`;
+    el.rosterSheet.innerHTML = !state.league
+      ? renderLeagueConnectEmpty("Connect Sleeper to see your roster.")
+      : `<p class="muted">Choose your team to open the roster sheet.</p>`;
     syncWeeklyScoreHelp();
     return;
   }
@@ -5245,7 +5255,7 @@ function renderWeeklyHonors() {
   const host = el.weeklyHonorsDashboard;
   if (!host) return;
   if (!state.league || state.normalizedRosters.length === 0) {
-    host.innerHTML = `<p class="muted">Load a league to open weekly honors.</p>`;
+    host.innerHTML = renderLeagueConnectEmpty("Connect Sleeper to open weekly honors.");
     return;
   }
   const model = getSeasonModel();
@@ -5283,7 +5293,7 @@ function renderSeasonSuperlatives() {
   const host = el.superlativesDashboard;
   if (!host) return;
   if (!state.league || state.normalizedRosters.length === 0) {
-    host.innerHTML = `<p class="muted">Load a league to open season superlatives.</p>`;
+    host.innerHTML = renderLeagueConnectEmpty("Connect Sleeper to open season superlatives.");
     return;
   }
   const model = getSeasonModel();
@@ -6403,8 +6413,12 @@ function handleWorkspaceInput(event) {
 function historyRoomRoster(host, copy) {
   if (!host) return null;
   const roster = getLensRoster();
-  if (!state.league || state.normalizedRosters.length === 0 || !roster) {
-    host.innerHTML = `<p class="muted">${copy}</p>`;
+  if (!state.league || state.normalizedRosters.length === 0) {
+    host.innerHTML = renderLeagueConnectEmpty(copy);
+    return null;
+  }
+  if (!roster) {
+    host.innerHTML = `<p class="muted">Choose your team first.</p>`;
     return null;
   }
   return roster;
@@ -6413,7 +6427,7 @@ function historyRoomRoster(host, copy) {
 function renderLeagueHistoryRoom() {
   const host = el.historyDashboard;
   if (!host) return;
-  const roster = historyRoomRoster(host, "Load a league to open league history.");
+  const roster = historyRoomRoster(host, "Connect Sleeper to open league history.");
   if (!roster) return;
   const { history } = buildHistoryArchiveModel(roster);
   const recordBook = buildRecordBook(getSeasonModel());
@@ -6501,7 +6515,7 @@ function renderHallRoom() {
 }
 
 function renderSeasonsRoom() {
-  const roster = historyRoomRoster(el.seasonsDashboard, "Load a league to open the season ledger.");
+  const roster = historyRoomRoster(el.seasonsDashboard, "Connect Sleeper to open the season ledger.");
   if (!roster) return;
   const { history } = buildHistoryArchiveModel(roster);
   history.comparison = buildHistoryComparison(history);
@@ -6515,7 +6529,7 @@ function renderRecordsRoom() {
   const host = el.recordsDashboard;
   if (!host) return;
   if (!state.league || state.normalizedRosters.length === 0) {
-    host.innerHTML = `<p class="muted">Load a league to open the record book.</p>`;
+    host.innerHTML = renderLeagueConnectEmpty("Connect Sleeper to open the record book.");
     return;
   }
   const recordBook = buildRecordBook(getSeasonModel());
@@ -9364,11 +9378,12 @@ function syncMatchGenerateState() {
   }
   if (el.matchGenerateHelp) {
     el.matchGenerateHelp.textContent = !state.leagueId
-      ? "Load a league and pick your team."
+      ? "Connect Sleeper, then pick your team."
       : !state.meRosterId
         ? "Choose your team first."
         : "Looks at holes, surplus, and contend vs tank. No leftover thirds.";
   }
+  if (el.matchConnectBtn) el.matchConnectBtn.hidden = Boolean(state.leagueId);
 }
 
 function setMatchGenerateError(message) {
@@ -9404,7 +9419,9 @@ function renderTradeMatchNeeds() {
   if (!el.tradeMatchNeeds) return;
   const meRoster = getMyRoster();
   if (!meRoster) {
-    el.tradeMatchNeeds.innerHTML = `<p class="muted">Pick your team. We find a partner who has your holes. Calculator is one tap away.</p>`;
+    el.tradeMatchNeeds.innerHTML = !state.league
+      ? renderLeagueConnectEmpty("Connect Sleeper to find a partner.")
+      : `<p class="muted">Choose your team. We find a partner who has your holes. Calculator is one tap away.</p>`;
     return;
   }
   if (!Object.keys(state.values || {}).length) {
@@ -9476,7 +9493,7 @@ function renderTradeMatchDashboard() {
 async function generateTradeMatches({ userRequested = false } = {}) {
   const meRoster = getMyRoster();
   if (!meRoster) {
-    setMatchGenerateError("Load a league and choose your team first.");
+    setMatchGenerateError("Connect Sleeper, then choose your team.");
     return;
   }
   if (state.tradeMatch.loading) return;
@@ -9713,7 +9730,7 @@ async function generateTradeIdeas({ more = false } = {}) {
   if (el.generateBtn?.classList.contains("loading")) return;
   if (state.dealBoard?.loading || el.findMoreBtn?.classList.contains("loading")) return;
   if (!state.meRosterId) {
-    setGenerateError("Load a league and choose your team first.");
+    setGenerateError("Connect Sleeper, then choose your team.");
     return;
   }
 
