@@ -495,7 +495,8 @@ test("wide board can shut so the page fills the screen", () => {
   assert.match(index, /id="desk-board-close"/);
   assert.match(index, /id="desk-board-open"/);
   assert.match(index, /id="board-tools"/);
-  assert.match(index, /dynasty_ticker_board/);
+  assert.match(readDocs("desk-boot.js"), /dynasty_ticker_board/);
+  assert.match(index, /src="\.\/desk-boot\.js"/);
   assert.match(app, /dynasty_ticker_board/);
   assert.match(app, /renderRanksToolbar/);
   assert.match(css, /html\.desk-shut \.workspace \{[^}]*grid-column:\s*1/s);

@@ -11,6 +11,21 @@ export const CONTACT_URL = `${REPO_URL}/issues`;
 export const OG_IMAGE_URL = `${SITE_URL}og-image.jpg`;
 export const STORAGE_NOTICE_KEY = "dynasty_ticker_storage_notice";
 
+// Blocks injected scripts. Style attributes stay allowed because meters set width inline.
+// Keep this identical to the meta tag and the Netlify header.
+export const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' https://sleepercdn.com",
+  "connect-src 'self' https://api.sleeper.app",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+].join("; ");
+
 export const DEFAULT_TITLE = "Dynasty Ticker — Your Sleeper dynasty league";
 export const DEFAULT_DESCRIPTION =
   "See what your players are worth, check a trade, and find your team's next move.";
