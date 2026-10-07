@@ -1138,7 +1138,7 @@ body:not(.league-loaded) .workspace-header {
 
 .landing-job-hint {
   max-width: 38rem;
-  margin: 0.65rem 0 0;
+  margin: 0.65rem 0 0.85rem;
   color: var(--muted-strong);
   font-size: 0.84rem;
   font-weight: 600;
@@ -7828,6 +7828,26 @@ button.rather-skip {
 
 .landing-ranks-btn {
   margin-top: 0.15rem;
+}
+
+.empty-cta {
+  display: grid;
+  gap: 0.4rem;
+  justify-items: start;
+  max-width: 28rem;
+}
+
+.empty-cta-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.sample-league-link {
+  color: inherit;
+  text-underline-offset: 0.15em;
 }
 
 .league-loaded .public-ranks {

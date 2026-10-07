@@ -15,6 +15,7 @@ import {
   defaultRoomFor,
   isRoomOf,
 } from "../docs/modules/parse.js";
+import { SAMPLE_LEAGUE_ID } from "../docs/modules/constants.js";
 
 test("parseLeagueId reads snowflake, path, and embedded URL", () => {
   assert.equal(parseLeagueId("1315165104303513600"), "1315165104303513600");
@@ -77,6 +78,22 @@ test("share params map old recap/home tabs onto league", () => {
   assert.equal(parsed.week, 2);
   assert.equal(parsed.tone, "roast");
   assert.equal(parsed.meRosterId, 3);
+  const sampleUrl = buildShareUrl({
+    origin: "https://dynastyticker.com",
+    pathname: "/",
+    leagueId: "99",
+    sample: true,
+    tab: "league",
+  });
+  assert.match(sampleUrl, /sample=1/);
+  assert.equal(parseShareParams(sampleUrl.split("?")[1]).sample, true);
+  assert.equal(parseShareParams(sampleUrl.split("?")[1]).leagueId, "99");
+  assert.equal(parseShareParams("sample=1").sample, true);
+  assert.equal(parseShareParams("sample=1").leagueId, SAMPLE_LEAGUE_ID);
+  assert.equal(parseShareParams("sample=yes").leagueId, SAMPLE_LEAGUE_ID);
+  assert.equal(parseShareParams("sample=1&league=99").leagueId, "99");
+  assert.equal(parseShareParams("sample=1&league=99").sample, true);
+  assert.equal(parseShareParams("league=1").sample, false);
   assert.equal(parseShareParams("league=1").tab, "");
   assert.equal(parseShareParams("league=1").view, "ranks");
   assert.equal(parseShareParams("league=1&tab=recap").tab, "league");

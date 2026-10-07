@@ -3,11 +3,12 @@
     <div class="landing-copy">
       <div class="product-hero">
         <p class="product-kicker">Sleeper dynasty</p>
-        <p class="product-hero-copy">Prices, trades, and your roster. One quiet desk for the whole league.</p>
+        <p class="product-hero-copy">Find your league</p>
       </div>
       <span class="brand-lockup brand-lockup--landing">
         <img class="brand-wordmark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
       </span>
+      <p id="landing-job-hint" class="muted landing-job-hint">Type your Sleeper username. No name yet? <a id="sample-league-link" class="sample-league-link" href="./?sample=1">See the sample league</a>.</p>
       <form id="landing-username-form" class="landing-search" novalidate>
         <label for="landing-username">Sleeper username</label>
         <div class="landing-search-row">
@@ -23,11 +24,10 @@
             enterkeyhint="search"
             aria-describedby="landing-username-error landing-job-hint"
           />
-          <button id="landing-find-btn" type="submit">Find leagues</button>
+          <button id="landing-find-btn" type="submit" data-idle-label="Find my leagues">Find my leagues</button>
         </div>
         <p id="landing-username-error" class="field-error" hidden role="alert"></p>
       </form>
-      <p id="landing-job-hint" class="muted landing-job-hint">Type your Sleeper username to connect your roster, trade partners, and team impact.</p>
       <button type="button" id="open-public-ranks" class="ghost-btn landing-ranks-btn" data-action="open-public-ranks">Look up a player</button>
       <div id="landing-league-picker" class="league-picker landing-league-picker hidden" data-league-picker></div>
       <p id="landing-loading" class="landing-loading hidden" aria-live="polite">

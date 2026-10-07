@@ -163,6 +163,11 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /id="copy-league-id-btn"/);
   assert.doesNotMatch(index, /Use demo league/);
   assert.doesNotMatch(index, /Open demo/);
+  assert.match(index, /id="sample-league-link"/);
+  assert.match(index, /href="\.\/\?sample=1"/);
+  assert.match(index, /See the sample league/);
+  assert.match(index, /Find my leagues/);
+  assert.match(index, /class="empty-cta"/);
   assert.equal(existsSync(join(docs, "modules/recap.js")), false);
   assert.equal(existsSync(join(docs, "modules/recap-card.js")), false);
   assert.match(index, /id="landing-rather"/);

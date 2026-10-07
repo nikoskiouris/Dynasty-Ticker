@@ -87,6 +87,7 @@ import {
   leagueHasSuperflex,
   crowdShiftsFromVotes,
   getGlobalMaxPlayerValue,
+  valuationUpdatedAt,
 } from "./modules/values.js";
 import {
   ageBucketForAsset,
@@ -1227,14 +1228,14 @@ function bootFromUrl() {
   if (parsed.week) state.pendingWeek = parsed.week;
   if (parsed.tone) state.pendingTone = parsed.tone;
 
-  const fields = bootSearchFieldValues({ leagueFromUrl: parsed.leagueId });
+  const fields = bootSearchFieldValues({ leagueFromUrl: parsed.sample ? "" : parsed.leagueId });
   if (el.sleeperUsername) el.sleeperUsername.value = fields.username;
   if (el.landingUsername) el.landingUsername.value = fields.username;
   if (el.leagueId) el.leagueId.value = fields.leagueId;
 
   if (parsed.view === "ranks" && parsed.asset) state.ranks.selectedId = parsed.asset;
   if (parsed.leagueId) {
-    void loadLeagueById(parsed.leagueId);
+    void loadLeagueById(parsed.leagueId, { sample: parsed.sample });
   } else if (parsed.tab === "trades" && parsed.view === "ranks") {
     openPublicRanks({ history: "silent" });
   }
@@ -1303,7 +1304,7 @@ function applyDeskPopState(historyState) {
     if (parsed.tab) state.pendingPlace = { page: parsed.tab, room: parsed.view };
     if (parsed.week) state.pendingWeek = parsed.week;
     if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
-    void loadLeagueById(parsed.leagueId, { fromHistory: true });
+    void loadLeagueById(parsed.leagueId, { fromHistory: true, sample: parsed.sample });
     return;
   }
   applyDeskPlaceFromHistory(parsed, historyState);
@@ -1341,6 +1342,7 @@ function buildShareUrl(overrides = {}) {
     origin: window.location.origin,
     pathname: window.location.pathname,
     leagueId: state.leagueId,
+    sample: state.viewingSample,
     meRosterId: state.meRosterId,
     tab: page,
     view: room,
@@ -1558,6 +1560,14 @@ function describeSeasonWeek() {
   return `Week ${entry.week}`;
 }
 
+function sampleHeroNote() {
+  const stamp = valuationUpdatedAt(state.valueBundles);
+  const prices = stamp
+    ? `Forecast prices updated ${stamp}.`
+    : "Forecast prices come from the bundled file.";
+  return `Public sample. Not your team. ${prices} `;
+}
+
 function brandMarkAvatarHtml() {
   return `<img class="league-mark" src="./brand/mark.svg" width="148" height="132" alt="" decoding="async" />`;
 }
@@ -1579,7 +1589,7 @@ function renderLeagueHero() {
   const pageLabel = PAGE_LABELS[state.activePage] || "League";
   const room = getRoom();
   const roomLabel = room === HOME_ROOM ? "" : roomLabelFor(state.activePage, room, league);
-  el.heroEyebrow.textContent = `${pageLabel}${roomLabel ? ` / ${roomLabel}` : ""} · ${seasonLabel} · ${state.normalizedRosters.length} teams · ${model?.playoffTeams || league?.settings?.playoff_teams || "?"} playoff spots`;
+  el.heroEyebrow.textContent = `${state.viewingSample ? "Sample · " : ""}${pageLabel}${roomLabel ? ` / ${roomLabel}` : ""} · ${seasonLabel} · ${state.normalizedRosters.length} teams · ${model?.playoffTeams || league?.settings?.playoff_teams || "?"} playoff spots`;
   el.heroTitle.textContent = state.leagueName;
   const status = model?.seasonComplete
     ? "Season complete. The archive, awards, and record book are final."
@@ -1592,7 +1602,8 @@ function renderLeagueHero() {
           : model
             ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
             : "Matchups are syncing.";
-  el.heroLede.textContent = `${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`;
+  const sampleNote = state.viewingSample ? sampleHeroNote() : "";
+  el.heroLede.textContent = `${sampleNote}${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`;
   if (el.leagueAvatar) {
     el.leagueAvatar.innerHTML = league.avatar
       ? `<img src="${SLEEPER_AVATAR_BASE}${escapeHtml(league.avatar)}" alt="${escapeHtml(state.leagueName || "League")} logo" loading="lazy" />`
@@ -1805,8 +1816,8 @@ function requestFindLeagues(event) {
   syncUsernameFields(event?.currentTarget === el.landingUsernameForm ? el.landingUsername : el.sleeperUsername);
   const classified = classifyLeagueInput(el.sleeperUsername?.value || el.landingUsername?.value);
   if (classified.kind === "empty") {
-    setUsernameError("Type your Sleeper username, then press Find leagues.");
-    setStatus("Type your Sleeper username, then press Find leagues.", { error: true });
+    setUsernameError("Type your Sleeper username, then press Find my leagues.");
+    setStatus("Type your Sleeper username, then press Find my leagues.", { error: true });
     (el.landingUsername || el.sleeperUsername)?.focus();
     return;
   }
@@ -1903,7 +1914,7 @@ function stopFindLeaguesUi() {
     if (!button) return;
     button.disabled = false;
     button.classList.remove("loading");
-    button.textContent = "Find leagues";
+    button.textContent = button.dataset.idleLabel || "Find my leagues";
   });
   el.usernameSearchForm?.setAttribute("aria-busy", "false");
   el.landingUsernameForm?.setAttribute("aria-busy", "false");
@@ -1922,8 +1933,9 @@ async function loadLeague() {
   return loadLeagueById(leagueId);
 }
 
-async function loadLeagueById(leagueId, { fromHistory = false } = {}) {
+async function loadLeagueById(leagueId, { fromHistory = false, sample = false } = {}) {
   if (!leagueId) return;
+  state.viewingSample = Boolean(sample);
   return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
 }
 
@@ -2082,7 +2094,9 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
         const me = getMyRoster();
         setStatus(
           me
-            ? `Loaded ${state.leagueName}. Viewing as ${me.manager?.displayName || "your team"}. Switch teams in the Manager panel.`
+            ? state.viewingSample
+              ? `Sample loaded. Looking through ${me.manager?.displayName || "one roster"} so the desk has a team. Switch teams in the Manager panel. This is not your account.`
+              : `Loaded ${state.leagueName}. Viewing as ${me.manager?.displayName || "your team"}. Switch teams in the Manager panel.`
             : `Loaded ${state.leagueName}. Choose your team to continue.`,
           { ok: true },
         );
@@ -3318,10 +3332,18 @@ function seasonThroughLabel(model) {
 // League: Scores, Standings, Power
 // ---------------------------------------------------------------------------
 
-function leagueRoomEmptyState(host, copy) {
+function renderNoLeagueCta() {
+  return `<div class="empty-cta">
+    <h2 class="empty-cta-title">No league yet</h2>
+    <p class="muted">Type your Sleeper username. No name yet? <a class="sample-league-link" href="./?sample=1">See the sample league</a>.</p>
+    <button type="button" data-action="find-my-leagues">Find my leagues</button>
+  </div>`;
+}
+
+function leagueRoomEmptyState(host) {
   if (!host) return false;
   if (!state.league || state.normalizedRosters.length === 0) {
-    host.innerHTML = `<p class="muted">${copy}</p>`;
+    host.innerHTML = renderNoLeagueCta();
     return false;
   }
   return true;
@@ -3347,7 +3369,7 @@ function renderStartRoom() {
 }
 
 function renderScoresRoom() {
-  if (!leagueRoomEmptyState(el.scoresDashboard, "Load a league to open the scoreboard.")) return;
+  if (!leagueRoomEmptyState(el.scoresDashboard)) return;
   const model = getSeasonModel();
   const sim = getSimulation(model);
   const profiles = buildPowerProfiles();
@@ -3359,7 +3381,7 @@ function renderScoresRoom() {
 }
 
 function renderStandingsRoom() {
-  if (!leagueRoomEmptyState(el.standingsDashboard, "Load a league to open the standings.")) return;
+  if (!leagueRoomEmptyState(el.standingsDashboard)) return;
   const model = getSeasonModel();
   const sim = getSimulation(model);
   el.standingsDashboard.innerHTML = `
@@ -3369,7 +3391,7 @@ function renderStandingsRoom() {
 }
 
 function renderPowerRoom() {
-  if (!leagueRoomEmptyState(el.powerBoardDashboard, "Load a league to rank the rosters.")) return;
+  if (!leagueRoomEmptyState(el.powerBoardDashboard)) return;
   const model = getSeasonModel();
   const profiles = buildPowerProfiles();
   el.powerBoardDashboard.innerHTML = profiles.length
@@ -6178,6 +6200,9 @@ function handleWorkspaceClick(event) {
     }
     case "open-public-ranks":
       openPublicRanks();
+      break;
+    case "find-my-leagues":
+      focusUsernameSearch();
       break;
     case "close-public-ranks":
       closePublicRanks();
@@ -16024,7 +16049,7 @@ function stopLeagueLoadingUi() {
   el.landingLoading?.classList.add("hidden");
   if (el.stickyFindBtn) {
     el.stickyFindBtn.disabled = false;
-    el.stickyFindBtn.textContent = "Find leagues";
+    el.stickyFindBtn.textContent = el.stickyFindBtn.dataset.idleLabel || "Find my leagues";
   }
   if (!el.loadLeagueBtn) return;
   el.loadLeagueBtn.disabled = false;

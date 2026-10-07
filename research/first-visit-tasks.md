@@ -12,7 +12,7 @@ Three uncoached tasks for real first-time users. They test whether someone can g
 
 ## Setup
 
-- Open the live site or the preview in a fresh private window. No league loaded, no saved trade.
+- Open [dynastyticker.com](https://dynastyticker.com/) or a local `npm run serve` in a fresh private window. No league loaded, no saved trade. `/?sample=1` is a public sample league for a look; the tasks below still use the person's own league.
 - Ask them to think out loud. Do not point, hint, or name buttons. If they are stuck for two minutes, note it as a fail, then help and move on.
 - Record the screen if they agree. Otherwise take timestamped notes.
 
