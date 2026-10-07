@@ -173,19 +173,6 @@ ol { padding: 0; list-style: none; }
   font-size: 1.02rem;
 }
 
-.you {
-  display: inline-block;
-  margin-left: 0.35rem;
-  padding: 0.05rem 0.4rem;
-  border-radius: 999px;
-  background: var(--soft);
-  color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  vertical-align: 0.15rem;
-}
-
 .meta {
   margin-top: 0.15rem;
   color: var(--muted);
@@ -378,7 +365,7 @@ ol { padding: 0; list-style: none; }
 }
 
 @media (max-width: 860px) {
-  .desk { padding: 0.85rem 0.85rem 5.5rem; }
+  .desk { padding: 0.85rem 0.85rem calc(5.6rem + env(safe-area-inset-bottom)); }
   .top {
     grid-template-columns: 1fr;
     justify-items: start;
@@ -398,8 +385,12 @@ ol { padding: 0; list-style: none; }
   .league-name { display: none; }
   .board { grid-template-columns: 1fr; }
   .lineup, .rail { grid-column: auto; grid-row: auto; }
-  .score { font-size: 3.5rem; }
-  .story { font-size: 1.1rem; }
+  .match { padding: 1.05rem 1.05rem 0.95rem; }
+  .versus { margin-top: 0.7rem; }
+  .score { font-size: 3.15rem; }
+  .story { margin-top: 0.6rem; font-size: 1.05rem; }
+  .lineup { padding: 0.85rem 1rem 0.3rem; }
+  .players li { min-height: 2.45rem; gap: 0.6rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

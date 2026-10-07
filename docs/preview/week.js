@@ -1,3 +1,4 @@
+const params = new URLSearchParams(location.search);
 const starters = document.getElementById("starters");
 const bench = document.getElementById("bench");
 
@@ -13,3 +14,7 @@ document.querySelectorAll(".seg-btn").forEach((button) => {
     });
   });
 });
+
+if (params.get("lineup") === "bench") {
+  document.querySelector('[data-show="bench"]').click();
+}
