@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   SEARCHED_USERS_HEADER,
   SEARCHED_USERS_KEY,
+  SEARCHED_USERS_MAX_ROWS,
   SEARCHED_USERS_STORE,
   applySearchedUser,
   cleanSleeperUserId,
@@ -126,6 +127,16 @@ test("a new username adds one row; the same name later bumps it instead of repea
   ]);
 
   assert.equal(applySearchedUser(csv, { username: "=bad", now: LATER }), csv);
+});
+
+test("a full username list refuses a new name and still updates one already saved", () => {
+  const rows = [];
+  for (let i = 0; i < SEARCHED_USERS_MAX_ROWS; i += 1) rows.push(`user${i},1,2026-09-23T21:05:09Z,2026-09-23T21:05:09Z,1`);
+  const csv = `${SEARCHED_USERS_HEADER}\n${rows.join("\n")}\n`;
+  assert.throws(() => applySearchedUser(csv, { username: "newname", now: NOW }), (err) => err?.code === "full");
+  const bumped = applySearchedUser(csv, { username: "user0", now: LATER });
+  assert.equal(parseSearchedUsers(bumped).find((row) => row.username === "user0").searches, 2);
+  assert.equal(parseSearchedUsers(bumped).length, SEARCHED_USERS_MAX_ROWS);
 });
 
 test("parsing survives a round trip through a spreadsheet", () => {

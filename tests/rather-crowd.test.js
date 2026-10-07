@@ -15,6 +15,7 @@ import {
   createRatherVoteHandler,
   normalizeRatherState,
   publicRatherVotes,
+  RATHER_MAX_STORED_VOTES,
   sanitizeRatherVote,
   wrapLambdaHandler,
 } from "../netlify/lib/rather-crowd.js";
@@ -255,17 +256,17 @@ test("one voter cannot stack repeated influence on the same pair", () => {
 });
 
 test("read, write, and initialization failures never report a saved vote", async () => {
-  const missingHandler = createRatherVoteHandler({ getStore: () => null, nowFn: () => NOW });
+  const missingHandler = createRatherVoteHandler({ getStore: () => null, nowFn: () => NOW, salt: "test-salt" });
   const missing = await missingHandler(postRequest(), { ip: "1.2.3.4" });
   assert.equal(missing.status, 503);
   assert.equal((await missing.json()).retryable, true);
 
-  const readHandler = createRatherVoteHandler({ getStore: () => memoryStore(null, { failRead: true }), nowFn: () => NOW });
+  const readHandler = createRatherVoteHandler({ getStore: () => memoryStore(null, { failRead: true }), nowFn: () => NOW, salt: "test-salt" });
   const readFailure = await readHandler(postRequest(), { ip: "1.2.3.4" });
   assert.equal(readFailure.status, 503);
   assert.equal((await readFailure.json()).saved, undefined);
 
-  const writeHandler = createRatherVoteHandler({ getStore: () => memoryStore(null, { failWrite: true }), nowFn: () => NOW });
+  const writeHandler = createRatherVoteHandler({ getStore: () => memoryStore(null, { failWrite: true }), nowFn: () => NOW, salt: "test-salt" });
   const writeFailure = await writeHandler(postRequest(), { ip: "1.2.3.4" });
   assert.equal(writeFailure.status, 503);
   assert.equal((await writeFailure.json()).saved, undefined);
@@ -280,6 +281,71 @@ test("vote history is not silently truncated at 4,000 events", () => {
     at: index + 1,
   }));
   assert.equal(normalizeRatherState({ votes, visitors: {} }).votes.length, 5001);
+});
+
+test("stored rather votes stop at the cap and keep the newest rows", () => {
+  const votes = Array.from({ length: RATHER_MAX_STORED_VOTES + 1 }, (_, index) => ({
+    eventId: `e${index}`,
+    winnerId: "player:a",
+    loserId: "player:b",
+    format: "sf",
+    at: index + 1,
+  }));
+  const normalized = normalizeRatherState({ votes, visitors: {} });
+  assert.equal(normalized.votes.length, RATHER_MAX_STORED_VOTES);
+  assert.equal(normalized.votes[0].eventId, "e0");
+  assert.equal(normalized.votes.at(-1).eventId, `e${RATHER_MAX_STORED_VOTES - 1}`);
+  const published = publicRatherVotes({ votes });
+  assert.equal(published.voteCount, RATHER_MAX_STORED_VOTES);
+  assert.equal(published.votes.length, RATHER_MAX_STORED_VOTES);
+
+  const full = normalizeRatherState({
+    votes: Array.from({ length: RATHER_MAX_STORED_VOTES }, (_, index) => ({
+      eventId: `old-${index}`,
+      winnerId: "player:a",
+      loserId: "player:b",
+      format: "sf",
+      at: index + 1,
+      voterKey: `v${index}`,
+    })),
+    visitors: {},
+  });
+  const applied = applyRatherVote(full, {
+    vote: voteBody({ eventId: "newest", format: "sf" }),
+    visitorHash: "fresh-visitor",
+    now: new Date(NOW.getTime() + 10_000),
+  });
+  assert.equal(applied.ok, true);
+  assert.equal(applied.state.votes.length, RATHER_MAX_STORED_VOTES);
+  assert.equal(applied.state.votes[0].eventId, "newest");
+  assert.equal(applied.state.votes.at(-1).eventId, `old-${RATHER_MAX_STORED_VOTES - 2}`);
+});
+
+test("a rather write without a secret salt does not save", async () => {
+  const store = memoryStore();
+  const handler = createRatherVoteHandler({
+    getStore: () => store,
+    nowFn: () => NOW,
+    salt: "",
+    allowedOrigins: ["https://dynastyticker.com"],
+  });
+  const posted = await handler(postRequest(), { ip: "1.2.3.4" });
+  assert.equal(posted.status, 503);
+  assert.equal((await posted.json()).error, "salt");
+  assert.equal(store.snapshot(), null);
+
+  const publicSalt = createRatherVoteHandler({
+    getStore: () => store,
+    nowFn: () => NOW,
+    salt: "dynasty-ticker-rather-v1",
+    allowedOrigins: ["https://dynastyticker.com"],
+  });
+  const rejected = await publicSalt(postRequest(), { ip: "1.2.3.4" });
+  assert.equal(rejected.status, 503);
+  assert.equal(store.snapshot(), null);
+
+  const read = await handler(new Request("https://dynastyticker.com/api/rather-vote"));
+  assert.equal(read.status, 200);
 });
 
 test("classic wrapper remains testable for shared request conversion", async () => {

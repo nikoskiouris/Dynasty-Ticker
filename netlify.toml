@@ -35,3 +35,15 @@
   from = "/*"
   to = "/404.html"
   status = 404
+
+# Pages gets the same policy from the HTML meta tag. These headers cover the
+# Netlify host, including frame-ancestors, which a meta tag cannot set.
+# Set RATHER_SALT in the site environment (16+ random characters). The old
+# public string is rejected, so rather votes fail closed until it is set.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; style-src-elem 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; upgrade-insecure-requests"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"

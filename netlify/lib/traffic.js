@@ -1,6 +1,21 @@
 import { createHash } from "node:crypto";
 
-export const DEFAULT_SALT = "dynasty-ticker-traffic-v1";
+// Old source strings. Reject them so a deploy cannot keep hashing with a
+// secret that is already in the public repo.
+export const KNOWN_PUBLIC_SALTS = new Set([
+  "dynasty-ticker-traffic-v1",
+  "dynasty-ticker-rather-v1",
+]);
+
+export function resolveSecretSalt(value, { minLength = 1 } = {}) {
+  const salt = String(value ?? "").trim();
+  if (!salt || salt.length < minLength || KNOWN_PUBLIC_SALTS.has(salt)) return "";
+  return salt;
+}
+
+export function saltFromEnv(envValue) {
+  return resolveSecretSalt(envValue, { minLength: 16 });
+}
 export const DEFAULT_ORIGINS = Object.freeze([
   "https://dynastyticker.com",
   "https://www.dynastyticker.com",
@@ -122,8 +137,9 @@ export function landingFromReferer(referer) {
   return "home";
 }
 
-export function visitorHash(ip, userAgent, salt = DEFAULT_SALT, visitorId = "") {
-  const secret = salt || DEFAULT_SALT;
+export function visitorHash(ip, userAgent, salt = "", visitorId = "") {
+  const secret = resolveSecretSalt(salt);
+  if (!secret) return "";
   const id = cleanVisitorId(visitorId);
   if (id) {
     return createHash("sha256").update(`${secret}\nvisitor\n${id}`).digest("hex").slice(0, 32);
@@ -414,6 +430,7 @@ function jsonResponse(body, { status = 200, cors = false } = {}) {
   const headers = {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
+    "x-content-type-options": "nosniff",
   };
   if (cors) headers["access-control-allow-origin"] = "*";
   return new Response(JSON.stringify(body), { status, headers });
@@ -511,7 +528,7 @@ async function writeTrafficSnapshot(store, state, snapshot) {
 export function createVisitHandler({
   getStore,
   nowFn = () => new Date(),
-  salt = process.env.VISIT_SALT || DEFAULT_SALT,
+  salt = saltFromEnv(process.env.VISIT_SALT),
   allowedOrigins = DEFAULT_ORIGINS,
 } = {}) {
   return async function visitHandler(req, context = {}) {
@@ -532,6 +549,10 @@ export function createVisitHandler({
 
     if (req.method === "POST" && !isAllowedWrite(req, allowedOrigins)) {
       return jsonResponse({ error: "forbidden" }, { status: 403 });
+    }
+
+    if (req.method === "POST" && !resolveSecretSalt(salt)) {
+      return jsonResponse({ error: "salt" }, { status: 503 });
     }
 
     const userAgent = req.headers.get("user-agent") || "";

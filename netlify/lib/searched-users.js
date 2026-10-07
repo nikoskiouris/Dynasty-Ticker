@@ -10,6 +10,7 @@ export const SEARCHED_USERS_KEY = "searched-users.csv";
 export const SEARCHED_USERS_COLUMNS = Object.freeze(["username", "user_id", "first_seen", "last_seen", "searches"]);
 export const SEARCHED_USERS_HEADER = SEARCHED_USERS_COLUMNS.join(",");
 export const SEARCHED_USERS_MAX_WRITE_RETRIES = 8;
+export const SEARCHED_USERS_MAX_ROWS = 5000;
 
 // No commas, quotes, or spaces, and no leading = + - @, so a cell can never
 // break the CSV or run as a spreadsheet formula.
@@ -80,6 +81,10 @@ export function applySearchedUser(text, { username, userId = "", now = new Date(
     row.searches += 1;
     if (!row.firstSeen) row.firstSeen = stamp;
     if (id) row.userId = id;
+  } else if (rows.length >= SEARCHED_USERS_MAX_ROWS) {
+    const error = new Error("username list full");
+    error.code = "full";
+    throw error;
   } else {
     rows.push({ username: name, userId: id, firstSeen: stamp, lastSeen: stamp, searches: 1 });
   }
@@ -97,6 +102,7 @@ function jsonResponse(body, { status = 200, headers = {} } = {}) {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
       ...headers,
     },
   });
@@ -169,6 +175,11 @@ export function createSearchedUserHandler({
       let next;
       try {
         next = applySearchedUser(snapshot.text, { username, userId, now });
+      } catch (err) {
+        if (err?.code === "full") return jsonResponse({ error: "full" }, { status: 429 });
+        return jsonResponse({ error: "store", retryable: true }, { status: 503 });
+      }
+      try {
         if (await writeSearchedUsersSnapshot(store, next, snapshot)) return jsonResponse({ ok: true });
       } catch {
         return jsonResponse({ error: "store", retryable: true }, { status: 503 });

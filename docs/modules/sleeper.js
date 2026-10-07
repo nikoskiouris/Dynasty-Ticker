@@ -205,10 +205,15 @@ export async function fetchUserLeagues(client, username, seasons) {
   };
 }
 
+const AVATAR_ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
+const AVATAR_URL_RE = /^https:\/\/sleepercdn\.com\/avatars\/(?:thumbs\/)?[A-Za-z0-9_-]{1,80}(?:\.[A-Za-z0-9]{1,5})?$/;
+
 export function sleeperAvatarUrl(avatar) {
-  if (!avatar) return "";
-  if (String(avatar).startsWith("http")) return String(avatar);
-  return `${SLEEPER_AVATAR_BASE}${avatar}`;
+  const raw = String(avatar ?? "").trim();
+  if (!raw || /[\s"'<>\\]/.test(raw)) return "";
+  if (AVATAR_URL_RE.test(raw)) return raw;
+  if (AVATAR_ID_RE.test(raw)) return `${SLEEPER_AVATAR_BASE}${raw}`;
+  return "";
 }
 
 const defaultClient = createSleeperClient();

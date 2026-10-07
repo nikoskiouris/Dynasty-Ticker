@@ -4,6 +4,8 @@ import {
   clientIp,
   isAllowedWrite,
   isBot,
+  resolveSecretSalt,
+  saltFromEnv,
   visitorHash,
   wrapLambdaHandler,
 } from "./traffic.js";
@@ -12,7 +14,7 @@ export const RATHER_STATE_KEY = "state";
 export const RATHER_MAX_PER_VISITOR_HOUR = 40;
 export const RATHER_MIN_INTERVAL_MS = 400;
 export const RATHER_MAX_WRITE_RETRIES = 8;
-export const RATHER_SALT = "dynasty-ticker-rather-v1";
+export const RATHER_MAX_STORED_VOTES = 8000;
 export { wrapLambdaHandler };
 
 export function emptyRatherState() {
@@ -70,14 +72,14 @@ export function hourBucket(now = new Date()) {
 export function normalizeRatherState(raw) {
   if (!raw || typeof raw !== "object") return emptyRatherState();
   const votes = Array.isArray(raw.votes)
-    ? raw.votes.map(sanitizeRatherVote).filter(Boolean)
+    ? raw.votes.map(sanitizeRatherVote).filter(Boolean).slice(0, RATHER_MAX_STORED_VOTES)
     : [];
   const visitors = raw.visitors && typeof raw.visitors === "object" ? raw.visitors : {};
   return { votes, visitors };
 }
 
 export function publicRatherVotes(state) {
-  const votes = Array.isArray(state?.votes) ? state.votes : [];
+  const votes = (Array.isArray(state?.votes) ? state.votes : []).slice(0, RATHER_MAX_STORED_VOTES);
   return {
     votes: votes.map((vote) => ({
       ...(vote.eventId ? { eventId: vote.eventId } : {}),
@@ -143,12 +145,13 @@ export function applyRatherVote(state, { vote, visitorHash: hash, now = new Date
   const votes = [...current.votes];
   if (repeatedIndex >= 0) votes.splice(repeatedIndex, 1);
   votes.unshift(cleaned);
+  const storedVotes = votes.slice(0, RATHER_MAX_STORED_VOTES);
   return {
     ok: true,
     changed: true,
     replaced: repeatedIndex >= 0,
     state: {
-      votes,
+      votes: storedVotes,
       visitors: pruneVisitors(visitors, clock),
     },
   };
@@ -160,6 +163,7 @@ function jsonResponse(body, { status = 200 } = {}) {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
       "access-control-allow-origin": "*",
     },
   });
@@ -194,7 +198,7 @@ async function writeRatherSnapshot(store, state, snapshot) {
 export function createRatherVoteHandler({
   getStore,
   nowFn = () => new Date(),
-  salt = process.env.RATHER_SALT || RATHER_SALT,
+  salt = saltFromEnv(process.env.RATHER_SALT),
   allowedOrigins = DEFAULT_ORIGINS,
 } = {}) {
   return async function ratherVoteHandler(req, context = {}) {
@@ -233,6 +237,10 @@ export function createRatherVoteHandler({
 
     if (!isAllowedWrite(req, allowedOrigins)) {
       return jsonResponse({ error: "forbidden" }, { status: 403 });
+    }
+
+    if (!resolveSecretSalt(salt)) {
+      return jsonResponse({ error: "salt" }, { status: 503 });
     }
 
     const userAgent = req.headers.get("user-agent") || "";

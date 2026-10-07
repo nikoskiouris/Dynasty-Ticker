@@ -85,12 +85,14 @@ test("period keys use the US Eastern day, ISO week, and calendar year", () => {
 });
 
 test("visitor hashes stay stable for the same IP and browser", () => {
-  const first = visitorHash("1.2.3.4", "Mozilla/5.0 Desk");
-  const second = visitorHash("1.2.3.4", "Mozilla/5.0 Desk");
-  const other = visitorHash("5.6.7.8", "Mozilla/5.0 Desk");
+  const first = visitorHash("1.2.3.4", "Mozilla/5.0 Desk", "test-salt");
+  const second = visitorHash("1.2.3.4", "Mozilla/5.0 Desk", "test-salt");
+  const other = visitorHash("5.6.7.8", "Mozilla/5.0 Desk", "test-salt");
   assert.equal(first, second);
   assert.equal(first.length, 32);
   assert.notEqual(first, other);
+  assert.equal(visitorHash("1.2.3.4", "Mozilla/5.0 Desk", ""), "");
+  assert.equal(visitorHash("1.2.3.4", "Mozilla/5.0 Desk", "dynasty-ticker-traffic-v1"), "");
 });
 
 test("bot user-agents are skipped, browsers are not", () => {
@@ -211,16 +213,16 @@ test("concurrent page views are retained after conditional-write conflicts", asy
 });
 
 test("storage failures return retryable errors instead of false success", async () => {
-  const unavailable = createVisitHandler({ getStore: () => null, nowFn: () => NOW });
+  const unavailable = createVisitHandler({ getStore: () => null, nowFn: () => NOW, salt: "test-salt" });
   const missing = await unavailable(request("https://dynastyticker.com/api/visit", { method: "POST", headers: liveHeaders() }), { ip: "1.1.1.1" });
   assert.equal(missing.status, 503);
   assert.equal((await missing.json()).retryable, true);
 
-  const readFailure = createVisitHandler({ getStore: () => memoryStore(null, { failRead: true }), nowFn: () => NOW });
+  const readFailure = createVisitHandler({ getStore: () => memoryStore(null, { failRead: true }), nowFn: () => NOW, salt: "test-salt" });
   const failedRead = await readFailure(request("https://dynastyticker.com/api/visit", { method: "POST", headers: liveHeaders() }), { ip: "1.1.1.1" });
   assert.equal(failedRead.status, 503);
 
-  const writeFailure = createVisitHandler({ getStore: () => memoryStore(null, { failWrite: true }), nowFn: () => NOW });
+  const writeFailure = createVisitHandler({ getStore: () => memoryStore(null, { failWrite: true }), nowFn: () => NOW, salt: "test-salt" });
   const failedWrite = await writeFailure(request("https://dynastyticker.com/api/visit", { method: "POST", headers: liveHeaders() }), { ip: "1.1.1.1" });
   assert.equal(failedWrite.status, 503);
 });
@@ -323,4 +325,22 @@ test("the visit handler keeps one person across a retried browser id", async () 
   assert.equal(payload.today.landings.shared, 1);
   assert.equal(JSON.stringify(payload).includes("1315"), false);
   assert.equal(JSON.stringify(payload).includes("seen"), false);
+});
+
+test("a visit write without a secret salt does not save", async () => {
+  const store = memoryStore();
+  const handler = createVisitHandler({ getStore: () => store, nowFn: () => NOW, salt: "" });
+  const posted = await handler(request("https://dynastyticker.com/api/visit", { method: "POST", headers: liveHeaders() }), { ip: "1.1.1.1" });
+  assert.equal(posted.status, 503);
+  assert.equal((await posted.json()).error, "salt");
+  assert.equal(store.snapshot(), null);
+
+  const publicSalt = createVisitHandler({
+    getStore: () => store,
+    nowFn: () => NOW,
+    salt: "dynasty-ticker-traffic-v1",
+  });
+  const rejected = await publicSalt(request("https://dynastyticker.com/api/visit", { method: "POST", headers: liveHeaders() }), { ip: "1.1.1.1" });
+  assert.equal(rejected.status, 503);
+  assert.equal(store.snapshot(), null);
 });
