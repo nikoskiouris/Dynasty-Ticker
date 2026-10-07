@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <title>This week — Dynasty Ticker look</title>
+    <link rel="icon" href="../favicon.ico" sizes="any" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./week.css" />
+  </head>
+  <body>
+    <div class="desk">
+      <header class="top">
+        <a class="brand" href="../index.html">
+          <img src="../brand/wordmark-on-dark.svg" width="364" height="57" alt="Dynasty Ticker" />
+        </a>
+        <nav class="jobs" aria-label="Desk">
+          <button type="button" class="job on" aria-current="page">This week</button>
+          <button type="button" class="job" data-locked>Teams</button>
+          <button type="button" class="job" data-locked>Trades</button>
+          <button type="button" class="job" data-locked>History</button>
+        </nav>
+        <p class="league-name">Iron League</p>
+      </header>
+
+      <main class="board">
+        <section class="match" aria-labelledby="match-title">
+          <div class="match-kicker">
+            <p id="match-title" class="kicker">Your matchup</p>
+            <p class="live"><span class="live-dot" aria-hidden="true"></span> Live · Week 6</p>
+          </div>
+
+          <div class="versus">
+            <div class="side">
+              <p class="team">Night Shift</p>
+              <p class="meta">You · 5–1 · proj 124.6</p>
+            </div>
+            <div class="side away">
+              <p class="team">Bijan or Bust</p>
+              <p class="meta">3–3 · proj 119.1</p>
+            </div>
+            <p class="score">112.4</p>
+            <p class="pct"><strong>64%</strong><span>pre-game</span></p>
+            <p class="score away">98.2</p>
+          </div>
+
+          <div class="winbar" role="img" aria-label="64 percent pre-game win chance">
+            <span class="winbar-you" style="width: 64%"></span>
+            <span class="winbar-them" style="width: 36%"></span>
+          </div>
+          <p class="story">Up 14.2. Achane and Wilson still to play.</p>
+        </section>
+
+        <section class="lineup" aria-labelledby="lineup-title">
+          <div class="lineup-head">
+            <h2 id="lineup-title">Lineup</h2>
+            <div class="seg" role="tablist" aria-label="Lineup">
+              <button type="button" class="seg-btn on" role="tab" aria-selected="true" data-show="starters">Starters</button>
+              <button type="button" class="seg-btn" role="tab" aria-selected="false" data-show="bench">Bench</button>
+            </div>
+          </div>
+
+          <div id="starters" role="tabpanel">
+            <ol class="players">
+              <li>
+                <span class="pos qb">QB</span>
+                <div class="who"><p class="name">Josh Allen</p><p class="opp">BUF · Final</p></div>
+                <p class="pts">22.4</p>
+              </li>
+              <li class="is-live">
+                <span class="pos rb">RB</span>
+                <div class="who"><p class="name">Bijan Robinson</p><p class="opp">ATL · Q4</p></div>
+                <p class="pts live">18.6</p>
+              </li>
+              <li>
+                <span class="pos rb">RB</span>
+                <div class="who"><p class="name">De'Von Achane</p><p class="opp">MIA · 1:00</p></div>
+                <p class="pts yet">—</p>
+              </li>
+              <li>
+                <span class="pos wr">WR</span>
+                <div class="who"><p class="name">CeeDee Lamb</p><p class="opp">DAL · Final</p></div>
+                <p class="pts">19.8</p>
+              </li>
+              <li class="is-live">
+                <span class="pos wr">WR</span>
+                <div class="who"><p class="name">Ja'Marr Chase</p><p class="opp">CIN · Q3</p></div>
+                <p class="pts live">11.2</p>
+              </li>
+              <li>
+                <span class="pos wr">WR</span>
+                <div class="who"><p class="name">Garrett Wilson</p><p class="opp">NYJ · Mon</p></div>
+                <p class="pts yet">—</p>
+              </li>
+              <li>
+                <span class="pos te">TE</span>
+                <div class="who"><p class="name">Sam LaPorta</p><p class="opp">DET · Final</p></div>
+                <p class="pts">8.4</p>
+              </li>
+              <li>
+                <span class="pos flx">FLX</span>
+                <div class="who"><p class="name">Breece Hall</p><p class="opp">NYJ · Final</p></div>
+                <p class="pts">16.8</p>
+              </li>
+              <li class="is-live">
+                <span class="pos sf">SF</span>
+                <div class="who"><p class="name">Jalen Hurts</p><p class="opp">PHI · Q4</p></div>
+                <p class="pts live">15.2</p>
+              </li>
+            </ol>
+          </div>
+
+          <div id="bench" role="tabpanel" hidden>
+            <ol class="players">
+              <li>
+                <span class="pos wr">WR</span>
+                <div class="who"><p class="name">Jayden Reed</p><p class="opp">GB · 1:00</p></div>
+                <p class="pts yet">—</p>
+              </li>
+              <li>
+                <span class="pos te">TE</span>
+                <div class="who"><p class="name">Tucker Kraft</p><p class="opp">GB · Final</p></div>
+                <p class="pts">4.2</p>
+              </li>
+              <li>
+                <span class="pos rb">RB</span>
+                <div class="who"><p class="name">Tank Bigsby</p><p class="opp">JAC · 1:00</p></div>
+                <p class="pts yet">—</p>
+              </li>
+              <li>
+                <span class="pos wr">WR</span>
+                <div class="who"><p class="name">Rome Odunze</p><p class="opp">CHI · Final</p></div>
+                <p class="pts">6.1</p>
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <aside class="rail">
+          <section class="card" aria-labelledby="league-title">
+            <h2 id="league-title" class="kicker">Rest of the league</h2>
+            <ol class="games">
+              <li>
+                <div><span>Superflex or Die</span><strong>121.1</strong></div>
+                <div class="trail"><span>Waiver Wire Wizards</span><strong>88.4</strong></div>
+              </li>
+              <li>
+                <div><span>Bye Week Blues</span><strong>104.2</strong></div>
+                <div class="trail"><span>Rookie Fever</span><strong>99.7</strong></div>
+              </li>
+              <li>
+                <div><span>TE Premium</span><strong>81.1</strong></div>
+                <div class="trail"><span>Dynasty Dad</span><strong>76.4</strong></div>
+              </li>
+              <li>
+                <div><span>Fourth and Long</span><strong>71.8</strong></div>
+                <div class="trail"><span>Pick City</span><strong>64.2</strong></div>
+              </li>
+              <li>
+                <div><span>Bench Warmers</span><strong>55.1</strong></div>
+                <div class="trail"><span>Tank Commander</span><strong>48.6</strong></div>
+              </li>
+            </ol>
+          </section>
+
+          <section class="card call" aria-labelledby="call-title">
+            <h2 id="call-title" class="kicker">Desk call</h2>
+            <p class="call-word">Contend</p>
+            <dl class="spot">
+              <div><dt>Seed</dt><dd>2</dd></div>
+              <div><dt>Playoffs</dt><dd>94%</dd></div>
+              <div><dt>Title</dt><dd>28%</dd></div>
+            </dl>
+            <p class="call-note">WR is the hole. Waiver Wire Wizards have the piece.</p>
+          </section>
+        </aside>
+
+        <p class="fine">Sample league. Look only.</p>
+      </main>
+    </div>
+    <script src="./week.js"></script>
+  </body>
+</html>
