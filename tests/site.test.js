@@ -327,6 +327,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(privacy, /GitHub issues/);
   assert.match(privacy, /who would you rather have/);
   assert.match(privacy, /Public rather votes/);
+  assert.match(privacy, /salted hash/);
+  assert.match(privacy, /two days/);
+  assert.match(privacy, /not sent to a third-party counter/);
   assert.doesNotMatch(privacy, /GitHub Pages/);
   assert.doesNotMatch(privacy, /visit count/i);
   assert.doesNotMatch(privacy, /page-views-api/);

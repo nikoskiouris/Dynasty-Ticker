@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 
-export const DEFAULT_SALT = "dynasty-ticker-traffic-v1";
+export const REJECTED_SALTS = Object.freeze([
+  "dynasty-ticker-traffic-v1",
+  "dynasty-ticker-rather-v1",
+]);
+export const VISIT_MAX_PER_HOUR = 60;
+export const VISIT_RATE_WINDOW_MS = 60 * 60 * 1000;
+export const VISIT_MAX_TRACKED = 4000;
 export const DEFAULT_ORIGINS = Object.freeze([
   "https://dynastyticker.com",
   "https://www.dynastyticker.com",
@@ -122,8 +128,15 @@ export function landingFromReferer(referer) {
   return "home";
 }
 
-export function visitorHash(ip, userAgent, salt = DEFAULT_SALT, visitorId = "") {
-  const secret = salt || DEFAULT_SALT;
+export function acceptSalt(value) {
+  const salt = String(value ?? "").trim();
+  if (!salt || REJECTED_SALTS.includes(salt)) return "";
+  return salt;
+}
+
+export function visitorHash(ip, userAgent, salt, visitorId = "") {
+  const secret = acceptSalt(salt);
+  if (!secret) return "";
   const id = cleanVisitorId(visitorId);
   if (id) {
     return createHash("sha256").update(`${secret}\nvisitor\n${id}`).digest("hex").slice(0, 32);
@@ -161,6 +174,7 @@ export function emptyState() {
     weeks: {},
     years: {},
     events: {},
+    visitors: {},
   };
 }
 
@@ -227,6 +241,22 @@ function asEvents(value) {
   return out;
 }
 
+function asVisitRates(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out = {};
+  for (const [key, row] of Object.entries(value)) {
+    if (!/^[a-f0-9]{32}$/.test(key)) continue;
+    const lastAt = Number(row?.lastAt);
+    if (!Number.isFinite(lastAt) || lastAt <= 0) continue;
+    out[key] = {
+      lastAt,
+      hourKey: String(row?.hourKey || "").slice(0, 16),
+      hourCount: asCount(row?.hourCount),
+    };
+  }
+  return out;
+}
+
 export function normalizeState(raw) {
   if (!raw || typeof raw !== "object") return emptyState();
   return {
@@ -235,6 +265,7 @@ export function normalizeState(raw) {
     weeks: asBucketMap(raw.weeks),
     years: asBucketMap(raw.years),
     events: asEvents(raw.events),
+    visitors: asVisitRates(raw.visitors),
   };
 }
 
@@ -287,6 +318,40 @@ function pruneMap(map, keepKey, maxKeys) {
   }
 }
 
+function visitHourKey(now) {
+  return now.toISOString().slice(0, 13);
+}
+
+export function pruneVisitRates(visitors, nowMs, maxKeys = VISIT_MAX_TRACKED) {
+  const keepAfter = nowMs - VISIT_RATE_WINDOW_MS;
+  const next = {};
+  for (const [key, row] of Object.entries(visitors || {})) {
+    if (Number(row?.lastAt) >= keepAfter) next[key] = row;
+  }
+  const keys = Object.keys(next);
+  if (keys.length <= maxKeys) return next;
+  keys.sort((a, b) => next[a].lastAt - next[b].lastAt || a.localeCompare(b));
+  for (const key of keys.slice(0, keys.length - maxKeys)) delete next[key];
+  return next;
+}
+
+export function noteVisitRate(state, hash, now = new Date()) {
+  const current = normalizeState(state);
+  const clock = now instanceof Date ? now.getTime() : Number(now) || Date.now();
+  const visitors = pruneVisitRates(current.visitors, clock);
+  const id = String(hash || "").trim();
+  const row = visitors[id] || { lastAt: 0, hourKey: "", hourCount: 0 };
+  const key = visitHourKey(now instanceof Date ? now : new Date(clock));
+  const hourCount = row.hourKey === key ? Number(row.hourCount || 0) + 1 : 1;
+  if (!id || hourCount > VISIT_MAX_PER_HOUR) {
+    current.visitors = visitors;
+    return { ok: false, error: "limit", state: current };
+  }
+  visitors[id] = { lastAt: clock, hourKey: key, hourCount };
+  current.visitors = visitors;
+  return { ok: true, state: current };
+}
+
 function pruneEvents(state, now) {
   const cutoff = now.getTime() - EVENT_KEEP_MS;
   for (const [key, stamp] of Object.entries(state.events)) {
@@ -305,6 +370,7 @@ export function pruneState(state, now = new Date()) {
   pruneMap(current.weeks, periods.week, 12);
   pruneMap(current.years, periods.year, 3);
   pruneEvents(current, now);
+  current.visitors = pruneVisitRates(current.visitors, now.getTime());
   return current;
 }
 
@@ -410,13 +476,14 @@ export function clientIp(req, context = {}) {
   return String(forwarded).split(",")[0].trim();
 }
 
-function jsonResponse(body, { status = 200, cors = false } = {}) {
-  const headers = {
-    "content-type": "application/json; charset=utf-8",
-    "cache-control": "no-store",
-  };
-  if (cors) headers["access-control-allow-origin"] = "*";
-  return new Response(JSON.stringify(body), { status, headers });
+function jsonResponse(body, { status = 200 } = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  });
 }
 
 export function lambdaEventToRequest(event) {
@@ -511,7 +578,7 @@ async function writeTrafficSnapshot(store, state, snapshot) {
 export function createVisitHandler({
   getStore,
   nowFn = () => new Date(),
-  salt = process.env.VISIT_SALT || DEFAULT_SALT,
+  salt = process.env.VISIT_SALT,
   allowedOrigins = DEFAULT_ORIGINS,
 } = {}) {
   return async function visitHandler(req, context = {}) {
@@ -519,7 +586,7 @@ export function createVisitHandler({
       return new Response("", {
         status: 204,
         headers: {
-          "access-control-allow-origin": "*",
+          allow: "GET, POST, OPTIONS",
           "access-control-allow-methods": "GET, POST, OPTIONS",
           "access-control-max-age": "86400",
         },
@@ -534,10 +601,18 @@ export function createVisitHandler({
       return jsonResponse({ error: "forbidden" }, { status: 403 });
     }
 
+    const origin = originOf(req.headers.get("origin"));
+    if (req.method === "GET" && origin && !allowedOrigins.includes(origin)) {
+      return jsonResponse({ error: "forbidden" }, { status: 403 });
+    }
+
     const userAgent = req.headers.get("user-agent") || "";
     if (req.method === "POST" && isBot(userAgent)) {
       return jsonResponse({ ok: true, skipped: "bot" });
     }
+
+    const secret = acceptSalt(salt);
+    if (!secret) return jsonResponse({ error: "config" }, { status: 503 });
 
     const body = req.method === "POST" ? await readVisitBody(req) : {};
 
@@ -552,14 +627,24 @@ export function createVisitHandler({
     if (req.method === "GET") {
       try {
         const snapshot = await readTrafficSnapshot(store);
-        return jsonResponse(summarize(snapshot.state, nowFn()), { cors: true });
+        const now = nowFn();
+        const visitors = pruneVisitRates(snapshot.state.visitors, now.getTime());
+        if (snapshot.exists && Object.keys(visitors).length !== Object.keys(snapshot.state.visitors).length) {
+          try {
+            await writeTrafficSnapshot(store, { ...snapshot.state, visitors }, snapshot);
+          } catch {
+            // The public tally does not include the rate-limit map.
+          }
+        }
+        return jsonResponse(summarize(snapshot.state, now));
       } catch {
-        return jsonResponse({ error: "store", retryable: true }, { status: 503, cors: true });
+        return jsonResponse({ error: "store", retryable: true }, { status: 503 });
       }
     }
 
     const eventId = cleanEventId(body.eventId);
-    const hash = visitorHash(clientIp(req, context), userAgent, salt, body.visitorId);
+    const hash = visitorHash(clientIp(req, context), userAgent, secret, body.visitorId);
+    if (!hash) return jsonResponse({ error: "config" }, { status: 503 });
     const now = nowFn();
     const kind = body.kind === "active" ? "active" : "open";
     const source = cleanSourceHost(body.source);
@@ -572,7 +657,9 @@ export function createVisitHandler({
         return jsonResponse({ error: "store", retryable: true }, { status: 503 });
       }
       if (eventId && snapshot.state.events[eventId]) return jsonResponse({ ok: true });
-      const next = applyVisit(snapshot.state, { hash, now, eventId, kind, source, landing });
+      const rate = noteVisitRate(snapshot.state, hash, now);
+      if (!rate.ok) return jsonResponse({ error: "limit" }, { status: 429 });
+      const next = applyVisit(rate.state, { hash, now, eventId, kind, source, landing });
       try {
         if (await writeTrafficSnapshot(store, next, snapshot)) return jsonResponse({ ok: true });
       } catch {

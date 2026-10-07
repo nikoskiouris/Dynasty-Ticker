@@ -39,7 +39,7 @@
       <main class="legal-card legal-prose">
         <p class="eyebrow">Privacy</p>
         <h1>What this ticker stores, and what it never sees.</h1>
-        <p class="muted">Last updated September 25, 2026. Dynasty Ticker is a static website at <a href="https://dynastyticker.com/">dynastyticker.com</a>. It talks to Sleeper from your browser. There is no Dynasty Ticker account.</p>
+        <p class="muted">Last updated October 7, 2026. Dynasty Ticker is a static website at <a href="https://dynastyticker.com/">dynastyticker.com</a>. It talks to Sleeper from your browser. There is no Dynasty Ticker account.</p>
 
         <h2>Who we are</h2>
         <p>Dynasty Ticker is the open-source project at <a href="https://github.com/nikoskiouris/Dynasty-Ticker">github.com/nikoskiouris/Dynasty-Ticker</a>. Contact is GitHub issues on that repo, not a mailbox or street address.</p>
@@ -59,11 +59,11 @@
         <p>Clear site data in your browser to wipe the local copy.</p>
 
         <h2>Public rather votes</h2>
-        <p>Landing-page “who would you rather have” picks are stored anonymously on the site host so they can slightly nudge player values for everyone. A vote is two Sleeper player ids, a format label, and a timestamp. A hashed IP plus browser string is used only to slow spam. Votes do not overwrite the bundled rankings or Sleeper trade-market files.</p>
+        <p>Landing-page “who would you rather have” picks are stored anonymously on the site host so they can slightly nudge player values for everyone. A vote is two Sleeper player ids, a format label, and a timestamp. To slow spam, the host keeps a salted hash of the IP address and browser on a rate-limit record for two days, then drops that record. The hash is not kept on the vote. The public list is a recent capped window, not every pick ever made. Votes do not overwrite the bundled rankings or Sleeper trade-market files.</p>
 
         <h2>Cookies and ads</h2>
         <p>This app does not set cookies, does not show ads, and does not install Google Analytics or any other third-party tracker.</p>
-        <p>The site host and the Sleeper API may log ordinary request metadata on their side. That is their infrastructure, not a pixel we added.</p>
+        <p>Page views are not sent to a third-party counter. When the host counts a page view, it uses a separate salted hash of the IP address and browser so one person is not counted many times. The raw address is not stored. That tally is not shown on the page. The host and the Sleeper API may still log ordinary request metadata on their side.</p>
 
         <h2>Searched usernames</h2>
         <p>When you search a Sleeper username and one of that user's leagues actually opens, the live site adds that username to a list on the site host. Next to it the host keeps the public Sleeper user id, when it was first and last opened, and how many times. A later open updates that same row. Every other username already on the list stays. A typo never opens a league, so it is not saved. The saved name is the one Sleeper returns, so a misspelling stays the same person instead of a new one. The league id is not saved. The list is not shown anywhere on the site.</p>
