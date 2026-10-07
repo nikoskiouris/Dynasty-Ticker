@@ -17,7 +17,6 @@ import {
   transactionWeekEnd,
 } from "./modules/season.js";
 import {
-  SLEEPER_AVATAR_BASE,
   PLAYERS_CACHE_TTL_MS,
   SIM_ITERATIONS,
   PAGE_IDS,
@@ -45,7 +44,7 @@ import {
 } from "./modules/constants.js";
 import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
 import { createLeagueLoader } from "./modules/league-load.js";
-import { apiGet, apiGetWithRetry, fetchUserLeagues, mapInChunks } from "./modules/sleeper.js";
+import { apiGet, apiGetWithRetry, fetchUserLeagues, mapInChunks, sleeperAvatarUrl } from "./modules/sleeper.js";
 import {
   classifyLeagueInput,
   parseLeagueId,
@@ -98,6 +97,7 @@ import {
 } from "./modules/league-board.js";
 import { createLivePoller, liveUpdateMatchesLeague, shouldPollLive, shouldRefreshSim, weekRowsFingerprint } from "./modules/live.js";
 import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
+import { hashHue, renderAvatar, renderMultiTeamPartyTitle, renderPositionMeter, renderPowerHero, renderPowerStat, renderSleeperInsight } from "./modules/roster-markup.js";
 import { facePlayerId, renderPlayerFace, renderPlayerLabel } from "./modules/player-face.js";
 import {
   addValueCalcItem,
@@ -1594,8 +1594,9 @@ function renderLeagueHero() {
             : "Matchups are syncing.";
   el.heroLede.textContent = `${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`;
   if (el.leagueAvatar) {
-    el.leagueAvatar.innerHTML = league.avatar
-      ? `<img src="${SLEEPER_AVATAR_BASE}${escapeHtml(league.avatar)}" alt="${escapeHtml(state.leagueName || "League")} logo" loading="lazy" />`
+    const leagueAvatarSrc = sleeperAvatarUrl(league.avatar);
+    el.leagueAvatar.innerHTML = leagueAvatarSrc
+      ? `<img src="${escapeHtml(leagueAvatarSrc)}" alt="${escapeHtml(state.leagueName || "League")} logo" loading="lazy" />`
       : brandMarkAvatarHtml();
   }
   syncLeagueFormatCopy();
@@ -3071,21 +3072,13 @@ function renderPowerDashboard() {
     || Number(profile.assetSummary.firstRoundPickCount) > 0;
   el.powerDashboard.innerHTML = `
     ${renderWindowCallBanner(windowCall)}
-    <div class="power-hero">
-      <div class="power-score-ring" style="--score:${profile.score}">
-        <strong>${profile.score}</strong>
-        <span>/100</span>
-      </div>
-      <div class="power-hero-copy">
-        <div class="power-title-row">
-          <h3>${profile.managerName}</h3>
-          <span class="power-tier ${profile.tierClass}">${profile.grade}</span>
-        </div>
-        <div class="power-badge-row">
-          ${profile.badges.map((badge) => `<span class="power-badge">${badge}</span>`).join("")}
-        </div>
-      </div>
-    </div>
+    ${renderPowerHero({
+      score: profile.score,
+      managerName: profile.managerName,
+      grade: profile.grade,
+      tierClass: profile.tierClass,
+      badges: profile.badges,
+    })}
     <div class="power-stat-grid">
       ${renderPowerStat("Starter value", formatNumber(profile.metrics.starterValue))}
       ${renderPowerStat("Bench value", formatNumber(profile.metrics.benchValue))}
@@ -4635,22 +4628,22 @@ function renderLoyaltyDashboard() {
       <article class="loyalty-card">
         <span>Ironmen</span>
         ${longest ? renderPlayerLabel(longest.name, longest.playerId, { size: "md", tag: "strong" }) : "<strong>Need archive</strong>"}
-        <small>${tenures.slice(0, 4).map((row) => `${row.name} ${row.consecutiveSeasons}y`).join(" · ") || "Need more seasons."}</small>
+        <small>${escapeHtml(tenures.slice(0, 4).map((row) => `${row.name} ${row.consecutiveSeasons}y`).join(" · ") || "Need more seasons.")}</small>
       </article>
       <article class="loyalty-card">
         <span>Luck charms</span>
         ${charms[0] ? renderPlayerLabel(playerNameById(charms[0].playerId), charms[0].playerId, { size: "md", tag: "strong" }) : "<strong>Need starts</strong>"}
-        <small>${charms.slice(0, 4).map((row) => `${playerNameById(row.playerId)} ${row.badge || row.roster.label}`).join(" · ") || "Need more weeks."}</small>
+        <small>${escapeHtml(charms.slice(0, 4).map((row) => `${playerNameById(row.playerId)} ${row.badge || row.roster.label}`).join(" · ") || "Need more weeks.")}</small>
       </article>
       <article class="loyalty-card">
         <span>Biggest miss</span>
         ${miss ? renderPlayerLabel(miss.name, facePlayerId(miss), { size: "md", tag: "strong" }) : "<strong>Clean books</strong>"}
-        <small>${miss ? `Now ${formatNumber(Math.round(miss.value))} · ${miss.season || ""} W${miss.week || "?"} vs ${miss.partnerName || "rival"}` : "Nobody you shipped is a big name now."}</small>
+        <small>${escapeHtml(miss ? `Now ${formatNumber(Math.round(miss.value))} · ${miss.season || ""} W${miss.week || "?"} vs ${miss.partnerName || "rival"}` : "Nobody you shipped is a big name now.")}</small>
       </article>
       <article class="loyalty-card">
         <span>New core</span>
         ${core[0] ? renderPlayerLabel(core[0].name, core[0].playerId, { size: "md", tag: "strong" }) : "<strong>No young adds</strong>"}
-        <small>${core.map((row) => `${row.name}${Number.isFinite(row.age) ? ` ${row.age}` : ""}`).join(" · ") || "Adds skew older."}</small>
+        <small>${escapeHtml(core.map((row) => `${row.name}${Number.isFinite(row.age) ? ` ${row.age}` : ""}`).join(" · ") || "Adds skew older.")}</small>
       </article>
     </div>
     <div class="charm-list">
@@ -8672,39 +8665,6 @@ function median(values) {
   return Math.round((sorted[middle - 1] + sorted[middle]) / 2);
 }
 
-function renderPowerStat(label, value) {
-  return `
-    <section class="power-stat">
-      <span>${label}</span>
-      <strong>${value}</strong>
-    </section>
-  `;
-}
-
-function renderPositionMeter(position) {
-  return `
-    <div class="position-meter">
-      <div class="position-meter-top">
-        <strong>${position.position}</strong>
-        <span>${position.rankLabel}</span>
-      </div>
-      <div class="meter-track" aria-hidden="true">
-        <span style="width:${Math.round(position.percentile * 100)}%"></span>
-      </div>
-      <p>${position.label}</p>
-    </div>
-  `;
-}
-
-function renderSleeperInsight(insight) {
-  return `
-    <section class="insight-item ${insight.tone || ""}">
-      <strong>${insight.title}</strong>
-      <span>${insight.body}</span>
-    </section>
-  `;
-}
-
 function buildLeaguePowerContext({ league, rosters, values, metricsByRosterId = null }) {
   const resolvedMetrics = metricsByRosterId || new Map();
   if (!metricsByRosterId) {
@@ -9269,19 +9229,19 @@ function pruneExcludedOutgoingAssets() {
 
 function buildAssetPickerMarkup(asset, { values, contextLabel } = {}) {
   const pills = [];
-  pills.push(`<span class="asset-pill ${asset.assetType === "pick" ? "gold" : ""}">${asset.assetType === "pick" ? "Pick" : formatPlayerPositionLabel(asset)}</span>`);
+  pills.push(`<span class="asset-pill ${asset.assetType === "pick" ? "gold" : ""}">${asset.assetType === "pick" ? "Pick" : escapeHtml(formatPlayerPositionLabel(asset))}</span>`);
 
   if (asset.assetType === "player" && asset.raw?.age) {
-    pills.push(`<span class="asset-pill">${asset.raw.age} yrs</span>`);
+    pills.push(`<span class="asset-pill">${escapeHtml(asset.raw.age)} yrs</span>`);
   }
 
   if (asset.assetType === "pick") {
     const pickBucket = getAssetPickBucket(asset);
     if (Number(asset.raw?.round) === 1 && pickBucket !== "any") {
-      pills.push(`<span class="asset-pill gold">${formatPickBucketLabel(pickBucket)}</span>`);
+      pills.push(`<span class="asset-pill gold">${escapeHtml(formatPickBucketLabel(pickBucket))}</span>`);
     }
-    if (asset.raw?.season) pills.push(`<span class="asset-pill">${asset.raw.season}</span>`);
-    if (asset.raw?.round) pills.push(`<span class="asset-pill">R${asset.raw.round}</span>`);
+    if (asset.raw?.season) pills.push(`<span class="asset-pill">${escapeHtml(asset.raw.season)}</span>`);
+    if (asset.raw?.round) pills.push(`<span class="asset-pill">R${escapeHtml(asset.raw.round)}</span>`);
   }
 
   return `
@@ -9291,7 +9251,7 @@ function buildAssetPickerMarkup(asset, { values, contextLabel } = {}) {
         <strong>${escapeHtml(asset.name)}</strong>
         <div class="asset-meta">
           ${pills.join("")}
-          ${contextLabel ? `<span class="asset-context">${contextLabel}</span>` : ""}
+          ${contextLabel ? `<span class="asset-context">${escapeHtml(contextLabel)}</span>` : ""}
         </div>
       </div>
       <span class="asset-value-badge-slot">${renderAssetValueBadge(asset, values)}</span>
@@ -9978,13 +9938,13 @@ function renderTradeIdeaGroup({ title, subtitle, emptyText, ideas, values }) {
   return `
     <section class="idea-group">
       <div class="idea-group-heading">
-        <h3>${title}</h3>
-        <p class="muted small">${subtitle}</p>
+        <h3>${escapeHtml(title)}</h3>
+        <p class="muted small">${escapeHtml(subtitle)}</p>
       </div>
       ${
         ideas.length > 0
           ? ideas.map((idea, idx) => renderTradeCard(idea, idx, values)).join("")
-          : `<p class="muted small idea-group-empty">${emptyText}</p>`
+          : `<p class="muted small idea-group-empty">${escapeHtml(emptyText)}</p>`
       }
     </section>
   `;
@@ -9994,13 +9954,13 @@ function renderMultiTeamIdeaGroup(group, values) {
   return `
     <section class="idea-group">
       <div class="idea-group-heading">
-        <h3>${group.title}</h3>
-        <p class="muted small">${group.subtitle}</p>
+        <h3>${escapeHtml(group.title)}</h3>
+        <p class="muted small">${escapeHtml(group.subtitle)}</p>
       </div>
       ${
         group.ideas.length > 0
           ? group.ideas.map((idea, idx) => renderMultiTeamCard(idea, idx, values)).join("")
-          : `<p class="muted small idea-group-empty">${group.emptyText}</p>`
+          : `<p class="muted small idea-group-empty">${escapeHtml(group.emptyText)}</p>`
       }
     </section>
   `;
@@ -10015,13 +9975,13 @@ function renderMultiTeamCard(idea, index, values) {
           <p class="muted small">${idea.teamCount} teams • max ${idea.maxPctDiff}% diff • added value ${formatNumber(idea.extraMovedValueTotal || 0)} • common value ${formatNumber(idea.commonValue)}</p>
         </div>
         <div class="participant-pill-row">
-          ${idea.tags.map((tag) => `<span class="participant-pill">${tag}</span>`).join("")}
+          ${(idea.tags || []).map((tag) => `<span class="participant-pill">${escapeHtml(tag)}</span>`).join("")}
         </div>
       </div>
       <div class="multi-team-party-grid">
         ${idea.participants.map((participant) => renderMultiTeamPartyCard(participant, values, idea.meRosterId)).join("")}
       </div>
-      <p class="multi-team-flow">${idea.summary}</p>
+      <p class="multi-team-flow">${escapeHtml(idea.summary)}</p>
     </article>
   `;
 }
@@ -10044,8 +10004,8 @@ function renderMultiTeamPartyCard(participant, values, meRosterId) {
     : "trade partners";
   return `
     <section class="multi-team-party-card ${isMe ? "you" : "other"}">
-      <h4>${isMe ? "You" : participant.roster.manager.displayName}</h4>
-      <p class="muted small">${receiveFromLabel} to ${sendToLabel}</p>
+      <h4>${renderMultiTeamPartyTitle(participant.roster?.manager?.displayName, isMe)}</h4>
+      <p class="muted small">${escapeHtml(`${receiveFromLabel} to ${sendToLabel}`)}</p>
       <div class="trade-body-grid">
         <section class="trade-side team-a">
           <div class="trade-side-heading">
@@ -10124,9 +10084,9 @@ function renderTradeCard(idea, index, values) {
       <summary class="trade-card-summary">
         <div>
           <h3>Idea ${index + 1}</h3>
-          ${idea.counterpartyName ? `<p class="trade-card-context">with ${idea.counterpartyName}</p>` : ""}
+          ${idea.counterpartyName ? `<p class="trade-card-context">with ${escapeHtml(idea.counterpartyName)}</p>` : ""}
           <p class="trade-card-preview">
-            Send ${formatAssetNameList(idea.myAssets)} for ${formatAssetNameList(idea.theirAssets)}
+            Send ${escapeHtml(formatAssetNameList(idea.myAssets))} for ${escapeHtml(formatAssetNameList(idea.theirAssets))}
           </p>
         </div>
         <div class="trade-summary-score ${powerDeltaClass}">
@@ -10166,7 +10126,7 @@ function renderTradeCard(idea, index, values) {
           </div>
           <div class="trade-metric">
             <strong>Even-up value</strong>
-            ${evenValueLabel}
+            ${escapeHtml(evenValueLabel)}
           </div>
         </div>
         ${idea.impactAnalysis ? renderImpactAnalysis(idea.impactAnalysis, values) : ""}
@@ -10188,7 +10148,7 @@ function renderGameImpact(upgrade, idea) {
         <div>
           <span class="game-kicker">Power Quest</span>
           <h4>${upgrade.before.score} → ${upgrade.after.score} Team Power</h4>
-          <p>${upgrade.summary}</p>
+          <p>${escapeHtml(upgrade.summary)}</p>
         </div>
         <div class="xp-chip ${deltaClass}">
           <strong>${formatSignedNumber(upgrade.delta)}</strong>
@@ -10200,7 +10160,7 @@ function renderGameImpact(upgrade, idea) {
         ${renderPowerProgress("After Trade", upgrade.after.score)}
       </div>
       <div class="power-badge-row">
-        ${upgrade.badges.map((badge) => `<span class="power-badge">${badge}</span>`).join("")}
+        ${(upgrade.badges || []).map((badge) => `<span class="power-badge">${escapeHtml(badge)}</span>`).join("")}
         ${idea.labScore ? `<span class="power-badge muted-badge">Deal Fit ${idea.labScore}/99</span>` : ""}
       </div>
     </section>
@@ -10223,13 +10183,13 @@ function renderPowerProgress(label, score) {
 
 function renderTradeNarrative(idea) {
   const tags = idea.tags?.length
-    ? `<div class="power-badge-row">${idea.tags.map((tag) => `<span class="power-badge">${tag}</span>`).join("")}</div>`
+    ? `<div class="power-badge-row">${idea.tags.map((tag) => `<span class="power-badge">${escapeHtml(tag)}</span>`).join("")}</div>`
     : "";
   return `
     <section class="trade-narrative">
       ${tags}
-      ${idea.summary ? `<p>${idea.summary}</p>` : ""}
-      ${idea.pitch ? `<blockquote>${idea.pitch}</blockquote>` : ""}
+      ${idea.summary ? `<p>${escapeHtml(idea.summary)}</p>` : ""}
+      ${idea.pitch ? `<blockquote>${escapeHtml(idea.pitch)}</blockquote>` : ""}
     </section>
   `;
 }
@@ -10240,7 +10200,7 @@ function renderImpactAnalysis(impactAnalysis, values) {
       ${renderImpactCard(impactAnalysis.mySide, "team-a")}
       ${renderImpactCard(impactAnalysis.theirSide, "team-b")}
     </div>
-    <p class="muted small">${impactAnalysis.overallSummary}</p>
+    <p class="muted small">${escapeHtml(impactAnalysis.overallSummary)}</p>
     <details class="lineup-details">
       <summary>View lineup impact</summary>
       <div class="lineup-details-body">
@@ -10256,11 +10216,12 @@ function renderImpactAnalysis(impactAnalysis, values) {
 }
 
 function renderImpactCard(side, teamClass = "") {
+  const verdictClass = String(side.verdictClass || "").replace(/[^A-Za-z0-9_-]/g, "");
   return `
     <section class="impact-card ${teamClass}">
-      <h4>${side.title}</h4>
-      <span class="impact-verdict ${side.verdictClass}">${side.verdictLabel}</span>
-      <p class="impact-summary">${side.summary}</p>
+      <h4>${escapeHtml(side.title)}</h4>
+      <span class="impact-verdict ${verdictClass}">${escapeHtml(side.verdictLabel)}</span>
+      <p class="impact-summary">${escapeHtml(side.summary)}</p>
       <div class="impact-metric-list">
         <div class="impact-metric-row">
           <strong>Starter rank</strong>
@@ -14777,7 +14738,7 @@ function renderAssetList(assets, values, teamClass = "") {
           (asset) => `
             <li class="asset-item">
               <span>${renderPlayerLabel(asset.name, facePlayerId(asset), { size: "sm" })}</span>
-              <span class="asset-value">${formatAssetSecondaryLabel(asset, values)}</span>
+              <span class="asset-value">${escapeHtml(formatAssetSecondaryLabel(asset, values))}</span>
             </li>`
         )
         .join("")}
@@ -15285,26 +15246,6 @@ function normalizeRosters(league, rosters, users, players, previousContext = { l
       assets: [...playerAssets, ...pickAssets],
     };
   });
-}
-
-function avatarUrl(avatarId) {
-  return avatarId ? `${SLEEPER_AVATAR_BASE}${avatarId}` : "";
-}
-
-function renderAvatar(manager, { size = "md", className = "" } = {}) {
-  const name = String(manager?.displayName || manager?.name || "?");
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
-  const avatar = manager?.avatar;
-  const hue = hashHue(name);
-  return avatar
-    ? `<span class="avatar avatar-${size} ${className}" style="--hue:${hue}"><img src="${avatarUrl(avatar)}" alt="${escapeHtml(name)}" loading="lazy" /></span>`
-    : `<span class="avatar avatar-${size} ${className}" style="--hue:${hue}"><span>${escapeHtml(initial)}</span></span>`;
-}
-
-function hashHue(text) {
-  let hash = 0;
-  for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
-  return hash % 360;
 }
 
 function displayNameForUser(user, fallback) {
