@@ -291,6 +291,21 @@ export function renderLeagueBoardMarkup(board, { formatNumber = String } = {}) {
   `;
 }
 
+const PRICE_LEGEND = {
+  model: ["Model", "Full-PPR price. The same number on Players, Trade, and My League."],
+  week: ["This week", "Start chance. Not a trade price."],
+  lineup: ["Starter value", "Sum of those model prices in the optimal lineup."],
+  package: ["Package credit", "Can change the verdict. Player prices stay the same."],
+};
+
+export function renderPriceLegend(ids = ["model"]) {
+  const rows = (Array.isArray(ids) ? ids : ["model"])
+    .map((id) => PRICE_LEGEND[id])
+    .filter(Boolean);
+  if (!rows.length) return "";
+  return `<ul class="price-legend">${rows.map(([label, text]) => `<li><strong>${escapeHtml(label)}</strong> ${escapeHtml(text)}</li>`).join("")}</ul>`;
+}
+
 export function renderValueBoardBar({ marketHint = "" } = {}) {
   return `
     <div class="value-board-bar">

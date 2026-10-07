@@ -94,10 +94,11 @@ import {
   emptyLeagueBoard,
   isBoomBustAsset,
   renderLeagueBoardMarkup,
+  renderPriceLegend,
   renderValueBoardBar,
 } from "./modules/league-board.js";
 import { createLivePoller, liveUpdateMatchesLeague, shouldPollLive, shouldRefreshSim, weekRowsFingerprint } from "./modules/live.js";
-import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
+import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, renderConnectGate, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
 import { facePlayerId, renderPlayerFace, renderPlayerLabel } from "./modules/player-face.js";
 import {
   addValueCalcItem,
@@ -118,9 +119,11 @@ import {
   describeDraftItem,
   draftFromReview,
   draftMarketPrice,
+  draftMeterValues,
+  draftNoticeText,
+  evenUpPickChoice,
   draftVerdictModel,
   draftSideForAsset,
-  draftSummaryLine,
   draftTeamSummary,
   isDraftEmpty,
   placeAfterConnect,
@@ -130,9 +133,13 @@ import {
   writeStoredDraft,
 } from "./modules/trade-draft.js";
 import {
+  calcSuggestionFromList,
+  calcSuggestionItem,
   clearCalcSearchBox,
   keepCalcSearchFocused,
+  moveCalcSuggestion,
   renderCalcSearchInput,
+  shouldArmCalcSuggestion,
   shouldHoldCalcSearchFocus,
   shouldResetCalcSearchOnPick,
 } from "./modules/calc-search.js";
@@ -167,6 +174,7 @@ import {
   renderWeeklyScoreHelpPop,
   weeklyScoreChipLabel,
   lineupFillValue,
+  DYNASTY_SCORE_LABEL,
   WEEKLY_SCORE_HINT,
   WEEKLY_SCORE_LABEL,
 } from "./modules/weekly-value.js";
@@ -279,6 +287,7 @@ import {
 import {
   buildRankBoard,
   isRankAssetId,
+  RANK_PAGE_SIZE,
   rankFormatLabel,
   rankView,
   renderRanksBody,
@@ -482,6 +491,11 @@ let publicRanksOpen = false;
 let publicRanksHistory = false;
 // The draft a Review trade, a new partner, or Clear replaced, so one tap brings it back.
 let draftReplaced = null;
+// Picking a suggestion cancels the click. Swallow the follow-up so it cannot
+// land on Clear both sides after the list re-renders.
+let swallowCalcClick = false;
+let swallowCalcTimer = 0;
+let ranksSearchTimer = 0;
 let draftBasisCache = { bundles: null, format: "", basis: null };
 let rankBoardCache = { key: "", rows: [] };
 let rankContextPromise = null;
@@ -615,6 +629,7 @@ el.landingUsername?.addEventListener("input", () => {
   setUsernameError("");
 });
 el.leagueId?.addEventListener("input", () => setFieldError(el.leagueId, el.leagueIdError, ""));
+el.workspace?.addEventListener("click", swallowArmedCalcClick, true);
 el.workspace?.addEventListener("click", handleWorkspaceClick);
 el.controlRail?.addEventListener("click", (event) => {
   if (!event.target.closest("#board-tools")) return;
@@ -876,6 +891,8 @@ function renderActivePage() {
     renderTradesRoom(room);
   } else if (state.leagueId) {
     renderLeagueRoom(room);
+  } else {
+    renderLeagueGuest(room);
   }
   renderTicker();
 }
@@ -1023,6 +1040,7 @@ function rankViewModel() {
     rows: cachedRankRows(),
     query: state.ranks?.query || "",
     position: state.ranks?.position || "ALL",
+    shown: state.ranks?.shown || RANK_PAGE_SIZE,
     format: activeRankFormat(),
     leagueFormat: state.league ? selectValueFormat(state.league) : "",
     selectedId: state.ranks?.selectedId || "",
@@ -1805,8 +1823,8 @@ function requestFindLeagues(event) {
   syncUsernameFields(event?.currentTarget === el.landingUsernameForm ? el.landingUsername : el.sleeperUsername);
   const classified = classifyLeagueInput(el.sleeperUsername?.value || el.landingUsername?.value);
   if (classified.kind === "empty") {
-    setUsernameError("Type your Sleeper username, then press Find leagues.");
-    setStatus("Type your Sleeper username, then press Find leagues.", { error: true });
+    setUsernameError("Type your Sleeper username, then press Find my leagues.");
+    setStatus("Type your Sleeper username, then press Find my leagues.", { error: true });
     (el.landingUsername || el.sleeperUsername)?.focus();
     return;
   }
@@ -1854,8 +1872,9 @@ async function runUserLeagueSearch(username) {
     renderLeaguePicker(state.userLeagues, season);
     setUsernameError("");
     if (state.userLeagues.length === 0) {
-      setStatus(`Found ${user.display_name || username}, but no NFL leagues for ${season}/${Number(season) - 1}.`, { error: true });
-      setUsernameError(`No NFL leagues for ${season}/${Number(season) - 1}.`);
+      const line = `No NFL leagues for ${username}.`;
+      setStatus(line, { error: true });
+      setUsernameError(line);
       return;
     }
     if (state.userLeagues.length === 1) {
@@ -1863,12 +1882,15 @@ async function runUserLeagueSearch(username) {
       if (el.leagueId && autoloadId) el.leagueId.value = autoloadId;
       setStatus(`One league found. Opening ${state.userLeagues[0].name || "league"}…`, { loading: true });
     } else {
-      setStatus(`Found ${state.userLeagues.length} leagues for ${user.display_name || username}. Pick one.`);
+      setStatus(`Found ${state.userLeagues.length} leagues for ${username}. Pick one.`);
       el.landingLeaguePicker?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   } catch (err) {
     renderLeaguePicker([]);
-    const message = `Could not find that Sleeper user. ${err.message}`;
+    const network = /timed out|Network|CORS/i.test(String(err?.message || ""));
+    const message = network
+      ? `Could not reach Sleeper for ${username}.`
+      : `No Sleeper user named ${username}.`;
     setUsernameError(message);
     setStatus(message, { error: true });
   } finally {
@@ -1903,7 +1925,7 @@ function stopFindLeaguesUi() {
     if (!button) return;
     button.disabled = false;
     button.classList.remove("loading");
-    button.textContent = "Find leagues";
+    button.textContent = "Find my leagues";
   });
   el.usernameSearchForm?.setAttribute("aria-busy", "false");
   el.landingUsernameForm?.setAttribute("aria-busy", "false");
@@ -3320,18 +3342,70 @@ function seasonThroughLabel(model) {
 
 function leagueRoomEmptyState(host, copy) {
   if (!host) return false;
+  if (!state.leagueId) {
+    host.innerHTML = renderConnectGate({ copy: connectCopy(copy) });
+    return false;
+  }
   if (!state.league || state.normalizedRosters.length === 0) {
-    host.innerHTML = `<p class="muted">${copy}</p>`;
+    host.innerHTML = `<p class="muted">${escapeHtml(copy)}</p>`;
     return false;
   }
   return true;
+}
+
+function connectCopy(copy) {
+  const text = String(copy || "").trim();
+  if (!text) return "Find my leagues to open this.";
+  return text
+    .replace(/^Load a league to /i, "Find my leagues to ")
+    .replace(/^Connect a league to /i, "Find my leagues to ")
+    .replace(/^Connect Sleeper to /i, "Find my leagues to ");
+}
+
+function paintConnectGate(host, copy) {
+  if (!host) return;
+  host.innerHTML = renderConnectGate({ copy });
+}
+
+function clearHost(host) {
+  if (host) host.innerHTML = "";
+}
+
+function renderLeagueGuest(room) {
+  if (room === "scores") {
+    paintConnectGate(el.scoresDashboard, "Find my leagues to see this week's matchups.");
+    clearHost(el.weeklyHonorsDashboard);
+    return;
+  }
+  if (room === "board") {
+    paintConnectGate(el.teamsGrid, "Find my leagues to see standings and the rest of the league.");
+    clearHost(el.standingsDashboard);
+    clearHost(el.superlativesDashboard);
+    clearHost(el.powerBoardDashboard);
+    clearHost(el.mockDashboard);
+    return;
+  }
+  if (room === "activity") {
+    paintConnectGate(el.tradeLogDashboard, "Find my leagues to see trades in your league.");
+    return;
+  }
+  if (room === "history") {
+    paintConnectGate(el.historyDashboard, "Find my leagues to open titles and records.");
+    clearHost(el.loyaltyDashboard);
+    return;
+  }
+  paintConnectGate(el.powerDashboard, "Find my leagues to see your roster, outlook, and who to start.");
+  clearHost(el.windowCallDashboard);
+  clearHost(el.rosterSheet);
+  document.querySelector("#roster-sheet-section")?.classList.add("hidden");
+  if (el.rosterSheetHeading) el.rosterSheetHeading.textContent = "Roster";
 }
 
 function renderStartRoom() {
   const host = el.startDashboard;
   if (!host) return;
   if (!state.league || state.normalizedRosters.length === 0) {
-    host.innerHTML = `<p class="muted">Load a league to pick a job.</p>`;
+    host.innerHTML = `<p class="muted">Find my leagues to pick a job.</p>`;
     return;
   }
   const me = String(getMyRoster()?.manager?.displayName || "").trim();
@@ -5045,13 +5119,16 @@ function weeklyModelForAsset(asset) {
 }
 
 function renderRosterSheet() {
-  if (!el.rosterSheet) {
+  const section = document.querySelector("#roster-sheet-section");
+  const roster = getLensRoster();
+  if (!state.leagueId || !roster) {
+    section?.classList.add("hidden");
+    if (el.rosterSheet) el.rosterSheet.innerHTML = "";
     syncWeeklyScoreHelp();
     return;
   }
-  const roster = getLensRoster();
-  if (!roster) {
-    el.rosterSheet.innerHTML = `<p class="muted">Choose a team to open the roster sheet.</p>`;
+  section?.classList.remove("hidden");
+  if (!el.rosterSheet) {
     syncWeeklyScoreHelp();
     return;
   }
@@ -5154,12 +5231,12 @@ function renderRosterSheet() {
           ${meta ? `<span>${meta}</span>` : ""}
         </div>
         <span class="sheet-metrics">
-          <span class="weekly-chip"${weekly?.missing?.length ? ` title="${escapeHtml(weekly.missing.join(", "))}"` : ""}>
-            <small class="sr-only">${WEEKLY_SCORE_LABEL}</small>
+          <span class="weekly-chip"${weekly?.missing?.length ? ` title="${escapeHtml(weekly.missing.join(", "))}"` : ` title="${escapeHtml(WEEKLY_SCORE_HINT)}"`}>
+            <small>${escapeHtml(WEEKLY_SCORE_LABEL)}</small>
             <strong>${escapeHtml(weeklyLabel)}</strong>
           </span>
-          <span class="dynasty-chip">
-            <small class="sr-only">Dynasty</small>
+          <span class="dynasty-chip" title="Model price. Same number as Players and Trade.">
+            <small>${escapeHtml(DYNASTY_SCORE_LABEL)}</small>
             <strong class="mono">${formatNumber(getAssetValue(asset, values))}</strong>
           </span>
         </span>
@@ -5187,6 +5264,7 @@ function renderRosterSheet() {
       ${showPicks ? renderPowerStat("Pick vault", formatNumber(summary.pickValue)) : ""}
       ${renderPowerStat("Avg age", summary.averageAgeLabel)}
     </div>
+    ${renderPriceLegend(["week", "model", "lineup"])}
     ${selectedWeekly
       ? renderWeeklyPlayerSheet(selectedWeekly, { helpOpen: Boolean(state.weeklyValue?.helpOpen) })
       : selectedAsset
@@ -5518,6 +5596,7 @@ function renderTradeDraft() {
   const view = buildDraftView();
   host.innerHTML = `
     ${renderValueBoardBar({ marketHint: marketBoardHint() })}
+    ${renderPriceLegend(["model", "package"])}
     <div class="panel-heading calc-heading">
       <div>
         <span class="eyebrow">Trade</span>
@@ -5602,13 +5681,18 @@ function renderDraftBasis(view) {
 }
 
 function renderDraftNotice() {
-  if (!draftReplaced || isDraftEmpty(draftReplaced.draft)) return "";
+  const text = draftNoticeText({
+    note: draftReplaced?.note || "",
+    saved: draftReplaced?.draft,
+    current: state.valueCalc,
+  });
+  if (!text) return "";
   return `
     <div class="draft-notice" role="status">
-      <p>${escapeHtml(draftReplaced.note || "")} Your other draft is saved: ${escapeHtml(draftSummaryLine(draftReplaced.draft))}.</p>
+      <p>${escapeHtml(text)}</p>
       <div class="draft-notice-actions">
-        <button type="button" class="ghost-btn" data-action="draft-restore">Bring it back</button>
-        <button type="button" class="ghost-btn" data-action="draft-dismiss">Dismiss</button>
+        <button type="button" class="ghost-btn" data-action="draft-restore">Restore draft</button>
+        <button type="button" class="ghost-btn" data-action="draft-dismiss">Keep new</button>
       </div>
     </div>
   `;
@@ -5672,7 +5756,7 @@ function renderDraftTokens(side, view) {
     return `
       <button type="button" class="selected-token${draftItemMismatch(view, item) ? " is-mismatch" : ""}" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" title="Remove ${escapeHtml(item.name)}">
         ${renderSelectedTokenLabel(item)}
-        <span class="selected-token-price">${formatNumber(price?.value || 0)}${price?.estimated ? " est" : ""}</span>
+        <span class="selected-token-price" title="Model price">${formatNumber(price?.value || 0)}${price?.estimated ? " est" : ""}</span>
         <span class="selected-token-remove" aria-hidden="true">×</span>
       </button>
     `;
@@ -5771,6 +5855,7 @@ function draftSuggestionRows(side, view) {
         continue;
       }
       const price = draftMarketPrice(asset, basis);
+      if (asset.assetType !== "pick" && !(Number(price.value) > 0)) continue;
       const mine = rosterId === meId;
       rows.push({
         assetId: asset.assetId,
@@ -5814,7 +5899,7 @@ function renderDraftSuggestions(side, view) {
     return "";
   }
   return rows.map((row) => `
-    <div class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType === "pick" ? "pick" : "player"}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""} role="button" tabindex="-1">
+    <button type="button" class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType === "pick" ? "pick" : "player"}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""}>
       <div class="asset-row-top">
         ${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}
         <div class="asset-name-stack">
@@ -5824,9 +5909,9 @@ function renderDraftSuggestions(side, view) {
             ${row.context ? `<span class="asset-context">${escapeHtml(row.context)}</span>` : ""}
           </div>
         </div>
-        <span class="asset-value-badge">${formatNumber(row.value)}${row.estimated ? " est" : ""}</span>
+        <span class="asset-value-badge" title="Model price">${formatNumber(row.value)}${row.estimated ? " est" : ""}</span>
       </div>
-    </div>
+    </button>
   `).join("");
 }
 
@@ -5834,16 +5919,24 @@ function nextRookieDraftSeason() {
   return tradablePickSeason(state.nflState);
 }
 
-// A pick that can still be traded, close to the gap. Past drafts are already players.
+// A future pick evens the gap only when its price actually covers it.
 function findEvenUpPick(gap, values) {
   const first = nextRookieDraftSeason();
   const picks = listGenericPicks(values).filter((pick) => Number(pick.season) >= first);
-  let best = null;
-  for (const pick of picks) {
-    const miss = Math.abs(pick.value - gap);
-    if (!best || miss < best.miss) best = { ...pick, miss };
+  return evenUpPickChoice(gap, picks);
+}
+
+function evenUpCopy(choice, side) {
+  if (!choice) return "";
+  const verb = side === "You" || side === "They" ? "add" : "adds";
+  if (choice.closes) {
+    return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
   }
-  return best && best.miss <= gap * 0.5 ? best : null;
+  const short = choice.value < choice.gap;
+  const why = short
+    ? `It covers ${formatNumber(choice.value)} of a ${formatNumber(choice.gap)} gap, so it does not close.`
+    : `It is ${formatNumber(choice.value - choice.gap)} more than the ${formatNumber(choice.gap)} gap.`;
+  return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}). ${why}`;
 }
 
 function renderDraftMethod(view) {
@@ -5863,13 +5956,14 @@ function renderDraftMethod(view) {
 function renderDraftVerdict(view) {
   const { draft, model } = view;
   if (!draft.left.length && !draft.right.length) {
-    return `<p class="muted calc-hint">Add a player or pick to each side. The verdict uses the same prices as Players.</p>`;
+    return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. The verdict uses the same prices as Players.</p>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   const them = view.partner?.manager?.displayName || "them";
   const { verdict, adjustment } = model;
+  const meters = draftMeterValues(model);
   const label = draftVerdictLabel(verdict, { them });
-  const maxSide = Math.max(model.compareGive, model.compareGet, 1);
+  const maxSide = Math.max(meters.give, meters.get, 1);
   const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(Math.abs(verdict.gap), view.basis.values) : null;
   const evenSide = verdict.gap > 0 ? "You" : (view.partner ? them : "They");
   const credited = adjustment?.side === "left" ? "You give" : "You get";
@@ -5878,9 +5972,10 @@ function renderDraftVerdict(view) {
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
         <h3>${escapeHtml(label)}</h3>
+        ${/* TODO(follow-up): spell a bare percent ("96% apart") as a plain outcome. Out of scope for this push. */ ""}
         <p>You give ${formatNumber(model.give)}. You get ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : adjustment ? "" : ` ${verdict.pct}% apart.`}</p>
-        ${adjustment ? `<p class="draft-package"><strong>Package adjustment:</strong> +${formatNumber(adjustment.amount)} to ${credited}, which has the best player. After it the sides are ${verdict.pct}% apart.</p>` : ""}
-        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenSide)} add${evenSide === "You" || evenSide === "They" ? "" : "s"} about ${formatNumber(Math.round(Math.abs(verdict.gap)))}, roughly a ${escapeHtml(evenUp.name)} (${formatNumber(evenUp.value)}).</p>` : ""}
+        ${adjustment ? `<p class="draft-package"><strong>Package credit:</strong> the best player is worth more than the same total split into smaller pieces. That adds ${formatNumber(adjustment.amount)} to ${escapeHtml(credited)}. Listed prices stay put. After that credit the sides are ${verdict.pct}% apart.</p>` : ""}
+        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method">
           <summary>How this number works</summary>
           ${renderDraftMethod(view)}
@@ -5889,13 +5984,13 @@ function renderDraftVerdict(view) {
       <div class="calc-bars">
         <div class="calc-bar team-a">
           <span>You give</span>
-          <div class="meter-track"><span style="width:${Math.round(model.compareGive / maxSide * 100)}%"></span></div>
-          <strong>${formatNumber(model.compareGive)}</strong>
+          <div class="meter-track"><span style="width:${Math.round(meters.give / maxSide * 100)}%"></span></div>
+          <strong>${formatNumber(meters.give)}</strong>
         </div>
         <div class="calc-bar team-b">
           <span>You get</span>
-          <div class="meter-track"><span style="width:${Math.round(model.compareGet / maxSide * 100)}%"></span></div>
-          <strong>${formatNumber(model.compareGet)}</strong>
+          <div class="meter-track"><span style="width:${Math.round(meters.get / maxSide * 100)}%"></span></div>
+          <strong>${formatNumber(meters.get)}</strong>
         </div>
       </div>
       <div class="calc-actions">
@@ -5940,9 +6035,9 @@ function renderDraftTeam(view) {
       <section class="draft-team-card">
         <div>
           <span class="analytics-kicker">Your team</span>
-          <p>Connect Sleeper to see who owns each piece and what this trade does to both rosters. This trade stays here.</p>
+          <p>Find my leagues to see who owns each piece and what this trade does to both rosters. This trade stays here.</p>
         </div>
-        <button type="button" data-action="draft-connect">Connect Sleeper</button>
+        <button type="button" data-action="draft-connect">Find my leagues</button>
       </section>
     `;
   }
@@ -5973,7 +6068,7 @@ function renderDraftTeam(view) {
       <div>
         <span class="analytics-kicker">Team impact</span>
         <h3>With ${escapeHtml(partnerName)}</h3>
-        <p class="muted small">Lineup rank and values come from the same league model as My League. It weights stars above the market prices above and is not a weekly projection.</p>
+        <p class="muted small">Starter value is the sum of the model prices above. Same prices as Players. Not a weekly projection, and not a second price.</p>
       </div>
       <div class="calc-actions">
         <button type="button" class="ghost-btn" data-action="calc-copy" data-offer="${escapeHtml(buildDraftOfferText(view))}">Copy offer text</button>
@@ -6049,8 +6144,11 @@ function settleCalcSearch(kind, side) {
 }
 
 function openConnectPrompt() {
-  const landing = document.querySelector("#landing");
-  landing?.classList.remove("hidden");
+  const leaving = !state.leagueId && state.activePage !== "players";
+  if (leaving) state.pendingPlace = { page: state.activePage, room: getRoom(state.activePage) };
+  if (publicRanksOpen) closePublicRanks({ fromHistory: true });
+  if (leaving) setActivePage("players", { history: "push", scroll: "top" });
+  document.querySelector("#landing")?.classList.remove("hidden");
   focusUsernameSearch();
 }
 
@@ -6142,7 +6240,75 @@ function renderTicker() {
 // Workspace event delegation
 // ---------------------------------------------------------------------------
 
+function armCalcClickSwallow() {
+  swallowCalcClick = true;
+  clearTimeout(swallowCalcTimer);
+  swallowCalcTimer = setTimeout(() => {
+    swallowCalcClick = false;
+  }, 500);
+}
+
+function swallowArmedCalcClick(event) {
+  if (!swallowCalcClick) return;
+  swallowCalcClick = false;
+  clearTimeout(swallowCalcTimer);
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function pickDraftSuggestion(item) {
+  if (!item?.dataset?.assetId) return false;
+  const side = item.dataset.side === "right" ? "right" : "left";
+  const added = addDraftAsset(side, {
+    assetId: item.dataset.assetId,
+    name: item.dataset.name,
+    assetType: item.dataset.kind === "pick" ? "pick" : "player",
+    leagueId: item.dataset.leagueId || "",
+  });
+  if (!added) return false;
+  if (shouldResetCalcSearchOnPick("value-add")) {
+    if (side === "right") state.valueCalc.rightQuery = "";
+    else state.valueCalc.leftQuery = "";
+  }
+  patchTradeDraft([side]);
+  settleCalcSearch("value-search", side);
+  return true;
+}
+
 function handleWorkspaceKeydown(event) {
+  if (event.isComposing) return;
+  const search = event.target?.closest?.("[data-input='value-search']");
+  if (search && el.workspace?.contains(search)) {
+    const side = search.dataset.side === "right" ? "right" : "left";
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      const item = moveCalcSuggestion(el.calculatorShell, side, event.key === "ArrowDown" ? 1 : -1);
+      if (!item) return;
+      event.preventDefault();
+      item.scrollIntoView?.({ block: "nearest" });
+      return;
+    }
+    if (event.key === "Enter") {
+      const item = calcSuggestionFromList(el.calculatorShell, side);
+      if (!item) return;
+      event.preventDefault();
+      pickDraftSuggestion(item);
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
+      if (String(query || "").trim()) {
+        if (side === "right") state.valueCalc.rightQuery = "";
+        else state.valueCalc.leftQuery = "";
+        clearCalcSearchBox(search);
+        refreshDraftSuggestions(side);
+        search.focus();
+        return;
+      }
+      search.blur();
+      return;
+    }
+  }
   if (event.key !== "Enter" && event.key !== " ") return;
   const target = event.target.closest("[data-action][role='button']");
   if (!target || event.target !== target || !el.workspace?.contains(target)) return;
@@ -6151,8 +6317,14 @@ function handleWorkspaceKeydown(event) {
 }
 
 function handleWorkspacePointerDown(event) {
-  if (!shouldHoldCalcSearchFocus(event, document)) return;
+  if (!shouldArmCalcSuggestion(event, document)) {
+    if (!shouldHoldCalcSearchFocus(event, document)) return;
+    event.preventDefault();
+    return;
+  }
   event.preventDefault();
+  armCalcClickSwallow();
+  pickDraftSuggestion(calcSuggestionItem(event));
 }
 
 function handleWorkspaceClick(event) {
@@ -6198,6 +6370,11 @@ function handleWorkspaceClick(event) {
       break;
     case "rank-pos":
       state.ranks.position = target.dataset.pos || "ALL";
+      state.ranks.shown = RANK_PAGE_SIZE;
+      renderRankSurfaces();
+      break;
+    case "ranks-more":
+      state.ranks.shown = (Number(state.ranks.shown) || RANK_PAGE_SIZE) + RANK_PAGE_SIZE;
       renderRankSurfaces();
       break;
     case "rank-format":
@@ -6291,20 +6468,7 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "value-add": {
-      const side = target.dataset.side === "right" ? "right" : "left";
-      if (!target.dataset.assetId) return;
-      if (shouldResetCalcSearchOnPick("value-add")) {
-        if (side === "right") state.valueCalc.rightQuery = "";
-        else state.valueCalc.leftQuery = "";
-      }
-      addDraftAsset(side, {
-        assetId: target.dataset.assetId,
-        name: target.dataset.name,
-        assetType: target.dataset.kind === "pick" ? "pick" : "player",
-        leagueId: target.dataset.leagueId || "",
-      });
-      patchTradeDraft([side]);
-      settleCalcSearch("value-search", side);
+      pickDraftSuggestion(target);
       break;
     }
     case "value-remove": {
@@ -6313,8 +6477,10 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "value-clear": {
+      if (isDraftEmpty(state.valueCalc)) break;
       replaceDraft(clearValueCalcSides(state.valueCalc), "Cleared both sides.");
       patchTradeDraft(["left", "right"]);
+      el.calculatorShell?.querySelectorAll("[data-input='value-search']").forEach((input) => clearCalcSearchBox(input));
       break;
     }
     case "draft-swap": {
@@ -6392,7 +6558,10 @@ function handleWorkspaceInput(event) {
   }
   if (target.dataset.input === "ranks-search") {
     state.ranks.query = target.value;
-    renderRankHost(target.closest("#ranks-dashboard, #public-ranks-board") || el.ranksDashboard);
+    state.ranks.shown = RANK_PAGE_SIZE;
+    const host = target.closest("#ranks-dashboard, #public-ranks-board") || el.ranksDashboard;
+    clearTimeout(ranksSearchTimer);
+    ranksSearchTimer = setTimeout(() => renderRankHost(host), 180);
   }
 }
 
@@ -9364,7 +9533,7 @@ function syncMatchGenerateState() {
   }
   if (el.matchGenerateHelp) {
     el.matchGenerateHelp.textContent = !state.leagueId
-      ? "Load a league and pick your team."
+      ? "Find my leagues and pick your team."
       : !state.meRosterId
         ? "Choose your team first."
         : "Looks at holes, surplus, and contend vs tank. No leftover thirds.";
@@ -9375,7 +9544,21 @@ function setMatchGenerateError(message) {
   setFieldError(null, el.matchGenerateError, message);
 }
 
+function syncFindGuestChrome(guest) {
+  document.querySelector("#match-action-panel")?.classList.toggle("hidden", guest);
+  document.querySelector("#player-section")?.classList.toggle("hidden", guest);
+  document.querySelector("#settings-section")?.classList.toggle("hidden", guest);
+  if (guest) el.resultsSection?.classList.add("hidden");
+}
+
 function renderTradeMatchRoom() {
+  if (!state.leagueId) {
+    syncFindGuestChrome(true);
+    paintConnectGate(el.tradeMatchNeeds, "Find my leagues to find a partner or shop a player. Check an offer still works without a league.");
+    clearHost(el.tradeMatchDashboard);
+    return;
+  }
+  syncFindGuestChrome(false);
   syncMatchGenerateState();
   renderTradeMatchNeeds();
   const key = tradeMatchCacheKey();
@@ -15969,13 +16152,18 @@ document.addEventListener("error", (event) => {
 }, true);
 
 function watchLandingSearchVisibility() {
-  if (landingSearchObserver || typeof IntersectionObserver !== "function" || !el.landingUsernameForm) return;
+  if (landingSearchObserver || typeof IntersectionObserver !== "function") return;
+  const targets = [el.landingUsernameForm, el.usernameSearchForm].filter(Boolean);
+  if (!targets.length) return;
+  const seen = new Map();
   landingSearchObserver = new IntersectionObserver((entries) => {
-    const entry = entries[0];
-    landingSearchOffscreen = Boolean(entry) && entry.intersectionRatio < 0.35;
+    entries.forEach((entry) => {
+      seen.set(entry.target, entry.intersectionRatio >= 0.35);
+    });
+    landingSearchOffscreen = ![...seen.values()].some(Boolean);
     syncSiteDock();
   }, { threshold: [0, 0.35, 1] });
-  landingSearchObserver.observe(el.landingUsernameForm);
+  targets.forEach((node) => landingSearchObserver.observe(node));
 }
 
 function syncSiteDock() {
@@ -16024,7 +16212,7 @@ function stopLeagueLoadingUi() {
   el.landingLoading?.classList.add("hidden");
   if (el.stickyFindBtn) {
     el.stickyFindBtn.disabled = false;
-    el.stickyFindBtn.textContent = "Find leagues";
+    el.stickyFindBtn.textContent = "Find my leagues";
   }
   if (!el.loadLeagueBtn) return;
   el.loadLeagueBtn.disabled = false;

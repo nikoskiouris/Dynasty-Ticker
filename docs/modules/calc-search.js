@@ -9,7 +9,7 @@ export function renderCalcSearchInput({
   input = "calc-search",
   placeholder = "Search players and picks",
 } = {}) {
-  return `<input type="text" class="calc-search" role="searchbox" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(query)}" data-input="${escapeHtml(input)}" data-side="${escapeHtml(side)}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" inputmode="search" />`;
+  return `<input type="text" class="calc-search" role="searchbox" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(query)}" data-input="${escapeHtml(input)}" data-side="${escapeHtml(side)}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" inputmode="search" />`;
 }
 
 export function planCalcListVisibility(assets, query, matches, limit = CALC_LIST_LIMIT) {
@@ -105,6 +105,45 @@ export function shouldHoldCalcSearchFocus(event, doc = globalThis.document) {
   if (!item) return false;
   const kind = readAttr(doc?.activeElement, "data-input");
   return CALC_SEARCH_INPUTS.includes(kind);
+}
+
+// A result row in the offer list. Click and Enter both add this row.
+export function calcSuggestionItem(event) {
+  return event?.target?.closest?.(".calc-item[data-action='value-add']") || null;
+}
+
+export function shouldArmCalcSuggestion(event, doc = globalThis.document) {
+  const item = calcSuggestionItem(event);
+  if (!item) return false;
+  if (event?.pointerType === "mouse" && event.button != null && event.button !== 0) return false;
+  if (shouldHoldCalcSearchFocus(event, doc)) return true;
+  return Boolean(item.closest?.(".calc-suggest, .calc-list"));
+}
+
+export function calcSuggestionFromList(root, side) {
+  if (!root?.querySelector) return null;
+  const list = root.querySelector(`#value-list-${side}`);
+  if (!list?.querySelector) return null;
+  return list.querySelector(".calc-item.is-active[data-action='value-add']")
+    || list.querySelector(".calc-item[data-action='value-add']");
+}
+
+export function moveCalcSuggestion(root, side, delta) {
+  if (!root?.querySelectorAll) return null;
+  const items = [...root.querySelectorAll(`#value-list-${side} .calc-item[data-action="value-add"]`)];
+  if (!items.length) return null;
+  const current = items.findIndex((item) => item.classList?.contains("is-active"));
+  const step = delta < 0 ? -1 : 1;
+  const next = current < 0
+    ? (step > 0 ? 0 : items.length - 1)
+    : (current + step + items.length) % items.length;
+  items.forEach((item, index) => {
+    const on = index === next;
+    item.classList?.toggle("is-active", on);
+    if (on) item.setAttribute?.("aria-selected", "true");
+    else item.removeAttribute?.("aria-selected");
+  });
+  return items[next];
 }
 
 function readAttr(node, name) {

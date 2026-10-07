@@ -516,6 +516,9 @@ test("each desk page is its own file and boot mounts them before the app", () =>
     assert.equal(existsSync(join(docs, "ui", file)), true);
   }
   assert.match(boot, /await import\("\.\/app\.js"\)/);
+  assert.match(boot, /showBootError/);
+  assert.match(boot, /role="alert"/);
+  assert.match(index, /class="skip-link"/);
   assert.match(siteMarkup(), /id="landing-rather"/);
   assert.match(siteMarkup(), /id="calculator-shell"/);
   assert.match(siteMarkup(), /id="weekly-help-btn"/);

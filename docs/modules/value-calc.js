@@ -121,7 +121,7 @@ export function listGenericPicks(values = {}, names = {}, { minSeason = upcoming
 
 function listValueCalcPlayerRows(values = {}, names = {}) {
   return Object.entries(values)
-    .filter(([assetId, value]) => String(assetId).startsWith("player:") && Number.isFinite(Number(value)))
+    .filter(([assetId, value]) => String(assetId).startsWith("player:") && Number(value) > 0)
     .map(([assetId, value]) => ({
       assetId,
       playerId: String(assetId).slice("player:".length),
@@ -217,6 +217,8 @@ export function clearValueCalcSides(state) {
   Object.assign(next, state);
   next.left = [];
   next.right = [];
+  next.leftQuery = "";
+  next.rightQuery = "";
   return next;
 }
 
