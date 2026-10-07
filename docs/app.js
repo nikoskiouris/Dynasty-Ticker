@@ -45,7 +45,16 @@ import {
 } from "./modules/constants.js";
 import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
 import { createLeagueLoader } from "./modules/league-load.js";
-import { apiGet, apiGetWithRetry, fetchUserLeagues, mapInChunks } from "./modules/sleeper.js";
+import {
+  apiGet,
+  apiGetWithRetry,
+  fetchUserLeagues,
+  mapInChunks,
+  loadPlayersCacheEntry,
+  savePlayersCacheEntry,
+  playersCacheIsFresh,
+  slimPlayersMap,
+} from "./modules/sleeper.js";
 import {
   classifyLeagueInput,
   parseLeagueId,
@@ -463,6 +472,11 @@ const pageRenderQueue = createPageRenderQueue({
 let leagueLoadAnimationTimer = null;
 let leagueLoadStartedAt = 0;
 let livePoller = null;
+let playerLoadEpoch = 0;
+let playerLoadAbort = null;
+let playersInflight = null;
+let playersInflightEpoch = -1;
+let playersIdb = null;
 let tickerController = null;
 let tickerFingerprint = "";
 let liveVisibilityBound = false;
@@ -1847,23 +1861,31 @@ async function runUserLeagueSearch(username) {
     const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => state.nflState);
     if (nflState) state.nflState = nflState;
     const season = String(nflState?.league_season || nflState?.season || new Date().getUTCFullYear());
-    const { user, leagues } = await fetchUserLeagues(sleeper, username, uniqueSeasons(season, 1));
+    const { user, leagues, failedSeasons = [] } = await fetchUserLeagues(sleeper, username, uniqueSeasons(season, 1));
     state.sleeperUser = user;
     searchedUserNoted = false;
     state.userLeagues = sortUserLeagues(leagues, season);
     renderLeaguePicker(state.userLeagues, season);
-    setUsernameError("");
-    if (state.userLeagues.length === 0) {
+    const failed = new Set(failedSeasons.map((item) => String(item)));
+    const currentFailed = failed.has(String(season));
+    const failedLabel = [...failed].join(" and ");
+    if (currentFailed) {
+      const message = `Could not load ${failedLabel || season} leagues from Sleeper. Not opening a league until the ${season} list loads.`;
+      setUsernameError(message);
+      setStatus(message, { error: true });
+    } else if (state.userLeagues.length === 0) {
       setStatus(`Found ${user.display_name || username}, but no NFL leagues for ${season}/${Number(season) - 1}.`, { error: true });
       setUsernameError(`No NFL leagues for ${season}/${Number(season) - 1}.`);
-      return;
-    }
-    if (state.userLeagues.length === 1) {
+    } else if (state.userLeagues.length === 1) {
       autoloadId = String(state.userLeagues[0].league_id || "");
       if (el.leagueId && autoloadId) el.leagueId.value = autoloadId;
-      setStatus(`One league found. Opening ${state.userLeagues[0].name || "league"}…`, { loading: true });
+      const extra = failed.size ? ` ${failedLabel} did not load.` : "";
+      setStatus(`One league found. Opening ${state.userLeagues[0].name || "league"}…${extra}`, { loading: true });
+      setUsernameError(failed.size ? `Could not load leagues for ${failedLabel}.` : "");
     } else {
-      setStatus(`Found ${state.userLeagues.length} leagues for ${user.display_name || username}. Pick one.`);
+      const extra = failed.size ? ` ${failedLabel} did not load.` : "";
+      setStatus(`Found ${state.userLeagues.length} leagues for ${user.display_name || username}.${extra} Pick one.`);
+      setUsernameError(failed.size ? `Could not load leagues for ${failedLabel}.` : "");
       el.landingLeaguePicker?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   } catch (err) {
@@ -1932,6 +1954,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     if (!leagueLoader.isCurrent(token)) return;
     startLeagueLoadingUi();
     stopLivePolling();
+    invalidatePlayerLoads();
     hideAppPages();
 
     const [coreData, nflState] = await Promise.all([
@@ -2061,9 +2084,10 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     loadDraftSelectionIndex(leagueHistory);
     startLivePolling();
 
+    const playersEpoch = playerLoadEpoch;
     loadPlayersWithCache()
       .then((players) => {
-        if (!leagueLoader.isCurrent(token) || String(state.leagueId) !== String(leagueId)) return;
+        if (playersLoadStale(playersEpoch, token, leagueId)) return;
         state.players = players;
         state.playerMetadataLoaded = true;
         state.playerMetadataFailed = false;
@@ -2088,7 +2112,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
         );
       })
       .catch((err) => {
-        if (!leagueLoader.isCurrent(token) || String(state.leagueId) !== String(leagueId)) return;
+        if (playersLoadStale(playersEpoch, token, leagueId) || err?.name === "AbortError") return;
         state.playerMetadataLoaded = false;
         state.playerMetadataFailed = true;
         syncTradeModeUi();
@@ -2167,6 +2191,7 @@ function startLivePolling() {
     simRefreshMs: LIVE_SIM_REFRESH_MS,
     isLive: () => shouldPollLive(getSeasonModel(), state.nflState),
     shouldPause: () => Boolean(document.hidden),
+    leagueId: () => state.leagueId,
     fetchUpdate: async () => {
       const leagueId = state.leagueId;
       const model = getSeasonModel();
@@ -2535,24 +2560,131 @@ async function loadPreviousLeagueContext(league) {
   }
 }
 
-async function loadPlayersWithCache() {
-  const now = Date.now();
-  const fromCache = getPlayersCache();
-  let stateKey = null;
+function invalidatePlayerLoads() {
+  playerLoadEpoch += 1;
+  playerLoadAbort?.abort();
+  playerLoadAbort = null;
+  playersInflight = null;
+  playersInflightEpoch = -1;
+}
 
-  try {
-    const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 });
-    stateKey = `${nflState?.season || "na"}-${nflState?.league_season || "na"}-${nflState?.week || "na"}`;
-    if (fromCache?.players && fromCache?.stateKey === stateKey) return fromCache.players;
-  } catch {
-    if (fromCache && now - fromCache.savedAt < PLAYERS_CACHE_TTL_MS) {
-      return fromCache.players;
-    }
+function playersLoadStale(epoch, token, leagueId) {
+  return epoch !== playerLoadEpoch
+    || !leagueLoader.isCurrent(token)
+    || String(state.leagueId) !== String(leagueId);
+}
+
+function cancelledPlayerLoad() {
+  const error = new Error("Players load cancelled");
+  error.name = "AbortError";
+  return error;
+}
+
+function playersCacheAdapters() {
+  if (!playersIdb) playersIdb = createPlayersIdb();
+  return {
+    localStorage: globalThis.localStorage,
+    idb: playersIdb,
+    key: PLAYERS_CACHE_KEY,
+  };
+}
+
+function createPlayersIdb() {
+  const dbName = "dynasty-ticker";
+  const storeName = "kv";
+  let opening = null;
+  function open() {
+    if (opening) return opening;
+    opening = new Promise((resolve, reject) => {
+      if (typeof indexedDB === "undefined" || typeof indexedDB.open !== "function") {
+        reject(new Error("IndexedDB unavailable"));
+        return;
+      }
+      const request = indexedDB.open(dbName, 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName);
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error("IndexedDB open failed"));
+    });
+    return opening;
   }
+  return {
+    async get(key) {
+      const db = await open();
+      return new Promise((resolve, reject) => {
+        const request = db.transaction(storeName, "readonly").objectStore(storeName).get(key);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error || new Error("IndexedDB read failed"));
+      });
+    },
+    async set(key, value) {
+      const db = await open();
+      return new Promise((resolve, reject) => {
+        const request = db.transaction(storeName, "readwrite").objectStore(storeName).put(value, key);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error || new Error("IndexedDB write failed"));
+      });
+    },
+  };
+}
 
-  const players = await apiGet(`/players/nfl`, { timeoutMs: 30000 });
-  savePlayersCache(players, now, stateKey);
-  return players;
+async function loadPlayersWithCache() {
+  if (playersInflight && playersInflightEpoch === playerLoadEpoch) return playersInflight;
+  const epoch = playerLoadEpoch;
+  playerLoadAbort?.abort();
+  const controller = new AbortController();
+  playerLoadAbort = controller;
+  const job = fetchPlayersForCache(epoch, controller.signal);
+  playersInflight = job;
+  playersInflightEpoch = epoch;
+  try {
+    return await job;
+  } finally {
+    if (playersInflight === job) playersInflight = null;
+    if (playerLoadAbort === controller) playerLoadAbort = null;
+  }
+}
+
+async function fetchPlayersForCache(epoch, signal) {
+  const now = Date.now();
+  const fromCache = await loadPlayersCacheEntry(playersCacheAdapters()).catch((err) => {
+    console.warn("Could not read players cache", err);
+    return null;
+  });
+  if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
+
+  let stateKey = null;
+  let stateFailed = false;
+  try {
+    const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1, signal });
+    stateKey = `${nflState?.season || "na"}-${nflState?.league_season || "na"}-${nflState?.week || "na"}`;
+  } catch (err) {
+    if (err?.name === "AbortError" || signal.aborted || epoch !== playerLoadEpoch) throw cancelledPlayerLoad();
+    stateFailed = true;
+  }
+  if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
+
+  const fresh = stateFailed
+    ? playersCacheIsFresh(fromCache, now, { ttlMs: PLAYERS_CACHE_TTL_MS })
+    : playersCacheIsFresh(fromCache, now, { stateKey, ttlMs: PLAYERS_CACHE_TTL_MS });
+  if (fresh) return slimPlayersMap(fromCache.players);
+
+  const raw = await apiGetWithRetry(`/players/nfl`, {
+    timeoutMs: 30000,
+    retries: 1,
+    cache: "default",
+    signal,
+  });
+  if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
+  const slim = slimPlayersMap(raw);
+  try {
+    await savePlayersCacheEntry({ players: slim, savedAt: now, stateKey }, playersCacheAdapters());
+  } catch (err) {
+    console.warn("Could not save players cache", err);
+  }
+  return slim;
 }
 
 async function loadTrendingPlayers() {
@@ -2932,21 +3064,6 @@ function getPlayersCache() {
     return parsed;
   } catch {
     return null;
-  }
-}
-
-function savePlayersCache(players, savedAt, stateKey = null) {
-  try {
-    localStorage.setItem(
-      PLAYERS_CACHE_KEY,
-      JSON.stringify({
-        savedAt,
-        stateKey,
-        players,
-      })
-    );
-  } catch {
-    // Cache write failure is non-fatal (private mode/storage quota).
   }
 }
 
@@ -15729,7 +15846,8 @@ async function bootLandingRather() {
     if (!state.valueBundles?.sf?.values || !Object.keys(state.valueBundles.sf.values).length) {
       state.valueBundles = await fetchValuationBundles();
     }
-    const cachedPlayers = getPlayersCache()?.players || {};
+    const cachedEntry = await loadPlayersCacheEntry(playersCacheAdapters()).catch(() => null);
+    const cachedPlayers = cachedEntry?.players || getPlayersCache()?.players || {};
     if (Object.keys(cachedPlayers).length) {
       ratherPromptContext = { ...ratherPromptContext, nflPlayers: cachedPlayers };
     }
@@ -15748,11 +15866,14 @@ async function loadRatherPromptContext() {
   if (nflState) state.nflState = nflState;
   const currentSeason = String(nflState?.league_season || nflState?.season || new Date().getUTCFullYear());
   const previousSeason = String(nflState?.previous_season || Number(currentSeason) - 1 || new Date().getUTCFullYear() - 1);
-  const cachedPlayers = getPlayersCache()?.players || state.players || {};
+  const cachedEntry = await loadPlayersCacheEntry(playersCacheAdapters()).catch(() => getPlayersCache());
+  const cachedPlayers = cachedEntry?.players || state.players || {};
+  const ratherPlayersEpoch = playerLoadEpoch;
   const [nflPlayers, seasonStats, draftPicks] = await Promise.all([
     Object.keys(cachedPlayers).length
       ? Promise.resolve(cachedPlayers)
       : loadPlayersWithCache().then((players) => {
+        if (ratherPlayersEpoch !== playerLoadEpoch) return state.players || {};
         if (players && Object.keys(players).length) state.players = players;
         return players || {};
       }).catch(() => ({})),
