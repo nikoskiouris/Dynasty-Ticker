@@ -74,3 +74,4 @@ If an old ticket's product guidance conflicts with Product purpose, add a `Super
 - Do not trigger a production deploy unless the user explicitly asks to cut a release / promote to prod.
 - Do not run a scheduled Netlify production deploy. Market files refresh when a release is cut. The weekly Dynasty Nerds mock scrape may commit JSON to `develop`; that must not publish the live site.
 - Local check: `npm run serve` (or `npm test`). Do not burn Netlify credits for preview deploys.
+- Netlify functions need site environment variables `VISIT_SALT` and `RATHER_SALT` (Functions and Runtime scope). `scripts/deploy_live_site.sh` runs `scripts/ensure_netlify_salts.py` and will not publish until both are real secrets. Do not commit the values. The old public defaults `dynasty-ticker-traffic-v1` and `dynasty-ticker-rather-v1` are rejected.
