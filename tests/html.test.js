@@ -106,9 +106,10 @@ test("copyTextToClipboard uses the clipboard API then a textarea fallback", asyn
 });
 
 test("an empty league room has one connect button and no demo league", () => {
-  const html = renderConnectGate({ copy: "Connect Sleeper to see your roster." });
+  const html = renderConnectGate();
   assert.match(html, /data-action="draft-connect"/);
-  assert.match(html, /Connect Sleeper/);
+  assert.match(html, /Find my leagues/);
+  assert.doesNotMatch(html, /Connect Sleeper/);
   assert.equal((html.match(/<button/g) || []).length, 1);
   assert.doesNotMatch(html, /demo league/i);
   assert.match(renderConnectGate({ copy: `<script>` }), /&lt;script&gt;/);

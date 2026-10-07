@@ -180,19 +180,33 @@ export function draftMeterValues(model) {
   };
 }
 
-// "Cleared both sides" is only true while the board is actually empty and both
-// sides had pieces. Any later edit keeps the restore, without that claim.
-export function draftNoticeText({ note = "", saved = null, current = null } = {}) {
+// A pick evens the gap only when its price actually covers it. A much smaller
+// pick stays a miss, so the caller can say why it does not close.
+export function evenUpPickChoice(gap, picks = []) {
+  const need = Math.abs(Number(gap) || 0);
+  if (!(need > 0)) return null;
+  let best = null;
+  for (const pick of Array.isArray(picks) ? picks : []) {
+    const value = Math.round(Number(pick?.value) || 0);
+    if (!(value > 0) || !pick?.name) continue;
+    const miss = Math.abs(value - need);
+    if (!best || miss < best.miss) best = { name: String(pick.name), value, miss };
+  }
+  if (!best) return null;
+  const closes = best.value >= need * 0.8 && best.value <= need * 1.25;
+  return { ...best, closes, gap: need };
+}
+
+// The restore strip is only for an explicit clear. Later edits keep the same
+// sentence, which stays true, and never claim the board is still empty.
+export function draftNoticeText({ note = "", saved = null } = {}) {
   if (!saved || isDraftEmpty(saved)) return "";
   const summary = draftSummaryLine(saved);
   const claimsClear = /cleared both sides/i.test(String(note || ""));
   if (claimsClear) {
-    if (!isDraftEmpty(current)) {
-      return summary ? `Previous trade saved: ${summary}.` : "Previous trade saved.";
-    }
-    const both = (saved.left?.length || 0) > 0 && (saved.right?.length || 0) > 0;
-    const lead = both ? "Cleared both sides." : "Cleared the trade.";
-    return summary ? `${lead} Saved: ${summary}.` : lead;
+    return summary
+      ? `Started a new trade. Restore your ${summary} draft?`
+      : "Started a new trade. Restore your last draft?";
   }
   const lead = String(note || "").trim();
   if (!lead) return summary ? `Previous trade saved: ${summary}.` : "";

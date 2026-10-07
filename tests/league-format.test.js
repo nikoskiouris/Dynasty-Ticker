@@ -39,7 +39,8 @@ test("three destinations stay short for every league type", () => {
   assert.equal(hiddenRoomsForLeague(dynasty).length, 0);
   assert.deepEqual(roomsForPage("players"), ["ranks"]);
   assert.deepEqual(roomsForPage("trades"), ["calculator", "find"]);
-  assert.deepEqual(roomsForPage("league"), ["team", "scores", "board", "activity", "history"]);
+  assert.deepEqual(roomsForPage("league"), ["team"]);
+  assert.deepEqual(roomsForPage("league", dynasty), ["team", "scores", "board", "activity", "history"]);
   assert.equal(visibleRoomFor("league", "team"), "team");
   assert.equal(isRoomVisible("trades", "calculator", redraft), true);
   assert.equal(isRoomVisible("league", "loyalty", dynasty), false);

@@ -121,6 +121,7 @@ import {
   draftMarketPrice,
   draftMeterValues,
   draftNoticeText,
+  evenUpPickChoice,
   draftVerdictModel,
   draftSideForAsset,
   draftTeamSummary,
@@ -286,6 +287,7 @@ import {
 import {
   buildRankBoard,
   isRankAssetId,
+  RANK_PAGE_SIZE,
   rankFormatLabel,
   rankView,
   renderRanksBody,
@@ -493,6 +495,7 @@ let draftReplaced = null;
 // land on Clear both sides after the list re-renders.
 let swallowCalcClick = false;
 let swallowCalcTimer = 0;
+let ranksSearchTimer = 0;
 let draftBasisCache = { bundles: null, format: "", basis: null };
 let rankBoardCache = { key: "", rows: [] };
 let rankContextPromise = null;
@@ -1037,6 +1040,7 @@ function rankViewModel() {
     rows: cachedRankRows(),
     query: state.ranks?.query || "",
     position: state.ranks?.position || "ALL",
+    shown: state.ranks?.shown || RANK_PAGE_SIZE,
     format: activeRankFormat(),
     leagueFormat: state.league ? selectValueFormat(state.league) : "",
     selectedId: state.ranks?.selectedId || "",
@@ -1819,8 +1823,8 @@ function requestFindLeagues(event) {
   syncUsernameFields(event?.currentTarget === el.landingUsernameForm ? el.landingUsername : el.sleeperUsername);
   const classified = classifyLeagueInput(el.sleeperUsername?.value || el.landingUsername?.value);
   if (classified.kind === "empty") {
-    setUsernameError("Type your Sleeper username, then press Find leagues.");
-    setStatus("Type your Sleeper username, then press Find leagues.", { error: true });
+    setUsernameError("Type your Sleeper username, then press Find my leagues.");
+    setStatus("Type your Sleeper username, then press Find my leagues.", { error: true });
     (el.landingUsername || el.sleeperUsername)?.focus();
     return;
   }
@@ -1868,8 +1872,9 @@ async function runUserLeagueSearch(username) {
     renderLeaguePicker(state.userLeagues, season);
     setUsernameError("");
     if (state.userLeagues.length === 0) {
-      setStatus(`Found ${user.display_name || username}, but no NFL leagues for ${season}/${Number(season) - 1}.`, { error: true });
-      setUsernameError(`No NFL leagues for ${season}/${Number(season) - 1}.`);
+      const line = `No NFL leagues for ${username}.`;
+      setStatus(line, { error: true });
+      setUsernameError(line);
       return;
     }
     if (state.userLeagues.length === 1) {
@@ -1877,12 +1882,15 @@ async function runUserLeagueSearch(username) {
       if (el.leagueId && autoloadId) el.leagueId.value = autoloadId;
       setStatus(`One league found. Opening ${state.userLeagues[0].name || "league"}…`, { loading: true });
     } else {
-      setStatus(`Found ${state.userLeagues.length} leagues for ${user.display_name || username}. Pick one.`);
+      setStatus(`Found ${state.userLeagues.length} leagues for ${username}. Pick one.`);
       el.landingLeaguePicker?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   } catch (err) {
     renderLeaguePicker([]);
-    const message = `Could not find that Sleeper user. ${err.message}`;
+    const network = /timed out|Network|CORS/i.test(String(err?.message || ""));
+    const message = network
+      ? `Could not reach Sleeper for ${username}.`
+      : `No Sleeper user named ${username}.`;
     setUsernameError(message);
     setStatus(message, { error: true });
   } finally {
@@ -1917,7 +1925,7 @@ function stopFindLeaguesUi() {
     if (!button) return;
     button.disabled = false;
     button.classList.remove("loading");
-    button.textContent = "Find leagues";
+    button.textContent = "Find my leagues";
   });
   el.usernameSearchForm?.setAttribute("aria-busy", "false");
   el.landingUsernameForm?.setAttribute("aria-busy", "false");
@@ -3347,10 +3355,11 @@ function leagueRoomEmptyState(host, copy) {
 
 function connectCopy(copy) {
   const text = String(copy || "").trim();
-  if (!text) return "Connect Sleeper to open this.";
+  if (!text) return "Find my leagues to open this.";
   return text
-    .replace(/^Load a league to /i, "Connect Sleeper to ")
-    .replace(/^Connect a league to /i, "Connect Sleeper to ");
+    .replace(/^Load a league to /i, "Find my leagues to ")
+    .replace(/^Connect a league to /i, "Find my leagues to ")
+    .replace(/^Connect Sleeper to /i, "Find my leagues to ");
 }
 
 function paintConnectGate(host, copy) {
@@ -3364,12 +3373,12 @@ function clearHost(host) {
 
 function renderLeagueGuest(room) {
   if (room === "scores") {
-    paintConnectGate(el.scoresDashboard, "Connect Sleeper to see this week's matchups.");
+    paintConnectGate(el.scoresDashboard, "Find my leagues to see this week's matchups.");
     clearHost(el.weeklyHonorsDashboard);
     return;
   }
   if (room === "board") {
-    paintConnectGate(el.teamsGrid, "Connect Sleeper to see standings and the rest of the league.");
+    paintConnectGate(el.teamsGrid, "Find my leagues to see standings and the rest of the league.");
     clearHost(el.standingsDashboard);
     clearHost(el.superlativesDashboard);
     clearHost(el.powerBoardDashboard);
@@ -3377,15 +3386,15 @@ function renderLeagueGuest(room) {
     return;
   }
   if (room === "activity") {
-    paintConnectGate(el.tradeLogDashboard, "Connect Sleeper to see trades in your league.");
+    paintConnectGate(el.tradeLogDashboard, "Find my leagues to see trades in your league.");
     return;
   }
   if (room === "history") {
-    paintConnectGate(el.historyDashboard, "Connect Sleeper to open titles and records.");
+    paintConnectGate(el.historyDashboard, "Find my leagues to open titles and records.");
     clearHost(el.loyaltyDashboard);
     return;
   }
-  paintConnectGate(el.powerDashboard, "Connect Sleeper to see your roster, outlook, and who to start.");
+  paintConnectGate(el.powerDashboard, "Find my leagues to see your roster, outlook, and who to start.");
   clearHost(el.windowCallDashboard);
   clearHost(el.rosterSheet);
   document.querySelector("#roster-sheet-section")?.classList.add("hidden");
@@ -3396,7 +3405,7 @@ function renderStartRoom() {
   const host = el.startDashboard;
   if (!host) return;
   if (!state.league || state.normalizedRosters.length === 0) {
-    host.innerHTML = `<p class="muted">Load a league to pick a job.</p>`;
+    host.innerHTML = `<p class="muted">Find my leagues to pick a job.</p>`;
     return;
   }
   const me = String(getMyRoster()?.manager?.displayName || "").trim();
@@ -3864,7 +3873,6 @@ function renderHomePowerBoard(profiles, model) {
 // ---------------------------------------------------------------------------
 
 function renderTeamsPage() {
-  document.querySelector("#roster-sheet-section")?.classList.remove("hidden");
   syncLeagueFormatCopy();
   const generation = ++teamsPaintGeneration;
   if (!peekLeaguePowerBoard()) {
@@ -5111,14 +5119,16 @@ function weeklyModelForAsset(asset) {
 }
 
 function renderRosterSheet() {
-  document.querySelector("#roster-sheet-section")?.classList.remove("hidden");
-  if (!el.rosterSheet) {
+  const section = document.querySelector("#roster-sheet-section");
+  const roster = getLensRoster();
+  if (!state.leagueId || !roster) {
+    section?.classList.add("hidden");
+    if (el.rosterSheet) el.rosterSheet.innerHTML = "";
     syncWeeklyScoreHelp();
     return;
   }
-  const roster = getLensRoster();
-  if (!roster) {
-    el.rosterSheet.innerHTML = `<p class="muted">Choose a team to open the roster sheet.</p>`;
+  section?.classList.remove("hidden");
+  if (!el.rosterSheet) {
     syncWeeklyScoreHelp();
     return;
   }
@@ -5681,8 +5691,8 @@ function renderDraftNotice() {
     <div class="draft-notice" role="status">
       <p>${escapeHtml(text)}</p>
       <div class="draft-notice-actions">
-        <button type="button" class="ghost-btn" data-action="draft-restore">Bring it back</button>
-        <button type="button" class="ghost-btn" data-action="draft-dismiss">Dismiss</button>
+        <button type="button" class="ghost-btn" data-action="draft-restore">Restore draft</button>
+        <button type="button" class="ghost-btn" data-action="draft-dismiss">Keep new</button>
       </div>
     </div>
   `;
@@ -5845,6 +5855,7 @@ function draftSuggestionRows(side, view) {
         continue;
       }
       const price = draftMarketPrice(asset, basis);
+      if (asset.assetType !== "pick" && !(Number(price.value) > 0)) continue;
       const mine = rosterId === meId;
       rows.push({
         assetId: asset.assetId,
@@ -5888,7 +5899,7 @@ function renderDraftSuggestions(side, view) {
     return "";
   }
   return rows.map((row) => `
-    <div class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType === "pick" ? "pick" : "player"}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""} role="button" tabindex="-1">
+    <button type="button" class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType === "pick" ? "pick" : "player"}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""}>
       <div class="asset-row-top">
         ${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}
         <div class="asset-name-stack">
@@ -5900,7 +5911,7 @@ function renderDraftSuggestions(side, view) {
         </div>
         <span class="asset-value-badge" title="Model price">${formatNumber(row.value)}${row.estimated ? " est" : ""}</span>
       </div>
-    </div>
+    </button>
   `).join("");
 }
 
@@ -5908,16 +5919,24 @@ function nextRookieDraftSeason() {
   return tradablePickSeason(state.nflState);
 }
 
-// A pick that can still be traded, close to the gap. Past drafts are already players.
+// A future pick evens the gap only when its price actually covers it.
 function findEvenUpPick(gap, values) {
   const first = nextRookieDraftSeason();
   const picks = listGenericPicks(values).filter((pick) => Number(pick.season) >= first);
-  let best = null;
-  for (const pick of picks) {
-    const miss = Math.abs(pick.value - gap);
-    if (!best || miss < best.miss) best = { ...pick, miss };
+  return evenUpPickChoice(gap, picks);
+}
+
+function evenUpCopy(choice, side) {
+  if (!choice) return "";
+  const verb = side === "You" || side === "They" ? "add" : "adds";
+  if (choice.closes) {
+    return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
   }
-  return best && best.miss <= gap * 0.5 ? best : null;
+  const short = choice.value < choice.gap;
+  const why = short
+    ? `It covers ${formatNumber(choice.value)} of a ${formatNumber(choice.gap)} gap, so it does not close.`
+    : `It is ${formatNumber(choice.value - choice.gap)} more than the ${formatNumber(choice.gap)} gap.`;
+  return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}). ${why}`;
 }
 
 function renderDraftMethod(view) {
@@ -5953,9 +5972,10 @@ function renderDraftVerdict(view) {
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
         <h3>${escapeHtml(label)}</h3>
+        ${/* TODO(follow-up): spell a bare percent ("96% apart") as a plain outcome. Out of scope for this push. */ ""}
         <p>You give ${formatNumber(model.give)}. You get ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : adjustment ? "" : ` ${verdict.pct}% apart.`}</p>
-        ${adjustment ? `<p class="draft-package"><strong>Package adjustment:</strong> +${formatNumber(adjustment.amount)} to ${credited}, which has the best player. After it the sides are ${verdict.pct}% apart.</p>` : ""}
-        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenSide)} add${evenSide === "You" || evenSide === "They" ? "" : "s"} about ${formatNumber(Math.round(Math.abs(verdict.gap)))}, roughly a ${escapeHtml(evenUp.name)} (${formatNumber(evenUp.value)}).</p>` : ""}
+        ${adjustment ? `<p class="draft-package"><strong>Package credit:</strong> the best player is worth more than the same total split into smaller pieces. That adds ${formatNumber(adjustment.amount)} to ${escapeHtml(credited)}. Listed prices stay put. After that credit the sides are ${verdict.pct}% apart.</p>` : ""}
+        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method">
           <summary>How this number works</summary>
           ${renderDraftMethod(view)}
@@ -6015,9 +6035,9 @@ function renderDraftTeam(view) {
       <section class="draft-team-card">
         <div>
           <span class="analytics-kicker">Your team</span>
-          <p>Connect Sleeper to see who owns each piece and what this trade does to both rosters. This trade stays here.</p>
+          <p>Find my leagues to see who owns each piece and what this trade does to both rosters. This trade stays here.</p>
         </div>
-        <button type="button" data-action="draft-connect">Connect Sleeper</button>
+        <button type="button" data-action="draft-connect">Find my leagues</button>
       </section>
     `;
   }
@@ -6274,6 +6294,20 @@ function handleWorkspaceKeydown(event) {
       pickDraftSuggestion(item);
       return;
     }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
+      if (String(query || "").trim()) {
+        if (side === "right") state.valueCalc.rightQuery = "";
+        else state.valueCalc.leftQuery = "";
+        clearCalcSearchBox(search);
+        refreshDraftSuggestions(side);
+        search.focus();
+        return;
+      }
+      search.blur();
+      return;
+    }
   }
   if (event.key !== "Enter" && event.key !== " ") return;
   const target = event.target.closest("[data-action][role='button']");
@@ -6336,6 +6370,11 @@ function handleWorkspaceClick(event) {
       break;
     case "rank-pos":
       state.ranks.position = target.dataset.pos || "ALL";
+      state.ranks.shown = RANK_PAGE_SIZE;
+      renderRankSurfaces();
+      break;
+    case "ranks-more":
+      state.ranks.shown = (Number(state.ranks.shown) || RANK_PAGE_SIZE) + RANK_PAGE_SIZE;
       renderRankSurfaces();
       break;
     case "rank-format":
@@ -6519,7 +6558,10 @@ function handleWorkspaceInput(event) {
   }
   if (target.dataset.input === "ranks-search") {
     state.ranks.query = target.value;
-    renderRankHost(target.closest("#ranks-dashboard, #public-ranks-board") || el.ranksDashboard);
+    state.ranks.shown = RANK_PAGE_SIZE;
+    const host = target.closest("#ranks-dashboard, #public-ranks-board") || el.ranksDashboard;
+    clearTimeout(ranksSearchTimer);
+    ranksSearchTimer = setTimeout(() => renderRankHost(host), 180);
   }
 }
 
@@ -9491,7 +9533,7 @@ function syncMatchGenerateState() {
   }
   if (el.matchGenerateHelp) {
     el.matchGenerateHelp.textContent = !state.leagueId
-      ? "Load a league and pick your team."
+      ? "Find my leagues and pick your team."
       : !state.meRosterId
         ? "Choose your team first."
         : "Looks at holes, surplus, and contend vs tank. No leftover thirds.";
@@ -9512,7 +9554,7 @@ function syncFindGuestChrome(guest) {
 function renderTradeMatchRoom() {
   if (!state.leagueId) {
     syncFindGuestChrome(true);
-    paintConnectGate(el.tradeMatchNeeds, "Connect Sleeper to find a partner or shop a player. Check an offer still works without a league.");
+    paintConnectGate(el.tradeMatchNeeds, "Find my leagues to find a partner or shop a player. Check an offer still works without a league.");
     clearHost(el.tradeMatchDashboard);
     return;
   }
@@ -16110,13 +16152,18 @@ document.addEventListener("error", (event) => {
 }, true);
 
 function watchLandingSearchVisibility() {
-  if (landingSearchObserver || typeof IntersectionObserver !== "function" || !el.landingUsernameForm) return;
+  if (landingSearchObserver || typeof IntersectionObserver !== "function") return;
+  const targets = [el.landingUsernameForm, el.usernameSearchForm].filter(Boolean);
+  if (!targets.length) return;
+  const seen = new Map();
   landingSearchObserver = new IntersectionObserver((entries) => {
-    const entry = entries[0];
-    landingSearchOffscreen = Boolean(entry) && entry.intersectionRatio < 0.35;
+    entries.forEach((entry) => {
+      seen.set(entry.target, entry.intersectionRatio >= 0.35);
+    });
+    landingSearchOffscreen = ![...seen.values()].some(Boolean);
     syncSiteDock();
   }, { threshold: [0, 0.35, 1] });
-  landingSearchObserver.observe(el.landingUsernameForm);
+  targets.forEach((node) => landingSearchObserver.observe(node));
 }
 
 function syncSiteDock() {
@@ -16165,7 +16212,7 @@ function stopLeagueLoadingUi() {
   el.landingLoading?.classList.add("hidden");
   if (el.stickyFindBtn) {
     el.stickyFindBtn.disabled = false;
-    el.stickyFindBtn.textContent = "Find leagues";
+    el.stickyFindBtn.textContent = "Find my leagues";
   }
   if (!el.loadLeagueBtn) return;
   el.loadLeagueBtn.disabled = false;

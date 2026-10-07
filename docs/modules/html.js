@@ -97,8 +97,8 @@ export function renderTradeMove(row, formatValue = formatNumber) {
 }
 
 export function renderConnectGate({
-  copy = "Connect Sleeper to open this.",
-  label = "Connect Sleeper",
+  copy = "Find my leagues to open this.",
+  label = "Find my leagues",
   action = "draft-connect",
 } = {}) {
   return `

@@ -159,7 +159,9 @@ test("both calculator shells keep using the sticky text search", () => {
   assert.match(app, /pickDraftSuggestion\(/);
   assert.match(app, /swallowCalcClick/);
   assert.match(app, /calcSuggestionFromList\(/);
-  assert.match(app, /tabindex="-1"/);
+  assert.match(app, /<button type="button" class="player-item calc-item"/);
+  assert.doesNotMatch(app, /class="player-item calc-item"[^>]*role="button"/);
+  assert.doesNotMatch(app, /class="player-item calc-item"[^>]*tabindex="-1"/);
   assert.doesNotMatch(app, /class="calc-search"[^>]*type="search"/);
   assert.doesNotMatch(app, /type="search"[^>]*class="calc-search"/);
 });

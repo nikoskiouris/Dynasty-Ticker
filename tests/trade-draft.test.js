@@ -19,6 +19,7 @@ import {
   draftMarketPrice,
   draftMeterValues,
   draftNoticeText,
+  evenUpPickChoice,
   draftSideForAsset,
   draftTeamSummary,
   draftVerdictModel,
@@ -249,7 +250,7 @@ test("one verdict: market totals stay visible, an uneven package gets a labeled 
   assert.deepEqual(draftVerdictModel([10321], [7700, 7300], { globalMaxValue: 10321 }), starForTwo, "same prices, same answer");
 });
 
-test("cleared-both-sides is only said after a real clear of both sides", () => {
+test("an explicit clear offers the saved draft back, and nothing else claims a clear", () => {
   const both = {
     left: [{ name: "Puka Nacua" }],
     right: [{ name: "Drake London" }],
@@ -257,12 +258,29 @@ test("cleared-both-sides is only said after a real clear of both sides", () => {
   const one = { left: [{ name: "Puka Nacua" }], right: [] };
   const empty = { left: [], right: [] };
   const filled = { left: [{ name: "Brock Bowers" }], right: [] };
-  assert.match(draftNoticeText({ note: "Cleared both sides.", saved: both, current: empty }), /^Cleared both sides\. Saved: Puka Nacua for Drake London\./);
-  assert.match(draftNoticeText({ note: "Cleared both sides.", saved: one, current: empty }), /^Cleared the trade\./);
-  assert.match(draftNoticeText({ note: "Cleared both sides.", saved: both, current: filled }), /^Previous trade saved:/);
-  assert.doesNotMatch(draftNoticeText({ note: "Cleared both sides.", saved: both, current: filled }), /Cleared both sides/);
+  const cleared = draftNoticeText({ note: "Cleared both sides.", saved: both, current: empty });
+  assert.equal(cleared, "Started a new trade. Restore your Puka Nacua for Drake London draft?");
+  assert.equal(
+    draftNoticeText({ note: "Cleared both sides.", saved: one, current: empty }),
+    "Started a new trade. Restore your Puka Nacua for nothing draft?",
+  );
+  assert.equal(draftNoticeText({ note: "Cleared both sides.", saved: both, current: filled }), cleared);
+  assert.doesNotMatch(cleared, /Cleared both sides/);
   assert.equal(draftNoticeText({ note: "Cleared both sides.", saved: empty, current: empty }), "");
   assert.match(draftNoticeText({ note: "Opened the trade with Chris.", saved: both, current: filled }), /Opened the trade with Chris\. Saved:/);
+});
+
+test("even-up only names a pick that can close the gap", () => {
+  const wide = evenUpPickChoice(11000, [{ name: "2027 Early 1st", value: 6300 }]);
+  assert.equal(wide.closes, false);
+  assert.equal(wide.name, "2027 Early 1st");
+  const close = evenUpPickChoice(7000, [
+    { name: "2027 Early 1st", value: 6300 },
+    { name: "2027 Late 1st", value: 4100 },
+  ]);
+  assert.equal(close.closes, true);
+  assert.equal(close.name, "2027 Early 1st");
+  assert.equal(evenUpPickChoice(0, [{ name: "2027 Early 1st", value: 6300 }]), null);
 });
 
 test("the verdict reads from the manager's seat", () => {
