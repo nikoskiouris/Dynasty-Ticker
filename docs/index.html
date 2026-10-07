@@ -141,10 +141,11 @@
             </form>
           </details>
 
-          <p id="league-status" class="status muted" aria-live="polite">
+          <div id="league-status" class="status muted" aria-live="polite">
             <span id="league-status-loader" class="status-loader hidden" aria-hidden="true"></span>
             <span id="league-status-text">Search your Sleeper username to pick a league.</span>
-          </p>
+            <button type="button" id="league-status-retry" class="ghost-btn status-retry hidden">Try again</button>
+          </div>
         </section>
 
         <section class="rail-module hidden" id="identity-section">

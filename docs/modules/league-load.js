@@ -1,6 +1,12 @@
 // One league load at a time. A newer request waits, then runs.
 // A request squeezed between two others never loads.
 
+export function shouldBlankDeskForLeagueSwitch(currentLeagueId, nextLeagueId) {
+  const next = String(nextLeagueId || "");
+  const current = String(currentLeagueId || "");
+  return Boolean(next) && Boolean(current) && next !== current;
+}
+
 export function createLeagueLoader() {
   let serial = 0;
   let latestId = "";
