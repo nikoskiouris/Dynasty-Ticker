@@ -37,6 +37,31 @@ export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxVa
   return { give, get, compareGive, compareGet, adjustment, verdict: valueCalcVerdict(compareGive, compareGet) };
 }
 
+export const CLEARED_BOTH_SIDES_NOTE = "Cleared both sides.";
+
+// Clear saves the old draft for undo. The banner should leave once a new piece is added.
+export function noticeAfterDraftAdd(notice) {
+  if (!notice) return null;
+  if (notice.note === CLEARED_BOTH_SIDES_NOTE) return null;
+  return notice;
+}
+
+// Pane numbers stay the listed prices. Bar length still follows the package credit.
+export function draftBarReadout(model = {}) {
+  const give = Math.round(Number(model.give) || 0);
+  const get = Math.round(Number(model.get) || 0);
+  const compareGive = Math.max(0, Number(model.compareGive) || 0);
+  const compareGet = Math.max(0, Number(model.compareGet) || 0);
+  const maxSide = Math.max(compareGive, compareGet, 1);
+  return {
+    give,
+    get,
+    giveWidth: Math.round((compareGive / maxSide) * 100),
+    getWidth: Math.round((compareGet / maxSide) * 100),
+    showCreditNote: Boolean(model.adjustment),
+  };
+}
+
 export function isDraftEmpty(draft) {
   return !draft?.left?.length && !draft?.right?.length;
 }

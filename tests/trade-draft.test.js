@@ -13,13 +13,16 @@ import {
   valueCalcVerdict,
 } from "../docs/modules/value-calc.js";
 import {
+  CLEARED_BOTH_SIDES_NOTE,
   TRADE_DRAFT_STORAGE_KEY,
   describeDraftItem,
+  draftBarReadout,
   draftFromReview,
   draftMarketPrice,
   draftSideForAsset,
   draftTeamSummary,
   draftVerdictModel,
+  noticeAfterDraftAdd,
   placeAfterConnect,
   readStoredDraft,
   resolveDraftContext,
@@ -244,6 +247,27 @@ test("one verdict: market totals stay visible, an uneven package gets a labeled 
   assert.equal(oneSided.adjustment, null);
   assert.equal(oneSided.verdict.label, "Add the other side");
   assert.deepEqual(draftVerdictModel([10321], [7700, 7300], { globalMaxValue: 10321 }), starForTwo, "same prices, same answer");
+});
+
+test("bar numbers match listed prices and a clear banner drops on the next add", () => {
+  const starForTwo = draftVerdictModel([10321], [7700, 7300], { globalMaxValue: 10321 });
+  const bars = draftBarReadout(starForTwo);
+  assert.equal(bars.give, starForTwo.give);
+  assert.equal(bars.get, starForTwo.get);
+  assert.equal(bars.showCreditNote, true);
+  assert.notEqual(bars.give, starForTwo.compareGive);
+  const maxSide = Math.max(starForTwo.compareGive, starForTwo.compareGet, 1);
+  assert.equal(bars.giveWidth, Math.round((starForTwo.compareGive / maxSide) * 100));
+  assert.equal(bars.getWidth, Math.round((starForTwo.compareGet / maxSide) * 100));
+  const saved = { note: CLEARED_BOTH_SIDES_NOTE, draft: { left: [{ assetId: "player:1" }] } };
+  assert.equal(noticeAfterDraftAdd(saved), null);
+  const opened = { note: "Opened that trade.", draft: saved.draft };
+  assert.equal(noticeAfterDraftAdd(opened), opened);
+  assert.equal(noticeAfterDraftAdd(null), null);
+  const app = readFileSync(join(root, "docs/app.js"), "utf8");
+  assert.match(app, /draftBarReadout\(/);
+  assert.match(app, /noticeAfterDraftAdd\(/);
+  assert.doesNotMatch(app, /weights stars above the market/);
 });
 
 test("the verdict reads from the manager's seat", () => {

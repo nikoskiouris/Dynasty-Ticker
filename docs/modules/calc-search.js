@@ -100,6 +100,16 @@ export function clearCalcSearchBox(input) {
   return true;
 }
 
+// Enter in the search box adds the first suggestion. Rows stay tabindex="-1"
+// so the caret never leaves the box on mobile.
+export function suggestionRowForSearchEnter(event, root) {
+  if (!event || event.key !== "Enter" || event.isComposing) return null;
+  if (readAttr(event.target, "data-input") !== "value-search") return null;
+  const side = readAttr(event.target, "data-side") === "right" ? "right" : "left";
+  const list = root?.querySelector?.(`#value-list-${side}`);
+  return list?.querySelector?.(".calc-item[data-action='value-add']") || null;
+}
+
 export function shouldHoldCalcSearchFocus(event, doc = globalThis.document) {
   const item = event?.target?.closest?.(".calc-item[data-action]");
   if (!item) return false;

@@ -117,12 +117,15 @@ import {
 import {
   describeDraftItem,
   draftFromReview,
+  CLEARED_BOTH_SIDES_NOTE,
+  draftBarReadout,
   draftMarketPrice,
   draftVerdictModel,
   draftSideForAsset,
   draftSummaryLine,
   draftTeamSummary,
   isDraftEmpty,
+  noticeAfterDraftAdd,
   placeAfterConnect,
   readStoredDraft,
   resolveDraftContext,
@@ -134,6 +137,7 @@ import {
   keepCalcSearchFocused,
   renderCalcSearchInput,
   shouldHoldCalcSearchFocus,
+  suggestionRowForSearchEnter,
   shouldResetCalcSearchOnPick,
 } from "./modules/calc-search.js";
 import { ideaPackageKey, selectNextDiverse } from "./modules/deal-more.js";
@@ -5869,7 +5873,7 @@ function renderDraftVerdict(view) {
   const them = view.partner?.manager?.displayName || "them";
   const { verdict, adjustment } = model;
   const label = draftVerdictLabel(verdict, { them });
-  const maxSide = Math.max(model.compareGive, model.compareGet, 1);
+  const bars = draftBarReadout(model);
   const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(Math.abs(verdict.gap), view.basis.values) : null;
   const evenSide = verdict.gap > 0 ? "You" : (view.partner ? them : "They");
   const credited = adjustment?.side === "left" ? "You give" : "You get";
@@ -5889,14 +5893,15 @@ function renderDraftVerdict(view) {
       <div class="calc-bars">
         <div class="calc-bar team-a">
           <span>You give</span>
-          <div class="meter-track"><span style="width:${Math.round(model.compareGive / maxSide * 100)}%"></span></div>
-          <strong>${formatNumber(model.compareGive)}</strong>
+          <div class="meter-track"><span style="width:${bars.giveWidth}%"></span></div>
+          <strong>${formatNumber(bars.give)}</strong>
         </div>
         <div class="calc-bar team-b">
           <span>You get</span>
-          <div class="meter-track"><span style="width:${Math.round(model.compareGet / maxSide * 100)}%"></span></div>
-          <strong>${formatNumber(model.compareGet)}</strong>
+          <div class="meter-track"><span style="width:${bars.getWidth}%"></span></div>
+          <strong>${formatNumber(bars.get)}</strong>
         </div>
+        ${bars.showCreditNote ? `<p class="muted small calc-bar-note">Numbers match the listed prices. Bar length includes the package credit.</p>` : ""}
       </div>
       <div class="calc-actions">
         <button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>
@@ -5973,7 +5978,7 @@ function renderDraftTeam(view) {
       <div>
         <span class="analytics-kicker">Team impact</span>
         <h3>With ${escapeHtml(partnerName)}</h3>
-        <p class="muted small">Lineup rank and values come from the same league model as My League. It weights stars above the market prices above and is not a weekly projection.</p>
+        <p class="muted small">Lineup rank uses the same prices as the calculator. It shows how the trade changes the starting lineup, not a weekly score.</p>
       </div>
       <div class="calc-actions">
         <button type="button" class="ghost-btn" data-action="calc-copy" data-offer="${escapeHtml(buildDraftOfferText(view))}">Copy offer text</button>
@@ -5987,6 +5992,7 @@ function renderDraftTeam(view) {
 function addDraftAsset(side, asset) {
   const next = addValueCalcItem(state.valueCalc, side === "right" ? "right" : "left", asset);
   if (next === state.valueCalc) return false;
+  draftReplaced = noticeAfterDraftAdd(draftReplaced);
   setDraft(next);
   return true;
 }
@@ -6143,6 +6149,12 @@ function renderTicker() {
 // ---------------------------------------------------------------------------
 
 function handleWorkspaceKeydown(event) {
+  const suggestion = suggestionRowForSearchEnter(event, el.workspace);
+  if (suggestion) {
+    event.preventDefault();
+    suggestion.click();
+    return;
+  }
   if (event.key !== "Enter" && event.key !== " ") return;
   const target = event.target.closest("[data-action][role='button']");
   if (!target || event.target !== target || !el.workspace?.contains(target)) return;
@@ -6313,7 +6325,7 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "value-clear": {
-      replaceDraft(clearValueCalcSides(state.valueCalc), "Cleared both sides.");
+      replaceDraft(clearValueCalcSides(state.valueCalc), CLEARED_BOTH_SIDES_NOTE);
       patchTradeDraft(["left", "right"]);
       break;
     }

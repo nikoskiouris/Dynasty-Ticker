@@ -12,6 +12,7 @@ import {
   restoreFocusedCalcSearch,
   shouldHoldCalcSearchFocus,
   shouldResetCalcSearchOnPick,
+  suggestionRowForSearchEnter,
   snapshotFocusedCalcSearch,
 } from "../docs/modules/calc-search.js";
 import { listValueCalcAssets } from "../docs/modules/value-calc.js";
@@ -105,6 +106,32 @@ test("pointer down on a result keeps the filter box focused", () => {
   assert.equal(shouldHoldCalcSearchFocus({ target: { closest: () => null } }, doc), false);
 });
 
+test("Enter in the search box activates the first suggestion", () => {
+  const row = { click() { row.clicked = true; } };
+  const list = {
+    querySelector(selector) {
+      return selector === ".calc-item[data-action='value-add']" ? row : null;
+    },
+  };
+  const root = {
+    querySelector(selector) {
+      return selector === "#value-list-left" ? list : null;
+    },
+  };
+  const input = {
+    getAttribute(name) {
+      if (name === "data-input") return "value-search";
+      if (name === "data-side") return "left";
+      return "";
+    },
+  };
+  const hit = suggestionRowForSearchEnter({ key: "Enter", target: input }, root);
+  assert.equal(hit, row);
+  assert.equal(suggestionRowForSearchEnter({ key: " ", target: input }, root), null);
+  assert.equal(suggestionRowForSearchEnter({ key: "Enter", isComposing: true, target: input }, root), null);
+  assert.equal(suggestionRowForSearchEnter({ key: "Enter", target: { getAttribute: () => "ranks-search" } }, root), null);
+});
+
 test("both calculator shells keep using the sticky text search", () => {
   const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/app.js"), "utf8");
   assert.match(app, /renderCalcSearchInput\(/);
@@ -112,6 +139,7 @@ test("both calculator shells keep using the sticky text search", () => {
   assert.match(app, /clearCalcSearchBox\(/);
   assert.match(app, /shouldResetCalcSearchOnPick\(/);
   assert.match(app, /tabindex="-1"/);
+  assert.match(app, /suggestionRowForSearchEnter\(/);
   assert.doesNotMatch(app, /class="calc-search"[^>]*type="search"/);
   assert.doesNotMatch(app, /type="search"[^>]*class="calc-search"/);
 });
