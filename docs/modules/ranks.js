@@ -262,13 +262,70 @@ export function renderRanksMarkup(view) {
   `;
 }
 
+export const RANK_ROW_HEIGHT = 64;
+export const RANK_WINDOW_HEIGHT = 640;
+export const RANK_WINDOW_OVERSCAN = 6;
+
+export function rankListWindow(rows, {
+  scrollTop = 0,
+  height = RANK_WINDOW_HEIGHT,
+  rowHeight = RANK_ROW_HEIGHT,
+  overscan = RANK_WINDOW_OVERSCAN,
+} = {}) {
+  const list = Array.isArray(rows) ? rows : [];
+  const total = list.length;
+  const row = Math.max(32, Number(rowHeight) || RANK_ROW_HEIGHT);
+  const viewport = Math.max(row, Number(height) || RANK_WINDOW_HEIGHT);
+  const extra = Math.max(0, Number(overscan) || 0);
+  const visibleCount = Math.ceil(viewport / row) + extra * 2;
+  if (total <= visibleCount) {
+    return {
+      start: 0,
+      end: total,
+      total,
+      rows: list,
+      offsetY: 0,
+      height: 0,
+      rowHeight: row,
+      virtual: false,
+    };
+  }
+  const start = Math.max(0, Math.floor((Number(scrollTop) || 0) / row) - extra);
+  const end = Math.min(total, start + visibleCount);
+  return {
+    start,
+    end,
+    total,
+    rows: list.slice(start, end),
+    offsetY: start * row,
+    height: total * row,
+    rowHeight: row,
+    virtual: true,
+  };
+}
+
 export function renderRanksBody(view) {
   const card = view?.card ? renderRankCard(view.card, { leagueOpen: view.leagueOpen }) : "";
   const rows = Array.isArray(view?.rows) ? view.rows : [];
+  const listWindow = view?.listWindow || null;
   const list = rows.length
-    ? `<div class="ranks-list">${rows.map((row) => renderRankRow(row, row.assetId === view?.card?.assetId)).join("")}</div>`
+    ? renderRankList(rows, listWindow, view?.card?.assetId)
     : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
   return `${renderRanksShelf(rows)}${card}${list}`;
+}
+
+function renderRankList(rows, listWindow, selectedId) {
+  const windowed = listWindow?.virtual ? listWindow : null;
+  const source = windowed ? windowed.rows : rows;
+  const items = source.map((row) => renderRankRow(row, row.assetId === selectedId)).join("");
+  if (!windowed) return `<div class="ranks-list">${items}</div>`;
+  return `
+    <div class="ranks-window" data-ranks-window data-window-start="${windowed.start}" data-window-end="${windowed.end}">
+      <div class="ranks-spacer" style="height:${windowed.height}px">
+        <div class="ranks-list" style="transform:translateY(${windowed.offsetY}px)">${items}</div>
+      </div>
+    </div>
+  `;
 }
 
 function renderRanksShelf(rows) {

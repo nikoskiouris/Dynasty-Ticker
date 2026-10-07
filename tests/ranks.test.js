@@ -8,6 +8,7 @@ import {
   marketTape,
   ownerLine,
   pickEqualLine,
+  rankListWindow,
   rankView,
   renderRanksMarkup,
   sameMoney,
@@ -169,4 +170,25 @@ test("markup escapes names and opens the selected card", () => {
   assert.equal(isRankAssetId("pick:2027:r1:nope"), false);
   const loading = renderRanksMarkup({ loading: true });
   assert.match(loading, /Loading player values/);
+});
+
+test("rank list window renders a slice instead of the whole board", () => {
+  const rows = Array.from({ length: 120 }, (_, index) => ({ assetId: `player:${index}`, name: `Player ${index}` }));
+  const top = rankListWindow(rows, { scrollTop: 0, height: 320, rowHeight: 64, overscan: 2 });
+  assert.equal(top.virtual, true);
+  assert.equal(top.start, 0);
+  assert.ok(top.rows.length < 20);
+  assert.ok(top.rows.length < rows.length);
+  const mid = rankListWindow(rows, { scrollTop: 640, height: 320, rowHeight: 64, overscan: 2 });
+  assert.ok(mid.start > 0);
+  assert.equal(mid.rows[0].assetId, `player:${mid.start}`);
+  const html = renderRanksMarkup({
+    rows,
+    position: "ALL",
+    format: "sf",
+    listWindow: mid,
+    emptyLabel: "",
+  });
+  assert.match(html, /data-ranks-window/);
+  assert.equal((html.match(/data-action="rank-open"/g) || []).length, mid.rows.length);
 });

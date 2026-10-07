@@ -4,7 +4,8 @@ import { emptyWeeklyValueState } from "./weekly-value.js";
 import { emptyMockDrafts } from "./mock-drafts.js";
 import { emptyValueCalcState } from "./value-calc.js";
 
-export const PLAYERS_CACHE_KEY = "fda_players_nfl_cache_v1";
+export const PLAYERS_CACHE_KEY = "fda_players_nfl_cache_v2";
+export const PLAYERS_CACHE_KEY_V1 = "fda_players_nfl_cache_v1";
 export const DEFAULT_THEME = "dark";
 export const THEME_COLOR = "#0c0c0e";
 

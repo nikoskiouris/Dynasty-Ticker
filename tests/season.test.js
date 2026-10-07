@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildSeasonModel,
+  createSeasonSimRun,
+  formatMissingWeeks,
   simulateSeason,
   computeWeeklyAwards,
   computeSeasonSuperlatives,
@@ -510,6 +512,51 @@ test("a duplicate roster row cannot bank two results in one week", () => {
   assert.equal(model.teams.get("1").gamesPlayed, 1);
   assert.equal(model.teams.get("1").pf, 90);
   assert.equal(model.teams.get("2").gamesPlayed, 1);
+});
+
+test("a missing mid-season week stops the record before the gap", () => {
+  const model = buildSeasonModel({
+    league: leagueFixture({ lastScored: 3, leg: 4 }),
+    rosters: rosters(),
+    users: users(),
+    weekRows: new Map([
+      [1, [side(1, 1, 100), side(2, 1, 80), side(3, 2, 90), side(4, 2, 70)]],
+      [3, [side(1, 1, 110), side(4, 1, 70), side(2, 2, 120), side(3, 2, 60)]],
+    ]),
+    nflState: { season: "2026", week: 4, season_type: "regular" },
+  });
+  assert.deepEqual(model.missingScoredWeeks, [2]);
+  assert.equal(model.scheduleIncomplete, true);
+  assert.equal(model.standingsThroughWeek, 1);
+  assert.equal(model.teams.get("1").wins, 1);
+  assert.equal(model.teams.get("1").gamesPlayed, 1);
+  assert.equal(simulateSeason(model, { iterations: 20, seed: 1 }), null);
+  assert.match(formatMissingWeeks(model.missingScoredWeeks), /Week 2 did not load/);
+  assert.match(formatMissingWeeks([4, 5, 6, 9]), /4–6, 9/);
+});
+
+test("sliced season sim matches one full run", () => {
+  const model = buildSeasonModel({
+    league: leagueFixture({ lastScored: 1, leg: 2, playoffTeams: 2 }),
+    rosters: rosters(),
+    users: users(),
+    weekRows: new Map([
+      [1, [side(1, 1, 110), side(2, 1, 90), side(3, 2, 100), side(4, 2, 80)]],
+      [2, [side(1, 1, 0), side(3, 1, 0), side(2, 2, 0), side(4, 2, 0)]],
+      [3, [side(1, 1, 0), side(4, 1, 0), side(2, 2, 0), side(3, 2, 0)]],
+    ]),
+    nflState: { season: "2026", week: 2, season_type: "regular" },
+  });
+  const full = simulateSeason(model, { iterations: 40, seed: 3 });
+  const sliced = createSeasonSimRun(model, { iterations: 40, seed: 3 });
+  assert.equal(sliced.step(7), false);
+  assert.equal(sliced.done, false);
+  assert.equal(sliced.step(100), true);
+  assert.equal(sliced.result.iterations, full.iterations);
+  assert.deepEqual(
+    sliced.result.results.map((row) => [row.rosterId, row.playoffPct, row.titlePct, row.projectedWins]),
+    full.results.map((row) => [row.rosterId, row.playoffPct, row.titlePct, row.projectedWins])
+  );
 });
 
 test("an unfinished schedule does not clinch or simulate", () => {

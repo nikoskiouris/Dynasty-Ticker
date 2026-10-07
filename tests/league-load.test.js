@@ -104,5 +104,5 @@ test("desk uses the league loader and drops stale player refreshes", () => {
   assert.match(app, /createLeagueLoader/);
   assert.match(app, /leagueLoader\.run\(leagueId,/);
   assert.doesNotMatch(app, /if \(leagueLoadPromise\) return leagueLoadPromise/);
-  assert.match(app, /if \(!leagueLoader\.isCurrent\(token\)\) return/);
+  assert.match(app, /if \(!leagueLoader\.isCurrent\(token\) \|\| epoch !== leagueDataEpoch\) return/);
 });

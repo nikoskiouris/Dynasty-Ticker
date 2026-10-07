@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createSleeperClient, fetchUserLeagues, dedupeLeagues, preferLatestLeagues, mapInChunks } from "../docs/modules/sleeper.js";
+import { createSleeperClient, fetchUserLeagues, autoloadLeagueId, dedupeLeagues, preferLatestLeagues, mapInChunks } from "../docs/modules/sleeper.js";
 
 function jsonResponse(payload, status = 200, headers = {}) {
   return {
@@ -118,6 +118,57 @@ test("fetchUserLeagues drops rolled-over previous seasons", async () => {
   });
   const result = await fetchUserLeagues(client, "Niko", ["2026", "2025"]);
   assert.deepEqual(result.leagues.map((league) => league.league_id), ["now"]);
+});
+
+test("a failed current season is reported and does not autoload last year", async () => {
+  const client = createSleeperClient({
+    minIntervalMs: 0,
+    sleep: async () => {},
+    fetchImpl: async (url) => {
+      if (url.endsWith("/user/Niko")) return jsonResponse({ user_id: "u1", display_name: "Niko" });
+      if (url.includes("/leagues/nfl/2026")) return jsonResponse({ message: "nope" }, 500);
+      if (url.includes("/leagues/nfl/2025")) {
+        return jsonResponse([{ league_id: "old", name: "Try Hard", season: "2025" }]);
+      }
+      return jsonResponse([], 404);
+    },
+  });
+  const result = await fetchUserLeagues(client, "Niko", ["2026", "2025"]);
+  assert.deepEqual(result.failedSeasons, ["2026"]);
+  assert.equal(result.leagues[0].league_id, "old");
+  assert.equal(autoloadLeagueId(result.leagues, { currentSeason: "2026", failedSeasons: result.failedSeasons }), "");
+  assert.equal(autoloadLeagueId(
+    [{ league_id: "now", season: "2026" }],
+    { currentSeason: "2026", failedSeasons: [] }
+  ), "now");
+});
+
+test("invalidate drops queued Sleeper work and lets the next generation run", async () => {
+  let releaseFirst;
+  let calls = 0;
+  const client = createSleeperClient({
+    maxConcurrent: 1,
+    minIntervalMs: 0,
+    sleep: async () => {},
+    fetchImpl: () => new Promise((resolve) => {
+      calls += 1;
+      if (calls === 1) {
+        releaseFirst = resolve;
+        return;
+      }
+      resolve(jsonResponse({ n: calls }));
+    }),
+  });
+  const first = client.apiGet("/a");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const queued = client.apiGet("/b");
+  const generation = client.invalidate();
+  const next = client.apiGet("/c");
+  releaseFirst(jsonResponse({ n: 1 }));
+  assert.equal((await first).n, 1);
+  await assert.rejects(queued, (err) => err.cancelled === true);
+  assert.equal((await next).n, 2);
+  assert.equal(client.generation, generation);
 });
 
 test("mapInChunks preserves order and isolates failures", async () => {

@@ -7942,6 +7942,29 @@ button.ranks-shelf-item strong {
   font-variant-numeric: tabular-nums;
 }
 
+.ranks-window {
+  max-height: min(70vh, 40rem);
+  overflow: auto;
+  border-top: 2px solid var(--text);
+}
+
+.ranks-spacer {
+  position: relative;
+}
+
+.ranks-window .ranks-list {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-top: 0;
+}
+
+.ranks-window button.ranks-row {
+  box-sizing: border-box;
+  min-height: 64px;
+}
+
 .ranks-list,
 .ranks-neighbors {
   display: grid;

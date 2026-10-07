@@ -86,7 +86,17 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     });
   });
 
-  weeks.filter((entry) => entry.isFinal && !entry.isPlayoff && entry.hasPoints).forEach((entry) => {
+  const missingScoredWeeks = regularWeeks.filter((week) => week <= weekState.finalThroughWeek && !weekRows.has(week));
+  const standingsHole = missingScoredWeeks.length ? missingScoredWeeks[0] : null;
+  let standingsThroughWeek = standingsHole != null ? 0 : weekState.finalThroughWeek;
+
+  // A missing scored week is a hole. Later weeks stay out so the record does not skip the gap.
+  weeks.filter((entry) => {
+    if (!(entry.isFinal && !entry.isPlayoff && entry.hasPoints)) return false;
+    if (standingsHole != null && entry.week >= standingsHole) return false;
+    return true;
+  }).forEach((entry) => {
+    standingsThroughWeek = Math.max(standingsThroughWeek, entry.week);
     const weekScores = [];
     entry.games.forEach((game) => {
       const [left, right] = game.sides;
@@ -195,7 +205,7 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     .flatMap((entry) => entry.games.map((game) => ({ week: entry.week, game })));
   // A missing week, or a future week Sleeper has not scheduled yet, is not
   // "zero games left". Locks and the Monte Carlo both read remainingGames.
-  const scheduleIncomplete = weeks.some((entry) => {
+  const scheduleIncomplete = missingScoredWeeks.length > 0 || weeks.some((entry) => {
     if (entry.isPlayoff || entry.isFinal) return false;
     if (!weekRows.has(entry.week)) return true;
     return entry.games.length === 0 && entry.byes.length === 0;
@@ -240,7 +250,33 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     featuredWeek,
     weeksLoaded: weekRows.size,
     scheduleIncomplete,
+    missingScoredWeeks,
+    standingsThroughWeek,
   };
+}
+
+export function formatMissingWeeks(weeks) {
+  const nums = [...new Set((Array.isArray(weeks) ? weeks : []).map(Number))]
+    .filter((week) => Number.isFinite(week))
+    .sort((a, b) => a - b);
+  if (!nums.length) return "";
+  const ranges = [];
+  let start = nums[0];
+  let prev = nums[0];
+  for (let index = 1; index <= nums.length; index += 1) {
+    const week = nums[index];
+    if (week === prev + 1) {
+      prev = week;
+      continue;
+    }
+    ranges.push(start === prev ? String(start) : `${start}–${prev}`);
+    start = week;
+    prev = week;
+  }
+  const label = ranges.join(", ");
+  return nums.length === 1
+    ? `Week ${label} did not load. Records stop before that gap.`
+    : `Weeks ${label} did not load. Records stop before the first gap.`;
 }
 
 export function getWeekEntry(model, week) {
@@ -373,7 +409,7 @@ export function formatOddsPct(value) {
   return `${Math.round(numeric)}%`;
 }
 
-export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEFAULT_ITERATIONS, seed = 7 } = {}) {
+export function createSeasonSimRun(model, { priors = new Map(), iterations = SIM_DEFAULT_ITERATIONS, seed = 7 } = {}) {
   if (!model || model.scheduleIncomplete || model.standings.length < 2) return null;
   const distributions = buildTeamDistributions(model, priors);
   const rng = mulberry32(seed);
@@ -403,63 +439,111 @@ export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEF
   const dist = teams.map((team) => distributions.get(team.rosterId));
   const runs = playoffsDecided ? 1 : iterations;
   const locks = playoffLockStatus(model);
+  const prepared = {
+    iteration: 0,
+    result: null,
+    runs,
+    teams,
+    teamIndex,
+    playoffTeams,
+    byeCount,
+    seedType,
+    remaining,
+    playoffsDecided,
+    totals,
+    dist,
+    locks,
+    distributions,
+    model,
+    rng,
+  };
 
-  for (let iteration = 0; iteration < runs; iteration += 1) {
-    const wins = teams.map((team) => team.wins);
-    const ties = teams.map((team) => team.ties);
-    const pf = teams.map((team) => team.pf);
-    const seasonMeans = dist.map((row) => randomNormal(rng, row.mean, row.meanStd || 0));
-    remaining.forEach(([a, b]) => {
-      const scoreA = randomNormal(rng, seasonMeans[a], dist[a].std);
-      const scoreB = randomNormal(rng, seasonMeans[b], dist[b].std);
-      pf[a] += scoreA;
-      pf[b] += scoreB;
-      if (scoreA > scoreB) wins[a] += 1;
-      else if (scoreB > scoreA) wins[b] += 1;
-      else {
-        ties[a] += 1;
-        ties[b] += 1;
+  return {
+    get done() {
+      return Boolean(prepared.result);
+    },
+    get result() {
+      return prepared.result;
+    },
+    step(count = runs) {
+      if (prepared.result) return true;
+      const budget = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : runs;
+      const end = Math.min(runs, prepared.iteration + budget);
+      for (; prepared.iteration < end; prepared.iteration += 1) {
+        runSeasonIteration(prepared);
       }
-    });
+      if (prepared.iteration >= runs) {
+        finishSeasonSimulation(prepared);
+        return true;
+      }
+      return false;
+    },
+  };
+}
 
-    const rows = teams.map((team, index) => ({
-      rosterId: team.rosterId,
-      index,
-      wins: wins[index],
-      ties: ties[index],
-      pf: pf[index],
-      division: team.division,
-    }));
-    const ordered = rows.slice().sort(compareStandings);
-    const seeds = seedTeams(ordered, { divisionCount: model.divisionCount, playoffTeams, seedType });
-    const divisionWinners = model.divisionCount > 1 ? pickDivisionWinners(ordered, model.divisionCount) : [];
+function runSeasonIteration(prepared) {
+  const {
+    teams, dist, rng, remaining, totals, teamIndex, model, playoffTeams, seedType, byeCount,
+  } = prepared;
+  const wins = teams.map((team) => team.wins);
+  const ties = teams.map((team) => team.ties);
+  const pf = teams.map((team) => team.pf);
+  const seasonMeans = dist.map((row) => randomNormal(rng, row.mean, row.meanStd || 0));
+  remaining.forEach(([a, b]) => {
+    const scoreA = randomNormal(rng, seasonMeans[a], dist[a].std);
+    const scoreB = randomNormal(rng, seasonMeans[b], dist[b].std);
+    pf[a] += scoreA;
+    pf[b] += scoreB;
+    if (scoreA > scoreB) wins[a] += 1;
+    else if (scoreB > scoreA) wins[b] += 1;
+    else {
+      ties[a] += 1;
+      ties[b] += 1;
+    }
+  });
 
-    ordered.forEach((row, position) => {
-      totals[row.index].wins += row.wins;
-      if (position === ordered.length - 1) totals[row.index].lastPlace += 1;
-    });
-    divisionWinners.forEach((rosterId) => {
-      totals[teamIndex.get(rosterId)].division += 1;
-    });
-    seeds.forEach((rosterId, seedIndex) => {
-      const bucket = totals[teamIndex.get(rosterId)];
-      bucket.playoffs += 1;
-      bucket.seedSum += seedIndex + 1;
-      bucket.seedCounts[seedIndex + 1] += 1;
-      if (seedIndex === 0) bucket.topSeed += 1;
-      if (seedIndex < byeCount) bucket.bye += 1;
-    });
+  const rows = teams.map((team, index) => ({
+    rosterId: team.rosterId,
+    index,
+    wins: wins[index],
+    ties: ties[index],
+    pf: pf[index],
+    division: team.division,
+  }));
+  const ordered = rows.slice().sort(compareStandings);
+  const seeds = seedTeams(ordered, { divisionCount: model.divisionCount, playoffTeams, seedType });
+  const divisionWinners = model.divisionCount > 1 ? pickDivisionWinners(ordered, model.divisionCount) : [];
 
-    const bracket = simulateBracket(
-      seeds.map((rosterId) => teamIndex.get(rosterId)),
-      dist,
-      rng,
-      seasonMeans
-    );
-    if (bracket.champion != null) totals[bracket.champion].title += 1;
-    if (bracket.finalists) bracket.finalists.forEach((index) => { totals[index].finals += 1; });
-  }
+  ordered.forEach((row, position) => {
+    totals[row.index].wins += row.wins;
+    if (position === ordered.length - 1) totals[row.index].lastPlace += 1;
+  });
+  divisionWinners.forEach((rosterId) => {
+    totals[teamIndex.get(rosterId)].division += 1;
+  });
+  seeds.forEach((rosterId, seedIndex) => {
+    const bucket = totals[teamIndex.get(rosterId)];
+    bucket.playoffs += 1;
+    bucket.seedSum += seedIndex + 1;
+    bucket.seedCounts[seedIndex + 1] += 1;
+    if (seedIndex === 0) bucket.topSeed += 1;
+    if (seedIndex < byeCount) bucket.bye += 1;
+  });
 
+  const bracket = simulateBracket(
+    seeds.map((rosterId) => teamIndex.get(rosterId)),
+    dist,
+    rng,
+    seasonMeans
+  );
+  if (bracket.champion != null) totals[bracket.champion].title += 1;
+  if (bracket.finalists) bracket.finalists.forEach((index) => { totals[index].finals += 1; });
+}
+
+function finishSeasonSimulation(prepared) {
+  const {
+    teams, totals, runs, locks, playoffsDecided, distributions, playoffTeams, byeCount, remaining,
+  } = prepared;
   const results = teams.map((team, index) => {
     const bucket = totals[index];
     const pct = (value) => round1((value / runs) * 100);
@@ -494,7 +578,7 @@ export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEF
     };
   });
 
-  return {
+  prepared.result = {
     iterations: runs,
     playoffTeams,
     byeCount,
@@ -503,6 +587,13 @@ export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEF
     byRosterId: new Map(results.map((result) => [result.rosterId, result])),
     distributions,
   };
+}
+
+export function simulateSeason(model, options = {}) {
+  const run = createSeasonSimRun(model, options);
+  if (!run) return null;
+  run.step(Number.POSITIVE_INFINITY);
+  return run.result;
 }
 
 export function resolveUpcomingWeekEntry(model) {

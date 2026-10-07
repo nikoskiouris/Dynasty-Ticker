@@ -34,7 +34,21 @@ export function createSleeperClient(options = {}) {
   let active = 0;
   let lastStart = 0;
   let draining = false;
+  let generation = 0;
   const queue = [];
+
+  function cancelledError() {
+    const error = new Error("Sleeper request cancelled");
+    error.cancelled = true;
+    return error;
+  }
+
+  function invalidate() {
+    generation += 1;
+    const dropped = queue.splice(0, queue.length);
+    dropped.forEach((job) => job.reject(cancelledError()));
+    return generation;
+  }
 
   async function drain() {
     if (draining) return;
@@ -47,6 +61,11 @@ export function createSleeperClient(options = {}) {
         if (queue.length === 0) break;
         if (active >= maxConcurrent) break;
         const job = queue.shift();
+        if (!job) break;
+        if (job.generation !== generation) {
+          job.reject(cancelledError());
+          continue;
+        }
         active += 1;
         lastStart = now();
         Promise.resolve()
@@ -63,9 +82,13 @@ export function createSleeperClient(options = {}) {
     }
   }
 
-  function enqueue(run) {
+  function enqueue(run, jobGeneration = generation) {
     return new Promise((resolve, reject) => {
-      queue.push({ run, resolve, reject });
+      if (jobGeneration !== generation) {
+        reject(cancelledError());
+        return;
+      }
+      queue.push({ run, resolve, reject, generation: jobGeneration });
       void drain();
     });
   }
@@ -109,17 +132,19 @@ export function createSleeperClient(options = {}) {
     }
   }
 
-  async function apiGet(path, { timeoutMs = 25000 } = {}) {
-    return enqueue(() => fetchJson(path, { timeoutMs }));
+  async function apiGet(path, { timeoutMs = 25000, generation: requestedGeneration = null } = {}) {
+    const token = requestedGeneration == null ? generation : requestedGeneration;
+    return enqueue(() => fetchJson(path, { timeoutMs }), token);
   }
 
-  async function apiGetWithRetry(path, { timeoutMs = 25000, retries = 1 } = {}) {
+  async function apiGetWithRetry(path, { timeoutMs = 25000, retries = 1, generation: requestedGeneration = null } = {}) {
     let lastError = null;
     for (let attempt = 0; attempt <= retries; attempt += 1) {
       try {
-        return await apiGet(path, { timeoutMs });
+        return await apiGet(path, { timeoutMs, generation: requestedGeneration });
       } catch (err) {
         lastError = err;
+        if (err?.cancelled) break;
         if (attempt >= retries) break;
         const retryAfter = Number(err?.retryAfterMs);
         const delay = Number.isFinite(retryAfter) && retryAfter > 0
@@ -135,6 +160,10 @@ export function createSleeperClient(options = {}) {
     apiGet,
     apiGetWithRetry,
     enqueue,
+    invalidate,
+    get generation() {
+      return generation;
+    },
     get pending() {
       return queue.length;
     },
@@ -188,21 +217,33 @@ export async function fetchUserLeagues(client, username, seasons) {
   const seasonList = Array.isArray(seasons) && seasons.length ? seasons : [String(new Date().getUTCFullYear())];
   const batches = await Promise.all(
     seasonList.map(async (season) => {
+      const label = String(season);
       try {
         const rows = await client.apiGetWithRetry(
           `/user/${user.user_id}/leagues/nfl/${season}`,
           { timeoutMs: 12000, retries: 1 }
         );
-        return Array.isArray(rows) ? rows : [];
+        return { season: label, rows: Array.isArray(rows) ? rows : [], failed: false };
       } catch {
-        return [];
+        return { season: label, rows: [], failed: true };
       }
     })
   );
   return {
     user,
-    leagues: preferLatestLeagues(dedupeLeagues(batches.flat())),
+    leagues: preferLatestLeagues(dedupeLeagues(batches.flatMap((batch) => batch.rows))),
+    failedSeasons: batches.filter((batch) => batch.failed).map((batch) => batch.season),
   };
+}
+
+// One league can open itself. A failed current season must not open last year.
+export function autoloadLeagueId(leagues, { currentSeason = "", failedSeasons = [] } = {}) {
+  const rows = Array.isArray(leagues) ? leagues : [];
+  if (rows.length !== 1) return "";
+  const failed = new Set((failedSeasons || []).map((season) => String(season)));
+  const current = String(currentSeason || "");
+  if (current && failed.has(current)) return "";
+  return String(rows[0]?.league_id || "");
 }
 
 export function sleeperAvatarUrl(avatar) {

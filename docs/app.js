@@ -1,6 +1,7 @@
 import {
   buildSeasonModel,
-  simulateSeason,
+  createSeasonSimRun,
+  formatMissingWeeks,
   computeWeeklyAwards,
   computeSeasonSuperlatives,
   computeRecordBook,
@@ -43,9 +44,10 @@ import {
   MATCHUP_FETCH_CHUNK,
   LEAGUE_HISTORY_RECORD_IDS,
 } from "./modules/constants.js";
-import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
+import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY, PLAYERS_CACHE_KEY_V1 } from "./modules/state.js";
 import { createLeagueLoader } from "./modules/league-load.js";
-import { apiGet, apiGetWithRetry, fetchUserLeagues, mapInChunks } from "./modules/sleeper.js";
+import { apiGet, apiGetWithRetry, autoloadLeagueId, fetchUserLeagues, mapInChunks } from "./modules/sleeper.js";
+import { playersFallback, playersFromCache, trimPlayersDirectory } from "./modules/players-cache.js";
 import {
   classifyLeagueInput,
   parseLeagueId,
@@ -280,6 +282,7 @@ import {
   buildRankBoard,
   isRankAssetId,
   rankFormatLabel,
+  rankListWindow,
   rankView,
   renderRanksBody,
   renderRanksMarkup,
@@ -463,6 +466,10 @@ const pageRenderQueue = createPageRenderQueue({
 let leagueLoadAnimationTimer = null;
 let leagueLoadStartedAt = 0;
 let livePoller = null;
+let leagueDataEpoch = 0;
+let simJobId = 0;
+let resumeSim = null;
+let rankScrollLock = false;
 let tickerController = null;
 let tickerFingerprint = "";
 let liveVisibilityBound = false;
@@ -616,6 +623,7 @@ el.landingUsername?.addEventListener("input", () => {
 });
 el.leagueId?.addEventListener("input", () => setFieldError(el.leagueId, el.leagueIdError, ""));
 el.workspace?.addEventListener("click", handleWorkspaceClick);
+document.addEventListener("scroll", handleRankListScroll, true);
 el.controlRail?.addEventListener("click", (event) => {
   if (!event.target.closest("#board-tools")) return;
   handleWorkspaceClick(event);
@@ -1095,8 +1103,43 @@ function renderRankHost(host) {
   );
   if (!view.loading) paintRankToolbar(toolbar, view, typing);
   const body = host.querySelector("[data-ranks-body]");
-  if (body && !view.loading) body.innerHTML = renderRanksBody(view);
+  if (body && !view.loading) paintRankList(host, body, view);
   bindRatherPhotos(host);
+}
+
+function paintRankList(host, body, view) {
+  const scroller = host.querySelector("[data-ranks-window]");
+  const height = scroller?.clientHeight || 640;
+  const scrollTop = state.ranks.listScroll || 0;
+  const listWindow = rankListWindow(view.rows, { scrollTop, height });
+  const stamp = [
+    listWindow.start,
+    listWindow.end,
+    listWindow.virtual ? 1 : 0,
+    view.query,
+    view.position,
+    view.format,
+    view.card?.assetId || "",
+    view.rows.length,
+  ].join("|");
+  if (host.dataset.rankStamp === stamp) return;
+  host.dataset.rankStamp = stamp;
+  rankScrollLock = true;
+  body.innerHTML = renderRanksBody({ ...view, listWindow });
+  const next = host.querySelector("[data-ranks-window]");
+  if (next) next.scrollTop = scrollTop;
+  rankScrollLock = false;
+}
+
+function handleRankListScroll(event) {
+  const scroller = event.target?.closest?.("[data-ranks-window]");
+  if (!scroller || rankScrollLock) return;
+  const next = scroller.scrollTop;
+  const prev = state.ranks.listScroll || 0;
+  if (Math.abs(next - prev) < 48) return;
+  state.ranks.listScroll = next;
+  const host = scroller.closest("#ranks-dashboard, #public-ranks-board");
+  if (host) renderRankHost(host);
 }
 
 function renderRankSurfaces() {
@@ -1847,20 +1890,30 @@ async function runUserLeagueSearch(username) {
     const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => state.nflState);
     if (nflState) state.nflState = nflState;
     const season = String(nflState?.league_season || nflState?.season || new Date().getUTCFullYear());
-    const { user, leagues } = await fetchUserLeagues(sleeper, username, uniqueSeasons(season, 1));
+    const seasonList = uniqueSeasons(season, 1);
+    const { user, leagues, failedSeasons = [] } = await fetchUserLeagues(sleeper, username, seasonList);
     state.sleeperUser = user;
     searchedUserNoted = false;
     state.userLeagues = sortUserLeagues(leagues, season);
     renderLeaguePicker(state.userLeagues, season);
     setUsernameError("");
+    const currentFailed = failedSeasons.map(String).includes(String(season));
+    if (currentFailed) {
+      const message = state.userLeagues.length
+        ? `Sleeper did not return ${season} leagues. Older seasons are listed. Nothing was opened.`
+        : `Sleeper did not return ${season} leagues. Try the search again.`;
+      setUsernameError(message);
+      setStatus(message, { error: true });
+      return;
+    }
     if (state.userLeagues.length === 0) {
       setStatus(`Found ${user.display_name || username}, but no NFL leagues for ${season}/${Number(season) - 1}.`, { error: true });
       setUsernameError(`No NFL leagues for ${season}/${Number(season) - 1}.`);
       return;
     }
-    if (state.userLeagues.length === 1) {
-      autoloadId = String(state.userLeagues[0].league_id || "");
-      if (el.leagueId && autoloadId) el.leagueId.value = autoloadId;
+    autoloadId = autoloadLeagueId(state.userLeagues, { currentSeason: season, failedSeasons });
+    if (autoloadId) {
+      if (el.leagueId) el.leagueId.value = autoloadId;
       setStatus(`One league found. Opening ${state.userLeagues[0].name || "league"}…`, { loading: true });
     } else {
       setStatus(`Found ${state.userLeagues.length} leagues for ${user.display_name || username}. Pick one.`);
@@ -1927,22 +1980,36 @@ async function loadLeagueById(leagueId, { fromHistory = false } = {}) {
   return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
 }
 
+function bumpLeagueDataEpoch() {
+  leagueDataEpoch += 1;
+  sleeper.invalidate();
+  simJobId += 1;
+  resumeSim = null;
+  return leagueDataEpoch;
+}
+
+function leagueWriteCurrent(epoch, leagueId) {
+  return epoch === leagueDataEpoch && String(state.leagueId || "") === String(leagueId || "");
+}
+
 async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
+  const epoch = bumpLeagueDataEpoch();
+  const generation = sleeper.generation;
   try {
-    if (!leagueLoader.isCurrent(token)) return;
+    if (!leagueLoader.isCurrent(token) || epoch !== leagueDataEpoch) return;
     startLeagueLoadingUi();
     stopLivePolling();
     hideAppPages();
 
     const [coreData, nflState] = await Promise.all([
-      loadLeagueCoreData(leagueId),
-      apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => null),
+      loadLeagueCoreData(leagueId, generation),
+      apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1, generation }).catch((err) => (err?.cancelled ? null : null)),
       ensureMockDraftsLoaded(),
     ]);
-    if (!leagueLoader.isCurrent(token)) return;
+    if (!leagueLoader.isCurrent(token) || epoch !== leagueDataEpoch) return;
     const { league, users, rosters, tradedPicks, drafts } = coreData;
-    const leagueHistory = await loadLeagueHistoryContext(leagueId, coreData);
-    if (!leagueLoader.isCurrent(token)) return;
+    const leagueHistory = await loadLeagueHistoryContext(leagueId, coreData, generation);
+    if (!leagueLoader.isCurrent(token) || epoch !== leagueDataEpoch) return;
     const previousEntry = leagueHistory.find((entry) => !entry.isCurrent) || null;
     const previousContext = previousEntry
       ? {
@@ -1951,8 +2018,8 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
           rosters: previousEntry.rosters,
         }
       : { league: null, users: [], rosters: [] };
-    const draftLoad = await loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts);
-    if (!leagueLoader.isCurrent(token)) return;
+    const draftLoad = await loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts, generation);
+    if (!leagueLoader.isCurrent(token) || epoch !== leagueDataEpoch) return;
 
     const sameLeague = String(state.leagueId || "") === String(leagueId);
     // Switching leagues is a new place, so Back returns to the league you left.
@@ -2032,6 +2099,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.previousUsers = previousContext.users;
     state.previousRosters = previousContext.rosters;
     state.leagueHistory = leagueHistory;
+    state.archiveSeasonsMissing = Number(leagueHistory.missingSeasons) || 0;
     state.normalizedRosters = normalizeRosters(league, rosters, users, state.players, previousContext, tradedPicks, state.currentDraftContext);
 
     setFieldError(el.leagueId, el.leagueIdError, "");
@@ -2054,16 +2122,16 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     scrollLoadedWorkspaceIntoView();
     setMobileRailOpen(false);
     setStatus(`Loaded ${state.leagueName}. Player names are still syncing...`, { loading: true });
-    loadTrendingPlayers();
-    loadLeagueTransactions(leagueId, league);
-    loadLeagueHistoryTransactions(leagueHistory);
-    loadLeagueHistoryMatchups(leagueHistory);
-    loadDraftSelectionIndex(leagueHistory);
-    startLivePolling();
+    loadTrendingPlayers(epoch);
+    loadLeagueTransactions(leagueId, league, { epoch, generation });
+    loadLeagueHistoryTransactions(leagueHistory, { epoch, generation });
+    loadLeagueHistoryMatchups(leagueHistory, { epoch, generation });
+    loadDraftSelectionIndex(leagueHistory, { epoch, generation });
+    startLivePolling(epoch);
 
     loadPlayersWithCache()
       .then((players) => {
-        if (!leagueLoader.isCurrent(token) || String(state.leagueId) !== String(leagueId)) return;
+        if (!leagueLoader.isCurrent(token) || !leagueWriteCurrent(epoch, leagueId)) return;
         state.players = players;
         state.playerMetadataLoaded = true;
         state.playerMetadataFailed = false;
@@ -2088,7 +2156,8 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
         );
       })
       .catch((err) => {
-        if (!leagueLoader.isCurrent(token) || String(state.leagueId) !== String(leagueId)) return;
+        if (err?.cancelled) return;
+        if (!leagueLoader.isCurrent(token) || !leagueWriteCurrent(epoch, leagueId)) return;
         state.playerMetadataLoaded = false;
         state.playerMetadataFailed = true;
         syncTradeModeUi();
@@ -2099,7 +2168,8 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
         );
       });
   } catch (err) {
-    if (!leagueLoader.isCurrent(token)) return;
+    if (!leagueLoader.isCurrent(token) || epoch !== leagueDataEpoch) return;
+    if (err?.cancelled) return;
     state.pendingPlace = null;
     const message = `Could not load league data. ${err.message}`;
     setFieldError(el.leagueId, el.leagueIdError, message);
@@ -2122,7 +2192,15 @@ function resetSeasonState() {
 }
 
 function invalidateSeasonCaches() {
+  simJobId += 1;
+  resumeSim = null;
   state.seasonModelCache = { key: "", model: null };
+  state.simCache = { key: "", result: null };
+}
+
+function clearSimulation() {
+  simJobId += 1;
+  resumeSim = null;
   state.simCache = { key: "", result: null };
 }
 
@@ -2160,8 +2238,9 @@ function stopLivePolling() {
   }
 }
 
-function startLivePolling() {
+function startLivePolling(epoch = leagueDataEpoch) {
   stopLivePolling();
+  const generation = sleeper.generation;
   livePoller = createLivePoller({
     intervalMs: LIVE_POLL_INTERVAL_MS,
     simRefreshMs: LIVE_SIM_REFRESH_MS,
@@ -2172,12 +2251,13 @@ function startLivePolling() {
       const model = getSeasonModel();
       const week = model?.currentWeek || Number(state.nflState?.week) || 1;
       const [rows, nflState] = await Promise.all([
-        apiGetWithRetry(`/league/${leagueId}/matchups/${week}`, { timeoutMs: 12000, retries: 1 }),
-        apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => state.nflState),
+        apiGetWithRetry(`/league/${leagueId}/matchups/${week}`, { timeoutMs: 12000, retries: 1, generation }),
+        apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1, generation }).catch(() => state.nflState),
       ]);
-      return { week, rows: Array.isArray(rows) ? rows : [], nflState, previousModel: model, leagueId };
+      return { week, rows: Array.isArray(rows) ? rows : [], nflState, previousModel: model, leagueId, epoch };
     },
-    onScores: ({ week, rows, nflState, previousModel, leagueId }) => {
+    onScores: ({ week, rows, nflState, previousModel, leagueId, epoch: capturedEpoch }) => {
+      if (capturedEpoch !== leagueDataEpoch) return;
       if (!liveUpdateMatchesLeague(leagueId, state.leagueId)) return;
       if (nflState) state.nflState = nflState;
       state.seasonWeekRows.set(Number(week), rows);
@@ -2189,7 +2269,7 @@ function startLivePolling() {
         previousRemaining: previousModel?.remainingGames?.length,
         nextRemaining: nextModel?.remainingGames?.length,
       })) {
-        state.simCache = { key: "", result: null };
+        clearSimulation();
       }
       state.livePolling = shouldPollLive(nextModel, state.nflState);
       renderSessionSnapshot();
@@ -2197,7 +2277,8 @@ function startLivePolling() {
       if (state.activePage === "league") requestActivePageRender();
     },
     onSimRefresh: () => {
-      state.simCache = { key: "", result: null };
+      if (epoch !== leagueDataEpoch) return;
+      clearSimulation();
       if (state.activePage === "league") requestActivePageRender();
     },
   });
@@ -2207,11 +2288,12 @@ function startLivePolling() {
 }
 
 function handleLiveVisibility() {
-  if (!livePoller?.running) return;
-  if (!document.hidden) livePoller.resume();
+  if (document.hidden) return;
+  if (livePoller?.running) livePoller.resume();
+  resumeSeasonSim();
 }
 
-async function loadLeagueCoreData(leagueId) {
+async function loadLeagueCoreData(leagueId, generation = sleeper.generation) {
   const endpointPlan = [
     { key: "league", label: "league profile", path: `/league/${leagueId}` },
     { key: "users", label: "league managers", path: `/league/${leagueId}/users` },
@@ -2222,9 +2304,9 @@ async function loadLeagueCoreData(leagueId) {
     { key: "losersBracket", label: "consolation bracket", path: `/league/${leagueId}/losers_bracket`, optional: true },
   ];
 
+  setStatus(`Loading league ${leagueId}...`, { loading: true });
   const tasks = endpointPlan.map(async (endpoint) => {
-    setStatus(`Loading ${endpoint.label}...`, { loading: true });
-    const payload = await apiGetWithRetry(endpoint.path, { timeoutMs: 12000, retries: 1 });
+    const payload = await apiGetWithRetry(endpoint.path, { timeoutMs: 12000, retries: 1, generation });
     return { key: endpoint.key, payload };
   });
 
@@ -2425,15 +2507,15 @@ function collectDraftIngestJobs(historyEntries = []) {
   return jobs;
 }
 
-async function loadDraftSelectionIndex(historyEntries = []) {
+async function loadDraftSelectionIndex(historyEntries = [], { epoch = leagueDataEpoch, generation = sleeper.generation } = {}) {
   const activeLeagueId = state.leagueId;
   const jobs = collectDraftIngestJobs(historyEntries);
   if (!jobs.length) return;
 
   const settled = await mapInChunks(jobs, MATCHUP_FETCH_CHUNK, async (job) => {
     const [draftDetails, draftPicks] = await Promise.all([
-      apiGetWithRetry(`/draft/${job.draftId}`, { timeoutMs: 12000, retries: 1 }),
-      apiGetWithRetry(`/draft/${job.draftId}/picks`, { timeoutMs: 12000, retries: 1 }).catch(() => []),
+      apiGetWithRetry(`/draft/${job.draftId}`, { timeoutMs: 12000, retries: 1, generation }),
+      apiGetWithRetry(`/draft/${job.draftId}/picks`, { timeoutMs: 12000, retries: 1, generation }).catch((err) => (err?.cancelled ? Promise.reject(err) : [])),
     ]);
     return {
       job,
@@ -2442,7 +2524,7 @@ async function loadDraftSelectionIndex(historyEntries = []) {
     };
   });
 
-  if (state.leagueId !== activeLeagueId) return;
+  if (!leagueWriteCurrent(epoch, activeLeagueId)) return;
 
   settled.forEach((result) => {
     if (result.status !== "fulfilled") return;
@@ -2454,15 +2536,15 @@ async function loadDraftSelectionIndex(historyEntries = []) {
   requestActivePageRender();
 }
 
-async function loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts = []) {
+async function loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts = [], generation = sleeper.generation) {
   const candidateIds = buildCurrentDraftDetailCandidateIds(league, drafts);
   const ingested = [];
   let context = null;
   for (const draftId of candidateIds) {
     try {
       const [draftDetails, draftPicks] = await Promise.all([
-        apiGetWithRetry(`/draft/${draftId}`, { timeoutMs: 12000, retries: 1 }),
-        apiGetWithRetry(`/draft/${draftId}/picks`, { timeoutMs: 12000, retries: 1 }).catch(() => []),
+        apiGetWithRetry(`/draft/${draftId}`, { timeoutMs: 12000, retries: 1, generation }),
+        apiGetWithRetry(`/draft/${draftId}/picks`, { timeoutMs: 12000, retries: 1, generation }).catch((err) => (err?.cancelled ? Promise.reject(err) : [])),
       ]);
       const picks = Array.isArray(draftPicks) ? draftPicks : [];
       ingested.push({
@@ -2496,10 +2578,11 @@ function buildLeagueHistoryEntry(leagueId, coreData, isCurrent = false) {
   };
 }
 
-async function loadLeagueHistoryContext(currentLeagueId, currentCoreData) {
+async function loadLeagueHistoryContext(currentLeagueId, currentCoreData, generation = sleeper.generation) {
   const entries = [buildLeagueHistoryEntry(currentLeagueId, currentCoreData, true)];
   const seenLeagueIds = new Set([String(currentLeagueId || "")]);
   let previousLeagueId = currentCoreData?.league?.previous_league_id;
+  let missingSeasons = 0;
 
   for (let depth = 1; depth < MAX_HISTORY_SEASONS && previousLeagueId; depth += 1) {
     const historyLeagueId = String(previousLeagueId);
@@ -2508,15 +2591,18 @@ async function loadLeagueHistoryContext(currentLeagueId, currentCoreData) {
 
     try {
       setStatus(`Loading league archive season ${depth + 1}...`, { loading: true });
-      const historicalCore = await loadLeagueCoreData(historyLeagueId);
+      const historicalCore = await loadLeagueCoreData(historyLeagueId, generation);
       entries.push(buildLeagueHistoryEntry(historyLeagueId, historicalCore, false));
       previousLeagueId = historicalCore?.league?.previous_league_id;
     } catch (err) {
+      if (err?.cancelled) break;
       console.warn(`Could not load historical league ${historyLeagueId}`, err);
+      missingSeasons += 1;
       break;
     }
   }
 
+  entries.missingSeasons = missingSeasons;
   return entries;
 }
 
@@ -2543,39 +2629,51 @@ async function loadPlayersWithCache() {
   try {
     const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 });
     stateKey = `${nflState?.season || "na"}-${nflState?.league_season || "na"}-${nflState?.week || "na"}`;
-    if (fromCache?.players && fromCache?.stateKey === stateKey) return fromCache.players;
-  } catch {
-    if (fromCache && now - fromCache.savedAt < PLAYERS_CACHE_TTL_MS) {
-      return fromCache.players;
-    }
+    const fresh = playersFromCache(fromCache, { stateKey, now, ttl: PLAYERS_CACHE_TTL_MS });
+    if (fresh) return fresh;
+  } catch (err) {
+    if (err?.cancelled) throw err;
+    const fresh = playersFromCache(fromCache, { now, ttl: PLAYERS_CACHE_TTL_MS });
+    if (fresh) return fresh;
   }
 
-  const players = await apiGet(`/players/nfl`, { timeoutMs: 30000 });
-  savePlayersCache(players, now, stateKey);
-  return players;
+  try {
+    const payload = await apiGetWithRetry(`/players/nfl`, { timeoutMs: 30000, retries: 1 });
+    const trimmed = trimPlayersDirectory(payload);
+    if (!trimmed.named) throw new Error("Sleeper player list had no names");
+    savePlayersCache(trimmed.players, now, stateKey);
+    return trimmed.players;
+  } catch (err) {
+    if (err?.cancelled) throw err;
+    const stale = playersFallback(fromCache);
+    if (stale) return stale;
+    throw err;
+  }
 }
 
-async function loadTrendingPlayers() {
+async function loadTrendingPlayers(epoch = leagueDataEpoch) {
   state.trendingLoaded = false;
   try {
     const [adds, drops] = await Promise.all([
       apiGetWithRetry(`/players/nfl/trending/add?lookback_hours=${TRENDING_LOOKBACK_HOURS}&limit=${TRENDING_PLAYERS_LIMIT}`, { timeoutMs: 9000, retries: 1 }),
       apiGetWithRetry(`/players/nfl/trending/drop?lookback_hours=${TRENDING_LOOKBACK_HOURS}&limit=${TRENDING_PLAYERS_LIMIT}`, { timeoutMs: 9000, retries: 1 }),
     ]);
+    if (epoch !== leagueDataEpoch) return;
     state.trendingAdds = Array.isArray(adds) ? adds : [];
     state.trendingDrops = Array.isArray(drops) ? drops : [];
     state.trendingLoaded = true;
   } catch (err) {
+    if (err?.cancelled || epoch !== leagueDataEpoch) return;
     console.warn("Could not load Sleeper trending players", err);
     state.trendingAdds = [];
     state.trendingDrops = [];
     state.trendingLoaded = false;
   } finally {
-    requestActivePageRender();
+    if (epoch === leagueDataEpoch) requestActivePageRender();
   }
 }
 
-async function loadLeagueTransactions(leagueId, league) {
+async function loadLeagueTransactions(leagueId, league, { epoch = leagueDataEpoch, generation = sleeper.generation } = {}) {
   const loadLeagueId = String(leagueId || "");
   state.transactions = [];
   state.transactionsLoaded = false;
@@ -2589,14 +2687,15 @@ async function loadLeagueTransactions(leagueId, league) {
     const transactions = [];
     let loadedWeeks = 0;
     const settled = await mapInChunks(weeks, MATCHUP_FETCH_CHUNK, (week) =>
-      apiGetWithRetry(`/league/${loadLeagueId}/transactions/${week}`, { timeoutMs: 10000, retries: 1 })
+      apiGetWithRetry(`/league/${loadLeagueId}/transactions/${week}`, { timeoutMs: 10000, retries: 1, generation })
         .then((weekTransactions) => ({
           week,
           transactions: Array.isArray(weekTransactions) ? weekTransactions : [],
         }))
     );
 
-    if (state.leagueId !== loadLeagueId) return;
+    if (!leagueWriteCurrent(epoch, loadLeagueId)) return;
+    if (settled.some((result) => result.reason?.cancelled)) return;
 
     settled.forEach((result) => {
       if (result.status !== "fulfilled") return;
@@ -2617,19 +2716,19 @@ async function loadLeagueTransactions(leagueId, league) {
     state.transactionLoadError = loadedWeeks === 0 ? "Sleeper did not return transaction weeks for this league." : "";
     refreshLeagueBoard();
   } catch (err) {
-    if (state.leagueId !== loadLeagueId) return;
+    if (err?.cancelled || !leagueWriteCurrent(epoch, loadLeagueId)) return;
     state.transactions = [];
     state.transactionsLoaded = true;
     state.transactionsFailed = true;
     state.transactionLoadError = err.message || "Could not load Sleeper transactions.";
   } finally {
-    if (state.leagueId === loadLeagueId) {
+    if (leagueWriteCurrent(epoch, loadLeagueId)) {
       requestActivePageRender();
     }
   }
 }
 
-async function loadLeagueHistoryTransactions(historyEntries = []) {
+async function loadLeagueHistoryTransactions(historyEntries = [], { epoch = leagueDataEpoch, generation = sleeper.generation } = {}) {
   const activeLeagueId = state.leagueId;
   const historicalEntries = historyEntries
     .filter((entry) => entry && !entry.isCurrent && entry.leagueId)
@@ -2648,16 +2747,17 @@ async function loadLeagueHistoryTransactions(historyEntries = []) {
   let loadedLeagues = 0;
   try {
     for (const entry of historicalEntries) {
-      if (state.leagueId !== activeLeagueId) return;
+      if (!leagueWriteCurrent(epoch, activeLeagueId)) return;
       const weeks = buildTransactionWeeks(entry.league);
       let loadedWeeks = 0;
       const settled = await mapInChunks(weeks, MATCHUP_FETCH_CHUNK, (week) =>
-        apiGetWithRetry(`/league/${entry.leagueId}/transactions/${week}`, { timeoutMs: 10000, retries: 1 })
+        apiGetWithRetry(`/league/${entry.leagueId}/transactions/${week}`, { timeoutMs: 10000, retries: 1, generation })
           .then((weekTransactions) => ({
             week,
             transactions: Array.isArray(weekTransactions) ? weekTransactions : [],
           }))
       );
+      if (settled.some((result) => result.reason?.cancelled)) return;
 
       settled.forEach((result) => {
         if (result.status !== "fulfilled") return;
@@ -2676,7 +2776,7 @@ async function loadLeagueHistoryTransactions(historyEntries = []) {
       if (loadedWeeks > 0) loadedLeagues += 1;
     }
 
-    if (state.leagueId !== activeLeagueId) return;
+    if (!leagueWriteCurrent(epoch, activeLeagueId)) return;
     state.historyTransactions = dedupeTransactionsByLeague(transactions);
     state.historyTransactionsLoaded = true;
     state.historyTransactionsFailed = loadedLeagues === 0;
@@ -2686,13 +2786,13 @@ async function loadLeagueHistoryTransactions(historyEntries = []) {
       : "";
     refreshLeagueBoard();
   } catch (err) {
-    if (state.leagueId !== activeLeagueId) return;
+    if (err?.cancelled || !leagueWriteCurrent(epoch, activeLeagueId)) return;
     state.historyTransactions = [];
     state.historyTransactionsLoaded = true;
     state.historyTransactionsFailed = true;
     state.historyTransactionLoadError = err.message || "Could not load archived Sleeper transactions.";
   } finally {
-    if (state.leagueId === activeLeagueId) {
+    if (leagueWriteCurrent(epoch, activeLeagueId)) {
       requestActivePageRender();
     }
   }
@@ -2713,7 +2813,37 @@ function resetHistoryCompareState() {
   };
 }
 
-async function loadLeagueHistoryMatchups(historyEntries = []) {
+async function fetchMatchupWeeks(leagueId, weeks, generation) {
+  const settled = await mapInChunks(weeks, MATCHUP_FETCH_CHUNK, (week) =>
+    apiGetWithRetry(`/league/${leagueId}/matchups/${week}`, { timeoutMs: 15000, retries: 1, generation })
+      .then((weekMatchups) => ({
+        week,
+        ok: true,
+        matchups: Array.isArray(weekMatchups) ? weekMatchups : [],
+      }))
+      .catch((err) => {
+        if (err?.cancelled) throw err;
+        return { week, ok: false, matchups: [] };
+      })
+  );
+  if (settled.some((result) => result.reason?.cancelled)) {
+    const error = new Error("Sleeper request cancelled");
+    error.cancelled = true;
+    throw error;
+  }
+  return settled
+    .filter((result) => result.status === "fulfilled")
+    .map((result) => result.value);
+}
+
+function storeMatchupWeek(entry, week, weekMatchups, playoffStart, matchups, epoch, activeLeagueId) {
+  if (!leagueWriteCurrent(epoch, activeLeagueId)) return false;
+  matchups.push(...buildWeekMatchupRecords(entry, week, weekMatchups, playoffStart));
+  if (entry.isCurrent) state.seasonWeekRows.set(Number(week), weekMatchups);
+  return true;
+}
+
+async function loadLeagueHistoryMatchups(historyEntries = [], { epoch = leagueDataEpoch, generation = sleeper.generation } = {}) {
   const activeLeagueId = state.leagueId;
   const entries = historyEntries
     .filter((entry) => entry?.leagueId)
@@ -2732,7 +2862,7 @@ async function loadLeagueHistoryMatchups(historyEntries = []) {
   let loadedLeagues = 0;
   try {
     for (const entry of entries) {
-      if (state.leagueId !== activeLeagueId) return;
+      if (!leagueWriteCurrent(epoch, activeLeagueId)) return;
       const weeks = buildTransactionWeeks(entry.league);
       const playoffStart = Number(entry.league?.settings?.playoff_week_start);
       const currentWeek = Number(state.nflState?.week) || 1;
@@ -2742,48 +2872,54 @@ async function loadLeagueHistoryMatchups(historyEntries = []) {
       let loadedWeeks = 0;
       const chunkSize = MATCHUP_FETCH_CHUNK;
       for (let i = 0; i < orderedWeeks.length; i += chunkSize) {
-        if (state.leagueId !== activeLeagueId) return;
+        if (!leagueWriteCurrent(epoch, activeLeagueId)) return;
         const chunk = orderedWeeks.slice(i, i + chunkSize);
-        const settled = await Promise.allSettled(
-          chunk.map((week) =>
-            apiGetWithRetry(`/league/${entry.leagueId}/matchups/${week}`, { timeoutMs: 15000, retries: 1 })
-              .then((weekMatchups) => ({
-                week,
-                matchups: Array.isArray(weekMatchups) ? weekMatchups : [],
-              }))
-          )
-        );
-        if (state.leagueId !== activeLeagueId) return;
-        settled.forEach((result) => {
-          if (state.leagueId !== activeLeagueId) return;
-          if (result.status !== "fulfilled") return;
+        const fetched = await fetchMatchupWeeks(entry.leagueId, chunk, generation);
+        if (!leagueWriteCurrent(epoch, activeLeagueId)) return;
+        fetched.forEach((result) => {
+          if (!result.ok) return;
+          if (!storeMatchupWeek(entry, result.week, result.matchups, playoffStart, matchups, epoch, activeLeagueId)) return;
           loadedWeeks += 1;
-          matchups.push(...buildWeekMatchupRecords(entry, result.value.week, result.value.matchups, playoffStart));
-          if (entry.isCurrent) {
-            state.seasonWeekRows.set(Number(result.value.week), result.value.matchups);
-          }
         });
-        if (entry.isCurrent && loadedWeeks > 0) {
+        if (entry.isCurrent && loadedWeeks > 0 && leagueWriteCurrent(epoch, activeLeagueId)) {
           state.seasonLoaded = true;
           state.seasonLoadError = "";
-          invalidateSeasonCaches();
+          invalidateSeasonModelCache();
           renderSessionSnapshot();
           requestActivePageRender();
           livePoller?.resume();
         }
       }
-      if (loadedWeeks > 0) loadedLeagues += 1;
-      if (entry.isCurrent) {
+      if (entry.isCurrent && leagueWriteCurrent(epoch, activeLeagueId)) {
+        const neededThrough = Math.max(
+          Number(entry.league?.settings?.last_scored_leg) || 0,
+          Number(state.nflState?.week) || 0,
+          currentWeek,
+        );
+        const missing = orderedWeeks.filter((week) => week <= neededThrough && !state.seasonWeekRows.has(Number(week)));
+        if (missing.length) {
+          const retried = await fetchMatchupWeeks(entry.leagueId, missing, generation);
+          if (!leagueWriteCurrent(epoch, activeLeagueId)) return;
+          retried.forEach((result) => {
+            if (!result.ok) return;
+            if (!storeMatchupWeek(entry, result.week, result.matchups, playoffStart, matchups, epoch, activeLeagueId)) return;
+            loadedWeeks += 1;
+          });
+        }
+        const stillMissing = orderedWeeks.filter((week) => week <= neededThrough && !state.seasonWeekRows.has(Number(week)));
         state.seasonLoaded = loadedWeeks > 0;
-        state.seasonLoadError = loadedWeeks > 0 ? "" : "Sleeper did not return matchups for the current season.";
+        state.seasonLoadError = stillMissing.length
+          ? formatMissingWeeks(stillMissing)
+          : (loadedWeeks > 0 ? "" : "Sleeper did not return matchups for the current season.");
         invalidateSeasonCaches();
         renderSessionSnapshot();
         requestActivePageRender();
         livePoller?.resume();
       }
+      if (loadedWeeks > 0) loadedLeagues += 1;
     }
 
-    if (state.leagueId !== activeLeagueId) return;
+    if (!leagueWriteCurrent(epoch, activeLeagueId)) return;
     state.historyMatchups = matchups;
     state.historyMatchupsLoaded = true;
     state.historyMatchupsFailed = loadedLeagues === 0;
@@ -2792,13 +2928,13 @@ async function loadLeagueHistoryMatchups(historyEntries = []) {
       ? "Sleeper did not return archived matchup weeks for this league."
       : "";
   } catch (err) {
-    if (state.leagueId !== activeLeagueId) return;
+    if (err?.cancelled || !leagueWriteCurrent(epoch, activeLeagueId)) return;
     state.historyMatchups = [];
     state.historyMatchupsLoaded = true;
     state.historyMatchupsFailed = true;
     state.historyMatchupLoadError = err.message || "Could not load archived Sleeper matchups.";
   } finally {
-    if (state.leagueId === activeLeagueId) {
+    if (leagueWriteCurrent(epoch, activeLeagueId)) {
       requestActivePageRender();
     }
   }
@@ -2923,9 +3059,9 @@ function waitForNextPaint() {
   });
 }
 
-function getPlayersCache() {
+function readPlayersCacheKey(key) {
   try {
-    const raw = localStorage.getItem(PLAYERS_CACHE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed?.players || !parsed?.savedAt) return null;
@@ -2935,7 +3071,23 @@ function getPlayersCache() {
   }
 }
 
+function getPlayersCache() {
+  const current = readPlayersCacheKey(PLAYERS_CACHE_KEY);
+  if (current) return current;
+  const previous = readPlayersCacheKey(PLAYERS_CACHE_KEY_V1);
+  if (!previous) return null;
+  const trimmed = trimPlayersDirectory(previous.players).players;
+  if (!Object.keys(trimmed).length) return null;
+  savePlayersCache(trimmed, previous.savedAt, previous.stateKey);
+  return { savedAt: previous.savedAt, stateKey: previous.stateKey, players: trimmed };
+}
+
 function savePlayersCache(players, savedAt, stateKey = null) {
+  try {
+    localStorage.removeItem(PLAYERS_CACHE_KEY_V1);
+  } catch {
+    // Dropping the old full dictionary is best-effort.
+  }
   try {
     localStorage.setItem(
       PLAYERS_CACHE_KEY,
@@ -3154,16 +3306,51 @@ function getSimulation(model) {
   if (!model || model.scheduleIncomplete) return null;
   if (!state.seasonLoaded && model.remainingGames.length === 0 && !model.seasonComplete) return null;
   const key = simSignature(model);
-  if (state.simCache.key === key) return state.simCache.result;
-  let result = null;
-  try {
-    result = simulateSeason(model, { priors: buildSimPriors(model), iterations: SIM_ITERATIONS, seed: 20260911 });
-  } catch (err) {
-    console.warn("Playoff simulation failed", err);
+  if (state.simCache.key === key && state.simCache.result) return state.simCache.result;
+  if (state.simCache.key === key && state.simCache.pending) return null;
+  startSeasonSim(model, key);
+  return null;
+}
+
+function startSeasonSim(model, key) {
+  const job = ++simJobId;
+  const run = createSeasonSimRun(model, { priors: buildSimPriors(model), iterations: SIM_ITERATIONS, seed: 20260911 });
+  if (!run) {
+    state.simCache = { key, result: null, pending: false };
+    return;
   }
-  state.simCache = { key, result };
-  lastSimSignature = key;
-  return result;
+  state.simCache = { key, result: null, pending: true };
+  const step = () => {
+    if (job !== simJobId || simSignature(model) !== key) return;
+    if (typeof document !== "undefined" && document.hidden) {
+      state.simCache = { key, result: null, pending: true };
+      resumeSim = step;
+      return;
+    }
+    let finished = false;
+    try {
+      finished = run.step(80);
+    } catch (err) {
+      console.warn("Playoff simulation failed", err);
+      if (job === simJobId) state.simCache = { key, result: null, pending: false };
+      return;
+    }
+    if (!finished) {
+      setTimeout(step, 0);
+      return;
+    }
+    if (job !== simJobId || simSignature(model) !== key) return;
+    state.simCache = { key, result: run.result, pending: false };
+    lastSimSignature = key;
+    if (state.activePage === "league") requestActivePageRender();
+  };
+  setTimeout(step, 0);
+}
+
+function resumeSeasonSim() {
+  const cont = resumeSim;
+  resumeSim = null;
+  if (cont) cont();
 }
 
 function buildSimPriors(model) {
@@ -3603,6 +3790,7 @@ function renderGameCard(game, entry, model, distributions) {
 
 function renderStandingsPanel(model, sim) {
   const hasGames = model.standings.some((team) => team.gamesPlayed > 0 || team.wins + team.losses > 0);
+  const throughWeek = model.missingScoredWeeks?.length ? model.standingsThroughWeek : model.finalThroughWeek;
   const showDivisions = model.divisions.length > 1;
   const view = showDivisions && state.standingsView === "division" ? "division" : "overall";
   const rowOpts = { playoffTeams: model.playoffTeams, hasGames };
@@ -3624,7 +3812,7 @@ function renderStandingsPanel(model, sim) {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">Standings</span>
-          <h2>${hasGames && model.finalThroughWeek > 0 ? `Through Week ${model.finalThroughWeek}` : "Season outlook"}</h2>
+          <h2>${hasGames && throughWeek > 0 ? `Through Week ${throughWeek}` : "Season outlook"}</h2>
         </div>
         ${showDivisions ? `
           <div class="segmented" role="group" aria-label="Standings view">
@@ -3633,6 +3821,7 @@ function renderStandingsPanel(model, sim) {
           </div>
         ` : ""}
       </div>
+      ${model.missingScoredWeeks?.length ? `<p class="muted small">${escapeHtml(formatMissingWeeks(model.missingScoredWeeks))}</p>` : ""}
       <div class="standings-legend muted small">
         <span>All-play: record against every team each week.</span>
         <span>Luck: real wins minus all-play expected wins.</span>
@@ -6198,10 +6387,12 @@ function handleWorkspaceClick(event) {
       break;
     case "rank-pos":
       state.ranks.position = target.dataset.pos || "ALL";
+      state.ranks.listScroll = 0;
       renderRankSurfaces();
       break;
     case "rank-format":
       state.ranks.format = target.dataset.format === "oneQb" ? "oneQb" : "sf";
+      state.ranks.listScroll = 0;
       rankBoardCache = { key: "", rows: [] };
       renderRankSurfaces();
       break;
@@ -6392,6 +6583,7 @@ function handleWorkspaceInput(event) {
   }
   if (target.dataset.input === "ranks-search") {
     state.ranks.query = target.value;
+    state.ranks.listScroll = 0;
     renderRankHost(target.closest("#ranks-dashboard, #public-ranks-board") || el.ranksDashboard);
   }
 }
@@ -6417,7 +6609,11 @@ function renderLeagueHistoryRoom() {
   if (!roster) return;
   const { history } = buildHistoryArchiveModel(roster);
   const recordBook = buildRecordBook(getSeasonModel());
+  const archiveGap = Number(state.archiveSeasonsMissing) > 0
+    ? `<p class="muted small">Archive missing ${state.archiveSeasonsMissing} season${state.archiveSeasonsMissing === 1 ? "" : "s"}. Sleeper did not return the older league.</p>`
+    : "";
   host.innerHTML = `
+    ${archiveGap}
     ${renderArchiveHero(history)}
     ${renderHallBoard(history)}
     ${renderChampionYears(history)}
