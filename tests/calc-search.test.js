@@ -5,11 +5,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   CALC_LIST_LIMIT,
+  calcSuggestionFromList,
   clearCalcSearchBox,
   keepCalcSearchFocused,
+  moveCalcSuggestion,
   planCalcListVisibility,
   renderCalcSearchInput,
   restoreFocusedCalcSearch,
+  shouldArmCalcSuggestion,
   shouldHoldCalcSearchFocus,
   shouldResetCalcSearchOnPick,
   snapshotFocusedCalcSearch,
@@ -31,6 +34,7 @@ test("calculator search is a text box, not a search input that iPad blurs", () =
   assert.match(html, /data-input="value-search"/);
   assert.match(html, /data-side="left"/);
   assert.match(html, /value="2"/);
+  assert.match(html, /enterkeyhint="go"/);
 });
 
 test("search markup escapes the query", () => {
@@ -105,12 +109,56 @@ test("pointer down on a result keeps the filter box focused", () => {
   assert.equal(shouldHoldCalcSearchFocus({ target: { closest: () => null } }, doc), false);
 });
 
+test("a suggestion click is armed for mouse and Enter, not a right-click", () => {
+  const input = mockSearchInput("value-search", "left", 4);
+  const doc = mockDoc(input);
+  const item = {
+    closest(selector) {
+      if (selector === ".calc-item[data-action='value-add']" || selector === ".calc-item[data-action]") return item;
+      if (selector === ".calc-suggest, .calc-list") return { id: "list" };
+      return null;
+    },
+  };
+  assert.equal(shouldArmCalcSuggestion({ target: item, pointerType: "mouse", button: 0 }, doc), true);
+  assert.equal(shouldArmCalcSuggestion({ target: item, pointerType: "mouse", button: 2 }, doc), false);
+  const away = { activeElement: { getAttribute() { return ""; } } };
+  assert.equal(shouldArmCalcSuggestion({ target: item, pointerType: "mouse", button: 0 }, away), true);
+});
+
+test("Enter takes the highlighted suggestion, or the first one", () => {
+  const first = mockOption(false);
+  const second = mockOption(true);
+  const list = {
+    querySelector(selector) {
+      if (selector.startsWith(".calc-item.is-active")) return second;
+      if (selector.startsWith(".calc-item")) return first;
+      return null;
+    },
+  };
+  const root = {
+    querySelector(selector) {
+      return selector === "#value-list-left" ? list : null;
+    },
+    querySelectorAll() {
+      return [first, second];
+    },
+  };
+  assert.equal(calcSuggestionFromList(root, "left"), second);
+  const moved = moveCalcSuggestion(root, "left", -1);
+  assert.equal(moved, first);
+  assert.equal(first.active, true);
+  assert.equal(second.active, false);
+});
+
 test("both calculator shells keep using the sticky text search", () => {
   const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/app.js"), "utf8");
   assert.match(app, /renderCalcSearchInput\(/);
   assert.match(app, /keepCalcSearchFocused\(/);
   assert.match(app, /clearCalcSearchBox\(/);
   assert.match(app, /shouldResetCalcSearchOnPick\(/);
+  assert.match(app, /pickDraftSuggestion\(/);
+  assert.match(app, /swallowCalcClick/);
+  assert.match(app, /calcSuggestionFromList\(/);
   assert.match(app, /tabindex="-1"/);
   assert.doesNotMatch(app, /class="calc-search"[^>]*type="search"/);
   assert.doesNotMatch(app, /type="search"[^>]*class="calc-search"/);
@@ -124,6 +172,23 @@ test("blank calculator still finds a 2027 early 1st from a typed query", () => {
   );
   assert.deepEqual(rows.map((row) => row.assetId), ["pick:2027:r1:early"]);
 });
+
+function mockOption(active) {
+  const option = {
+    active,
+    classList: {
+      contains(name) {
+        return name === "is-active" && option.active;
+      },
+      toggle(name, on) {
+        if (name === "is-active") option.active = Boolean(on);
+      },
+    },
+    setAttribute() {},
+    removeAttribute() {},
+  };
+  return option;
+}
 
 function mockSearchInput(kind, side, caret) {
   const input = {

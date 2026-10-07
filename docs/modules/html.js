@@ -96,6 +96,19 @@ export function renderTradeMove(row, formatValue = formatNumber) {
   return `<span class="trade-row-move"><span class="trade-move-side">${renderTradeMoveSide(row?.received, formatValue)}</span><span class="trade-arrow" aria-hidden="true">←</span><span class="trade-move-side">${renderTradeMoveSide(row?.sent, formatValue)}</span></span>`;
 }
 
+export function renderConnectGate({
+  copy = "Connect Sleeper to open this.",
+  label = "Connect Sleeper",
+  action = "draft-connect",
+} = {}) {
+  return `
+    <section class="connect-gate">
+      <p>${escapeHtml(copy)}</p>
+      <button type="button" data-action="${escapeHtml(action)}">${escapeHtml(label)}</button>
+    </section>
+  `;
+}
+
 export async function copyTextToClipboard(text, clipboard = globalThis.navigator?.clipboard, doc = globalThis.document) {
   try {
     if (clipboard?.writeText) {

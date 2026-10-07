@@ -217,6 +217,8 @@ export function clearValueCalcSides(state) {
   Object.assign(next, state);
   next.left = [];
   next.right = [];
+  next.leftQuery = "";
+  next.rightQuery = "";
   return next;
 }
 

@@ -171,6 +171,34 @@ export function reviewPayloadFor(idea) {
   };
 }
 
+// Bars and pane totals stay on the listed prices. Package credit changes the
+// verdict only, so the same side never shows two different numbers.
+export function draftMeterValues(model) {
+  return {
+    give: Math.round(Number(model?.give) || 0),
+    get: Math.round(Number(model?.get) || 0),
+  };
+}
+
+// "Cleared both sides" is only true while the board is actually empty and both
+// sides had pieces. Any later edit keeps the restore, without that claim.
+export function draftNoticeText({ note = "", saved = null, current = null } = {}) {
+  if (!saved || isDraftEmpty(saved)) return "";
+  const summary = draftSummaryLine(saved);
+  const claimsClear = /cleared both sides/i.test(String(note || ""));
+  if (claimsClear) {
+    if (!isDraftEmpty(current)) {
+      return summary ? `Previous trade saved: ${summary}.` : "Previous trade saved.";
+    }
+    const both = (saved.left?.length || 0) > 0 && (saved.right?.length || 0) > 0;
+    const lead = both ? "Cleared both sides." : "Cleared the trade.";
+    return summary ? `${lead} Saved: ${summary}.` : lead;
+  }
+  const lead = String(note || "").trim();
+  if (!lead) return summary ? `Previous trade saved: ${summary}.` : "";
+  return summary ? `${lead} Saved: ${summary}.` : lead;
+}
+
 export function draftSummaryLine(draft) {
   const names = (items) => (items || []).map((item) => item.name).filter(Boolean);
   const give = names(draft?.left);

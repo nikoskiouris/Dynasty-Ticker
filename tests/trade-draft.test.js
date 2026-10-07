@@ -17,6 +17,8 @@ import {
   describeDraftItem,
   draftFromReview,
   draftMarketPrice,
+  draftMeterValues,
+  draftNoticeText,
   draftSideForAsset,
   draftTeamSummary,
   draftVerdictModel,
@@ -236,6 +238,7 @@ test("one verdict: market totals stay visible, an uneven package gets a labeled 
   assert.deepEqual([starForTwo.give, starForTwo.get], [10321, 15000], "pane totals stay the plain market sums");
   assert.equal(starForTwo.adjustment.side, "left", "the side sending the best player gets the credit");
   assert.equal(starForTwo.compareGive, 10321 + starForTwo.adjustment.amount);
+  assert.deepEqual(draftMeterValues(starForTwo), { give: 10321, get: 15000 });
   assert.equal(starForTwo.compareGet, 15000);
   assert.equal(valueCalcVerdict(10321, 15000).label, "Lopsided for Get", "raw sums alone would call this a steal");
   assert.notEqual(starForTwo.verdict.label, "Lopsided for Get");
@@ -244,6 +247,22 @@ test("one verdict: market totals stay visible, an uneven package gets a labeled 
   assert.equal(oneSided.adjustment, null);
   assert.equal(oneSided.verdict.label, "Add the other side");
   assert.deepEqual(draftVerdictModel([10321], [7700, 7300], { globalMaxValue: 10321 }), starForTwo, "same prices, same answer");
+});
+
+test("cleared-both-sides is only said after a real clear of both sides", () => {
+  const both = {
+    left: [{ name: "Puka Nacua" }],
+    right: [{ name: "Drake London" }],
+  };
+  const one = { left: [{ name: "Puka Nacua" }], right: [] };
+  const empty = { left: [], right: [] };
+  const filled = { left: [{ name: "Brock Bowers" }], right: [] };
+  assert.match(draftNoticeText({ note: "Cleared both sides.", saved: both, current: empty }), /^Cleared both sides\. Saved: Puka Nacua for Drake London\./);
+  assert.match(draftNoticeText({ note: "Cleared both sides.", saved: one, current: empty }), /^Cleared the trade\./);
+  assert.match(draftNoticeText({ note: "Cleared both sides.", saved: both, current: filled }), /^Previous trade saved:/);
+  assert.doesNotMatch(draftNoticeText({ note: "Cleared both sides.", saved: both, current: filled }), /Cleared both sides/);
+  assert.equal(draftNoticeText({ note: "Cleared both sides.", saved: empty, current: empty }), "");
+  assert.match(draftNoticeText({ note: "Opened the trade with Chris.", saved: both, current: filled }), /Opened the trade with Chris\. Saved:/);
 });
 
 test("the verdict reads from the manager's seat", () => {
@@ -260,6 +279,9 @@ test("league load keeps the draft and there is one calculator", () => {
   const body = app.slice(start, end);
   assert.ok(start > 0 && end > start, "runLeagueLoad not found");
   assert.doesNotMatch(body, /state\.valueCalc\s*=/, "league load must not replace the trade draft");
+  assert.match(app, /draftNoticeText\(/);
+  assert.match(app, /draftMeterValues\(/);
+  assert.doesNotMatch(app, /weights stars above the market/);
   assert.doesNotMatch(body, /emptyValueCalcState\(\)|resetCalculatorState/, "league load must not clear the trade draft");
   assert.doesNotMatch(app, /state\.calc\./, "the roster-only calculator state is gone");
   const index = siteMarkup();
