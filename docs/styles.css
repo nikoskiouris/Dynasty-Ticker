@@ -643,6 +643,24 @@ button.ghost-btn:hover {
   font-size: 0.84rem;
 }
 
+.status-retry {
+  flex: 0 0 auto;
+  align-self: center;
+  min-height: 1.7rem;
+  margin-left: auto;
+  padding: 0.15rem 0.7rem;
+  font-size: 0.75rem;
+}
+
+.landing-search-status {
+  margin-top: 0.55rem;
+}
+
+.league-picker-note {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
 .status.ok {
   color: var(--green);
 }

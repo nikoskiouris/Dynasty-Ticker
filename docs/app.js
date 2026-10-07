@@ -204,8 +204,11 @@ import {
 } from "./modules/loyalty.js";
 import {
   renderLeaguePickerMarkup,
+  renderLeagueSearchNote,
   renderMeSelectOptions,
   resolveDefaultMeRoster,
+  seasonSearchHardFailField,
+  seasonSearchHardFailStatus,
 } from "./modules/league-search.js";
 import {
   leagueKeepsPlayers,
@@ -366,6 +369,10 @@ const el = {
   leagueStatus: document.querySelector("#league-status"),
   leagueStatusText: document.querySelector("#league-status-text"),
   leagueStatusLoader: document.querySelector("#league-status-loader"),
+  leagueStatusRetry: document.querySelector("#league-status-retry"),
+  landingSearchStatus: document.querySelector("#landing-search-status"),
+  landingSearchStatusText: document.querySelector("#landing-search-status-text"),
+  landingSearchRetry: document.querySelector("#landing-search-retry"),
   chromeLeagueLabel: document.querySelector("#chrome-league-label"),
   chromeManagerLabel: document.querySelector("#chrome-manager-label"),
   chromeModeLabel: document.querySelector("#chrome-mode-label"),
@@ -522,6 +529,8 @@ function isEstimatedAsset(asset, values = state.values) {
 }
 
 el.usernameSearchForm?.addEventListener("submit", requestFindLeagues);
+el.leagueStatusRetry?.addEventListener("click", retryUserLeagueSearch);
+el.landingSearchRetry?.addEventListener("click", retryUserLeagueSearch);
 el.leaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingLeaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingJobs?.addEventListener("click", handleLandingJobClick);
@@ -1814,6 +1823,13 @@ function requestLoadLeague(event) {
   void loadLeague();
 }
 
+function retryUserLeagueSearch() {
+  const landingName = String(el.landingUsername?.value || "").trim();
+  const railName = String(el.sleeperUsername?.value || "").trim();
+  syncUsernameFields(landingName && !railName ? el.landingUsername : el.sleeperUsername);
+  requestFindLeagues();
+}
+
 function requestFindLeagues(event) {
   event?.preventDefault?.();
   syncUsernameFields(event?.currentTarget === el.landingUsernameForm ? el.landingUsername : el.sleeperUsername);
@@ -1853,8 +1869,11 @@ async function searchUserLeagues(username) {
   }
 }
 
+let missedLeagueSeasons = [];
+
 async function runUserLeagueSearch(username) {
   startFindLeaguesUi();
+  missedLeagueSeasons = [];
   setStatus(`Looking up ${username} on Sleeper…`, { loading: true });
   let autoloadId = "";
   try {
@@ -1865,27 +1884,24 @@ async function runUserLeagueSearch(username) {
     state.sleeperUser = user;
     searchedUserNoted = false;
     state.userLeagues = sortUserLeagues(leagues, season);
-    renderLeaguePicker(state.userLeagues, season);
     const failed = new Set(failedSeasons.map((item) => String(item)));
     const currentFailed = failed.has(String(season));
-    const failedLabel = [...failed].join(" and ");
+    missedLeagueSeasons = [...failed].filter((year) => year !== String(season));
+    renderLeaguePicker(state.userLeagues, season);
     if (currentFailed) {
-      const message = `Could not load ${failedLabel || season} leagues from Sleeper. Not opening a league until the ${season} list loads.`;
-      setUsernameError(message);
-      setStatus(message, { error: true });
+      setUsernameError(seasonSearchHardFailField(season));
+      setStatus(seasonSearchHardFailStatus(season), { error: true, retry: true });
     } else if (state.userLeagues.length === 0) {
       setStatus(`Found ${user.display_name || username}, but no NFL leagues for ${season}/${Number(season) - 1}.`, { error: true });
       setUsernameError(`No NFL leagues for ${season}/${Number(season) - 1}.`);
     } else if (state.userLeagues.length === 1) {
       autoloadId = String(state.userLeagues[0].league_id || "");
       if (el.leagueId && autoloadId) el.leagueId.value = autoloadId;
-      const extra = failed.size ? ` ${failedLabel} did not load.` : "";
-      setStatus(`One league found. Opening ${state.userLeagues[0].name || "league"}…${extra}`, { loading: true });
-      setUsernameError(failed.size ? `Could not load leagues for ${failedLabel}.` : "");
+      setUsernameError("");
+      setStatus(`One league found. Opening ${state.userLeagues[0].name || "league"}…`, { loading: true });
     } else {
-      const extra = failed.size ? ` ${failedLabel} did not load.` : "";
-      setStatus(`Found ${state.userLeagues.length} leagues for ${user.display_name || username}.${extra} Pick one.`);
-      setUsernameError(failed.size ? `Could not load leagues for ${failedLabel}.` : "");
+      setUsernameError("");
+      setStatus(`Found ${state.userLeagues.length} leagues for ${user.display_name || username}. Pick one.`);
       el.landingLeaguePicker?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   } catch (err) {
@@ -1902,9 +1918,10 @@ async function runUserLeagueSearch(username) {
 function renderLeaguePicker(leagues, season) {
   const hosts = [...new Set([el.leaguePicker, el.landingLeaguePicker].filter(Boolean))];
   if (!hosts.length) return;
-  const html = leagues?.length ? renderLeaguePickerMarkup(leagues, season, state.leagueId) : "";
+  const list = leagues?.length ? renderLeaguePickerMarkup(leagues, season, state.leagueId) : "";
+  const html = `${list}${renderLeagueSearchNote(missedLeagueSeasons)}`;
   hosts.forEach((host) => {
-    host.classList.toggle("hidden", !html);
+    host.classList.toggle("hidden", !html.trim());
     host.innerHTML = html;
   });
 }
@@ -15764,13 +15781,18 @@ function applyValuationBundle(bundle, { rerender = true } = {}) {
   };
 }
 
-function setStatus(message, { ok = false, loading = false, error = false } = {}) {
+function setStatus(message, { ok = false, loading = false, error = false, retry = false } = {}) {
   if (el.leagueStatusText) el.leagueStatusText.textContent = message;
   if (el.leagueStatus) {
     const tone = error ? "error" : ok ? "ok" : loading ? "loading" : "muted";
     el.leagueStatus.className = `status ${tone}`;
   }
   el.leagueStatusLoader?.classList.toggle("hidden", !loading);
+  el.leagueStatusRetry?.classList.toggle("hidden", !retry);
+  if (el.landingSearchStatus) {
+    el.landingSearchStatus.classList.toggle("hidden", !retry);
+    if (el.landingSearchStatusText) el.landingSearchStatusText.textContent = retry ? message : "";
+  }
 }
 
 function setFieldError(input, errorEl, message) {

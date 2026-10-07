@@ -81,6 +81,29 @@ export function renderMeSelectOptions(rosters, selectedRosterId = "") {
     .join("");
 }
 
+export function seasonSearchHardFailStatus(season) {
+  const year = String(season || "").trim() || "this year";
+  return `Couldn't load ${year} leagues from Sleeper. Try again — we won't open a league until this year's list comes back.`;
+}
+
+export function seasonSearchHardFailField(season) {
+  const year = String(season || "").trim() || "this year";
+  return `Couldn't load ${year} leagues.`;
+}
+
+export function seasonSearchSoftFailNote(seasons) {
+  const years = [...new Set((Array.isArray(seasons) ? seasons : []).map((season) => String(season || "").trim()).filter(Boolean))];
+  if (!years.length) return "";
+  if (years.length === 1) return `Also couldn't load ${years[0]}.`;
+  return `Also couldn't load ${years.slice(0, -1).join(", ")} and ${years.at(-1)}.`;
+}
+
+export function renderLeagueSearchNote(seasons) {
+  const note = seasonSearchSoftFailNote(seasons);
+  if (!note) return "";
+  return `<p class="league-picker-note muted">${escapeHtml(note)}</p>`;
+}
+
 export function renderLeaguePickerMarkup(leagues, currentSeason, selectedId = "") {
   if (!leagues?.length) return "";
   return `

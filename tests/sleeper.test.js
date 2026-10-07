@@ -210,8 +210,14 @@ test("username search does not autoload when the current season failed", () => {
   const autoloadAt = search.indexOf("autoloadId = String");
   assert.ok(failedAt > 0, "search should notice a failed current season");
   assert.ok(autoloadAt > failedAt, "autoload must stay behind the current-season failure check");
-  assert.match(search, /Not opening a league until/);
-  assert.match(search, /failedSeasons/);
+  assert.match(search, /seasonSearchHardFailStatus\(season\)/);
+  assert.match(search, /seasonSearchHardFailField\(season\)/);
+  assert.match(search, /retry:\s*true/);
+  assert.match(search, /missedLeagueSeasons/);
+  assert.doesNotMatch(search, /Not opening a league/);
+  assert.match(appSource, /function retryUserLeagueSearch\(/);
+  assert.match(appSource, /leagueStatusRetry/);
+  assert.match(appSource, /landingSearchRetry/);
 });
 
 test("slim players cache drops fat fields and still names the player", () => {
