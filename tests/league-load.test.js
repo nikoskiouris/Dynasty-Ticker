@@ -43,6 +43,23 @@ test("a second league request is not dropped", async () => {
   assert.deepEqual(loaded, ["start:league-a", "done:league-a", "start:league-b", "done:league-b"]);
 });
 
+test("a history reload of the same league is still one load, and it counts as history", async () => {
+  const loader = createLeagueLoader();
+  const gate = deferred();
+  let seen = false;
+  const first = loader.run("league-a", async (_id, _token, options) => {
+    await gate.promise;
+    seen = options.fromHistory;
+  }, { fromHistory: false });
+  const second = loader.run("league-a", async () => {
+    throw new Error("should join");
+  }, { fromHistory: true });
+  assert.equal(first, second);
+  gate.resolve();
+  await first;
+  assert.equal(seen, true);
+});
+
 test("the same league joins the load already running", async () => {
   const loader = createLeagueLoader();
   let runs = 0;

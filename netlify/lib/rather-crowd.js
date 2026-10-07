@@ -10,6 +10,7 @@ import {
 
 export const RATHER_STATE_KEY = "state";
 export const RATHER_MAX_PER_VISITOR_HOUR = 40;
+export const RATHER_MAX_STORED_VOTES = 20000;
 export const RATHER_MIN_INTERVAL_MS = 400;
 export const RATHER_MAX_WRITE_RETRIES = 8;
 export const RATHER_SALT = "dynasty-ticker-rather-v1";
@@ -70,7 +71,7 @@ export function hourBucket(now = new Date()) {
 export function normalizeRatherState(raw) {
   if (!raw || typeof raw !== "object") return emptyRatherState();
   const votes = Array.isArray(raw.votes)
-    ? raw.votes.map(sanitizeRatherVote).filter(Boolean)
+    ? raw.votes.map(sanitizeRatherVote).filter(Boolean).slice(0, RATHER_MAX_STORED_VOTES)
     : [];
   const visitors = raw.visitors && typeof raw.visitors === "object" ? raw.visitors : {};
   return { votes, visitors };
@@ -148,7 +149,7 @@ export function applyRatherVote(state, { vote, visitorHash: hash, now = new Date
     changed: true,
     replaced: repeatedIndex >= 0,
     state: {
-      votes,
+      votes: votes.slice(0, RATHER_MAX_STORED_VOTES),
       visitors: pruneVisitors(visitors, clock),
     },
   };

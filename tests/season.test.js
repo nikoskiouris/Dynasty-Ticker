@@ -512,6 +512,22 @@ test("a duplicate roster row cannot bank two results in one week", () => {
   assert.equal(model.teams.get("2").gamesPlayed, 1);
 });
 
+test("a missing played week marks the schedule incomplete", () => {
+  const model = buildSeasonModel({
+    league: leagueFixture({ lastScored: 2, leg: 3 }),
+    rosters: rosters(),
+    users: users(),
+    weekRows: new Map([
+      [1, [side(1, 1, 100), side(2, 1, 80), side(3, 2, 90), side(4, 2, 70)]],
+      [3, [side(1, 1, 0), side(4, 1, 0), side(2, 2, 0), side(3, 2, 0)]],
+    ]),
+    nflState: { season: "2026", week: 3, season_type: "regular" },
+  });
+  assert.equal(model.scheduleIncomplete, true);
+  assert.deepEqual(model.missingFinalWeeks, [2]);
+  assert.equal(model.teams.get("1").wins, 1);
+});
+
 test("an unfinished schedule does not clinch or simulate", () => {
   const model = buildSeasonModel({
     league: leagueFixture({ lastScored: 1, leg: 2, playoffTeams: 2 }),

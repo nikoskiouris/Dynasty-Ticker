@@ -43,7 +43,7 @@ import {
   MATCHUP_FETCH_CHUNK,
   LEAGUE_HISTORY_RECORD_IDS,
 } from "./modules/constants.js";
-import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
+import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY, playersCacheIsFresh } from "./modules/state.js";
 import { createLeagueLoader } from "./modules/league-load.js";
 import { apiGet, apiGetWithRetry, fetchUserLeagues, mapInChunks } from "./modules/sleeper.js";
 import {
@@ -1924,10 +1924,10 @@ async function loadLeague() {
 
 async function loadLeagueById(leagueId, { fromHistory = false } = {}) {
   if (!leagueId) return;
-  return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
+  return leagueLoader.run(leagueId, (id, token, requestOptions) => runLeagueLoad(id, token, requestOptions), { fromHistory });
 }
 
-async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
+async function runLeagueLoad(leagueId, token, requestOptions = {}) {
   try {
     if (!leagueLoader.isCurrent(token)) return;
     startLeagueLoadingUi();
@@ -1955,6 +1955,8 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     if (!leagueLoader.isCurrent(token)) return;
 
     const sameLeague = String(state.leagueId || "") === String(leagueId);
+    // Read after the awaits. A Back navigation can join this load and set fromHistory.
+    const fromHistory = Boolean(requestOptions.fromHistory);
     // Switching leagues is a new place, so Back returns to the league you left.
     const switchingLeagues = Boolean(state.leagueId) && !sameLeague && !fromHistory;
     const keepPlace = placeAfterConnect({
@@ -2543,9 +2545,11 @@ async function loadPlayersWithCache() {
   try {
     const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 });
     stateKey = `${nflState?.season || "na"}-${nflState?.league_season || "na"}-${nflState?.week || "na"}`;
-    if (fromCache?.players && fromCache?.stateKey === stateKey) return fromCache.players;
+    if (playersCacheIsFresh(fromCache, { now, ttlMs: PLAYERS_CACHE_TTL_MS, stateKey, requireStateKey: true })) {
+      return fromCache.players;
+    }
   } catch {
-    if (fromCache && now - fromCache.savedAt < PLAYERS_CACHE_TTL_MS) {
+    if (playersCacheIsFresh(fromCache, { now, ttlMs: PLAYERS_CACHE_TTL_MS })) {
       return fromCache.players;
     }
   }
@@ -3638,6 +3642,7 @@ function renderStandingsPanel(model, sim) {
         <span>Luck: real wins minus all-play expected wins.</span>
         ${model.medianGames ? "<span>Includes weekly median games.</span>" : ""}
       </div>
+      ${model.missingFinalWeeks?.length ? `<p class="muted small">${escapeHtml(model.missingFinalWeeks.length === 1 ? `Week ${model.missingFinalWeeks[0]} matchups are missing, so wins and points can be short.` : `Weeks ${model.missingFinalWeeks.join(", ")} matchups are missing, so wins and points can be short.`)}</p>` : ""}
       <div class="standings-table">
         <div class="standings-head">
           <span>#</span><span>Team</span><span>W-L</span><span class="col-pf">PF</span><span class="col-pa">PA</span><span class="col-streak">Strk</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
@@ -3659,7 +3664,7 @@ function renderStandingsRow(team, sim, { showLine, position, divisionLeader = fa
   if (odds?.eliminated) badges.push(`<span class="mini-chip rose">Out</span>`);
   const streakLabel = team.streak?.length ? team.streak.label : "—";
   return `
-    <div class="standings-row ${String(team.rosterId) === String(state.meRosterId) ? "you" : ""} ${showLine ? "playoff-line" : ""}" data-action="set-lens-teams" data-roster-id="${team.rosterId}">
+    <div class="standings-row ${String(team.rosterId) === String(state.meRosterId) ? "you" : ""} ${showLine ? "playoff-line" : ""}" role="button" tabindex="0" data-action="set-lens-teams" data-roster-id="${team.rosterId}" aria-label="${escapeHtml(`Open ${team.name || "team"}`)}">
       <span class="rank-number">${position}</span>
       <div class="standings-team">
         ${renderTeamIdentity(team.rosterId, { showTeamName: false })}

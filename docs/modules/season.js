@@ -195,11 +195,20 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     .flatMap((entry) => entry.games.map((game) => ({ week: entry.week, game })));
   // A missing week, or a future week Sleeper has not scheduled yet, is not
   // "zero games left". Locks and the Monte Carlo both read remainingGames.
-  const scheduleIncomplete = weeks.some((entry) => {
+  // A played week with no matchup payload is the same kind of hole.
+  const missingFinalWeeks = weeks
+    .filter((entry) => {
+      if (!entry.isFinal || entry.isPlayoff) return false;
+      if (!weekRows.has(entry.week)) return true;
+      return entry.games.length === 0 && entry.byes.length === 0 && !entry.hasPoints;
+    })
+    .map((entry) => entry.week);
+  const futureGap = weeks.some((entry) => {
     if (entry.isPlayoff || entry.isFinal) return false;
     if (!weekRows.has(entry.week)) return true;
     return entry.games.length === 0 && entry.byes.length === 0;
   });
+  const scheduleIncomplete = missingFinalWeeks.length > 0 || futureGap;
   const leagueScores = standings.flatMap((team) => team.scores);
   const currentWeekEntry = weeks.find((entry) => entry.isCurrent)
     || weeks.find((entry) => entry.week === weekState.currentWeek)
@@ -240,6 +249,7 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     featuredWeek,
     weeksLoaded: weekRows.size,
     scheduleIncomplete,
+    missingFinalWeeks,
   };
 }
 

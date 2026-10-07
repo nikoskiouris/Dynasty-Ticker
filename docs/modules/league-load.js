@@ -5,19 +5,25 @@ export function createLeagueLoader() {
   let serial = 0;
   let latestId = "";
   let inFlight = null;
+  let inFlightOptions = null;
 
   return {
     isCurrent(token) {
       return token === serial;
     },
 
-    run(leagueId, load) {
+    run(leagueId, load, options = {}) {
       const id = String(leagueId || "");
       if (!id) return Promise.resolve();
-      if (inFlight && latestId === id) return inFlight;
+      if (inFlight && latestId === id) {
+        if (options.fromHistory && inFlightOptions) inFlightOptions.fromHistory = true;
+        return inFlight;
+      }
 
       latestId = id;
       const token = ++serial;
+      const requestOptions = { fromHistory: Boolean(options.fromHistory) };
+      inFlightOptions = requestOptions;
       const previous = inFlight;
       const job = (async () => {
         if (previous) {
@@ -28,7 +34,7 @@ export function createLeagueLoader() {
           }
         }
         if (token !== serial) return;
-        await load(id, token);
+        await load(id, token, requestOptions);
       })();
 
       const tracked = job.finally(() => {

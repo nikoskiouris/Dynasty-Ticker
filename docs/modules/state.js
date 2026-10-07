@@ -5,6 +5,14 @@ import { emptyMockDrafts } from "./mock-drafts.js";
 import { emptyValueCalcState } from "./value-calc.js";
 
 export const PLAYERS_CACHE_KEY = "fda_players_nfl_cache_v1";
+
+// Same NFL week used to keep a player dump forever. Refresh once the copy is older than the TTL.
+export function playersCacheIsFresh(cache, { now = Date.now(), ttlMs, stateKey, requireStateKey = false } = {}) {
+  if (!cache?.players || !Number.isFinite(Number(cache.savedAt))) return false;
+  if (!Number.isFinite(Number(ttlMs)) || now - Number(cache.savedAt) >= Number(ttlMs)) return false;
+  if (requireStateKey && cache.stateKey !== stateKey) return false;
+  return true;
+}
 export const DEFAULT_THEME = "dark";
 export const THEME_COLOR = "#0c0c0e";
 

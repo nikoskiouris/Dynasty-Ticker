@@ -282,6 +282,20 @@ test("vote history is not silently truncated at 4,000 events", () => {
   assert.equal(normalizeRatherState({ votes, visitors: {} }).votes.length, 5001);
 });
 
+test("vote history keeps the newest 20,000 and drops the tail", () => {
+  const votes = Array.from({ length: 20001 }, (_, index) => ({
+    eventId: `e${index}`,
+    winnerId: "player:a",
+    loserId: "player:b",
+    format: "sf",
+    at: index + 1,
+  }));
+  const normalized = normalizeRatherState({ votes, visitors: {} });
+  assert.equal(normalized.votes.length, 20000);
+  assert.equal(normalized.votes[0].eventId, "e0");
+  assert.equal(normalized.votes.at(-1).eventId, "e19999");
+});
+
 test("classic wrapper remains testable for shared request conversion", async () => {
   const store = memoryStore();
   const handler = wrapLambdaHandler(createRatherVoteHandler({

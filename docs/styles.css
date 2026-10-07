@@ -22,7 +22,7 @@
   --rail-text: #f4f1ec;
   --rail-muted: #a89e96;
   --rail-input: #1c1c1f;
-  --rail-placeholder: #8c827a;
+  --rail-placeholder: #c4bbb4;
   --backdrop: rgba(0, 0, 0, 0.72);
 
   --panel: #141416;
@@ -551,7 +551,7 @@ button:hover {
 button:disabled {
   cursor: not-allowed;
   transform: none;
-  opacity: 0.45;
+  opacity: 0.72;
   filter: none;
 }
 
