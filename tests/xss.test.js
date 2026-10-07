@@ -86,9 +86,10 @@ test("sleeperAvatarUrl allowlists sleepercdn and bare avatar ids", () => {
 });
 
 test("content security policy blocks inline script and frames", () => {
-  const policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'";
+  const policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'";
   const toml = read("netlify.toml");
   assert.match(toml, /\[\[headers\]\]/);
+  assert.match(toml, new RegExp(policy.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(toml, /X-Content-Type-Options = "nosniff"/);
   assert.match(toml, /frame-ancestors 'none'/);
   assert.match(toml, /base-uri 'self'/);
