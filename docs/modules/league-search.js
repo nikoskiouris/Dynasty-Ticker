@@ -69,14 +69,17 @@ export function resolveDefaultMeRoster({
   return list[0] || null;
 }
 
-export function renderMeSelectOptions(rosters, selectedRosterId = "") {
+export function renderMeSelectOptions(rosters, selectedRosterId = "", viewer = null) {
   const selected = String(selectedRosterId ?? "");
+  const viewerId = viewer?.sample && viewer?.rosterId != null ? String(viewer.rosterId) : "";
   return [...(Array.isArray(rosters) ? rosters : [])]
     .sort((a, b) => String(a?.manager?.displayName || "").localeCompare(String(b?.manager?.displayName || "")))
     .map((roster) => {
       const id = String(roster?.rosterId ?? "");
       const selectedAttr = id && id === selected ? " selected" : "";
-      return `<option value="${escapeHtml(id)}"${selectedAttr}>${escapeHtml(roster?.manager?.displayName || `Roster ${id}`)}</option>`;
+      const name = roster?.manager?.displayName || `Roster ${id}`;
+      const label = viewerId && id === viewerId ? `Viewing ${name} · sample` : name;
+      return `<option value="${escapeHtml(id)}"${selectedAttr}>${escapeHtml(label)}</option>`;
     })
     .join("");
 }

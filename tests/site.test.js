@@ -173,6 +173,17 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="landing-rather"/);
   assert.match(index, /id="open-public-ranks"/);
   assert.match(index, /Look up a player/);
+  assert.match(index, /Prices, trades, and your roster/);
+  assert.doesNotMatch(index, /Find your league/);
+  assert.match(index, /id="sample-league-chip"/);
+  assert.match(index, />Sample league</);
+  assert.match(index, /id="sample-banner"/);
+  assert.match(index, /This is a public sample league\. Connect your Sleeper username anytime\./);
+  assert.match(index, /id="sample-banner"[\s\S]*?>Find my leagues</);
+  assert.doesNotMatch(readDocs("ui/league.html"), /Connect Sleeper|Find leagues</);
+  assert.match(readDocs("app.js"), /Sample league — not your account\. Viewing as /);
+  assert.match(readDocs("app.js"), /Viewing \$\{name\} · sample/);
+  assert.match(readDocs("app.js"), /Example roster/);
   assert.match(index, /id="public-ranks"/);
   assert.match(index, /id="ranks-dashboard"/);
   assert.match(index, /id="landing-username"/);

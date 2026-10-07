@@ -54,7 +54,11 @@
           <span class="brand-lockup brand-lockup--header">
             <img class="brand-wordmark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
           </span>
-          <strong id="mobile-chrome-title">Your Sleeper league</strong>
+          <div class="mobile-chrome-title-row">
+            <strong id="mobile-chrome-title">Your Sleeper league</strong>
+            <span id="sample-league-chip" class="sample-league-chip" data-sample-chip hidden>Sample league</span>
+          </div>
+          <p id="mobile-chrome-viewing" class="mobile-chrome-viewing" hidden></p>
         </div>
         <div class="mobile-chrome-actions">
           <button
@@ -76,6 +80,13 @@
           <span class="brand-lockup brand-lockup--rail">
             <img class="brand-wordmark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" />
           </span>
+          <div id="sample-chrome" class="sample-chrome" hidden>
+            <div class="sample-chrome-title-row">
+              <strong id="sample-chrome-title"></strong>
+              <span class="sample-league-chip" data-sample-chip hidden>Sample league</span>
+            </div>
+            <p id="sample-chrome-viewing" class="sample-chrome-viewing"></p>
+          </div>
           <button type="button" id="mobile-rail-close" class="mobile-rail-close" aria-label="Close league controls">
             <span aria-hidden="true">×</span>
           </button>
@@ -172,6 +183,11 @@
       </button>
 
       <main class="workspace">
+        <div id="sample-banner" class="sample-banner" hidden>
+          <p>This is a public sample league. Connect your Sleeper username anytime.</p>
+          <button type="button" data-action="find-my-leagues">Find my leagues</button>
+          <button type="button" class="ghost-btn sample-banner-dismiss" data-action="dismiss-sample-banner">Dismiss</button>
+        </div>
         <header class="workspace-header" id="workspace-header">
           <div class="league-hero">
             <div class="league-avatar" id="league-avatar">

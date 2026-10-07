@@ -7850,6 +7850,90 @@ button.rather-skip {
   text-underline-offset: 0.15em;
 }
 
+.sample-league-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0.18rem 0.55rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.sample-league-chip[hidden],
+.sample-chrome[hidden],
+.sample-banner[hidden],
+.mobile-chrome-viewing[hidden] {
+  display: none;
+}
+
+.mobile-chrome-title-row,
+.sample-chrome-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.mobile-chrome-title-row strong,
+.sample-chrome-title-row strong {
+  min-width: 0;
+}
+
+.mobile-chrome-viewing,
+.sample-chrome-viewing {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.sample-chrome {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.sample-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--panel);
+}
+
+.sample-banner p {
+  flex: 1 1 16rem;
+  margin: 0;
+}
+
+body.viewing-sample .standings-row.you,
+body.viewing-sample .odds-row.you,
+body.viewing-sample .power-board-row.you,
+body.viewing-sample .team-card.you,
+body.viewing-sample .luck-row.you,
+body.viewing-sample .window-call-row.you,
+body.viewing-sample .hall-row.you,
+body.viewing-sample .game-side.you,
+body.viewing-sample button.ranks-row.you,
+body.viewing-sample .multi-team-party-card.you,
+body.viewing-sample .team-identity.you {
+  background: transparent;
+  box-shadow: none;
+}
+
 .league-loaded .public-ranks {
   display: none;
 }

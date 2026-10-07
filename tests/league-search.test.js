@@ -95,6 +95,12 @@ test("me select markup marks the searched roster selected even when it is not fi
   ], 7);
   assert.match(html, /value="7" selected/);
   assert.doesNotMatch(html, /value="1" selected/);
+  const sample = renderMeSelectOptions([
+    { rosterId: 1, manager: { displayName: "Alpha" } },
+    { rosterId: 7, manager: { displayName: "chrisalberts" } },
+  ], 7, { sample: true, rosterId: 7 });
+  assert.match(sample, /Viewing chrisalberts · sample/);
+  assert.doesNotMatch(sample, /\(you\)/);
 });
 
 test("league picker markup lists seasons and marks the selected desk", () => {
