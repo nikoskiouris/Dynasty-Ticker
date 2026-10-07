@@ -35,3 +35,10 @@
   from = "/*"
   to = "/404.html"
   status = 404
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
