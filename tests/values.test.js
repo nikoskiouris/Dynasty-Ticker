@@ -12,6 +12,7 @@ import {
   tradablePickSeason,
   upcomingDraftSeason,
   fetchValuationBundles,
+  valuationUpdatedAt,
   pickValueBundle,
   crowdShiftsFromVotes,
   applyCrowdShift,
@@ -20,6 +21,16 @@ import {
   getGlobalMaxPlayerValue,
   CROWD_MAX_ABS_SHIFT,
 } from "../docs/modules/values.js";
+
+test("valuation stamp prefers meta.updatedAt, then asOf", () => {
+  assert.equal(valuationUpdatedAt(null), "");
+  assert.equal(valuationUpdatedAt({ asOf: "2026-09-28T21:49:04+00:00" }), "2026-09-28");
+  assert.equal(
+    valuationUpdatedAt({ asOf: "2026-09-28T21:49:04+00:00", meta: { updatedAt: "2026-10-02T00:00:00Z" } }),
+    "2026-10-02",
+  );
+  assert.equal(valuationUpdatedAt({ meta: { updatedAt: "not-a-date" } }), "not-a-date");
+});
 
 test("only picks after the NFL draft stay tradable", () => {
   assert.equal(upcomingDraftSeason(new Date("2026-04-25T12:00:00Z")), 2026);

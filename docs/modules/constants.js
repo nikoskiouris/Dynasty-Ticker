@@ -1,4 +1,7 @@
 export const API_BASE = "https://api.sleeper.app/v1";
+// Public Sleeper league already used as the in-repo example. ?sample=1 opens it.
+// Do not pin a manager. Visitors are not that league's owner.
+export const SAMPLE_LEAGUE_ID = "1315165104303513600";
 export const SLEEPER_AVATAR_BASE = "https://sleepercdn.com/avatars/thumbs/";
 export const PLAYERS_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 export const SIM_ITERATIONS = 4000;

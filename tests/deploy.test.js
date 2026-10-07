@@ -1,8 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync, accessSync, constants, existsSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, accessSync, constants, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -148,51 +147,23 @@ test("Netlify git builds are stopped at the site so merges never start a job", (
   assert.match(dry.stdout, /Would stop Netlify git builds/);
 });
 
-test("develop publishes a GitHub Pages preview and not the live site", () => {
-  accessSync(join(root, "scripts/stage_pages_preview.sh"), constants.X_OK);
-  const workflow = read(".github/workflows/preview-pages.yml");
-  assert.match(workflow, /workflow_dispatch:/);
-  assert.match(workflow, /ref: develop/);
-  assert.match(workflow, /stage_pages_preview\.sh/);
-  assert.match(workflow, /actions\/deploy-pages@v4/);
-  assert.match(workflow, /group: pages-preview/);
-  assert.doesNotMatch(workflow, /deploy_live_site/);
-  assert.doesNotMatch(workflow, /branches:\s*\[prod\]/);
-  assert.doesNotMatch(workflow, /branches:\s*\[develop\]/);
-  assert.doesNotMatch(workflow, /cname/i);
-  assert.doesNotMatch(workflow, /dynastyticker\.com/);
+test("GitHub Pages is not a second copy of the app", () => {
+  assert.equal(existsSync(join(root, ".github/workflows/preview-pages.yml")), false);
+  assert.equal(existsSync(join(root, ".github/workflows/refresh-pages-preview.yml")), false);
+  assert.equal(existsSync(join(root, "scripts/stage_pages_preview.sh")), false);
 
-  const relay = read(".github/workflows/refresh-pages-preview.yml");
-  assert.match(relay, /branches:\s*\[develop\]/);
-  assert.match(relay, /preview-pages\.yml --ref main/);
-  assert.doesNotMatch(relay, /deploy_live_site/);
-  assert.doesNotMatch(relay, /actions\/deploy-pages/);
-  assert.doesNotMatch(relay, /environment:/);
-  assert.doesNotMatch(relay, /cname/i);
-  assert.doesNotMatch(relay, /dynastyticker\.com/);
+  const agents = read("AGENTS.md");
+  assert.match(agents, /github\.io is not the app/);
+  assert.match(agents, /301/);
+  assert.doesNotMatch(agents, /publishes `develop` to/);
 
-  const dest = mkdtempSync(join(tmpdir(), "pages-preview-"));
-  try {
-    const staged = spawnSync("bash", [join(root, "scripts/stage_pages_preview.sh"), dest], {
-      encoding: "utf8",
-    });
-    assert.equal(staged.status, 0, staged.stderr);
-    assert.equal(readFileSync(join(dest, "robots.txt"), "utf8"), "User-agent: *\nDisallow: /\n");
-    assert.equal(existsSync(join(dest, ".nojekyll")), true);
-    assert.equal(existsSync(join(dest, "index.html")), true);
-    assert.equal(existsSync(join(dest, "sitemap.xml")), false);
-    assert.equal(existsSync(join(dest, "_redirects")), false);
-    assert.match(read("docs/robots.txt"), /Sitemap: https:\/\/dynastyticker\.com\/sitemap\.xml/);
-    assert.match(read("docs/_redirects"), /\/api\/searched-user/);
-  } finally {
-    rmSync(dest, { recursive: true, force: true });
-  }
-
-  const refused = spawnSync("bash", [join(root, "scripts/stage_pages_preview.sh"), join(root, "docs")], {
-    encoding: "utf8",
-  });
-  assert.equal(refused.status, 1);
-  assert.match(refused.stderr, /Refusing to stage/);
+  const readme = read("README.md");
+  assert.match(readme, /github\.io is not the app/);
+  assert.match(readme, /301/);
+  assert.match(readme, /no GitHub Pages preview workflow/);
+  assert.doesNotMatch(readme, /preview-pages\.yml/);
+  assert.doesNotMatch(readme, /stage_pages_preview/);
+  assert.doesNotMatch(readme, /unreleased `develop` also goes to GitHub Pages/);
 });
 
 test("agents land work on develop and release from prod", () => {
@@ -206,9 +177,10 @@ test("agents land work on develop and release from prod", () => {
   assert.match(readme, /merged into `prod`/);
   assert.match(readme, /do \*\*not\*\* mean credits were spent/i);
   assert.match(readme, /Stopped builds/);
-  assert.match(readme, /nikoskiouris\.github\.io\/Dynasty-Ticker/);
+  assert.match(readme, /github\.io is not the app/);
   assert.match(readme, /Do \*\*not\*\* add a custom domain/);
-  assert.match(agents, /github\.io\/Dynasty-Ticker/);
+  assert.match(agents, /github\.io is not the app/);
+  assert.match(readme, /\?sample=1/);
   assert.doesNotMatch(readme, /Stop auto publishing so Netlify does not start/);
 
   const tests = read(".github/workflows/test.yml");

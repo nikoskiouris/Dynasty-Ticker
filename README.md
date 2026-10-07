@@ -12,7 +12,7 @@ Sleeper dynasty league ticker: live scores, standings, playoff odds, awards, arc
 
 Open `docs/` locally (`npm run serve`) or [dynastyticker.com](https://dynastyticker.com/).
 
-1. Type a **Sleeper username** and press **Find leagues**.
+1. Type a **Sleeper username** and press **Find my leagues**. No username yet? Open `/?sample=1`. That loads one public Sleeper league so you can see the desk. It does not sign you in as a manager.
 2. Pick the league.
 3. League ID / URL still lives behind “Have a league ID or URL instead?”
 
@@ -48,9 +48,11 @@ The complete design and caveats live in `player-values/SPEC.md`; implementation 
 
 ## Live site (dynastyticker.com)
 
-The live app is a static site on **Netlify**. Public URL: `https://dynastyticker.com/`. Unreleased `develop` also goes to GitHub Pages as a preview: `https://nikoskiouris.github.io/Dynasty-Ticker/`.
+The live app is a static site on **Netlify**. Public URL: `https://dynastyticker.com/`. That is the product. `develop` is the integration branch. Unreleased work stays on `develop` until a release.
 
 **Work on `develop`. Live site updates only when `develop` is merged into `prod`.** That merge cuts a GitHub Release. GitHub Actions then scrapes market files and uploads with the Netlify CLI. Merges to `develop` (or leftover `main`) do not publish the live site.
+
+**github.io is not the app.** Do not treat `nikoskiouris.github.io` as Dynasty Ticker or as a preview of `develop`. After dynastyticker.com is serving this desk, turn GitHub Pages off in the repo settings, or replace the leftover Pages site with a 301 to `https://dynastyticker.com/`. Do not add a Pages custom domain. This repo no longer publishes `docs/` to Pages.
 
 Netlify emails on a GitHub merge do **not** mean credits were spent. On credit plans, a **successful production deploy** costs 15 credits. Skipped, canceled, and failed git deploys cost 0, but they still start a job and still email you. **Stop builds** (not “stop auto publishing”) is the switch that prevents the job from existing. This repo turns that on through the Netlify API. Bandwidth, web requests, and functions still use credits when people visit the site.
 
@@ -63,9 +65,9 @@ Netlify emails on a GitHub merge do **not** mean credits were spent. On credit p
    - `NETLIFY_AUTH_TOKEN` — Netlify user access token (User settings → Applications → New access token).
    - `NETLIFY_SITE_ID` — Site API ID (Site configuration → Site details).
 7. GitHub Actions runs `.github/workflows/stop-netlify-git-builds.yml` so Netlify **Build status = Stopped builds**. Confirm in Netlify: **Project configuration → Build & deploy → Continuous deployment → Build settings → Stopped builds**. Do **not** use “Stop auto publishing”; that still starts a canceled production job. `netlify.toml` skip/refuse scripts are only a backup.
-8. Repo **Settings → Pages**: source is **GitHub Actions**. A push to `develop` runs `.github/workflows/refresh-pages-preview.yml`, which starts `.github/workflows/preview-pages.yml` on `main`. That job checks out `develop` and publishes `docs/` to `https://nikoskiouris.github.io/Dynasty-Ticker/`. Pages only allows deploys from `main`. That URL is the unreleased preview. Do **not** add a custom domain there. Visit counts and rather votes stay on dynastyticker.com only.
+8. Repo **Settings → Pages**: turn the source **off** once dynastyticker.com matches this desk. If a github.io URL is still up, replace it with a redirect to `https://dynastyticker.com/`. Do **not** add a custom domain there. Visit counts and rather votes stay on dynastyticker.com only.
 
-Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Tests: `.github/workflows/test.yml`. Unreleased preview: `.github/workflows/refresh-pages-preview.yml` starts `.github/workflows/preview-pages.yml` on `main`.
+Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Tests: `.github/workflows/test.yml`. Local check: `npm run serve`. There is no GitHub Pages preview workflow.
 
 ### Traffic
 
@@ -98,7 +100,7 @@ Download it from Netlify: **Data & Storage → Blobs → desk-users → searched
 NETLIFY_AUTH_TOKEN=... NETLIFY_SITE_ID=... node scripts/searched_users.mjs
 ```
 
-That writes `searched-users.csv` (gitignored). **This repo is public. Never commit that file.** There is no public URL for the list; `/api/searched-user` only accepts writes from dynastyticker.com. Localhost and the GitHub Pages preview never send a username.
+That writes `searched-users.csv` (gitignored). **This repo is public. Never commit that file.** There is no public URL for the list; `/api/searched-user` only accepts writes from dynastyticker.com. Localhost never sends a username. github.io is not the app, so it must not be treated as a second desk.
 
 ## CLI
 

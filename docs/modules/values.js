@@ -1,6 +1,17 @@
 import { ordinal } from "./season.js";
 
 export const PLAYER_VALUES_PATH = "./data/player_values.json";
+
+// Prefer meta.updatedAt when a bundle has it. Otherwise the file's asOf stamp.
+export function valuationUpdatedAt(bundle) {
+  const meta = bundle?.meta;
+  const raw = (meta && typeof meta === "object" && meta.updatedAt) || bundle?.asOf || "";
+  const text = String(raw || "").trim();
+  if (!text) return "";
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return text;
+  return date.toISOString().slice(0, 10);
+}
 export const PLAYER_VALUE_MODEL_VERSION = "football-forecast-v1";
 // Same annual discount as player-values/config.json. A missing pick year uses this ruler.
 export const PICK_YEAR_DISCOUNT = 0.85;

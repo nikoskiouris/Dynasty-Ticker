@@ -827,11 +827,24 @@ details.workspace-panel > summary,
     margin-bottom: 1.1rem;
   }
 
+  .ranks {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .ranks-toolbar,
   .ranks-filters {
     width: 100%;
     max-width: 100%;
+    min-width: 0;
     justify-content: flex-start;
+    justify-items: stretch;
+  }
+
+  .ranks-search {
+    width: 100%;
+    max-width: 100%;
   }
 
   .ranks-filters {
@@ -851,7 +864,36 @@ details.workspace-panel > summary,
   }
 
   .landing-search-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+  }
+
+  .landing-search-row input,
+  .landing-search-row button,
+  .ranks-filters button,
+  .ranks-search {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .landing-copy,
+  .landing-search,
+  .landing-hero,
+  .empty-workspace,
+  .ranks-toolbar,
+  .ranks-filters {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .ranks-filters {
+    flex-wrap: wrap;
+  }
+
+  .workspace,
+  .empty-workspace {
+    overflow-x: clip;
   }
 
   #landing-find-btn,
@@ -912,6 +954,29 @@ details.workspace-panel > summary,
   #sticky-find-btn {
     border-radius: 999px;
   }
+
+  body.viewing-sample .mobile-chrome {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    align-items: center;
+  }
+
+  body.viewing-sample .mobile-chrome-copy,
+  body.viewing-sample .mobile-chrome-title-row {
+    min-width: 0;
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  body.viewing-sample .mobile-chrome-title-row strong {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  #sample-chrome {
+    display: none;
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -954,4 +1019,65 @@ details.workspace-panel > summary,
   width: auto;
   margin-top: 1.4rem;
   border-radius: 999px;
+}
+
+/* Wide and mid desktops: wordmark row, then an opaque sticky tab row.
+   Tabs no longer sit on top of Find my leagues, Trade, or the team picker. */
+@media (min-width: 701px) {
+  body.league-loaded .control-rail,
+  body.board-tools-live .control-rail,
+  body:not(.league-loaded):not(.board-tools-live) .control-rail {
+    position: sticky;
+    top: 0;
+    left: auto;
+    z-index: 30;
+    display: flex;
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    padding: 0.85rem 1.4rem 0.7rem;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+    box-shadow: none;
+  }
+
+  body.league-loaded .workspace,
+  body.board-tools-live .workspace,
+  body:not(.league-loaded):not(.board-tools-live) .workspace {
+    width: min(1120px, calc(100% - 3rem));
+    margin: 0 auto;
+    padding-top: 1rem;
+  }
+
+  body.league-loaded .desk-nav,
+  body.board-tools-live .desk-nav,
+  body:not(.league-loaded):not(.board-tools-live) .desk-nav {
+    order: -1;
+    position: sticky;
+    top: var(--desk-rail-height, 4.6rem);
+    left: auto;
+    z-index: 28;
+    transform: none;
+    width: 100%;
+    max-width: none;
+    border-radius: 0;
+    background: var(--bg);
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  body.viewing-sample:not(.sample-connect-open) .league-module {
+    display: none;
+  }
+
+  body.league-loaded #me-select,
+  body.board-tools-live #me-select {
+    width: min(16rem, 46vw);
+  }
 }
