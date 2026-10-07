@@ -1,7 +1,8 @@
-// One policy for the HTML meta tag and the Netlify header. Script stays
-// same-origin. Style attributes stay, because the desk sets --hue and meter
-// widths in markup. Google Fonts are the only third-party style/font hosts.
-export const CONTENT_SECURITY_POLICY = [
+// Script stays same-origin. Style attributes stay, because the desk sets
+// --hue and meter widths in markup. Google Fonts are the only third-party
+// style and font hosts. frame-ancestors is header-only: a meta tag ignores it
+// and Chrome logs an error.
+const DIRECTIVES = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
@@ -15,4 +16,9 @@ export const CONTENT_SECURITY_POLICY = [
   "connect-src 'self' https://api.sleeper.app",
   "form-action 'self'",
   "upgrade-insecure-requests",
-].join("; ");
+];
+
+export const CONTENT_SECURITY_POLICY = DIRECTIVES.join("; ");
+export const META_CONTENT_SECURITY_POLICY = DIRECTIVES
+  .filter((directive) => !directive.startsWith("frame-ancestors"))
+  .join("; ");

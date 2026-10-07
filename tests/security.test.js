@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CONTENT_SECURITY_POLICY } from "../docs/modules/csp.js";
+import { CONTENT_SECURITY_POLICY, META_CONTENT_SECURITY_POLICY } from "../docs/modules/csp.js";
 import { sleeperAvatarUrl } from "../docs/modules/sleeper.js";
 import { escapeHtml } from "../docs/modules/html.js";
 
@@ -40,11 +40,14 @@ test("sleeper avatar urls stay on the sleeper cdn and cannot break an attribute"
 
 test("pages and netlify share one script-locked content security policy", () => {
   assert.match(CONTENT_SECURITY_POLICY, /script-src 'self'/);
+  assert.match(CONTENT_SECURITY_POLICY, /frame-ancestors 'none'/);
+  assert.doesNotMatch(META_CONTENT_SECURITY_POLICY, /frame-ancestors/);
   assert.doesNotMatch(CONTENT_SECURITY_POLICY, /unsafe-eval/);
   assert.match(CONTENT_SECURITY_POLICY, /connect-src 'self' https:\/\/api\.sleeper\.app/);
   assert.match(CONTENT_SECURITY_POLICY, /img-src 'self' https:\/\/sleepercdn\.com/);
   for (const file of ["docs/index.html", "docs/privacy.html", "docs/terms.html", "docs/404.html"]) {
-    assert.ok(read(file).includes(`content="${CONTENT_SECURITY_POLICY}"`), file);
+    assert.ok(read(file).includes(`content="${META_CONTENT_SECURITY_POLICY}"`), file);
+    assert.equal(read(file).includes("frame-ancestors"), false, file);
   }
   const netlify = read("netlify.toml");
   assert.ok(netlify.includes(`Content-Security-Policy = "${CONTENT_SECURITY_POLICY}"`));
