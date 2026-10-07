@@ -44,7 +44,7 @@ import {
   LEAGUE_HISTORY_RECORD_IDS,
 } from "./modules/constants.js";
 import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
-import { createLeagueLoader } from "./modules/league-load.js";
+import { createLeagueLoader, shouldBlankDeskForLeagueSwitch } from "./modules/league-load.js";
 import {
   apiGet,
   apiGetWithRetry,
@@ -887,6 +887,11 @@ function handleRoomTabKeydown(event) {
 
 function renderActivePage() {
   pageRenderQueue.settle();
+  if (state.leagueSwitching) {
+    renderLeagueHero();
+    hideAppPages();
+    return;
+  }
   syncRoomUi();
   renderLeagueHero();
   const page = state.activePage;
@@ -1548,6 +1553,16 @@ function scrollActiveTabIntoView() {
 
 function renderSessionSnapshot() {
   document.body.classList.toggle("league-loaded", Boolean(state.leagueId));
+  if (state.leagueSwitching) {
+    if (el.mobileChromeTitle) el.mobileChromeTitle.textContent = "Loading league…";
+    if (el.chromeLeagueLabel) el.chromeLeagueLabel.textContent = "Loading…";
+    if (el.chromeManagerLabel) el.chromeManagerLabel.textContent = "—";
+    if (el.chromeModeLabel) el.chromeModeLabel.textContent = "—";
+    renderLeagueHero();
+    syncDocumentMeta();
+    syncSiteDock();
+    return;
+  }
   if (el.mobileChromeTitle) {
     const you = getMyRoster()?.manager?.displayName || "";
     el.mobileChromeTitle.textContent = publicRanksOpen && !state.leagueId
@@ -1587,6 +1602,13 @@ function brandMarkAvatarHtml() {
 
 function renderLeagueHero() {
   if (!el.heroTitle) return;
+  if (state.leagueSwitching) {
+    el.heroEyebrow.textContent = "Sleeper";
+    el.heroTitle.textContent = "Loading league…";
+    el.heroLede.textContent = "Pulling this league from Sleeper.";
+    if (el.leagueAvatar) el.leagueAvatar.innerHTML = brandMarkAvatarHtml();
+    return;
+  }
   if (!state.leagueId || !state.league) {
     el.heroEyebrow.textContent = "Sleeper dynasty league";
     el.heroTitle.textContent = "Your Sleeper league";
@@ -1963,7 +1985,19 @@ async function loadLeague() {
 
 async function loadLeagueById(leagueId, { fromHistory = false } = {}) {
   if (!leagueId) return;
+  if (shouldBlankDeskForLeagueSwitch(state.leagueId, leagueId)) blankDeskForLeagueSwitch();
   return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
+}
+
+function blankDeskForLeagueSwitch() {
+  state.leagueSwitching = true;
+  pageRenderQueue.settle();
+  stopLivePolling();
+  invalidatePlayerLoads();
+  startLeagueLoadingUi();
+  hideAppPages();
+  el.identitySection?.classList.add("hidden");
+  renderSessionSnapshot();
 }
 
 async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
@@ -2073,6 +2107,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.previousRosters = previousContext.rosters;
     state.leagueHistory = leagueHistory;
     state.normalizedRosters = normalizeRosters(league, rosters, users, state.players, previousContext, tradedPicks, state.currentDraftContext);
+    state.leagueSwitching = false;
 
     setFieldError(el.leagueId, el.leagueIdError, "");
     if (state.userLeagues.length) {
@@ -2141,6 +2176,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       });
   } catch (err) {
     if (!leagueLoader.isCurrent(token)) return;
+    state.leagueSwitching = false;
     state.pendingPlace = null;
     const message = `Could not load league data. ${err.message}`;
     setFieldError(el.leagueId, el.leagueIdError, message);
@@ -15834,6 +15870,13 @@ function focusUsernameSearch() {
 }
 
 function syncDocumentMeta() {
+  if (state.leagueSwitching) {
+    applyDocumentMeta(document, {
+      title: "Loading league — Dynasty Ticker",
+      description: "Opening a Sleeper league.",
+    });
+    return;
+  }
   if (publicRanksOpen && !state.leagueId) {
     applyDocumentMeta(document, {
       title: "Ranks — Dynasty Ticker",

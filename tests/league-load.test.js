@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createLeagueLoader } from "../docs/modules/league-load.js";
+import { createLeagueLoader, shouldBlankDeskForLeagueSwitch } from "../docs/modules/league-load.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const app = readFileSync(join(root, "docs/app.js"), "utf8");
@@ -100,6 +100,13 @@ test("a failed load does not block the next league", async () => {
   assert.deepEqual(loaded, ["league-b"]);
 });
 
+test("a different league blanks the desk immediately and the same league does not", () => {
+  assert.equal(shouldBlankDeskForLeagueSwitch("league-a", "league-b"), true);
+  assert.equal(shouldBlankDeskForLeagueSwitch("league-a", "league-a"), false);
+  assert.equal(shouldBlankDeskForLeagueSwitch("", "league-b"), false);
+  assert.equal(shouldBlankDeskForLeagueSwitch("league-a", ""), false);
+});
+
 test("desk uses the league loader and drops stale player refreshes", () => {
   assert.match(app, /createLeagueLoader/);
   assert.match(app, /leagueLoader\.run\(leagueId,/);
@@ -109,4 +116,8 @@ test("desk uses the league loader and drops stale player refreshes", () => {
   assert.match(app, /playersLoadStale\(playersEpoch, token, leagueId\)/);
   assert.match(app, /leagueId:\s*\(\)\s*=>\s*state\.leagueId/);
   assert.match(app, /cache:\s*"default"/);
+  assert.match(app, /shouldBlankDeskForLeagueSwitch\(state\.leagueId, leagueId\)/);
+  assert.match(app, /function blankDeskForLeagueSwitch\(\)/);
+  assert.match(app, /state\.leagueSwitching = true/);
+  assert.match(app, /if \(state\.leagueSwitching\)/);
 });
