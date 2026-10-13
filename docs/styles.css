@@ -289,6 +289,10 @@ a.brand-lockup:hover {
   height: 1.35rem;
 }
 
+.brand-wordmark--day {
+  display: none;
+}
+
 .brand-lockup--landing {
   display: block;
   margin: 0 0 0.85rem;
