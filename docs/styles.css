@@ -1,17 +1,16 @@
 /* ==========================================================================
-   Dynasty Ticker — Night desk
-   Black field, ivory type, serif headlines. Instrument Serif on the big
-   type, Instrument Sans on the controls. One theme. Dark only. burgundy ink
-   accents stay in the brand marks and field coral.
+   Dynasty Ticker — Price tape
+   Condensed names, coral prices, square faces. One live bar on the left.
+   Brand marks keep the burgundy ink.
    ========================================================================== */
 
 :root {
   color-scheme: dark;
-  --font-display: "Instrument Serif", "Iowan Old Style", Palatino, serif;
-  --font-body: "Instrument Sans", "Segoe UI", sans-serif;
-  --font-mono: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Archivo", "Segoe UI", sans-serif;
+  --font-mono: "Barlow Condensed", "Arial Narrow", sans-serif;
 
-  --bg: #0c0c0e;
+  --bg: #07080c;
   --bg-glow-1: transparent;
   --bg-glow-2: transparent;
   --bg-glow-3: transparent;
@@ -33,13 +32,13 @@
   --line-strong: rgba(244, 241, 236, 0.32);
   --hover-fill: rgba(244, 241, 236, 0.06);
 
-  --text: #f4f1ec;
-  --muted: #a89e96;
-  --muted-strong: #e4dcd4;
-  --on-accent: #141210;
-  --link: #f4f1ec;
+  --text: #f3f0e8;
+  --muted: #9a9388;
+  --muted-strong: #d9d2c6;
+  --on-accent: #07080c;
+  --link: #f3f0e8;
 
-  --blue: #f4f1ec;
+  --blue: #ff3b1f;
   --blue-soft: rgba(244, 241, 236, 0.12);
   --violet: #8eb6ff;
   --violet-soft: rgba(142, 182, 255, 0.16);
@@ -59,18 +58,18 @@
   --team-b-soft: rgba(142, 182, 255, 0.14);
   --team-b-border: rgba(142, 182, 255, 0.45);
 
-  --gradient: #f4f1ec;
-  --gradient-soft: #1c1c1f;
+  --gradient: #ff3b1f;
+  --gradient-soft: #16181f;
   --shadow: none;
   --shadow-soft: none;
   --lift-shadow: none;
   --accent-glow: transparent;
-  --radius: 18px;
-  --radius-sm: 14px;
-  --focus: 0 0 0 3px rgba(244, 241, 236, 0.32);
-  --ink: #f4f1ec;
-  --paper: #0c0c0e;
-  --field: #e85d4c;
+  --radius: 0px;
+  --radius-sm: 0px;
+  --focus: 0 0 0 2px #ff3b1f;
+  --ink: #f3f0e8;
+  --paper: #07080c;
+  --field: #ff3b1f;
 }
 
 
@@ -1506,7 +1505,7 @@ body:not(.league-loaded) .workspace-header {
   flex: 0 0 auto;
   overflow: hidden;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--gradient-soft);
   line-height: 0;
   vertical-align: middle;

@@ -15,15 +15,13 @@ Tobia Donadon's App Designer / Web Designer zips are login-gated. This skill is 
 4. Critique for slop: one sans for everything, soft glow, one accent used on every control, shadow cards, 16–28px radius, pill buttons, glass blur, a centered hero with three cards.
 5. Check 320px width, long names, and `prefers-reduced-motion`.
 
-Home concept, already chosen: a Sunday sports page. Cream paper, hairline columns, one green rule from the wordmark. The night desk stays after a league loads. Do not restyle the inside pages in the same pass.
+Current concept: the price tape. Black field, Barlow Condensed, coral prices, square faces, one live bar on the left edge. Do not put the cream Sunday page back.
 
 ## Home rules
 
-- Masthead, then a left column for the username, then a ruled index. No floating card.
-- Newsreader for the headline. Barlow Condensed for index numbers. Instrument stays on the night desk.
-- One accent: wordmark green, and only on the active rule.
-- Search is an underline plus one ink button. "Look up a player" is a text link.
-- Motion is none on this screen. The page is the work.
+- The tape is the page. No cream paper. No serif poster. No numbered index.
+- Prices are coral. Faces are square. The left edge is one live bar.
+- Search is an underline plus a coral Find button.
 
 ## Directions that lost
 
