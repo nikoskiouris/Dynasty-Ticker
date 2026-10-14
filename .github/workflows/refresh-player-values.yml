@@ -41,6 +41,9 @@ jobs:
       - name: Build independent values
         run: python3 player-values/build.py
 
+      - name: Fail if the refreshed snapshot is still stale
+        run: python3 scripts/check_market_files.py --fail-on-age
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22.12.0"

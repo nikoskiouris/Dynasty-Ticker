@@ -2,6 +2,23 @@ import { escapeHtml } from "./html.js";
 import { leagueTypeLabel } from "./league-format.js";
 import { sleeperAvatarUrl } from "./sleeper.js";
 
+export function isMissingSleeperUser(err) {
+  if (!err || typeof err !== "object") return false;
+  if (err.name === "SyntaxError") return false;
+  const status = Number(err.status);
+  if (status === 404) return true;
+  if (Number.isFinite(status) && status !== 200) return false;
+  return /No Sleeper user named/i.test(String(err.message || ""));
+}
+
+export function describeUserSearchFailure(err, username) {
+  const name = String(username || "").trim();
+  if (isMissingSleeperUser(err)) {
+    return { message: `No Sleeper user named ${name}.`, retry: false };
+  }
+  return { message: `Sleeper failed for ${name}.`, retry: true };
+}
+
 export function leagueStatusLabel(status) {
   const value = String(status || "").replaceAll("_", " ");
   if (!value) return "league";
