@@ -5,6 +5,9 @@ on:
   push:
     branches: ["develop", "prod", "main", "master", "work"]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest

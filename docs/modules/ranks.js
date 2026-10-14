@@ -1,4 +1,5 @@
 import { escapeHtml, formatNumber } from "./html.js";
+import { sleeperAvatarUrl } from "./sleeper.js";
 import { renderPlayerFace } from "./player-face.js";
 import { ordinal } from "./season.js";
 import { isInactivePlayerAsset, parsePickAssetId, upcomingDraftSeason } from "./values.js";
@@ -307,12 +308,17 @@ function renderRankName(row) {
   return `<strong class="player-name">${face}<span class="player-name-text">${name}</span></strong>`;
 }
 
+function shownRankNumber(row) {
+  if (row?.kind === "player" && Number(row.overallRank) > 0) return row.overallRank;
+  return row?.listRank || "";
+}
+
 function renderRankRow(row, active) {
   const you = row.owner?.mine ? " you" : "";
   const meta = rankMeta(row);
   return `
     <button type="button" class="ranks-row${active ? " active" : ""}${you}" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}" aria-pressed="${active ? "true" : "false"}">
-      <span class="ranks-num">${escapeHtml(String(row.listRank || ""))}</span>
+      <span class="ranks-num">${escapeHtml(String(shownRankNumber(row)))}</span>
       <span class="ranks-who">
         ${renderRankName(row)}
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
@@ -343,8 +349,9 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
     ? row.spread.map((item) => `${item.label} ${formatNumber(item.value)}`).join(" · ")
     : "";
   const neighbors = Array.isArray(row.neighbors) ? row.neighbors : [];
-  const photo = row.photoUrl
-    ? `<img class="rather-photo" src="${escapeHtml(row.photoUrl)}" alt="" />`
+  const photoSrc = sleeperAvatarUrl(row.photoUrl);
+  const photo = photoSrc
+    ? `<img class="rather-photo" src="${escapeHtml(photoSrc)}" alt="" />`
     : "";
   const calc = `<button type="button" class="ghost-btn" data-action="rank-calc" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-value="${escapeHtml(String(row.value))}" data-kind="${escapeHtml(row.kind)}">Add to trade</button>`;
   return `

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 PACKAGE_RAW_BASE = 0.10
@@ -23,6 +24,16 @@ class PackageAdjustmentResult:
     package_adjustment: int
     package_adjustment_side: str | None
     even_value: int
+
+
+def _clean_value(value) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if not math.isfinite(number):
+        return 0.0
+    return max(0.0, number)
 
 
 class ValuationService:
@@ -85,6 +96,8 @@ class ValuationService:
         return max(0, round(high))
 
     def calculate_package_adjustment(self, my_values: list[int], their_values: list[int]) -> PackageAdjustmentResult:
+        my_values = [int(round(number)) for number in (_clean_value(value) for value in my_values) if number > 0]
+        their_values = [int(round(number)) for number in (_clean_value(value) for value in their_values) if number > 0]
         my_base_value = sum(my_values)
         their_base_value = sum(their_values)
         if len(my_values) <= 1 and len(their_values) <= 1:

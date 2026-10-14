@@ -5,6 +5,7 @@ import {
   paintFindLeagueButtons,
   watchUsernameFields,
 } from "./modules/boot-gate.js";
+import { watchBootImport } from "./modules/boot-import.js";
 
 const PAGE_FILES = [
   "./ui/landing.html",
@@ -56,4 +57,10 @@ try {
   showBootError();
   throw err;
 }
-await import("./app.js");
+await watchBootImport({
+  importApp: async () => await import("./app.js"),
+  host,
+  onlineTarget: window,
+  reload: () => location.reload(),
+  storage: sessionStorage,
+});

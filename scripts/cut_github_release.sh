@@ -43,6 +43,16 @@ if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
   exit 0
 fi
 
+# A re-run of this job must not cut a second release for the same commit.
+# Two releases for one SHA publish the live site twice.
+existing="$(gh release list --repo "$repo" --limit 100 --json tagName,targetCommitish \
+  --jq ".[] | select(.targetCommitish==\"$sha\") | .tagName")"
+if [[ -n "$existing" ]]; then
+  echo "Release already points at $sha:"
+  printf '%s\n' "$existing"
+  exit 0
+fi
+
 gh release create "$tag" \
   --repo "$repo" \
   --target "$sha" \
