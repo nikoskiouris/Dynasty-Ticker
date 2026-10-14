@@ -11,12 +11,36 @@ export function isMissingSleeperUser(err) {
   return /No Sleeper user named/i.test(String(err.message || ""));
 }
 
+export function isSleeperUnreachable(err) {
+  if (!err || typeof err !== "object") return false;
+  if (err.name === "SyntaxError") return false;
+  const status = Number(err.status);
+  if (Number.isFinite(status) && status > 0) return false;
+  const message = String(err.message || "");
+  if (/Network\/CORS|Failed to fetch|timed out|offline/i.test(message)) return true;
+  if (err.name === "TypeError") return true;
+  return globalThis.navigator?.onLine === false;
+}
+
+function isSleeperServerFailure(err) {
+  if (!err || typeof err !== "object") return false;
+  if (err.name === "SyntaxError") return true;
+  const status = Number(err.status);
+  return Number.isFinite(status) && status >= 500 && status <= 599;
+}
+
 export function describeUserSearchFailure(err, username) {
   const name = String(username || "").trim();
   if (isMissingSleeperUser(err)) {
     return { message: `No Sleeper user named ${name}.`, retry: false };
   }
-  return { message: `Sleeper failed for ${name}.`, retry: true };
+  if (isSleeperUnreachable(err)) {
+    return { message: "Couldn't reach Sleeper.", retry: true };
+  }
+  if (isSleeperServerFailure(err)) {
+    return { message: `Sleeper failed for ${name}.`, retry: true };
+  }
+  return { message: "Sleeper is busy. Try again.", retry: true };
 }
 
 export function leagueStatusLabel(status) {
@@ -82,14 +106,24 @@ export function resolveDefaultMeRoster({
   const searched = findRosterForSleeperUser(list, sleeperUser, rawRosters);
   if (searched) return searched;
 
+  // A searched user who isn't in this league is not the first manager.
+  if (sleeperUser) return null;
+
   if (selected) return selected;
   return list[0] || null;
+}
+
+export function noTeamInLeagueCopy(sleeperUser) {
+  if (!sleeperUser) return "";
+  const name = String(sleeperUser.display_name || sleeperUser.username || "").trim();
+  if (name) return `${name} has no team in this league.`;
+  return "This user has no team in this league.";
 }
 
 export function renderMeSelectOptions(rosters, selectedRosterId = "", viewer = null) {
   const selected = String(selectedRosterId ?? "");
   const viewerId = viewer?.sample && viewer?.rosterId != null ? String(viewer.rosterId) : "";
-  return [...(Array.isArray(rosters) ? rosters : [])]
+  const options = [...(Array.isArray(rosters) ? rosters : [])]
     .sort((a, b) => String(a?.manager?.displayName || "").localeCompare(String(b?.manager?.displayName || "")))
     .map((roster) => {
       const id = String(roster?.rosterId ?? "");
@@ -99,6 +133,8 @@ export function renderMeSelectOptions(rosters, selectedRosterId = "", viewer = n
       return `<option value="${escapeHtml(id)}"${selectedAttr}>${escapeHtml(label)}</option>`;
     })
     .join("");
+  if (selected) return options;
+  return `<option value="" selected>No team</option>${options}`;
 }
 
 export function seasonSearchHardFailStatus(season) {

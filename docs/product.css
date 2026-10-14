@@ -1080,6 +1080,26 @@ details.workspace-panel > summary,
     display: none;
   }
 
+  /* The open list is in the top bar. Leave it in normal flow so it sits
+     above the desk instead of sticking over the league header. */
+  body.league-loaded:has(#league-picker:not(.hidden)) .control-rail,
+  body.board-tools-live:has(#league-picker:not(.hidden)) .control-rail {
+    position: static;
+    z-index: auto;
+    background: var(--bg);
+  }
+
+  body.league-loaded:has(#league-picker:not(.hidden)) .league-module,
+  body.board-tools-live:has(#league-picker:not(.hidden)) .league-module {
+    flex: 1 0 100%;
+    align-items: stretch;
+  }
+
+  body.league-loaded:has(#league-picker:not(.hidden)) #league-picker,
+  body.board-tools-live:has(#league-picker:not(.hidden)) #league-picker {
+    width: 100%;
+  }
+
   body.league-loaded #me-select,
   body.board-tools-live #me-select {
     width: min(16rem, 46vw);
