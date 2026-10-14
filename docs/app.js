@@ -44,7 +44,12 @@ import {
 } from "./modules/constants.js";
 import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
 import { createLeagueLoader, shouldBlankDeskForLeagueSwitch } from "./modules/league-load.js";
-import { createLeagueLoadRecovery, leagueLoadErrorVisibility } from "./modules/league-load-error.js";
+import {
+  SLEEPER_UNREACHABLE_MESSAGE,
+  createLeagueLoadRecovery,
+  leagueLoadErrorMessage,
+  leagueLoadErrorVisibility,
+} from "./modules/league-load-error.js";
 import {
   apiGet,
   apiGetWithRetry,
@@ -213,6 +218,7 @@ import {
   winPctFromRecord,
 } from "./modules/loyalty.js";
 import {
+  describeUserSearchFailure,
   renderLeaguePickerMarkup,
   renderLeagueSearchNote,
   renderMeSelectOptions,
@@ -490,6 +496,14 @@ const leagueLoadRecovery = createLeagueLoadRecovery({
   isCurrent: (token) => leagueLoader.isCurrent(token),
   load: (leagueId, job) => {
     void loadLeagueById(leagueId, { sample: Boolean(job?.sample) });
+  },
+  onlineTarget: window,
+});
+let userSearchGeneration = 0;
+const userSearchRecovery = createLeagueLoadRecovery({
+  isCurrent: (token) => token === userSearchGeneration,
+  load: (username) => {
+    void searchUserLeagues(username);
   },
   onlineTarget: window,
 });
@@ -1876,7 +1890,6 @@ function handleLeaguePickClick(event) {
   const leagueId = parseLeagueId(button.dataset.leagueId);
   if (!leagueId) return;
   if (el.leagueId) el.leagueId.value = leagueId;
-  collapseLeaguePicker();
   void loadLeagueById(leagueId);
 }
 
@@ -1929,6 +1942,7 @@ function requestLoadLeague(event) {
 }
 
 function retryUserLeagueSearch() {
+  if (userSearchRecovery.retry()) return;
   const landingName = String(el.landingUsername?.value || "").trim();
   const railName = String(el.sleeperUsername?.value || "").trim();
   syncUsernameFields(landingName && !railName ? el.landingUsername : el.sleeperUsername);
@@ -1977,6 +1991,8 @@ async function searchUserLeagues(username) {
 let missedLeagueSeasons = [];
 
 async function runUserLeagueSearch(username) {
+  const token = ++userSearchGeneration;
+  userSearchRecovery.clear();
   startFindLeaguesUi();
   missedLeagueSeasons = [];
   setStatus(`Looking up ${username} on Sleeper…`, { loading: true });
@@ -2011,12 +2027,10 @@ async function runUserLeagueSearch(username) {
     }
   } catch (err) {
     renderLeaguePicker([]);
-    const network = /timed out|Network|CORS/i.test(String(err?.message || ""));
-    const message = network
-      ? `Could not reach Sleeper for ${username}.`
-      : `No Sleeper user named ${username}.`;
-    setUsernameError(message);
-    setStatus(message, { error: true });
+    const failure = describeUserSearchFailure(err, username);
+    setUsernameError(failure.message);
+    setStatus(failure.message, { error: true, retry: failure.retry });
+    if (failure.retry) userSearchRecovery.fail({ leagueId: username, token });
   } finally {
     stopFindLeaguesUi();
   }
@@ -2197,6 +2211,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.leagueHistory = leagueHistory;
     state.normalizedRosters = normalizeRosters(league, rosters, users, state.players, previousContext, tradedPicks, state.currentDraftContext);
     state.leagueSwitching = false;
+    collapseLeaguePicker();
 
     setFieldError(el.leagueId, el.leagueIdError, "");
     hydrateManagerSelector();
@@ -2271,9 +2286,12 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     if (!leagueLoader.isCurrent(token)) return;
     state.leagueSwitching = false;
     state.pendingPlace = null;
-    const message = `Could not load league data. ${err.message}`;
-    setFieldError(el.leagueId, el.leagueIdError, message);
-    setStatus(message, { error: true });
+    const season = String(state.nflState?.league_season || state.nflState?.season || "");
+    renderLeaguePicker(state.userLeagues, season);
+    const message = leagueLoadErrorMessage(err);
+    const unreachable = message === SLEEPER_UNREACHABLE_MESSAGE;
+    setFieldError(el.leagueId, el.leagueIdError, unreachable ? "" : message);
+    setStatus(unreachable ? "" : message, { error: true });
     leagueLoadRecovery.fail({ leagueId, token, sample: state.viewingSample });
     paintLeagueLoadError(message);
     if (state.league) {
@@ -16062,7 +16080,7 @@ function setStatus(message, { ok = false, loading = false, error = false, retry 
   if (el.leagueStatusText) el.leagueStatusText.textContent = message;
   if (el.leagueStatus) {
     const tone = error ? "error" : ok ? "ok" : loading ? "loading" : "muted";
-    el.leagueStatus.className = `status ${tone}`;
+    el.leagueStatus.className = `status ${tone}${message ? "" : " hidden"}`;
   }
   el.leagueStatusLoader?.classList.toggle("hidden", !loading);
   el.leagueStatusRetry?.classList.toggle("hidden", !retry);

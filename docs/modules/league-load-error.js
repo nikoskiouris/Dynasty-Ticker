@@ -1,3 +1,14 @@
+export const SLEEPER_UNREACHABLE_MESSAGE = "Couldn't reach Sleeper. Check your connection.";
+
+// Three core reads fail together and used to paste Network/CORS three times.
+export function leagueLoadErrorMessage(err) {
+  const raw = String(err?.message || "");
+  if (/Network\/CORS/.test(raw)) return SLEEPER_UNREACHABLE_MESSAGE;
+  if (!raw) return "Could not load league data.";
+  if (raw.startsWith("Could not load league data.")) return raw;
+  return `Could not load league data. ${raw}`;
+}
+
 // Where a failed league load should speak. The rail is hidden on the landing,
 // and the desk hides the rail status unless a retry control is already showing.
 

@@ -679,6 +679,22 @@ button.ghost-btn:hover {
   margin-top: 0.55rem;
 }
 
+.landing-search-status,
+.landing-league-error,
+.desk-load-alert {
+  max-width: 100%;
+  box-sizing: border-box;
+  flex-wrap: wrap;
+}
+
+.landing-search-status > span,
+.landing-league-error > span,
+.desk-load-alert > span {
+  flex: 1 1 10rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .landing-league-error,
 .desk-load-alert {
   width: min(40rem, 100%);
@@ -1375,7 +1391,6 @@ body:not(.league-loaded) .workspace-header {
 .league-loading .landing-actions,
 .league-loading .landing-search-row {
   opacity: 0.55;
-  pointer-events: none;
 }
 
 .landing-rather {
