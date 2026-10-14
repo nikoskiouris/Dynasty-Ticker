@@ -88,7 +88,7 @@ test("a non-numeric share league is ignored", () => {
 });
 
 test("league path segments are encoded", () => {
-  assert.equal(sleeperLeaguePath("1315165104303513600"), "/league/1315165104303513600");
+  assert.equal(sleeperLeaguePath("4242424242424242"), "/league/4242424242424242");
   assert.equal(sleeperLeaguePath("12/34", "users"), "/league/12%2F34/users");
   assert.equal(sleeperLeaguePath("a b", "matchups/1"), "/league/a%20b/matchups/1");
   assert.equal(appSource.includes("`/league/${"), false);

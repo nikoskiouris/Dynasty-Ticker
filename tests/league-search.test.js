@@ -4,6 +4,7 @@ import {
   describeUserSearchFailure,
   findRosterForSleeperUser,
   isMissingSleeperUser,
+  isSleeperUnreachable,
   leagueStatusLabel,
   renderLeaguePickerMarkup,
   renderLeagueSearchNote,
@@ -168,15 +169,31 @@ test("only a missing Sleeper user is 'no user'; everything else can retry", () =
   });
   for (const err of [
     { status: 500, message: "Sleeper API returned 500" },
-    { status: 429, message: "Sleeper API returned 429" },
     new SyntaxError("Unexpected token"),
-    new Error("Network/CORS error while contacting Sleeper API"),
   ]) {
     const failure = describeUserSearchFailure(err, "Niko");
     assert.equal(failure.retry, true);
     assert.equal(failure.message, "Sleeper failed for Niko.");
     assert.doesNotMatch(failure.message, /No Sleeper user/);
   }
+
+  const offline = describeUserSearchFailure(new Error("Network/CORS error while contacting Sleeper API"), "Niko");
+  assert.equal(offline.retry, true);
+  assert.equal(offline.message, "Couldn't reach Sleeper.");
+  assert.doesNotMatch(offline.message, /Sleeper failed/);
+
+  const dropped = describeUserSearchFailure(new Error("Sleeper API timed out after 10s"), "Niko");
+  assert.equal(dropped.message, "Couldn't reach Sleeper.");
+  assert.equal(isSleeperUnreachable(new TypeError("Failed to fetch")), true);
+  assert.equal(isSleeperUnreachable(new Error("Sleeper API timed out after 10s")), true);
+  assert.equal(isSleeperUnreachable(new Error("Network/CORS error while contacting Sleeper API")), true);
+  assert.equal(isSleeperUnreachable({ status: 500, message: "Sleeper API returned 500" }), false);
+  assert.equal(isSleeperUnreachable(new SyntaxError("Unexpected token")), false);
+
+  const busy = describeUserSearchFailure({ status: 429, message: "Sleeper API returned 429" }, "Niko");
+  assert.equal(busy.retry, true);
+  assert.equal(busy.message, "Sleeper is busy. Try again.");
+  assert.doesNotMatch(busy.message, /Sleeper failed/);
 });
 
 test("live Sleeper failures keep status and SyntaxError for the search copy", async () => {
@@ -211,6 +228,8 @@ test("live Sleeper failures keep status and SyntaxError for the search copy", as
 
   const limited = await failureFrom(async () => jsonResponse({}, 429));
   assert.equal(limited.retry, true);
+  assert.equal(limited.message, "Sleeper is busy. Try again.");
+  assert.doesNotMatch(limited.message, /Sleeper failed/);
 
   const badJson = await failureFrom(async () => ({
     ok: true,
@@ -227,8 +246,14 @@ test("live Sleeper failures keep status and SyntaxError for the search copy", as
     throw new TypeError("Failed to fetch");
   });
   assert.equal(offline.retry, true);
-  assert.equal(offline.message, "Sleeper failed for Niko.");
-  assert.doesNotMatch(offline.message, /Could not reach Sleeper/);
+  assert.equal(offline.message, "Couldn't reach Sleeper.");
+  assert.doesNotMatch(offline.message, /Sleeper failed/);
+
+  const timeout = await failureFrom(async () => {
+    throw new Error("Sleeper API timed out after 8s");
+  });
+  assert.equal(timeout.message, "Couldn't reach Sleeper.");
+  assert.equal(timeout.retry, true);
 });
 
 test("league picker names redraft and keeper rooms", () => {

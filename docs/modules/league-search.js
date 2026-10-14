@@ -11,12 +11,36 @@ export function isMissingSleeperUser(err) {
   return /No Sleeper user named/i.test(String(err.message || ""));
 }
 
+export function isSleeperUnreachable(err) {
+  if (!err || typeof err !== "object") return false;
+  if (err.name === "SyntaxError") return false;
+  const status = Number(err.status);
+  if (Number.isFinite(status) && status > 0) return false;
+  const message = String(err.message || "");
+  if (/Network\/CORS|Failed to fetch|timed out|offline/i.test(message)) return true;
+  if (err.name === "TypeError") return true;
+  return globalThis.navigator?.onLine === false;
+}
+
+function isSleeperServerFailure(err) {
+  if (!err || typeof err !== "object") return false;
+  if (err.name === "SyntaxError") return true;
+  const status = Number(err.status);
+  return Number.isFinite(status) && status >= 500 && status <= 599;
+}
+
 export function describeUserSearchFailure(err, username) {
   const name = String(username || "").trim();
   if (isMissingSleeperUser(err)) {
     return { message: `No Sleeper user named ${name}.`, retry: false };
   }
-  return { message: `Sleeper failed for ${name}.`, retry: true };
+  if (isSleeperUnreachable(err)) {
+    return { message: "Couldn't reach Sleeper.", retry: true };
+  }
+  if (isSleeperServerFailure(err)) {
+    return { message: `Sleeper failed for ${name}.`, retry: true };
+  }
+  return { message: "Sleeper is busy. Try again.", retry: true };
 }
 
 export function leagueStatusLabel(status) {

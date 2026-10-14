@@ -451,7 +451,10 @@ export { defaultClient as sleeperClient };
 const RETRY_AFTER_CAP_MS = 10_000;
 const RETRY_AFTER_FALLBACK_MS = 1_000;
 
-// Retry-After is seconds. Missing, zero, or junk waits 1s. Never wait past 10s.
+// Retry-After is seconds. Sleeper does not expose that header cross-origin
+// (no Access-Control-Expose-Headers), so headers.get("Retry-After") is null
+// in the browser. The 1s fallback is what actually runs. A value that does
+// arrive is still capped at 10s.
 export function retryAfterDelayMs(headerValue) {
   const seconds = Number(headerValue);
   if (!Number.isFinite(seconds) || seconds <= 0) return RETRY_AFTER_FALLBACK_MS;
