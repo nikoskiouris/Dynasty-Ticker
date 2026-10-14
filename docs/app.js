@@ -119,10 +119,12 @@ import {
   isLeaguePickAssetId,
   listGenericPicks,
   listValueCalcAssets,
+  playerDisplayName,
   removeValueCalcItem,
   swapValueCalcSides,
   valueCalcAssetMatchesQuery,
   valueCalcVerdict,
+  tradeRowName,
   withPlayerDirectoryNames,
 } from "./modules/value-calc.js";
 import {
@@ -158,6 +160,13 @@ import { calculatePackageAdjustment, calculatePctDiff } from "./modules/package-
 import { bindTicker } from "./modules/ticker-scrub.js";
 import { leagueHistoryRecords, pickLatestCrown } from "./modules/league-crown.js";
 import { jobById, landingSearchHint, renderDeskJobsMarkup, deskJobsForLeague } from "./modules/jobs.js";
+import {
+  applyBootFieldValue,
+  bootIsPending,
+  queueFindForBoot,
+  releaseBootGate,
+} from "./modules/boot-gate.js";
+import { sampleRosterLabels } from "./modules/sample-voice.js";
 import {
   buildTradeMatchProfile,
   countStartableAtPosition,
@@ -648,7 +657,14 @@ window.matchMedia(PHONE_LAYOUT_QUERY).addEventListener("change", () => {
   else releaseRankBoardTools();
 });
 el.landingUsernameForm?.addEventListener("submit", requestFindLeagues);
-el.stickyFindBtn?.addEventListener("click", focusUsernameSearch);
+el.stickyFindBtn?.addEventListener("click", (event) => {
+  if (bootIsPending()) {
+    event.preventDefault();
+    queueFindForBoot();
+    return;
+  }
+  focusUsernameSearch();
+});
 el.sleeperUsername?.addEventListener("input", () => {
   syncUsernameFields(el.sleeperUsername);
   setUsernameError("");
@@ -755,6 +771,8 @@ if (isPhoneLayout()) setMobileRailOpen(false);
 syncDocumentMeta();
 watchLandingSearchVisibility();
 syncSiteDock();
+const runQueuedFind = releaseBootGate(document);
+if (runQueuedFind) requestFindLeagues();
 
 // ---------------------------------------------------------------------------
 // Desk navigation: three pages, each with a row of rooms
@@ -1182,7 +1200,7 @@ function syncRankUrl() {
 async function ensureRankExtras() {
   try {
     if (!rankValuesReady()) {
-      state.valueBundles = await fetchValuationBundles();
+      await ensureValuesLoaded("");
       if (!state.leagueId) {
         const bundle = pickValueBundle(state.valueBundles, activeRankFormat());
         state.values = bundle.values || {};
@@ -1281,9 +1299,9 @@ function bootFromUrl() {
   if (parsed.tone) state.pendingTone = parsed.tone;
 
   const fields = bootSearchFieldValues({ leagueFromUrl: parsed.sample ? "" : parsed.leagueId });
-  if (el.sleeperUsername) el.sleeperUsername.value = fields.username;
-  if (el.landingUsername) el.landingUsername.value = fields.username;
-  if (el.leagueId) el.leagueId.value = fields.leagueId;
+  applyBootFieldValue(el.sleeperUsername, fields.username);
+  applyBootFieldValue(el.landingUsername, fields.username);
+  applyBootFieldValue(el.leagueId, fields.leagueId);
 
   if (parsed.view === "ranks" && parsed.asset) state.ranks.selectedId = parsed.asset;
   if (parsed.leagueId) {
@@ -1684,7 +1702,7 @@ function renderLeagueHero() {
   const trophy = String(league?.metadata?.trophy_winner_banner_text || "").trim();
   const pageLabel = PAGE_LABELS[state.activePage] || "League";
   const room = getRoom();
-  const roomLabel = room === HOME_ROOM ? "" : roomLabelFor(state.activePage, room, league);
+  const roomLabel = room === HOME_ROOM ? "" : deskRoomLabel(state.activePage, room);
   el.heroEyebrow.textContent = `${pageLabel}${roomLabel ? ` / ${roomLabel}` : ""} · ${seasonLabel} · ${state.normalizedRosters.length} teams · ${model?.playoffTeams || league?.settings?.playoff_teams || "?"} playoff spots`;
   el.heroTitle.textContent = state.leagueName;
   const status = model?.seasonComplete
@@ -1728,11 +1746,11 @@ function syncRoomUi() {
 function renderRoomNav(page, room) {
   if (!el.roomNav) return;
   const rooms = visibleRooms(page);
-  const navKey = `${page}:${leagueTypeId(state.league)}`;
+  const navKey = `${page}:${leagueTypeId(state.league)}:${state.viewingSample ? deskRoomLabel("league", HOME_ROOM) : ""}`;
   if (el.roomNav.dataset.navKey !== navKey) {
     const buttons = rooms.map((id) => `
       <button type="button" class="room-tab" role="tab" data-room="${escapeHtml(id)}" title="${escapeHtml(roomHintFor(page, id, state.league))}">
-        ${escapeHtml(roomLabelFor(page, id, state.league) || id)}
+        ${escapeHtml(deskRoomLabel(page, id))}
       </button>
     `).join("");
     el.roomNav.innerHTML = buttons ? `<div class="room-nav-scroll">${buttons}</div>` : "";
@@ -1752,7 +1770,7 @@ function renderRoomNav(page, room) {
 }
 
 function phoneDeskRoomLabel(page, room) {
-  const label = roomLabelFor(page, room, state.league) || room;
+  const label = deskRoomLabel(page, room);
   if (label === (PAGE_LABELS[page] || page)) return pageHintForLeague(page, state.league) || label;
   return label;
 }
@@ -1803,7 +1821,30 @@ function handlePhoneDeskClick(event) {
   renderPhoneDesk();
 }
 
+function sampleVoice() {
+  if (!state.viewingSample) return null;
+  return sampleRosterLabels({
+    viewingSample: true,
+    ownerName: getMyRoster()?.manager?.displayName || "",
+  });
+}
+
+function deskRoomLabel(page, room) {
+  const voice = sampleVoice();
+  if (voice && page === "league" && room === HOME_ROOM) return voice.teamTab;
+  return roomLabelFor(page, room, state.league) || room || "";
+}
+
+function syncSampleTradeCopy() {
+  const voice = sampleVoice();
+  const option = document.querySelector("#trade-mode-select option[value='shop']");
+  const strong = document.querySelector("[data-trade-mode='shop'] strong");
+  if (option) option.textContent = voice?.shopOption || "Shop a player or pick I own";
+  if (strong) strong.textContent = voice?.oneOfMine || "One of mine";
+}
+
 function syncTradeModeUi() {
+  syncSampleTradeCopy();
   const room = getRoom("trades");
   const mode = getTradeMode();
   const isLab = room === "find" && state.activePage === "trades";
@@ -1917,6 +1958,13 @@ function retryUserLeagueSearch() {
 
 function requestFindLeagues(event) {
   event?.preventDefault?.();
+  if (bootIsPending()) {
+    const fromLanding = event?.currentTarget === el.landingUsernameForm || event?.target?.id === "landing-username";
+    const source = fromLanding ? el.landingUsername : (event?.target?.id === "sleeper-username" ? el.sleeperUsername : null);
+    if (source && String(source.value || "").length) syncUsernameFields(source);
+    queueFindForBoot();
+    return;
+  }
   syncUsernameFields(event?.currentTarget === el.landingUsernameForm ? el.landingUsername : el.sleeperUsername);
   const classified = classifyLeagueInput(el.sleeperUsername?.value || el.landingUsername?.value);
   if (classified.kind === "empty") {
@@ -2018,6 +2066,8 @@ function startFindLeaguesUi() {
   [el.findLeaguesBtn, el.landingFindBtn].forEach((button) => {
     if (!button) return;
     button.disabled = true;
+    button.setAttribute("aria-disabled", "true");
+    button.setAttribute("aria-busy", "true");
     button.classList.add("loading");
     button.textContent = "Searching...";
   });
@@ -2029,6 +2079,9 @@ function stopFindLeaguesUi() {
   [el.findLeaguesBtn, el.landingFindBtn].forEach((button) => {
     if (!button) return;
     button.disabled = false;
+    button.setAttribute("aria-disabled", "false");
+    button.removeAttribute("aria-busy");
+    button.style.pointerEvents = "";
     button.classList.remove("loading");
     button.textContent = button.dataset.idleLabel || "Find my leagues";
   });
@@ -5926,14 +5979,19 @@ function renderDraftNotice() {
 
 function renderDraftPaneTitle(side, view) {
   const left = side === "left";
+  const voice = sampleVoice();
   let name = "";
   if (view.basis.connected) {
     if (left) name = view.me?.manager?.displayName || "";
     else if (view.partner) name = `from ${view.partner.manager.displayName}`;
   }
+  const kicker = voice
+    ? (left ? voice.youGive : "Other side")
+    : (left ? "You give" : "You get");
+  const showName = Boolean(name) && !(voice && left && name === kicker);
   return `
-    <span class="analytics-kicker">${left ? "You give" : "You get"}</span>
-    ${name ? `<strong>${escapeHtml(name)}</strong>` : ""}
+    <span class="analytics-kicker">${escapeHtml(kicker)}</span>
+    ${showName ? `<strong>${escapeHtml(name)}</strong>` : ""}
   `;
 }
 
@@ -6090,7 +6148,7 @@ function draftSuggestionRows(side, view) {
         position: asset.assetType === "player" ? formatPlayerPositionLabel(asset) : "",
         value: price.value,
         estimated: price.estimated,
-        context: mine ? "Your roster" : roster.manager.displayName,
+        context: mine ? (sampleVoice()?.roster || "Your roster") : roster.manager.displayName,
         leagueId: isLeaguePickAssetId(asset.assetId) ? String(state.leagueId) : "",
         group: side === "left" ? (mine ? 0 : 2) : (rosterId === partnerId ? 0 : 1),
       });
@@ -6118,7 +6176,27 @@ function draftSuggestionRows(side, view) {
 
 function renderDraftSuggestions(side, view) {
   const query = String((side === "right" ? view.draft.rightQuery : view.draft.leftQuery) || "").trim();
-  const rows = draftSuggestionRows(side, view);
+  const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
+  const rawRows = draftSuggestionRows(side, view);
+  const rows = rawRows.flatMap((row) => {
+    if (row.assetType === "pick") return [row];
+    const name = tradeRowName(row, names);
+    return name ? [{ ...row, name }] : [];
+  });
+  if (!rows.length && rawRows.length) {
+    if (!rankValuesReady()) {
+      void ensureValuesLoaded("").catch((err) => {
+        console.warn("Could not preload valuation data", err);
+      });
+    }
+    return `<div class="player-item muted">Loading names…</div>`;
+  }
+  if (!rows.length && !view.basis.connected && query && !Object.keys(view.basis.values || {}).length) {
+    void ensureValuesLoaded("").catch((err) => {
+      console.warn("Could not preload valuation data", err);
+    });
+    return `<div class="player-item muted">Loading names…</div>`;
+  }
   if (!rows.length) {
     if (query) return `<div class="player-item muted">No matching players or picks.</div>`;
     if (view.basis.connected && side === "right" && view.me) return `<div class="player-item muted">Type a name, or pick a team to browse.</div>`;
@@ -6578,6 +6656,10 @@ function handleWorkspaceClick(event) {
       openPublicRanks();
       break;
     case "find-my-leagues":
+      if (bootIsPending()) {
+        queueFindForBoot();
+        break;
+      }
       document.body.classList.add("sample-connect-open");
       focusUsernameSearch();
       break;
@@ -9468,14 +9550,14 @@ function buildTrendingInsight(profile) {
   if (hotRosterPlayer) {
     return {
       title: "Market Heat",
-      body: `${formatTrendingPlayerName(hotRosterPlayer, "adds")} is on your roster and trending up on Sleeper adds.`,
+      body: `${formatTrendingPlayerName(hotRosterPlayer, "adds")} ${sampleVoice()?.heatOnRoster || "is on your roster"} and trending up on Sleeper adds.`,
       tone: "green",
     };
   }
   if (coldRosterPlayer) {
     return {
       title: "Market Risk",
-      body: `${formatTrendingPlayerName(coldRosterPlayer, "drops")} is on your roster and showing up in Sleeper drops.`,
+      body: `${formatTrendingPlayerName(coldRosterPlayer, "drops")} ${sampleVoice()?.heatOnRoster || "is on your roster"} and showing up in Sleeper drops.`,
       tone: "rose",
     };
   }
@@ -9571,7 +9653,8 @@ function renderPlayerSearch() {
     : state.normalizedRosters.filter((roster) => roster.rosterId !== meRosterId);
   const typeFilters = mode === "shop" ? state.outgoingFilters : state.targetFilters;
 
-  const candidates = rosterPool
+  let waitingOnNames = false;
+  const pool = rosterPool
     .flatMap((roster) =>
       roster.assets
         .filter((asset) => assetTypeAllowed(asset, typeFilters))
@@ -9581,11 +9664,31 @@ function renderPlayerSearch() {
           managerRosterId: roster.rosterId,
         }))
     )
+    .flatMap((asset) => {
+      if (asset.assetType !== "player") return [asset];
+      const name = tradeRowName(asset, state.valueNameMap);
+      if (!name) {
+        waitingOnNames = true;
+        return [];
+      }
+      return [{ ...asset, name }];
+    });
+  const candidates = pool
     .filter((asset) => assetMatchesQuery(asset, query))
     .sort((a, b) => sortAssetsByValueDesc(a, b, state.values))
     .slice(0, 150);
 
   el.playerResults.innerHTML = "";
+
+  if (candidates.length === 0 && waitingOnNames && pool.length === 0 && !state.playerMetadataFailed) {
+    if (!rankValuesReady()) {
+      void ensureValuesLoaded("").catch((err) => {
+        console.warn("Could not preload valuation data", err);
+      });
+    }
+    el.playerResults.innerHTML = `<div class="player-item muted">Loading names…</div>`;
+    return;
+  }
 
   if (candidates.length === 0) {
     const emptyText = mode === "shop"
@@ -9600,7 +9703,7 @@ function renderPlayerSearch() {
     row.className = "player-item";
     row.innerHTML = buildAssetPickerMarkup(asset, {
       values: state.values,
-      contextLabel: mode === "shop" ? "Your roster" : asset.managerName,
+      contextLabel: mode === "shop" ? (sampleVoice()?.roster || "Your roster") : asset.managerName,
     });
     row.addEventListener("click", () => {
       setCurrentPrimaryAsset(asset);
@@ -15617,7 +15720,7 @@ function normalizeRosters(league, rosters, users, players, previousContext = { l
     const owner = userById.get(identity.userId) || userById.get(String(roster.owner_id)) || {};
     const playerAssets = (roster.players || []).map((playerId) => {
       const p = players[playerId] || {};
-      const name = `${(p.first_name || "").trim()} ${(p.last_name || "").trim()}`.trim() || p.full_name || playerId;
+      const name = playerDisplayName(playerId, p, state.valueNameMap);
       return {
         assetId: `player:${playerId}`,
         name,
@@ -15928,7 +16031,6 @@ function primeValuationData() {
     applyValuationBundle(pickValueBundle(state.valueBundles, format));
     return;
   }
-  state.valuationsPromise = null;
   ensureValuesLoaded("").catch((err) => {
     console.warn("Could not preload valuation data", err);
   });
@@ -16107,9 +16209,7 @@ async function bootLandingRather() {
   if (parseShareParams(window.location.search).leagueId) return;
   el.landingRather.innerHTML = renderLandingRatherPlaceholder();
   try {
-    if (!state.valueBundles?.sf?.values || !Object.keys(state.valueBundles.sf.values).length) {
-      state.valueBundles = await fetchValuationBundles();
-    }
+    await ensureValuesLoaded("");
     const cachedEntry = await loadPlayersCacheEntry(playersCacheAdapters()).catch(() => null);
     const cachedPlayers = cachedEntry?.players || getPlayersCache()?.players || {};
     if (Object.keys(cachedPlayers).length) {

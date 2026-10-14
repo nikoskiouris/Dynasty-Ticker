@@ -179,7 +179,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, />Sample league</);
   assert.match(index, /id="sample-banner"/);
   assert.match(index, /This is a public sample league\. Connect your Sleeper username anytime\./);
-  assert.match(index, /id="sample-banner"[\s\S]*?>Find my leagues</);
+  assert.match(index, /id="sample-banner"[\s\S]*?data-idle-label="Find my leagues"[\s\S]*?>Loading…</);
   assert.doesNotMatch(readDocs("ui/league.html"), /Connect Sleeper|Find leagues</);
   assert.match(readDocs("app.js"), /Sample league — not your account\. Viewing as /);
   assert.match(readDocs("app.js"), /Viewing \$\{name\} · sample/);
@@ -539,6 +539,16 @@ test("each desk page is its own file and boot mounts them before the app", () =>
   assert.match(boot, /await import\("\.\/app\.js"\)/);
   assert.match(boot, /showBootError/);
   assert.match(boot, /role="alert"/);
+  assert.match(boot, /paintFindLeagueButtons\(document, "loading"\)/);
+  assert.doesNotMatch(boot, /player_values/);
+  assert.match(readDocs("app.js"), /releaseBootGate\(document\)/);
+  assert.match(readDocs("app.js"), /applyBootFieldValue/);
+  assert.match(index, /id="find-leagues-btn"[^>]*disabled[^>]*aria-busy="true"/);
+  assert.match(index, /id="sticky-find-btn"[^>]*disabled[^>]*aria-busy="true"/);
+  assert.match(readDocs("ui/landing.html"), /id="landing-find-btn"[^>]*disabled[^>]*aria-busy="true"/);
+  assert.match(readDocs("ui/league.html"), /data-action="find-my-leagues"[^>]*aria-busy="true"/);
+  assert.doesNotMatch(index, /id="sleeper-username"[^>]*disabled/);
+  assert.doesNotMatch(readDocs("ui/landing.html"), /id="landing-username"[^>]*disabled/);
   assert.match(index, /class="skip-link"/);
   assert.match(siteMarkup(), /id="landing-rather"/);
   assert.match(siteMarkup(), /id="calculator-shell"/);
