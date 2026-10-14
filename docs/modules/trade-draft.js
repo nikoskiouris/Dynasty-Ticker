@@ -6,6 +6,7 @@ import {
 } from "./value-calc.js";
 import { calculatePackageAdjustment } from "./package-value.js";
 import { lookupMarketValue } from "./values.js";
+import { sampleRosterCopy } from "./sample-copy.js";
 
 export const TRADE_DRAFT_STORAGE_KEY = "dynasty_ticker_trade_draft_v1";
 
@@ -101,14 +102,17 @@ export function resolveDraftContext({ draft, rosters = [], meRosterId = null, le
   return { ready, needsTeam, partnerRosterId, partnerIds, items, mismatched, canSwap, index };
 }
 
-export function describeDraftItem(row, { ownerName = "", kind = "player" } = {}) {
+export function describeDraftItem(row, { ownerName = "", kind = "player", viewingSample = false, rosterOwner = "" } = {}) {
   const owner = String(ownerName || "").trim() || "Another team";
   const pick = kind === "pick";
   switch (row?.status) {
     case "not-yours":
       return pick ? `${owner} owns this pick, not you.` : `${owner} has him, not you.`;
-    case "already-yours":
+    case "already-yours": {
+      const voice = sampleRosterCopy({ viewingSample, ownerName: rosterOwner });
+      if (voice) return pick ? voice.alreadyPick : voice.alreadyOnRoster;
       return pick ? "This pick is already yours." : "He is already on your roster.";
+    }
     case "unrostered":
       return pick ? "Nobody in this league owns this pick." : "He is not on a roster in this league.";
     case "generic":

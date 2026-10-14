@@ -37,6 +37,8 @@ import {
   recordRatherVote,
   renderRatherMarkup,
   createRatherBootGate,
+  ratherBootPaints,
+  renderLandingRatherPlaceholder,
   shouldStartLandingRather,
   sleeperPlayerThumbUrl,
   writeRatherSessionDone,
@@ -480,6 +482,8 @@ test("index puts rather on the landing page and never auto-opens a league overla
   assert.match(boot, /shouldStartLandingRather/);
   assert.match(boot, /ratherBootGate\.claim\(\)/);
   assert.doesNotMatch(boot, /if \(parseShareParams\(window\.location\.search\)\.leagueId\) return/);
+  assert.doesNotMatch(boot, /innerHTML = renderLandingRatherPlaceholder/);
+  assert.match(app, /ratherBootPaints\(/);
   const playersRender = app.slice(app.indexOf("function renderActivePage("), app.indexOf("function requestActivePageRender("));
   assert.match(playersRender, /bootLandingRather\(\{ playersTab: true \}\)/);
   assert.match(app, /landingSearchOffscreen/);
@@ -496,6 +500,33 @@ test("sample mode and the Players tab still start Rather when a league is open",
   assert.equal(shouldStartLandingRather({ leagueId: "99", playersTab: true }), true);
   assert.equal(shouldStartLandingRather({}), true);
   assert.equal(shouldStartLandingRather({ leagueId: "  ", sample: false, playersTab: false }), true);
+});
+
+test("sample rather paints the matchup once and skips the loading line", () => {
+  const slotHtml = renderLandingRatherPlaceholder();
+  const matchup = renderRatherMarkup({
+    left: { name: "Ada", assetId: "player:1", initials: "A" },
+    right: { name: "Bea", assetId: "player:2", initials: "B" },
+  });
+  const host = { html: slotHtml, writes: 0 };
+  const slot = {
+    get innerHTML() { return host.html; },
+    set innerHTML(value) {
+      host.writes += 1;
+      host.html = value;
+    },
+  };
+  const opening = ratherBootPaints({ slotHtml: slot.innerHTML, dataReady: false });
+  const ready = ratherBootPaints({ slotHtml: slot.innerHTML, dataReady: true, matchupHtml: matchup });
+  for (const frame of [...opening, ...ready]) slot.innerHTML = frame;
+  assert.equal(opening.length + ready.length, 1);
+  assert.equal(host.writes, 1);
+  assert.doesNotMatch(slot.innerHTML, /Loading a close matchup/);
+  assert.match(slot.innerHTML, /rather-duel/);
+
+  const straight = ratherBootPaints({ slotHtml: "", dataReady: true, matchupHtml: matchup });
+  assert.equal(straight.length, 1);
+  assert.equal(straight[0], matchup);
 });
 
 test("Rather boot claims once so a second call does not paint again", () => {

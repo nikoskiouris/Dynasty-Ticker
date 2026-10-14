@@ -1,5 +1,6 @@
 import { clamp } from "./html.js";
 import { formatOddsPct } from "./season.js";
+import { sampleRosterCopy } from "./sample-copy.js";
 
 export const WINDOW_CALLS = {
   "all-in": {
@@ -78,7 +79,7 @@ export function computeSeasonProgress({
   return 0.15;
 }
 
-export function windowCallInputFromDesk({ profile, standing, simRow, model, horizon } = {}) {
+export function windowCallInputFromDesk({ profile, standing, simRow, model, horizon, viewingSample = false } = {}) {
   const rosterId = String(profile?.rosterId ?? standing?.rosterId ?? "");
   const remaining = Array.isArray(model?.remainingGames) ? model.remainingGames : [];
   const remainingTeamGames = remaining.filter((entry) =>
@@ -122,6 +123,7 @@ export function windowCallInputFromDesk({ profile, standing, simRow, model, hori
     eliminated: Boolean(simRow?.eliminated),
     recordLabel: standing?.recordLabel || "",
     horizon: windowCallHorizonFrom(horizon),
+    viewingSample: Boolean(viewingSample),
   };
 }
 
@@ -401,7 +403,8 @@ function buildWindowCallCopy(input, axes, id) {
       summary,
       moves: [
         hole ? `Pay up for a proven ${hole} starter, even if it costs a future first.` : "Buy a proven starter if it closes a weekly hole.",
-        "Do not sell your aging stars for picks.",
+        sampleRosterCopy({ viewingSample: input.viewingSample, ownerName: input.managerName })?.agingStars
+          || "Do not sell your aging stars for picks.",
         axes.pickPoor
           ? "Consolidate two depth pieces into one every-week starter."
           : "Spend a future pick, not the young core, if you need one more hammer.",

@@ -4,6 +4,9 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SAMPLE_LEAGUE_ID } from "../docs/modules/constants.js";
+import { sampleRosterCopy } from "../docs/modules/sample-copy.js";
+import { describeDraftItem } from "../docs/modules/trade-draft.js";
+import { analyzeWindowCall } from "../docs/modules/window-call.js";
 import {
   SAMPLE_BANNER_KEY,
   clearSampleBannerDismissal,
@@ -97,6 +100,69 @@ test("sample chrome keeps a real Find my leagues button after the banner", () =>
   assert.match(app, /openSampleConnect\(\)/);
   assert.doesNotMatch(app, /sessionStorage\.setItem\(\s*["']dynasty_ticker_sample_banner_off["']/);
   assert.doesNotMatch(app, /sessionStorage\.getItem\(\s*["']dynasty_ticker_sample_banner_off["']/);
+});
+
+const SAMPLE_COPY_BANNED = /pick I own|on your roster|Do not sell your aging stars/;
+
+test("sample copy drops pick I own, on your roster, and do not sell your aging stars", () => {
+  const voice = sampleRosterCopy({ viewingSample: true, ownerName: "Ada" });
+  const anon = sampleRosterCopy({ viewingSample: true, ownerName: "" });
+  const aging = {
+    rosterId: "1",
+    managerName: "Ada",
+    rank: 1,
+    totalTeams: 12,
+    powerScore: 93,
+    starterPercentile: 0.96,
+    pickPercentile: 0.2,
+    averageAge: 28.5,
+    youthCount: 3,
+    veteranCount: 9,
+    firstRoundPickCount: 1,
+    playoffPct: 84,
+    titlePct: 26,
+    winPct: 0.78,
+    gamesPlayed: 8,
+    remainingTeamGames: 6,
+    currentWeek: 9,
+    startWeek: 1,
+    playoffStart: 15,
+    playoffTeams: 6,
+    weakestPosition: { position: "RB", percentile: 0.3, rankLabel: "8th / 12" },
+  };
+  const sampleCall = analyzeWindowCall({ ...aging, viewingSample: true });
+  const ownCall = analyzeWindowCall({ ...aging, viewingSample: false });
+  const player = describeDraftItem({ status: "already-yours" }, { kind: "player", viewingSample: true, rosterOwner: "Ada" });
+  const pick = describeDraftItem({ status: "already-yours" }, { kind: "pick", viewingSample: true, rosterOwner: "chrisalberts" });
+  const sampleText = [
+    voice.shopOption,
+    voice.heatOnRoster,
+    voice.searchEmpty,
+    voice.alreadyOnRoster,
+    voice.agingStars,
+    anon.shopOption,
+    anon.heatOnRoster,
+    anon.searchEmpty,
+    anon.agingStars,
+    sampleCall.headline,
+    sampleCall.summary,
+    ...(sampleCall.moves || []),
+    player,
+    pick,
+  ].join("\n");
+  assert.doesNotMatch(sampleText, SAMPLE_COPY_BANNED);
+  assert.match(sampleText, /Shop a player or pick Ada owns/);
+  assert.match(sampleText, /is on Ada's roster/);
+  assert.match(sampleText, /Do not sell Ada's aging stars for picks/);
+  assert.match(pick, /chrisalberts' roster/);
+  assert.doesNotMatch(pick, /chrisalberts's/);
+  assert.equal(sampleRosterCopy({ viewingSample: false, ownerName: "Ada" }), null);
+  assert.match(ownCall.moves.join("\n"), /Do not sell your aging stars for picks/);
+  assert.match(describeDraftItem({ status: "already-yours" }, { kind: "player" }), /on your roster/);
+  const app = readFileSync(join(root, "docs/app.js"), "utf8");
+  assert.match(app, /activeSampleCopy\(\)\?\.shopOption \|\| "Shop a player or pick I own"/);
+  assert.match(app, /activeSampleCopy\(\)\?\.heatOnRoster \|\| "is on your roster"/);
+  assert.match(app, /viewingSample: state\.viewingSample/);
 });
 
 test("sample league id lives in one place and the old private league is gone", () => {

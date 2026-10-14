@@ -281,6 +281,7 @@ import {
   tickerDurationSeconds,
 } from "./modules/site.js";
 import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
+import { sampleRosterCopy } from "./modules/sample-copy.js";
 import {
   DEFAULT_RATHER_FORMAT,
   buildRatherBoard,
@@ -301,6 +302,7 @@ import {
   renderRatherMarkup,
   renderRatherNoClose,
   createRatherBootGate,
+  ratherBootPaints,
   shouldStartLandingRather,
 } from "./modules/rather.js";
 import {
@@ -1815,6 +1817,14 @@ function handlePhoneDeskClick(event) {
   renderPhoneDesk();
 }
 
+function sampleOwnerName() {
+  return getMyRoster()?.manager?.displayName || "";
+}
+
+function activeSampleCopy() {
+  return sampleRosterCopy({ viewingSample: state.viewingSample, ownerName: sampleOwnerName() });
+}
+
 function syncTradeModeUi() {
   const room = getRoom("trades");
   const mode = getTradeMode();
@@ -1845,6 +1855,9 @@ function syncTradeModeUi() {
   el.playerSearchLabel?.classList.toggle("hidden", !searchEnabled);
   el.targetSearchShell?.classList.toggle("hidden", !searchEnabled);
   el.playerResults?.classList.toggle("hidden", !searchEnabled);
+
+  const shopOption = el.tradeModeSelect?.querySelector('option[value="shop"]');
+  if (shopOption) shopOption.textContent = activeSampleCopy()?.shopOption || "Shop a player or pick I own";
 
   if (el.tradeModeHelp) el.tradeModeHelp.textContent = copyByMode[mode]?.help || "";
   if (el.playerSearchLabel) el.playerSearchLabel.textContent = copyByMode[mode]?.label || "Search player or pick";
@@ -3480,6 +3493,7 @@ function buildWindowCallForProfile(profile, { model = null, sim } = {}) {
     simRow,
     model: resolvedModel,
     horizon: windowCallHorizon(state.league),
+    viewingSample: state.viewingSample,
   }));
 }
 
@@ -6014,7 +6028,12 @@ function renderDraftNotes(side, view) {
     const row = view.context.items.get(String(item.uid));
     if (!row || row.status === "ok") return "";
     const owner = row.ownerRosterId != null ? findNormalizedRoster(row.ownerRosterId)?.manager?.displayName : "";
-    return `<li><strong>${escapeHtml(item.name)}:</strong> ${escapeHtml(describeDraftItem(row, { ownerName: owner, kind: item.assetType }))}</li>`;
+    return `<li><strong>${escapeHtml(item.name)}:</strong> ${escapeHtml(describeDraftItem(row, {
+      ownerName: owner,
+      kind: item.assetType,
+      viewingSample: state.viewingSample,
+      rosterOwner: sampleOwnerName(),
+    }))}</li>`;
   }).filter(Boolean);
   return notes.length ? `<ul class="draft-note-list">${notes.join("")}</ul>` : "";
 }
@@ -9483,14 +9502,14 @@ function buildTrendingInsight(profile) {
   if (hotRosterPlayer) {
     return {
       title: "Market Heat",
-      body: `${formatTrendingPlayerName(hotRosterPlayer, "adds")} is on your roster and trending up on Sleeper adds.`,
+      body: `${formatTrendingPlayerName(hotRosterPlayer, "adds")} ${activeSampleCopy()?.heatOnRoster || "is on your roster"} and trending up on Sleeper adds.`,
       tone: "green",
     };
   }
   if (coldRosterPlayer) {
     return {
       title: "Market Risk",
-      body: `${formatTrendingPlayerName(coldRosterPlayer, "drops")} is on your roster and showing up in Sleeper drops.`,
+      body: `${formatTrendingPlayerName(coldRosterPlayer, "drops")} ${activeSampleCopy()?.heatOnRoster || "is on your roster"} and showing up in Sleeper drops.`,
       tone: "rose",
     };
   }
@@ -9604,7 +9623,7 @@ function renderPlayerSearch() {
 
   if (candidates.length === 0) {
     const emptyText = mode === "shop"
-      ? "No matching assets found on your roster."
+      ? (activeSampleCopy()?.searchEmpty || "No matching assets found on your roster.")
       : "No matching players or picks found.";
     el.playerResults.innerHTML = `<div class="player-item muted">${emptyText}</div>`;
     return;
@@ -16131,7 +16150,6 @@ async function bootLandingRather({ playersTab = false } = {}) {
     playersTab,
   })) return;
   if (!ratherBootGate.claim()) return;
-  el.landingRather.innerHTML = renderLandingRatherPlaceholder();
   try {
     if (!state.valueBundles?.sf?.values || !Object.keys(state.valueBundles.sf.values).length) {
       state.valueBundles = await fetchValuationBundles();
@@ -16147,8 +16165,14 @@ async function bootLandingRather({ playersTab = false } = {}) {
     showNextRatherMatchup();
   } catch (err) {
     console.warn("Could not open rather matchup", err);
-    el.landingRather.innerHTML = renderRatherNoClose();
+    writeRatherSlot("", { failed: true });
   }
+}
+
+function writeRatherSlot(html, { failed = false } = {}) {
+  const frames = ratherBootPaints({ matchupHtml: failed ? "" : html, failed });
+  for (const frame of frames) el.landingRather.innerHTML = frame;
+  return frames.length;
 }
 
 async function loadRatherPromptContext() {
@@ -16274,7 +16298,7 @@ function showNextRatherMatchup({ status = "" } = {}) {
     shifts: state.crowdShifts,
   });
   if (!picked) {
-    el.landingRather.innerHTML = renderRatherNoClose();
+    writeRatherSlot("", { failed: true });
     ratherPromptPair = null;
     return;
   }
@@ -16289,7 +16313,7 @@ function showNextRatherMatchup({ status = "" } = {}) {
     right: decorateRatherPlayer(picked.right, nflPlayers, extras),
     key: picked.key,
   };
-  el.landingRather.innerHTML = renderRatherMarkup(ratherPromptPair, DEFAULT_RATHER_FORMAT, { status });
+  writeRatherSlot(renderRatherMarkup(ratherPromptPair, DEFAULT_RATHER_FORMAT, { status }));
   bindRatherPhotos(el.landingRather);
 }
 

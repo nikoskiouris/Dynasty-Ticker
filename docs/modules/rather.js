@@ -394,6 +394,14 @@ export function createRatherBootGate() {
   };
 }
 
+// The Players tab already shows the loading line. Boot writes the matchup
+// once. A second placeholder paint is what made sample mode flash twice.
+export function ratherBootPaints({ matchupHtml = "", failed = false } = {}) {
+  if (failed) return [renderRatherNoClose()];
+  if (matchupHtml) return [matchupHtml];
+  return [];
+}
+
 function ratherCareerClose(left, right) {
   const leftAge = Number(left?.age);
   const rightAge = Number(right?.age);
