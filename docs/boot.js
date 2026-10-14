@@ -1,3 +1,12 @@
+import {
+  handleBootIntent,
+  keepUsernameFieldsEditable,
+  mountHtmlPreservingUsernames,
+  paintFindLeagueButtons,
+  watchUsernameFields,
+} from "./modules/boot-gate.js";
+import { watchBootImport } from "./modules/boot-import.js";
+
 const PAGE_FILES = [
   "./ui/landing.html",
   "./ui/players.html",
@@ -19,6 +28,22 @@ function showBootError() {
   host.querySelector("[data-boot-refresh]")?.addEventListener("click", () => location.reload());
 }
 
+function armBootChrome() {
+  paintFindLeagueButtons(document, "loading");
+  keepUsernameFieldsEditable(document);
+}
+
+function onBootIntent(event) {
+  handleBootIntent(event, document);
+}
+
+// boot-intent.js (classic, in <head>) queues the same presses before this module loads.
+document.addEventListener("submit", onBootIntent, true);
+document.addEventListener("keydown", onBootIntent, true);
+document.addEventListener("click", onBootIntent, true);
+watchUsernameFields(document);
+armBootChrome();
+
 try {
   const parts = await Promise.all(PAGE_FILES.map(async (file) => {
     const response = await fetch(file);
@@ -26,9 +51,16 @@ try {
     return response.text();
   }));
   if (!host) throw new Error("Missing #ui-pages");
-  host.innerHTML = parts.join("\n");
+  mountHtmlPreservingUsernames(host, parts.join("\n"), document);
+  armBootChrome();
 } catch (err) {
   showBootError();
   throw err;
 }
-await import("./app.js");
+await watchBootImport({
+  importApp: async () => await import("./app.js"),
+  host,
+  onlineTarget: window,
+  reload: () => location.reload(),
+  storage: sessionStorage,
+});

@@ -20,6 +20,7 @@ import {
   draftMeterValues,
   draftNoticeText,
   evenUpPickChoice,
+  evenUpTradePick,
   draftSideForAsset,
   draftTeamSummary,
   draftVerdictModel,
@@ -31,6 +32,7 @@ import {
   serializeDraft,
   writeStoredDraft,
 } from "../docs/modules/trade-draft.js";
+import { calculatePackageAdjustment } from "../docs/modules/package-value.js";
 import { getAssetValue } from "../docs/modules/values.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -284,11 +286,67 @@ test("even-up only names a pick that can close the gap", () => {
   assert.equal(evenUpPickChoice(0, [{ name: "2027 Early 1st", value: 6300 }]), null);
 });
 
+test("even-up rescores the pick after stud credit, and bad numbers stay finite", () => {
+  const picks = [
+    { name: "2027 Early 1st", value: 6361 },
+    { name: "2027 Mid 1st", value: 4779 },
+    { name: "2027 Late 1st", value: 4234 },
+    { name: "2027 2nd", value: 1703 },
+  ];
+  const oneForOne = evenUpTradePick({
+    giveValues: [9000],
+    getValues: [4000],
+    picks,
+    globalMaxValue: 12000,
+  });
+  assert.equal(oneForOne.closes, false);
+  const stillOpen = draftVerdictModel([9000], [4000, oneForOne.value], { globalMaxValue: 12000 });
+  assert.ok(stillOpen.verdict.pct > 12, `claimed a close but left ${stillOpen.verdict.pct}%`);
+
+  const packageDeal = evenUpTradePick({
+    giveValues: [10000],
+    getValues: [6000, 3000],
+    picks,
+    globalMaxValue: 12000,
+  });
+  assert.equal(packageDeal.closes, true);
+  const closed = draftVerdictModel([10000], [6000, 3000, packageDeal.value], { globalMaxValue: 12000 });
+  assert.ok(closed.verdict.pct <= 12, `pick did not close: ${closed.verdict.pct}%`);
+
+  const flipped = evenUpTradePick({
+    giveValues: [6000, 3000],
+    getValues: [10000],
+    picks,
+    globalMaxValue: 12000,
+  });
+  assert.equal(flipped.name, packageDeal.name);
+  assert.equal(flipped.closes, packageDeal.closes);
+  assert.equal(flipped.value, packageDeal.value);
+
+  const poisoned = draftVerdictModel([Infinity, NaN, -40], [100], { globalMaxValue: 1000 });
+  assert.equal(poisoned.give, 0);
+  assert.equal(Number.isFinite(poisoned.verdict.pct), true);
+  assert.equal(Number.isFinite(poisoned.verdict.gap), true);
+  const junk = calculatePackageAdjustment({
+    myValues: [Infinity, -50, 100],
+    theirValues: [NaN, 40],
+    globalMaxValue: 1000,
+  });
+  assert.equal(junk.myBaseValue, 100);
+  assert.equal(junk.theirBaseValue, 40);
+  assert.equal(Number.isFinite(junk.packageAdjustment), true);
+
+  const app = readFileSync(join(root, "docs/app.js"), "utf8");
+  assert.match(app, /evenUpTradePick\(/);
+});
+
 test("the verdict reads from the manager's seat", () => {
   assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 11100), { them: "Chris" }), "Favors you");
   assert.equal(draftVerdictLabel(valueCalcVerdict(11100, 9000), { them: "Chris" }), "Favors Chris");
   assert.equal(draftVerdictLabel(valueCalcVerdict(10000, 10200)), "Dead even");
   assert.equal(draftVerdictLabel(valueCalcVerdict(20000, 9000)), "Lopsided for them");
+  assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 20000)), "Lopsided in your favor");
+  assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 20000), { getFavor: "chrisalberts'" }), "Lopsided in chrisalberts' favor");
 });
 
 test("a zero-value piece does not mint stud credit or hide a real side", () => {

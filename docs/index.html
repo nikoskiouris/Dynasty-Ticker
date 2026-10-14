@@ -2,12 +2,13 @@
 <html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app https://fonts.googleapis.com https://fonts.gstatic.com; form-action 'self'; frame-src 'none'" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Dynasty Ticker — Your Sleeper dynasty league</title>
     <meta name="description" content="See what your players are worth, check a trade, and find your team's next move." />
     <meta name="theme-color" content="#0c0c0e" />
     <script src="./desk-shut.js"></script>
+    <script src="./boot-intent.js"></script>
     <meta property="og:title" content="Dynasty Ticker — Your Sleeper dynasty league" />
     <meta property="og:description" content="See what your players are worth, check a trade, and find your team's next move." />
     <meta property="og:type" content="website" />
@@ -123,7 +124,7 @@
               aria-describedby="username-error"
             />
             <p id="username-error" class="field-error" hidden role="alert"></p>
-            <button id="find-leagues-btn" type="submit" data-idle-label="Find my leagues">Find my leagues</button>
+            <button id="find-leagues-btn" type="submit" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
           </form>
           <div id="league-picker" class="league-picker hidden" data-league-picker></div>
 
@@ -182,7 +183,7 @@
       <main class="workspace" id="workspace">
         <div id="sample-banner" class="sample-banner" hidden>
           <p>This is a public sample league. Connect your Sleeper username anytime.</p>
-          <button type="button" data-action="find-my-leagues">Find my leagues</button>
+          <button type="button" data-action="find-my-leagues" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
           <button type="button" class="ghost-btn sample-banner-dismiss" data-action="dismiss-sample-banner">Dismiss</button>
         </div>
         <header class="workspace-header" id="workspace-header">
@@ -212,6 +213,11 @@
           </dl>
         </header>
 
+        <div id="desk-load-alert" class="status error desk-load-alert hidden" role="alert">
+          <span id="desk-load-alert-text"></span>
+          <button type="button" id="desk-load-retry" class="ghost-btn status-retry">Retry</button>
+        </div>
+
         <div class="desk-nav" id="desk-nav">
           <nav class="workspace-tabs" id="page-tabs" role="tablist" aria-label="What you can do">
             <button id="players-tab" class="page-tab active" type="button" role="tab" aria-selected="true" aria-controls="players-page" tabindex="0" data-page="players">
@@ -238,7 +244,7 @@
 
     <div id="site-dock" class="site-dock">
       <div id="sticky-mobile-cta" class="sticky-mobile-cta" hidden>
-        <button id="sticky-find-btn" type="button" data-idle-label="Find my leagues">Find my leagues</button>
+        <button id="sticky-find-btn" type="button" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
       </div>
     </div>
 

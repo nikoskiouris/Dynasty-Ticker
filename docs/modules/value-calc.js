@@ -119,16 +119,42 @@ export function listGenericPicks(values = {}, names = {}, { minSeason = upcoming
     .sort((a, b) => Number(a.season) - Number(b.season) || a.round - b.round || VALUE_CALC_BUCKETS.indexOf(a.bucket) - VALUE_CALC_BUCKETS.indexOf(b.bucket));
 }
 
+export function isBarePlayerId(label) {
+  const text = String(label || "").trim();
+  return /^\d+$/.test(text) || /^player:\d+$/i.test(text);
+}
+
+export function playerDisplayName(playerId, raw = {}, names = {}) {
+  const id = String(playerId || "").replace(/^player:/, "").trim();
+  const fromRaw = `${String(raw?.first_name || "").trim()} ${String(raw?.last_name || "").trim()}`.trim()
+    || String(raw?.full_name || "").trim();
+  if (fromRaw && !isBarePlayerId(fromRaw)) return fromRaw;
+  const mapped = String(names?.[`player:${id}`] || names?.[id] || "").trim();
+  if (mapped && !isBarePlayerId(mapped)) return mapped;
+  return "";
+}
+
+export function tradeRowName(asset, names = {}) {
+  if (!asset) return "";
+  if (asset.assetType === "pick") return String(asset.name || "").trim();
+  const named = playerDisplayName(asset.playerId || asset.assetId, asset.raw, names);
+  if (named) return named;
+  const fallback = String(asset.name || "").trim();
+  if (fallback && !isBarePlayerId(fallback)) return fallback;
+  return "";
+}
+
 function listValueCalcPlayerRows(values = {}, names = {}) {
   return Object.entries(values)
     .filter(([assetId, value]) => String(assetId).startsWith("player:") && Number(value) > 0)
     .map(([assetId, value]) => ({
       assetId,
       playerId: String(assetId).slice("player:".length),
-      name: names[assetId] || assetId,
+      name: playerDisplayName(assetId, {}, names),
       value: Number(value),
       assetType: "player",
-    }));
+    }))
+    .filter((row) => row.name);
 }
 
 export function listValueCalcAssets(values = {}, names = {}, { query = "", limit = 40, kinds = ["player", "pick"], minSeason } = {}) {
@@ -257,15 +283,20 @@ export function valueCalcVerdict(leftTotal, rightTotal, { leftCount = null, righ
 }
 
 // Same verdict, read from the manager's seat: "Get" is what you receive.
-export function draftVerdictLabel(verdict, { them = "them" } = {}) {
+export function draftVerdictLabel(verdict, { them = "them", getFavor = "your", favorName = "" } = {}) {
   const label = String(verdict?.label || "");
   const other = String(them || "them");
+  const favor = String(getFavor || "your");
+  const seat = String(favorName || "").trim();
+  const lopsidedGet = favor === "your" ? "Lopsided in your favor" : `Lopsided in ${favor} favor`;
+  const leansGet = favor === "your" ? "Fair, leans your way" : `Fair, leans ${favor} way`;
+  const favorsGet = favor === "your" ? "Favors you" : `Favors ${seat || favor}`;
   return {
-    "Favors Get": "Favors you",
+    "Favors Get": favorsGet,
     "Favors Give": `Favors ${other}`,
-    "Lopsided for Get": "Lopsided in your favor",
+    "Lopsided for Get": lopsidedGet,
     "Lopsided for Give": `Lopsided for ${other}`,
-    "Fair, leans Get": "Fair, leans your way",
+    "Fair, leans Get": leansGet,
     "Fair, leans Give": `Fair, leans ${other}`,
   }[label] || label;
 }
