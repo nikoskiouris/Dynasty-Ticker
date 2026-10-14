@@ -3,26 +3,34 @@ name: Refresh independent player values
 on:
   workflow_dispatch:
   schedule:
+    # Runs only after develop is the repository default branch.
     - cron: "17 11 * * 2"
+
+concurrency:
+  group: refresh-player-values
+  cancel-in-progress: false
 
 permissions:
   contents: write
 
 jobs:
   refresh:
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
           ref: develop
-          fetch-depth: 1
+          fetch-depth: 50
 
       - name: Publish only on develop
         run: |
-          branch="$(git rev-parse --abbrev-ref HEAD)"
-          if [ "$branch" != "develop" ]; then
-            echo "Player-value refresh only writes develop. Refusing ${branch}."
+          # actions/checkout leaves a detached HEAD, so the branch name is HEAD.
+          tip="$(git rev-parse HEAD)"
+          git fetch --no-tags origin develop
+          if ! git merge-base --is-ancestor "$tip" FETCH_HEAD; then
+            echo "Player-value refresh only writes develop. Refusing ${tip}."
             exit 1
           fi
 
@@ -54,4 +62,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "data: refresh independent player values"
+          git pull --rebase origin develop
           git push origin HEAD:develop

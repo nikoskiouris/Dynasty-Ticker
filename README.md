@@ -56,7 +56,7 @@ The live app is a static site on **Netlify**. Public URL: `https://dynastyticker
 
 Netlify emails on a GitHub merge do **not** mean credits were spent. On credit plans, a **successful production deploy** costs 15 credits. Skipped, canceled, and failed git deploys cost 0, but they still start a job and still email you. **Stop builds** (not “stop auto publishing”) is the switch that prevents the job from existing. This repo turns that on through the Netlify API. Bandwidth, web requests, and functions still use credits when people visit the site.
 
-1. GitHub → **Settings → General → Default branch:** `develop`.
+1. GitHub → **Settings → General → Default branch:** `develop`. Scheduled jobs run only from the default branch. While that setting stays on `main`, the Tuesday player-value refresh and the Monday rookie-mock refresh never start, and `docs/data` goes stale.
 2. Open [Netlify](https://app.netlify.com/), sign up with GitHub, **Add new site → Import an existing project**, pick this repo.
 3. Netlify reads `netlify.toml` (`publish = docs`). First deploy gives a `*.netlify.app` URL.
 4. **Domain management → Add custom domain:** `dynastyticker.com` and `www.dynastyticker.com`.
@@ -69,7 +69,7 @@ Netlify emails on a GitHub merge do **not** mean credits were spent. On credit p
    - `RATHER_SALT` — secret salt for the rather-vote rate-limit hash.
    Do not commit them. Do not reuse `dynasty-ticker-traffic-v1` or `dynasty-ticker-rather-v1` (those strings shipped in source and are rejected). `scripts/deploy_live_site.sh` checks before upload. If a salt is missing or still one of those old defaults, `scripts/ensure_netlify_salts.py` writes a new random secret to the site and does not print it. A salt that is already a real secret is left alone. You can also set `VISIT_SALT` and `RATHER_SALT` in the deploy environment; the script copies those values instead of generating new ones.
 8. GitHub Actions runs `.github/workflows/stop-netlify-git-builds.yml` so Netlify **Build status = Stopped builds**. Confirm in Netlify: **Project configuration → Build & deploy → Continuous deployment → Build settings → Stopped builds**. Do **not** use “Stop auto publishing”; that still starts a canceled production job. `netlify.toml` skip/refuse scripts are only a backup.
-9. Repo **Settings → Pages**: turn the source **off** once dynastyticker.com matches this desk. If a github.io URL is still up, replace it with a redirect to `https://dynastyticker.com/`. Do **not** add a custom domain there. Visit counts and rather votes stay on dynastyticker.com only.
+9. Repo **Settings → Pages**: turn the source **off** once dynastyticker.com matches this desk. If a github.io URL is still up, replace it with a redirect to `https://dynastyticker.com/`. Do **not** add a custom domain there. Visit counts and rather votes stay on dynastyticker.com only. An old Pages workflow left on `main` checks out `develop` and runs `scripts/stage_pages_preview.sh`. That script refuses, so the dispatch cannot publish a second desk.
 
 Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Tests: `.github/workflows/test.yml`. Local check: `npm run serve`. There is no GitHub Pages preview workflow.
 

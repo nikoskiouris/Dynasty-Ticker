@@ -43,8 +43,11 @@ What follows from that:
 
 ## Cursor Cloud specific instructions
 
-- Test changes yourself.
-- Record a short screen video of the working change and show it to the user.
+Follow `.cursor/skills/ship-without-demos/SKILL.md`.
+
+- Test changes yourself. Do not record demo videos or walkthrough artifacts.
+- Do not upload videos for the user to watch.
+- One screenshot is enough, and only if a visual result is hard to describe.
 - After tests pass, commit, push, update the PR, and keep moving.
 
 ## Git branches
@@ -73,5 +76,7 @@ If an old ticket's product guidance conflicts with Product purpose, add a `Super
 - Pushing or merging `develop` into `prod` cuts a GitHub Release. That runs `.github/workflows/deploy-release.yml`, which calls `scripts/deploy_live_site.sh`.
 - Do not trigger a production deploy unless the user explicitly asks to cut a release / promote to prod.
 - Do not run a scheduled Netlify production deploy. Market files refresh when a release is cut. The weekly Dynasty Nerds mock scrape may commit JSON to `develop`; that must not publish the live site.
+- GitHub runs scheduled workflows only from the repository default branch. That branch must be `develop`, or the player-value and rookie-mock refreshes never start.
+- `scripts/stage_pages_preview.sh` refuses. An old Pages workflow must not publish the desk.
 - Local check: `npm run serve` (or `npm test`). Do not burn Netlify credits for preview deploys.
 - Netlify functions need site environment variables `VISIT_SALT` and `RATHER_SALT` (Functions and Runtime scope). `scripts/deploy_live_site.sh` runs `scripts/ensure_netlify_salts.py` and will not publish until both are real secrets. Do not commit the values. The old public defaults `dynasty-ticker-traffic-v1` and `dynasty-ticker-rather-v1` are rejected.
