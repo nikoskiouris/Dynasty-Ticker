@@ -1,6 +1,7 @@
 import {
   addValueCalcItem,
   emptyValueCalcState,
+  isGenericPickAssetId,
   isLeaguePickAssetId,
   valueCalcVerdict,
 } from "./value-calc.js";
@@ -8,6 +9,10 @@ import { calculatePackageAdjustment } from "./package-value.js";
 import { lookupMarketValue } from "./values.js";
 
 export const TRADE_DRAFT_STORAGE_KEY = "dynasty_ticker_trade_draft_v1";
+const LEGACY_TRADE_DRAFT_KEYS = Object.freeze([
+  TRADE_DRAFT_STORAGE_KEY,
+  "dynasty_ticker_trade_draft",
+]);
 
 // The calculator reads the exact same canonical snapshot as Players and My League.
 export function draftMarketPrice(asset, { values = {}, nameMap = {}, catalog = null } = {}) {
@@ -34,7 +39,17 @@ export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxVa
     : null;
   const compareGive = give + (adjustment?.side === "left" ? adjustment.amount : 0);
   const compareGet = get + (adjustment?.side === "right" ? adjustment.amount : 0);
-  return { give, get, compareGive, compareGet, adjustment, verdict: valueCalcVerdict(compareGive, compareGet) };
+  return {
+    give,
+    get,
+    compareGive,
+    compareGet,
+    adjustment,
+    verdict: valueCalcVerdict(compareGive, compareGet, {
+      leftCount: giveList.length,
+      rightCount: getList.length,
+    }),
+  };
 }
 
 export function isDraftEmpty(draft) {
@@ -230,7 +245,7 @@ export function placeAfterConnect({ activePage = "", tradesRoom = "", selectedAs
 }
 
 function cleanDraftItem(raw) {
-  const assetId = String(raw?.assetId || "");
+  const assetId = String(raw?.assetId || raw?.id || "");
   if (!DRAFT_ASSET_ID.test(assetId)) return null;
   const item = {
     uid: String(raw?.uid || ""),
@@ -253,20 +268,46 @@ export function serializeDraft(draft) {
   });
 }
 
+function draftPayload(parsed) {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  if (parsed.v != null && parsed.v !== 1) return null;
+  const left = parsed.left ?? parsed.give;
+  const right = parsed.right ?? parsed.get;
+  const hasSides = [left, right].some((side) => Array.isArray(side));
+  if (parsed.v !== 1 && !hasSides) return null;
+  return {
+    ...parsed,
+    left: Array.isArray(left) ? left : [],
+    right: Array.isArray(right) ? right : [],
+  };
+}
+
+function draftItemKey(item) {
+  if (isGenericPickAssetId(item.assetId)) return "";
+  if (isLeaguePickAssetId(item.assetId)) return `${item.assetId}@${item.leagueId || ""}`;
+  return item.assetId;
+}
+
 export function restoreDraft(text) {
   let parsed = null;
   try {
-    parsed = JSON.parse(String(text || ""));
+    parsed = draftPayload(JSON.parse(String(text || "")));
   } catch {
     return null;
   }
-  if (!parsed || parsed.v !== 1) return null;
+  if (!parsed) return null;
   const draft = emptyValueCalcState();
+  const seen = new Set();
   let uid = 1;
   for (const side of ["left", "right"]) {
-    for (const raw of Array.isArray(parsed[side]) ? parsed[side] : []) {
+    for (const raw of parsed[side]) {
       const item = cleanDraftItem(raw);
       if (!item) continue;
+      const key = draftItemKey(item);
+      if (key) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
       item.uid = String(uid);
       uid += 1;
       draft[side].push(item);
@@ -278,9 +319,28 @@ export function restoreDraft(text) {
   return draft;
 }
 
-export function readStoredDraft(storage = globalThis.sessionStorage) {
+function readDraftText(storage) {
+  if (!storage?.getItem) return "";
+  for (const key of LEGACY_TRADE_DRAFT_KEYS) {
+    const text = storage.getItem(key);
+    if (text) return text;
+  }
+  return "";
+}
+
+export function readStoredDraft(storage = globalThis.sessionStorage, legacyStorage = undefined) {
   try {
-    return restoreDraft(storage?.getItem?.(TRADE_DRAFT_STORAGE_KEY));
+    const text = readDraftText(storage);
+    if (text) {
+      const current = restoreDraft(text);
+      if (current) return current;
+    }
+  } catch {
+    /* Try the older store below. */
+  }
+  if (!legacyStorage || legacyStorage === storage) return null;
+  try {
+    return restoreDraft(readDraftText(legacyStorage));
   } catch {
     return null;
   }

@@ -822,7 +822,7 @@ def learn_transitions(rows, replacement, through_origin):
     for (pid, season), row in rows.items():
         if season >= through_origin or row["games"] < 4 or row["age"] is None:
             continue
-        key = (row["position"], int(round(row["age"])), role_tier(row, replacement["sf"][row["position"]]))
+        key = (row["position"], age_bucket(row["age"]), role_tier(row, replacement["sf"][row["position"]]))
         survival[key][1] += 1
         nxt = rows.get((pid, season + 1))
         if not nxt or nxt["games"] < 4:
@@ -831,39 +831,53 @@ def learn_transitions(rows, replacement, through_origin):
         if row["games"] >= 8 and nxt["games"] >= 8 and row["ppg"] > 1:
             ratio = clamp(nxt["ppg"] / row["ppg"], 0.35, 1.45)
             retention[key].append(ratio)
-            generic[(row["position"], int(round(row["age"])))].append(ratio)
+            generic[(row["position"], age_bucket(row["age"]))].append(ratio)
     return retention, survival, generic
 
 
-def _keep_rate(position, age_bucket, tier, retention, generic):
+def age_bucket(age):
+    """Whole-year bucket. Half ages round up.
+
+    Python's round() is half-even, so 30.5 stayed 30 and 31.5 jumped to 32.
+    The curve then skipped a year at every odd .5.
+    """
+    return int(math.floor(float(age) + 0.5))
+
+
+def _borrowed_ages(age_bucket_value):
+    # Stop at 19 so a measured age-20 rate is visible to the next thin age.
+    return range(age_bucket_value - 1, 19, -1)
+
+
+def _keep_rate(position, age_bucket_value, tier, retention, generic):
     """Year-to-year scoring change. A thin old age borrows the last measured decline.
 
     Defaulting that age to 1.0 freezes a 32-year-old at his current rate for the
     whole horizon. The last measured rate is reused. A long career is not punished
     again just for outliving the sample.
     """
-    exact = retention.get((position, age_bucket, tier), [])
+    exact = retention.get((position, age_bucket_value, tier), [])
     if len(exact) >= 12:
         return median(exact), 0
-    for past in range(age_bucket - 1, 20, -1):
+    for past in _borrowed_ages(age_bucket_value):
         older = retention.get((position, past, tier), [])
         if len(older) >= 12:
-            return median(older), age_bucket - past
-    broad = generic.get((position, age_bucket), [])
+            return median(older), age_bucket_value - past
+    broad = generic.get((position, age_bucket_value), [])
     if len(broad) >= 12:
         return median(broad), 0
-    for past in range(age_bucket - 1, 20, -1):
+    for past in _borrowed_ages(age_bucket_value):
         older = generic.get((position, past), [])
         if len(older) >= 12:
-            return median(older), age_bucket - past
-    return (0.92 if age_bucket >= 30 else 1.0), 0
+            return median(older), age_bucket_value - past
+    return (0.92 if age_bucket_value >= 30 else 1.0), 0
 
 
 def transition(position, age, tier, retention, survival, generic):
-    age_bucket = int(round(age))
-    exact = retention.get((position, age_bucket, tier), [])
-    keep, _years_past = _keep_rate(position, age_bucket, tier, retention, generic)
-    survived, total = survival.get((position, age_bucket, tier), (0, 0))
+    bucket = age_bucket(age)
+    exact = retention.get((position, bucket, tier), [])
+    keep, _years_past = _keep_rate(position, bucket, tier, retention, generic)
+    survived, total = survival.get((position, bucket, tier), (0, 0))
     probability = (survived + 8.0) / (total + 10.0) if total else 0.80
     return clamp(keep, 0.55, 1.18), clamp(probability, 0.35, 0.98), len(exact), total
 
@@ -876,7 +890,9 @@ def role_security(profile):
     top12 = int(info.get("top12Finishes") or 0)
     experience = int(profile.get("experience") or 0)
     if experience < int(resume["roleSecurityExperience"]):
-        if experience <= 1 and top5 == 0 and top12 == 0:
+        # The old check only haircut experience <= 1, so a player with two
+        # seasons and no top-12 was fully locked, then fell off at experience 3.
+        if top5 == 0 and top12 == 0:
             return float(resume["roleSecurityRookie"])
         return 1.0
     if top5 >= 2 or top12 >= 2:
@@ -1116,6 +1132,9 @@ def pick_values(samples, current_season):
         round_values = force_descending(rounds)
         any_first = _bucket_median(samples[fmt], range(1, 13))
         any_first = min(early, max(late, any_first))
+        # The published round-1 price is `any`, which the early/late clamp can
+        # pull below the raw round median. Later rounds have to follow that price.
+        round_values = force_descending([any_first, *round_values[1:]])
         raw[fmt] = {"early": early, "mid": mid, "late": late, "any": any_first, "rounds": round_values}
 
     for year in range(current_season + 1, current_season + 7):
