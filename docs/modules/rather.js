@@ -373,6 +373,27 @@ export function renderLandingRatherPlaceholder() {
   `;
 }
 
+// A league deep link used to skip boot and leave the loading line up.
+// Sample mode and a Players-tab render still start it.
+export function shouldStartLandingRather({ leagueId = "", sample = false, playersTab = false } = {}) {
+  if (sample || playersTab) return true;
+  return !String(leagueId || "").trim();
+}
+
+export function createRatherBootGate() {
+  let started = false;
+  return {
+    claim() {
+      if (started) return false;
+      started = true;
+      return true;
+    },
+    started() {
+      return started;
+    },
+  };
+}
+
 function ratherCareerClose(left, right) {
   const leftAge = Number(left?.age);
   const rightAge = Number(right?.age);

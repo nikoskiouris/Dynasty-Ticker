@@ -19,6 +19,7 @@ import {
   tickerDurationSeconds,
   writeStorageNoticeDismissed,
 } from "../docs/modules/site.js";
+import { SAMPLE_LEAGUE_ID } from "../docs/modules/constants.js";
 import { siteMarkup } from "./site-markup.js";
 
 const docs = join(dirname(fileURLToPath(import.meta.url)), "../docs");
@@ -328,7 +329,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(notFound, /class="brand-mark"/);
   assert.doesNotMatch(notFound, /League Command Center/);
   assert.doesNotMatch(notFound, /demo league/i);
-  assert.doesNotMatch(notFound, /1315165104303513600/);
+  assert.doesNotMatch(notFound, new RegExp(SAMPLE_LEAGUE_ID));
   assert.doesNotMatch(notFound, /privacy\.html/);
   assert.doesNotMatch(notFound, /terms\.html/);
   assert.doesNotMatch(notFound, /Contact/);

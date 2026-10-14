@@ -36,6 +36,8 @@ import {
   readRatherVotes,
   recordRatherVote,
   renderRatherMarkup,
+  createRatherBootGate,
+  shouldStartLandingRather,
   sleeperPlayerThumbUrl,
   writeRatherSessionDone,
 } from "../docs/modules/rather.js";
@@ -475,12 +477,34 @@ test("index puts rather on the landing page and never auto-opens a league overla
   const boot = app.slice(app.indexOf("async function bootLandingRather"), app.indexOf("async function loadRatherPromptContext"));
   assert.doesNotMatch(boot, /loadRatherPromptContext/);
   assert.match(boot, /getPlayersCache/);
+  assert.match(boot, /shouldStartLandingRather/);
+  assert.match(boot, /ratherBootGate\.claim\(\)/);
+  assert.doesNotMatch(boot, /if \(parseShareParams\(window\.location\.search\)\.leagueId\) return/);
+  const playersRender = app.slice(app.indexOf("function renderActivePage("), app.indexOf("function requestActivePageRender("));
+  assert.match(playersRender, /bootLandingRather\(\{ playersTab: true \}\)/);
   assert.match(app, /landingSearchOffscreen/);
   assert.match(app, /buildRatherBoard/);
   assert.match(app, /minValue: 1/);
   assert.match(app, /is \$\{winnerRow\.boardRank\} on the ticker/);
   assert.doesNotMatch(app, /on the desk/);
   assert.doesNotMatch(app, /function chooseRatherPlayer[\s\S]*loadLeagueById/);
+});
+
+test("sample mode and the Players tab still start Rather when a league is open", () => {
+  assert.equal(shouldStartLandingRather({ leagueId: "99" }), false);
+  assert.equal(shouldStartLandingRather({ leagueId: "99", sample: true }), true);
+  assert.equal(shouldStartLandingRather({ leagueId: "99", playersTab: true }), true);
+  assert.equal(shouldStartLandingRather({}), true);
+  assert.equal(shouldStartLandingRather({ leagueId: "  ", sample: false, playersTab: false }), true);
+});
+
+test("Rather boot claims once so a second call does not paint again", () => {
+  const gate = createRatherBootGate();
+  assert.equal(gate.started(), false);
+  assert.equal(gate.claim(), true);
+  assert.equal(gate.started(), true);
+  assert.equal(gate.claim(), false);
+  assert.equal(gate.claim(), false);
 });
 
 test("rankRatherPlayers prefers the crowd-shifted player", () => {
