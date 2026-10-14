@@ -43,6 +43,12 @@ jobs:
         with:
           ref: ${{ needs.pick-release.outputs.tag }}
 
+      - name: Require a prod release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.pick-release.outputs.tag }}
+        run: bash scripts/assert_prod_release.sh "$RELEASE_TAG"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:

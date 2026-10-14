@@ -4,6 +4,7 @@ name: Stop Netlify git builds
 # switch is what prevents Netlify from creating the job at all.
 on:
   push:
+    branches: [develop, prod, main]
   workflow_dispatch:
 
 concurrency:
