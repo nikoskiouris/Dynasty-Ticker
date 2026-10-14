@@ -65,6 +65,40 @@ class PlayerValueBuildTests(unittest.TestCase):
         pid, how = build.resolve_nfl_id({"full_name": "Kenneth Walker", "position": "RB"}, identity, "RB")
         self.assertEqual((pid, how), ("00-0038134", "name-position"))
 
+    def test_partial_sleeper_clock_does_not_wipe_the_season(self):
+        self.assertEqual(build.resolve_nfl_clock({"season": "2026", "week": 6}), (2026, 6))
+        self.assertEqual(
+            build.resolve_nfl_clock({"season": "2026", "season_type": "regular", "week": 6}),
+            (2026, 6),
+        )
+        self.assertEqual(
+            build.resolve_nfl_clock({"season": "2026", "season_type": "off", "week": 6}),
+            (2026, 1),
+        )
+        self.assertEqual(
+            build.resolve_nfl_clock({"season": "2026", "season_type": "post", "week": 2}),
+            (2026, 19),
+        )
+        with self.assertRaises(RuntimeError):
+            build.resolve_nfl_clock({})
+        with self.assertRaises(RuntimeError):
+            build.resolve_nfl_clock({"season": "2026"})
+        with self.assertRaises(RuntimeError):
+            build.resolve_nfl_clock({"season": "2026", "season_type": "regular"})
+
+    def test_short_upstream_body_does_not_truncate_the_cache(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "sleeper_state.json"
+            path.write_text('{"season":"2026","season_type":"regular","week":6}', encoding="utf-8")
+            before = path.read_bytes()
+            with self.assertRaises(RuntimeError):
+                build.cache_payload(path, b"{}")
+            self.assertEqual(path.read_bytes(), before)
+            build.cache_payload(path, b'{"season":"2026","season_type":"regular","week":7}')
+            self.assertIn(b"week\":7", path.read_bytes())
+
     def test_inactive_and_stale_players_are_not_listable(self):
         self.assertFalse(build.player_is_listable({"active": False, "status": "Active"}))
         self.assertFalse(build.player_is_listable({"active": True, "status": "Inactive"}))

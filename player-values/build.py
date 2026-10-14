@@ -167,15 +167,64 @@ def http_bytes(url):
         return response.read()
 
 
+def cache_payload(path, payload, min_bytes=32):
+    """Replace a cache file only after a full upstream body is in hand.
+
+    A short or empty response must not truncate the last good download.
+    """
+    if not isinstance(payload, (bytes, bytearray)) or len(payload) < min_bytes:
+        size = len(payload) if isinstance(payload, (bytes, bytearray)) else 0
+        raise RuntimeError(f"{path.name} from upstream was only {size} bytes")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temp_name = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(payload)
+        os.replace(temp_name, path)
+    finally:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+    return path
+
+
 def fetch(cache, name, url, refresh=True):
     path = cache / name
     if refresh or not path.exists():
-        payload = http_bytes(url)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temp = path.with_suffix(path.suffix + ".tmp")
-        temp.write_bytes(payload)
-        os.replace(temp, path)
+        cache_payload(path, http_bytes(url))
     return path
+
+
+def resolve_nfl_clock(state):
+    """Return (season, week) from Sleeper.
+
+    A missing season_type must not wipe the current season. Offseason and
+    preseason stay at week 1. Anything else without a usable week fails closed.
+    """
+    if not isinstance(state, dict) or not state:
+        raise RuntimeError("Sleeper NFL state is missing")
+    season_raw = state.get("season")
+    if season_raw in (None, ""):
+        season_raw = state.get("league_season")
+    if season_raw in (None, ""):
+        raise RuntimeError("Sleeper NFL state is missing season")
+    season = int(num(season_raw, 0))
+    if season < 1990:
+        raise RuntimeError(f"Sleeper NFL season is not usable: {season_raw!r}")
+    season_type = str(state.get("season_type") or "").strip().lower()
+    week = int(num(state.get("week"), 0))
+    if season_type == "post":
+        return season, 19
+    if season_type == "regular":
+        if week < 1 or week > 22:
+            raise RuntimeError(f"Sleeper regular-season week is not usable: {state.get('week')!r}")
+        return season, week
+    if season_type in {"pre", "off"}:
+        return season, 1
+    if 1 <= week <= 18:
+        return season, week
+    raise RuntimeError("Sleeper NFL state is missing season_type and week")
 
 
 def read_csv(path):
@@ -464,13 +513,7 @@ def manifest(paths):
 def load_inputs(cache, refresh=True):
     state_path = fetch(cache, "sleeper_state.json", SLEEPER_STATE_URL, refresh=refresh)
     state = json.loads(state_path.read_text(encoding="utf-8"))
-    current_season = int(num(state.get("season") or state.get("league_season"), datetime.now(timezone.utc).year))
-    season_type = str(state.get("season_type") or "").lower()
-    current_week = int(num(state.get("week"), 1))
-    if season_type == "post":
-        current_week = 19
-    elif season_type != "regular":
-        current_week = 1
+    current_season, current_week = resolve_nfl_clock(state)
 
     player_path = fetch(cache, "players.csv", PLAYERS_URL, refresh=refresh)
     draft_path = fetch(cache, "draft_picks.csv", DRAFT_URL, refresh=refresh)
