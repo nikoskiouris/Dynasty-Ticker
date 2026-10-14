@@ -308,12 +308,17 @@ function renderRankName(row) {
   return `<strong class="player-name">${face}<span class="player-name-text">${name}</span></strong>`;
 }
 
+function shownRankNumber(row) {
+  if (row?.kind === "player" && Number(row.overallRank) > 0) return row.overallRank;
+  return row?.listRank || "";
+}
+
 function renderRankRow(row, active) {
   const you = row.owner?.mine ? " you" : "";
   const meta = rankMeta(row);
   return `
     <button type="button" class="ranks-row${active ? " active" : ""}${you}" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}" aria-pressed="${active ? "true" : "false"}">
-      <span class="ranks-num">${escapeHtml(String(row.listRank || ""))}</span>
+      <span class="ranks-num">${escapeHtml(String(shownRankNumber(row)))}</span>
       <span class="ranks-who">
         ${renderRankName(row)}
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
