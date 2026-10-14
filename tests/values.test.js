@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   parseCsvValues,
   leagueHasSuperflex,
@@ -79,6 +82,11 @@ test("superflex vs 1QB format pick", () => {
   assert.equal(selectValueFormat({ roster_positions: ["QB", "RB", "SUPER_FLEX"] }), "sf");
   assert.equal(selectValueFormat({ roster_positions: ["QB", "RB", "WR", "TE", "FLEX"] }), "oneQb");
   assert.equal(leagueHasSuperflex({ roster_positions: ["QB", "QB", "RB"] }), true);
+  assert.equal(leagueHasSuperflex({ roster_positions: ["QB", "RB", "WR", "TE", "SUPER FLEX"] }), true);
+  assert.equal(leagueHasSuperflex({ roster_positions: ["qb", "rb", "superflex"] }), true);
+  assert.equal(leagueHasSuperflex({ roster_positions: ["QB", "RB", "super-flex"] }), true);
+  assert.equal(selectValueFormat({ roster_positions: ["QB", "RB", "OP"] }), "sf");
+  assert.equal(leagueHasSuperflex({ roster_positions: ["QB", "RB", "WR", "TE", "FLEX", "LB", "DB"] }), false);
 });
 
 test("league scoring metadata never reprices the canonical player value", () => {
@@ -117,6 +125,51 @@ test("missing model numbers are unavailable instead of invented", () => {
   assert.equal(getAssetValue(known, { "player:1": 3333 }), 3333);
 });
 
+
+test("an IDP or kicker does not inherit an offensive player's price by name", () => {
+  const values = { "player:9509": 11362, "player:10214": 31 };
+  const names = { "player:9509": "Bijan Robinson", "player:10214": "Davis Allen" };
+  const linebacker = {
+    assetId: "player:idp-bijan",
+    assetType: "player",
+    name: "Bijan Robinson",
+    raw: { position: "LB", fantasy_positions: ["LB"], full_name: "Bijan Robinson" },
+  };
+  const kicker = {
+    assetId: "player:k-1",
+    assetType: "player",
+    name: "Davis Allen",
+    raw: { position: "K", full_name: "Davis Allen" },
+  };
+  const staleQb = {
+    assetId: "player:stale-jayden",
+    assetType: "player",
+    name: "Jayden Daniels",
+    raw: { position: "QB", fantasy_positions: ["QB"], full_name: "Jayden Daniels" },
+  };
+  const qbNames = { ...names, "player:11566": "Jayden Daniels" };
+  const qbValues = { ...values, "player:11566": 9114 };
+  assert.equal(getAssetValue(linebacker, values, { valueNameMap: names }), 0);
+  assert.equal(isEstimatedAsset(linebacker, values, { valueNameMap: names }), true);
+  assert.equal(getAssetValue(kicker, values, { valueNameMap: names }), 0);
+  assert.equal(getAssetValue(staleQb, qbValues, { valueNameMap: qbNames }), 9114);
+  const pricedTe = { assetId: "player:10214", assetType: "player", raw: { position: "TE" } };
+  const tepLeague = { scoring_settings: { rec: 1, bonus_rec_te: 1.5 } };
+  assert.equal(tepLevel(tepLeague), 3);
+  assert.equal(getAssetValue(pricedTe, values, { league: tepLeague, valueNameMap: names }), 31);
+  assert.equal(tepLevel({ scoring_settings: { rec: 1, rec_te: 1 } }), 2);
+  assert.equal(tepLevel({ scoring_settings: { rec: 1, rec_te: 0.25 } }), 0);
+  assert.equal(tepLevel({ scoring_settings: { bonus_te_rec: 0.5 } }), 1);
+});
+
+test("the league format line uses the same superflex and TE premium checks as the prices", () => {
+  const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/app.js"), "utf8");
+  const start = app.indexOf("function describeLeagueFormat(");
+  const body = app.slice(start, app.indexOf("function buildTrendingInsight(", start));
+  assert.match(body, /leagueHasSuperflex\(league\)/);
+  assert.match(body, /tepLevel\(league\) > 0/);
+  assert.doesNotMatch(body, /bonus_rec_te \|\| scoring\.rec_te/);
+});
 
 test("missing sleeper id still uses the market name", () => {
   const jayden = {

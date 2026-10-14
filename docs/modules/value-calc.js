@@ -226,15 +226,17 @@ export function sumValueCalcSide(items = [], priceOf = null) {
   return items.reduce((sum, item) => sum + (Number(typeof priceOf === "function" ? priceOf(item) : item.value) || 0), 0);
 }
 
-export function valueCalcVerdict(leftTotal, rightTotal) {
+export function valueCalcVerdict(leftTotal, rightTotal, { leftCount = null, rightCount = null } = {}) {
   const left = Number(leftTotal) || 0;
   const right = Number(rightTotal) || 0;
   const gap = right - left;
   const maxSide = Math.max(left, right, 1);
   const pct = Math.round((Math.abs(gap) / maxSide) * 1000) / 10;
+  const leftHas = leftCount == null ? left > 0 : Number(leftCount) > 0;
+  const rightHas = rightCount == null ? right > 0 : Number(rightCount) > 0;
   let label = "Add both sides";
   let tone = "";
-  if (left > 0 && right > 0) {
+  if (leftHas && rightHas) {
     if (pct <= 5) {
       label = "Dead even";
       tone = "good";
@@ -248,7 +250,7 @@ export function valueCalcVerdict(leftTotal, rightTotal) {
       label = gap > 0 ? "Lopsided for Get" : "Lopsided for Give";
       tone = gap > 0 ? "good" : "bad";
     }
-  } else if (left > 0 || right > 0) {
+  } else if (leftHas || rightHas) {
     label = "Add the other side";
   }
   return { left, right, gap, pct, label, tone };

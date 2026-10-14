@@ -94,6 +94,7 @@ import {
   playerAgeForAsset,
   isInactivePlayerAsset,
   leagueHasSuperflex,
+  tepLevel,
   crowdShiftsFromVotes,
   getGlobalMaxPlayerValue,
 } from "./modules/values.js";
@@ -131,7 +132,7 @@ import {
   draftMarketPrice,
   draftMeterValues,
   draftNoticeText,
-  evenUpPickChoice,
+  evenUpTradePick,
   draftVerdictModel,
   draftSideForAsset,
   draftTeamSummary,
@@ -248,6 +249,7 @@ import { chooseBestLineup } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
   formatPickWithSelection,
+  inferPickSeasonSpan,
   indexDraftSelections,
   lookupDraftedSelection,
   mergeDraftSelectionIndex,
@@ -719,7 +721,7 @@ el.seasonsDashboard?.addEventListener("click", handleHistoryCompareClick);
 el.seasonsDashboard?.addEventListener("change", handleHistoryCompareChange);
 
 setDeskBoardShut(readDeskBoardShut());
-state.valueCalc = readStoredDraft() || state.valueCalc;
+state.valueCalc = readStoredDraft(globalThis.sessionStorage, globalThis.localStorage) || state.valueCalc;
 renderSessionSnapshot();
 syncTradeModeUi();
 let searchedUserNoted = false;
@@ -1851,12 +1853,22 @@ function syncTradeModeUi() {
   renderSessionSnapshot();
 }
 
+function collapseLeaguePicker() {
+  [el.leaguePicker, el.landingLeaguePicker].forEach((host) => {
+    if (!host) return;
+    host.classList.add("hidden");
+    host.replaceChildren();
+  });
+  syncDeskRailOffset();
+}
+
 function handleLeaguePickClick(event) {
   const button = event.target.closest("[data-league-id]");
   if (!button) return;
   const leagueId = parseLeagueId(button.dataset.leagueId);
   if (!leagueId) return;
   if (el.leagueId) el.leagueId.value = leagueId;
+  collapseLeaguePicker();
   void loadLeagueById(leagueId);
 }
 
@@ -2177,9 +2189,6 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.leagueSwitching = false;
 
     setFieldError(el.leagueId, el.leagueIdError, "");
-    if (state.userLeagues.length) {
-      renderLeaguePicker(state.userLeagues, String(state.nflState?.league_season || state.nflState?.season || league?.season || ""));
-    }
     hydrateManagerSelector();
     syncTradeModeUi();
     renderSessionSnapshot();
@@ -6146,10 +6155,16 @@ function nextRookieDraftSeason() {
 }
 
 // A future pick evens the gap only when its price actually covers it.
-function findEvenUpPick(gap, values) {
+function findEvenUpPick(view) {
   const first = nextRookieDraftSeason();
-  const picks = listGenericPicks(values).filter((pick) => Number(pick.season) >= first);
-  return evenUpPickChoice(gap, picks);
+  const picks = listGenericPicks(view.basis.values, view.basis.nameMap)
+    .filter((pick) => Number(pick.season) >= first);
+  return evenUpTradePick({
+    giveValues: view.draft.left.map(view.priceOf),
+    getValues: view.draft.right.map(view.priceOf),
+    picks,
+    globalMaxValue: getGlobalMaxPlayerValue(view.basis.values),
+  });
 }
 
 function evenUpCopy(choice, side) {
@@ -6157,6 +6172,9 @@ function evenUpCopy(choice, side) {
   const verb = side === "You" || side === "They" ? "add" : "adds";
   if (choice.closes) {
     return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
+  }
+  if (Number.isFinite(Number(choice.pct))) {
+    return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}). After that pick the sides are still ${choice.pct}% apart.`;
   }
   const short = choice.value < choice.gap;
   const why = short
@@ -6190,7 +6208,7 @@ function renderDraftVerdict(view) {
   const meters = draftMeterValues(model);
   const label = draftVerdictLabel(verdict, { them });
   const maxSide = Math.max(meters.give, meters.get, 1);
-  const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(Math.abs(verdict.gap), view.basis.values) : null;
+  const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(view) : null;
   const evenSide = verdict.gap > 0 ? "You" : (view.partner ? them : "They");
   const credited = adjustment?.side === "left" ? "You give" : "You get";
   return `
@@ -9431,7 +9449,7 @@ function buildSleeperInsightCards(profile, context) {
 
 function describeLeagueFormat(league) {
   const slots = getStarterRosterSlots(league);
-  const hasSuperflex = slots.some((slot) => ["SUPER_FLEX", "OP"].includes(slot));
+  const hasSuperflex = leagueHasSuperflex(league);
   const scoring = league?.scoring_settings || {};
   const receptionValue = Number(scoring.rec);
   const pprLabel = Number.isFinite(receptionValue)
@@ -9445,7 +9463,7 @@ function describeLeagueFormat(league) {
     pprLabel,
     `${slots.length} starters`,
   ];
-  if (Number(scoring.bonus_rec_te || scoring.rec_te || 0) > 0) parts.push("TE bonus (values stay full PPR)");
+  if (tepLevel(league) > 0) parts.push("TE bonus (values stay full PPR)");
   if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi`);
   if (leagueUsesFuturePicks(league) && draftRounds > 0) parts.push(`${draftRounds}-round rookie draft`);
   return parts.join(" • ");
@@ -15445,7 +15463,7 @@ function isConsumedDraftPick(pick, currentDraftContext, assignedDraftSlot = null
     && currentDraftContext.usedSlotKeys?.has(`${round}:${slot}`);
 }
 
-function inferLeaguePickSeasons(league, rosters, tradedPicks = [], pickValueCatalog = state.pickValueCatalog, currentDraftContext = null) {
+function inferLeaguePickSeasons(league, rosters, tradedPicks = [], _pickValueCatalog = [], currentDraftContext = null) {
   const explicitSeasons = rosters
     .flatMap((roster) => Array.isArray(roster?.picks) ? roster.picks : [])
     .map((pick) => Number(pick?.season))
@@ -15453,30 +15471,12 @@ function inferLeaguePickSeasons(league, rosters, tradedPicks = [], pickValueCata
   const tradedSeasons = tradedPicks
     .map((pick) => Number(pick?.season))
     .filter(Number.isFinite);
-  const catalogSeasons = pickValueCatalog
-    .map((pick) => Number(pick?.season))
-    .filter(Number.isFinite);
-
-  const configuredLeagueSeason = Number(league?.season);
-  const baseSeason = Number.isFinite(configuredLeagueSeason) ? configuredLeagueSeason : new Date().getFullYear();
-  const observedStartSeasons = [...explicitSeasons, ...tradedSeasons];
-  let startSeason = observedStartSeasons.length > 0
-    ? Math.min(...observedStartSeasons)
-    : baseSeason;
-  const minOpenSeason = getMinOpenPickSeason(currentDraftContext);
-  if (Number.isFinite(minOpenSeason) && startSeason < minOpenSeason) {
-    startSeason = minOpenSeason;
-  }
-  const endSeason = Math.max(
-    startSeason + (observedStartSeasons.length > 0 ? 1 : 2),
-    ...[...explicitSeasons, ...tradedSeasons, ...catalogSeasons]
-  );
-
-  const seasons = [];
-  for (let season = startSeason; season <= endSeason; season++) {
-    seasons.push(String(season));
-  }
-  return seasons;
+  return inferPickSeasonSpan({
+    leagueSeason: league?.season,
+    explicitSeasons,
+    tradedSeasons,
+    minOpenSeason: getMinOpenPickSeason(currentDraftContext),
+  });
 }
 
 function inferLeagueDraftRounds(league, rosters, tradedPicks = []) {

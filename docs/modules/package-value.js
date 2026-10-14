@@ -5,6 +5,11 @@ const KTC_RAW_ELITE_WEIGHT = 0.08;
 const KTC_RAW_TRADE_WEIGHT = 0.11;
 const KTC_RAW_DEPTH_WEIGHT = 0.18;
 
+export function finiteAssetValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, number) : 0;
+}
+
 export function calculatePctDiff(a, b) {
   if (!a || !b) return 100;
   return Math.abs(a - b) / Math.max(a, b) * 100;
@@ -45,13 +50,17 @@ function findEvenValueForRawGap(targetRawGap, tradeMaxValue, globalMaxValue) {
 }
 
 export function calculatePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
-  const myBaseValue = myValues.reduce((sum, value) => sum + value, 0);
-  const theirBaseValue = theirValues.reduce((sum, value) => sum + value, 0);
+  // A missing or removed player is stored as 0. Infinity and NaN are not prices.
+  // Those pieces are not real package mates, so they must not mint a stud credit.
+  const mine = (Array.isArray(myValues) ? myValues : []).map(finiteAssetValue).filter((value) => value > 0);
+  const theirs = (Array.isArray(theirValues) ? theirValues : []).map(finiteAssetValue).filter((value) => value > 0);
+  const myBaseValue = mine.reduce((sum, value) => sum + value, 0);
+  const theirBaseValue = theirs.reduce((sum, value) => sum + value, 0);
 
   // A straight swap stays at the listed prices. Any package of two or more runs the
   // stud curve, even when both sides send the same number of pieces. Two lesser
   // pieces are not worth one better piece that adds up to the same total.
-  if (myValues.length <= 1 && theirValues.length <= 1) {
+  if (!mine.length || !theirs.length || (mine.length <= 1 && theirs.length <= 1)) {
     return {
       myBaseValue,
       theirBaseValue,
@@ -63,7 +72,7 @@ export function calculatePackageAdjustment({ myValues, theirValues, globalMaxVal
     };
   }
 
-  const tradeMaxValue = Math.max(0, ...myValues, ...theirValues);
+  const tradeMaxValue = Math.max(0, ...mine, ...theirs);
   globalMaxValue = Math.max(tradeMaxValue, Number(globalMaxValue) || 0);
 
   if (!tradeMaxValue) {
@@ -78,8 +87,8 @@ export function calculatePackageAdjustment({ myValues, theirValues, globalMaxVal
     };
   }
 
-  const myRawValue = myValues.reduce((sum, value) => sum + calculateKtcRawAdjustment(value, tradeMaxValue, globalMaxValue), 0);
-  const theirRawValue = theirValues.reduce((sum, value) => sum + calculateKtcRawAdjustment(value, tradeMaxValue, globalMaxValue), 0);
+  const myRawValue = mine.reduce((sum, value) => sum + calculateKtcRawAdjustment(value, tradeMaxValue, globalMaxValue), 0);
+  const theirRawValue = theirs.reduce((sum, value) => sum + calculateKtcRawAdjustment(value, tradeMaxValue, globalMaxValue), 0);
 
   if (Math.abs(myRawValue - theirRawValue) < 1e-6) {
     return {

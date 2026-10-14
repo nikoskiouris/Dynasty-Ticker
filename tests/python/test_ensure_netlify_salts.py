@@ -37,6 +37,14 @@ class EnsureNetlifySaltsTests(unittest.TestCase):
         })
         self.assertEqual(action, "keep")
 
+    def test_replaces_an_empty_plaintext_salt(self):
+        action = self.mod.salt_action({
+            "scopes": ["functions", "runtime"],
+            "is_secret": False,
+            "values": [{"context": "all", "value": ""}],
+        })
+        self.assertEqual(action, "set")
+
     def test_replaces_public_defaults_and_build_only_values(self):
         self.assertEqual(self.mod.salt_action(None), "set")
         self.assertEqual(self.mod.salt_action({}), "set")
