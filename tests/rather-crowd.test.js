@@ -15,6 +15,7 @@ import {
   createRatherVoteHandler,
   normalizeRatherState,
   publicRatherVotes,
+  RATHER_MAX_PER_VISITOR_HOUR,
   RATHER_MAX_STORED_VOTES,
   RATHER_RATE_KEEP_MS,
   RATHER_VOTE_RETENTION_MS,
@@ -421,4 +422,131 @@ test("site wiring uses the modern Netlify rather vote function", () => {
   assert.match(app, /hydrateCrowdVotes/);
   assert.match(app, /submitRatherCrowdVote/);
   assert.equal(publicRatherVotes({ votes: [{ winnerId: "player:a", loserId: "player:b" }] }).voteCount, 1);
+});
+
+function handlerFor(store, salt = "test-salt") {
+  return createRatherVoteHandler({
+    getStore: () => store,
+    nowFn: () => NOW,
+    salt,
+    allowedOrigins: ["https://dynastyticker.com"],
+  });
+}
+
+test("user-agent and forwarding headers cannot stuff rather votes", async () => {
+  const store = memoryStore();
+  const handler = handlerFor(store);
+  const first = await handler(new Request("https://dynastyticker.com/api/rather-vote", {
+    method: "POST",
+    headers: {
+      ...headers(),
+      "user-agent": "Mozilla/5.0 One",
+      "x-forwarded-for": "1.1.1.1",
+      "x-nf-client-connection-ip": "2.2.2.2",
+    },
+    body: JSON.stringify(voteBody({ eventId: "ua-1" })),
+  }), { ip: "9.9.9.9" });
+  assert.equal(first.status, 200);
+  const rotated = await handler(new Request("https://dynastyticker.com/api/rather-vote", {
+    method: "POST",
+    headers: {
+      ...headers(),
+      "user-agent": "Mozilla/5.0 Two",
+      "x-forwarded-for": "8.8.8.8",
+      "x-nf-client-connection-ip": "7.7.7.7",
+    },
+    body: JSON.stringify(voteBody({ eventId: "ua-2" })),
+  }), { ip: "9.9.9.9" });
+  assert.equal(rotated.status, 200);
+  const again = await rotated.json();
+  assert.equal(again.duplicate, true);
+  assert.equal(again.voteCount, 1);
+
+  const naked = await handler(new Request("https://dynastyticker.com/api/rather-vote", {
+    method: "POST",
+    headers: {
+      ...headers(),
+      "x-forwarded-for": "4.4.4.4",
+      "x-nf-client-connection-ip": "5.5.5.5",
+    },
+    body: JSON.stringify(voteBody({ eventId: "spoofed" })),
+  }), {});
+  assert.equal(naked.status, 503);
+  assert.equal((await naked.json()).error, "config");
+  assert.equal(normalizeRatherState(store.snapshot()).votes.length, 1);
+});
+
+test("one address cannot pass the hourly rather cap by changing pairs", async () => {
+  const store = memoryStore();
+  let clock = NOW.getTime();
+  const handler = createRatherVoteHandler({
+    getStore: () => store,
+    nowFn: () => new Date(clock),
+    salt: "test-salt",
+    allowedOrigins: ["https://dynastyticker.com"],
+  });
+  for (let index = 0; index < RATHER_MAX_PER_VISITOR_HOUR; index += 1) {
+    clock += 500;
+    const response = await handler(postRequest(voteBody({
+      eventId: `cap-${index}`,
+      winnerId: "player:aaaa",
+      loserId: `player:b${index}`,
+    })), { ip: "1.2.3.4" });
+    assert.equal(response.status, 200, `vote ${index}`);
+  }
+  clock += 500;
+  const blocked = await handler(postRequest(voteBody({
+    eventId: "cap-over",
+    winnerId: "player:aaaa",
+    loserId: "player:over",
+  })), { ip: "1.2.3.4" });
+  assert.equal(blocked.status, 429);
+  assert.equal((await blocked.json()).error, "limit");
+  assert.equal(normalizeRatherState(store.snapshot()).votes.length, RATHER_MAX_PER_VISITOR_HOUR);
+  clock += 500;
+  const other = await handler(postRequest(voteBody({
+    eventId: "other-ip",
+    winnerId: "player:aaaa",
+    loserId: "player:other",
+  })), { ip: "8.8.8.8" });
+  assert.equal(other.status, 200);
+});
+
+test("rather votes fail closed on bad JSON, huge JSON, the wrong method, and a replay", async () => {
+  const store = memoryStore();
+  const handler = handlerFor(store);
+  const bad = await handler(new Request("https://dynastyticker.com/api/rather-vote", {
+    method: "POST",
+    headers: headers(),
+    body: "{nope",
+  }), { ip: "1.2.3.4" });
+  assert.equal(bad.status, 400);
+  const empty = await handler(new Request("https://dynastyticker.com/api/rather-vote", {
+    method: "POST",
+    headers: headers(),
+    body: "",
+  }), { ip: "1.2.3.4" });
+  assert.equal(empty.status, 400);
+  const huge = await handler(new Request("https://dynastyticker.com/api/rather-vote", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ ...voteBody(), pad: "A".repeat(4000) }),
+  }), { ip: "1.2.3.4" });
+  assert.equal(huge.status, 413);
+  const put = await handler(new Request("https://dynastyticker.com/api/rather-vote", {
+    method: "PUT",
+    headers: headers(),
+    body: JSON.stringify(voteBody()),
+  }), { ip: "1.2.3.4" });
+  assert.equal(put.status, 405);
+  assert.equal(store.snapshot(), null);
+
+  const saved = await handler(postRequest(voteBody({ eventId: "once" })), { ip: "1.2.3.4" });
+  assert.equal(saved.status, 200);
+  const replay = await handler(postRequest(voteBody({ eventId: "once", winnerId: "player:12504", loserId: "player:11566" })), { ip: "1.2.3.4" });
+  assert.equal(replay.status, 200);
+  const body = await replay.json();
+  assert.equal(body.duplicate, true);
+  assert.equal(body.votes.length, 1);
+  assert.equal(body.votes[0].winnerId, "player:11566");
 });
