@@ -22,7 +22,7 @@ python3 scripts/ensure_netlify_salts.py
 
 bash scripts/netlify_stop_git_builds.sh
 
-npm install
+npm ci
 
 if [[ "${SKIP_MARKET_REFRESH:-}" != "1" ]]; then
   bash scripts/refresh_market_data.sh
@@ -30,11 +30,11 @@ fi
 
 message="${DEPLOY_MESSAGE:-Dynasty Ticker live deploy}"
 
+# NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID stay in the environment.
+# The CLI reads both. Do not put the token on the command line.
 npx --yes netlify-cli@27 deploy \
   --prod \
   --dir=docs \
   --functions=netlify/functions \
   --no-build \
-  --site="$NETLIFY_SITE_ID" \
-  --auth="$NETLIFY_AUTH_TOKEN" \
   --message="$message"

@@ -1,13 +1,18 @@
 import {
   addValueCalcItem,
   emptyValueCalcState,
+  isGenericPickAssetId,
   isLeaguePickAssetId,
   valueCalcVerdict,
 } from "./value-calc.js";
-import { calculatePackageAdjustment } from "./package-value.js";
+import { calculatePackageAdjustment, finiteAssetValue } from "./package-value.js";
 import { lookupMarketValue } from "./values.js";
 
 export const TRADE_DRAFT_STORAGE_KEY = "dynasty_ticker_trade_draft_v1";
+const LEGACY_TRADE_DRAFT_KEYS = Object.freeze([
+  TRADE_DRAFT_STORAGE_KEY,
+  "dynasty_ticker_trade_draft",
+]);
 
 // The calculator reads the exact same canonical snapshot as Players and My League.
 export function draftMarketPrice(asset, { values = {}, nameMap = {}, catalog = null } = {}) {
@@ -21,7 +26,9 @@ const DRAFT_ASSET_ID = /^(?:player:[A-Za-z0-9_.-]+|pick:\d{4}:r\d+:[A-Za-z0-9_-]
 // A package of two or more adds a stud credit, even when both sides send the same
 // number of pieces. A straight one-for-one stays at the listed prices.
 export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxValue = 9999 } = {}) {
-  const clean = (list) => (Array.isArray(list) ? list : []).map((value) => Math.max(0, Number(value) || 0));
+  // Keep a 0 in the list so a missing player still counts as a side. Infinity
+  // and NaN become 0 here; package credit drops them before the stud curve.
+  const clean = (list) => (Array.isArray(list) ? list : []).map(finiteAssetValue);
   const giveList = clean(giveValues);
   const getList = clean(getValues);
   const give = Math.round(giveList.reduce((sum, value) => sum + value, 0));
@@ -34,7 +41,17 @@ export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxVa
     : null;
   const compareGive = give + (adjustment?.side === "left" ? adjustment.amount : 0);
   const compareGet = get + (adjustment?.side === "right" ? adjustment.amount : 0);
-  return { give, get, compareGive, compareGet, adjustment, verdict: valueCalcVerdict(compareGive, compareGet) };
+  return {
+    give,
+    get,
+    compareGive,
+    compareGet,
+    adjustment,
+    verdict: valueCalcVerdict(compareGive, compareGet, {
+      leftCount: giveList.length,
+      rightCount: getList.length,
+    }),
+  };
 }
 
 export function isDraftEmpty(draft) {
@@ -180,21 +197,63 @@ export function draftMeterValues(model) {
   };
 }
 
-// A pick evens the gap only when its price actually covers it. A much smaller
-// pick stays a miss, so the caller can say why it does not close.
-export function evenUpPickChoice(gap, picks = []) {
+// Same cutoff as valueCalcVerdict's "Fair" band. A suggestion closes only when
+// the trade, after the pick and the stud credit, lands inside that band.
+const EVEN_UP_FAIR_PCT = 12;
+
+// A pick evens the gap only when its price actually covers it. Pass scoreAdded
+// when adding the pick changes the package credit; the raw 0.8–1.25 band does
+// not know about that credit.
+export function evenUpPickChoice(gap, picks = [], { scoreAdded = null } = {}) {
   const need = Math.abs(Number(gap) || 0);
   if (!(need > 0)) return null;
+  const score = typeof scoreAdded === "function" ? scoreAdded : null;
   let best = null;
   for (const pick of Array.isArray(picks) ? picks : []) {
     const value = Math.round(Number(pick?.value) || 0);
     if (!(value > 0) || !pick?.name) continue;
-    const miss = Math.abs(value - need);
-    if (!best || miss < best.miss) best = { name: String(pick.name), value, miss };
+    if (!score) {
+      const miss = Math.abs(value - need);
+      if (!best || miss < best.miss) best = { name: String(pick.name), value, miss };
+      continue;
+    }
+    const scored = score(value) || {};
+    const afterGap = Number(scored.gap);
+    const pct = Number(scored.pct);
+    if (!Number.isFinite(afterGap) || !Number.isFinite(pct)) continue;
+    const miss = Math.abs(afterGap);
+    const closes = pct <= EVEN_UP_FAIR_PCT;
+    const candidate = { name: String(pick.name), value, miss, closes, gap: need, afterGap, pct };
+    const betterClose = Boolean(best) && closes && !best.closes;
+    const tighter = Boolean(best) && closes === best.closes && (miss < best.miss || (miss === best.miss && value < best.value));
+    if (!best || betterClose || tighter) best = candidate;
   }
   if (!best) return null;
+  if (score) return best;
   const closes = best.value >= need * 0.8 && best.value <= need * 1.25;
   return { ...best, closes, gap: need };
+}
+
+// Rescore every pick on the short side. Matching the raw gap is not enough:
+// the first extra piece turns on stud credit and can reopen the hole.
+export function evenUpTradePick({ giveValues = [], getValues = [], picks = [], globalMaxValue = 9999 } = {}) {
+  const give = (Array.isArray(giveValues) ? giveValues : []).map(finiteAssetValue);
+  const get = (Array.isArray(getValues) ? getValues : []).map(finiteAssetValue);
+  if (!give.length || !get.length) return null;
+  const model = draftVerdictModel(give, get, { globalMaxValue });
+  const gap = model.verdict.gap;
+  if (!(Math.abs(gap) > 0) || model.verdict.pct <= 5) return null;
+  const shortIsGive = gap > 0;
+  return evenUpPickChoice(gap, picks, {
+    scoreAdded(value) {
+      const next = draftVerdictModel(
+        shortIsGive ? [...give, value] : give,
+        shortIsGive ? get : [...get, value],
+        { globalMaxValue },
+      );
+      return { gap: next.verdict.gap, pct: next.verdict.pct };
+    },
+  });
 }
 
 // The restore strip is only for an explicit clear. Later edits keep the same
@@ -230,7 +289,7 @@ export function placeAfterConnect({ activePage = "", tradesRoom = "", selectedAs
 }
 
 function cleanDraftItem(raw) {
-  const assetId = String(raw?.assetId || "");
+  const assetId = String(raw?.assetId || raw?.id || "");
   if (!DRAFT_ASSET_ID.test(assetId)) return null;
   const item = {
     uid: String(raw?.uid || ""),
@@ -253,20 +312,46 @@ export function serializeDraft(draft) {
   });
 }
 
+function draftPayload(parsed) {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  if (parsed.v != null && parsed.v !== 1) return null;
+  const left = parsed.left ?? parsed.give;
+  const right = parsed.right ?? parsed.get;
+  const hasSides = [left, right].some((side) => Array.isArray(side));
+  if (parsed.v !== 1 && !hasSides) return null;
+  return {
+    ...parsed,
+    left: Array.isArray(left) ? left : [],
+    right: Array.isArray(right) ? right : [],
+  };
+}
+
+function draftItemKey(item) {
+  if (isGenericPickAssetId(item.assetId)) return "";
+  if (isLeaguePickAssetId(item.assetId)) return `${item.assetId}@${item.leagueId || ""}`;
+  return item.assetId;
+}
+
 export function restoreDraft(text) {
   let parsed = null;
   try {
-    parsed = JSON.parse(String(text || ""));
+    parsed = draftPayload(JSON.parse(String(text || "")));
   } catch {
     return null;
   }
-  if (!parsed || parsed.v !== 1) return null;
+  if (!parsed) return null;
   const draft = emptyValueCalcState();
+  const seen = new Set();
   let uid = 1;
   for (const side of ["left", "right"]) {
-    for (const raw of Array.isArray(parsed[side]) ? parsed[side] : []) {
+    for (const raw of parsed[side]) {
       const item = cleanDraftItem(raw);
       if (!item) continue;
+      const key = draftItemKey(item);
+      if (key) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
       item.uid = String(uid);
       uid += 1;
       draft[side].push(item);
@@ -278,9 +363,28 @@ export function restoreDraft(text) {
   return draft;
 }
 
-export function readStoredDraft(storage = globalThis.sessionStorage) {
+function readDraftText(storage) {
+  if (!storage?.getItem) return "";
+  for (const key of LEGACY_TRADE_DRAFT_KEYS) {
+    const text = storage.getItem(key);
+    if (text) return text;
+  }
+  return "";
+}
+
+export function readStoredDraft(storage = globalThis.sessionStorage, legacyStorage = undefined) {
   try {
-    return restoreDraft(storage?.getItem?.(TRADE_DRAFT_STORAGE_KEY));
+    const text = readDraftText(storage);
+    if (text) {
+      const current = restoreDraft(text);
+      if (current) return current;
+    }
+  } catch {
+    /* Try the older store below. */
+  }
+  if (!legacyStorage || legacyStorage === storage) return null;
+  try {
+    return restoreDraft(readDraftText(legacyStorage));
   } catch {
     return null;
   }

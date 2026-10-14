@@ -467,13 +467,17 @@ export function isAllowedWrite(req, allowedOrigins = DEFAULT_ORIGINS) {
   return Boolean(referer && allowed.has(referer));
 }
 
-export function clientIp(req, context = {}) {
-  if (context?.ip) return String(context.ip).trim();
-  const headers = req?.headers;
-  const forwarded = headers?.get?.("x-nf-client-connection-ip")
-    || headers?.get?.("x-forwarded-for")
-    || "";
-  return String(forwarded).split(",")[0].trim();
+export function clientIp(_req, context = {}) {
+  // Only the platform connection IP. x-forwarded-for and x-nf-client-connection-ip
+  // are client-controlled on the way in, so they cannot name a rate-limit bucket.
+  return String(context?.ip || "").trim();
+}
+
+export function rateLimitHash(ip, salt) {
+  const secret = acceptSalt(salt);
+  const host = String(ip || "").trim();
+  if (!secret || !host) return "";
+  return createHash("sha256").update(`${secret}\nrate\n${host}`).digest("hex").slice(0, 32);
 }
 
 function jsonResponse(body, { status = 200 } = {}) {
@@ -508,15 +512,8 @@ export function lambdaEventToRequest(event) {
   return new Request(url, init);
 }
 
-export function lambdaIp(event, context = {}) {
-  if (context?.ip) return String(context.ip).trim();
-  const headers = event?.headers || {};
-  const forwarded = headers["x-nf-client-connection-ip"]
-    || headers["X-Nf-Client-Connection-Ip"]
-    || headers["x-forwarded-for"]
-    || headers["X-Forwarded-For"]
-    || "";
-  return String(forwarded).split(",")[0].trim();
+export function lambdaIp(_event, context = {}) {
+  return String(context?.ip || "").trim();
 }
 
 export function wrapLambdaHandler(visitHandler) {
@@ -533,22 +530,32 @@ export function wrapLambdaHandler(visitHandler) {
   };
 }
 
-export async function readVisitBody(req) {
-  const declared = Number(req.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > 2000) return {};
+export const JSON_BODY_MAX = 2000;
+
+export async function readJsonObject(req, { maxBytes = JSON_BODY_MAX, allowEmpty = false } = {}) {
+  const limit = Math.max(1, Number(maxBytes) || JSON_BODY_MAX);
+  const declared = Number(req?.headers?.get?.("content-length"));
+  if (Number.isFinite(declared) && declared > limit) return { ok: false, error: "size" };
   let text = "";
   try {
     text = await req.text();
   } catch {
-    return {};
+    return { ok: false, error: "json" };
   }
-  if (!text || text.length > 2000) return {};
+  if (text.length > limit) return { ok: false, error: "size" };
+  if (!text.trim()) return allowEmpty ? { ok: true, value: {} } : { ok: false, error: "json" };
   try {
     const parsed = JSON.parse(text);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { ok: false, error: "json" };
+    return { ok: true, value: parsed };
   } catch {
-    return {};
+    return { ok: false, error: "json" };
   }
+}
+
+export async function readVisitBody(req) {
+  const parsed = await readJsonObject(req, { allowEmpty: true });
+  return parsed.ok ? parsed.value : {};
 }
 
 async function readTrafficSnapshot(store) {
@@ -614,7 +621,17 @@ export function createVisitHandler({
     const secret = acceptSalt(salt);
     if (!secret) return jsonResponse({ error: "config" }, { status: 503 });
 
-    const body = req.method === "POST" ? await readVisitBody(req) : {};
+    let body = {};
+    let rateKey = "";
+    if (req.method === "POST") {
+      rateKey = rateLimitHash(clientIp(req, context), secret);
+      if (!rateKey) return jsonResponse({ error: "config" }, { status: 503 });
+      const parsed = await readJsonObject(req, { allowEmpty: true });
+      if (!parsed.ok) {
+        return jsonResponse({ error: parsed.error }, { status: parsed.error === "size" ? 413 : 400 });
+      }
+      body = parsed.value;
+    }
 
     let store;
     try {
@@ -644,7 +661,7 @@ export function createVisitHandler({
 
     const eventId = cleanEventId(body.eventId);
     const hash = visitorHash(clientIp(req, context), userAgent, secret, body.visitorId);
-    if (!hash) return jsonResponse({ error: "config" }, { status: 503 });
+    if (!hash || !rateKey) return jsonResponse({ error: "config" }, { status: 503 });
     const now = nowFn();
     const kind = body.kind === "active" ? "active" : "open";
     const source = cleanSourceHost(body.source);
@@ -657,7 +674,7 @@ export function createVisitHandler({
         return jsonResponse({ error: "store", retryable: true }, { status: 503 });
       }
       if (eventId && snapshot.state.events[eventId]) return jsonResponse({ ok: true });
-      const rate = noteVisitRate(snapshot.state, hash, now);
+      const rate = noteVisitRate(snapshot.state, rateKey, now);
       if (!rate.ok) return jsonResponse({ error: "limit" }, { status: 429 });
       const next = applyVisit(rate.state, { hash, now, eventId, kind, source, landing });
       try {
