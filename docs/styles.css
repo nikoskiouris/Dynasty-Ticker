@@ -1756,8 +1756,8 @@ body:not(.league-loaded) .workspace-header {
 
 .mini-chip.rose {
   border-color: transparent;
-  background: var(--red-soft);
-  color: var(--red);
+  background: #3d1418;
+  color: #ffd2cd;
 }
 
 .mini-chip.gold {
@@ -2474,8 +2474,8 @@ body:not(.league-loaded) .workspace-header {
   gap: 0.35rem;
 }
 
-.sheet-column h4,
-.roster-sheet > h4 {
+.sheet-column h3,
+.roster-sheet > h3 {
   margin: 0.4rem 0 0.2rem;
   color: var(--muted);
   font-size: 0.7rem;
@@ -6191,9 +6191,20 @@ button.player-item.calc-item:focus-visible {
     gap: 0.7rem;
   }
 
-  .league-loaded .workspace-lede,
-  .league-loaded .league-hero {
+  .league-loaded .workspace-lede {
     display: none;
+  }
+
+  /* Keep the league name in the tree on a phone. display:none dropped the only h1. */
+  .league-loaded .league-hero {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .state-grid {
@@ -8113,12 +8124,17 @@ body.viewing-sample .team-identity.you {
 
 .ranks {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ranks-toolbar {
   display: grid;
   gap: 0.55rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ranks-search {
@@ -8171,11 +8187,18 @@ button.ranks-chip.active:hover {
   color: var(--text);
 }
 
+[data-ranks-body] {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .ranks-shelf {
   display: flex;
   gap: 0.85rem;
   margin: 0 0 1rem;
   padding-bottom: 0.15rem;
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
   scroll-margin-top: calc(4.2rem + env(safe-area-inset-top));
   scrollbar-width: none;
@@ -8434,6 +8457,19 @@ body.league-loaded .state-grid {
   display: none;
 }
 body.league-loaded .league-hero { padding-block: 0.35rem; }
+
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  body.league-loaded .league-hero {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
 body.league-loaded .workspace-lede { display: none; }
 
 /* Before a league, an empty rail is a masthead.

@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   CALC_LIST_LIMIT,
+  calcSearchEscapePlan,
   calcSuggestionFromList,
   clearCalcSearchBox,
   keepCalcSearchFocused,
@@ -18,6 +19,12 @@ import {
   snapshotFocusedCalcSearch,
 } from "../docs/modules/calc-search.js";
 import { listValueCalcAssets } from "../docs/modules/value-calc.js";
+
+test("empty offer search keeps focus on Esc", () => {
+  assert.equal(calcSearchEscapePlan(""), "stay");
+  assert.equal(calcSearchEscapePlan("   "), "stay");
+  assert.equal(calcSearchEscapePlan("Bijan"), "clear");
+});
 
 test("calculator search is a text box, not a search input that iPad blurs", () => {
   const html = renderCalcSearchInput({

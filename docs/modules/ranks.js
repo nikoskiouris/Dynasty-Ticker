@@ -355,7 +355,7 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
     : "";
   const calc = `<button type="button" class="ghost-btn" data-action="rank-calc" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-value="${escapeHtml(String(row.value))}" data-kind="${escapeHtml(row.kind)}">Add to trade</button>`;
   return `
-    <article class="ranks-card">
+    <article class="ranks-card" role="dialog" aria-modal="true" aria-labelledby="ranks-card-title" tabindex="-1">
       <div class="ranks-card-main">
         <div class="ranks-headshot" aria-hidden="true">
           <span class="rather-initials">${escapeHtml(row.initials || "?")}</span>
@@ -363,7 +363,7 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
         </div>
         <div class="ranks-card-copy">
           <p class="eyebrow">${escapeHtml(rankEyebrow(row))}</p>
-          <h2>${escapeHtml(row.name)}</h2>
+          <h2 id="ranks-card-title">${escapeHtml(row.name)}</h2>
           <p class="ranks-card-meta">${escapeHtml(rankMeta(row))}</p>
           ${row.note ? `<p class="ranks-card-note">${escapeHtml(row.note)}</p>` : ""}
           ${row.pickLine ? `<p class="ranks-pick-line">${escapeHtml(row.pickLine)}</p>` : ""}

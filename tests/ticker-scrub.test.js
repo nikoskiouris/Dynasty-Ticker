@@ -4,6 +4,7 @@ import {
   isTickerTap,
   tickerGestureIntent,
   tickerOffsetFromTime,
+  tickerStateLabel,
   tickerTimeFromOffset,
   wrapTickerOffset,
 } from "../docs/modules/ticker-scrub.js";
@@ -18,4 +19,6 @@ test("ticker offsets wrap so drag can go backward or forward", () => {
   assert.equal(tickerGestureIntent(2, 3), "pending");
   assert.equal(tickerGestureIntent(4, 30), "scroll");
   assert.equal(tickerGestureIntent(30, 4), "scrub");
+  assert.equal(tickerStateLabel(false), "League ticker");
+  assert.equal(tickerStateLabel(true), "League ticker, paused");
 });

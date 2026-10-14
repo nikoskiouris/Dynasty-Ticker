@@ -81,6 +81,11 @@ export function keepCalcSearchFocused(doc, mutate, schedule) {
   }
 }
 
+// Empty Esc used to blur the box and drop focus on the page.
+export function calcSearchEscapePlan(query) {
+  return String(query || "").trim() ? "clear" : "stay";
+}
+
 export function shouldResetCalcSearchOnPick(action, { fromList = true } = {}) {
   if (action === "value-add") return true;
   if (action === "calc-toggle") return Boolean(fromList);

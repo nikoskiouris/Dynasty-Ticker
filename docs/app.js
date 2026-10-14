@@ -145,6 +145,7 @@ import {
   writeStoredDraft,
 } from "./modules/trade-draft.js";
 import {
+  calcSearchEscapePlan,
   calcSuggestionFromList,
   calcSuggestionItem,
   clearCalcSearchBox,
@@ -155,6 +156,7 @@ import {
   shouldHoldCalcSearchFocus,
   shouldResetCalcSearchOnPick,
 } from "./modules/calc-search.js";
+import { isKeyboardActivation, tabWrapTarget } from "./modules/focus-trap.js";
 import { ideaPackageKey, selectNextDiverse } from "./modules/deal-more.js";
 import { calculatePackageAdjustment, calculatePctDiff } from "./modules/package-value.js";
 import { bindTicker } from "./modules/ticker-scrub.js";
@@ -518,6 +520,8 @@ let leagueTradeSideCache = { key: "", sides: [] };
 let franchiseIndexCache = { key: "", index: null };
 let applyingHistory = false;
 let phoneDeskCollapsed = false;
+let focusLoadedLeagueHeading = false;
+let rankDialogReturnId = "";
 let managerSelectorHydrating = false;
 let managerSelectorHydrateEpoch = 0;
 let ratherPromptPair = null;
@@ -632,6 +636,10 @@ document.addEventListener("keydown", (event) => {
     el.mobileRailToggle?.focus();
     return;
   }
+  if (closeRankDialog(true)) {
+    event.preventDefault();
+    return;
+  }
   const field = event.target?.closest?.("input, textarea, select");
   if (field) return;
   if (!isPhoneLayout() && !document.documentElement.classList.contains("desk-shut")) {
@@ -646,6 +654,16 @@ document.addEventListener("click", (event) => {
   event.preventDefault();
   goLeagueHome();
 });
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Tab") return;
+  const dialog = document.querySelector(".ranks-card[role='dialog']");
+  const root = dialog || (document.body.classList.contains("rail-open") ? el.controlRail : null);
+  if (!root) return;
+  const next = tabWrapTarget(focusableIn(root), document.activeElement, event.shiftKey);
+  if (!next) return;
+  event.preventDefault();
+  next.focus();
+}, true);
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
   const home = event.target.closest("[data-action='league-home']");
@@ -1551,8 +1569,70 @@ function setDeskBoardShut(shut) {
   }
 }
 
+function focusableIn(root) {
+  if (!root) return [];
+  return [...root.querySelectorAll("a[href], button, input, select, textarea, summary, [tabindex]")].filter((node) => {
+    if (node.disabled) return false;
+    if (node.getAttribute("tabindex") === "-1" && node !== root) return false;
+    if (node.closest("[hidden], .hidden")) return false;
+    return node.getClientRects().length > 0;
+  });
+}
+
+function phonePageInert(on) {
+  for (const node of [
+    document.querySelector(".skip-link"),
+    document.querySelector("#mobile-chrome"),
+    el.deskBoardOpen,
+    el.workspace,
+  ]) {
+    if (!node) continue;
+    if (on) node.setAttribute("inert", "");
+    else node.removeAttribute("inert");
+  }
+}
+
+function focusLoadedLeague() {
+  const heading = el.heroTitle;
+  if (heading) {
+    heading.setAttribute("tabindex", "-1");
+    heading.focus({ preventScroll: true });
+    if (document.activeElement === heading) return;
+  }
+  if (!el.workspace) return;
+  el.workspace.setAttribute("tabindex", "-1");
+  el.workspace.focus({ preventScroll: true });
+}
+
+function focusRankOpener(assetId) {
+  const id = String(assetId || "");
+  if (!id) return;
+  const escaped = window.CSS?.escape ? CSS.escape(id) : id.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const row = document.querySelector(`button.ranks-row[data-asset-id="${escaped}"]`)
+    || document.querySelector(`[data-action="rank-open"][data-asset-id="${escaped}"]`);
+  row?.focus();
+}
+
+function focusRankDialog() {
+  const dialog = document.querySelector(".ranks-card[role='dialog']");
+  const target = dialog?.querySelector(".ranks-card-actions button") || dialog;
+  target?.focus();
+}
+
+function closeRankDialog(returnFocus) {
+  if (!state.ranks?.selectedId) return false;
+  if (!document.querySelector(".ranks-card[role='dialog']")) return false;
+  const id = rankDialogReturnId || state.ranks.selectedId;
+  state.ranks.selectedId = "";
+  renderRankSurfaces();
+  syncRankUrl();
+  if (returnFocus) focusRankOpener(id);
+  return true;
+}
+
 function setMobileRailOpen(open) {
   const shouldOpen = Boolean(open) && isPhoneLayout();
+  if (!shouldOpen) phonePageInert(false);
   if (!shouldOpen && el.controlRail?.contains(document.activeElement)) {
     el.mobileRailToggle?.focus();
   }
@@ -1571,6 +1651,7 @@ function setMobileRailOpen(open) {
     el.controlRail.removeAttribute("aria-hidden");
     el.controlRail.removeAttribute("inert");
   }
+  if (shouldOpen) phonePageInert(true);
   syncSiteDock();
 }
 
@@ -1879,6 +1960,7 @@ function handleLeaguePickClick(event) {
   if (!leagueId) return;
   if (el.leagueId) el.leagueId.value = leagueId;
   collapseLeaguePicker();
+  focusLoadedLeagueHeading = isKeyboardActivation(event);
   void loadLeagueById(leagueId);
 }
 
@@ -2216,6 +2298,10 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     noteSearchedUser(leagueId);
     scrollLoadedWorkspaceIntoView();
     setMobileRailOpen(false);
+    if (focusLoadedLeagueHeading) {
+      focusLoadedLeagueHeading = false;
+      requestAnimationFrame(() => focusLoadedLeague());
+    }
     setStatus(
       state.viewingSample
         ? "Sample league — not your account."
@@ -2276,6 +2362,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     const message = `Could not load league data. ${err.message}`;
     setFieldError(el.leagueId, el.leagueIdError, message);
     setStatus(message, { error: true });
+    focusLoadedLeagueHeading = false;
     leagueLoadRecovery.fail({ leagueId, token, sample: state.viewingSample });
     paintLeagueLoadError(message);
     if (state.league) {
@@ -4220,7 +4307,7 @@ function paintMockBoard() {
       <div class="sheet-grid">
         ${board.rounds.map((round) => `
           <section class="sheet-column">
-            <h4>${escapeHtml(round.label)}</h4>
+            <h3>${escapeHtml(round.label)}</h3>
             ${round.picks.map((pick) => {
               const focused = Boolean(focusId && pick.id === focusId);
               const href = board.url
@@ -5535,7 +5622,7 @@ function renderRosterSheet() {
     })}
     <div class="sheet-grid">
       <section class="sheet-column">
-        <h4>Start</h4>
+        <h3>Start</h3>
         ${startRows.map((entry) => entry.asset
           ? renderPlayerRow(entry.asset, entry.slotLabel || formatRosterSlotLabel(entry.slot), {
               note: entry.rowNote,
@@ -5544,21 +5631,21 @@ function renderRosterSheet() {
           : `<div class="sheet-row empty"><span class="sheet-slot">${escapeHtml(entry.slotLabel || formatRosterSlotLabel(entry.slot))}</span><div class="sheet-player"><strong>${escapeHtml(entry.rowNote || "Open")}</strong></div></div>`).join("")}
       </section>
       <section class="sheet-column">
-        <h4>Sit</h4>
+        <h3>Sit</h3>
         ${benchRows.map((row) => renderPlayerRow(row.asset, row.sitReason ? "SIT" : (isTradeEligibleAsset(row.asset) ? "BN" : formatPlayerPositionLabel(row.asset)), {
           note: row.rowNote,
           sitCause: Boolean(row.sitReason),
           closeCall: String(row.rowNote || "").startsWith("Close vs"),
         })).join("") || `<p class="muted small">No bench players.</p>`}
         ${showPicks ? `
-        <h4>Pick vault</h4>
+        <h3>Pick vault</h3>
         ${renderPickVaultIntro(picks)}
         ${picks.length
           ? picks.map((asset) => renderPickVaultRow(asset, values)).join("")
           : `<p class="muted small">No draft picks owned.</p>`}` : ""}
       </section>
     </div>
-    <h4>Season log</h4>
+    <h3>Season log</h3>
     ${seasonLog}
   `;
   syncWeeklyScoreHelp();
@@ -6555,15 +6642,13 @@ function handleWorkspaceKeydown(event) {
     if (event.key === "Escape") {
       event.preventDefault();
       const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
-      if (String(query || "").trim()) {
+      if (calcSearchEscapePlan(query) === "clear") {
         if (side === "right") state.valueCalc.rightQuery = "";
         else state.valueCalc.leftQuery = "";
         clearCalcSearchBox(search);
         refreshDraftSuggestions(side);
-        search.focus();
-        return;
       }
-      search.blur();
+      search.focus();
       return;
     }
   }
@@ -6627,17 +6712,29 @@ function handleWorkspaceClick(event) {
     case "rank-open": {
       const id = String(target.dataset.assetId || "");
       if (!id) return;
-      state.ranks.selectedId = state.ranks.selectedId === id ? "" : id;
+      const opening = state.ranks.selectedId !== id;
+      rankDialogReturnId = id;
+      state.ranks.selectedId = opening ? id : "";
       renderRankSurfaces();
       syncRankUrl();
-      document.querySelector(".ranks-card")?.scrollIntoView({ block: "nearest" });
+      if (opening) {
+        focusRankDialog();
+        document.querySelector(".ranks-card")?.scrollIntoView({ block: "nearest" });
+      } else {
+        focusRankOpener(id);
+      }
       break;
     }
-    case "rank-close":
-      state.ranks.selectedId = "";
-      renderRankSurfaces();
-      syncRankUrl();
+    case "rank-close": {
+      const id = rankDialogReturnId || state.ranks.selectedId;
+      if (!closeRankDialog(true)) {
+        state.ranks.selectedId = "";
+        renderRankSurfaces();
+        syncRankUrl();
+        focusRankOpener(id);
+      }
       break;
+    }
     case "rank-pos":
       state.ranks.position = target.dataset.pos || "ALL";
       state.ranks.shown = RANK_PAGE_SIZE;
