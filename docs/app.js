@@ -3960,7 +3960,7 @@ function renderStandingsRow(team, sim, { showLine, position, divisionLeader = fa
   if (odds?.eliminated) badges.push(`<span class="mini-chip rose">Out</span>`);
   const streakLabel = team.streak?.length ? team.streak.label : "—";
   return `
-    <div class="standings-row ${String(team.rosterId) === String(state.meRosterId) ? "you" : ""} ${showLine ? "playoff-line" : ""}" data-action="set-lens-teams" data-roster-id="${team.rosterId}">
+    <div class="standings-row ${String(team.rosterId) === String(state.meRosterId) ? "you" : ""} ${showLine ? "playoff-line" : ""}" data-action="set-lens-teams" data-roster-id="${escapeHtml(team.rosterId)}">
       <span class="rank-number">${position}</span>
       <div class="standings-team">
         ${renderTeamIdentity(team.rosterId, { showTeamName: false })}
@@ -4078,7 +4078,7 @@ function renderHomePowerBoard(profiles, model) {
         ${profiles.map((profile, index) => {
           const team = model?.teams.get(String(profile.rosterId));
           return `
-            <button type="button" class="power-board-row ${String(profile.rosterId) === String(state.meRosterId) ? "you" : ""}" data-action="set-lens-teams" data-roster-id="${profile.rosterId}">
+            <button type="button" class="power-board-row ${String(profile.rosterId) === String(state.meRosterId) ? "you" : ""}" data-action="set-lens-teams" data-roster-id="${escapeHtml(profile.rosterId)}">
               <span class="rank-number">${index + 1}</span>
               ${renderTeamIdentity(profile.rosterId, { extra: `${profile.laneLabel}${team?.gamesPlayed ? ` · ${team.recordLabel}` : ""}` })}
               <div class="power-board-meter">
@@ -4673,7 +4673,7 @@ function renderLensPicker(roster, { label = "Viewing", extra = "" } = {}) {
     .slice()
     .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName))
     .map((entry) => `
-      <option value="${entry.rosterId}" ${String(entry.rosterId) === String(roster.rosterId) ? "selected" : ""}>
+      <option value="${escapeHtml(entry.rosterId)}" ${String(entry.rosterId) === String(roster.rosterId) ? "selected" : ""}>
         ${escapeHtml(entry.manager.displayName)}${String(entry.rosterId) === meId ? (state.viewingSample ? " · Example roster" : " (you)") : ""}
       </option>
     `)
@@ -4800,7 +4800,7 @@ function renderWindowCallDashboard() {
       </ol>
       <div class="window-call-actions">
         ${other
-          ? `<button type="button" class="ghost-btn" data-action="calc-with" data-roster-id="${roster.rosterId}">Build a trade</button>`
+          ? `<button type="button" class="ghost-btn" data-action="calc-with" data-roster-id="${escapeHtml(roster.rosterId)}">Build a trade</button>`
           : `<button type="button" class="ghost-btn" data-action="go" data-page="trades" data-room="lab">Shop a player</button>`}
       </div>
     </section>
@@ -4853,7 +4853,7 @@ function renderWindowCallLeagueRow(call, roster) {
   const active = String(call.rosterId) === String(roster.rosterId);
   const you = String(call.rosterId) === String(state.meRosterId ?? "");
   return `
-    <button type="button" class="window-call-row ${active ? "active" : ""} ${you ? "you" : ""}" data-action="set-lens" data-roster-id="${call.rosterId}">
+    <button type="button" class="window-call-row ${active ? "active" : ""} ${you ? "you" : ""}" data-action="set-lens" data-roster-id="${escapeHtml(call.rosterId)}">
       ${renderTeamIdentity(call.rosterId, { showTeamName: false, extra: `${call.confidence}% · ${call.nowScore} now / ${call.futureScore} later` })}
       <span class="mini-chip ${call.tone === "green" ? "green" : call.tone === "rose" ? "rose" : "gold"}">${escapeHtml(call.shortLabel)}</span>
     </button>
@@ -5216,7 +5216,7 @@ function renderTeamsGrid() {
     const call = callsByRoster.get(String(profile.rosterId));
     return `
       <article class="team-card ${isActive ? "active" : ""} ${String(profile.rosterId) === String(state.meRosterId) ? "you" : ""}">
-        <button type="button" class="team-card-main" data-action="set-lens" data-roster-id="${profile.rosterId}">
+        <button type="button" class="team-card-main" data-action="set-lens" data-roster-id="${escapeHtml(profile.rosterId)}">
           ${renderAvatar(manager, { size: "lg" })}
           <span class="team-card-copy">
             <strong>${escapeHtml(manager.displayName)}</strong>
@@ -5228,7 +5228,7 @@ function renderTeamsGrid() {
             <span class="power-tier ${profile.tierClass}">${profile.grade}</span>
           </span>
         </button>
-        ${String(profile.rosterId) !== String(state.meRosterId) ? `<button type="button" class="team-card-trade" data-action="calc-with" data-roster-id="${profile.rosterId}">Build a trade</button>` : `<span class="team-card-trade muted">${state.viewingSample ? "Example roster" : "Your roster"}</span>`}
+        ${String(profile.rosterId) !== String(state.meRosterId) ? `<button type="button" class="team-card-trade" data-action="calc-with" data-roster-id="${escapeHtml(profile.rosterId)}">Build a trade</button>` : `<span class="team-card-trade muted">${state.viewingSample ? "Example roster" : "Your roster"}</span>`}
       </article>
     `;
   }).join("");
@@ -5482,9 +5482,9 @@ function renderRosterSheet() {
     ? `
       <div class="season-log">
         ${team.results.slice().sort((a, b) => a.week - b.week).map((result) => `
-          <span class="log-chip ${result.result === "W" ? "up" : result.result === "L" ? "down" : ""}" title="Week ${result.week} vs ${escapeHtml(result.opponentName)}">
-            <small>W${result.week}</small>
-            <strong>${result.result}</strong>
+          <span class="log-chip ${result.result === "W" ? "up" : result.result === "L" ? "down" : ""}" title="Week ${escapeHtml(result.week)} vs ${escapeHtml(result.opponentName)}">
+            <small>W${escapeHtml(result.week)}</small>
+            <strong>${escapeHtml(result.result)}</strong>
             <span>${formatPoints(result.points)}-${formatPoints(result.opponentPoints)}</span>
           </span>
         `).join("")}
@@ -5652,7 +5652,7 @@ function renderAwardCard(award) {
     ? `<div class="award-player">${renderPlayerFace(award.playerId, award.playerName, { size: "md" })}<div><strong>${escapeHtml(award.playerName)}</strong>${award.playerPosition ? `<span>${escapeHtml(award.playerPosition)}</span>` : ""}</div></div>`
     : "";
   return `
-    <article class="award-card ${award.tone || ""}">
+    <article class="award-card ${escapeHtml(award.tone || "")}">
       <span class="analytics-kicker">${escapeHtml(award.title)}</span>
       ${player}
       <div class="award-body">
@@ -5966,7 +5966,7 @@ function renderDraftPartnerPicker(view) {
       <span>Browse</span>
       <select data-change="draft-partner" aria-label="Team to browse">
         <option value="" ${selected ? "" : "selected"}>Any team</option>
-        ${others.map((roster) => `<option value="${roster.rosterId}" ${String(roster.rosterId) === selected ? "selected" : ""}>${escapeHtml(roster.manager.displayName)}${roster.manager.teamName ? ` · ${escapeHtml(roster.manager.teamName)}` : ""}</option>`).join("")}
+        ${others.map((roster) => `<option value="${escapeHtml(roster.rosterId)}" ${String(roster.rosterId) === selected ? "selected" : ""}>${escapeHtml(roster.manager.displayName)}${roster.manager.teamName ? ` · ${escapeHtml(roster.manager.teamName)}` : ""}</option>`).join("")}
       </select>
     </label>
   `;
@@ -6955,7 +6955,7 @@ function renderRecordsRoom() {
       </div>
       ${recordBook.records.length
         ? `<div class="record-list record-list-wide">${recordBook.records.map((record) => `
-            <div class="record-row ${record.tone}">
+            <div class="record-row ${escapeHtml(record.tone || "")}">
               <div>
                 <span class="analytics-kicker">${escapeHtml(record.title)}</span>
                 <strong>${escapeHtml(record.holder)}</strong>
