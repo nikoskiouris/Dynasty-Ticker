@@ -113,6 +113,158 @@ export function coalesceUsernameFields(root) {
   else if (railValue.trim() && !landingValue.trim() && landing) landing.value = railValue;
 }
 
+function usernameField(root, id) {
+  return root?.querySelector?.(`#${id}`) || null;
+}
+
+function caretOf(input) {
+  const value = String(input?.value || "");
+  const start = Number(input?.selectionStart);
+  const end = Number(input?.selectionEnd);
+  return {
+    value,
+    start: Number.isFinite(start) ? start : value.length,
+    end: Number.isFinite(end) ? end : value.length,
+  };
+}
+
+function placeCaret(input, start, end) {
+  if (!input) return;
+  const value = String(input.value || "");
+  const nextStart = Number.isFinite(start) ? start : value.length;
+  const nextEnd = Number.isFinite(end) ? end : value.length;
+  try {
+    input.setSelectionRange?.(nextStart, nextEnd);
+  } catch {
+    // Some input types refuse a caret. The value still sticks.
+  }
+}
+
+// Read every username box before a render destroys the node.
+export function captureUsernameControls(root) {
+  const fields = {};
+  const active = root?.activeElement;
+  let focusedId = "";
+  let remembered = "";
+  USERNAME_IDS.forEach((id) => {
+    const input = usernameField(root, id);
+    if (!input) return;
+    const caret = caretOf(input);
+    fields[id] = caret;
+    if (active === input) {
+      focusedId = id;
+      if (caret.value) remembered = caret.value;
+    } else if (!remembered && caret.value) remembered = caret.value;
+  });
+  return { fields, focusedId, remembered };
+}
+
+function rememberedValue(snap, id) {
+  const own = snap?.fields?.[id]?.value || "";
+  if (own) return own;
+  return snap?.remembered || "";
+}
+
+// Put the typed name back on whatever input the render just created.
+export function restoreUsernameControls(root, snap) {
+  if (!root || !snap) return;
+  USERNAME_IDS.forEach((id) => {
+    const input = usernameField(root, id);
+    if (!input) return;
+    const had = String(input.value || "");
+    const next = had || rememberedValue(snap, id);
+    if (!had && next) input.value = next;
+    if (!had && next && snap.focusedId === id) {
+      const caret = snap.fields?.[id] || {};
+      input.focus?.();
+      placeCaret(input, caret.start, caret.end);
+    }
+  });
+}
+
+// Swap markup without dropping a username the visitor already typed.
+export function mountHtmlPreservingUsernames(host, html, root = globalThis.document) {
+  const snap = captureUsernameControls(root);
+  const held = new Map();
+  USERNAME_IDS.forEach((id) => {
+    const node = usernameField(root, id);
+    if (!node || !host?.contains?.(node)) return;
+    const caret = caretOf(node);
+    held.set(id, { node, ...caret });
+    node.remove?.();
+  });
+  if (host) host.innerHTML = html;
+  held.forEach((saved, id) => {
+    const fresh = usernameField(root, id);
+    if (fresh && fresh !== saved.node) fresh.replaceWith?.(saved.node);
+    if (snap.focusedId === id) {
+      saved.node.focus?.();
+      placeCaret(saved.node, saved.start, saved.end);
+    }
+  });
+  restoreUsernameControls(root, snap);
+}
+
+function harvestUsernameNode(node, snap, touched) {
+  if (!node || node.nodeType !== 1) return;
+  const take = (input) => {
+    if (!USERNAME_IDS.includes(input?.id)) return;
+    const caret = caretOf(input);
+    snap.fields[input.id] = caret;
+    if (caret.value) snap.remembered = caret.value;
+    touched?.add(input.id);
+  };
+  take(node);
+  const nested = node.querySelectorAll?.("input") || [];
+  [...nested].forEach(take);
+}
+
+// Any later render that throws the input away still owes the visitor that name.
+export function watchUsernameFields(root) {
+  const bag = bootBag();
+  if (!root || bag.usernameWatch || typeof root.addEventListener !== "function") return;
+  bag.usernameWatch = true;
+  bag.drafts = bag.drafts || {};
+  const remember = (input) => {
+    if (!input || !USERNAME_IDS.includes(input.id)) return;
+    const caret = caretOf(input);
+    bag.drafts[input.id] = caret;
+    if (caret.value) bag.remembered = caret.value;
+    bag.focusedId = input.id;
+  };
+  root.addEventListener("input", (event) => remember(event?.target), true);
+  root.addEventListener("focusin", (event) => {
+    if (USERNAME_IDS.includes(event?.target?.id)) bag.focusedId = event.target.id;
+  }, true);
+  const target = root.documentElement || (root.nodeType === 1 ? root : null);
+  if (!target || typeof MutationObserver !== "function") return;
+  const observer = new MutationObserver((records) => {
+    const snap = {
+      fields: { ...(bag.drafts || {}) },
+      focusedId: bag.focusedId || "",
+      remembered: bag.remembered || "",
+    };
+    const touched = new Set();
+    records.forEach((record) => {
+      record.removedNodes?.forEach((node) => harvestUsernameNode(node, snap, touched));
+    });
+    if (!touched.size) return;
+    bag.drafts = { ...bag.drafts, ...snap.fields };
+    if (snap.remembered) bag.remembered = snap.remembered;
+    touched.forEach((id) => {
+      const live = usernameField(root, id);
+      const saved = snap.fields[id];
+      if (!live || !saved || String(live.value || "").length || !saved.value) return;
+      live.value = saved.value;
+      if ((bag.focusedId || snap.focusedId) === id) {
+        live.focus?.();
+        placeCaret(live, saved.start, saved.end);
+      }
+    });
+  });
+  observer.observe(target, { childList: true, subtree: true });
+}
+
 function usernameNear(event, root) {
   const target = event?.target;
   if (target && USERNAME_IDS.includes(target.id)) return String(target.value || "");

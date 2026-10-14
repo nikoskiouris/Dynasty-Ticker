@@ -19,6 +19,7 @@ test("sample mode drops first-person roster copy", () => {
   assert.equal(named.mineLabel, "Ada");
   assert.equal(named.shopChoose, "Choose one of Ada's players or picks to shop.");
   assert.match(named.shopPick, /from Ada's roster/);
+  assert.equal(named.shopSearch, "Search Ada's roster for the player or pick to move");
   assert.equal(named.draftSearchLeft, "Ada's players and picks");
   assert.equal(named.favor, "Ada's");
   assert.equal(named.giveGetHeading, "Ada gives / They get");
@@ -34,6 +35,7 @@ test("sample mode drops first-person roster copy", () => {
   assert.equal(trailing.favor, "chrisalberts'");
   assert.equal(trailing.tradeFile, "chrisalberts' trade file");
   assert.equal(trailing.draftSearchLeft, "chrisalberts' players and picks");
+  assert.equal(trailing.shopSearch, "Search chrisalberts' roster for the player or pick to move");
   assert.equal(trailing.giveGetHeading, "chrisalberts gives / They get");
   assert.doesNotMatch(trailing.roster + trailing.shopPick + trailing.shopChoose + trailing.tradeFile + trailing.giveGetHeading + trailing.strengthens, /chrisalberts's|\byour\b|You give|You get|\bMine\b/);
   const anon = sampleRosterLabels({ viewingSample: true, ownerName: "  " });
@@ -43,6 +45,7 @@ test("sample mode drops first-person roster copy", () => {
   assert.equal(anon.youGive, "This team");
   assert.equal(anon.heatOnRoster, "is on this team's roster");
   assert.equal(anon.teamTab, "This team");
+  assert.equal(anon.shopSearch, "Search this team's roster for the player or pick to move");
   assert.doesNotMatch(`${named.roster} ${named.oneOfMine} ${named.shopOption} ${named.youGive} ${named.heatOnRoster} ${named.teamTab}`, /Your roster|One of mine|I own|You give|your roster|My team/);
 });
 
@@ -53,6 +56,8 @@ test("sample labels are what the desk renders", () => {
   assert.match(app, /voice && page === "league" && room === HOME_ROOM/);
   assert.match(app, /sampleVoice\(\)\?\.shopChoose/);
   assert.match(app, /sampleVoice\(\)\?\.shopPick/);
+  assert.match(app, /voice\?\.shopSearch/);
+  assert.match(app, /Search your roster for the player or pick you want to move/);
   assert.match(app, /voice\?\.mineLabel/);
   assert.match(app, /sampleVoice\(\)\?\.giveGetHeading/);
   assert.match(app, /sampleVoice\(\)\?\.draftSearchLeft/);

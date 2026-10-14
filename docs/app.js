@@ -675,6 +675,11 @@ el.landingUsername?.addEventListener("input", () => {
   syncUsernameFields(el.landingUsername);
   setUsernameError("");
 });
+document.addEventListener("input", (event) => {
+  const id = event.target?.id;
+  if (id !== "sleeper-username" && id !== "landing-username") return;
+  syncUsernameFields(event.target);
+}, true);
 el.leagueId?.addEventListener("input", () => setFieldError(el.leagueId, el.leagueIdError, ""));
 el.workspace?.addEventListener("click", swallowArmedCalcClick, true);
 el.workspace?.addEventListener("click", handleWorkspaceClick);
@@ -1471,9 +1476,10 @@ function syncTargetSearchUi() {
   const selectedAsset = getCurrentPrimaryAsset();
   const hasTarget = Boolean(selectedAsset);
   const mode = getTradeMode();
+  const voice = sampleVoice();
   const placeholderByMode = {
     acquire: "Search another roster for the player or pick you want",
-    shop: "Search your roster for the player or pick you want to move",
+    shop: voice?.shopSearch || "Search your roster for the player or pick you want to move",
   };
 
   if (el.targetChip) {
@@ -1617,6 +1623,7 @@ function syncDeskRailOffset() {
 }
 
 function renderSessionSnapshot() {
+  rebindUsernameInputs();
   const sampleOn = Boolean(state.viewingSample && state.leagueId);
   const you = getMyRoster()?.manager?.displayName || "";
   document.body.classList.toggle("league-loaded", Boolean(state.leagueId));
@@ -16155,7 +16162,43 @@ function setUsernameError(message) {
   setFieldError(el.landingUsername, el.landingUsernameError, message);
 }
 
+function rebindUsernameInputs() {
+  [
+    ["sleeperUsername", "sleeper-username"],
+    ["landingUsername", "landing-username"],
+  ].forEach(([key, id]) => {
+    const cached = el[key];
+    const live = document.getElementById(id);
+    if (!live || live === cached) return;
+    if (cached?.isConnected === false && String(cached.value || "").length && !String(live.value || "").length) {
+      live.value = cached.value;
+      const active = document.activeElement;
+      const shouldFocus = !active || active === cached || active === document.body || active === document.documentElement;
+      if (shouldFocus) {
+        live.focus();
+        try {
+          live.setSelectionRange(cached.selectionStart ?? live.value.length, cached.selectionEnd ?? live.value.length);
+        } catch {
+          // The value is back even when this input type has no caret.
+        }
+      }
+    }
+    el[key] = live;
+  });
+  [
+    ["usernameSearchForm", "username-search-form"],
+    ["landingUsernameForm", "landing-username-form"],
+  ].forEach(([key, id]) => {
+    const cached = el[key];
+    const live = document.getElementById(id);
+    if (!live || live === cached) return;
+    if (cached?.isConnected === false) live.addEventListener("submit", requestFindLeagues);
+    el[key] = live;
+  });
+}
+
 function syncUsernameFields(source) {
+  rebindUsernameInputs();
   const value = String(source?.value || "");
   if (el.sleeperUsername && el.sleeperUsername !== source) el.sleeperUsername.value = value;
   if (el.landingUsername && el.landingUsername !== source) el.landingUsername.value = value;
@@ -16169,6 +16212,7 @@ function setGenerateError(message) {
 }
 
 function focusUsernameSearch() {
+  rebindUsernameInputs();
   if (isPhoneLayout() && state.leagueId) setMobileRailOpen(true);
   const target = !state.leagueId && el.landingUsername
     ? el.landingUsername

@@ -1,7 +1,9 @@
 import {
   handleBootIntent,
   keepUsernameFieldsEditable,
+  mountHtmlPreservingUsernames,
   paintFindLeagueButtons,
+  watchUsernameFields,
 } from "./modules/boot-gate.js";
 
 const PAGE_FILES = [
@@ -38,6 +40,7 @@ function onBootIntent(event) {
 document.addEventListener("submit", onBootIntent, true);
 document.addEventListener("keydown", onBootIntent, true);
 document.addEventListener("click", onBootIntent, true);
+watchUsernameFields(document);
 armBootChrome();
 
 try {
@@ -47,7 +50,7 @@ try {
     return response.text();
   }));
   if (!host) throw new Error("Missing #ui-pages");
-  host.innerHTML = parts.join("\n");
+  mountHtmlPreservingUsernames(host, parts.join("\n"), document);
   armBootChrome();
 } catch (err) {
   showBootError();

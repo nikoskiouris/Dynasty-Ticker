@@ -20,6 +20,7 @@ export function sampleRosterLabels({ viewingSample = false, ownerName = "" } = {
     teamTab: who,
     mineLabel: who,
     shopPick: `Pick one player or pick from ${poss} roster. The app will shop it around the league.`,
+    shopSearch: `Search ${poss} roster for the player or pick to move`,
     shopChoose: `Choose one of ${poss} players or picks to shop.`,
     draftSearchLeft: `${poss} players and picks`,
     favor: poss,

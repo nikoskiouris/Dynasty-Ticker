@@ -10,6 +10,7 @@ import {
   handleBootIntent,
   keepUsernameFieldsEditable,
   paintFindLeagueButtons,
+  mountHtmlPreservingUsernames,
   queueFindForBoot,
   releaseBootGate,
   resetBootGate,
@@ -278,4 +279,86 @@ test("blank username fields are not wiped when boot coalesces them", () => {
   coalesceUsernameFields(rootOf([rail, landing]));
   assert.equal(rail.value, "");
   assert.equal(landing.value, "");
+});
+
+test("a landing re-render keeps the typed username, focus, and caret", () => {
+  const nodes = {};
+  const root = {
+    activeElement: null,
+    querySelector(selector) {
+      return nodes[String(selector || "").replace("#", "")] || null;
+    },
+  };
+  function field(id, value) {
+    const node = input(id, value);
+    node.selectionStart = String(value).length;
+    node.selectionEnd = String(value).length;
+    node.remove = () => {
+      if (nodes[id] === node) delete nodes[id];
+      if (root.activeElement === node) root.activeElement = null;
+    };
+    node.replaceWith = (next) => {
+      nodes[id] = next;
+    };
+    node.focus = () => {
+      root.activeElement = node;
+    };
+    node.setSelectionRange = (start, end) => {
+      node.selectionStart = start;
+      node.selectionEnd = end;
+    };
+    nodes[id] = node;
+    return node;
+  }
+  const landing = field("landing-username", "nikos");
+  landing.selectionStart = 2;
+  landing.selectionEnd = 2;
+  root.activeElement = landing;
+  const rail = field("sleeper-username", "");
+  const host = {
+    contains(node) {
+      return node === landing;
+    },
+    set innerHTML(_html) {
+      field("landing-username", "");
+    },
+  };
+  mountHtmlPreservingUsernames(host, "<section id=\"landing\"></section>", root);
+  assert.equal(nodes["landing-username"], landing);
+  assert.equal(landing.value, "nikos");
+  assert.equal(landing.selectionStart, 2);
+  assert.equal(landing.selectionEnd, 2);
+  assert.equal(root.activeElement, landing);
+  assert.equal(rail.value, "nikos");
+  const boot = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/boot.js"), "utf8");
+  assert.match(boot, /mountHtmlPreservingUsernames\(host, parts\.join/);
+  assert.match(boot, /watchUsernameFields\(document\)/);
+  assert.match(app, /function rebindUsernameInputs/);
+});
+
+test("a landing re-render keeps a name typed in the rail username box", () => {
+  const nodes = {};
+  const root = {
+    activeElement: null,
+    querySelector(selector) {
+      return nodes[String(selector || "").replace("#", "")] || null;
+    },
+  };
+  const rail = input("sleeper-username", "early");
+  rail.selectionStart = 5;
+  rail.selectionEnd = 5;
+  nodes["sleeper-username"] = rail;
+  root.activeElement = rail;
+  const host = {
+    contains() {
+      return false;
+    },
+    set innerHTML(_html) {
+      nodes["landing-username"] = input("landing-username", "");
+    },
+  };
+  mountHtmlPreservingUsernames(host, "<input id=\"landing-username\">", root);
+  assert.equal(nodes["landing-username"].value, "early");
+  assert.equal(rail.value, "early");
+  assert.equal(root.activeElement, rail);
 });
