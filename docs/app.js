@@ -5226,7 +5226,15 @@ function renderRosterSheet() {
     return;
   }
   if (!state.playerMetadataLoaded) {
-    el.rosterSheet.innerHTML = `<div class="power-sync"><strong>Syncing player metadata</strong><p class="muted">Names, positions, and ages arrive in a moment.</p></div>`;
+    const failed = state.playerMetadataFailed;
+    el.rosterSheet.innerHTML = `
+      <div class="power-sync">
+        <strong>${failed ? "Player metadata unavailable" : "Syncing player metadata"}</strong>
+        <p class="muted">${failed
+          ? "Sleeper didn't return player names, positions, or ages. Rosters and trade search still work with fallback values."
+          : "Names, positions, and ages arrive in a moment."}</p>
+      </div>
+    `;
     syncWeeklyScoreHelp();
     return;
   }
