@@ -9,6 +9,7 @@ import {
   packagesFromTransaction,
   readApplyLeagueBoard,
   renderLeagueBoardMarkup,
+  renderPriceLegend,
   selectNotableBiases,
   shouldShowLeagueAlt,
   writeApplyLeagueBoard,
@@ -197,4 +198,13 @@ test("legacy apply flag can still be read, but league markup has no price toggle
   assert.doesNotMatch(html, /your league 6200/);
   assert.match(html, /model 5000/);
   assert.match(html, /not a second price/);
+});
+
+test("the price legend names model, this week, and starter value as different measures", () => {
+  const html = renderPriceLegend(["week", "model", "lineup", "package"]);
+  assert.match(html, /<strong>Model<\/strong> Full-PPR price/);
+  assert.match(html, /<strong>This week<\/strong> Start chance/);
+  assert.match(html, /<strong>Starter value<\/strong>/);
+  assert.match(html, /Player prices stay the same/);
+  assert.equal(renderPriceLegend([]), "");
 });

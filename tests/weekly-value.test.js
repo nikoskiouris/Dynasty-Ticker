@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   DOUBLE_TEAM_MISSING,
+  DYNASTY_SCORE_HINT,
   DYNASTY_SCORE_LABEL,
   NFL_SCHEDULE_PATH,
   NO_RECENT_GAMES,
@@ -289,6 +290,9 @@ test("player sheet keeps weekly and dynasty on separate badges", () => {
   assert.match(html, /class="dynasty-value-badge"/);
   assert.match(html, new RegExp(WEEKLY_SCORE_LABEL));
   assert.match(html, new RegExp(DYNASTY_SCORE_LABEL));
+  assert.match(html, new RegExp(DYNASTY_SCORE_HINT.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(html, /class="sr-only">This week/);
+  assert.doesNotMatch(html, /class="sr-only">Model/);
   assert.match(html, /8,412/);
   assert.match(html, /no double-team data/);
   assert.match(html, /weekly-score-max">%/);

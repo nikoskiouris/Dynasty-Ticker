@@ -7,7 +7,8 @@ export const WEEKLY_SCORE_MAX = 99;
 export const WEEKLY_SCORE_LABEL = "This week";
 export const WEEKLY_SCORE_HINT = "Chance you should start them this week. Not trade value.";
 export const WEEKLY_SCORE_HELP_TITLE = "Start chance this week";
-export const DYNASTY_SCORE_LABEL = "Dynasty";
+export const DYNASTY_SCORE_LABEL = "Model";
+export const DYNASTY_SCORE_HINT = "Model price. Same full-PPR number as Players and Trade.";
 export const LINEUP_START_CHANCE_WEIGHT = 1_000_000;
 const START_CHANCE_BASE = 18;
 const START_CHANCE_ROLE_SPAN = 72;
@@ -809,11 +810,11 @@ export function renderWeeklyPlayerSheet(model, { helpOpen = false } = {}) {
         </div>
         <div class="player-week-scores">
           <div class="weekly-score-badge" title="${escapeHtml(WEEKLY_SCORE_HINT)}">
-            <small class="sr-only">${WEEKLY_SCORE_LABEL}</small>
+            <small>${escapeHtml(WEEKLY_SCORE_LABEL)}</small>
             <strong>${escapeHtml(parts.value)}${parts.max ? `<span class="weekly-score-max">${escapeHtml(parts.max)}</span>` : ""}</strong>
           </div>
-          <div class="dynasty-value-badge" title="${escapeHtml(DYNASTY_SCORE_LABEL)}">
-            <small class="sr-only">${DYNASTY_SCORE_LABEL}</small>
+          <div class="dynasty-value-badge" title="${escapeHtml(DYNASTY_SCORE_HINT)}">
+            <small>${escapeHtml(DYNASTY_SCORE_LABEL)}</small>
             <strong>${escapeHtml(dynasty)}</strong>
           </div>
           ${renderWeeklyScoreHelpButton({ open: helpOpen })}

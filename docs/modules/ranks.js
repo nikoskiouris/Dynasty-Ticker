@@ -4,6 +4,7 @@ import { ordinal } from "./season.js";
 import { isInactivePlayerAsset, parsePickAssetId, upcomingDraftSeason } from "./values.js";
 import { playerAgeFromNfl, playerInitials, sleeperPlayerThumbUrl } from "./rather.js";
 
+export const RANK_PAGE_SIZE = 48;
 export const RANK_LIST_FLOOR = 1500;
 export const RANK_POSITION_FLOOR = 700;
 export const RANK_SEARCH_FLOOR = 200;
@@ -69,7 +70,7 @@ export function ownerLine(owner, { leagueOpen = false, kind = "player" } = {}) {
 }
 
 export function rankBoardNote({ format = "sf", leagueFormat = "", caveat = "" } = {}) {
-  const base = "Dynasty Ticker model price. Full PPR football forecast; the pick is the closest one.";
+  const base = "Model price, full PPR. Same number on Trade and My League. The pick line is the closest pick.";
   const peek = leagueFormat && format && format !== leagueFormat
     ? ` Peeking at ${rankFormatLabel(format)}. Your league is ${rankFormatLabel(leagueFormat)}.`
     : "";
@@ -202,8 +203,10 @@ export function rankView({
   leagueOpen = false,
   loading = false,
   leagueValueFor = null,
+  shown = RANK_PAGE_SIZE,
 } = {}) {
   const visible = filterRankRows(rows, { query, position });
+  const pageCount = Math.max(RANK_PAGE_SIZE, Number(shown) || RANK_PAGE_SIZE);
   const selected = rows.find((row) => row.assetId === selectedId) || null;
   let card = null;
   if (selected) {
@@ -226,7 +229,8 @@ export function rankView({
     position: RANK_POSITIONS.includes(position) ? position : "ALL",
     format: format === "oneQb" ? "oneQb" : "sf",
     note: rankBoardNote({ format, leagueFormat, caveat }),
-    rows: visible,
+    rows: visible.slice(0, pageCount),
+    hidden: Math.max(0, visible.length - pageCount),
     card,
     emptyLabel,
     leagueOpen: Boolean(leagueOpen),
@@ -268,7 +272,10 @@ export function renderRanksBody(view) {
   const list = rows.length
     ? `<div class="ranks-list">${rows.map((row) => renderRankRow(row, row.assetId === view?.card?.assetId)).join("")}</div>`
     : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
-  return `${renderRanksShelf(rows)}${card}${list}`;
+  const more = Number(view?.hidden) > 0
+    ? `<button type="button" class="ghost-btn ranks-more" data-action="ranks-more">Show more</button>`
+    : "";
+  return `${renderRanksShelf(rows)}${card}${list}${more}`;
 }
 
 function renderRanksShelf(rows) {

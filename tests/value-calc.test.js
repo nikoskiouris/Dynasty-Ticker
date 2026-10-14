@@ -101,9 +101,13 @@ test("blank calculator adds, sums, and grades both sides", () => {
   assert.match(verdict.label, /Get/);
   state = removeValueCalcItem(state, "right", state.right[0].uid);
   assert.equal(state.right.length, 1);
+  state.leftQuery = "bijan";
+  state.rightQuery = "puka";
   state = clearValueCalcSides(state);
   assert.deepEqual(state.left, []);
   assert.deepEqual(state.right, []);
+  assert.equal(state.leftQuery, "");
+  assert.equal(state.rightQuery, "");
 });
 
 test("published model search finds Brian Thomas and Brian Robinson", () => {
