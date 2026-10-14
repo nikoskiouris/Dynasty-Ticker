@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   parseCsvValues,
   leagueHasSuperflex,
@@ -180,6 +183,82 @@ test("pick lookup time-discounts a nearest-year fallback", () => {
   const catalogValues = { "pick:2027:r2:any": 3200 };
   assert.equal(resolvePickAssetValue(future, catalogValues), Math.round(3200 * (0.85 ** 2)));
   assert.deepEqual(parsePickAssetId("pick:2028:r1:early"), { season: "2028", round: 1, bucket: "early" });
+});
+
+test("a missing early first discounts the early row, not the cheaper any row listed first", () => {
+  const values = {
+    "pick:2032:r1:any": 2264,
+    "pick:2032:r1:early": 2822,
+  };
+  assert.equal(
+    findPickCatalogValue({ season: "2033", round: 1, bucket: "early" }, values),
+    Math.round(2822 * 0.85),
+  );
+  assert.equal(
+    findPickCatalogValue({ season: "2033", round: 1, bucket: "any" }, values),
+    Math.round(2264 * 0.85),
+  );
+});
+
+test("equidistant pick years discount forward from the earlier season, in either key order", () => {
+  const want = { season: "2028", round: 1, bucket: "any" };
+  const expected = Math.round(8000 * 0.85);
+  assert.equal(findPickCatalogValue(want, { "pick:2027:r1:any": 8000, "pick:2029:r1:any": 5000 }), expected);
+  assert.equal(findPickCatalogValue(want, { "pick:2029:r1:any": 5000, "pick:2027:r1:any": 8000 }), expected);
+});
+
+test("the 0.85 ruler keeps falling after four years", () => {
+  const values = { "pick:2026:r1:any": 5000 };
+  const fiveYears = findPickCatalogValue({ season: "2031", round: 1, bucket: "any" }, values);
+  assert.equal(fiveYears, Math.round(5000 * (0.85 ** 5)));
+  assert.ok(fiveYears < Math.round(5000 * 0.5));
+  const eightYears = findPickCatalogValue({ season: "2034", round: 1, bucket: "any" }, values);
+  assert.equal(eightYears, Math.max(1, Math.round(5000 * (0.85 ** 8))));
+  assert.ok(eightYears < fiveYears);
+});
+
+test("published snapshot prices match a hand check, and later rounds stay on the 0.85 curve", () => {
+  const json = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/data/player_values.json"), "utf8"));
+  const sf = json.sf;
+  const oneQb = json.oneQb;
+  const bijan = { assetId: "player:9509", assetType: "player", name: "Bijan Robinson", raw: { position: "RB" } };
+  const gibbs = { assetId: "player:9221", assetType: "player", name: "Jahmyr Gibbs", raw: { position: "RB" } };
+  const jayden = { assetId: "player:11566", assetType: "player", name: "Jayden Daniels", raw: { position: "QB" } };
+  assert.equal(sf["player:9509"], 11362);
+  assert.equal(oneQb["player:9509"], 11362);
+  assert.equal(getAssetValue(bijan, sf), 11362);
+  assert.equal(getAssetValue(gibbs, sf), 11842);
+  assert.equal(getAssetValue(jayden, sf), 9114);
+  assert.equal(getAssetValue(jayden, oneQb), 3445);
+  assert.equal(sf["pick:2027:r1:early"], 6361);
+  assert.equal(sf["pick:2028:r1:early"], Math.round(6361 * 0.85));
+  assert.equal(sf["pick:2027:r2:any"], 1703);
+  const tradedEarly = {
+    assetId: "pick:2027:r1:7",
+    assetType: "pick",
+    valueAssetId: "pick:2027:r1:early",
+    raw: { season: "2027", round: 1, ktcBucket: "early" },
+  };
+  assert.equal(resolvePickAssetValue(tradedEarly, sf), 6361);
+  const names = json.names || {};
+  assert.equal(
+    findPickCatalogValue({ season: "2033", round: 1, bucket: "early" }, sf, names),
+    Math.round(2822 * 0.85),
+  );
+  let previous = Infinity;
+  for (const year of [2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034]) {
+    const value = findPickCatalogValue({ season: String(year), round: 1, bucket: "early" }, sf, names);
+    assert.ok(value < previous, `${year} early first ${value} is not below ${previous}`);
+    previous = value;
+  }
+});
+
+test("an unknown round is not borrowed from a cheaper known round", () => {
+  const values = { "pick:2027:r5:any": 400, "pick:2027:r1:any": 5000 };
+  const sixth = { assetId: "pick:2027:r6:1", assetType: "pick", raw: { season: "2027", round: 6 } };
+  assert.equal(resolvePickAssetValue(sixth, values), null);
+  assert.equal(getAssetValue(sixth, values), 0);
+  assert.equal(isEstimatedAsset(sixth, values), true);
 });
 
 test("pickValueBundle prefers 1QB or Superflex maps", () => {
