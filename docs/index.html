@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app https://fonts.googleapis.com https://fonts.gstatic.com; form-action 'self'; frame-src 'none'" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Dynasty Ticker — Your Sleeper dynasty league</title>
     <meta name="description" content="See what your players are worth, check a trade, and find your team's next move." />
@@ -211,6 +211,11 @@
             </div>
           </dl>
         </header>
+
+        <div id="desk-load-alert" class="status error desk-load-alert hidden" role="alert">
+          <span id="desk-load-alert-text"></span>
+          <button type="button" id="desk-load-retry" class="ghost-btn status-retry">Retry</button>
+        </div>
 
         <div class="desk-nav" id="desk-nav">
           <nav class="workspace-tabs" id="page-tabs" role="tablist" aria-label="What you can do">

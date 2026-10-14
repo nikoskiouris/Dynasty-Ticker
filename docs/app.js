@@ -44,6 +44,7 @@ import {
 } from "./modules/constants.js";
 import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
 import { createLeagueLoader, shouldBlankDeskForLeagueSwitch } from "./modules/league-load.js";
+import { createLeagueLoadRecovery, leagueLoadErrorVisibility } from "./modules/league-load-error.js";
 import {
   apiGet,
   apiGetWithRetry,
@@ -132,7 +133,7 @@ import {
   draftMarketPrice,
   draftMeterValues,
   draftNoticeText,
-  evenUpPickChoice,
+  evenUpTradePick,
   draftVerdictModel,
   draftSideForAsset,
   draftTeamSummary,
@@ -249,6 +250,7 @@ import { chooseBestLineup } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
   formatPickWithSelection,
+  inferPickSeasonSpan,
   indexDraftSelections,
   lookupDraftedSelection,
   mergeDraftSelectionIndex,
@@ -486,6 +488,13 @@ const el = {
 };
 
 const leagueLoader = createLeagueLoader();
+const leagueLoadRecovery = createLeagueLoadRecovery({
+  isCurrent: (token) => leagueLoader.isCurrent(token),
+  load: (leagueId, job) => {
+    void loadLeagueById(leagueId, { sample: Boolean(job?.sample) });
+  },
+  onlineTarget: window,
+});
 const pageRenderQueue = createPageRenderQueue({
   render: () => renderActivePage(),
   isTyping: () => typingInActivePage(),
@@ -552,6 +561,8 @@ function isEstimatedAsset(asset, values = state.values) {
 el.usernameSearchForm?.addEventListener("submit", requestFindLeagues);
 el.leagueStatusRetry?.addEventListener("click", retryUserLeagueSearch);
 el.landingSearchRetry?.addEventListener("click", retryUserLeagueSearch);
+document.getElementById("landing-league-retry")?.addEventListener("click", retryFailedLeagueLoad);
+document.getElementById("desk-load-retry")?.addEventListener("click", retryFailedLeagueLoad);
 el.leaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingLeaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingJobs?.addEventListener("click", handleLandingJobClick);
@@ -2081,6 +2092,8 @@ function blankDeskForLeagueSwitch() {
 async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
   try {
     if (!leagueLoader.isCurrent(token)) return;
+    leagueLoadRecovery.clear();
+    paintLeagueLoadError("");
     startLeagueLoadingUi();
     stopLivePolling();
     invalidatePlayerLoads();
@@ -2263,6 +2276,8 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     const message = `Could not load league data. ${err.message}`;
     setFieldError(el.leagueId, el.leagueIdError, message);
     setStatus(message, { error: true });
+    leagueLoadRecovery.fail({ leagueId, token, sample: state.viewingSample });
+    paintLeagueLoadError(message);
     if (state.league) {
       showAppPages();
       startLivePolling();
@@ -3959,7 +3974,7 @@ function renderStandingsRow(team, sim, { showLine, position, divisionLeader = fa
   if (odds?.eliminated) badges.push(`<span class="mini-chip rose">Out</span>`);
   const streakLabel = team.streak?.length ? team.streak.label : "—";
   return `
-    <div class="standings-row ${String(team.rosterId) === String(state.meRosterId) ? "you" : ""} ${showLine ? "playoff-line" : ""}" data-action="set-lens-teams" data-roster-id="${team.rosterId}">
+    <div class="standings-row ${String(team.rosterId) === String(state.meRosterId) ? "you" : ""} ${showLine ? "playoff-line" : ""}" data-action="set-lens-teams" data-roster-id="${escapeHtml(team.rosterId)}">
       <span class="rank-number">${position}</span>
       <div class="standings-team">
         ${renderTeamIdentity(team.rosterId, { showTeamName: false })}
@@ -4077,7 +4092,7 @@ function renderHomePowerBoard(profiles, model) {
         ${profiles.map((profile, index) => {
           const team = model?.teams.get(String(profile.rosterId));
           return `
-            <button type="button" class="power-board-row ${String(profile.rosterId) === String(state.meRosterId) ? "you" : ""}" data-action="set-lens-teams" data-roster-id="${profile.rosterId}">
+            <button type="button" class="power-board-row ${String(profile.rosterId) === String(state.meRosterId) ? "you" : ""}" data-action="set-lens-teams" data-roster-id="${escapeHtml(profile.rosterId)}">
               <span class="rank-number">${index + 1}</span>
               ${renderTeamIdentity(profile.rosterId, { extra: `${profile.laneLabel}${team?.gamesPlayed ? ` · ${team.recordLabel}` : ""}` })}
               <div class="power-board-meter">
@@ -4672,7 +4687,7 @@ function renderLensPicker(roster, { label = "Viewing", extra = "" } = {}) {
     .slice()
     .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName))
     .map((entry) => `
-      <option value="${entry.rosterId}" ${String(entry.rosterId) === String(roster.rosterId) ? "selected" : ""}>
+      <option value="${escapeHtml(entry.rosterId)}" ${String(entry.rosterId) === String(roster.rosterId) ? "selected" : ""}>
         ${escapeHtml(entry.manager.displayName)}${String(entry.rosterId) === meId ? (state.viewingSample ? " · Example roster" : " (you)") : ""}
       </option>
     `)
@@ -4799,7 +4814,7 @@ function renderWindowCallDashboard() {
       </ol>
       <div class="window-call-actions">
         ${other
-          ? `<button type="button" class="ghost-btn" data-action="calc-with" data-roster-id="${roster.rosterId}">Build a trade</button>`
+          ? `<button type="button" class="ghost-btn" data-action="calc-with" data-roster-id="${escapeHtml(roster.rosterId)}">Build a trade</button>`
           : `<button type="button" class="ghost-btn" data-action="go" data-page="trades" data-room="lab">Shop a player</button>`}
       </div>
     </section>
@@ -4852,7 +4867,7 @@ function renderWindowCallLeagueRow(call, roster) {
   const active = String(call.rosterId) === String(roster.rosterId);
   const you = String(call.rosterId) === String(state.meRosterId ?? "");
   return `
-    <button type="button" class="window-call-row ${active ? "active" : ""} ${you ? "you" : ""}" data-action="set-lens" data-roster-id="${call.rosterId}">
+    <button type="button" class="window-call-row ${active ? "active" : ""} ${you ? "you" : ""}" data-action="set-lens" data-roster-id="${escapeHtml(call.rosterId)}">
       ${renderTeamIdentity(call.rosterId, { showTeamName: false, extra: `${call.confidence}% · ${call.nowScore} now / ${call.futureScore} later` })}
       <span class="mini-chip ${call.tone === "green" ? "green" : call.tone === "rose" ? "rose" : "gold"}">${escapeHtml(call.shortLabel)}</span>
     </button>
@@ -5215,7 +5230,7 @@ function renderTeamsGrid() {
     const call = callsByRoster.get(String(profile.rosterId));
     return `
       <article class="team-card ${isActive ? "active" : ""} ${String(profile.rosterId) === String(state.meRosterId) ? "you" : ""}">
-        <button type="button" class="team-card-main" data-action="set-lens" data-roster-id="${profile.rosterId}">
+        <button type="button" class="team-card-main" data-action="set-lens" data-roster-id="${escapeHtml(profile.rosterId)}">
           ${renderAvatar(manager, { size: "lg" })}
           <span class="team-card-copy">
             <strong>${escapeHtml(manager.displayName)}</strong>
@@ -5227,7 +5242,7 @@ function renderTeamsGrid() {
             <span class="power-tier ${profile.tierClass}">${profile.grade}</span>
           </span>
         </button>
-        ${String(profile.rosterId) !== String(state.meRosterId) ? `<button type="button" class="team-card-trade" data-action="calc-with" data-roster-id="${profile.rosterId}">Build a trade</button>` : `<span class="team-card-trade muted">${state.viewingSample ? "Example roster" : "Your roster"}</span>`}
+        ${String(profile.rosterId) !== String(state.meRosterId) ? `<button type="button" class="team-card-trade" data-action="calc-with" data-roster-id="${escapeHtml(profile.rosterId)}">Build a trade</button>` : `<span class="team-card-trade muted">${state.viewingSample ? "Example roster" : "Your roster"}</span>`}
       </article>
     `;
   }).join("");
@@ -5481,9 +5496,9 @@ function renderRosterSheet() {
     ? `
       <div class="season-log">
         ${team.results.slice().sort((a, b) => a.week - b.week).map((result) => `
-          <span class="log-chip ${result.result === "W" ? "up" : result.result === "L" ? "down" : ""}" title="Week ${result.week} vs ${escapeHtml(result.opponentName)}">
-            <small>W${result.week}</small>
-            <strong>${result.result}</strong>
+          <span class="log-chip ${result.result === "W" ? "up" : result.result === "L" ? "down" : ""}" title="Week ${escapeHtml(result.week)} vs ${escapeHtml(result.opponentName)}">
+            <small>W${escapeHtml(result.week)}</small>
+            <strong>${escapeHtml(result.result)}</strong>
             <span>${formatPoints(result.points)}-${formatPoints(result.opponentPoints)}</span>
           </span>
         `).join("")}
@@ -5651,7 +5666,7 @@ function renderAwardCard(award) {
     ? `<div class="award-player">${renderPlayerFace(award.playerId, award.playerName, { size: "md" })}<div><strong>${escapeHtml(award.playerName)}</strong>${award.playerPosition ? `<span>${escapeHtml(award.playerPosition)}</span>` : ""}</div></div>`
     : "";
   return `
-    <article class="award-card ${award.tone || ""}">
+    <article class="award-card ${escapeHtml(award.tone || "")}">
       <span class="analytics-kicker">${escapeHtml(award.title)}</span>
       ${player}
       <div class="award-body">
@@ -5965,7 +5980,7 @@ function renderDraftPartnerPicker(view) {
       <span>Browse</span>
       <select data-change="draft-partner" aria-label="Team to browse">
         <option value="" ${selected ? "" : "selected"}>Any team</option>
-        ${others.map((roster) => `<option value="${roster.rosterId}" ${String(roster.rosterId) === selected ? "selected" : ""}>${escapeHtml(roster.manager.displayName)}${roster.manager.teamName ? ` · ${escapeHtml(roster.manager.teamName)}` : ""}</option>`).join("")}
+        ${others.map((roster) => `<option value="${escapeHtml(roster.rosterId)}" ${String(roster.rosterId) === selected ? "selected" : ""}>${escapeHtml(roster.manager.displayName)}${roster.manager.teamName ? ` · ${escapeHtml(roster.manager.teamName)}` : ""}</option>`).join("")}
       </select>
     </label>
   `;
@@ -6154,10 +6169,16 @@ function nextRookieDraftSeason() {
 }
 
 // A future pick evens the gap only when its price actually covers it.
-function findEvenUpPick(gap, values) {
+function findEvenUpPick(view) {
   const first = nextRookieDraftSeason();
-  const picks = listGenericPicks(values).filter((pick) => Number(pick.season) >= first);
-  return evenUpPickChoice(gap, picks);
+  const picks = listGenericPicks(view.basis.values, view.basis.nameMap)
+    .filter((pick) => Number(pick.season) >= first);
+  return evenUpTradePick({
+    giveValues: view.draft.left.map(view.priceOf),
+    getValues: view.draft.right.map(view.priceOf),
+    picks,
+    globalMaxValue: getGlobalMaxPlayerValue(view.basis.values),
+  });
 }
 
 function evenUpCopy(choice, side) {
@@ -6165,6 +6186,9 @@ function evenUpCopy(choice, side) {
   const verb = side === "You" || side === "They" ? "add" : "adds";
   if (choice.closes) {
     return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
+  }
+  if (Number.isFinite(Number(choice.pct))) {
+    return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}). After that pick the sides are still ${choice.pct}% apart.`;
   }
   const short = choice.value < choice.gap;
   const why = short
@@ -6198,7 +6222,7 @@ function renderDraftVerdict(view) {
   const meters = draftMeterValues(model);
   const label = draftVerdictLabel(verdict, { them });
   const maxSide = Math.max(meters.give, meters.get, 1);
-  const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(Math.abs(verdict.gap), view.basis.values) : null;
+  const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(view) : null;
   const evenSide = verdict.gap > 0 ? "You" : (view.partner ? them : "They");
   const credited = adjustment?.side === "left" ? "You give" : "You get";
   return `
@@ -6945,7 +6969,7 @@ function renderRecordsRoom() {
       </div>
       ${recordBook.records.length
         ? `<div class="record-list record-list-wide">${recordBook.records.map((record) => `
-            <div class="record-row ${record.tone}">
+            <div class="record-row ${escapeHtml(record.tone || "")}">
               <div>
                 <span class="analytics-kicker">${escapeHtml(record.title)}</span>
                 <strong>${escapeHtml(record.holder)}</strong>
@@ -15453,7 +15477,7 @@ function isConsumedDraftPick(pick, currentDraftContext, assignedDraftSlot = null
     && currentDraftContext.usedSlotKeys?.has(`${round}:${slot}`);
 }
 
-function inferLeaguePickSeasons(league, rosters, tradedPicks = [], pickValueCatalog = state.pickValueCatalog, currentDraftContext = null) {
+function inferLeaguePickSeasons(league, rosters, tradedPicks = [], _pickValueCatalog = [], currentDraftContext = null) {
   const explicitSeasons = rosters
     .flatMap((roster) => Array.isArray(roster?.picks) ? roster.picks : [])
     .map((pick) => Number(pick?.season))
@@ -15461,30 +15485,12 @@ function inferLeaguePickSeasons(league, rosters, tradedPicks = [], pickValueCata
   const tradedSeasons = tradedPicks
     .map((pick) => Number(pick?.season))
     .filter(Number.isFinite);
-  const catalogSeasons = pickValueCatalog
-    .map((pick) => Number(pick?.season))
-    .filter(Number.isFinite);
-
-  const configuredLeagueSeason = Number(league?.season);
-  const baseSeason = Number.isFinite(configuredLeagueSeason) ? configuredLeagueSeason : new Date().getFullYear();
-  const observedStartSeasons = [...explicitSeasons, ...tradedSeasons];
-  let startSeason = observedStartSeasons.length > 0
-    ? Math.min(...observedStartSeasons)
-    : baseSeason;
-  const minOpenSeason = getMinOpenPickSeason(currentDraftContext);
-  if (Number.isFinite(minOpenSeason) && startSeason < minOpenSeason) {
-    startSeason = minOpenSeason;
-  }
-  const endSeason = Math.max(
-    startSeason + (observedStartSeasons.length > 0 ? 1 : 2),
-    ...[...explicitSeasons, ...tradedSeasons, ...catalogSeasons]
-  );
-
-  const seasons = [];
-  for (let season = startSeason; season <= endSeason; season++) {
-    seasons.push(String(season));
-  }
-  return seasons;
+  return inferPickSeasonSpan({
+    leagueSeason: league?.season,
+    explicitSeasons,
+    tradedSeasons,
+    minOpenSeason: getMinOpenPickSeason(currentDraftContext),
+  });
 }
 
 function inferLeagueDraftRounds(league, rosters, tradedPicks = []) {
@@ -16022,6 +16028,27 @@ function applyValuationBundle(bundle, { rerender = true } = {}) {
     values: state.values,
     nameMap: state.valueNameMap,
   };
+}
+
+function paintLeagueLoadError(message = "") {
+  const text = String(message || "");
+  const where = leagueLoadErrorVisibility({
+    message: text,
+    leagueLoaded: document.body.classList.contains("league-loaded"),
+  });
+  const landing = document.getElementById("landing-league-error");
+  const landingText = document.getElementById("landing-league-error-text");
+  const desk = document.getElementById("desk-load-alert");
+  const deskText = document.getElementById("desk-load-alert-text");
+  if (landing) landing.classList.toggle("hidden", !where.landing);
+  if (landingText) landingText.textContent = where.landing ? text : "";
+  if (desk) desk.classList.toggle("hidden", !where.desk);
+  if (deskText) deskText.textContent = where.desk ? text : "";
+}
+
+function retryFailedLeagueLoad(event) {
+  event?.preventDefault?.();
+  leagueLoadRecovery.retry();
 }
 
 function setStatus(message, { ok = false, loading = false, error = false, retry = false } = {}) {

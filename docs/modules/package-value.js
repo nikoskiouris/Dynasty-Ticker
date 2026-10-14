@@ -5,6 +5,11 @@ const KTC_RAW_ELITE_WEIGHT = 0.08;
 const KTC_RAW_TRADE_WEIGHT = 0.11;
 const KTC_RAW_DEPTH_WEIGHT = 0.18;
 
+export function finiteAssetValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, number) : 0;
+}
+
 export function calculatePctDiff(a, b) {
   if (!a || !b) return 100;
   return Math.abs(a - b) / Math.max(a, b) * 100;
@@ -45,10 +50,10 @@ function findEvenValueForRawGap(targetRawGap, tradeMaxValue, globalMaxValue) {
 }
 
 export function calculatePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
-  // A missing or removed player is stored as 0. That piece is not a real
-  // package mate, so it must not mint a stud credit.
-  const mine = (Array.isArray(myValues) ? myValues : []).filter((value) => Number(value) > 0);
-  const theirs = (Array.isArray(theirValues) ? theirValues : []).filter((value) => Number(value) > 0);
+  // A missing or removed player is stored as 0. Infinity and NaN are not prices.
+  // Those pieces are not real package mates, so they must not mint a stud credit.
+  const mine = (Array.isArray(myValues) ? myValues : []).map(finiteAssetValue).filter((value) => value > 0);
+  const theirs = (Array.isArray(theirValues) ? theirValues : []).map(finiteAssetValue).filter((value) => value > 0);
   const myBaseValue = mine.reduce((sum, value) => sum + value, 0);
   const theirBaseValue = theirs.reduce((sum, value) => sum + value, 0);
 
