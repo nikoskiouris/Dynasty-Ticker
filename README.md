@@ -62,8 +62,12 @@ Netlify emails on a GitHub merge do **not** mean credits were spent. On credit p
 6. Repo **Settings → Secrets and variables → Actions**, add:
    - `NETLIFY_AUTH_TOKEN` — Netlify user access token (User settings → Applications → New access token).
    - `NETLIFY_SITE_ID` — Site API ID (Site configuration → Site details).
-7. GitHub Actions runs `.github/workflows/stop-netlify-git-builds.yml` so Netlify **Build status = Stopped builds**. Confirm in Netlify: **Project configuration → Build & deploy → Continuous deployment → Build settings → Stopped builds**. Do **not** use “Stop auto publishing”; that still starts a canceled production job. `netlify.toml` skip/refuse scripts are only a backup.
-8. Repo **Settings → Pages**: source is **GitHub Actions**. A push to `develop` runs `.github/workflows/refresh-pages-preview.yml`, which starts `.github/workflows/preview-pages.yml` on `main`. That job checks out `develop` and publishes `docs/` to `https://nikoskiouris.github.io/Dynasty-Ticker/`. Pages only allows deploys from `main`. That URL is the unreleased preview. Do **not** add a custom domain there. Visit counts and rather votes stay on dynastyticker.com only.
+7. On the Netlify site, set **Environment variables** (Site configuration → Environment variables), scoped to **Functions** and **Runtime**:
+   - `VISIT_SALT` — secret salt for the first-party page-view hash.
+   - `RATHER_SALT` — secret salt for the rather-vote rate-limit hash.
+   Do not commit them. Do not reuse `dynasty-ticker-traffic-v1` or `dynasty-ticker-rather-v1` (those strings shipped in source and are rejected). `scripts/deploy_live_site.sh` checks before upload. If a salt is missing or still one of those old defaults, `scripts/ensure_netlify_salts.py` writes a new random secret to the site and does not print it. A salt that is already a real secret is left alone. You can also set `VISIT_SALT` and `RATHER_SALT` in the deploy environment; the script copies those values instead of generating new ones.
+8. GitHub Actions runs `.github/workflows/stop-netlify-git-builds.yml` so Netlify **Build status = Stopped builds**. Confirm in Netlify: **Project configuration → Build & deploy → Continuous deployment → Build settings → Stopped builds**. Do **not** use “Stop auto publishing”; that still starts a canceled production job. `netlify.toml` skip/refuse scripts are only a backup.
+9. Repo **Settings → Pages**: source is **GitHub Actions**. A push to `develop` runs `.github/workflows/refresh-pages-preview.yml`, which starts `.github/workflows/preview-pages.yml` on `main`. That job checks out `develop` and publishes `docs/` to `https://nikoskiouris.github.io/Dynasty-Ticker/`. Pages only allows deploys from `main`. That URL is the unreleased preview. Do **not** add a custom domain there. Visit counts and rather votes stay on dynastyticker.com only.
 
 Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Tests: `.github/workflows/test.yml`. Unreleased preview: `.github/workflows/refresh-pages-preview.yml` starts `.github/workflows/preview-pages.yml` on `main`.
 
@@ -73,7 +77,7 @@ Cut a release: open a PR from `develop` into `prod` and merge it (or push `devel
 
 A week in mid-September 2026 read **557 unique visitors** and **879 pageviews**, almost all on `/` because the desk is one page. Treat that as roughly **400 real people** that week, not 557 humans. China, Germany, and Singapore add scanner IPs. Someone on Wi-Fi and cell data can count twice.
 
-Who actually opened a league is the searched-username list below. The old desk tally and `/secret-numbers` page are gone. The old third-party `page-views-api.ratneshc.com` counter stays retired.
+Who actually opened a league is the searched-username list below. The old desk tally and `/secret-numbers` page are gone. The old third-party `page-views-api.ratneshc.com` counter stays retired. A first-party page-view hash, when the host runs it, uses `VISIT_SALT` and is not shown on the page. Rather votes use `RATHER_SALT` the same way, and that hash is dropped with the two-day rate-limit record.
 
 ### Searched usernames
 

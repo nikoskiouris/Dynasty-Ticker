@@ -9,6 +9,10 @@
   PYTHON_VERSION = "3.12"
   NODE_VERSION = "22.12.0"
 
+# VISIT_SALT and RATHER_SALT must live in the Netlify site environment
+# (Functions and Runtime). scripts/deploy_live_site.sh runs
+# scripts/ensure_netlify_salts.py before upload. Do not commit the values.
+# dynasty-ticker-traffic-v1 and dynasty-ticker-rather-v1 are rejected.
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"

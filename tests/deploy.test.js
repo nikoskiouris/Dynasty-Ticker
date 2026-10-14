@@ -50,6 +50,9 @@ test("live deploy script uses Netlify CLI, not a build hook", () => {
   assert.match(script, /--functions=netlify\/functions/);
   assert.match(script, /refresh_market_data\.sh/);
   assert.match(script, /netlify_stop_git_builds\.sh/);
+  assert.match(script, /ensure_netlify_salts\.py/);
+  assert.match(script, /VISIT_SALT/);
+  assert.match(script, /RATHER_SALT/);
   assert.doesNotMatch(script, /NETLIFY_BUILD_HOOK/);
   assert.doesNotMatch(script, /curl/);
 
