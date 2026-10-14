@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Check the JSON files the desk reads.
 
-Schema errors and a player-value file older than 21 days fail the run.
-Schedule and draft-pick files have no scrape stamp today, so those ages
-are warnings. The rookie mock stamp is the article date.
+Schema errors fail the run. A player-value file older than 21 days is a
+warning unless --fail-on-age is set. npm test uses the warning. The live
+deploy and the player-value refresh use the hard failure.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from datetime import datetime, timezone
@@ -39,9 +40,16 @@ def age_days(stamp: datetime, now: datetime) -> float:
     return (now - stamp).total_seconds() / 86400
 
 
-def check_player_values(data: dict, now: datetime, max_age_days: float) -> tuple[list[str], list[str]]:
+def check_player_values(
+    data: dict,
+    now: datetime,
+    max_age_days: float,
+    fail_on_age: bool = False,
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
+    if not isinstance(data, dict):
+        return ["player_values.json is not an object"], warnings
     required = (
         "schemaVersion", "modelVersion", "asOf", "season", "throughWeek",
         "sf", "oneQb", "names", "players", "meta",
@@ -97,11 +105,15 @@ def check_player_values(data: dict, now: datetime, max_age_days: float) -> tuple
     else:
         days = age_days(stamp, now)
         if days > max_age_days:
-            errors.append(
+            message = (
                 f"player_values.json is {days:.1f} days old (max {max_age_days:g}); "
                 "throughWeek "
                 f"{data.get('throughWeek')}"
             )
+            if fail_on_age:
+                errors.append(message)
+            else:
+                warnings.append(message)
         elif days < -1:
             errors.append("player_values asOf is in the future")
     return errors, warnings
@@ -110,6 +122,8 @@ def check_player_values(data: dict, now: datetime, max_age_days: float) -> tuple
 def check_schedule(data: dict) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
+    if not isinstance(data, dict):
+        return ["nfl_schedule.json is not an object"], warnings
     games = data.get("games")
     seasons = data.get("seasons")
     if not isinstance(games, list) or not games:
@@ -148,6 +162,8 @@ def check_schedule(data: dict) -> tuple[list[str], list[str]]:
 def check_mock(data: dict, now: datetime) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
+    if not isinstance(data, dict):
+        return ["nfl_mock_drafts.json is not an object"], warnings
     mocks = data.get("mocks")
     if not isinstance(mocks, list) or not mocks:
         return ["nfl_mock_drafts.json has no mocks"], warnings
@@ -175,6 +191,8 @@ def check_mock(data: dict, now: datetime) -> tuple[list[str], list[str]]:
 def check_draft_picks(data: dict) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
+    if not isinstance(data, dict):
+        return ["nfl_draft_picks.json is not an object"], warnings
     picks = data.get("picks")
     if not isinstance(picks, dict) or len(picks) < 400:
         errors.append(f"nfl_draft_picks.json has {len(picks) if isinstance(picks, dict) else 0} picks")
@@ -191,7 +209,12 @@ def check_draft_picks(data: dict) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
-def check_files(root: Path = DATA, now: datetime | None = None, max_age_days: float = MAX_VALUE_AGE_DAYS):
+def check_files(
+    root: Path = DATA,
+    now: datetime | None = None,
+    max_age_days: float = MAX_VALUE_AGE_DAYS,
+    fail_on_age: bool = False,
+):
     now = now or datetime.now(timezone.utc)
     errors: list[str] = []
     warnings: list[str] = []
@@ -209,7 +232,9 @@ def check_files(root: Path = DATA, now: datetime | None = None, max_age_days: fl
         except (OSError, json.JSONDecodeError) as exc:
             errors.append(f"{name} is not readable JSON: {exc}")
     if "player_values.json" in loaded:
-        found, warned = check_player_values(loaded["player_values.json"], now, max_age_days)
+        found, warned = check_player_values(
+            loaded["player_values.json"], now, max_age_days, fail_on_age=fail_on_age
+        )
         errors.extend(found)
         warnings.extend(warned)
     if "nfl_schedule.json" in loaded:
@@ -227,8 +252,15 @@ def check_files(root: Path = DATA, now: datetime | None = None, max_age_days: fl
     return errors, warnings
 
 
-def main() -> int:
-    errors, warnings = check_files()
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--fail-on-age",
+        action="store_true",
+        help="Exit 1 when player values are older than the max age. The default is a warning.",
+    )
+    args = parser.parse_args(argv)
+    errors, warnings = check_files(fail_on_age=args.fail_on_age)
     for warning in warnings:
         print(f"warning: {warning}")
     if errors:
