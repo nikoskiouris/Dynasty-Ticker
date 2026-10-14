@@ -204,6 +204,53 @@ test("fetchUserLeagues keeps both seasons when only the older one fails", async 
   assert.deepEqual(result.leagues.map((league) => league.league_id), ["now"]);
 });
 
+test("username league search paints before a players body parse", async () => {
+  let parseStartedAt = 0;
+  const client = createSleeperClient({
+    maxConcurrent: 3,
+    minIntervalMs: 110,
+    fetchImpl: (url) => {
+      const href = String(url);
+      if (href.includes("/players/nfl")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json() {
+            parseStartedAt = Date.now();
+            const start = Date.now();
+            while (Date.now() - start < 600) {}
+            return Promise.resolve({ "11": { full_name: "Amon-Ra" } });
+          },
+        });
+      }
+      const payload = href.endsWith("/user/Niko")
+        ? { user_id: "u1", display_name: "Niko" }
+        : [{ league_id: "1", name: "Now", season: "2026" }];
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        async json() {
+          return payload;
+        },
+      });
+    },
+  });
+
+  const boot = client.apiGet("/players/nfl");
+  const started = Date.now();
+  const result = await fetchUserLeagues(client, "Niko", ["2026", "2025"]);
+  const elapsed = Date.now() - started;
+  assert.equal(result.user.user_id, "u1");
+  assert.deepEqual(result.leagues.map((league) => league.league_id), ["1"]);
+  assert.equal(result.failedSeasons.length, 0);
+  assert.equal(parseStartedAt, 0, "players parse must not start before the picker can paint");
+  assert.ok(elapsed < 450, `search took ${elapsed}ms; league status waited on the players parse`);
+  await boot;
+  assert.ok(parseStartedAt > 0);
+});
+
 test("username search does not autoload when the current season failed", () => {
   const search = appSource.match(/async function runUserLeagueSearch\(username\) \{[\s\S]*?\n\}/)?.[0] || "";
   const failedAt = search.indexOf("const currentFailed");
@@ -218,6 +265,16 @@ test("username search does not autoload when the current season failed", () => {
   assert.match(appSource, /function retryUserLeagueSearch\(/);
   assert.match(appSource, /leagueStatusRetry/);
   assert.match(appSource, /landingSearchRetry/);
+});
+
+test("picking a league closes the picker instead of leaving it over the header", () => {
+  const click = appSource.match(/function handleLeaguePickClick\(event\) \{[\s\S]*?\n\}/)?.[0] || "";
+  assert.match(appSource, /function collapseLeaguePicker\(/);
+  assert.match(click, /collapseLeaguePicker\(\)/);
+  assert.doesNotMatch(
+    appSource,
+    /state\.leagueSwitching = false;[\s\S]{0,500}renderLeaguePicker\(/,
+  );
 });
 
 test("slim players cache drops fat fields and still names the player", () => {
