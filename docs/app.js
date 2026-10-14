@@ -131,7 +131,7 @@ import {
   draftMarketPrice,
   draftMeterValues,
   draftNoticeText,
-  evenUpPickChoice,
+  evenUpTradePick,
   draftVerdictModel,
   draftSideForAsset,
   draftTeamSummary,
@@ -6146,10 +6146,16 @@ function nextRookieDraftSeason() {
 }
 
 // A future pick evens the gap only when its price actually covers it.
-function findEvenUpPick(gap, values) {
+function findEvenUpPick(view) {
   const first = nextRookieDraftSeason();
-  const picks = listGenericPicks(values).filter((pick) => Number(pick.season) >= first);
-  return evenUpPickChoice(gap, picks);
+  const picks = listGenericPicks(view.basis.values, view.basis.nameMap)
+    .filter((pick) => Number(pick.season) >= first);
+  return evenUpTradePick({
+    giveValues: view.draft.left.map(view.priceOf),
+    getValues: view.draft.right.map(view.priceOf),
+    picks,
+    globalMaxValue: getGlobalMaxPlayerValue(view.basis.values),
+  });
 }
 
 function evenUpCopy(choice, side) {
@@ -6157,6 +6163,9 @@ function evenUpCopy(choice, side) {
   const verb = side === "You" || side === "They" ? "add" : "adds";
   if (choice.closes) {
     return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
+  }
+  if (Number.isFinite(Number(choice.pct))) {
+    return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}). After that pick the sides are still ${choice.pct}% apart.`;
   }
   const short = choice.value < choice.gap;
   const why = short
@@ -6190,7 +6199,7 @@ function renderDraftVerdict(view) {
   const meters = draftMeterValues(model);
   const label = draftVerdictLabel(verdict, { them });
   const maxSide = Math.max(meters.give, meters.get, 1);
-  const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(Math.abs(verdict.gap), view.basis.values) : null;
+  const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(view) : null;
   const evenSide = verdict.gap > 0 ? "You" : (view.partner ? them : "They");
   const credited = adjustment?.side === "left" ? "You give" : "You get";
   return `
