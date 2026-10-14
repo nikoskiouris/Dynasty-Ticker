@@ -1,4 +1,5 @@
 import { escapeHtml } from "./html.js";
+import { sleeperAvatarUrl } from "./sleeper.js";
 import {
   SLEEPER_PLAYER_THUMB_BASE,
   playerIdFromAssetId,
@@ -478,8 +479,9 @@ export function applyRatherOverlayHidden(overlay, hidden) {
 function renderRatherPlayerButton(player, side) {
   const name = player?.name || "Player";
   const initials = player?.initials || playerInitials(name);
-  const photo = player?.photoUrl
-    ? `<img class="rather-photo" src="${escapeHtml(player.photoUrl)}" alt="" width="96" height="96" data-initials="${escapeHtml(initials)}">`
+  const photoSrc = sleeperAvatarUrl(player?.photoUrl);
+  const photo = photoSrc
+    ? `<img class="rather-photo" src="${escapeHtml(photoSrc)}" alt="" width="96" height="96" data-initials="${escapeHtml(initials)}">`
     : "";
   const meta = player?.meta
     ? `<small class="rather-meta">${escapeHtml(player.meta)}</small>`

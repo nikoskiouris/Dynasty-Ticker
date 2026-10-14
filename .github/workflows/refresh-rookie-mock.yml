@@ -8,19 +8,21 @@ on:
 
 concurrency:
   group: refresh-rookie-mock
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: write
 
 jobs:
   refresh:
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout develop
         uses: actions/checkout@v4
         with:
           ref: develop
+          fetch-depth: 50
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -40,4 +42,5 @@ jobs:
             exit 0
           fi
           git commit -m "Refresh Dynasty Nerds 2027 SF rookie mock."
+          git pull --rebase origin develop
           git push origin HEAD:develop

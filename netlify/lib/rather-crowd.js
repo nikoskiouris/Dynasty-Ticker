@@ -5,7 +5,8 @@ import {
   clientIp,
   isAllowedWrite,
   isBot,
-  visitorHash,
+  rateLimitHash,
+  readJsonObject,
   wrapLambdaHandler,
 } from "./traffic.js";
 
@@ -369,16 +370,16 @@ export function createRatherVoteHandler({
       return jsonResponse({ ok: true, saved: false, skipped: "bot" });
     }
 
-    let payload = {};
-    try {
-      payload = await req.json();
-    } catch {
-      payload = {};
+    const voter = rateLimitHash(clientIp(req, context), secret);
+    if (!voter) return jsonResponse({ error: "config" }, { status: 503 });
+
+    const parsed = await readJsonObject(req);
+    if (!parsed.ok) {
+      return jsonResponse({ error: parsed.error }, { status: parsed.error === "size" ? 413 : 400 });
     }
+    const payload = parsed.value;
 
     const eventId = sanitizeEventId(payload?.eventId) || randomUUID();
-    const voter = visitorHash(clientIp(req, context), userAgent, secret);
-    if (!voter) return jsonResponse({ error: "config" }, { status: 503 });
 
     for (let attempt = 0; attempt < RATHER_MAX_WRITE_RETRIES; attempt += 1) {
       let snapshot;

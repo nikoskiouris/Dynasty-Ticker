@@ -1,4 +1,5 @@
 import { escapeHtml, formatNumber } from "./html.js";
+import { sleeperAvatarUrl } from "./sleeper.js";
 import { renderPlayerFace } from "./player-face.js";
 import { ordinal } from "./season.js";
 import { isInactivePlayerAsset, parsePickAssetId, upcomingDraftSeason } from "./values.js";
@@ -348,8 +349,9 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
     ? row.spread.map((item) => `${item.label} ${formatNumber(item.value)}`).join(" · ")
     : "";
   const neighbors = Array.isArray(row.neighbors) ? row.neighbors : [];
-  const photo = row.photoUrl
-    ? `<img class="rather-photo" src="${escapeHtml(row.photoUrl)}" alt="" />`
+  const photoSrc = sleeperAvatarUrl(row.photoUrl);
+  const photo = photoSrc
+    ? `<img class="rather-photo" src="${escapeHtml(photoSrc)}" alt="" />`
     : "";
   const calc = `<button type="button" class="ghost-btn" data-action="rank-calc" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-value="${escapeHtml(String(row.value))}" data-kind="${escapeHtml(row.kind)}">Add to trade</button>`;
   return `
