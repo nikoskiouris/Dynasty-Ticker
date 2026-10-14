@@ -42,10 +42,17 @@ const NO_NAMES = Object.freeze({});
 // Sleeper "Reception Bonus - TE" stacks on top of `rec`. Missing/zero is not TEP.
 const TE_REC_BONUS_KEYS = ["bonus_rec_te", "rec_te", "bonus_te_rec"];
 
+function normalizeRosterSlotToken(slot) {
+  return String(slot || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+}
+
 export function leagueHasSuperflex(league) {
   const slots = Array.isArray(league?.roster_positions) ? league.roster_positions : [];
-  const normalized = slots.map((slot) => String(slot || "").toUpperCase());
-  if (normalized.some((slot) => slot === "SUPER_FLEX" || slot === "OP")) return true;
+  const normalized = slots.map(normalizeRosterSlotToken);
+  if (normalized.some((slot) => slot === "SUPER_FLEX" || slot === "SUPERFLEX" || slot === "OP")) return true;
   return normalized.filter((slot) => slot === "QB").length >= 2;
 }
 
@@ -409,11 +416,25 @@ export function findMarketValueByPlayerName(name, values, valueNameMap = NO_NAME
   return match;
 }
 
+const NON_OFFENSIVE_POSITIONS = new Set([
+  "K", "PK", "P", "DEF", "DST", "D/ST",
+  "DL", "DE", "DT", "NT", "LB", "ILB", "OLB", "MLB",
+  "DB", "CB", "S", "FS", "SS", "EDGE", "IDP",
+]);
+
+function assetSkipsOffensiveNameMatch(asset) {
+  const fantasy = Array.isArray(asset?.raw?.fantasy_positions) ? asset.raw.fantasy_positions : [];
+  const positions = fantasy.length > 0 ? fantasy : [asset?.raw?.position].filter(Boolean);
+  return positions.some((position) => NON_OFFENSIVE_POSITIONS.has(String(position || "").trim().toUpperCase()));
+}
+
 export function lookupMarketValue(asset, values, valueNameMap = NO_NAMES, catalog = null) {
   const exact = values?.[asset?.assetId];
   if (Number.isFinite(exact)) return { value: exact, estimated: false };
-  const named = findMarketValueByPlayerName(playerNameForAsset(asset), values, valueNameMap);
-  if (Number.isFinite(named)) return { value: named, estimated: false };
+  if (!assetSkipsOffensiveNameMatch(asset)) {
+    const named = findMarketValueByPlayerName(playerNameForAsset(asset), values, valueNameMap);
+    if (Number.isFinite(named)) return { value: named, estimated: false };
+  }
   if (asset?.assetType === "pick") {
     const resolvedPickValue = resolvePickAssetValue(asset, values, valueNameMap, catalog);
     if (Number.isFinite(resolvedPickValue)) return { value: resolvedPickValue, estimated: false };

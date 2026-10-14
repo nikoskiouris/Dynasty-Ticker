@@ -94,6 +94,7 @@ import {
   playerAgeForAsset,
   isInactivePlayerAsset,
   leagueHasSuperflex,
+  tepLevel,
   crowdShiftsFromVotes,
   getGlobalMaxPlayerValue,
 } from "./modules/values.js";
@@ -719,7 +720,7 @@ el.seasonsDashboard?.addEventListener("click", handleHistoryCompareClick);
 el.seasonsDashboard?.addEventListener("change", handleHistoryCompareChange);
 
 setDeskBoardShut(readDeskBoardShut());
-state.valueCalc = readStoredDraft() || state.valueCalc;
+state.valueCalc = readStoredDraft(globalThis.sessionStorage, globalThis.localStorage) || state.valueCalc;
 renderSessionSnapshot();
 syncTradeModeUi();
 let searchedUserNoted = false;
@@ -1851,12 +1852,22 @@ function syncTradeModeUi() {
   renderSessionSnapshot();
 }
 
+function collapseLeaguePicker() {
+  [el.leaguePicker, el.landingLeaguePicker].forEach((host) => {
+    if (!host) return;
+    host.classList.add("hidden");
+    host.replaceChildren();
+  });
+  syncDeskRailOffset();
+}
+
 function handleLeaguePickClick(event) {
   const button = event.target.closest("[data-league-id]");
   if (!button) return;
   const leagueId = parseLeagueId(button.dataset.leagueId);
   if (!leagueId) return;
   if (el.leagueId) el.leagueId.value = leagueId;
+  collapseLeaguePicker();
   void loadLeagueById(leagueId);
 }
 
@@ -2177,9 +2188,6 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.leagueSwitching = false;
 
     setFieldError(el.leagueId, el.leagueIdError, "");
-    if (state.userLeagues.length) {
-      renderLeaguePicker(state.userLeagues, String(state.nflState?.league_season || state.nflState?.season || league?.season || ""));
-    }
     hydrateManagerSelector();
     syncTradeModeUi();
     renderSessionSnapshot();
@@ -9431,7 +9439,7 @@ function buildSleeperInsightCards(profile, context) {
 
 function describeLeagueFormat(league) {
   const slots = getStarterRosterSlots(league);
-  const hasSuperflex = slots.some((slot) => ["SUPER_FLEX", "OP"].includes(slot));
+  const hasSuperflex = leagueHasSuperflex(league);
   const scoring = league?.scoring_settings || {};
   const receptionValue = Number(scoring.rec);
   const pprLabel = Number.isFinite(receptionValue)
@@ -9445,7 +9453,7 @@ function describeLeagueFormat(league) {
     pprLabel,
     `${slots.length} starters`,
   ];
-  if (Number(scoring.bonus_rec_te || scoring.rec_te || 0) > 0) parts.push("TE bonus (values stay full PPR)");
+  if (tepLevel(league) > 0) parts.push("TE bonus (values stay full PPR)");
   if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi`);
   if (leagueUsesFuturePicks(league) && draftRounds > 0) parts.push(`${draftRounds}-round rookie draft`);
   return parts.join(" • ");
