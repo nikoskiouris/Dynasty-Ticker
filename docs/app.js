@@ -720,7 +720,7 @@ el.seasonsDashboard?.addEventListener("click", handleHistoryCompareClick);
 el.seasonsDashboard?.addEventListener("change", handleHistoryCompareChange);
 
 setDeskBoardShut(readDeskBoardShut());
-state.valueCalc = readStoredDraft() || state.valueCalc;
+state.valueCalc = readStoredDraft(globalThis.sessionStorage, globalThis.localStorage) || state.valueCalc;
 renderSessionSnapshot();
 syncTradeModeUi();
 let searchedUserNoted = false;
