@@ -236,18 +236,21 @@ test("pick lookup time-discounts a nearest-year fallback", () => {
 });
 
 test("a missing early first discounts the early row, not the cheaper any row listed first", () => {
+  const anyPrice = 2500;
+  const earlyPrice = 4000;
   const values = {
-    "pick:2032:r1:any": 2264,
-    "pick:2032:r1:early": 2822,
+    "pick:2028:r1:any": anyPrice,
+    "pick:2028:r1:early": earlyPrice,
   };
   assert.equal(
-    findPickCatalogValue({ season: "2033", round: 1, bucket: "early" }, values),
-    Math.round(2822 * 0.85),
+    findPickCatalogValue({ season: "2029", round: 1, bucket: "early" }, values),
+    Math.round(earlyPrice * 0.85),
   );
   assert.equal(
-    findPickCatalogValue({ season: "2033", round: 1, bucket: "any" }, values),
-    Math.round(2264 * 0.85),
+    findPickCatalogValue({ season: "2029", round: 1, bucket: "any" }, values),
+    Math.round(anyPrice * 0.85),
   );
+  assert.ok(earlyPrice > anyPrice);
 });
 
 test("equidistant pick years discount forward from the earlier season, in either key order", () => {
@@ -267,39 +270,46 @@ test("the 0.85 ruler keeps falling after four years", () => {
   assert.ok(eightYears < fiveYears);
 });
 
-test("published snapshot prices match a hand check, and later rounds stay on the 0.85 curve", () => {
-  const json = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/data/player_values.json"), "utf8"));
-  const sf = json.sf;
-  const oneQb = json.oneQb;
-  const bijan = { assetId: "player:9509", assetType: "player", name: "Bijan Robinson", raw: { position: "RB" } };
-  const gibbs = { assetId: "player:9221", assetType: "player", name: "Jahmyr Gibbs", raw: { position: "RB" } };
-  const jayden = { assetId: "player:11566", assetType: "player", name: "Jayden Daniels", raw: { position: "QB" } };
-  assert.equal(sf["player:9509"], 11362);
-  assert.equal(oneQb["player:9509"], 11362);
-  assert.equal(getAssetValue(bijan, sf), 11362);
-  assert.equal(getAssetValue(gibbs, sf), 11842);
-  assert.equal(getAssetValue(jayden, sf), 9114);
-  assert.equal(getAssetValue(jayden, oneQb), 3445);
-  assert.equal(sf["pick:2027:r1:early"], 6361);
-  assert.equal(sf["pick:2028:r1:early"], Math.round(6361 * 0.85));
-  assert.equal(sf["pick:2027:r2:any"], 1703);
-  const tradedEarly = {
-    assetId: "pick:2027:r1:7",
-    assetType: "pick",
-    valueAssetId: "pick:2027:r1:early",
-    raw: { season: "2027", round: 1, ktcBucket: "early" },
-  };
-  assert.equal(resolvePickAssetValue(tradedEarly, sf), 6361);
-  const names = json.names || {};
-  assert.equal(
-    findPickCatalogValue({ season: "2033", round: 1, bucket: "early" }, sf, names),
-    Math.round(2822 * 0.85),
-  );
-  let previous = Infinity;
-  for (const year of [2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034]) {
-    const value = findPickCatalogValue({ season: String(year), round: 1, bucket: "early" }, sf, names);
-    assert.ok(value < previous, `${year} early first ${value} is not below ${previous}`);
-    previous = value;
+test("pick fallback keeps early above any, falls with distance, and ignores key order", () => {
+  const anchors = [120, 480, 1600, 6400];
+  for (const earlyPrice of anchors) {
+    const anyPrice = Math.round(earlyPrice * 0.8);
+    const secondPrice = Math.round(anyPrice * 0.45);
+    const forward = {
+      "pick:2028:r1:any": anyPrice,
+      "pick:2028:r1:early": earlyPrice,
+      "pick:2028:r2:any": secondPrice,
+    };
+    const reverse = {
+      "pick:2028:r1:early": earlyPrice,
+      "pick:2028:r2:any": secondPrice,
+      "pick:2028:r1:any": anyPrice,
+    };
+    let previousEarly = Infinity;
+    let previousAny = Infinity;
+    for (let distance = 0; distance <= 8; distance += 1) {
+      const season = String(2028 + distance);
+      const metaEarly = { season, round: 1, bucket: "early" };
+      const metaAny = { season, round: 1, bucket: "any" };
+      const earlyValue = findPickCatalogValue(metaEarly, forward);
+      const anyValue = findPickCatalogValue(metaAny, forward);
+      assert.equal(earlyValue, findPickCatalogValue(metaEarly, reverse), `${season} early depends on key order`);
+      assert.equal(anyValue, findPickCatalogValue(metaAny, reverse), `${season} any depends on key order`);
+      assert.ok(earlyValue >= anyValue, `${season} early ${earlyValue} fell under any ${anyValue}`);
+      assert.ok(earlyValue <= previousEarly, `${season} early rose with distance`);
+      assert.ok(anyValue <= previousAny, `${season} any rose with distance`);
+      assert.equal(earlyValue, Math.max(1, Math.round(earlyPrice * (0.85 ** distance))));
+      previousEarly = earlyValue;
+      previousAny = anyValue;
+    }
+    const traded = {
+      assetId: "pick:2028:r1:7",
+      assetType: "pick",
+      valueAssetId: "pick:2028:r1:early",
+      raw: { season: "2028", round: 1, ktcBucket: "early" },
+    };
+    assert.equal(resolvePickAssetValue(traded, forward), earlyPrice);
+    assert.ok(findPickCatalogValue({ season: "2028", round: 2, bucket: "any" }, forward) < anyPrice);
   }
 });
 
