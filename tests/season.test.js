@@ -541,3 +541,89 @@ test("tied records break on points against, and two-week playoffs stay in the tr
   assert.equal(end, 20);
   assert.equal(transactionWeekEnd({ settings: { playoff_week_start: 15 } }), 18);
 });
+
+function longSeasonLeague({ lastScored, leg }) {
+  return {
+    league_id: "L1",
+    season: "2026",
+    status: "in_season",
+    settings: {
+      start_week: 1,
+      playoff_week_start: 15,
+      playoff_teams: 6,
+      playoff_round_type: 0,
+      divisions: 0,
+      last_scored_leg: lastScored,
+      leg,
+    },
+  };
+}
+
+test("an NFL week jump does not finalize the unscored gap after last_scored_leg", () => {
+  const weekRows = new Map();
+  for (let week = 1; week <= 8; week += 1) {
+    const points = week <= 3 ? 100 : 0;
+    weekRows.set(week, [
+      side(1, 1, points),
+      side(2, 1, Math.max(0, points - 10)),
+      side(3, 2, Math.max(0, points - 20)),
+      side(4, 2, Math.max(0, points - 30)),
+    ]);
+  }
+  const model = buildSeasonModel({
+    league: longSeasonLeague({ lastScored: 3, leg: 4 }),
+    rosters: rosters(),
+    users: users(),
+    weekRows,
+    nflState: { season: "2026", week: 8, season_type: "regular" },
+  });
+  assert.equal(model.finalThroughWeek, 3);
+  assert.equal(model.currentWeek, 8);
+  assert.equal(model.weeks.find((entry) => entry.week === 3).status, "final");
+  assert.equal(model.weeks.find((entry) => entry.week === 3).isFinal, true);
+  for (const week of [4, 5, 6, 7]) {
+    const entry = model.weeks.find((row) => row.week === week);
+    assert.equal(entry.isFinal, false, `week ${week} was treated as final`);
+    assert.notEqual(entry.status, "final");
+  }
+  assert.equal(model.teams.get("1").gamesPlayed, 3);
+
+  const missingLater = buildSeasonModel({
+    league: longSeasonLeague({ lastScored: 3, leg: 4 }),
+    rosters: rosters(),
+    users: users(),
+    weekRows: new Map([
+      [1, [side(1, 1, 100), side(2, 1, 90), side(3, 2, 80), side(4, 2, 70)]],
+      [2, [side(1, 1, 100), side(3, 1, 90), side(2, 2, 80), side(4, 2, 70)]],
+      [3, [side(1, 1, 100), side(4, 1, 90), side(2, 2, 80), side(3, 2, 70)]],
+      [4, [side(1, 1, 0), side(2, 1, 0), side(3, 2, 0), side(4, 2, 0)]],
+    ]),
+    nflState: { season: "2026", week: 8, season_type: "regular" },
+  });
+  assert.equal(missingLater.finalThroughWeek, 3);
+  assert.equal(missingLater.currentWeek, 4);
+  assert.notEqual(missingLater.weeks.find((entry) => entry.week === 5).status, "final");
+});
+
+test("NFL postseason does not skip unfinished fantasy weeks", () => {
+  const model = buildSeasonModel({
+    league: longSeasonLeague({ lastScored: 14, leg: 15 }),
+    rosters: rosters(),
+    users: users(),
+    weekRows: new Map([
+      [14, [side(1, 1, 110), side(2, 1, 90), side(3, 2, 100), side(4, 2, 80)]],
+    ]),
+    nflState: { season: "2026", week: 19, season_type: "post" },
+  });
+  assert.equal(model.finalThroughWeek, 14);
+  assert.equal(model.currentWeek, 15);
+  assert.equal(model.seasonComplete, false);
+  assert.equal(model.weeks.find((entry) => entry.week === 14).isFinal, true);
+  for (const week of [15, 16, 17]) {
+    const entry = model.weeks.find((row) => row.week === week);
+    assert.ok(entry, `week ${week} missing`);
+    assert.equal(entry.isFinal, false);
+    assert.notEqual(entry.status, "final");
+  }
+  assert.equal(model.teams.get("1").gamesPlayed, 1);
+});

@@ -26,6 +26,10 @@
           <button id="landing-find-btn" type="submit">Find leagues</button>
         </div>
         <p id="landing-username-error" class="field-error" hidden role="alert"></p>
+        <div id="landing-search-status" class="status error landing-search-status hidden" aria-live="polite">
+          <span id="landing-search-status-text"></span>
+          <button type="button" id="landing-search-retry" class="ghost-btn status-retry">Try again</button>
+        </div>
       </form>
       <p id="landing-job-hint" class="muted landing-job-hint">Type your Sleeper username to connect your roster, trade partners, and team impact.</p>
       <button type="button" id="open-public-ranks" class="ghost-btn landing-ranks-btn" data-action="open-public-ranks">Look up a player</button>

@@ -1,6 +1,8 @@
 export const API_BASE = "https://api.sleeper.app/v1";
 export const SLEEPER_AVATAR_BASE = "https://sleepercdn.com/avatars/thumbs/";
-export const PLAYERS_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+// Injury and status move during the week. Expire even when the NFL state
+// key has not changed, so a Sunday designation does not sit until next week.
+export const PLAYERS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 export const SIM_ITERATIONS = 4000;
 // Three jobs: Players, Trade, My League.
 // Old page and room names stay as aliases so existing links still open.
