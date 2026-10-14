@@ -48,7 +48,11 @@ def salt_action(var):
             readable.append(value)
     if any(value in REJECTED_SALTS for value in readable):
         return "set"
-    if readable or has_live_context:
+    if readable:
+        return "keep"
+    # A blank secret is redacted by the API. Leave it alone.
+    # A blank plaintext value is not a salt; replace it.
+    if has_live_context and var.get("is_secret") is not False:
         return "keep"
     return "set"
 
