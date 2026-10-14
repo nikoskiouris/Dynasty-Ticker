@@ -401,7 +401,7 @@ function buildWindowCallCopy(input, axes, id) {
       summary,
       moves: [
         hole ? `Pay up for a proven ${hole} starter, even if it costs a future first.` : "Buy a proven starter if it closes a weekly hole.",
-        "Do not sell your aging stars for picks.",
+        input.sampleVoice ? `Do not sell ${input.sampleVoice.favor} aging stars for picks.` : "Do not sell your aging stars for picks.",
         axes.pickPoor
           ? "Consolidate two depth pieces into one every-week starter."
           : "Spend a future pick, not the young core, if you need one more hammer.",
@@ -455,7 +455,9 @@ function buildSeasonWindowCallCopy(input, axes, id) {
       headline: "You're in it. Play the best lineup every week.",
       summary: `Playoff math and ${record} say compete. Start the studs${hole ? ` and patch ${hole}` : ""}. This is a sit/start problem, not a rebuild.`,
       moves: [
-        hole ? `Start your best ${hole} and stream the rest of that slot.` : "Start the hot hand, not last week's name.",
+        hole
+          ? (input.sampleVoice ? `Start ${input.sampleVoice.favor} best ${hole} and stream the rest of that slot.` : `Start your best ${hole} and stream the rest of that slot.`)
+          : "Start the hot hand, not last week's name.",
         "Treat waivers like a title hunt. Dead bench is a wasted roster spot.",
         "If you trade, buy this-year production. Do not pay dynasty prices for kids.",
         input.playoffsStarted
@@ -485,7 +487,7 @@ function buildSeasonWindowCallCopy(input, axes, id) {
     summary: `Keep the core, fill ${hole || "the weakest starter spot"} on the wire, and play the matchups.`,
     moves: [
       hole ? `Upgrade ${hole} with a streamer or a one-week add.` : "Make one start/sit upgrade. Stop after that.",
-      "Do not trade your RB1 because last week looked ugly.",
+      input.sampleVoice ? `Do not trade ${input.sampleVoice.favor} RB1 because last week looked ugly.` : "Do not trade your RB1 because last week looked ugly.",
       "Watch the remaining schedule more than dynasty age.",
       "One waiver add beats a fire sale.",
     ],

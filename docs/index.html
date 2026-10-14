@@ -8,6 +8,7 @@
     <meta name="description" content="See what your players are worth, check a trade, and find your team's next move." />
     <meta name="theme-color" content="#0c0c0e" />
     <script src="./desk-shut.js"></script>
+    <script src="./boot-intent.js"></script>
     <meta property="og:title" content="Dynasty Ticker — Your Sleeper dynasty league" />
     <meta property="og:description" content="See what your players are worth, check a trade, and find your team's next move." />
     <meta property="og:type" content="website" />
@@ -123,7 +124,7 @@
               aria-describedby="username-error"
             />
             <p id="username-error" class="field-error" hidden role="alert"></p>
-            <button id="find-leagues-btn" type="submit" data-idle-label="Find my leagues">Find my leagues</button>
+            <button id="find-leagues-btn" type="submit" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
           </form>
           <div id="league-picker" class="league-picker hidden" data-league-picker></div>
 
@@ -182,7 +183,7 @@
       <main class="workspace" id="workspace">
         <div id="sample-banner" class="sample-banner" hidden>
           <p>This is a public sample league. Connect your Sleeper username anytime.</p>
-          <button type="button" data-action="find-my-leagues">Find my leagues</button>
+          <button type="button" data-action="find-my-leagues" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
           <button type="button" class="ghost-btn sample-banner-dismiss" data-action="dismiss-sample-banner">Dismiss</button>
         </div>
         <header class="workspace-header" id="workspace-header">
@@ -244,7 +245,7 @@
 
     <div id="site-dock" class="site-dock">
       <div id="sticky-mobile-cta" class="sticky-mobile-cta" hidden>
-        <button id="sticky-find-btn" type="button" data-idle-label="Find my leagues">Find my leagues</button>
+        <button id="sticky-find-btn" type="button" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
       </div>
     </div>
 
