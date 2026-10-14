@@ -1,8 +1,32 @@
 export const SLEEPER_API_BASE = "https://api.sleeper.app/v1";
 export const SLEEPER_AVATAR_BASE = "https://sleepercdn.com/avatars/thumbs/";
 
+const RETRY_AFTER_CAP_MS = 10_000;
+const RETRY_AFTER_FALLBACK_MS = 1_000;
+
 function defaultSleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Retry-After is seconds. Missing, zero, or junk waits 1s. Never wait past 10s.
+export function retryAfterDelayMs(headerValue) {
+  const seconds = Number(headerValue);
+  if (!Number.isFinite(seconds) || seconds <= 0) return RETRY_AFTER_FALLBACK_MS;
+  return Math.min(seconds * 1000, RETRY_AFTER_CAP_MS);
+}
+
+// Sleeper uses "" / 0 / "0" / null when a league has no prior season.
+export function previousLeagueId(value) {
+  if (value == null) return "";
+  const id = String(value).trim();
+  if (!id || id === "0") return "";
+  return id;
+}
+
+export function sleeperLeaguePath(leagueId, suffix = "") {
+  const id = encodeURIComponent(String(leagueId ?? ""));
+  const extra = String(suffix || "").replace(/^\/+/, "");
+  return extra ? `/league/${id}/${extra}` : `/league/${id}`;
 }
 
 function withTimeout(promise, timeoutMs, message) {
@@ -113,7 +137,7 @@ export function createSleeperClient(options = {}) {
       if (response.status === 429) {
         const error = new Error("Sleeper API returned 429");
         error.status = 429;
-        error.retryAfterMs = Number(response.headers?.get?.("Retry-After")) * 1000;
+        error.retryAfterMs = retryAfterDelayMs(response.headers?.get?.("Retry-After"));
         throw error;
       }
       if (!response.ok) {
@@ -241,7 +265,7 @@ export function preferLatestLeagues(leagues) {
   const ids = new Set(rows.map((league) => String(league?.league_id || "")).filter(Boolean));
   const superseded = new Set();
   rows.forEach((league) => {
-    const previousId = String(league?.previous_league_id || "");
+    const previousId = previousLeagueId(league?.previous_league_id);
     if (previousId && ids.has(previousId)) superseded.add(previousId);
   });
   if (!superseded.size) return rows;

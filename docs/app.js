@@ -55,9 +55,13 @@ import {
   playersCacheIsFresh,
   slimPlayersMap,
   sleeperAvatarUrl,
+  previousLeagueId,
+  sleeperLeaguePath,
 } from "./modules/sleeper.js";
 import {
   classifyLeagueInput,
+  classifyLeagueField,
+  classifyUsernameField,
   parseLeagueId,
   parseShareParams,
   normalizeDeskTab,
@@ -68,6 +72,8 @@ import {
   buildShareUrl as buildShareUrlFromParts,
   uniqueSeasons,
   sortUserLeagues,
+  stampPickedLeagueSearch,
+  INVALID_LEAGUE_LINK_MESSAGE,
 } from "./modules/parse.js";
 import {
   pickValueBundle,
@@ -230,6 +236,7 @@ import {
   resolveDefaultMeRoster,
   seasonSearchHardFailField,
   seasonSearchHardFailStatus,
+  noTeamInLeagueCopy,
 } from "./modules/league-search.js";
 import {
   leagueKeepsPlayers,
@@ -1306,6 +1313,7 @@ function renderHistoryRoom() {
 
 function bootFromUrl() {
   const parsed = parseShareParams(window.location.search);
+  if (parsed.invalidLeague) showInvalidLeagueLink();
   if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
   const hashToken = String(window.location.hash || "").replace(/^#/, "");
   if (parsed.tab) {
@@ -1976,7 +1984,7 @@ function syncLandingJobUi() {
 
 function requestLoadLeague(event) {
   event?.preventDefault?.();
-  const classified = classifyLeagueInput(el.leagueId?.value || el.sleeperUsername?.value);
+  const classified = classifyLeagueField(el.leagueId?.value, el.sleeperUsername?.value);
   if (classified.kind === "empty") {
     setFieldError(el.leagueId, el.leagueIdError, "Paste a Sleeper league ID or URL.");
     setStatus("Paste a Sleeper league ID or URL.", { error: true });
@@ -2009,7 +2017,7 @@ function requestFindLeagues(event) {
     return;
   }
   syncUsernameFields(event?.currentTarget === el.landingUsernameForm ? el.landingUsername : el.sleeperUsername);
-  const classified = classifyLeagueInput(el.sleeperUsername?.value || el.landingUsername?.value);
+  const classified = classifyUsernameField(el.sleeperUsername?.value || el.landingUsername?.value);
   if (classified.kind === "empty") {
     setUsernameError("Type your Sleeper username, then press Find my leagues.");
     setStatus("Type your Sleeper username, then press Find my leagues.", { error: true });
@@ -2143,8 +2151,16 @@ async function loadLeague() {
   return loadLeagueById(leagueId);
 }
 
+function rememberPickedLeague(leagueId) {
+  if (applyingHistory || typeof history?.replaceState !== "function") return;
+  const nextSearch = stampPickedLeagueSearch(window.location.search, leagueId);
+  if (!nextSearch) return;
+  history.replaceState(history.state, "", `${window.location.pathname}${nextSearch}`);
+}
+
 async function loadLeagueById(leagueId, { fromHistory = false, sample = false } = {}) {
   if (!leagueId) return;
+  if (!fromHistory) rememberPickedLeague(leagueId);
   state.viewingSample = Boolean(sample);
   if (shouldBlankDeskForLeagueSwitch(state.leagueId, leagueId)) blankDeskForLeagueSwitch();
   return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
@@ -2288,11 +2304,12 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     noteSearchedUser(leagueId);
     scrollLoadedWorkspaceIntoView();
     setMobileRailOpen(false);
+    const missingTeam = state.meRosterId ? "" : noTeamInLeagueCopy(state.sleeperUser);
     setStatus(
-      state.viewingSample
+      missingTeam || (state.viewingSample
         ? (sampleVoice()?.statusSample || "Sample league — not this account.")
-        : `Loaded ${state.leagueName}. Player names are still syncing...`,
-      { loading: true },
+        : `Loaded ${state.leagueName}. Player names are still syncing...`),
+      missingTeam ? { error: true } : { loading: true },
     );
     loadTrendingPlayers();
     loadLeagueTransactions(leagueId, league);
@@ -2321,13 +2338,16 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
         syncTradeModeUi();
         requestActivePageRender();
         const me = getMyRoster();
+        const missingTeam = me ? "" : noTeamInLeagueCopy(state.sleeperUser);
         setStatus(
-          me
-            ? state.viewingSample
-              ? `${sampleVoice()?.statusSample || "Sample league — not this account."} Viewing as ${me.manager?.displayName || "a roster"}; switch in Manager.`
-              : `Loaded ${state.leagueName}. Viewing as ${me.manager?.displayName || "your team"}. Switch teams in the Manager panel.`
-            : `Loaded ${state.leagueName}. Choose your team to continue.`,
-          { ok: true },
+          missingTeam
+            ? missingTeam
+            : me
+              ? state.viewingSample
+                ? `${sampleVoice()?.statusSample || "Sample league — not this account."} Viewing as ${me.manager?.displayName || "a roster"}; switch in Manager.`
+                : `Loaded ${state.leagueName}. Viewing as ${me.manager?.displayName || "your team"}. Switch teams in the Manager panel.`
+              : `Loaded ${state.leagueName}. Choose your team to continue.`,
+          missingTeam ? { error: true } : { ok: true },
         );
       })
       .catch((err) => {
@@ -2419,7 +2439,7 @@ function startLivePolling() {
       const model = getSeasonModel();
       const week = model?.currentWeek || Number(state.nflState?.week) || 1;
       const [rows, nflState] = await Promise.all([
-        apiGetWithRetry(`/league/${leagueId}/matchups/${week}`, { timeoutMs: 12000, retries: 1 }),
+        apiGetWithRetry(sleeperLeaguePath(leagueId, `matchups/${week}`), { timeoutMs: 12000, retries: 1 }),
         apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => state.nflState),
       ]);
       return { week, rows: Array.isArray(rows) ? rows : [], nflState, previousModel: model, leagueId };
@@ -2460,13 +2480,13 @@ function handleLiveVisibility() {
 
 async function loadLeagueCoreData(leagueId) {
   const endpointPlan = [
-    { key: "league", label: "league profile", path: `/league/${leagueId}` },
-    { key: "users", label: "league managers", path: `/league/${leagueId}/users` },
-    { key: "rosters", label: "league rosters", path: `/league/${leagueId}/rosters` },
-    { key: "tradedPicks", label: "traded picks", path: `/league/${leagueId}/traded_picks`, optional: true },
-    { key: "drafts", label: "league drafts", path: `/league/${leagueId}/drafts`, optional: true },
-    { key: "winnersBracket", label: "playoff bracket", path: `/league/${leagueId}/winners_bracket`, optional: true },
-    { key: "losersBracket", label: "consolation bracket", path: `/league/${leagueId}/losers_bracket`, optional: true },
+    { key: "league", label: "league profile", path: sleeperLeaguePath(leagueId) },
+    { key: "users", label: "league managers", path: sleeperLeaguePath(leagueId, "users") },
+    { key: "rosters", label: "league rosters", path: sleeperLeaguePath(leagueId, "rosters") },
+    { key: "tradedPicks", label: "traded picks", path: sleeperLeaguePath(leagueId, "traded_picks"), optional: true },
+    { key: "drafts", label: "league drafts", path: sleeperLeaguePath(leagueId, "drafts"), optional: true },
+    { key: "winnersBracket", label: "playoff bracket", path: sleeperLeaguePath(leagueId, "winners_bracket"), optional: true },
+    { key: "losersBracket", label: "consolation bracket", path: sleeperLeaguePath(leagueId, "losers_bracket"), optional: true },
   ];
 
   const tasks = endpointPlan.map(async (endpoint) => {
@@ -2746,10 +2766,10 @@ function buildLeagueHistoryEntry(leagueId, coreData, isCurrent = false) {
 async function loadLeagueHistoryContext(currentLeagueId, currentCoreData) {
   const entries = [buildLeagueHistoryEntry(currentLeagueId, currentCoreData, true)];
   const seenLeagueIds = new Set([String(currentLeagueId || "")]);
-  let previousLeagueId = currentCoreData?.league?.previous_league_id;
+  let olderLeagueId = previousLeagueId(currentCoreData?.league?.previous_league_id);
 
-  for (let depth = 1; depth < MAX_HISTORY_SEASONS && previousLeagueId; depth += 1) {
-    const historyLeagueId = String(previousLeagueId);
+  for (let depth = 1; depth < MAX_HISTORY_SEASONS && olderLeagueId; depth += 1) {
+    const historyLeagueId = olderLeagueId;
     if (seenLeagueIds.has(historyLeagueId)) break;
     seenLeagueIds.add(historyLeagueId);
 
@@ -2757,7 +2777,7 @@ async function loadLeagueHistoryContext(currentLeagueId, currentCoreData) {
       setStatus(`Loading league archive season ${depth + 1}...`, { loading: true });
       const historicalCore = await loadLeagueCoreData(historyLeagueId);
       entries.push(buildLeagueHistoryEntry(historyLeagueId, historicalCore, false));
-      previousLeagueId = historicalCore?.league?.previous_league_id;
+      olderLeagueId = previousLeagueId(historicalCore?.league?.previous_league_id);
     } catch (err) {
       console.warn(`Could not load historical league ${historyLeagueId}`, err);
       break;
@@ -2768,14 +2788,14 @@ async function loadLeagueHistoryContext(currentLeagueId, currentCoreData) {
 }
 
 async function loadPreviousLeagueContext(league) {
-  const previousLeagueId = league?.previous_league_id;
-  if (!previousLeagueId) {
+  const olderLeagueId = previousLeagueId(league?.previous_league_id);
+  if (!olderLeagueId) {
     return { league: null, users: [], rosters: [] };
   }
 
   try {
     setStatus("Loading previous league context for pick labels...", { loading: true });
-    return await loadLeagueCoreData(previousLeagueId);
+    return await loadLeagueCoreData(olderLeagueId);
   } catch (err) {
     console.warn("Could not load previous league context", err);
     return { league: null, users: [], rosters: [] };
@@ -2943,7 +2963,7 @@ async function loadLeagueTransactions(leagueId, league) {
     const transactions = [];
     let loadedWeeks = 0;
     const settled = await mapInChunks(weeks, MATCHUP_FETCH_CHUNK, (week) =>
-      apiGetWithRetry(`/league/${loadLeagueId}/transactions/${week}`, { timeoutMs: 10000, retries: 1 })
+      apiGetWithRetry(sleeperLeaguePath(loadLeagueId, `transactions/${week}`), { timeoutMs: 10000, retries: 1 })
         .then((weekTransactions) => ({
           week,
           transactions: Array.isArray(weekTransactions) ? weekTransactions : [],
@@ -3006,7 +3026,7 @@ async function loadLeagueHistoryTransactions(historyEntries = []) {
       const weeks = buildTransactionWeeks(entry.league);
       let loadedWeeks = 0;
       const settled = await mapInChunks(weeks, MATCHUP_FETCH_CHUNK, (week) =>
-        apiGetWithRetry(`/league/${entry.leagueId}/transactions/${week}`, { timeoutMs: 10000, retries: 1 })
+        apiGetWithRetry(sleeperLeaguePath(entry.leagueId, `transactions/${week}`), { timeoutMs: 10000, retries: 1 })
           .then((weekTransactions) => ({
             week,
             transactions: Array.isArray(weekTransactions) ? weekTransactions : [],
@@ -3100,7 +3120,7 @@ async function loadLeagueHistoryMatchups(historyEntries = []) {
         const chunk = orderedWeeks.slice(i, i + chunkSize);
         const settled = await Promise.allSettled(
           chunk.map((week) =>
-            apiGetWithRetry(`/league/${entry.leagueId}/matchups/${week}`, { timeoutMs: 15000, retries: 1 })
+            apiGetWithRetry(sleeperLeaguePath(entry.leagueId, `matchups/${week}`), { timeoutMs: 15000, retries: 1 })
               .then((weekMatchups) => ({
                 week,
                 matchups: Array.isArray(weekMatchups) ? weekMatchups : [],
@@ -16173,6 +16193,18 @@ function applyValuationBundle(bundle, { rerender = true } = {}) {
   };
 }
 
+function showInvalidLeagueLink() {
+  const message = INVALID_LEAGUE_LINK_MESSAGE;
+  setFieldError(el.leagueId, el.leagueIdError, message);
+  setStatus(message, { error: true });
+  const landing = document.getElementById("landing-league-error");
+  const landingText = document.getElementById("landing-league-error-text");
+  const retry = document.getElementById("landing-league-retry");
+  if (landingText) landingText.textContent = message;
+  if (landing) landing.classList.remove("hidden");
+  if (retry) retry.classList.add("hidden");
+}
+
 function paintLeagueLoadError(message = "") {
   const text = String(message || "");
   const where = leagueLoadErrorVisibility({
@@ -16185,6 +16217,8 @@ function paintLeagueLoadError(message = "") {
   const deskText = document.getElementById("desk-load-alert-text");
   if (landing) landing.classList.toggle("hidden", !where.landing);
   if (landingText) landingText.textContent = where.landing ? text : "";
+  const retry = document.getElementById("landing-league-retry");
+  if (retry && where.landing) retry.classList.remove("hidden");
   if (desk) desk.classList.toggle("hidden", !where.desk);
   if (deskText) deskText.textContent = where.desk ? text : "";
 }
