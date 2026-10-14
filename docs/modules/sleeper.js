@@ -5,6 +5,19 @@ function defaultSleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function defaultYieldFrame() {
+  return new Promise((resolve) => {
+    const raf = globalThis.requestAnimationFrame;
+    if (typeof raf !== "function") {
+      setTimeout(resolve, 0);
+      return;
+    }
+    // One frame paints, then the second callback runs. Parsing in the first
+    // callback would block the paint the username search just queued.
+    raf(() => raf(() => resolve()));
+  });
+}
+
 function withTimeout(promise, timeoutMs, message) {
   return new Promise((resolve, reject) => {
     const id = setTimeout(() => reject(new Error(message)), timeoutMs);
@@ -29,6 +42,7 @@ export function createSleeperClient(options = {}) {
     minIntervalMs = 110,
     now = () => Date.now(),
     sleep = defaultSleep,
+    yieldFrame = defaultYieldFrame,
   } = options;
 
   let active = 0;
@@ -126,7 +140,12 @@ export function createSleeperClient(options = {}) {
       // the download abort timer cancel a body we already have.
       if (isBackgroundPath(path)) {
         if (abortTimeoutId) clearTimeout(abortTimeoutId);
-        await whenInteractiveIdle();
+        // Idle can flicker while a search sleeps between tries. Yield a frame
+        // so the picker can paint, then look again before the fat parse.
+        do {
+          await whenInteractiveIdle();
+          await yieldFrame();
+        } while (interactive > 0);
       }
       return await withTimeout(response.json(), timeoutMs + 1500, "Sleeper API response parse timed out");
     } catch (err) {
@@ -182,23 +201,31 @@ export function createSleeperClient(options = {}) {
   }
 
   async function apiGetWithRetry(path, { timeoutMs = 25000, retries = 1, cache = "no-store", signal = null } = {}) {
-    let lastError = null;
-    for (let attempt = 0; attempt <= retries; attempt += 1) {
-      try {
-        return await apiGet(path, { timeoutMs, cache, signal });
-      } catch (err) {
-        lastError = err;
-        if (attempt >= retries) break;
-        // A missing resource will not appear on a second try. Cancellation either.
-        if (err?.name === "AbortError" || err?.status === 404) break;
-        const retryAfter = Number(err?.retryAfterMs);
-        const delay = Number.isFinite(retryAfter) && retryAfter > 0
-          ? retryAfter
-          : 250 * (attempt + 1) * (err?.status === 429 ? 4 : 1);
-        await sleep(delay);
+    // apiGet drops its count in finally, before this sleep. Hold the whole
+    // retry, backoff included, so /players/nfl cannot parse in that gap.
+    const background = isBackgroundPath(path);
+    if (!background) bumpInteractive(1);
+    try {
+      let lastError = null;
+      for (let attempt = 0; attempt <= retries; attempt += 1) {
+        try {
+          return await apiGet(path, { timeoutMs, cache, signal });
+        } catch (err) {
+          lastError = err;
+          if (attempt >= retries) break;
+          // A missing resource will not appear on a second try. Cancellation either.
+          if (err?.name === "AbortError" || err?.status === 404) break;
+          const retryAfter = Number(err?.retryAfterMs);
+          const delay = Number.isFinite(retryAfter) && retryAfter > 0
+            ? retryAfter
+            : 250 * (attempt + 1) * (err?.status === 429 ? 4 : 1);
+          await sleep(delay);
+        }
       }
+      throw lastError;
+    } finally {
+      if (!background) bumpInteractive(-1);
     }
-    throw lastError;
   }
 
   return {

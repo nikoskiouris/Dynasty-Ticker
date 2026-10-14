@@ -44,7 +44,15 @@ import {
 } from "./modules/constants.js";
 import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
 import { createLeagueLoader, shouldBlankDeskForLeagueSwitch } from "./modules/league-load.js";
-import { createLeagueLoadRecovery, leagueLoadErrorVisibility } from "./modules/league-load-error.js";
+import {
+  SLEEPER_UNREACHABLE_MESSAGE,
+  createLeagueLoadRecovery,
+  failedLeagueSwitch,
+  leagueLoadErrorMessage,
+  leagueLoadErrorVisibility,
+  leagueNameForId,
+  leagueSwitchFailureCopy,
+} from "./modules/league-load-error.js";
 import {
   apiGet,
   apiGetWithRetry,
@@ -230,6 +238,7 @@ import {
   winPctFromRecord,
 } from "./modules/loyalty.js";
 import {
+  describeUserSearchFailure,
   renderLeaguePickerMarkup,
   renderLeagueSearchNote,
   renderMeSelectOptions,
@@ -294,6 +303,10 @@ import {
   applyDocumentMeta,
   buildDocumentTitle,
   buildPageDescription,
+  clearSampleBannerDismissal,
+  focusAfterSampleBannerDismiss,
+  sampleBannerDismissed,
+  sampleConnectEntryVisible,
   tickerDurationSeconds,
 } from "./modules/site.js";
 import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
@@ -316,6 +329,9 @@ import {
   renderLandingRatherPlaceholder,
   renderRatherMarkup,
   renderRatherNoClose,
+  createRatherBootGate,
+  ratherBootPaints,
+  shouldStartLandingRather,
 } from "./modules/rather.js";
 import {
   buildRankBoard,
@@ -512,6 +528,14 @@ const leagueLoadRecovery = createLeagueLoadRecovery({
   },
   onlineTarget: window,
 });
+let userSearchGeneration = 0;
+const userSearchRecovery = createLeagueLoadRecovery({
+  isCurrent: (token) => token === userSearchGeneration,
+  load: (username) => {
+    void searchUserLeagues(username);
+  },
+  onlineTarget: window,
+});
 const pageRenderQueue = createPageRenderQueue({
   render: () => renderActivePage(),
   isTyping: () => typingInActivePage(),
@@ -581,6 +605,7 @@ el.leagueStatusRetry?.addEventListener("click", retryUserLeagueSearch);
 el.landingSearchRetry?.addEventListener("click", retryUserLeagueSearch);
 document.getElementById("landing-league-retry")?.addEventListener("click", retryFailedLeagueLoad);
 document.getElementById("desk-load-retry")?.addEventListener("click", retryFailedLeagueLoad);
+document.getElementById("desk-load-dismiss")?.addEventListener("click", dismissFailedLeagueLoad);
 el.leaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingLeaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingJobs?.addEventListener("click", handleLandingJobClick);
@@ -663,6 +688,12 @@ document.addEventListener("click", (event) => {
   if (!home) return;
   event.preventDefault();
   goLeagueHome();
+});
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-sample-find]");
+  if (!button || el.workspace?.contains(button)) return;
+  event.preventDefault();
+  openSampleConnect();
 });
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
@@ -760,6 +791,8 @@ el.matchGenerateBtn?.addEventListener("click", () => {
 el.seasonsDashboard?.addEventListener("click", handleHistoryCompareClick);
 el.seasonsDashboard?.addEventListener("change", handleHistoryCompareChange);
 
+let sampleBannerOff = false;
+const ratherBootGate = createRatherBootGate();
 setDeskBoardShut(readDeskBoardShut());
 state.valueCalc = readStoredDraft(globalThis.sessionStorage, globalThis.localStorage) || state.valueCalc;
 renderSessionSnapshot();
@@ -966,6 +999,7 @@ function renderActivePage() {
     renderRankHost(el.ranksDashboard);
     if (state.leagueId) renderPassportDesk();
     if (!rankValuesReady() || !ratherPromptContext?.previousSeason) void ensureRankExtras();
+    void bootLandingRather({ playersTab: true });
   } else if (page === "trades") {
     renderTradesRoom(room);
   } else if (state.leagueId) {
@@ -1312,6 +1346,8 @@ function renderHistoryRoom() {
 }
 
 function bootFromUrl() {
+  sampleBannerOff = false;
+  clearSampleBannerDismissal();
   const parsed = parseShareParams(window.location.search);
   if (parsed.invalidLeague) showInvalidLeagueLink();
   if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
@@ -1627,14 +1663,6 @@ function sampleViewingLine(name) {
   return name ? `Viewing ${name} · sample` : "Viewing · sample";
 }
 
-function sampleBannerDismissed() {
-  try {
-    return sessionStorage.getItem("dynasty_ticker_sample_banner_off") === "1";
-  } catch {
-    return false;
-  }
-}
-
 function syncDeskRailOffset() {
   const rail = el.controlRail;
   if (!rail || isPhoneLayout()) return;
@@ -1677,7 +1705,10 @@ function renderSessionSnapshot() {
   if (el.sampleChrome) el.sampleChrome.hidden = !sampleOn;
   if (el.sampleChromeTitle) el.sampleChromeTitle.textContent = sampleOn ? (state.leagueName || "Sample league") : "";
   if (el.sampleChromeViewing) el.sampleChromeViewing.textContent = sampleOn ? sampleViewingLine(you) : "";
-  if (el.sampleBanner) el.sampleBanner.hidden = !sampleOn || sampleBannerDismissed();
+  if (el.sampleBanner) el.sampleBanner.hidden = !sampleOn || sampleBannerDismissed(sampleBannerOff);
+  document.querySelectorAll("[data-sample-find]").forEach((button) => {
+    button.hidden = !sampleConnectEntryVisible({ sampleOn, bannerDismissed: sampleBannerOff });
+  });
   if (el.chromeLeagueLabel) {
     el.chromeLeagueLabel.textContent = state.leagueName || "Not loaded";
   }
@@ -1948,7 +1979,6 @@ function handleLeaguePickClick(event) {
   const leagueId = parseLeagueId(button.dataset.leagueId);
   if (!leagueId) return;
   if (el.leagueId) el.leagueId.value = leagueId;
-  collapseLeaguePicker();
   void loadLeagueById(leagueId);
 }
 
@@ -2001,6 +2031,7 @@ function requestLoadLeague(event) {
 }
 
 function retryUserLeagueSearch() {
+  if (userSearchRecovery.retry()) return;
   const landingName = String(el.landingUsername?.value || "").trim();
   const railName = String(el.sleeperUsername?.value || "").trim();
   syncUsernameFields(landingName && !railName ? el.landingUsername : el.sleeperUsername);
@@ -2054,6 +2085,8 @@ async function searchUserLeagues(username) {
 }
 
 async function runUserLeagueSearch(username) {
+  const token = ++userSearchGeneration;
+  userSearchRecovery.clear();
   startFindLeaguesUi();
   missedLeagueSeasons = [];
   setStatus(`Looking up ${username} on Sleeper…`, { loading: true });
@@ -2088,12 +2121,10 @@ async function runUserLeagueSearch(username) {
     }
   } catch (err) {
     renderLeaguePicker([]);
-    const network = /timed out|Network|CORS/i.test(String(err?.message || ""));
-    const message = network
-      ? `Could not reach Sleeper for ${username}.`
-      : `No Sleeper user named ${username}.`;
-    setUsernameError(message);
-    setStatus(message, { error: true });
+    const failure = describeUserSearchFailure(err, username);
+    setUsernameError(failure.message);
+    setStatus(failure.message, { error: true, retry: failure.retry });
+    if (failure.retry) userSearchRecovery.fail({ leagueId: username, token });
   } finally {
     stopFindLeaguesUi();
   }
@@ -2287,6 +2318,8 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.leagueHistory = leagueHistory;
     state.normalizedRosters = normalizeRosters(league, rosters, users, state.players, previousContext, tradedPicks, state.currentDraftContext);
     state.leagueSwitching = false;
+    collapseLeaguePicker();
+    setLeagueSwitchStale(false);
 
     setFieldError(el.leagueId, el.leagueIdError, "");
     hydrateManagerSelector();
@@ -2365,15 +2398,28 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     if (!leagueLoader.isCurrent(token)) return;
     state.leagueSwitching = false;
     state.pendingPlace = null;
-    const message = `Could not load league data. ${err.message}`;
-    setFieldError(el.leagueId, el.leagueIdError, message);
-    setStatus(message, { error: true });
+    const season = String(state.nflState?.league_season || state.nflState?.season || "");
+    renderLeaguePicker(state.userLeagues, season);
+    const failedSwitch = failedLeagueSwitch({
+      currentLeagueId: state.leagueId,
+      nextLeagueId: leagueId,
+    });
+    const message = failedSwitch
+      ? leagueSwitchFailureCopy({
+          leagueId,
+          leagueName: leagueNameForId(state.userLeagues, leagueId),
+        })
+      : leagueLoadErrorMessage(err);
+    const unreachable = message === SLEEPER_UNREACHABLE_MESSAGE;
+    setFieldError(el.leagueId, el.leagueIdError, unreachable || failedSwitch ? "" : message);
+    setStatus(unreachable || failedSwitch ? "" : message, { error: true });
     leagueLoadRecovery.fail({ leagueId, token, sample: state.viewingSample });
     paintLeagueLoadError(message);
     if (state.league) {
       showAppPages();
       startLivePolling();
     }
+    setLeagueSwitchStale(failedSwitch);
   } finally {
     if (leagueLoader.isCurrent(token)) stopLeagueLoadingUi();
   }
@@ -6744,16 +6790,12 @@ function handleWorkspaceClick(event) {
         queueFindForBoot(String(el.sleeperUsername?.value || el.landingUsername?.value || ""));
         break;
       }
-      document.body.classList.add("sample-connect-open");
-      focusUsernameSearch();
+      openSampleConnect();
       break;
     case "dismiss-sample-banner":
-      try {
-        sessionStorage.setItem("dynasty_ticker_sample_banner_off", "1");
-      } catch {
-        // Banner still closes for this paint.
-      }
-      if (el.sampleBanner) el.sampleBanner.hidden = true;
+      sampleBannerOff = true;
+      renderSessionSnapshot();
+      focusAfterSampleBannerDismiss(document);
       break;
     case "close-public-ranks":
       closePublicRanks();
@@ -16228,11 +16270,29 @@ function retryFailedLeagueLoad(event) {
   leagueLoadRecovery.retry();
 }
 
+function dismissFailedLeagueLoad(event) {
+  event?.preventDefault?.();
+  leagueLoadRecovery.clear();
+  paintLeagueLoadError("");
+  setLeagueSwitchStale(false);
+}
+
+function setLeagueSwitchStale(on) {
+  const stale = Boolean(on);
+  document.body.classList.toggle("league-switch-stale", stale);
+  ["workspace-header", "ui-pages", "desk-nav", "mobile-chrome-title"].forEach((id) => {
+    const node = document.getElementById(id);
+    if (!node) return;
+    if (stale) node.setAttribute("aria-busy", "true");
+    else node.removeAttribute("aria-busy");
+  });
+}
+
 function setStatus(message, { ok = false, loading = false, error = false, retry = false } = {}) {
   if (el.leagueStatusText) el.leagueStatusText.textContent = message;
   if (el.leagueStatus) {
     const tone = error ? "error" : ok ? "ok" : loading ? "loading" : "muted";
-    el.leagueStatus.className = `status ${tone}`;
+    el.leagueStatus.className = `status ${tone}${message ? "" : " hidden"}`;
   }
   el.leagueStatusLoader?.classList.toggle("hidden", !loading);
   el.leagueStatusRetry?.classList.toggle("hidden", !retry);
@@ -16307,6 +16367,11 @@ function setGenerateError(message) {
   }
 }
 
+function openSampleConnect() {
+  document.body.classList.add("sample-connect-open");
+  focusUsernameSearch();
+}
+
 function focusUsernameSearch() {
   rebindUsernameInputs();
   if (isPhoneLayout() && state.leagueId) setMobileRailOpen(true);
@@ -16353,10 +16418,15 @@ function syncDocumentMeta() {
   });
 }
 
-async function bootLandingRather() {
+async function bootLandingRather({ playersTab = false } = {}) {
   if (!el.landingRather) return;
-  if (parseShareParams(window.location.search).leagueId) return;
-  el.landingRather.innerHTML = renderLandingRatherPlaceholder();
+  const parsed = parseShareParams(window.location.search);
+  if (!shouldStartLandingRather({
+    leagueId: parsed.leagueId,
+    sample: Boolean(parsed.sample || state.viewingSample),
+    playersTab,
+  })) return;
+  if (!ratherBootGate.claim()) return;
   try {
     await ensureValuesLoaded("");
     const cachedEntry = await loadPlayersCacheEntry(playersCacheAdapters()).catch(() => null);
@@ -16370,8 +16440,14 @@ async function bootLandingRather() {
     showNextRatherMatchup();
   } catch (err) {
     console.warn("Could not open rather matchup", err);
-    el.landingRather.innerHTML = renderRatherNoClose();
+    writeRatherSlot("", { failed: true });
   }
+}
+
+function writeRatherSlot(html, { failed = false } = {}) {
+  const frames = ratherBootPaints({ matchupHtml: failed ? "" : html, failed });
+  for (const frame of frames) el.landingRather.innerHTML = frame;
+  return frames.length;
 }
 
 async function loadRatherPromptContext() {
@@ -16497,7 +16573,7 @@ function showNextRatherMatchup({ status = "" } = {}) {
     shifts: state.crowdShifts,
   });
   if (!picked) {
-    el.landingRather.innerHTML = renderRatherNoClose();
+    writeRatherSlot("", { failed: true });
     ratherPromptPair = null;
     return;
   }
@@ -16512,7 +16588,7 @@ function showNextRatherMatchup({ status = "" } = {}) {
     right: decorateRatherPlayer(picked.right, nflPlayers, extras),
     key: picked.key,
   };
-  el.landingRather.innerHTML = renderRatherMarkup(ratherPromptPair, DEFAULT_RATHER_FORMAT, { status });
+  writeRatherSlot(renderRatherMarkup(ratherPromptPair, DEFAULT_RATHER_FORMAT, { status }));
   bindRatherPhotos(el.landingRather);
 }
 
