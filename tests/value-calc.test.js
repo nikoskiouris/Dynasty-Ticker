@@ -13,6 +13,7 @@ import {
   listValueCalcPlayers,
   removeValueCalcItem,
   sumValueCalcSide,
+  tradeRowName,
   valueCalcVerdict,
   withPlayerDirectoryNames,
 } from "../docs/modules/value-calc.js";
@@ -131,6 +132,25 @@ test("published model search finds future firsts and named players together", ()
   const bijan = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "bijan", limit: 5 });
   assert.equal(bijan[0].assetType, "player");
   assert.match(bijan[0].name, /Bijan/i);
+});
+
+test("cold trade search hides a raw player id until a name exists", () => {
+  const bare = listValueCalcAssets({ "player:4881": 9000 }, {}, { query: "4881" });
+  assert.deepEqual(bare, []);
+  const named = listValueCalcAssets(
+    { "player:4881": 9000 },
+    { "player:4881": "Lamar Jackson" },
+    { query: "lamar" }
+  );
+  assert.equal(named[0].name, "Lamar Jackson");
+  assert.equal(tradeRowName({ assetId: "player:4881", assetType: "player", name: "4881", raw: {} }, {}), "");
+  assert.equal(
+    tradeRowName(
+      { assetId: "player:4881", assetType: "player", name: "4881", raw: {} },
+      { "player:4881": "Lamar Jackson" }
+    ),
+    "Lamar Jackson"
+  );
 });
 
 test("player directory names fill a blank name map so search still works", () => {

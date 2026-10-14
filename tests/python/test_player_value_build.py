@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import random
 import unittest
 from pathlib import Path
 
@@ -190,6 +191,52 @@ class PlayerValueBuildTests(unittest.TestCase):
         self.assertEqual(seen["through"], build.CONFIG["validationTrainingThrough"])
         self.assertEqual(report["replacementThrough"], build.CONFIG["validationTrainingThrough"])
         self.assertIn("replacement frozen", report["scope"])
+
+    def test_half_ages_round_up_so_odd_halves_do_not_skip_a_year(self):
+        self.assertEqual(build.age_bucket(29.5), 30)
+        self.assertEqual(build.age_bucket(30.5), 31)
+        self.assertEqual(build.age_bucket(31.5), 32)
+        self.assertEqual(build.age_bucket(30.49), 30)
+
+    def test_age_20_keep_rate_is_borrowed_by_the_next_thin_age(self):
+        retention = {("RB", 20, "starter"): [0.80] * 12}
+        keep, _surv, _n, _total = build.transition("RB", 21, "starter", retention, {}, {})
+        self.assertAlmostEqual(keep, 0.80)
+
+    def test_two_seasons_with_no_top12_stay_on_the_rookie_rate(self):
+        rookie = build.role_security({"experience": 1, "resume": {"top5Finishes": 0, "top12Finishes": 0}})
+        second_year = build.role_security({"experience": 2, "resume": {"top5Finishes": 0, "top12Finishes": 0}})
+        veteran_blank = build.role_security({"experience": 3, "resume": {"top5Finishes": 0, "top12Finishes": 0}})
+        one_finish = build.role_security({"experience": 2, "resume": {"top5Finishes": 0, "top12Finishes": 1}})
+        self.assertEqual(second_year, rookie)
+        self.assertLess(second_year, 1.0)
+        self.assertLess(veteran_blank, second_year)
+        self.assertEqual(one_finish, 1.0)
+
+    def test_clamped_round1_any_cannot_sit_under_a_later_round(self):
+        samples = {"sf": {}, "oneQb": {}}
+        for fmt in samples:
+            for slot in range(1, 61):
+                samples[fmt][slot] = [90.0]
+            for slot in range(1, 5):
+                samples[fmt][slot] = [8.0]
+        priced = build.pick_values(samples, 2026)
+        for fmt in ("sf", "oneQb"):
+            build._assert_pick_order(priced[fmt])
+            self.assertGreaterEqual(priced[fmt]["pick:2027:r1:any"], priced[fmt]["pick:2027:r2:any"])
+            self.assertGreaterEqual(priced[fmt]["pick:2027:r1:early"], priced[fmt]["pick:2032:r1:early"])
+
+    def test_random_slot_samples_keep_pick_order(self):
+        rng = random.Random(20261014)
+        samples = {"sf": {}, "oneQb": {}}
+        for fmt in samples:
+            for slot in range(1, 61):
+                samples[fmt][slot] = [float(rng.randint(1, 900)) for _ in range(rng.randint(1, 6))]
+            samples[fmt][3] = [20.0, 800.0, 20.0]
+            samples[fmt][15] = [900.0]
+        priced = build.pick_values(samples, 2026)
+        for fmt in ("sf", "oneQb"):
+            build._assert_pick_order(priced[fmt])
 
 
 if __name__ == "__main__":

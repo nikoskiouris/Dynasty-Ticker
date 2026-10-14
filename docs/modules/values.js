@@ -42,10 +42,17 @@ const NO_NAMES = Object.freeze({});
 // Sleeper "Reception Bonus - TE" stacks on top of `rec`. Missing/zero is not TEP.
 const TE_REC_BONUS_KEYS = ["bonus_rec_te", "rec_te", "bonus_te_rec"];
 
+function normalizeRosterSlotToken(slot) {
+  return String(slot || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+}
+
 export function leagueHasSuperflex(league) {
   const slots = Array.isArray(league?.roster_positions) ? league.roster_positions : [];
-  const normalized = slots.map((slot) => String(slot || "").toUpperCase());
-  if (normalized.some((slot) => slot === "SUPER_FLEX" || slot === "OP")) return true;
+  const normalized = slots.map(normalizeRosterSlotToken);
+  if (normalized.some((slot) => slot === "SUPER_FLEX" || slot === "SUPERFLEX" || slot === "OP")) return true;
   return normalized.filter((slot) => slot === "QB").length >= 2;
 }
 
@@ -296,9 +303,10 @@ function adjustPickAcrossYears(value, sourceSeason, targetSeason) {
   const target = Number(targetSeason);
   if (!Number.isFinite(value) || !Number.isFinite(source) || !Number.isFinite(target)) return value;
   const yearDelta = target - source;
+  // A later catalog row is not marked up onto an earlier year. Forward years use 0.85^n.
   if (yearDelta <= 0) return Math.max(1, Math.round(value));
   const factor = PICK_YEAR_DISCOUNT ** yearDelta;
-  return Math.max(1, Math.round(value * Math.max(0.5, factor)));
+  return Math.max(1, Math.round(value * factor));
 }
 
 const pickCatalogs = new WeakMap();
@@ -339,7 +347,13 @@ export function findPickCatalogValue(meta, values, valueNameMap = NO_NAMES, cata
   if (!Number.isFinite(numericSeason)) return null;
   const nearest = list
     .filter((pick) => pick.round === meta.round && desiredBuckets.includes(pick.bucket))
-    .sort((a, b) => Math.abs(Number(a.season) - numericSeason) - Math.abs(Number(b.season) - numericSeason))[0];
+    .sort((a, b) => {
+      const distance = Math.abs(Number(a.season) - numericSeason) - Math.abs(Number(b.season) - numericSeason);
+      if (distance) return distance;
+      const bucketOrder = desiredBuckets.indexOf(a.bucket) - desiredBuckets.indexOf(b.bucket);
+      if (bucketOrder) return bucketOrder;
+      return Number(a.season) - Number(b.season);
+    })[0];
   return nearest ? adjustPickAcrossYears(nearest.value, nearest.season, meta.season) : null;
 }
 
@@ -402,11 +416,25 @@ export function findMarketValueByPlayerName(name, values, valueNameMap = NO_NAME
   return match;
 }
 
+const NON_OFFENSIVE_POSITIONS = new Set([
+  "K", "PK", "P", "DEF", "DST", "D/ST",
+  "DL", "DE", "DT", "NT", "LB", "ILB", "OLB", "MLB",
+  "DB", "CB", "S", "FS", "SS", "EDGE", "IDP",
+]);
+
+function assetSkipsOffensiveNameMatch(asset) {
+  const fantasy = Array.isArray(asset?.raw?.fantasy_positions) ? asset.raw.fantasy_positions : [];
+  const positions = fantasy.length > 0 ? fantasy : [asset?.raw?.position].filter(Boolean);
+  return positions.some((position) => NON_OFFENSIVE_POSITIONS.has(String(position || "").trim().toUpperCase()));
+}
+
 export function lookupMarketValue(asset, values, valueNameMap = NO_NAMES, catalog = null) {
   const exact = values?.[asset?.assetId];
   if (Number.isFinite(exact)) return { value: exact, estimated: false };
-  const named = findMarketValueByPlayerName(playerNameForAsset(asset), values, valueNameMap);
-  if (Number.isFinite(named)) return { value: named, estimated: false };
+  if (!assetSkipsOffensiveNameMatch(asset)) {
+    const named = findMarketValueByPlayerName(playerNameForAsset(asset), values, valueNameMap);
+    if (Number.isFinite(named)) return { value: named, estimated: false };
+  }
   if (asset?.assetType === "pick") {
     const resolvedPickValue = resolvePickAssetValue(asset, values, valueNameMap, catalog);
     if (Number.isFinite(resolvedPickValue)) return { value: resolvedPickValue, estimated: false };

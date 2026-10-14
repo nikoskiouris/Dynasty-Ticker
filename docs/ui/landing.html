@@ -24,7 +24,7 @@
             enterkeyhint="search"
             aria-describedby="landing-username-error landing-job-hint"
           />
-          <button id="landing-find-btn" type="submit" data-idle-label="Find my leagues">Find my leagues</button>
+          <button id="landing-find-btn" type="submit" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
         </div>
         <p id="landing-username-error" class="field-error" hidden role="alert"></p>
         <div id="landing-search-status" class="status error landing-search-status hidden" aria-live="polite">
@@ -38,6 +38,10 @@
         <span class="status-loader" aria-hidden="true"></span>
         <span id="landing-loading-text">Opening league from Sleeper…</span>
       </p>
+      <div id="landing-league-error" class="status error landing-league-error hidden" role="alert">
+        <span id="landing-league-error-text"></span>
+        <button type="button" id="landing-league-retry" class="ghost-btn status-retry">Retry</button>
+      </div>
     </div>
   </div>
 </section>

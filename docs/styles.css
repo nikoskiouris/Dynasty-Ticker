@@ -679,6 +679,17 @@ button.ghost-btn:hover {
   margin-top: 0.55rem;
 }
 
+.landing-league-error,
+.desk-load-alert {
+  width: min(40rem, 100%);
+  margin-top: 0.85rem;
+  text-align: left;
+}
+
+.desk-load-alert {
+  margin: 0 0 0.85rem;
+}
+
 .league-picker-note {
   margin: 0;
   font-size: 0.78rem;
