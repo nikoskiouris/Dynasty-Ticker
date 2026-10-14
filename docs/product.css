@@ -1,7 +1,7 @@
 /* ==========================================================================
    Product frame
-   The whole desk, drawn like the OnePrompt boards: quiet top nav, a centered
-   serif hero, pill actions, and soft cards instead of a ruled sports section.
+   Night desk after a league loads. The first screen, before a league, is the
+   Sunday page at the bottom of this file.
    ========================================================================== */
 
 :root {
@@ -954,4 +954,692 @@ details.workspace-panel > summary,
   width: auto;
   margin-top: 1.4rem;
   border-radius: 999px;
+}
+
+/* --------------------------------------------------------------------------
+   First screen only: Sunday page.
+   Cream paper, hairline index, one green rule. Night desk returns
+   once a league or a tool board is open.
+   -------------------------------------------------------------------------- */
+
+body:not(.league-loaded):not(.board-tools-live) {
+  color-scheme: light;
+  --bg: #efe6d4;
+  --text: #1c1915;
+  --muted: #5e564c;
+  --muted-strong: #3d362e;
+  --panel: transparent;
+  --panel-soft: transparent;
+  --panel-solid: #efe6d4;
+  --panel-tint: rgba(11, 122, 67, 0.08);
+  --line: rgba(28, 25, 21, 0.22);
+  --line-strong: #1c1915;
+  --hover-fill: rgba(28, 25, 21, 0.05);
+  --blue: #0b7a43;
+  --link: #1c1915;
+  --rail: #efe6d4;
+  --rail-text: #1c1915;
+  --rail-muted: #5e564c;
+  --rail-line: #1c1915;
+  --on-accent: #efe6d4;
+  --product-shadow: none;
+  --focus: 0 0 0 2px #1c1915;
+  background: #efe6d4;
+  color: #1c1915;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .brand-wordmark--night {
+  display: none;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .brand-wordmark--day {
+  display: block;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .paper-issue {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .paper-hed {
+  max-width: 16ch;
+  margin: 0 0 0.7rem;
+  font-family: "Newsreader", "Iowan Old Style", Georgia, serif;
+  font-weight: 500;
+  font-size: clamp(2.7rem, 6vw, 5.2rem);
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .paper-deck {
+  max-width: 34rem;
+  margin: 0 0 1.3rem;
+  color: var(--muted-strong);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.2rem;
+  line-height: 1.35;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .paper-index {
+  margin: 0;
+  padding: 0.15rem 0 0 1.4rem;
+  border-left: 1px solid var(--line-strong);
+}
+
+body:not(.league-loaded):not(.board-tools-live) .paper-index-label {
+  margin: 0 0 0.8rem;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .paper-index ol {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .paper-index li {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: baseline;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--line-strong);
+}
+
+body:not(.league-loaded):not(.board-tools-live) .paper-index li span {
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--blue);
+}
+
+body:not(.league-loaded):not(.board-tools-live) .paper-index strong {
+  display: block;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.45rem;
+  font-weight: 500;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .paper-index small {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .landing-search label {
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-style: normal;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+body:not(.league-loaded):not(.board-tools-live) .landing-search-row input,
+body:not(.league-loaded):not(.board-tools-live) .landing-league-picker .league-pick {
+  border: 0;
+  border-bottom: 1px solid var(--line-strong);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+}
+
+body:not(.league-loaded):not(.board-tools-live) #landing-find-btn,
+body:not(.league-loaded):not(.board-tools-live) #sticky-find-btn {
+  border: 0;
+  border-radius: 0;
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: none;
+}
+
+body:not(.league-loaded):not(.board-tools-live) #landing-find-btn:hover,
+body:not(.league-loaded):not(.board-tools-live) #sticky-find-btn:hover {
+  transform: none;
+  filter: none;
+  background: var(--blue);
+  color: #efe6d4;
+}
+
+body:not(.league-loaded):not(.board-tools-live) #open-public-ranks {
+  width: auto;
+  min-height: 0;
+  margin-top: 0.9rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+body:not(.league-loaded):not(.board-tools-live) #open-public-ranks:hover {
+  transform: none;
+  filter: none;
+  background: transparent;
+  color: var(--blue);
+}
+
+body:not(.league-loaded):not(.board-tools-live) .page-tab,
+body:not(.league-loaded):not(.board-tools-live) .page-tab.active,
+body:not(.league-loaded):not(.board-tools-live) .page-tab.active:hover {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}
+
+body:not(.league-loaded):not(.board-tools-live) .page-tab.active,
+body:not(.league-loaded):not(.board-tools-live) .page-tab.active:hover {
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--blue);
+}
+
+body:not(.league-loaded):not(.board-tools-live) .landing-job-hint {
+  margin: 0.65rem 0 0;
+  text-align: left;
+}
+
+body:not(.league-loaded):not(.board-tools-live) #players-page {
+  margin-top: 2.6rem;
+  border-top: 4px solid var(--text);
+}
+
+body:not(.league-loaded):not(.board-tools-live) #ranks-section,
+body:not(.league-loaded):not(.board-tools-live) .rather-panel,
+body:not(.league-loaded):not(.board-tools-live) #players-page .workspace-panel {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body:not(.league-loaded):not(.board-tools-live) #ranks-section .panel-heading {
+  flex-direction: row;
+  align-items: end;
+  justify-content: space-between;
+  text-align: left;
+}
+
+body:not(.league-loaded):not(.board-tools-live) #ranks-section .panel-heading h2,
+body:not(.league-loaded):not(.board-tools-live) .rather-panel h2 {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  text-align: left;
+}
+
+body:not(.league-loaded):not(.board-tools-live) #ranks-section .section-copy,
+body:not(.league-loaded):not(.board-tools-live) .rather-format {
+  text-align: left;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .ranks-toolbar,
+body:not(.league-loaded):not(.board-tools-live) .ranks-filters {
+  justify-items: start;
+  justify-content: flex-start;
+  width: 100%;
+  margin-left: 0;
+  text-align: left;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .ranks-search {
+  width: min(28rem, 100%);
+  border: 0;
+  border-bottom: 1px solid var(--line-strong);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding-left: 0;
+}
+
+body:not(.league-loaded):not(.board-tools-live) button.ranks-chip {
+  width: auto;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body:not(.league-loaded):not(.board-tools-live) button.ranks-chip:hover,
+body:not(.league-loaded):not(.board-tools-live) button.ranks-chip.active,
+body:not(.league-loaded):not(.board-tools-live) button.ranks-chip.active:hover {
+  transform: none;
+  filter: none;
+  border-color: transparent;
+  border-bottom-color: var(--blue);
+  background: transparent;
+  color: var(--text);
+}
+
+body:not(.league-loaded):not(.board-tools-live) button.rather-player {
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body:not(.league-loaded):not(.board-tools-live) button.rather-player:hover {
+  transform: none;
+  filter: none;
+  border-color: var(--line-strong);
+  background: transparent;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .mobile-chrome {
+  background: var(--bg);
+  border-bottom: 4px solid var(--text);
+}
+
+body:not(.league-loaded):not(.board-tools-live) .mobile-icon-btn {
+  border-radius: 0;
+  border-color: var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+}
+
+@media (min-width: 701px) {
+  body:not(.league-loaded):not(.board-tools-live) .control-rail {
+    background: var(--bg);
+    border-bottom: 4px solid var(--text);
+    box-shadow: none;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .workspace {
+    width: min(1080px, calc(100% - 4rem));
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .landing-hero {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(16rem, 0.72fr);
+    gap: 2.2rem;
+    place-items: start;
+    align-content: start;
+    align-items: stretch;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .landing-copy {
+    justify-items: start;
+    width: auto;
+    max-width: none;
+    text-align: left;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .landing-search {
+    width: min(36rem, 100%);
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .landing-search-row input {
+    padding-left: 0;
+    text-align: left;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .page-tab.active,
+  body:not(.league-loaded):not(.board-tools-live) .page-tab.active:hover {
+    background: transparent;
+    color: var(--text);
+    box-shadow: inset 0 -2px 0 var(--blue);
+  }
+}
+
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  body:not(.league-loaded):not(.board-tools-live) .landing-hero {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .landing-copy {
+    text-align: left;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .paper-hed {
+    font-size: 2.45rem;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .paper-index {
+    margin-top: 1.4rem;
+    padding: 0.2rem 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--line-strong);
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) .landing-search-row input {
+    padding-left: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  body:not(.league-loaded):not(.board-tools-live) #landing-find-btn,
+  body:not(.league-loaded):not(.board-tools-live) #sticky-find-btn {
+    border-radius: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Price tape. This block wins. Black field, coral prices, square faces.
+   -------------------------------------------------------------------------- */
+
+body {
+  background: #07080c;
+  color: #f3f0e8;
+  box-shadow: inset 8px 0 0 #ff3b1f;
+}
+
+h1,
+h2,
+h3,
+.tape-hed,
+.rather-panel h2,
+.panel-heading h2,
+.tab-copy strong {
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.tape-kicker {
+  margin: 0 0 0.35rem;
+  color: #ff3b1f;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.tape-hed {
+  max-width: 9ch;
+  margin: 0 0 0.45rem;
+  font-size: clamp(3.6rem, 10vw, 7.4rem);
+  line-height: 0.8;
+}
+
+.tape-deck {
+  max-width: 28rem;
+  margin: 0 0 1rem;
+  color: #d9d2c6;
+  font-family: "Archivo", "Segoe UI", sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+body:not(.league-loaded):not(.board-tools-live) {
+  color-scheme: dark;
+  --bg: #07080c;
+  --text: #f3f0e8;
+  --muted: #9a9388;
+  --muted-strong: #d9d2c6;
+  --panel: #101218;
+  --panel-soft: #101218;
+  --panel-solid: #07080c;
+  --line: rgba(243, 240, 232, 0.16);
+  --line-strong: rgba(243, 240, 232, 0.42);
+  --blue: #ff3b1f;
+  --link: #f3f0e8;
+  --rail: #07080c;
+  --rail-text: #f3f0e8;
+  --on-accent: #07080c;
+  --product-shadow: none;
+  background: #07080c;
+  color: #f3f0e8;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .brand-wordmark--night {
+  display: block;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .brand-wordmark--day {
+  display: none;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .landing-hero,
+body:not(.league-loaded):not(.board-tools-live) .landing-copy {
+  display: block;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  text-align: left;
+  justify-items: start;
+  place-items: start;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .landing-search,
+body:not(.league-loaded):not(.board-tools-live) .landing-search-row input {
+  width: min(36rem, 100%);
+  border: 0;
+  border-bottom: 2px solid #f3f0e8;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #f3f0e8;
+  padding-left: 0;
+  text-align: left;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .landing-search label,
+body:not(.league-loaded):not(.board-tools-live) .landing-job-hint {
+  margin-left: 0;
+  text-align: left;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body:not(.league-loaded):not(.board-tools-live) #landing-find-btn,
+body:not(.league-loaded):not(.board-tools-live) #sticky-find-btn,
+#landing-find-btn {
+  border: 0;
+  border-radius: 0;
+  background: #ff3b1f;
+  color: #07080c;
+  box-shadow: none;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body:not(.league-loaded):not(.board-tools-live) #open-public-ranks {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #ff3b1f;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.page-tab,
+.page-tab.active,
+.page-tab.active:hover,
+.room-tab,
+.room-tab.active,
+button,
+input,
+select,
+textarea,
+.ghost-btn,
+button.ghost-btn,
+.desk-nav,
+.workspace-panel,
+.rather-panel,
+button.rather-player,
+button.ranks-chip,
+.mobile-icon-btn,
+.player-face,
+.ranks-card,
+.game-card,
+.team-card,
+.mode-card {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.page-tab.active,
+.page-tab.active:hover {
+  background: transparent !important;
+  color: #ff3b1f !important;
+  box-shadow: inset 0 -3px 0 #ff3b1f !important;
+}
+
+.desk-nav,
+.workspace-panel,
+.rather-panel,
+button.rather-player,
+.game-card,
+.team-card,
+.mode-card {
+  background: transparent;
+}
+
+#ranks-section .panel-heading,
+#ranks-section .section-copy,
+.rather-panel,
+.rather-panel h2,
+.ranks-toolbar,
+.ranks-filters {
+  text-align: left;
+  justify-content: flex-start;
+  justify-items: start;
+  align-items: end;
+}
+
+#ranks-section .panel-heading h2,
+.rather-panel h2 {
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+button.ranks-chip,
+button.ranks-chip.active,
+button.ranks-chip.active:hover {
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  background: transparent !important;
+  color: #9a9388 !important;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+button.ranks-chip.active,
+button.ranks-chip.active:hover {
+  border-bottom-color: #ff3b1f !important;
+  color: #f3f0e8 !important;
+}
+
+.ranks-shelf {
+  gap: 0;
+  margin: 0 0 0.4rem;
+  border-top: 1px solid rgba(243, 240, 232, 0.28);
+  border-bottom: 1px solid rgba(243, 240, 232, 0.28);
+}
+
+button.ranks-shelf-item {
+  width: 7.2rem;
+  padding: 0.7rem 0.45rem 0.55rem;
+  border-right: 1px solid rgba(243, 240, 232, 0.2);
+}
+
+button.ranks-shelf-item .player-face {
+  width: 4.4rem;
+  height: 5.1rem;
+}
+
+button.ranks-shelf-item strong,
+.ranks-value {
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: #ff3b1f;
+  letter-spacing: -0.02em;
+}
+
+.ranks-list {
+  border-top: 0;
+}
+
+button.ranks-row {
+  padding: 0.8rem 0;
+}
+
+.control-rail,
+.mobile-chrome {
+  background: #07080c;
+  box-shadow: none;
+}
+
+#ui-pages {
+  display: flex;
+  flex-direction: column;
+}
+
+body:not(.league-loaded):not(.board-tools-live) #players-page {
+  order: 1;
+  margin-top: 0;
+  border-top: 0;
+}
+
+body:not(.league-loaded):not(.board-tools-live) #landing {
+  order: 2;
+}
+
+.tape-hed {
+  max-width: none;
+  font-size: clamp(2.1rem, 4vw, 3.1rem);
+  line-height: 0.9;
+}
+
+#ranks-section .panel-heading h2 {
+  font-size: 1.15rem;
+  letter-spacing: 0.14em;
+}
+
+body:not(.league-loaded):not(.board-tools-live) .landing-job-hint {
+  font-family: "Archivo", "Segoe UI", sans-serif;
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #9a9388;
 }
