@@ -281,13 +281,15 @@ export function valueCalcVerdict(leftTotal, rightTotal) {
 }
 
 // Same verdict, read from the manager's seat: "Get" is what you receive.
-export function draftVerdictLabel(verdict, { them = "them" } = {}) {
+export function draftVerdictLabel(verdict, { them = "them", getFavor = "your" } = {}) {
   const label = String(verdict?.label || "");
   const other = String(them || "them");
+  const favor = String(getFavor || "your");
+  const lopsidedGet = favor === "your" ? "Lopsided in your favor" : `Lopsided in ${favor} favor`;
   return {
     "Favors Get": "Favors you",
     "Favors Give": `Favors ${other}`,
-    "Lopsided for Get": "Lopsided in your favor",
+    "Lopsided for Get": lopsidedGet,
     "Lopsided for Give": `Lopsided for ${other}`,
     "Fair, leans Get": "Fair, leans your way",
     "Fair, leans Give": `Fair, leans ${other}`,

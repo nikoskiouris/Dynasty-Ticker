@@ -34,6 +34,7 @@ function onBootIntent(event) {
   handleBootIntent(event, document);
 }
 
+// boot-intent.js (classic, in <head>) queues the same presses before this module loads.
 document.addEventListener("submit", onBootIntent, true);
 document.addEventListener("keydown", onBootIntent, true);
 document.addEventListener("click", onBootIntent, true);

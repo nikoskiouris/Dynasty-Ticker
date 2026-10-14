@@ -165,8 +165,9 @@ import {
   bootIsPending,
   queueFindForBoot,
   releaseBootGate,
+  scheduleBootFind,
 } from "./modules/boot-gate.js";
-import { sampleRosterLabels } from "./modules/sample-voice.js";
+import { ownerPossessive, sampleRosterLabels } from "./modules/sample-voice.js";
 import {
   buildTradeMatchProfile,
   countStartableAtPosition,
@@ -512,6 +513,7 @@ let tickerController = null;
 let tickerFingerprint = "";
 let liveVisibilityBound = false;
 let userSearchPromise = null;
+let missedLeagueSeasons = [];
 let lastSimSignature = "";
 let leagueTradeSideCache = { key: "", sides: [] };
 let franchiseIndexCache = { key: "", index: null };
@@ -660,7 +662,7 @@ el.landingUsernameForm?.addEventListener("submit", requestFindLeagues);
 el.stickyFindBtn?.addEventListener("click", (event) => {
   if (bootIsPending()) {
     event.preventDefault();
-    queueFindForBoot();
+    queueFindForBoot(String(el.sleeperUsername?.value || el.landingUsername?.value || ""));
     return;
   }
   focusUsernameSearch();
@@ -772,7 +774,7 @@ syncDocumentMeta();
 watchLandingSearchVisibility();
 syncSiteDock();
 const runQueuedFind = releaseBootGate(document);
-if (runQueuedFind) requestFindLeagues();
+if (runQueuedFind) scheduleBootFind(() => requestFindLeagues());
 
 // ---------------------------------------------------------------------------
 // Desk navigation: three pages, each with a row of rooms
@@ -1511,7 +1513,7 @@ function getGenerateHelpText() {
   if (mode === "shop") {
     return state.shopAsset
       ? `Ready to shop ${state.shopAsset.name}.`
-      : "Choose one of your players or picks to shop.";
+      : (sampleVoice()?.shopChoose || "Choose one of your players or picks to shop.");
   }
   if (mode === "acquire") {
     return state.targetAsset
@@ -1839,8 +1841,11 @@ function syncSampleTradeCopy() {
   const voice = sampleVoice();
   const option = document.querySelector("#trade-mode-select option[value='shop']");
   const strong = document.querySelector("[data-trade-mode='shop'] strong");
+  const mine = document.querySelector("[data-trade-mode='shop'] span");
   if (option) option.textContent = voice?.shopOption || "Shop a player or pick I own";
   if (strong) strong.textContent = voice?.oneOfMine || "One of mine";
+  if (mine) mine.textContent = voice?.mineLabel || "Mine";
+  syncLeagueFormatCopy();
 }
 
 function syncTradeModeUi() {
@@ -1856,7 +1861,7 @@ function syncTradeModeUi() {
       label: "Who do you want?",
     },
     shop: {
-      help: "Pick one player or pick from your roster. The app will shop it around the league.",
+      help: sampleVoice()?.shopPick || "Pick one player or pick from your roster. The app will shop it around the league.",
       label: "Who are you willing to move?",
     },
     surprise: {
@@ -1962,7 +1967,7 @@ function requestFindLeagues(event) {
     const fromLanding = event?.currentTarget === el.landingUsernameForm || event?.target?.id === "landing-username";
     const source = fromLanding ? el.landingUsername : (event?.target?.id === "sleeper-username" ? el.sleeperUsername : null);
     if (source && String(source.value || "").length) syncUsernameFields(source);
-    queueFindForBoot();
+    queueFindForBoot(String(source?.value || el.sleeperUsername?.value || el.landingUsername?.value || ""));
     return;
   }
   syncUsernameFields(event?.currentTarget === el.landingUsernameForm ? el.landingUsername : el.sleeperUsername);
@@ -2001,8 +2006,6 @@ async function searchUserLeagues(username) {
     userSearchPromise = null;
   }
 }
-
-let missedLeagueSeasons = [];
 
 async function runUserLeagueSearch(username) {
   startFindLeaguesUi();
@@ -4186,7 +4189,7 @@ function syncLeagueFormatCopy() {
   if (gridCopy) {
     gridCopy.textContent = leagueTypeId(state.league) === "redraft"
       ? "Ranked by current power. Sit/start is this week. Tap a card for the scout."
-      : "Your team is outlined. Tap a team for the rank, the tank or contend call, and the lineup.";
+      : (sampleVoice()?.teamOutlined || "Your team is outlined. Tap a team for the rank, the tank or contend call, and the lineup.");
   }
   const powerCopy = document.querySelector("#power-section-copy");
   if (powerCopy) {
@@ -5127,7 +5130,7 @@ function renderTradeLogDesk() {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">Graded deals</span>
-          <h2>${other ? `${escapeHtml(roster.manager.displayName)}'s trade file` : "Your trade file"}</h2>
+          <h2>${other ? `${escapeHtml(ownerPossessive(roster.manager.displayName))} trade file` : escapeHtml(sampleVoice()?.tradeFile || "Your trade file")}</h2>
         </div>
         <p class="section-copy">Tap a deal for the recap, record since that week, and today's market. ${analyzed.length} in the archive.${syncNote ? ` ${syncNote}` : ""}</p>
       </div>
@@ -5879,7 +5882,7 @@ function renderTradeDraft() {
     <div class="panel-heading calc-heading">
       <div>
         <span class="eyebrow">Trade</span>
-        <h2>You give / You get</h2>
+        <h2>${escapeHtml(sampleVoice()?.giveGetHeading || "You give / You get")}</h2>
       </div>
       <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
     </div>
@@ -6060,7 +6063,8 @@ function renderDraftNotes(side, view) {
 
 function draftSearchPlaceholder(side, view) {
   if (!view.basis.connected) return "Player or pick, like 2026 early 1st";
-  return side === "left" ? "Your players and picks" : "Their players and picks";
+  if (side === "left") return sampleVoice()?.draftSearchLeft || "Your players and picks";
+  return "Their players and picks";
 }
 
 function renderDraftPane(side, view) {
@@ -6264,20 +6268,23 @@ function renderDraftVerdict(view) {
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   const them = view.partner?.manager?.displayName || "them";
+  const voice = sampleVoice();
   const { verdict, adjustment } = model;
   const meters = draftMeterValues(model);
-  const label = draftVerdictLabel(verdict, { them });
+  const label = draftVerdictLabel(verdict, { them, getFavor: voice?.favor || "your" });
   const maxSide = Math.max(meters.give, meters.get, 1);
   const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(Math.abs(verdict.gap), view.basis.values) : null;
-  const evenSide = verdict.gap > 0 ? "You" : (view.partner ? them : "They");
-  const credited = adjustment?.side === "left" ? "You give" : "You get";
+  const evenSide = verdict.gap > 0 ? (voice ? voice.youGive : "You") : (view.partner ? them : "They");
+  const giveLabel = voice?.giveLabel || "You give";
+  const getLabel = voice?.getLabel || "You get";
+  const credited = adjustment?.side === "left" ? giveLabel : getLabel;
   return `
     <section class="calc-summary ${bothSides ? verdict.tone : ""}">
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
         <h3>${escapeHtml(label)}</h3>
         ${/* TODO(follow-up): spell a bare percent ("96% apart") as a plain outcome. Out of scope for this push. */ ""}
-        <p>You give ${formatNumber(model.give)}. You get ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : adjustment ? "" : ` ${verdict.pct}% apart.`}</p>
+        <p>${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : adjustment ? "" : ` ${verdict.pct}% apart.`}</p>
         ${adjustment ? `<p class="draft-package"><strong>Package credit:</strong> the best player is worth more than the same total split into smaller pieces. That adds ${formatNumber(adjustment.amount)} to ${escapeHtml(credited)}. Listed prices stay put. After that credit the sides are ${verdict.pct}% apart.</p>` : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method">
@@ -6287,12 +6294,12 @@ function renderDraftVerdict(view) {
       </div>
       <div class="calc-bars">
         <div class="calc-bar team-a">
-          <span>You give</span>
+          <span>${escapeHtml(giveLabel)}</span>
           <div class="meter-track"><span style="width:${Math.round(meters.give / maxSide * 100)}%"></span></div>
           <strong>${formatNumber(meters.give)}</strong>
         </div>
         <div class="calc-bar team-b">
-          <span>You get</span>
+          <span>${escapeHtml(getLabel)}</span>
           <div class="meter-track"><span style="width:${Math.round(meters.get / maxSide * 100)}%"></span></div>
           <strong>${formatNumber(meters.get)}</strong>
         </div>
@@ -6328,7 +6335,7 @@ function buildDraftOfferText(view) {
   const list = (items) => items.map((item) => `${item.name} (${formatNumber(view.priceOf(item))})`).join(", ") || "nothing";
   const partnerName = view.partner?.manager?.displayName || "them";
   const { verdict, adjustment } = view.model;
-  const label = draftVerdictLabel(verdict, { them: partnerName });
+  const label = draftVerdictLabel(verdict, { them: partnerName, getFavor: sampleVoice()?.favor || "your" });
   const credit = adjustment ? ` Package adjustment +${formatNumber(adjustment.amount)} to ${adjustment.side === "left" ? "my side" : "your side"}.` : "";
   return `Trade idea: ${view.me?.manager?.displayName || "I"} sends ${list(view.draft.left)} to ${partnerName} for ${list(view.draft.right)}. Market ${formatNumber(view.give)} vs ${formatNumber(view.get)}.${credit} ${verdict.pct}% apart (${label}). Dynasty Ticker prices, ${rankFormatLabel(view.basis.format)}.`;
 }
@@ -6657,7 +6664,7 @@ function handleWorkspaceClick(event) {
       break;
     case "find-my-leagues":
       if (bootIsPending()) {
-        queueFindForBoot();
+        queueFindForBoot(String(el.sleeperUsername?.value || el.landingUsername?.value || ""));
         break;
       }
       document.body.classList.add("sample-connect-open");
@@ -11106,7 +11113,7 @@ function buildOverallTradeImpactSummary(mySide, theirSide) {
   const theirImproved = theirSide.after.rank < theirSide.before.rank || theirSide.after.starterValue > theirSide.before.starterValue;
 
   if (myImproved && !theirImproved) {
-    return `This trade strengthens your starting lineup while making theirs weaker or thinner.`;
+    return sampleVoice()?.strengthens || `This trade strengthens your starting lineup while making theirs weaker or thinner.`;
   }
   if (!myImproved && theirImproved) {
     return `This trade helps their starting lineup more than yours, even if the value stays close.`;

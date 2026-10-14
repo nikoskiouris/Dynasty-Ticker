@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
 import {
   applyBootFieldValue,
   coalesceUsernameFields,
@@ -12,6 +13,7 @@ import {
   queueFindForBoot,
   releaseBootGate,
   resetBootGate,
+  scheduleBootFind,
 } from "../docs/modules/boot-gate.js";
 
 const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/app.js"), "utf8");
@@ -92,9 +94,11 @@ test("find buttons stay loading and username boxes stay editable until boot ends
   paintFindLeagueButtons(root, "loading");
   keepUsernameFieldsEditable(root);
   for (const node of [find, landing, sticky, banner]) {
-    assert.equal(node.disabled, true);
+    assert.equal(node.disabled, false);
+    assert.equal(node.getAttribute("disabled"), null);
     assert.equal(node.getAttribute("aria-disabled"), "true");
     assert.equal(node.getAttribute("aria-busy"), "true");
+    assert.equal(node.style.pointerEvents, "");
     assert.equal(node.textContent, "Loading…");
   }
   assert.equal(name.disabled, false);
@@ -111,7 +115,7 @@ test("find buttons stay loading and username boxes stay editable until boot ends
   assert.equal(queueFindForBoot(), true);
   landingName.value = "";
   const run = releaseBootGate(root);
-  assert.equal(run, true);
+  assert.deepEqual(run, { username: "typed-during-load" });
   for (const node of [find, landing, sticky, banner]) {
     assert.equal(node.disabled, false);
     assert.equal(node.getAttribute("aria-disabled"), "false");
@@ -150,8 +154,108 @@ test("a find click or form submit during boot is queued once", () => {
   assert.equal(submit, true);
   assert.equal(click, true);
   assert.equal(prevented, 2);
-  assert.equal(releaseBootGate(root), true);
-  assert.equal(releaseBootGate(root), false);
+  assert.deepEqual(releaseBootGate(root), { username: "" });
+  assert.equal(releaseBootGate(root), null);
+});
+
+test("a press during boot keeps the typed name even if the field is cleared", () => {
+  resetBootGate();
+  const name = input("landing-username", "earlyname");
+  const rail = input("sleeper-username", "");
+  const root = rootOf([name, rail, button("landing-find-btn")]);
+  const queued = handleBootIntent({
+    type: "keydown",
+    key: "Enter",
+    target: name,
+    preventDefault() {},
+  }, root);
+  assert.equal(queued, true);
+  name.value = "";
+  const run = releaseBootGate(root);
+  assert.deepEqual(run, { username: "earlyname" });
+  assert.equal(name.value, "earlyname");
+  assert.equal(rail.value, "earlyname");
+});
+
+test("a search queued during boot runs after init without a TDZ throw", async () => {
+  resetBootGate();
+  const name = input("sleeper-username", "queued");
+  const root = rootOf([name, button("find-leagues-btn", { dataset: { idleLabel: "Find my leagues" } })]);
+  assert.equal(handleBootIntent({
+    type: "submit",
+    target: {
+      tagName: "FORM",
+      querySelectorAll() { return [root.querySelector("#find-leagues-btn")]; },
+      querySelector(selector) {
+        return selector === "#sleeper-username" ? name : null;
+      },
+    },
+    preventDefault() {},
+  }, root), true);
+  const queued = releaseBootGate(root);
+  assert.deepEqual(queued, { username: "queued" });
+  let threw = null;
+  let ran = false;
+  scheduleBootFind(() => {
+    try {
+      ran = missedLeagueSeasons.length >= 0;
+    } catch (err) {
+      threw = err;
+    }
+  });
+  let missedLeagueSeasons = [];
+  assert.equal(ran, false);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(threw, null);
+  assert.equal(ran, true);
+  const init = app.slice(0, app.indexOf("function visibleRooms"));
+  const releaseAt = init.lastIndexOf("releaseBootGate(document)");
+  const tail = init.slice(releaseAt, releaseAt + 220);
+  assert.match(tail, /scheduleBootFind\(\(\) => requestFindLeagues\(\)\)/);
+  assert.ok(app.indexOf("let missedLeagueSeasons") < releaseAt);
+  assert.equal(app.indexOf("if (runQueuedFind) requestFindLeagues()"), -1);
+});
+
+test("boot-intent queues Enter and a click before app.js loads", () => {
+  const inputNode = { id: "sleeper-username", value: "early", tagName: "INPUT" };
+  const buttonNode = {
+    id: "find-leagues-btn",
+    tagName: "BUTTON",
+    getAttribute(attr) {
+      return attr === "data-idle-label" ? "Find my leagues" : null;
+    },
+    closest() { return this; },
+  };
+  const listeners = [];
+  const documentStub = {
+    addEventListener(type, fn) { listeners.push({ type, fn }); },
+    querySelector(selector) {
+      return selector === "#sleeper-username" ? inputNode : null;
+    },
+  };
+  const sandbox = { document: documentStub };
+  vm.createContext(sandbox);
+  vm.runInContext(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/boot-intent.js"), "utf8"), sandbox);
+  let prevented = 0;
+  listeners.find((row) => row.type === "keydown").fn({
+    key: "Enter",
+    target: inputNode,
+    preventDefault() { prevented += 1; },
+  });
+  assert.equal(sandbox.__dynastyBootFind.queued, true);
+  assert.equal(sandbox.__dynastyBootFind.username, "early");
+  inputNode.value = "";
+  listeners.find((row) => row.type === "click").fn({
+    target: buttonNode,
+    preventDefault() { prevented += 1; },
+    stopPropagation() {},
+  });
+  assert.equal(prevented, 2);
+  assert.equal(sandbox.__dynastyBootFind.username, "early");
+  const index = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/index.html"), "utf8");
+  const intentAt = index.indexOf('src="./boot-intent.js"');
+  const bootAt = index.indexOf('src="./boot.js"');
+  assert.ok(intentAt > 0 && intentAt < bootAt);
 });
 
 test("app boot does not clear the username and does not fetch values before the gate opens", () => {

@@ -288,6 +288,8 @@ test("the verdict reads from the manager's seat", () => {
   assert.equal(draftVerdictLabel(valueCalcVerdict(11100, 9000), { them: "Chris" }), "Favors Chris");
   assert.equal(draftVerdictLabel(valueCalcVerdict(10000, 10200)), "Dead even");
   assert.equal(draftVerdictLabel(valueCalcVerdict(20000, 9000)), "Lopsided for them");
+  assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 20000)), "Lopsided in your favor");
+  assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 20000), { getFavor: "chrisalberts'" }), "Lopsided in chrisalberts' favor");
 });
 
 test("league load keeps the draft and there is one calculator", () => {

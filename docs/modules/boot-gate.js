@@ -1,22 +1,39 @@
 const FIND_IDLE = "Find my leagues";
 const USERNAME_IDS = ["sleeper-username", "landing-username"];
 
-let bootPending = true;
-let bootQueued = false;
-
-export function bootIsPending() {
-  return bootPending;
+// Shared with docs/boot-intent.js, which runs before this module downloads.
+function bootBag() {
+  const host = globalThis;
+  if (!host.__dynastyBootFind) {
+    host.__dynastyBootFind = { pending: true, queued: false, username: "" };
+  }
+  return host.__dynastyBootFind;
 }
 
-export function queueFindForBoot() {
-  if (!bootPending) return false;
-  bootQueued = true;
+export function bootIsPending() {
+  return bootBag().pending;
+}
+
+export function queueFindForBoot(username) {
+  const bag = bootBag();
+  if (!bag.pending) return false;
+  bag.queued = true;
+  const name = String(username ?? "").trim();
+  if (name) bag.username = name;
   return true;
 }
 
 export function resetBootGate() {
-  bootPending = true;
-  bootQueued = false;
+  const bag = bootBag();
+  bag.pending = true;
+  bag.queued = false;
+  bag.username = "";
+}
+
+// Runs after the current module finishes evaluating, so later `let` bindings exist.
+export function scheduleBootFind(run) {
+  if (typeof queueMicrotask === "function") queueMicrotask(run);
+  else setTimeout(run, 0);
 }
 
 export function isFindLeagueButton(button) {
@@ -49,17 +66,18 @@ export function paintFindLeagueButtons(root, mode) {
     const idle = buttonIdleLabel(button);
     if (button.dataset) button.dataset.idleLabel = idle;
     else button.setAttribute?.("data-idle-label", idle);
-    button.disabled = loading;
+    // aria-disabled keeps the button clickable. The disabled attribute swallows the press.
+    button.disabled = false;
+    button.removeAttribute?.("disabled");
+    if (button.style) button.style.pointerEvents = "";
     button.setAttribute?.("aria-disabled", loading ? "true" : "false");
     if (loading) {
       button.setAttribute?.("aria-busy", "true");
       button.setAttribute?.("data-boot-loading", "1");
-      if (button.style) button.style.pointerEvents = "none";
       button.textContent = "Loading…";
     } else {
       button.removeAttribute?.("aria-busy");
       button.removeAttribute?.("data-boot-loading");
-      if (button.style) button.style.pointerEvents = "";
       button.textContent = idle;
     }
   });
@@ -95,6 +113,21 @@ export function coalesceUsernameFields(root) {
   else if (railValue.trim() && !landingValue.trim() && landing) landing.value = railValue;
 }
 
+function usernameNear(event, root) {
+  const target = event?.target;
+  if (target && USERNAME_IDS.includes(target.id)) return String(target.value || "");
+  const form = target?.tagName === "FORM" ? target : target?.closest?.("form");
+  const scopes = [form, root].filter(Boolean);
+  for (const scope of scopes) {
+    for (const id of USERNAME_IDS) {
+      const input = scope.querySelector?.(`#${id}`);
+      const value = String(input?.value || "").trim();
+      if (value) return value;
+    }
+  }
+  return "";
+}
+
 function clickHitsFindButton(event, root) {
   const path = typeof event?.composedPath === "function" ? event.composedPath() : [];
   for (const node of path) {
@@ -117,38 +150,52 @@ function clickHitsFindButton(event, root) {
 }
 
 export function handleBootIntent(event, root = globalThis.document) {
-  if (!bootPending || !event) return false;
+  if (!bootBag().pending || !event) return false;
   if (event.type === "submit") {
     if (!collectFindLeagueButtons(event.target).length) return false;
     event.preventDefault?.();
-    bootQueued = true;
+    queueFindForBoot(usernameNear(event, root));
     return true;
   }
   if (event.type === "keydown") {
     if (event.key !== "Enter") return false;
     if (!USERNAME_IDS.includes(event.target?.id)) return false;
     event.preventDefault?.();
-    bootQueued = true;
+    queueFindForBoot(usernameNear(event, root));
     return true;
   }
   if (event.type === "click") {
     if (!clickHitsFindButton(event, root)) return false;
     event.preventDefault?.();
     event.stopPropagation?.();
-    bootQueued = true;
+    queueFindForBoot(usernameNear(event, root));
     return true;
   }
   return false;
 }
 
+function writeQueuedUsername(root, username) {
+  const name = String(username || "").trim();
+  if (!name) return;
+  USERNAME_IDS.forEach((id) => {
+    const input = root?.querySelector?.(`#${id}`);
+    if (!input || String(input.value || "").trim()) return;
+    input.value = name;
+  });
+}
+
 export function releaseBootGate(root) {
-  const run = bootQueued;
-  bootPending = false;
-  bootQueued = false;
+  const bag = bootBag();
+  const queued = bag.queued;
+  const username = bag.username;
+  bag.pending = false;
+  bag.queued = false;
+  bag.username = "";
   if (root) {
+    if (queued) writeQueuedUsername(root, username);
     coalesceUsernameFields(root);
     paintFindLeagueButtons(root, "ready");
     keepUsernameFieldsEditable(root);
   }
-  return run;
+  return queued ? { username } : null;
 }
