@@ -296,6 +296,10 @@ import {
   applyDocumentMeta,
   buildDocumentTitle,
   buildPageDescription,
+  clearSampleBannerDismissal,
+  focusAfterSampleBannerDismiss,
+  sampleBannerDismissed,
+  sampleConnectEntryVisible,
   tickerDurationSeconds,
 } from "./modules/site.js";
 import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
@@ -318,6 +322,9 @@ import {
   renderLandingRatherPlaceholder,
   renderRatherMarkup,
   renderRatherNoClose,
+  createRatherBootGate,
+  ratherBootPaints,
+  shouldStartLandingRather,
 } from "./modules/rather.js";
 import {
   buildRankBoard,
@@ -675,6 +682,12 @@ document.addEventListener("click", (event) => {
   event.preventDefault();
   goLeagueHome();
 });
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-sample-find]");
+  if (!button || el.workspace?.contains(button)) return;
+  event.preventDefault();
+  openSampleConnect();
+});
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
   const home = event.target.closest("[data-action='league-home']");
@@ -771,6 +784,8 @@ el.matchGenerateBtn?.addEventListener("click", () => {
 el.seasonsDashboard?.addEventListener("click", handleHistoryCompareClick);
 el.seasonsDashboard?.addEventListener("change", handleHistoryCompareChange);
 
+let sampleBannerOff = false;
+const ratherBootGate = createRatherBootGate();
 setDeskBoardShut(readDeskBoardShut());
 state.valueCalc = readStoredDraft(globalThis.sessionStorage, globalThis.localStorage) || state.valueCalc;
 renderSessionSnapshot();
@@ -977,6 +992,7 @@ function renderActivePage() {
     renderRankHost(el.ranksDashboard);
     if (state.leagueId) renderPassportDesk();
     if (!rankValuesReady() || !ratherPromptContext?.previousSeason) void ensureRankExtras();
+    void bootLandingRather({ playersTab: true });
   } else if (page === "trades") {
     renderTradesRoom(room);
   } else if (state.leagueId) {
@@ -1323,6 +1339,8 @@ function renderHistoryRoom() {
 }
 
 function bootFromUrl() {
+  sampleBannerOff = false;
+  clearSampleBannerDismissal();
   const parsed = parseShareParams(window.location.search);
   if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
   const hashToken = String(window.location.hash || "").replace(/^#/, "");
@@ -1637,14 +1655,6 @@ function sampleViewingLine(name) {
   return name ? `Viewing ${name} · sample` : "Viewing · sample";
 }
 
-function sampleBannerDismissed() {
-  try {
-    return sessionStorage.getItem("dynasty_ticker_sample_banner_off") === "1";
-  } catch {
-    return false;
-  }
-}
-
 function syncDeskRailOffset() {
   const rail = el.controlRail;
   if (!rail || isPhoneLayout()) return;
@@ -1687,7 +1697,10 @@ function renderSessionSnapshot() {
   if (el.sampleChrome) el.sampleChrome.hidden = !sampleOn;
   if (el.sampleChromeTitle) el.sampleChromeTitle.textContent = sampleOn ? (state.leagueName || "Sample league") : "";
   if (el.sampleChromeViewing) el.sampleChromeViewing.textContent = sampleOn ? sampleViewingLine(you) : "";
-  if (el.sampleBanner) el.sampleBanner.hidden = !sampleOn || sampleBannerDismissed();
+  if (el.sampleBanner) el.sampleBanner.hidden = !sampleOn || sampleBannerDismissed(sampleBannerOff);
+  document.querySelectorAll("[data-sample-find]").forEach((button) => {
+    button.hidden = !sampleConnectEntryVisible({ sampleOn, bannerDismissed: sampleBannerOff });
+  });
   if (el.chromeLeagueLabel) {
     el.chromeLeagueLabel.textContent = state.leagueName || "Not loaded";
   }
@@ -6757,16 +6770,12 @@ function handleWorkspaceClick(event) {
         queueFindForBoot(String(el.sleeperUsername?.value || el.landingUsername?.value || ""));
         break;
       }
-      document.body.classList.add("sample-connect-open");
-      focusUsernameSearch();
+      openSampleConnect();
       break;
     case "dismiss-sample-banner":
-      try {
-        sessionStorage.setItem("dynasty_ticker_sample_banner_off", "1");
-      } catch {
-        // Banner still closes for this paint.
-      }
-      if (el.sampleBanner) el.sampleBanner.hidden = true;
+      sampleBannerOff = true;
+      renderSessionSnapshot();
+      focusAfterSampleBannerDismiss(document);
       break;
     case "close-public-ranks":
       closePublicRanks();
@@ -16324,6 +16333,11 @@ function setGenerateError(message) {
   }
 }
 
+function openSampleConnect() {
+  document.body.classList.add("sample-connect-open");
+  focusUsernameSearch();
+}
+
 function focusUsernameSearch() {
   rebindUsernameInputs();
   if (isPhoneLayout() && state.leagueId) setMobileRailOpen(true);
@@ -16370,10 +16384,15 @@ function syncDocumentMeta() {
   });
 }
 
-async function bootLandingRather() {
+async function bootLandingRather({ playersTab = false } = {}) {
   if (!el.landingRather) return;
-  if (parseShareParams(window.location.search).leagueId) return;
-  el.landingRather.innerHTML = renderLandingRatherPlaceholder();
+  const parsed = parseShareParams(window.location.search);
+  if (!shouldStartLandingRather({
+    leagueId: parsed.leagueId,
+    sample: Boolean(parsed.sample || state.viewingSample),
+    playersTab,
+  })) return;
+  if (!ratherBootGate.claim()) return;
   try {
     await ensureValuesLoaded("");
     const cachedEntry = await loadPlayersCacheEntry(playersCacheAdapters()).catch(() => null);
@@ -16387,8 +16406,14 @@ async function bootLandingRather() {
     showNextRatherMatchup();
   } catch (err) {
     console.warn("Could not open rather matchup", err);
-    el.landingRather.innerHTML = renderRatherNoClose();
+    writeRatherSlot("", { failed: true });
   }
+}
+
+function writeRatherSlot(html, { failed = false } = {}) {
+  const frames = ratherBootPaints({ matchupHtml: failed ? "" : html, failed });
+  for (const frame of frames) el.landingRather.innerHTML = frame;
+  return frames.length;
 }
 
 async function loadRatherPromptContext() {
@@ -16514,7 +16539,7 @@ function showNextRatherMatchup({ status = "" } = {}) {
     shifts: state.crowdShifts,
   });
   if (!picked) {
-    el.landingRather.innerHTML = renderRatherNoClose();
+    writeRatherSlot("", { failed: true });
     ratherPromptPair = null;
     return;
   }
@@ -16529,7 +16554,7 @@ function showNextRatherMatchup({ status = "" } = {}) {
     right: decorateRatherPlayer(picked.right, nflPlayers, extras),
     key: picked.key,
   };
-  el.landingRather.innerHTML = renderRatherMarkup(ratherPromptPair, DEFAULT_RATHER_FORMAT, { status });
+  writeRatherSlot(renderRatherMarkup(ratherPromptPair, DEFAULT_RATHER_FORMAT, { status }));
   bindRatherPhotos(el.landingRather);
 }
 

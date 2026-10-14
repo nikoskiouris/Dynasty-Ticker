@@ -8070,6 +8070,7 @@ button.rather-skip {
 .sample-league-chip[hidden],
 .sample-chrome[hidden],
 .sample-banner[hidden],
+.sample-find-btn[hidden],
 .mobile-chrome-viewing[hidden] {
   display: none;
 }
@@ -8077,9 +8078,23 @@ button.rather-skip {
 .mobile-chrome-title-row,
 .sample-chrome-title-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem;
   min-width: 0;
+}
+
+.sample-find-btn {
+  width: auto;
+  margin: 0;
+  padding: 0.28rem 0.75rem;
+  min-height: 2rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+#sample-find-btn {
+  margin-bottom: 0.75rem;
 }
 
 .mobile-chrome-title-row strong,

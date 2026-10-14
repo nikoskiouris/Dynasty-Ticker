@@ -78,7 +78,7 @@ export function computeSeasonProgress({
   return 0.15;
 }
 
-export function windowCallInputFromDesk({ profile, standing, simRow, model, horizon } = {}) {
+export function windowCallInputFromDesk({ profile, standing, simRow, model, horizon, viewingSample = false } = {}) {
   const rosterId = String(profile?.rosterId ?? standing?.rosterId ?? "");
   const remaining = Array.isArray(model?.remainingGames) ? model.remainingGames : [];
   const remainingTeamGames = remaining.filter((entry) =>
@@ -122,6 +122,7 @@ export function windowCallInputFromDesk({ profile, standing, simRow, model, hori
     eliminated: Boolean(simRow?.eliminated),
     recordLabel: standing?.recordLabel || "",
     horizon: windowCallHorizonFrom(horizon),
+    viewingSample: Boolean(viewingSample),
   };
 }
 
