@@ -706,6 +706,19 @@ button.ghost-btn:hover {
   margin: 0 0 0.85rem;
 }
 
+body.league-switch-stale .workspace-header,
+body.league-switch-stale .mobile-chrome-title-row,
+body.league-switch-stale .desk-nav,
+body.league-switch-stale #ticker,
+body.league-switch-stale #ui-pages,
+body.league-switch-stale .sample-banner {
+  opacity: 0.45;
+}
+
+body.league-switch-stale #desk-load-alert {
+  opacity: 1;
+}
+
 .league-picker-note {
   margin: 0;
   font-size: 0.78rem;

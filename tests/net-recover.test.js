@@ -10,8 +10,11 @@ import {
 import {
   SLEEPER_UNREACHABLE_MESSAGE,
   createLeagueLoadRecovery,
+  failedLeagueSwitch,
   leagueLoadErrorMessage,
   leagueLoadErrorVisibility,
+  leagueNameForId,
+  leagueSwitchFailureCopy,
   shouldRecoverLeagueLoad,
 } from "../docs/modules/league-load-error.js";
 
@@ -172,8 +175,8 @@ test("the desk shows that network sentence once and find-my-leagues reuses leagu
   const failed = load.slice(load.indexOf("} catch (err)"));
   assert.match(failed, /leagueLoadErrorMessage\(err\)/);
   assert.match(failed, /const unreachable = message === SLEEPER_UNREACHABLE_MESSAGE/);
-  assert.match(failed, /setFieldError\(el\.leagueId, el\.leagueIdError, unreachable \? "" : message\)/);
-  assert.match(failed, /setStatus\(unreachable \? "" : message, \{ error: true \}\)/);
+  assert.match(failed, /setFieldError\(el\.leagueId, el\.leagueIdError, unreachable \|\| failedSwitch \? "" : message\)/);
+  assert.match(failed, /setStatus\(unreachable \|\| failedSwitch \? "" : message, \{ error: true \}\)/);
   assert.match(failed, /paintLeagueLoadError\(message\)/);
   assert.match(app, /className = `status \$\{tone\}\$\{message \? "" : " hidden"\}`/);
   assert.match(css, /\.landing-league-error > span,\s*\.desk-load-alert > span \{[^}]*overflow-wrap:\s*anywhere/);
@@ -185,6 +188,37 @@ test("the desk shows that network sentence once and find-my-leagues reuses leagu
   assert.match(search, /retry: failure\.retry/);
   assert.doesNotMatch(search, /Could not reach Sleeper for/);
   assert.match(readDocs("ui/landing.html"), /id="landing-search-retry"[^>]*>Retry</);
+});
+
+test("a failed league switch names the target and is not a first load", () => {
+  assert.equal(failedLeagueSwitch({ currentLeagueId: "", nextLeagueId: "2" }), false);
+  assert.equal(failedLeagueSwitch({ currentLeagueId: "1", nextLeagueId: "1" }), false);
+  assert.equal(failedLeagueSwitch({ currentLeagueId: "1", nextLeagueId: "2" }), true);
+  assert.equal(leagueNameForId([{ league_id: "2", name: "  Beta Desk  " }], "2"), "Beta Desk");
+  assert.equal(leagueNameForId([{ league_id: "9", name: "Other" }], "2"), "");
+  assert.equal(leagueSwitchFailureCopy({ leagueId: "2", leagueName: "Beta Desk" }), "Couldn't switch to Beta Desk");
+  assert.equal(leagueSwitchFailureCopy({ leagueId: "222" }), "Couldn't switch to 222");
+  assert.equal(leagueSwitchFailureCopy({}), "Couldn't switch to that league");
+});
+
+test("a failed switch dims the open desk until success or dismiss", () => {
+  const app = readDocs("app.js");
+  const css = readDocs("styles.css");
+  const index = readDocs("index.html");
+  const load = app.match(/async function runLeagueLoad\(leagueId, token[^)]*\) \{[\s\S]*?\n\}/)?.[0] || "";
+  const opened = load.slice(0, load.indexOf("} catch (err)"));
+  const failed = load.slice(load.indexOf("} catch (err)"));
+  assert.match(failed, /failedLeagueSwitch\(\{/);
+  assert.match(failed, /leagueSwitchFailureCopy\(\{/);
+  assert.match(failed, /setLeagueSwitchStale\(failedSwitch\)/);
+  assert.match(opened, /setLeagueSwitchStale\(false\)/);
+  assert.match(app, /function dismissFailedLeagueLoad\(event\)/);
+  assert.match(app, /leagueLoadRecovery\.clear\(\)/);
+  assert.match(app, /desk-load-dismiss/);
+  assert.match(index, /id="desk-load-retry"[^>]*>Retry</);
+  assert.match(index, /id="desk-load-dismiss"[^>]*>Dismiss</);
+  assert.match(css, /body\.league-switch-stale \.workspace-header[\s\S]*?opacity:\s*0\.45/);
+  assert.match(css, /body\.league-switch-stale #desk-load-alert \{[^}]*opacity:\s*1/);
 });
 
 test("league load errors sit on the landing or the desk, not both", () => {

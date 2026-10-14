@@ -47,8 +47,11 @@ import { createLeagueLoader, shouldBlankDeskForLeagueSwitch } from "./modules/le
 import {
   SLEEPER_UNREACHABLE_MESSAGE,
   createLeagueLoadRecovery,
+  failedLeagueSwitch,
   leagueLoadErrorMessage,
   leagueLoadErrorVisibility,
+  leagueNameForId,
+  leagueSwitchFailureCopy,
 } from "./modules/league-load-error.js";
 import {
   apiGet,
@@ -577,6 +580,7 @@ el.leagueStatusRetry?.addEventListener("click", retryUserLeagueSearch);
 el.landingSearchRetry?.addEventListener("click", retryUserLeagueSearch);
 document.getElementById("landing-league-retry")?.addEventListener("click", retryFailedLeagueLoad);
 document.getElementById("desk-load-retry")?.addEventListener("click", retryFailedLeagueLoad);
+document.getElementById("desk-load-dismiss")?.addEventListener("click", dismissFailedLeagueLoad);
 el.leaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingLeaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingJobs?.addEventListener("click", handleLandingJobClick);
@@ -2214,6 +2218,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.normalizedRosters = normalizeRosters(league, rosters, users, state.players, previousContext, tradedPicks, state.currentDraftContext);
     state.leagueSwitching = false;
     collapseLeaguePicker();
+    setLeagueSwitchStale(false);
 
     setFieldError(el.leagueId, el.leagueIdError, "");
     hydrateManagerSelector();
@@ -2290,16 +2295,26 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.pendingPlace = null;
     const season = String(state.nflState?.league_season || state.nflState?.season || "");
     renderLeaguePicker(state.userLeagues, season);
-    const message = leagueLoadErrorMessage(err);
+    const failedSwitch = failedLeagueSwitch({
+      currentLeagueId: state.leagueId,
+      nextLeagueId: leagueId,
+    });
+    const message = failedSwitch
+      ? leagueSwitchFailureCopy({
+          leagueId,
+          leagueName: leagueNameForId(state.userLeagues, leagueId),
+        })
+      : leagueLoadErrorMessage(err);
     const unreachable = message === SLEEPER_UNREACHABLE_MESSAGE;
-    setFieldError(el.leagueId, el.leagueIdError, unreachable ? "" : message);
-    setStatus(unreachable ? "" : message, { error: true });
+    setFieldError(el.leagueId, el.leagueIdError, unreachable || failedSwitch ? "" : message);
+    setStatus(unreachable || failedSwitch ? "" : message, { error: true });
     leagueLoadRecovery.fail({ leagueId, token, sample: state.viewingSample });
     paintLeagueLoadError(message);
     if (state.league) {
       showAppPages();
       startLivePolling();
     }
+    setLeagueSwitchStale(failedSwitch);
   } finally {
     if (leagueLoader.isCurrent(token)) stopLeagueLoadingUi();
   }
@@ -16067,6 +16082,24 @@ function paintLeagueLoadError(message = "") {
 function retryFailedLeagueLoad(event) {
   event?.preventDefault?.();
   leagueLoadRecovery.retry();
+}
+
+function dismissFailedLeagueLoad(event) {
+  event?.preventDefault?.();
+  leagueLoadRecovery.clear();
+  paintLeagueLoadError("");
+  setLeagueSwitchStale(false);
+}
+
+function setLeagueSwitchStale(on) {
+  const stale = Boolean(on);
+  document.body.classList.toggle("league-switch-stale", stale);
+  ["workspace-header", "ui-pages", "desk-nav", "mobile-chrome-title"].forEach((id) => {
+    const node = document.getElementById(id);
+    if (!node) return;
+    if (stale) node.setAttribute("aria-busy", "true");
+    else node.removeAttribute("aria-busy");
+  });
 }
 
 function setStatus(message, { ok = false, loading = false, error = false, retry = false } = {}) {

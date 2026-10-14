@@ -9,6 +9,23 @@ export function leagueLoadErrorMessage(err) {
   return `Could not load league data. ${raw}`;
 }
 
+export function failedLeagueSwitch({ currentLeagueId = "", nextLeagueId = "" } = {}) {
+  const current = String(currentLeagueId || "");
+  const next = String(nextLeagueId || "");
+  return Boolean(current) && Boolean(next) && current !== next;
+}
+
+export function leagueNameForId(leagues, leagueId) {
+  const id = String(leagueId || "");
+  const row = (Array.isArray(leagues) ? leagues : []).find((league) => String(league?.league_id || "") === id);
+  return String(row?.name || "").trim();
+}
+
+export function leagueSwitchFailureCopy({ leagueId = "", leagueName = "" } = {}) {
+  const label = String(leagueName || "").trim() || String(leagueId || "").trim() || "that league";
+  return `Couldn't switch to ${label}`;
+}
+
 // Where a failed league load should speak. The rail is hidden on the landing,
 // and the desk hides the rail status unless a retry control is already showing.
 
