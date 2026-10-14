@@ -46,6 +46,9 @@ test("live deploy script uses Netlify CLI, not a build hook", () => {
   assert.match(script, /netlify-cli@27 deploy/);
   assert.match(script, /--prod/);
   assert.match(script, /--no-build/);
+  assert.match(script, /npm ci/);
+  assert.doesNotMatch(script, /--auth=/);
+  assert.doesNotMatch(script, /--site=/);
   assert.match(script, /--functions=netlify\/functions/);
   assert.match(script, /refresh_market_data\.sh/);
   assert.match(script, /netlify_stop_git_builds\.sh/);
@@ -71,17 +74,28 @@ test("GitHub Actions publish only from a GitHub Release", () => {
   assert.match(release, /group: deploy-live/);
   assert.match(release, /Refuse untagged manual deploys/);
   assert.match(release, /Do not deploy develop or main/);
+  assert.match(release, /assert_prod_release\.sh/);
+  assert.doesNotMatch(release, /github\.ref/);
   assert.doesNotMatch(release, /NETLIFY_BUILD_HOOK/);
 
   const refresh = read(".github/workflows/deploy-site.yml");
   assert.match(refresh, /releases\/latest/);
   assert.match(refresh, /bash scripts\/deploy_live_site\.sh/);
   assert.match(refresh, /group: deploy-live/);
+  assert.match(refresh, /assert_prod_release\.sh/);
   assert.match(refresh, /workflow_dispatch:/);
   assert.doesNotMatch(refresh, /schedule:/);
   assert.doesNotMatch(refresh, /cron:/);
   assert.doesNotMatch(refresh, /NETLIFY_BUILD_HOOK/);
   assert.doesNotMatch(refresh, /curl /);
+
+  const valueRefresh = read(".github/workflows/refresh-player-values.yml");
+  assert.match(valueRefresh, /player-values\/build\.py/);
+  assert.match(valueRefresh, /HEAD:develop/);
+  assert.match(valueRefresh, /git fetch --no-tags origin develop/);
+  assert.doesNotMatch(valueRefresh, /abbrev-ref/);
+  assert.doesNotMatch(valueRefresh, /deploy_live_site/);
+  assert.doesNotMatch(valueRefresh, /--prod/);
 
   const mockRefresh = read(".github/workflows/refresh-rookie-mock.yml");
   assert.match(mockRefresh, /schedule:/);
@@ -104,6 +118,7 @@ test("push to prod cuts a GitHub Release", () => {
   const script = read("scripts/cut_github_release.sh");
   assert.match(script, /gh release create/);
   assert.match(script, /CUT_RELEASE_DRY_RUN/);
+  assert.match(script, /targetCommitish/);
   assert.doesNotMatch(script, /netlify deploy/);
 
   const missing = bash("scripts/cut_github_release.sh", {
@@ -123,6 +138,30 @@ test("push to prod cuts a GitHub Release", () => {
   assert.match(dry.stdout, /Would create release prod-/);
 });
 
+test("live publish accepts only a prod release tag", () => {
+  accessSync(join(root, "scripts/assert_prod_release.sh"), constants.X_OK);
+  function check(tag) {
+    return spawnSync("bash", [join(root, "scripts/assert_prod_release.sh"), tag], {
+      encoding: "utf8",
+      env: { ...process.env, RELEASE_CHECK_DRY_RUN: "1" },
+    });
+  }
+  for (const tag of [
+    "prod-20260926-live-62996b8",
+    "prod-20260926-215221-62996b8",
+    "prod-20261014-183000-d968e4b",
+  ]) {
+    const ok = check(tag);
+    assert.equal(ok.status, 0, `${tag} ${ok.stderr}`);
+    assert.match(ok.stdout, /Release tag ok/);
+  }
+  for (const tag of ["", "develop", "main", "prod", "refs/heads/prod", "prod-not-a-release"]) {
+    const bad = check(tag);
+    assert.equal(bad.status, 1, tag);
+    assert.match(bad.stderr, /Refusing to publish/);
+  }
+});
+
 test("Netlify git builds are stopped at the site so merges never start a job", () => {
   accessSync(join(root, "scripts/netlify_stop_git_builds.sh"), constants.X_OK);
   const script = read("scripts/netlify_stop_git_builds.sh");
@@ -133,6 +172,7 @@ test("Netlify git builds are stopped at the site so merges never start a job", (
   const workflow = read(".github/workflows/stop-netlify-git-builds.yml");
   assert.match(workflow, /netlify_stop_git_builds\.sh/);
   assert.match(workflow, /push:/);
+  assert.match(workflow, /branches:\s*\[develop, prod, main\]/);
 
   const missing = bash("scripts/netlify_stop_git_builds.sh", {
     NETLIFY_AUTH_TOKEN: "",
@@ -153,7 +193,13 @@ test("Netlify git builds are stopped at the site so merges never start a job", (
 test("GitHub Pages is not a second copy of the app", () => {
   assert.equal(existsSync(join(root, ".github/workflows/preview-pages.yml")), false);
   assert.equal(existsSync(join(root, ".github/workflows/refresh-pages-preview.yml")), false);
-  assert.equal(existsSync(join(root, "scripts/stage_pages_preview.sh")), false);
+  accessSync(join(root, "scripts/stage_pages_preview.sh"), constants.X_OK);
+  const stage = read("scripts/stage_pages_preview.sh");
+  assert.match(stage, /Refusing to stage a preview/);
+  assert.doesNotMatch(stage, /upload-pages-artifact/);
+  const refused = bash("scripts/stage_pages_preview.sh");
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /Refusing to stage a preview/);
 
   const agents = read("AGENTS.md");
   assert.match(agents, /github\.io is not the app/);
@@ -164,8 +210,9 @@ test("GitHub Pages is not a second copy of the app", () => {
   assert.match(readme, /github\.io is not the app/);
   assert.match(readme, /301/);
   assert.match(readme, /no GitHub Pages preview workflow/);
+  assert.match(readme, /stage_pages_preview\.sh/);
+  assert.match(readme, /That script refuses/);
   assert.doesNotMatch(readme, /preview-pages\.yml/);
-  assert.doesNotMatch(readme, /stage_pages_preview/);
   assert.doesNotMatch(readme, /unreleased `develop` also goes to GitHub Pages/);
 });
 

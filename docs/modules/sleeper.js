@@ -34,7 +34,35 @@ export function createSleeperClient(options = {}) {
   let active = 0;
   let lastStart = 0;
   let draining = false;
+  let interactive = 0;
   const queue = [];
+  const idleWaiters = [];
+
+  function isBackgroundPath(path) {
+    return String(path || "").split("?")[0] === "/players/nfl";
+  }
+
+  function bumpInteractive(delta) {
+    interactive += delta;
+    if (interactive > 0) return;
+    interactive = 0;
+    const waiters = idleWaiters.splice(0);
+    // A later turn, so the username search can paint before a fat body is parsed.
+    for (const resume of waiters) setTimeout(resume, 0);
+  }
+
+  function whenInteractiveIdle() {
+    return new Promise((resolve) => {
+      const attempt = () => {
+        if (interactive > 0) {
+          idleWaiters.push(attempt);
+          return;
+        }
+        resolve();
+      };
+      setTimeout(attempt, 0);
+    });
+  }
 
   async function drain() {
     if (draining) return;
@@ -93,6 +121,13 @@ export function createSleeperClient(options = {}) {
         error.status = response.status;
         throw error;
       }
+      // The download is done. Parsing /players/nfl is synchronous and large.
+      // Do that only after username/league reads have painted, and don't let
+      // the download abort timer cancel a body we already have.
+      if (isBackgroundPath(path)) {
+        if (abortTimeoutId) clearTimeout(abortTimeoutId);
+        await whenInteractiveIdle();
+      }
       return await withTimeout(response.json(), timeoutMs + 1500, "Sleeper API response parse timed out");
     } catch (err) {
       if (signal?.aborted || err?.name === "AbortError" && signal?.aborted) {
@@ -137,7 +172,13 @@ export function createSleeperClient(options = {}) {
   }
 
   async function apiGet(path, { timeoutMs = 25000, cache = "no-store", signal = null } = {}) {
-    return enqueue(() => fetchJson(path, { timeoutMs, cache, signal }), signal);
+    const background = isBackgroundPath(path);
+    if (!background) bumpInteractive(1);
+    try {
+      return await enqueue(() => fetchJson(path, { timeoutMs, cache, signal }), signal);
+    } finally {
+      if (!background) bumpInteractive(-1);
+    }
   }
 
   async function apiGetWithRetry(path, { timeoutMs = 25000, retries = 1, cache = "no-store", signal = null } = {}) {
