@@ -267,15 +267,103 @@ test("username search does not autoload when the current season failed", () => {
   assert.match(appSource, /landingSearchRetry/);
 });
 
-test("picking a league closes the picker instead of leaving it over the header", () => {
+test("picking a league keeps the list until the load commits", () => {
   const click = appSource.match(/function handleLeaguePickClick\(event\) \{[\s\S]*?\n\}/)?.[0] || "";
   assert.match(appSource, /function collapseLeaguePicker\(/);
-  assert.match(click, /collapseLeaguePicker\(\)/);
-  assert.doesNotMatch(
-    appSource,
-    /state\.leagueSwitching = false;[\s\S]{0,500}renderLeaguePicker\(/,
-  );
+  assert.doesNotMatch(click, /collapseLeaguePicker\(\)/);
+  assert.match(click, /loadLeagueById\(leagueId\)/);
+  const load = appSource.match(/async function runLeagueLoad\(leagueId, token[^)]*\) \{[\s\S]*?\n\}/)?.[0] || "";
+  const opened = load.slice(0, load.indexOf("} catch (err)"));
+  const failed = load.slice(load.indexOf("} catch (err)"));
+  assert.match(opened, /state\.leagueSwitching = false;\s*collapseLeaguePicker\(\)/);
+  assert.doesNotMatch(opened, /renderLeaguePicker\(/);
+  assert.match(failed, /renderLeaguePicker\(state\.userLeagues/);
+  const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/styles.css"), "utf8");
+  assert.doesNotMatch(css, /\.league-loading \.landing-search-row \{[^}]*pointer-events:\s*none/);
 });
+
+test("a retried search holds the players parse through the backoff and one frame", async () => {
+  const events = [];
+  let userCalls = 0;
+  let releaseSleep;
+  const sleepGate = new Promise((resolve) => {
+    releaseSleep = resolve;
+  });
+  const releaseFrame = [];
+  let client;
+  let releaseState;
+  const stateGate = new Promise((resolve) => {
+    releaseState = resolve;
+  });
+  client = createSleeperClient({
+    minIntervalMs: 0,
+    maxConcurrent: 3,
+    sleep: () => {
+      events.push("sleep");
+      return sleepGate;
+    },
+    yieldFrame: () => {
+      events.push("frame");
+      return new Promise((resolve) => {
+        releaseFrame.push(resolve);
+      });
+    },
+    fetchImpl: async (url) => {
+      const href = String(url);
+      if (href.includes("/players/nfl")) {
+        events.push("players-headers");
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json() {
+            events.push("players-parse");
+            return Promise.resolve({ ok: 1 });
+          },
+        };
+      }
+      if (href.includes("/state/nfl")) {
+        events.push("state-headers");
+        return stateGate.then(() => jsonResponse({ week: 1 }));
+      }
+      userCalls += 1;
+      events.push(`user-${userCalls}`);
+      if (userCalls === 1) return jsonResponse({}, 500);
+      return jsonResponse({ user_id: "u1" });
+    },
+  });
+
+  const players = client.apiGetWithRetry("/players/nfl", { retries: 0 });
+  const search = client.apiGetWithRetry("/user/Niko", { retries: 1 });
+
+  await waitFor(() => events.includes("sleep") && events.includes("players-headers"));
+  assert.equal(events.includes("players-parse"), false, "parse ran during the retry sleep");
+  releaseSleep();
+  await waitFor(() => events.includes("frame"));
+  assert.equal(events.includes("players-parse"), false, "parse ran before the frame");
+  assert.equal(events.includes("user-2"), true);
+  client.apiGet("/state/nfl");
+  releaseFrame[0]();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(events.filter((event) => event === "frame").length, 1);
+  assert.equal(events.includes("players-parse"), false, "parse ran while a new search read was still active");
+  releaseState();
+  await waitFor(() => events.filter((event) => event === "frame").length >= 2);
+  assert.equal(events.includes("players-parse"), false, "parse ran before the second frame");
+  releaseFrame[1]();
+  await search;
+  await players;
+  assert.equal(events.includes("players-parse"), true);
+  assert.ok(events.indexOf("players-parse") > events.lastIndexOf("frame"));
+});
+
+async function waitFor(fn) {
+  const start = Date.now();
+  while (!fn()) {
+    if (Date.now() - start > 2000) throw new Error("timed out waiting");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
 
 test("slim players cache drops fat fields and still names the player", () => {
   const slim = slimPlayersMap({
