@@ -4,8 +4,12 @@ import {
   findRosterForSleeperUser,
   leagueStatusLabel,
   renderLeaguePickerMarkup,
+  renderLeagueSearchNote,
   renderMeSelectOptions,
   resolveDefaultMeRoster,
+  seasonSearchHardFailField,
+  seasonSearchHardFailStatus,
+  seasonSearchSoftFailNote,
 } from "../docs/modules/league-search.js";
 
 test("leagueStatusLabel humanizes sleeper status", () => {
@@ -108,6 +112,21 @@ test("league picker markup lists seasons and marks the selected desk", () => {
   assert.match(html, /alt="Try Hard or Die Hard logo"/);
   assert.match(html, /2025 · 10 teams · Dynasty · complete/);
   assert.equal(renderLeaguePickerMarkup([]), "");
+});
+
+test("season search failure copy stays short in the field and full in the status", () => {
+  assert.equal(
+    seasonSearchHardFailStatus("2026"),
+    "Couldn't load 2026 leagues from Sleeper. Try again — we won't open a league until this year's list comes back.",
+  );
+  assert.equal(seasonSearchHardFailField("2026"), "Couldn't load 2026 leagues.");
+  assert.equal(seasonSearchSoftFailNote(["2025"]), "Also couldn't load 2025.");
+  assert.equal(seasonSearchSoftFailNote(["2025", "2024"]), "Also couldn't load 2025 and 2024.");
+  assert.equal(seasonSearchSoftFailNote([]), "");
+  const note = renderLeagueSearchNote(["2025"]);
+  assert.match(note, /class="league-picker-note muted"/);
+  assert.match(note, /Also couldn&#39;t load 2025\./);
+  assert.equal(renderLeagueSearchNote([]), "");
 });
 
 test("league picker names redraft and keeper rooms", () => {

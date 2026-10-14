@@ -15,6 +15,11 @@ fi
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
+# VISIT_SALT and RATHER_SALT must exist on the Netlify site before functions
+# boot. Missing or public defaults are replaced with a random secret.
+# Already-set secrets are left alone. Values are not printed.
+python3 scripts/ensure_netlify_salts.py
+
 bash scripts/netlify_stop_git_builds.sh
 
 npm install

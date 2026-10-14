@@ -52,6 +52,7 @@ export function createLivePoller(options = {}) {
     onScores,
     onSimRefresh,
     shouldPause = () => false,
+    leagueId = null,
     now = () => Date.now(),
     setIntervalFn = setInterval,
     clearIntervalFn = clearInterval,
@@ -59,19 +60,42 @@ export function createLivePoller(options = {}) {
 
   let timer = null;
   let stopped = true;
-  let inFlight = false;
+  let generation = 0;
+  let flightToken = 0;
+  let flightSerial = 0;
   let lastSimAt = 0;
   let ticks = 0;
 
+  function readLeagueId() {
+    if (typeof leagueId !== "function") return "";
+    return String(leagueId() ?? "");
+  }
+
   async function tick({ forceSim = false } = {}) {
-    if (stopped || inFlight) return { polled: false, reason: stopped ? "stopped" : "in-flight" };
+    if (stopped) return { polled: false, reason: "stopped" };
+    if (flightToken) return { polled: false, reason: "in-flight" };
     if (shouldPause()) return { polled: false, reason: "paused" };
     if (!isLive()) return { polled: false, reason: "not-live" };
-    inFlight = true;
+    const tickGen = generation;
+    const mine = ++flightSerial;
+    flightToken = mine;
+    const capturedLeagueId = readLeagueId();
     ticks += 1;
     try {
       const payload = await fetchUpdate();
-      if (stopped) return { polled: false, reason: "stopped" };
+      if (stopped || tickGen !== generation) return { polled: false, reason: "stopped" };
+      const currentLeagueId = readLeagueId();
+      if (capturedLeagueId && currentLeagueId !== capturedLeagueId) {
+        return { polled: false, reason: "stale" };
+      }
+      if (
+        capturedLeagueId
+        && payload
+        && payload.leagueId != null
+        && String(payload.leagueId) !== capturedLeagueId
+      ) {
+        return { polled: false, reason: "stale" };
+      }
       onScores?.(payload);
       const due = forceSim || (lastSimAt > 0 && now() - lastSimAt >= simRefreshMs);
       if (due) {
@@ -80,7 +104,7 @@ export function createLivePoller(options = {}) {
       }
       return { polled: true, simRefreshed: due, payload };
     } finally {
-      inFlight = false;
+      if (flightToken === mine) flightToken = 0;
     }
   }
 
@@ -96,6 +120,8 @@ export function createLivePoller(options = {}) {
 
   function stop() {
     stopped = true;
+    generation += 1;
+    flightToken = 0;
     if (timer != null) {
       clearIntervalFn(timer);
       timer = null;
