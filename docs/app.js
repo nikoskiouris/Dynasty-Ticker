@@ -248,6 +248,7 @@ import { chooseBestLineup } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
   formatPickWithSelection,
+  inferPickSeasonSpan,
   indexDraftSelections,
   lookupDraftedSelection,
   mergeDraftSelectionIndex,
@@ -15445,7 +15446,7 @@ function isConsumedDraftPick(pick, currentDraftContext, assignedDraftSlot = null
     && currentDraftContext.usedSlotKeys?.has(`${round}:${slot}`);
 }
 
-function inferLeaguePickSeasons(league, rosters, tradedPicks = [], pickValueCatalog = state.pickValueCatalog, currentDraftContext = null) {
+function inferLeaguePickSeasons(league, rosters, tradedPicks = [], _pickValueCatalog = [], currentDraftContext = null) {
   const explicitSeasons = rosters
     .flatMap((roster) => Array.isArray(roster?.picks) ? roster.picks : [])
     .map((pick) => Number(pick?.season))
@@ -15453,30 +15454,12 @@ function inferLeaguePickSeasons(league, rosters, tradedPicks = [], pickValueCata
   const tradedSeasons = tradedPicks
     .map((pick) => Number(pick?.season))
     .filter(Number.isFinite);
-  const catalogSeasons = pickValueCatalog
-    .map((pick) => Number(pick?.season))
-    .filter(Number.isFinite);
-
-  const configuredLeagueSeason = Number(league?.season);
-  const baseSeason = Number.isFinite(configuredLeagueSeason) ? configuredLeagueSeason : new Date().getFullYear();
-  const observedStartSeasons = [...explicitSeasons, ...tradedSeasons];
-  let startSeason = observedStartSeasons.length > 0
-    ? Math.min(...observedStartSeasons)
-    : baseSeason;
-  const minOpenSeason = getMinOpenPickSeason(currentDraftContext);
-  if (Number.isFinite(minOpenSeason) && startSeason < minOpenSeason) {
-    startSeason = minOpenSeason;
-  }
-  const endSeason = Math.max(
-    startSeason + (observedStartSeasons.length > 0 ? 1 : 2),
-    ...[...explicitSeasons, ...tradedSeasons, ...catalogSeasons]
-  );
-
-  const seasons = [];
-  for (let season = startSeason; season <= endSeason; season++) {
-    seasons.push(String(season));
-  }
-  return seasons;
+  return inferPickSeasonSpan({
+    leagueSeason: league?.season,
+    explicitSeasons,
+    tradedSeasons,
+    minOpenSeason: getMinOpenPickSeason(currentDraftContext),
+  });
 }
 
 function inferLeagueDraftRounds(league, rosters, tradedPicks = []) {
