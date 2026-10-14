@@ -44,6 +44,7 @@ import {
 } from "./modules/constants.js";
 import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
 import { createLeagueLoader, shouldBlankDeskForLeagueSwitch } from "./modules/league-load.js";
+import { createLeagueLoadRecovery, leagueLoadErrorVisibility } from "./modules/league-load-error.js";
 import {
   apiGet,
   apiGetWithRetry,
@@ -487,6 +488,13 @@ const el = {
 };
 
 const leagueLoader = createLeagueLoader();
+const leagueLoadRecovery = createLeagueLoadRecovery({
+  isCurrent: (token) => leagueLoader.isCurrent(token),
+  load: (leagueId, job) => {
+    void loadLeagueById(leagueId, { sample: Boolean(job?.sample) });
+  },
+  onlineTarget: window,
+});
 const pageRenderQueue = createPageRenderQueue({
   render: () => renderActivePage(),
   isTyping: () => typingInActivePage(),
@@ -553,6 +561,8 @@ function isEstimatedAsset(asset, values = state.values) {
 el.usernameSearchForm?.addEventListener("submit", requestFindLeagues);
 el.leagueStatusRetry?.addEventListener("click", retryUserLeagueSearch);
 el.landingSearchRetry?.addEventListener("click", retryUserLeagueSearch);
+document.getElementById("landing-league-retry")?.addEventListener("click", retryFailedLeagueLoad);
+document.getElementById("desk-load-retry")?.addEventListener("click", retryFailedLeagueLoad);
 el.leaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingLeaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingJobs?.addEventListener("click", handleLandingJobClick);
@@ -2082,6 +2092,8 @@ function blankDeskForLeagueSwitch() {
 async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
   try {
     if (!leagueLoader.isCurrent(token)) return;
+    leagueLoadRecovery.clear();
+    paintLeagueLoadError("");
     startLeagueLoadingUi();
     stopLivePolling();
     invalidatePlayerLoads();
@@ -2264,6 +2276,8 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     const message = `Could not load league data. ${err.message}`;
     setFieldError(el.leagueId, el.leagueIdError, message);
     setStatus(message, { error: true });
+    leagueLoadRecovery.fail({ leagueId, token, sample: state.viewingSample });
+    paintLeagueLoadError(message);
     if (state.league) {
       showAppPages();
       startLivePolling();
@@ -16014,6 +16028,27 @@ function applyValuationBundle(bundle, { rerender = true } = {}) {
     values: state.values,
     nameMap: state.valueNameMap,
   };
+}
+
+function paintLeagueLoadError(message = "") {
+  const text = String(message || "");
+  const where = leagueLoadErrorVisibility({
+    message: text,
+    leagueLoaded: document.body.classList.contains("league-loaded"),
+  });
+  const landing = document.getElementById("landing-league-error");
+  const landingText = document.getElementById("landing-league-error-text");
+  const desk = document.getElementById("desk-load-alert");
+  const deskText = document.getElementById("desk-load-alert-text");
+  if (landing) landing.classList.toggle("hidden", !where.landing);
+  if (landingText) landingText.textContent = where.landing ? text : "";
+  if (desk) desk.classList.toggle("hidden", !where.desk);
+  if (deskText) deskText.textContent = where.desk ? text : "";
+}
+
+function retryFailedLeagueLoad(event) {
+  event?.preventDefault?.();
+  leagueLoadRecovery.retry();
 }
 
 function setStatus(message, { ok = false, loading = false, error = false, retry = false } = {}) {
