@@ -133,6 +133,11 @@ test("filters keep the tradable board and search finds the cheap name", () => {
   assert.equal(found.length, 1);
   assert.equal(found[0].name, "Ja'Marr Chase");
   assert.equal(foldRankQuery("Ja'Marr"), "jamarr");
+  assert.ok(found[0].overallRank > 1);
+  assert.match(renderRanksBody(rankView({ rows, query: "jamarr" })), new RegExp(`ranks-num">${found[0].overallRank}<`));
+  const wrView = rankView({ rows, position: "WR" });
+  assert.ok(wrView.rows[0].overallRank > 1);
+  assert.match(renderRanksBody(wrView), new RegExp(`ranks-num">${wrView.rows[0].overallRank}<`));
   const picks = filterRankRows(rows, { position: "PICK" });
   assert.ok(picks.every((row) => row.kind === "pick"));
   assert.equal(picks.some((row) => row.assetId === "pick:2027:r1:early"), false);
