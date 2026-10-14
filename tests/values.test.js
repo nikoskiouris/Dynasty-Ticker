@@ -235,6 +235,92 @@ test("pick lookup time-discounts a nearest-year fallback", () => {
   assert.deepEqual(parsePickAssetId("pick:2028:r1:early"), { season: "2028", round: 1, bucket: "early" });
 });
 
+test("a missing early first discounts the early row, not the cheaper any row listed first", () => {
+  const anyPrice = 2500;
+  const earlyPrice = 4000;
+  const values = {
+    "pick:2028:r1:any": anyPrice,
+    "pick:2028:r1:early": earlyPrice,
+  };
+  assert.equal(
+    findPickCatalogValue({ season: "2029", round: 1, bucket: "early" }, values),
+    Math.round(earlyPrice * 0.85),
+  );
+  assert.equal(
+    findPickCatalogValue({ season: "2029", round: 1, bucket: "any" }, values),
+    Math.round(anyPrice * 0.85),
+  );
+  assert.ok(earlyPrice > anyPrice);
+});
+
+test("equidistant pick years discount forward from the earlier season, in either key order", () => {
+  const want = { season: "2028", round: 1, bucket: "any" };
+  const expected = Math.round(8000 * 0.85);
+  assert.equal(findPickCatalogValue(want, { "pick:2027:r1:any": 8000, "pick:2029:r1:any": 5000 }), expected);
+  assert.equal(findPickCatalogValue(want, { "pick:2029:r1:any": 5000, "pick:2027:r1:any": 8000 }), expected);
+});
+
+test("the 0.85 ruler keeps falling after four years", () => {
+  const values = { "pick:2026:r1:any": 5000 };
+  const fiveYears = findPickCatalogValue({ season: "2031", round: 1, bucket: "any" }, values);
+  assert.equal(fiveYears, Math.round(5000 * (0.85 ** 5)));
+  assert.ok(fiveYears < Math.round(5000 * 0.5));
+  const eightYears = findPickCatalogValue({ season: "2034", round: 1, bucket: "any" }, values);
+  assert.equal(eightYears, Math.max(1, Math.round(5000 * (0.85 ** 8))));
+  assert.ok(eightYears < fiveYears);
+});
+
+test("pick fallback keeps early above any, falls with distance, and ignores key order", () => {
+  const anchors = [120, 480, 1600, 6400];
+  for (const earlyPrice of anchors) {
+    const anyPrice = Math.round(earlyPrice * 0.8);
+    const secondPrice = Math.round(anyPrice * 0.45);
+    const forward = {
+      "pick:2028:r1:any": anyPrice,
+      "pick:2028:r1:early": earlyPrice,
+      "pick:2028:r2:any": secondPrice,
+    };
+    const reverse = {
+      "pick:2028:r1:early": earlyPrice,
+      "pick:2028:r2:any": secondPrice,
+      "pick:2028:r1:any": anyPrice,
+    };
+    let previousEarly = Infinity;
+    let previousAny = Infinity;
+    for (let distance = 0; distance <= 8; distance += 1) {
+      const season = String(2028 + distance);
+      const metaEarly = { season, round: 1, bucket: "early" };
+      const metaAny = { season, round: 1, bucket: "any" };
+      const earlyValue = findPickCatalogValue(metaEarly, forward);
+      const anyValue = findPickCatalogValue(metaAny, forward);
+      assert.equal(earlyValue, findPickCatalogValue(metaEarly, reverse), `${season} early depends on key order`);
+      assert.equal(anyValue, findPickCatalogValue(metaAny, reverse), `${season} any depends on key order`);
+      assert.ok(earlyValue >= anyValue, `${season} early ${earlyValue} fell under any ${anyValue}`);
+      assert.ok(earlyValue <= previousEarly, `${season} early rose with distance`);
+      assert.ok(anyValue <= previousAny, `${season} any rose with distance`);
+      assert.equal(earlyValue, Math.max(1, Math.round(earlyPrice * (0.85 ** distance))));
+      previousEarly = earlyValue;
+      previousAny = anyValue;
+    }
+    const traded = {
+      assetId: "pick:2028:r1:7",
+      assetType: "pick",
+      valueAssetId: "pick:2028:r1:early",
+      raw: { season: "2028", round: 1, ktcBucket: "early" },
+    };
+    assert.equal(resolvePickAssetValue(traded, forward), earlyPrice);
+    assert.ok(findPickCatalogValue({ season: "2028", round: 2, bucket: "any" }, forward) < anyPrice);
+  }
+});
+
+test("an unknown round is not borrowed from a cheaper known round", () => {
+  const values = { "pick:2027:r5:any": 400, "pick:2027:r1:any": 5000 };
+  const sixth = { assetId: "pick:2027:r6:1", assetType: "pick", raw: { season: "2027", round: 6 } };
+  assert.equal(resolvePickAssetValue(sixth, values), null);
+  assert.equal(getAssetValue(sixth, values), 0);
+  assert.equal(isEstimatedAsset(sixth, values), true);
+});
+
 test("pickValueBundle prefers 1QB or Superflex maps", () => {
   const payload = {
     sf: { values: { "player:1": 9000 }, nameMap: { "player:1": "Star" } },
