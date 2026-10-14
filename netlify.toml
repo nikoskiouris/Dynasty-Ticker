@@ -43,6 +43,14 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'"
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app https://fonts.googleapis.com https://fonts.gstatic.com; form-action 'self'; frame-src 'none'"
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
+
+# data/*.json is not fingerprinted. player_values.json is about 2.9MB.
+# max-age=0 lets the browser revalidate instead of keeping a stale price file.
+# The CDN still gzip/brotli compresses JSON. Leave compression to the CDN.
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
