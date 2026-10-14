@@ -113,6 +113,7 @@
             <input
               id="sleeper-username"
               name="sleeper-username"
+              aria-label="Sleeper username"
               placeholder="username"
               autocomplete="off"
               value=""
@@ -165,7 +166,7 @@
             </div>
           </div>
           <label for="me-select">Team</label>
-          <select id="me-select"></select>
+          <select id="me-select" aria-label="Team"></select>
         </section>
 
         <div class="rail-footer">
@@ -193,7 +194,7 @@
             </div>
             <div class="league-hero-copy">
               <span class="eyebrow" id="hero-eyebrow">Sleeper dynasty league</span>
-              <h1 id="hero-title">Your Sleeper league</h1>
+              <h1 id="hero-title" tabindex="-1">Your Sleeper league</h1>
               <p class="workspace-lede" id="hero-lede">Type a username. Scores open first.</p>
             </div>
           </div>
@@ -233,7 +234,7 @@
           <nav class="room-nav" id="room-nav" role="tablist" aria-label="On this page"></nav>
         </div>
 
-        <div id="ticker" class="ticker hidden" aria-label="League ticker" aria-pressed="false" title="Tap to pause or resume. Drag to scrub.">
+        <div id="ticker" class="ticker hidden" aria-label="League ticker" title="Tap to pause or resume. Drag to scrub.">
           <span class="ticker-label">Live</span>
           <div class="ticker-viewport">
             <div class="ticker-track" id="ticker-track"></div>

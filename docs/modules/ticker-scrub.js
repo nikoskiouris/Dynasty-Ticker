@@ -25,6 +25,16 @@ export function isTickerTap(movedPx, threshold = TICKER_TAP_PX) {
   return Math.abs(Number(movedPx) || 0) < Number(threshold);
 }
 
+export function tickerStateLabel(paused) {
+  return paused ? "League ticker, paused" : "League ticker";
+}
+
+function syncTickerState(root, paused) {
+  root.classList.toggle("is-paused", paused);
+  root.removeAttribute("aria-pressed");
+  root.setAttribute("aria-label", tickerStateLabel(paused));
+}
+
 export function tickerGestureIntent(dx, dy, threshold = TICKER_TAP_PX) {
   const x = Math.abs(Number(dx) || 0);
   const y = Math.abs(Number(dy) || 0);
@@ -134,8 +144,7 @@ export function bindTicker(root, track, {
     if (!animation) ensureAnimation();
     if (isPaused) animation?.pause();
     else animation?.play();
-    root.classList.toggle("is-paused", isPaused);
-    root.setAttribute("aria-pressed", String(isPaused));
+    syncTickerState(root, isPaused);
   }
 
   function onPointerUp() {
@@ -155,8 +164,7 @@ export function bindTicker(root, track, {
   }
 
   root.classList.add("is-bound");
-  root.classList.toggle("is-paused", isPaused);
-  root.setAttribute("aria-pressed", String(isPaused));
+  syncTickerState(root, isPaused);
   root.title = "Tap to pause or resume. Drag to scrub.";
   ensureAnimation();
   if (!animation && typeof requestAnimationFrame === "function") {

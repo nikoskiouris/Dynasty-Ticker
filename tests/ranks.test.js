@@ -167,6 +167,10 @@ test("markup escapes names and opens the selected card", () => {
   assert.match(html, /data-ranks-root/);
   assert.match(html, /data-action="rank-open"/);
   assert.match(html, /Worth about a|A step|Closest pick/);
+  assert.match(html, /role="dialog"/);
+  assert.match(html, /aria-modal="true"/);
+  assert.match(html, /aria-labelledby="ranks-card-title"/);
+  assert.match(html, /id="ranks-card-title"/);
   assert.match(html, /Add to trade/);
   assert.match(html, /Similar value/);
   assert.doesNotMatch(html, /<script>/);
