@@ -94,6 +94,7 @@ import {
   playerAgeForAsset,
   isInactivePlayerAsset,
   leagueHasSuperflex,
+  tepLevel,
   crowdShiftsFromVotes,
   getGlobalMaxPlayerValue,
 } from "./modules/values.js";
@@ -9431,7 +9432,7 @@ function buildSleeperInsightCards(profile, context) {
 
 function describeLeagueFormat(league) {
   const slots = getStarterRosterSlots(league);
-  const hasSuperflex = slots.some((slot) => ["SUPER_FLEX", "OP"].includes(slot));
+  const hasSuperflex = leagueHasSuperflex(league);
   const scoring = league?.scoring_settings || {};
   const receptionValue = Number(scoring.rec);
   const pprLabel = Number.isFinite(receptionValue)
@@ -9445,7 +9446,7 @@ function describeLeagueFormat(league) {
     pprLabel,
     `${slots.length} starters`,
   ];
-  if (Number(scoring.bonus_rec_te || scoring.rec_te || 0) > 0) parts.push("TE bonus (values stay full PPR)");
+  if (tepLevel(league) > 0) parts.push("TE bonus (values stay full PPR)");
   if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi`);
   if (leagueUsesFuturePicks(league) && draftRounds > 0) parts.push(`${draftRounds}-round rookie draft`);
   return parts.join(" • ");
