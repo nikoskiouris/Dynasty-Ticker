@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from src.config import settings
 from src.domain.models import Asset, LeagueContext, Manager, Roster
@@ -16,43 +16,54 @@ class SleeperClient:
 
     def _get(self, path: str) -> dict | list:
         url = f"{self.base_url}{path}"
+        request = Request(url, headers={"User-Agent": "dynasty-ticker"})
         try:
-            with urlopen(url, timeout=self.timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except (HTTPError, URLError) as exc:
+            with urlopen(request, timeout=self.timeout) as response:
+                raw = response.read()
+        except (HTTPError, URLError, TimeoutError) as exc:
             raise RuntimeError(f"Sleeper API request failed for {url}: {exc}") from exc
+        try:
+            return json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"Sleeper API returned unreadable JSON for {url}") from exc
 
     def get_user(self, username: str) -> dict:
         return self._get(f"/user/{username}")
 
     def get_league(self, league_id: str) -> dict:
         data = self._get(f"/league/{league_id}")
-        assert isinstance(data, dict)
+        if not isinstance(data, dict):
+            raise RuntimeError(f"Sleeper league {league_id} was not an object")
         return data
 
     def get_leagues_for_user(self, user_id: str, season: str, sport: str = "nfl") -> list[dict]:
         data = self._get(f"/user/{user_id}/leagues/{sport}/{season}")
-        assert isinstance(data, list)
+        if not isinstance(data, list):
+            raise RuntimeError(f"Sleeper leagues for {user_id} were not a list")
         return data
 
     def get_users_in_league(self, league_id: str) -> list[dict]:
         data = self._get(f"/league/{league_id}/users")
-        assert isinstance(data, list)
+        if not isinstance(data, list):
+            raise RuntimeError(f"Sleeper users for {league_id} were not a list")
         return data
 
     def get_rosters(self, league_id: str) -> list[dict]:
         data = self._get(f"/league/{league_id}/rosters")
-        assert isinstance(data, list)
+        if not isinstance(data, list):
+            raise RuntimeError(f"Sleeper rosters for {league_id} were not a list")
         return data
 
     def get_traded_picks(self, league_id: str) -> list[dict]:
         data = self._get(f"/league/{league_id}/traded_picks")
-        assert isinstance(data, list)
+        if not isinstance(data, list):
+            raise RuntimeError(f"Sleeper traded picks for {league_id} were not a list")
         return data
 
     def get_players(self, sport: str = "nfl") -> dict:
         data = self._get(f"/players/{sport}")
-        assert isinstance(data, dict)
+        if not isinstance(data, dict):
+            raise RuntimeError(f"Sleeper players for {sport} were not an object")
         return data
 
 

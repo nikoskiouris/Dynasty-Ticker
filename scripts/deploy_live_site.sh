@@ -28,6 +28,9 @@ if [[ "${SKIP_MARKET_REFRESH:-}" != "1" ]]; then
   bash scripts/refresh_market_data.sh
 fi
 
+# npm test only warns when the snapshot is old. A live publish must not ship it.
+python3 scripts/check_market_files.py --fail-on-age
+
 message="${DEPLOY_MESSAGE:-Dynasty Ticker live deploy}"
 
 # NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID stay in the environment.
