@@ -8,7 +8,9 @@ import {
   marketTape,
   ownerLine,
   pickEqualLine,
+  RANK_PAGE_SIZE,
   rankView,
+  renderRanksBody,
   renderRanksMarkup,
   sameMoney,
 } from "../docs/modules/ranks.js";
@@ -169,4 +171,23 @@ test("markup escapes names and opens the selected card", () => {
   assert.equal(isRankAssetId("pick:2027:r1:nope"), false);
   const loading = renderRanksMarkup({ loading: true });
   assert.match(loading, /Loading player values/);
+});
+
+test("ranks open with one page and a show-more control", () => {
+  const rows = Array.from({ length: RANK_PAGE_SIZE + 3 }, (_, index) => ({
+    assetId: `player:${index + 1}`,
+    kind: "player",
+    name: `Player ${index + 1}`,
+    value: 9000 - index,
+    position: "WR",
+    playerId: String(index + 1),
+  }));
+  const first = rankView({ rows, position: "ALL" });
+  assert.equal(first.rows.length, RANK_PAGE_SIZE);
+  assert.equal(first.hidden, 3);
+  assert.match(renderRanksBody(first), /data-action="ranks-more"/);
+  const rest = rankView({ rows, position: "ALL", shown: RANK_PAGE_SIZE * 2 });
+  assert.equal(rest.rows.length, rows.length);
+  assert.equal(rest.hidden, 0);
+  assert.doesNotMatch(renderRanksBody(rest), /ranks-more/);
 });

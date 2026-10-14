@@ -343,6 +343,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(privacy, /GitHub issues/);
   assert.match(privacy, /who would you rather have/);
   assert.match(privacy, /Public rather votes/);
+  assert.match(privacy, /salted hash/);
+  assert.match(privacy, /two days/);
+  assert.match(privacy, /not sent to a third-party counter/);
   assert.doesNotMatch(privacy, /GitHub Pages/);
   assert.doesNotMatch(privacy, /visit count/i);
   assert.doesNotMatch(privacy, /page-views-api/);
@@ -511,7 +514,9 @@ test("wide board can shut so the page fills the screen", () => {
   assert.match(index, /id="desk-board-close"/);
   assert.match(index, /id="desk-board-open"/);
   assert.match(index, /id="board-tools"/);
-  assert.match(index, /dynasty_ticker_board/);
+  assert.match(readDocs("desk-shut.js"), /dynasty_ticker_board/);
+  assert.match(index, /src="\.\/desk-shut\.js"/);
+  assert.doesNotMatch(index, /<script>\s*try/);
   assert.match(app, /dynasty_ticker_board/);
   assert.match(app, /renderRanksToolbar/);
   assert.match(css, /html\.desk-shut \.workspace \{[^}]*grid-column:\s*1/s);
@@ -532,6 +537,9 @@ test("each desk page is its own file and boot mounts them before the app", () =>
     assert.equal(existsSync(join(docs, "ui", file)), true);
   }
   assert.match(boot, /await import\("\.\/app\.js"\)/);
+  assert.match(boot, /showBootError/);
+  assert.match(boot, /role="alert"/);
+  assert.match(index, /class="skip-link"/);
   assert.match(siteMarkup(), /id="landing-rather"/);
   assert.match(siteMarkup(), /id="calculator-shell"/);
   assert.match(siteMarkup(), /id="weekly-help-btn"/);

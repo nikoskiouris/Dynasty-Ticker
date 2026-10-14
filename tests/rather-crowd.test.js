@@ -15,6 +15,9 @@ import {
   createRatherVoteHandler,
   normalizeRatherState,
   publicRatherVotes,
+  RATHER_MAX_STORED_VOTES,
+  RATHER_RATE_KEEP_MS,
+  RATHER_VOTE_RETENTION_MS,
   sanitizeRatherVote,
   wrapLambdaHandler,
 } from "../netlify/lib/rather-crowd.js";
@@ -196,6 +199,9 @@ test("a successful vote is durably readable and uses server time", async () => {
   assert.equal(body.voteCount, 1);
   assert.equal(body.votes[0].winnerId, "player:11566");
   assert.equal(body.votes[0].at, NOW.getTime());
+  assert.equal(posted.headers.get("access-control-allow-origin"), null);
+  assert.equal(JSON.stringify(body).includes("voterKey"), false);
+  assert.equal(JSON.stringify(store.snapshot()).includes("voterKey"), false);
 
   const read = await handler(new Request("https://dynastyticker.com/api/rather-vote"));
   assert.equal(read.status, 200);
@@ -252,34 +258,133 @@ test("one voter cannot stack repeated influence on the same pair", () => {
   assert.equal(repeated.ok, true);
   assert.equal(repeated.changed, false);
   assert.equal(repeated.state.votes.length, 1);
+  assert.equal(repeated.state.votes[0].voterKey, undefined);
+});
+
+test("a voter can change their mind on the same pair inside the rate window", () => {
+  const first = applyRatherVote(null, {
+    vote: voteBody({ eventId: "one", format: "sf" }),
+    visitorHash: "visitor",
+    now: NOW,
+  });
+  const flipped = applyRatherVote(first.state, {
+    vote: voteBody({
+      eventId: "two",
+      format: "sf",
+      winnerId: "player:12504",
+      loserId: "player:11566",
+    }),
+    visitorHash: "visitor",
+    now: new Date(NOW.getTime() + 500),
+  });
+  assert.equal(flipped.ok, true);
+  assert.equal(flipped.replaced, true);
+  assert.equal(flipped.state.votes.length, 1);
+  assert.equal(flipped.state.votes[0].winnerId, "player:12504");
+  assert.equal(flipped.state.votes[0].voterKey, undefined);
+});
+
+test("a public read drops a legacy voter key from the stored blob", async () => {
+  const store = memoryStore({
+    votes: [{
+      eventId: "e1",
+      winnerId: "player:11566",
+      loserId: "player:12504",
+      format: "sf",
+      at: NOW.getTime(),
+      voterKey: "legacy-voter",
+    }],
+    visitors: {},
+  });
+  const handler = createRatherVoteHandler({
+    getStore: () => store,
+    nowFn: () => NOW,
+    salt: "test-salt",
+    allowedOrigins: ["https://dynastyticker.com"],
+  });
+  const read = await handler(new Request("https://dynastyticker.com/api/rather-vote"));
+  assert.equal(read.status, 200);
+  const body = await read.json();
+  assert.equal(body.voteCount, 1);
+  assert.equal(JSON.stringify(body).includes("voterKey"), false);
+  assert.equal(JSON.stringify(store.snapshot()).includes("voterKey"), false);
+  assert.equal(store.snapshot().visitors["legacy-voter"].pairs["sf|player:11566|player:12504"].winnerId, "player:11566");
+});
+
+test("voter hash leaves with the rate-limit record", () => {
+  const first = applyRatherVote(null, {
+    vote: voteBody({ eventId: "one", format: "sf" }),
+    visitorHash: "visitor",
+    now: NOW,
+  });
+  assert.equal(first.state.votes[0].voterKey, undefined);
+  assert.equal(first.state.visitors.visitor.pairs["sf|player:11566|player:12504"].winnerId, "player:11566");
+  const later = new Date(NOW.getTime() + RATHER_RATE_KEEP_MS + 1000);
+  const again = applyRatherVote(first.state, {
+    vote: voteBody({ eventId: "later", format: "sf" }),
+    visitorHash: "visitor",
+    now: later,
+  });
+  assert.equal(again.ok, true);
+  assert.equal(again.changed, true);
+  assert.equal(again.state.votes.length, 2);
+  assert.equal(again.state.votes.some((vote) => vote.voterKey), false);
 });
 
 test("read, write, and initialization failures never report a saved vote", async () => {
-  const missingHandler = createRatherVoteHandler({ getStore: () => null, nowFn: () => NOW });
+  const missingSalt = createRatherVoteHandler({ getStore: () => memoryStore(), nowFn: () => NOW, salt: "dynasty-ticker-rather-v1" });
+  const refused = await missingSalt(postRequest(), { ip: "1.2.3.4" });
+  assert.equal(refused.status, 503);
+  assert.equal((await refused.json()).error, "config");
+
+  const missingHandler = createRatherVoteHandler({ getStore: () => null, nowFn: () => NOW, salt: "test-salt" });
   const missing = await missingHandler(postRequest(), { ip: "1.2.3.4" });
   assert.equal(missing.status, 503);
   assert.equal((await missing.json()).retryable, true);
 
-  const readHandler = createRatherVoteHandler({ getStore: () => memoryStore(null, { failRead: true }), nowFn: () => NOW });
+  const readHandler = createRatherVoteHandler({ getStore: () => memoryStore(null, { failRead: true }), nowFn: () => NOW, salt: "test-salt" });
   const readFailure = await readHandler(postRequest(), { ip: "1.2.3.4" });
   assert.equal(readFailure.status, 503);
   assert.equal((await readFailure.json()).saved, undefined);
 
-  const writeHandler = createRatherVoteHandler({ getStore: () => memoryStore(null, { failWrite: true }), nowFn: () => NOW });
+  const writeHandler = createRatherVoteHandler({ getStore: () => memoryStore(null, { failWrite: true }), nowFn: () => NOW, salt: "test-salt" });
   const writeFailure = await writeHandler(postRequest(), { ip: "1.2.3.4" });
   assert.equal(writeFailure.status, 503);
   assert.equal((await writeFailure.json()).saved, undefined);
 });
 
-test("vote history is not silently truncated at 4,000 events", () => {
+test("stored rather votes are capped and public reads hide voter keys", () => {
   const votes = Array.from({ length: 5001 }, (_, index) => ({
     eventId: `e${index}`,
     winnerId: "player:a",
     loserId: "player:b",
     format: "sf",
-    at: index + 1,
+    at: NOW.getTime() - index * 1000,
+    voterKey: "visitor",
   }));
-  assert.equal(normalizeRatherState({ votes, visitors: {} }).votes.length, 5001);
+  const state = normalizeRatherState({ votes, visitors: {} }, NOW);
+  assert.equal(state.votes.length, RATHER_MAX_STORED_VOTES);
+  assert.equal(state.votes.some((vote) => Object.hasOwn(vote, "voterKey")), false);
+  const pub = publicRatherVotes({ votes }, NOW);
+  assert.equal(pub.votes.length, RATHER_MAX_STORED_VOTES);
+  assert.equal(pub.truncated, true);
+  assert.equal(pub.voteCount, RATHER_MAX_STORED_VOTES);
+  assert.equal(JSON.stringify(pub).includes("voterKey"), false);
+  const expired = normalizeRatherState({
+    votes: [{
+      eventId: "old",
+      winnerId: "player:a",
+      loserId: "player:b",
+      format: "sf",
+      at: NOW.getTime() - RATHER_VOTE_RETENTION_MS - 1,
+      voterKey: "visitor",
+    }],
+    visitors: {
+      visitor: { lastAt: NOW.getTime() - RATHER_RATE_KEEP_MS - 1, hourKey: "old", hourCount: 1 },
+    },
+  }, NOW);
+  assert.equal(expired.votes.length, 0);
+  assert.equal(expired.visitors.visitor, undefined);
 });
 
 test("classic wrapper remains testable for shared request conversion", async () => {

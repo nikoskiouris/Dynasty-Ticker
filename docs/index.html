@@ -2,17 +2,12 @@
 <html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Dynasty Ticker — Your Sleeper dynasty league</title>
     <meta name="description" content="See what your players are worth, check a trade, and find your team's next move." />
     <meta name="theme-color" content="#0c0c0e" />
-    <script>
-      try {
-        if (localStorage.getItem("dynasty_ticker_board") === "shut") {
-          document.documentElement.classList.add("desk-shut");
-        }
-      } catch (err) {}
-    </script>
+    <script src="./desk-shut.js"></script>
     <meta property="og:title" content="Dynasty Ticker — Your Sleeper dynasty league" />
     <meta property="og:description" content="See what your players are worth, check a trade, and find your team's next move." />
     <meta property="og:type" content="website" />
@@ -37,6 +32,7 @@
     <link rel="stylesheet" href="./product.css" />
   </head>
   <body>
+    <a class="skip-link" href="#workspace">Skip to content</a>
     <div class="app-frame">
       <header class="mobile-chrome" id="mobile-chrome">
         <button
@@ -152,10 +148,11 @@
             </form>
           </details>
 
-          <p id="league-status" class="status muted" aria-live="polite">
+          <div id="league-status" class="status muted" aria-live="polite">
             <span id="league-status-loader" class="status-loader hidden" aria-hidden="true"></span>
             <span id="league-status-text">Search your Sleeper username to pick a league.</span>
-          </p>
+            <button type="button" id="league-status-retry" class="ghost-btn status-retry hidden">Try again</button>
+          </div>
         </section>
 
         <section class="rail-module hidden" id="identity-section">
@@ -182,7 +179,7 @@
         <span class="desk-board-bars" aria-hidden="true"></span>
       </button>
 
-      <main class="workspace">
+      <main class="workspace" id="workspace">
         <div id="sample-banner" class="sample-banner" hidden>
           <p>This is a public sample league. Connect your Sleeper username anytime.</p>
           <button type="button" data-action="find-my-leagues">Find my leagues</button>

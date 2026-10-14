@@ -625,6 +625,10 @@ h1,
     display: none;
   }
 
+  body.league-loaded #league-status:has(.status-retry:not(.hidden)) {
+    display: flex;
+  }
+
   body.league-loaded .league-module .league-load-form {
     display: flex;
     gap: 0.45rem;

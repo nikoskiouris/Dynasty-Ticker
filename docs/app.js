@@ -17,7 +17,6 @@ import {
   transactionWeekEnd,
 } from "./modules/season.js";
 import {
-  SLEEPER_AVATAR_BASE,
   PLAYERS_CACHE_TTL_MS,
   SIM_ITERATIONS,
   PAGE_IDS,
@@ -44,8 +43,18 @@ import {
   LEAGUE_HISTORY_RECORD_IDS,
 } from "./modules/constants.js";
 import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
-import { createLeagueLoader } from "./modules/league-load.js";
-import { apiGet, apiGetWithRetry, fetchUserLeagues, mapInChunks } from "./modules/sleeper.js";
+import { createLeagueLoader, shouldBlankDeskForLeagueSwitch } from "./modules/league-load.js";
+import {
+  apiGet,
+  apiGetWithRetry,
+  fetchUserLeagues,
+  mapInChunks,
+  loadPlayersCacheEntry,
+  savePlayersCacheEntry,
+  playersCacheIsFresh,
+  slimPlayersMap,
+  sleeperAvatarUrl,
+} from "./modules/sleeper.js";
 import {
   classifyLeagueInput,
   parseLeagueId,
@@ -94,10 +103,12 @@ import {
   emptyLeagueBoard,
   isBoomBustAsset,
   renderLeagueBoardMarkup,
+  renderPriceLegend,
   renderValueBoardBar,
 } from "./modules/league-board.js";
 import { createLivePoller, liveUpdateMatchesLeague, shouldPollLive, shouldRefreshSim, weekRowsFingerprint } from "./modules/live.js";
-import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
+import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, renderConnectGate, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
+import { hashHue, renderAvatar, renderMultiTeamPartyTitle, renderPositionMeter, renderPowerHero, renderPowerStat, renderSleeperInsight } from "./modules/roster-markup.js";
 import { facePlayerId, renderPlayerFace, renderPlayerLabel } from "./modules/player-face.js";
 import {
   addValueCalcItem,
@@ -118,9 +129,11 @@ import {
   describeDraftItem,
   draftFromReview,
   draftMarketPrice,
+  draftMeterValues,
+  draftNoticeText,
+  evenUpPickChoice,
   draftVerdictModel,
   draftSideForAsset,
-  draftSummaryLine,
   draftTeamSummary,
   isDraftEmpty,
   placeAfterConnect,
@@ -130,9 +143,13 @@ import {
   writeStoredDraft,
 } from "./modules/trade-draft.js";
 import {
+  calcSuggestionFromList,
+  calcSuggestionItem,
   clearCalcSearchBox,
   keepCalcSearchFocused,
+  moveCalcSuggestion,
   renderCalcSearchInput,
+  shouldArmCalcSuggestion,
   shouldHoldCalcSearchFocus,
   shouldResetCalcSearchOnPick,
 } from "./modules/calc-search.js";
@@ -167,6 +184,7 @@ import {
   renderWeeklyScoreHelpPop,
   weeklyScoreChipLabel,
   lineupFillValue,
+  DYNASTY_SCORE_LABEL,
   WEEKLY_SCORE_HINT,
   WEEKLY_SCORE_LABEL,
 } from "./modules/weekly-value.js";
@@ -195,8 +213,11 @@ import {
 } from "./modules/loyalty.js";
 import {
   renderLeaguePickerMarkup,
+  renderLeagueSearchNote,
   renderMeSelectOptions,
   resolveDefaultMeRoster,
+  seasonSearchHardFailField,
+  seasonSearchHardFailStatus,
 } from "./modules/league-search.js";
 import {
   leagueKeepsPlayers,
@@ -279,6 +300,7 @@ import {
 import {
   buildRankBoard,
   isRankAssetId,
+  RANK_PAGE_SIZE,
   rankFormatLabel,
   rankView,
   renderRanksBody,
@@ -357,6 +379,10 @@ const el = {
   leagueStatus: document.querySelector("#league-status"),
   leagueStatusText: document.querySelector("#league-status-text"),
   leagueStatusLoader: document.querySelector("#league-status-loader"),
+  leagueStatusRetry: document.querySelector("#league-status-retry"),
+  landingSearchStatus: document.querySelector("#landing-search-status"),
+  landingSearchStatusText: document.querySelector("#landing-search-status-text"),
+  landingSearchRetry: document.querySelector("#landing-search-retry"),
   chromeLeagueLabel: document.querySelector("#chrome-league-label"),
   chromeManagerLabel: document.querySelector("#chrome-manager-label"),
   chromeModeLabel: document.querySelector("#chrome-mode-label"),
@@ -468,6 +494,11 @@ const pageRenderQueue = createPageRenderQueue({
 let leagueLoadAnimationTimer = null;
 let leagueLoadStartedAt = 0;
 let livePoller = null;
+let playerLoadEpoch = 0;
+let playerLoadAbort = null;
+let playersInflight = null;
+let playersInflightEpoch = -1;
+let playersIdb = null;
 let tickerController = null;
 let tickerFingerprint = "";
 let liveVisibilityBound = false;
@@ -487,6 +518,11 @@ let publicRanksOpen = false;
 let publicRanksHistory = false;
 // The draft a Review trade, a new partner, or Clear replaced, so one tap brings it back.
 let draftReplaced = null;
+// Picking a suggestion cancels the click. Swallow the follow-up so it cannot
+// land on Clear both sides after the list re-renders.
+let swallowCalcClick = false;
+let swallowCalcTimer = 0;
+let ranksSearchTimer = 0;
 let draftBasisCache = { bundles: null, format: "", basis: null };
 let rankBoardCache = { key: "", rows: [] };
 let rankContextPromise = null;
@@ -513,6 +549,8 @@ function isEstimatedAsset(asset, values = state.values) {
 }
 
 el.usernameSearchForm?.addEventListener("submit", requestFindLeagues);
+el.leagueStatusRetry?.addEventListener("click", retryUserLeagueSearch);
+el.landingSearchRetry?.addEventListener("click", retryUserLeagueSearch);
 el.leaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingLeaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingJobs?.addEventListener("click", handleLandingJobClick);
@@ -620,6 +658,7 @@ el.landingUsername?.addEventListener("input", () => {
   setUsernameError("");
 });
 el.leagueId?.addEventListener("input", () => setFieldError(el.leagueId, el.leagueIdError, ""));
+el.workspace?.addEventListener("click", swallowArmedCalcClick, true);
 el.workspace?.addEventListener("click", handleWorkspaceClick);
 el.controlRail?.addEventListener("click", (event) => {
   if (!event.target.closest("#board-tools")) return;
@@ -870,6 +909,11 @@ function handleRoomTabKeydown(event) {
 
 function renderActivePage() {
   pageRenderQueue.settle();
+  if (state.leagueSwitching) {
+    renderLeagueHero();
+    hideAppPages();
+    return;
+  }
   syncRoomUi();
   renderLeagueHero();
   const page = state.activePage;
@@ -882,6 +926,8 @@ function renderActivePage() {
     renderTradesRoom(room);
   } else if (state.leagueId) {
     renderLeagueRoom(room);
+  } else {
+    renderLeagueGuest(room);
   }
   renderTicker();
 }
@@ -1029,6 +1075,7 @@ function rankViewModel() {
     rows: cachedRankRows(),
     query: state.ranks?.query || "",
     position: state.ranks?.position || "ALL",
+    shown: state.ranks?.shown || RANK_PAGE_SIZE,
     format: activeRankFormat(),
     leagueFormat: state.league ? selectValueFormat(state.league) : "",
     selectedId: state.ranks?.selectedId || "",
@@ -1554,6 +1601,16 @@ function renderSessionSnapshot() {
   const you = getMyRoster()?.manager?.displayName || "";
   document.body.classList.toggle("league-loaded", Boolean(state.leagueId));
   document.body.classList.toggle("viewing-sample", sampleOn);
+  if (state.leagueSwitching) {
+    if (el.mobileChromeTitle) el.mobileChromeTitle.textContent = "Loading league…";
+    if (el.chromeLeagueLabel) el.chromeLeagueLabel.textContent = "Loading…";
+    if (el.chromeManagerLabel) el.chromeManagerLabel.textContent = "—";
+    if (el.chromeModeLabel) el.chromeModeLabel.textContent = "—";
+    renderLeagueHero();
+    syncDocumentMeta();
+    syncSiteDock();
+    return;
+  }
   if (el.mobileChromeTitle) {
     el.mobileChromeTitle.textContent = publicRanksOpen && !state.leagueId
       ? "Player ranks"
@@ -1606,6 +1663,13 @@ function brandMarkAvatarHtml() {
 
 function renderLeagueHero() {
   if (!el.heroTitle) return;
+  if (state.leagueSwitching) {
+    el.heroEyebrow.textContent = "Sleeper";
+    el.heroTitle.textContent = "Loading league…";
+    el.heroLede.textContent = "Pulling this league from Sleeper.";
+    if (el.leagueAvatar) el.leagueAvatar.innerHTML = brandMarkAvatarHtml();
+    return;
+  }
   if (!state.leagueId || !state.league) {
     el.heroEyebrow.textContent = "Sleeper dynasty league";
     el.heroTitle.textContent = "Your Sleeper league";
@@ -1637,8 +1701,9 @@ function renderLeagueHero() {
   const sampleNote = state.viewingSample ? "Public sample — not your account. " : "";
   el.heroLede.textContent = `${sampleNote}${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`;
   if (el.leagueAvatar) {
-    el.leagueAvatar.innerHTML = league.avatar
-      ? `<img src="${SLEEPER_AVATAR_BASE}${escapeHtml(league.avatar)}" alt="${escapeHtml(state.leagueName || "League")} logo" loading="lazy" />`
+    const leagueAvatarSrc = sleeperAvatarUrl(league.avatar);
+    el.leagueAvatar.innerHTML = leagueAvatarSrc
+      ? `<img src="${escapeHtml(leagueAvatarSrc)}" alt="${escapeHtml(state.leagueName || "League")} logo" loading="lazy" />`
       : brandMarkAvatarHtml();
   }
   syncLeagueFormatCopy();
@@ -1843,6 +1908,13 @@ function requestLoadLeague(event) {
   void loadLeague();
 }
 
+function retryUserLeagueSearch() {
+  const landingName = String(el.landingUsername?.value || "").trim();
+  const railName = String(el.sleeperUsername?.value || "").trim();
+  syncUsernameFields(landingName && !railName ? el.landingUsername : el.sleeperUsername);
+  requestFindLeagues();
+}
+
 function requestFindLeagues(event) {
   event?.preventDefault?.();
   syncUsernameFields(event?.currentTarget === el.landingUsernameForm ? el.landingUsername : el.sleeperUsername);
@@ -1882,36 +1954,47 @@ async function searchUserLeagues(username) {
   }
 }
 
+let missedLeagueSeasons = [];
+
 async function runUserLeagueSearch(username) {
   startFindLeaguesUi();
+  missedLeagueSeasons = [];
   setStatus(`Looking up ${username} on Sleeper…`, { loading: true });
   let autoloadId = "";
   try {
     const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => state.nflState);
     if (nflState) state.nflState = nflState;
     const season = String(nflState?.league_season || nflState?.season || new Date().getUTCFullYear());
-    const { user, leagues } = await fetchUserLeagues(sleeper, username, uniqueSeasons(season, 1));
+    const { user, leagues, failedSeasons = [] } = await fetchUserLeagues(sleeper, username, uniqueSeasons(season, 1));
     state.sleeperUser = user;
     searchedUserNoted = false;
     state.userLeagues = sortUserLeagues(leagues, season);
+    const failed = new Set(failedSeasons.map((item) => String(item)));
+    const currentFailed = failed.has(String(season));
+    missedLeagueSeasons = [...failed].filter((year) => year !== String(season));
     renderLeaguePicker(state.userLeagues, season);
-    setUsernameError("");
-    if (state.userLeagues.length === 0) {
+    if (currentFailed) {
+      setUsernameError(seasonSearchHardFailField(season));
+      setStatus(seasonSearchHardFailStatus(season), { error: true, retry: true });
+    } else if (state.userLeagues.length === 0) {
       setStatus(`Found ${user.display_name || username}, but no NFL leagues for ${season}/${Number(season) - 1}.`, { error: true });
       setUsernameError(`No NFL leagues for ${season}/${Number(season) - 1}.`);
-      return;
-    }
-    if (state.userLeagues.length === 1) {
+    } else if (state.userLeagues.length === 1) {
       autoloadId = String(state.userLeagues[0].league_id || "");
       if (el.leagueId && autoloadId) el.leagueId.value = autoloadId;
+      setUsernameError("");
       setStatus(`One league found. Opening ${state.userLeagues[0].name || "league"}…`, { loading: true });
     } else {
+      setUsernameError("");
       setStatus(`Found ${state.userLeagues.length} leagues for ${user.display_name || username}. Pick one.`);
       el.landingLeaguePicker?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   } catch (err) {
     renderLeaguePicker([]);
-    const message = `Could not find that Sleeper user. ${err.message}`;
+    const network = /timed out|Network|CORS/i.test(String(err?.message || ""));
+    const message = network
+      ? `Could not reach Sleeper for ${username}.`
+      : `No Sleeper user named ${username}.`;
     setUsernameError(message);
     setStatus(message, { error: true });
   } finally {
@@ -1923,9 +2006,10 @@ async function runUserLeagueSearch(username) {
 function renderLeaguePicker(leagues, season) {
   const hosts = [...new Set([el.leaguePicker, el.landingLeaguePicker].filter(Boolean))];
   if (!hosts.length) return;
-  const html = leagues?.length ? renderLeaguePickerMarkup(leagues, season, state.leagueId) : "";
+  const list = leagues?.length ? renderLeaguePickerMarkup(leagues, season, state.leagueId) : "";
+  const html = `${list}${renderLeagueSearchNote(missedLeagueSeasons)}`;
   hosts.forEach((host) => {
-    host.classList.toggle("hidden", !html);
+    host.classList.toggle("hidden", !html.trim());
     host.innerHTML = html;
   });
 }
@@ -1968,7 +2052,19 @@ async function loadLeague() {
 async function loadLeagueById(leagueId, { fromHistory = false, sample = false } = {}) {
   if (!leagueId) return;
   state.viewingSample = Boolean(sample);
+  if (shouldBlankDeskForLeagueSwitch(state.leagueId, leagueId)) blankDeskForLeagueSwitch();
   return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
+}
+
+function blankDeskForLeagueSwitch() {
+  state.leagueSwitching = true;
+  pageRenderQueue.settle();
+  stopLivePolling();
+  invalidatePlayerLoads();
+  startLeagueLoadingUi();
+  hideAppPages();
+  el.identitySection?.classList.add("hidden");
+  renderSessionSnapshot();
 }
 
 async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
@@ -1976,6 +2072,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     if (!leagueLoader.isCurrent(token)) return;
     startLeagueLoadingUi();
     stopLivePolling();
+    invalidatePlayerLoads();
     hideAppPages();
 
     const [coreData, nflState] = await Promise.all([
@@ -2077,6 +2174,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.previousRosters = previousContext.rosters;
     state.leagueHistory = leagueHistory;
     state.normalizedRosters = normalizeRosters(league, rosters, users, state.players, previousContext, tradedPicks, state.currentDraftContext);
+    state.leagueSwitching = false;
 
     setFieldError(el.leagueId, el.leagueIdError, "");
     if (state.userLeagues.length) {
@@ -2110,9 +2208,10 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     loadDraftSelectionIndex(leagueHistory);
     startLivePolling();
 
+    const playersEpoch = playerLoadEpoch;
     loadPlayersWithCache()
       .then((players) => {
-        if (!leagueLoader.isCurrent(token) || String(state.leagueId) !== String(leagueId)) return;
+        if (playersLoadStale(playersEpoch, token, leagueId)) return;
         state.players = players;
         state.playerMetadataLoaded = true;
         state.playerMetadataFailed = false;
@@ -2139,7 +2238,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
         );
       })
       .catch((err) => {
-        if (!leagueLoader.isCurrent(token) || String(state.leagueId) !== String(leagueId)) return;
+        if (playersLoadStale(playersEpoch, token, leagueId) || err?.name === "AbortError") return;
         state.playerMetadataLoaded = false;
         state.playerMetadataFailed = true;
         syncTradeModeUi();
@@ -2151,6 +2250,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       });
   } catch (err) {
     if (!leagueLoader.isCurrent(token)) return;
+    state.leagueSwitching = false;
     state.pendingPlace = null;
     const message = `Could not load league data. ${err.message}`;
     setFieldError(el.leagueId, el.leagueIdError, message);
@@ -2218,6 +2318,7 @@ function startLivePolling() {
     simRefreshMs: LIVE_SIM_REFRESH_MS,
     isLive: () => shouldPollLive(getSeasonModel(), state.nflState),
     shouldPause: () => Boolean(document.hidden),
+    leagueId: () => state.leagueId,
     fetchUpdate: async () => {
       const leagueId = state.leagueId;
       const model = getSeasonModel();
@@ -2586,24 +2687,131 @@ async function loadPreviousLeagueContext(league) {
   }
 }
 
-async function loadPlayersWithCache() {
-  const now = Date.now();
-  const fromCache = getPlayersCache();
-  let stateKey = null;
+function invalidatePlayerLoads() {
+  playerLoadEpoch += 1;
+  playerLoadAbort?.abort();
+  playerLoadAbort = null;
+  playersInflight = null;
+  playersInflightEpoch = -1;
+}
 
-  try {
-    const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 });
-    stateKey = `${nflState?.season || "na"}-${nflState?.league_season || "na"}-${nflState?.week || "na"}`;
-    if (fromCache?.players && fromCache?.stateKey === stateKey) return fromCache.players;
-  } catch {
-    if (fromCache && now - fromCache.savedAt < PLAYERS_CACHE_TTL_MS) {
-      return fromCache.players;
-    }
+function playersLoadStale(epoch, token, leagueId) {
+  return epoch !== playerLoadEpoch
+    || !leagueLoader.isCurrent(token)
+    || String(state.leagueId) !== String(leagueId);
+}
+
+function cancelledPlayerLoad() {
+  const error = new Error("Players load cancelled");
+  error.name = "AbortError";
+  return error;
+}
+
+function playersCacheAdapters() {
+  if (!playersIdb) playersIdb = createPlayersIdb();
+  return {
+    localStorage: globalThis.localStorage,
+    idb: playersIdb,
+    key: PLAYERS_CACHE_KEY,
+  };
+}
+
+function createPlayersIdb() {
+  const dbName = "dynasty-ticker";
+  const storeName = "kv";
+  let opening = null;
+  function open() {
+    if (opening) return opening;
+    opening = new Promise((resolve, reject) => {
+      if (typeof indexedDB === "undefined" || typeof indexedDB.open !== "function") {
+        reject(new Error("IndexedDB unavailable"));
+        return;
+      }
+      const request = indexedDB.open(dbName, 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName);
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error("IndexedDB open failed"));
+    });
+    return opening;
   }
+  return {
+    async get(key) {
+      const db = await open();
+      return new Promise((resolve, reject) => {
+        const request = db.transaction(storeName, "readonly").objectStore(storeName).get(key);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error || new Error("IndexedDB read failed"));
+      });
+    },
+    async set(key, value) {
+      const db = await open();
+      return new Promise((resolve, reject) => {
+        const request = db.transaction(storeName, "readwrite").objectStore(storeName).put(value, key);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error || new Error("IndexedDB write failed"));
+      });
+    },
+  };
+}
 
-  const players = await apiGet(`/players/nfl`, { timeoutMs: 30000 });
-  savePlayersCache(players, now, stateKey);
-  return players;
+async function loadPlayersWithCache() {
+  if (playersInflight && playersInflightEpoch === playerLoadEpoch) return playersInflight;
+  const epoch = playerLoadEpoch;
+  playerLoadAbort?.abort();
+  const controller = new AbortController();
+  playerLoadAbort = controller;
+  const job = fetchPlayersForCache(epoch, controller.signal);
+  playersInflight = job;
+  playersInflightEpoch = epoch;
+  try {
+    return await job;
+  } finally {
+    if (playersInflight === job) playersInflight = null;
+    if (playerLoadAbort === controller) playerLoadAbort = null;
+  }
+}
+
+async function fetchPlayersForCache(epoch, signal) {
+  const now = Date.now();
+  const fromCache = await loadPlayersCacheEntry(playersCacheAdapters()).catch((err) => {
+    console.warn("Could not read players cache", err);
+    return null;
+  });
+  if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
+
+  let stateKey = null;
+  let stateFailed = false;
+  try {
+    const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1, signal });
+    stateKey = `${nflState?.season || "na"}-${nflState?.league_season || "na"}-${nflState?.week || "na"}`;
+  } catch (err) {
+    if (err?.name === "AbortError" || signal.aborted || epoch !== playerLoadEpoch) throw cancelledPlayerLoad();
+    stateFailed = true;
+  }
+  if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
+
+  const fresh = stateFailed
+    ? playersCacheIsFresh(fromCache, now, { ttlMs: PLAYERS_CACHE_TTL_MS })
+    : playersCacheIsFresh(fromCache, now, { stateKey, ttlMs: PLAYERS_CACHE_TTL_MS });
+  if (fresh) return slimPlayersMap(fromCache.players);
+
+  const raw = await apiGetWithRetry(`/players/nfl`, {
+    timeoutMs: 30000,
+    retries: 1,
+    cache: "default",
+    signal,
+  });
+  if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
+  const slim = slimPlayersMap(raw);
+  try {
+    await savePlayersCacheEntry({ players: slim, savedAt: now, stateKey }, playersCacheAdapters());
+  } catch (err) {
+    console.warn("Could not save players cache", err);
+  }
+  return slim;
 }
 
 async function loadTrendingPlayers() {
@@ -2986,21 +3194,6 @@ function getPlayersCache() {
   }
 }
 
-function savePlayersCache(players, savedAt, stateKey = null) {
-  try {
-    localStorage.setItem(
-      PLAYERS_CACHE_KEY,
-      JSON.stringify({
-        savedAt,
-        stateKey,
-        players,
-      })
-    );
-  } catch {
-    // Cache write failure is non-fatal (private mode/storage quota).
-  }
-}
-
 function applyMeSelectValue(rosterId) {
   if (!el.meSelect || rosterId == null || rosterId === "") return;
   const token = String(rosterId);
@@ -3126,21 +3319,13 @@ function renderPowerDashboard() {
     || Number(profile.assetSummary.firstRoundPickCount) > 0;
   el.powerDashboard.innerHTML = `
     ${renderWindowCallBanner(windowCall)}
-    <div class="power-hero">
-      <div class="power-score-ring" style="--score:${profile.score}">
-        <strong>${profile.score}</strong>
-        <span>/100</span>
-      </div>
-      <div class="power-hero-copy">
-        <div class="power-title-row">
-          <h3>${profile.managerName}</h3>
-          <span class="power-tier ${profile.tierClass}">${profile.grade}</span>
-        </div>
-        <div class="power-badge-row">
-          ${profile.badges.map((badge) => `<span class="power-badge">${badge}</span>`).join("")}
-        </div>
-      </div>
-    </div>
+    ${renderPowerHero({
+      score: profile.score,
+      managerName: profile.managerName,
+      grade: profile.grade,
+      tierClass: profile.tierClass,
+      badges: profile.badges,
+    })}
     <div class="power-stat-grid">
       ${renderPowerStat("Starter value", formatNumber(profile.metrics.starterValue))}
       ${renderPowerStat("Bench value", formatNumber(profile.metrics.benchValue))}
@@ -3373,28 +3558,72 @@ function seasonThroughLabel(model) {
 // League: Scores, Standings, Power
 // ---------------------------------------------------------------------------
 
-function renderNoLeagueCta() {
-  return `<div class="empty-cta">
-    <h2 class="empty-cta-title">No league yet</h2>
-    <p class="muted">Type your Sleeper username. No name yet? <a class="sample-league-link" href="./?sample=1">See the sample league</a>.</p>
-    <button type="button" data-action="find-my-leagues">Find my leagues</button>
-  </div>`;
-}
-
-function leagueRoomEmptyState(host) {
+function leagueRoomEmptyState(host, copy) {
   if (!host) return false;
+  if (!state.leagueId) {
+    host.innerHTML = renderConnectGate({ copy: connectCopy(copy) });
+    return false;
+  }
   if (!state.league || state.normalizedRosters.length === 0) {
-    host.innerHTML = renderNoLeagueCta();
+    host.innerHTML = `<p class="muted">${escapeHtml(copy)}</p>`;
     return false;
   }
   return true;
+}
+
+function connectCopy(copy) {
+  const text = String(copy || "").trim();
+  if (!text) return "Find my leagues to open this.";
+  return text
+    .replace(/^Load a league to /i, "Find my leagues to ")
+    .replace(/^Connect a league to /i, "Find my leagues to ")
+    .replace(/^Connect Sleeper to /i, "Find my leagues to ");
+}
+
+function paintConnectGate(host, copy) {
+  if (!host) return;
+  host.innerHTML = renderConnectGate({ copy });
+}
+
+function clearHost(host) {
+  if (host) host.innerHTML = "";
+}
+
+function renderLeagueGuest(room) {
+  if (room === "scores") {
+    paintConnectGate(el.scoresDashboard, "Find my leagues to see this week's matchups.");
+    clearHost(el.weeklyHonorsDashboard);
+    return;
+  }
+  if (room === "board") {
+    paintConnectGate(el.teamsGrid, "Find my leagues to see standings and the rest of the league.");
+    clearHost(el.standingsDashboard);
+    clearHost(el.superlativesDashboard);
+    clearHost(el.powerBoardDashboard);
+    clearHost(el.mockDashboard);
+    return;
+  }
+  if (room === "activity") {
+    paintConnectGate(el.tradeLogDashboard, "Find my leagues to see trades in your league.");
+    return;
+  }
+  if (room === "history") {
+    paintConnectGate(el.historyDashboard, "Find my leagues to open titles and records.");
+    clearHost(el.loyaltyDashboard);
+    return;
+  }
+  paintConnectGate(el.powerDashboard, "Find my leagues to see your roster, outlook, and who to start.");
+  clearHost(el.windowCallDashboard);
+  clearHost(el.rosterSheet);
+  document.querySelector("#roster-sheet-section")?.classList.add("hidden");
+  if (el.rosterSheetHeading) el.rosterSheetHeading.textContent = "Roster";
 }
 
 function renderStartRoom() {
   const host = el.startDashboard;
   if (!host) return;
   if (!state.league || state.normalizedRosters.length === 0) {
-    host.innerHTML = `<p class="muted">Load a league to pick a job.</p>`;
+    host.innerHTML = `<p class="muted">Find my leagues to pick a job.</p>`;
     return;
   }
   const me = String(getMyRoster()?.manager?.displayName || "").trim();
@@ -3410,7 +3639,7 @@ function renderStartRoom() {
 }
 
 function renderScoresRoom() {
-  if (!leagueRoomEmptyState(el.scoresDashboard)) return;
+  if (!leagueRoomEmptyState(el.scoresDashboard, "Load a league to open the scoreboard.")) return;
   const model = getSeasonModel();
   const sim = getSimulation(model);
   const profiles = buildPowerProfiles();
@@ -3422,7 +3651,7 @@ function renderScoresRoom() {
 }
 
 function renderStandingsRoom() {
-  if (!leagueRoomEmptyState(el.standingsDashboard)) return;
+  if (!leagueRoomEmptyState(el.standingsDashboard, "Load a league to open the standings.")) return;
   const model = getSeasonModel();
   const sim = getSimulation(model);
   el.standingsDashboard.innerHTML = `
@@ -3432,7 +3661,7 @@ function renderStandingsRoom() {
 }
 
 function renderPowerRoom() {
-  if (!leagueRoomEmptyState(el.powerBoardDashboard)) return;
+  if (!leagueRoomEmptyState(el.powerBoardDashboard, "Load a league to rank the rosters.")) return;
   const model = getSeasonModel();
   const profiles = buildPowerProfiles();
   el.powerBoardDashboard.innerHTML = profiles.length
@@ -4698,22 +4927,22 @@ function renderLoyaltyDashboard() {
       <article class="loyalty-card">
         <span>Ironmen</span>
         ${longest ? renderPlayerLabel(longest.name, longest.playerId, { size: "md", tag: "strong" }) : "<strong>Need archive</strong>"}
-        <small>${tenures.slice(0, 4).map((row) => `${row.name} ${row.consecutiveSeasons}y`).join(" · ") || "Need more seasons."}</small>
+        <small>${escapeHtml(tenures.slice(0, 4).map((row) => `${row.name} ${row.consecutiveSeasons}y`).join(" · ") || "Need more seasons.")}</small>
       </article>
       <article class="loyalty-card">
         <span>Luck charms</span>
         ${charms[0] ? renderPlayerLabel(playerNameById(charms[0].playerId), charms[0].playerId, { size: "md", tag: "strong" }) : "<strong>Need starts</strong>"}
-        <small>${charms.slice(0, 4).map((row) => `${playerNameById(row.playerId)} ${row.badge || row.roster.label}`).join(" · ") || "Need more weeks."}</small>
+        <small>${escapeHtml(charms.slice(0, 4).map((row) => `${playerNameById(row.playerId)} ${row.badge || row.roster.label}`).join(" · ") || "Need more weeks.")}</small>
       </article>
       <article class="loyalty-card">
         <span>Biggest miss</span>
         ${miss ? renderPlayerLabel(miss.name, facePlayerId(miss), { size: "md", tag: "strong" }) : "<strong>Clean books</strong>"}
-        <small>${miss ? `Now ${formatNumber(Math.round(miss.value))} · ${miss.season || ""} W${miss.week || "?"} vs ${miss.partnerName || "rival"}` : "Nobody you shipped is a big name now."}</small>
+        <small>${escapeHtml(miss ? `Now ${formatNumber(Math.round(miss.value))} · ${miss.season || ""} W${miss.week || "?"} vs ${miss.partnerName || "rival"}` : "Nobody you shipped is a big name now.")}</small>
       </article>
       <article class="loyalty-card">
         <span>New core</span>
         ${core[0] ? renderPlayerLabel(core[0].name, core[0].playerId, { size: "md", tag: "strong" }) : "<strong>No young adds</strong>"}
-        <small>${core.map((row) => `${row.name}${Number.isFinite(row.age) ? ` ${row.age}` : ""}`).join(" · ") || "Adds skew older."}</small>
+        <small>${escapeHtml(core.map((row) => `${row.name}${Number.isFinite(row.age) ? ` ${row.age}` : ""}`).join(" · ") || "Adds skew older.")}</small>
       </article>
     </div>
     <div class="charm-list">
@@ -5108,18 +5337,29 @@ function weeklyModelForAsset(asset) {
 }
 
 function renderRosterSheet() {
+  const section = document.querySelector("#roster-sheet-section");
+  const roster = getLensRoster();
+  if (!state.leagueId || !roster) {
+    section?.classList.add("hidden");
+    if (el.rosterSheet) el.rosterSheet.innerHTML = "";
+    syncWeeklyScoreHelp();
+    return;
+  }
+  section?.classList.remove("hidden");
   if (!el.rosterSheet) {
     syncWeeklyScoreHelp();
     return;
   }
-  const roster = getLensRoster();
-  if (!roster) {
-    el.rosterSheet.innerHTML = `<p class="muted">Choose a team to open the roster sheet.</p>`;
-    syncWeeklyScoreHelp();
-    return;
-  }
   if (!state.playerMetadataLoaded) {
-    el.rosterSheet.innerHTML = `<div class="power-sync"><strong>Syncing player metadata</strong><p class="muted">Names, positions, and ages arrive in a moment.</p></div>`;
+    const failed = state.playerMetadataFailed;
+    el.rosterSheet.innerHTML = `
+      <div class="power-sync">
+        <strong>${failed ? "Player metadata unavailable" : "Syncing player metadata"}</strong>
+        <p class="muted">${failed
+          ? "Sleeper didn't return player names, positions, or ages. Rosters and trade search still work with fallback values."
+          : "Names, positions, and ages arrive in a moment."}</p>
+      </div>
+    `;
     syncWeeklyScoreHelp();
     return;
   }
@@ -5217,12 +5457,12 @@ function renderRosterSheet() {
           ${meta ? `<span>${meta}</span>` : ""}
         </div>
         <span class="sheet-metrics">
-          <span class="weekly-chip"${weekly?.missing?.length ? ` title="${escapeHtml(weekly.missing.join(", "))}"` : ""}>
-            <small class="sr-only">${WEEKLY_SCORE_LABEL}</small>
+          <span class="weekly-chip"${weekly?.missing?.length ? ` title="${escapeHtml(weekly.missing.join(", "))}"` : ` title="${escapeHtml(WEEKLY_SCORE_HINT)}"`}>
+            <small>${escapeHtml(WEEKLY_SCORE_LABEL)}</small>
             <strong>${escapeHtml(weeklyLabel)}</strong>
           </span>
-          <span class="dynasty-chip">
-            <small class="sr-only">Dynasty</small>
+          <span class="dynasty-chip" title="Model price. Same number as Players and Trade.">
+            <small>${escapeHtml(DYNASTY_SCORE_LABEL)}</small>
             <strong class="mono">${formatNumber(getAssetValue(asset, values))}</strong>
           </span>
         </span>
@@ -5250,6 +5490,7 @@ function renderRosterSheet() {
       ${showPicks ? renderPowerStat("Pick vault", formatNumber(summary.pickValue)) : ""}
       ${renderPowerStat("Avg age", summary.averageAgeLabel)}
     </div>
+    ${renderPriceLegend(["week", "model", "lineup"])}
     ${selectedWeekly
       ? renderWeeklyPlayerSheet(selectedWeekly, { helpOpen: Boolean(state.weeklyValue?.helpOpen) })
       : selectedAsset
@@ -5581,6 +5822,7 @@ function renderTradeDraft() {
   const view = buildDraftView();
   host.innerHTML = `
     ${renderValueBoardBar({ marketHint: marketBoardHint() })}
+    ${renderPriceLegend(["model", "package"])}
     <div class="panel-heading calc-heading">
       <div>
         <span class="eyebrow">Trade</span>
@@ -5665,13 +5907,18 @@ function renderDraftBasis(view) {
 }
 
 function renderDraftNotice() {
-  if (!draftReplaced || isDraftEmpty(draftReplaced.draft)) return "";
+  const text = draftNoticeText({
+    note: draftReplaced?.note || "",
+    saved: draftReplaced?.draft,
+    current: state.valueCalc,
+  });
+  if (!text) return "";
   return `
     <div class="draft-notice" role="status">
-      <p>${escapeHtml(draftReplaced.note || "")} Your other draft is saved: ${escapeHtml(draftSummaryLine(draftReplaced.draft))}.</p>
+      <p>${escapeHtml(text)}</p>
       <div class="draft-notice-actions">
-        <button type="button" class="ghost-btn" data-action="draft-restore">Bring it back</button>
-        <button type="button" class="ghost-btn" data-action="draft-dismiss">Dismiss</button>
+        <button type="button" class="ghost-btn" data-action="draft-restore">Restore draft</button>
+        <button type="button" class="ghost-btn" data-action="draft-dismiss">Keep new</button>
       </div>
     </div>
   `;
@@ -5735,7 +5982,7 @@ function renderDraftTokens(side, view) {
     return `
       <button type="button" class="selected-token${draftItemMismatch(view, item) ? " is-mismatch" : ""}" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" title="Remove ${escapeHtml(item.name)}">
         ${renderSelectedTokenLabel(item)}
-        <span class="selected-token-price">${formatNumber(price?.value || 0)}${price?.estimated ? " est" : ""}</span>
+        <span class="selected-token-price" title="Model price">${formatNumber(price?.value || 0)}${price?.estimated ? " est" : ""}</span>
         <span class="selected-token-remove" aria-hidden="true">×</span>
       </button>
     `;
@@ -5834,6 +6081,7 @@ function draftSuggestionRows(side, view) {
         continue;
       }
       const price = draftMarketPrice(asset, basis);
+      if (asset.assetType !== "pick" && !(Number(price.value) > 0)) continue;
       const mine = rosterId === meId;
       rows.push({
         assetId: asset.assetId,
@@ -5877,7 +6125,7 @@ function renderDraftSuggestions(side, view) {
     return "";
   }
   return rows.map((row) => `
-    <div class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType === "pick" ? "pick" : "player"}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""} role="button" tabindex="-1">
+    <button type="button" class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType === "pick" ? "pick" : "player"}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""}>
       <div class="asset-row-top">
         ${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}
         <div class="asset-name-stack">
@@ -5887,9 +6135,9 @@ function renderDraftSuggestions(side, view) {
             ${row.context ? `<span class="asset-context">${escapeHtml(row.context)}</span>` : ""}
           </div>
         </div>
-        <span class="asset-value-badge">${formatNumber(row.value)}${row.estimated ? " est" : ""}</span>
+        <span class="asset-value-badge" title="Model price">${formatNumber(row.value)}${row.estimated ? " est" : ""}</span>
       </div>
-    </div>
+    </button>
   `).join("");
 }
 
@@ -5897,16 +6145,24 @@ function nextRookieDraftSeason() {
   return tradablePickSeason(state.nflState);
 }
 
-// A pick that can still be traded, close to the gap. Past drafts are already players.
+// A future pick evens the gap only when its price actually covers it.
 function findEvenUpPick(gap, values) {
   const first = nextRookieDraftSeason();
   const picks = listGenericPicks(values).filter((pick) => Number(pick.season) >= first);
-  let best = null;
-  for (const pick of picks) {
-    const miss = Math.abs(pick.value - gap);
-    if (!best || miss < best.miss) best = { ...pick, miss };
+  return evenUpPickChoice(gap, picks);
+}
+
+function evenUpCopy(choice, side) {
+  if (!choice) return "";
+  const verb = side === "You" || side === "They" ? "add" : "adds";
+  if (choice.closes) {
+    return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
   }
-  return best && best.miss <= gap * 0.5 ? best : null;
+  const short = choice.value < choice.gap;
+  const why = short
+    ? `It covers ${formatNumber(choice.value)} of a ${formatNumber(choice.gap)} gap, so it does not close.`
+    : `It is ${formatNumber(choice.value - choice.gap)} more than the ${formatNumber(choice.gap)} gap.`;
+  return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}). ${why}`;
 }
 
 function renderDraftMethod(view) {
@@ -5926,13 +6182,14 @@ function renderDraftMethod(view) {
 function renderDraftVerdict(view) {
   const { draft, model } = view;
   if (!draft.left.length && !draft.right.length) {
-    return `<p class="muted calc-hint">Add a player or pick to each side. The verdict uses the same prices as Players.</p>`;
+    return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. The verdict uses the same prices as Players.</p>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   const them = view.partner?.manager?.displayName || "them";
   const { verdict, adjustment } = model;
+  const meters = draftMeterValues(model);
   const label = draftVerdictLabel(verdict, { them });
-  const maxSide = Math.max(model.compareGive, model.compareGet, 1);
+  const maxSide = Math.max(meters.give, meters.get, 1);
   const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(Math.abs(verdict.gap), view.basis.values) : null;
   const evenSide = verdict.gap > 0 ? "You" : (view.partner ? them : "They");
   const credited = adjustment?.side === "left" ? "You give" : "You get";
@@ -5941,9 +6198,10 @@ function renderDraftVerdict(view) {
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
         <h3>${escapeHtml(label)}</h3>
+        ${/* TODO(follow-up): spell a bare percent ("96% apart") as a plain outcome. Out of scope for this push. */ ""}
         <p>You give ${formatNumber(model.give)}. You get ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : adjustment ? "" : ` ${verdict.pct}% apart.`}</p>
-        ${adjustment ? `<p class="draft-package"><strong>Package adjustment:</strong> +${formatNumber(adjustment.amount)} to ${credited}, which has the best player. After it the sides are ${verdict.pct}% apart.</p>` : ""}
-        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenSide)} add${evenSide === "You" || evenSide === "They" ? "" : "s"} about ${formatNumber(Math.round(Math.abs(verdict.gap)))}, roughly a ${escapeHtml(evenUp.name)} (${formatNumber(evenUp.value)}).</p>` : ""}
+        ${adjustment ? `<p class="draft-package"><strong>Package credit:</strong> the best player is worth more than the same total split into smaller pieces. That adds ${formatNumber(adjustment.amount)} to ${escapeHtml(credited)}. Listed prices stay put. After that credit the sides are ${verdict.pct}% apart.</p>` : ""}
+        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method">
           <summary>How this number works</summary>
           ${renderDraftMethod(view)}
@@ -5952,13 +6210,13 @@ function renderDraftVerdict(view) {
       <div class="calc-bars">
         <div class="calc-bar team-a">
           <span>You give</span>
-          <div class="meter-track"><span style="width:${Math.round(model.compareGive / maxSide * 100)}%"></span></div>
-          <strong>${formatNumber(model.compareGive)}</strong>
+          <div class="meter-track"><span style="width:${Math.round(meters.give / maxSide * 100)}%"></span></div>
+          <strong>${formatNumber(meters.give)}</strong>
         </div>
         <div class="calc-bar team-b">
           <span>You get</span>
-          <div class="meter-track"><span style="width:${Math.round(model.compareGet / maxSide * 100)}%"></span></div>
-          <strong>${formatNumber(model.compareGet)}</strong>
+          <div class="meter-track"><span style="width:${Math.round(meters.get / maxSide * 100)}%"></span></div>
+          <strong>${formatNumber(meters.get)}</strong>
         </div>
       </div>
       <div class="calc-actions">
@@ -6003,9 +6261,9 @@ function renderDraftTeam(view) {
       <section class="draft-team-card">
         <div>
           <span class="analytics-kicker">Your team</span>
-          <p>Connect Sleeper to see who owns each piece and what this trade does to both rosters. This trade stays here.</p>
+          <p>Find my leagues to see who owns each piece and what this trade does to both rosters. This trade stays here.</p>
         </div>
-        <button type="button" data-action="draft-connect">Connect Sleeper</button>
+        <button type="button" data-action="draft-connect">Find my leagues</button>
       </section>
     `;
   }
@@ -6036,7 +6294,7 @@ function renderDraftTeam(view) {
       <div>
         <span class="analytics-kicker">Team impact</span>
         <h3>With ${escapeHtml(partnerName)}</h3>
-        <p class="muted small">Lineup rank and values come from the same league model as My League. It weights stars above the market prices above and is not a weekly projection.</p>
+        <p class="muted small">Starter value is the sum of the model prices above. Same prices as Players. Not a weekly projection, and not a second price.</p>
       </div>
       <div class="calc-actions">
         <button type="button" class="ghost-btn" data-action="calc-copy" data-offer="${escapeHtml(buildDraftOfferText(view))}">Copy offer text</button>
@@ -6112,8 +6370,11 @@ function settleCalcSearch(kind, side) {
 }
 
 function openConnectPrompt() {
-  const landing = document.querySelector("#landing");
-  landing?.classList.remove("hidden");
+  const leaving = !state.leagueId && state.activePage !== "players";
+  if (leaving) state.pendingPlace = { page: state.activePage, room: getRoom(state.activePage) };
+  if (publicRanksOpen) closePublicRanks({ fromHistory: true });
+  if (leaving) setActivePage("players", { history: "push", scroll: "top" });
+  document.querySelector("#landing")?.classList.remove("hidden");
   focusUsernameSearch();
 }
 
@@ -6205,7 +6466,75 @@ function renderTicker() {
 // Workspace event delegation
 // ---------------------------------------------------------------------------
 
+function armCalcClickSwallow() {
+  swallowCalcClick = true;
+  clearTimeout(swallowCalcTimer);
+  swallowCalcTimer = setTimeout(() => {
+    swallowCalcClick = false;
+  }, 500);
+}
+
+function swallowArmedCalcClick(event) {
+  if (!swallowCalcClick) return;
+  swallowCalcClick = false;
+  clearTimeout(swallowCalcTimer);
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function pickDraftSuggestion(item) {
+  if (!item?.dataset?.assetId) return false;
+  const side = item.dataset.side === "right" ? "right" : "left";
+  const added = addDraftAsset(side, {
+    assetId: item.dataset.assetId,
+    name: item.dataset.name,
+    assetType: item.dataset.kind === "pick" ? "pick" : "player",
+    leagueId: item.dataset.leagueId || "",
+  });
+  if (!added) return false;
+  if (shouldResetCalcSearchOnPick("value-add")) {
+    if (side === "right") state.valueCalc.rightQuery = "";
+    else state.valueCalc.leftQuery = "";
+  }
+  patchTradeDraft([side]);
+  settleCalcSearch("value-search", side);
+  return true;
+}
+
 function handleWorkspaceKeydown(event) {
+  if (event.isComposing) return;
+  const search = event.target?.closest?.("[data-input='value-search']");
+  if (search && el.workspace?.contains(search)) {
+    const side = search.dataset.side === "right" ? "right" : "left";
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      const item = moveCalcSuggestion(el.calculatorShell, side, event.key === "ArrowDown" ? 1 : -1);
+      if (!item) return;
+      event.preventDefault();
+      item.scrollIntoView?.({ block: "nearest" });
+      return;
+    }
+    if (event.key === "Enter") {
+      const item = calcSuggestionFromList(el.calculatorShell, side);
+      if (!item) return;
+      event.preventDefault();
+      pickDraftSuggestion(item);
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
+      if (String(query || "").trim()) {
+        if (side === "right") state.valueCalc.rightQuery = "";
+        else state.valueCalc.leftQuery = "";
+        clearCalcSearchBox(search);
+        refreshDraftSuggestions(side);
+        search.focus();
+        return;
+      }
+      search.blur();
+      return;
+    }
+  }
   if (event.key !== "Enter" && event.key !== " ") return;
   const target = event.target.closest("[data-action][role='button']");
   if (!target || event.target !== target || !el.workspace?.contains(target)) return;
@@ -6214,8 +6543,14 @@ function handleWorkspaceKeydown(event) {
 }
 
 function handleWorkspacePointerDown(event) {
-  if (!shouldHoldCalcSearchFocus(event, document)) return;
+  if (!shouldArmCalcSuggestion(event, document)) {
+    if (!shouldHoldCalcSearchFocus(event, document)) return;
+    event.preventDefault();
+    return;
+  }
   event.preventDefault();
+  armCalcClickSwallow();
+  pickDraftSuggestion(calcSuggestionItem(event));
 }
 
 function handleWorkspaceClick(event) {
@@ -6273,6 +6608,11 @@ function handleWorkspaceClick(event) {
       break;
     case "rank-pos":
       state.ranks.position = target.dataset.pos || "ALL";
+      state.ranks.shown = RANK_PAGE_SIZE;
+      renderRankSurfaces();
+      break;
+    case "ranks-more":
+      state.ranks.shown = (Number(state.ranks.shown) || RANK_PAGE_SIZE) + RANK_PAGE_SIZE;
       renderRankSurfaces();
       break;
     case "rank-format":
@@ -6366,20 +6706,7 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "value-add": {
-      const side = target.dataset.side === "right" ? "right" : "left";
-      if (!target.dataset.assetId) return;
-      if (shouldResetCalcSearchOnPick("value-add")) {
-        if (side === "right") state.valueCalc.rightQuery = "";
-        else state.valueCalc.leftQuery = "";
-      }
-      addDraftAsset(side, {
-        assetId: target.dataset.assetId,
-        name: target.dataset.name,
-        assetType: target.dataset.kind === "pick" ? "pick" : "player",
-        leagueId: target.dataset.leagueId || "",
-      });
-      patchTradeDraft([side]);
-      settleCalcSearch("value-search", side);
+      pickDraftSuggestion(target);
       break;
     }
     case "value-remove": {
@@ -6388,8 +6715,10 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "value-clear": {
+      if (isDraftEmpty(state.valueCalc)) break;
       replaceDraft(clearValueCalcSides(state.valueCalc), "Cleared both sides.");
       patchTradeDraft(["left", "right"]);
+      el.calculatorShell?.querySelectorAll("[data-input='value-search']").forEach((input) => clearCalcSearchBox(input));
       break;
     }
     case "draft-swap": {
@@ -6467,7 +6796,10 @@ function handleWorkspaceInput(event) {
   }
   if (target.dataset.input === "ranks-search") {
     state.ranks.query = target.value;
-    renderRankHost(target.closest("#ranks-dashboard, #public-ranks-board") || el.ranksDashboard);
+    state.ranks.shown = RANK_PAGE_SIZE;
+    const host = target.closest("#ranks-dashboard, #public-ranks-board") || el.ranksDashboard;
+    clearTimeout(ranksSearchTimer);
+    ranksSearchTimer = setTimeout(() => renderRankHost(host), 180);
   }
 }
 
@@ -8747,39 +9079,6 @@ function median(values) {
   return Math.round((sorted[middle - 1] + sorted[middle]) / 2);
 }
 
-function renderPowerStat(label, value) {
-  return `
-    <section class="power-stat">
-      <span>${label}</span>
-      <strong>${value}</strong>
-    </section>
-  `;
-}
-
-function renderPositionMeter(position) {
-  return `
-    <div class="position-meter">
-      <div class="position-meter-top">
-        <strong>${position.position}</strong>
-        <span>${position.rankLabel}</span>
-      </div>
-      <div class="meter-track" aria-hidden="true">
-        <span style="width:${Math.round(position.percentile * 100)}%"></span>
-      </div>
-      <p>${position.label}</p>
-    </div>
-  `;
-}
-
-function renderSleeperInsight(insight) {
-  return `
-    <section class="insight-item ${insight.tone || ""}">
-      <strong>${insight.title}</strong>
-      <span>${insight.body}</span>
-    </section>
-  `;
-}
-
 function buildLeaguePowerContext({ league, rosters, values, metricsByRosterId = null }) {
   const resolvedMetrics = metricsByRosterId || new Map();
   if (!metricsByRosterId) {
@@ -9344,19 +9643,19 @@ function pruneExcludedOutgoingAssets() {
 
 function buildAssetPickerMarkup(asset, { values, contextLabel } = {}) {
   const pills = [];
-  pills.push(`<span class="asset-pill ${asset.assetType === "pick" ? "gold" : ""}">${asset.assetType === "pick" ? "Pick" : formatPlayerPositionLabel(asset)}</span>`);
+  pills.push(`<span class="asset-pill ${asset.assetType === "pick" ? "gold" : ""}">${asset.assetType === "pick" ? "Pick" : escapeHtml(formatPlayerPositionLabel(asset))}</span>`);
 
   if (asset.assetType === "player" && asset.raw?.age) {
-    pills.push(`<span class="asset-pill">${asset.raw.age} yrs</span>`);
+    pills.push(`<span class="asset-pill">${escapeHtml(asset.raw.age)} yrs</span>`);
   }
 
   if (asset.assetType === "pick") {
     const pickBucket = getAssetPickBucket(asset);
     if (Number(asset.raw?.round) === 1 && pickBucket !== "any") {
-      pills.push(`<span class="asset-pill gold">${formatPickBucketLabel(pickBucket)}</span>`);
+      pills.push(`<span class="asset-pill gold">${escapeHtml(formatPickBucketLabel(pickBucket))}</span>`);
     }
-    if (asset.raw?.season) pills.push(`<span class="asset-pill">${asset.raw.season}</span>`);
-    if (asset.raw?.round) pills.push(`<span class="asset-pill">R${asset.raw.round}</span>`);
+    if (asset.raw?.season) pills.push(`<span class="asset-pill">${escapeHtml(asset.raw.season)}</span>`);
+    if (asset.raw?.round) pills.push(`<span class="asset-pill">R${escapeHtml(asset.raw.round)}</span>`);
   }
 
   return `
@@ -9366,7 +9665,7 @@ function buildAssetPickerMarkup(asset, { values, contextLabel } = {}) {
         <strong>${escapeHtml(asset.name)}</strong>
         <div class="asset-meta">
           ${pills.join("")}
-          ${contextLabel ? `<span class="asset-context">${contextLabel}</span>` : ""}
+          ${contextLabel ? `<span class="asset-context">${escapeHtml(contextLabel)}</span>` : ""}
         </div>
       </div>
       <span class="asset-value-badge-slot">${renderAssetValueBadge(asset, values)}</span>
@@ -9439,7 +9738,7 @@ function syncMatchGenerateState() {
   }
   if (el.matchGenerateHelp) {
     el.matchGenerateHelp.textContent = !state.leagueId
-      ? "Load a league and pick your team."
+      ? "Find my leagues and pick your team."
       : !state.meRosterId
         ? "Choose your team first."
         : "Looks at holes, surplus, and contend vs tank. No leftover thirds.";
@@ -9450,7 +9749,21 @@ function setMatchGenerateError(message) {
   setFieldError(null, el.matchGenerateError, message);
 }
 
+function syncFindGuestChrome(guest) {
+  document.querySelector("#match-action-panel")?.classList.toggle("hidden", guest);
+  document.querySelector("#player-section")?.classList.toggle("hidden", guest);
+  document.querySelector("#settings-section")?.classList.toggle("hidden", guest);
+  if (guest) el.resultsSection?.classList.add("hidden");
+}
+
 function renderTradeMatchRoom() {
+  if (!state.leagueId) {
+    syncFindGuestChrome(true);
+    paintConnectGate(el.tradeMatchNeeds, "Find my leagues to find a partner or shop a player. Check an offer still works without a league.");
+    clearHost(el.tradeMatchDashboard);
+    return;
+  }
+  syncFindGuestChrome(false);
   syncMatchGenerateState();
   renderTradeMatchNeeds();
   const key = tradeMatchCacheKey();
@@ -10053,13 +10366,13 @@ function renderTradeIdeaGroup({ title, subtitle, emptyText, ideas, values }) {
   return `
     <section class="idea-group">
       <div class="idea-group-heading">
-        <h3>${title}</h3>
-        <p class="muted small">${subtitle}</p>
+        <h3>${escapeHtml(title)}</h3>
+        <p class="muted small">${escapeHtml(subtitle)}</p>
       </div>
       ${
         ideas.length > 0
           ? ideas.map((idea, idx) => renderTradeCard(idea, idx, values)).join("")
-          : `<p class="muted small idea-group-empty">${emptyText}</p>`
+          : `<p class="muted small idea-group-empty">${escapeHtml(emptyText)}</p>`
       }
     </section>
   `;
@@ -10069,13 +10382,13 @@ function renderMultiTeamIdeaGroup(group, values) {
   return `
     <section class="idea-group">
       <div class="idea-group-heading">
-        <h3>${group.title}</h3>
-        <p class="muted small">${group.subtitle}</p>
+        <h3>${escapeHtml(group.title)}</h3>
+        <p class="muted small">${escapeHtml(group.subtitle)}</p>
       </div>
       ${
         group.ideas.length > 0
           ? group.ideas.map((idea, idx) => renderMultiTeamCard(idea, idx, values)).join("")
-          : `<p class="muted small idea-group-empty">${group.emptyText}</p>`
+          : `<p class="muted small idea-group-empty">${escapeHtml(group.emptyText)}</p>`
       }
     </section>
   `;
@@ -10090,13 +10403,13 @@ function renderMultiTeamCard(idea, index, values) {
           <p class="muted small">${idea.teamCount} teams • max ${idea.maxPctDiff}% diff • added value ${formatNumber(idea.extraMovedValueTotal || 0)} • common value ${formatNumber(idea.commonValue)}</p>
         </div>
         <div class="participant-pill-row">
-          ${idea.tags.map((tag) => `<span class="participant-pill">${tag}</span>`).join("")}
+          ${(idea.tags || []).map((tag) => `<span class="participant-pill">${escapeHtml(tag)}</span>`).join("")}
         </div>
       </div>
       <div class="multi-team-party-grid">
         ${idea.participants.map((participant) => renderMultiTeamPartyCard(participant, values, idea.meRosterId)).join("")}
       </div>
-      <p class="multi-team-flow">${idea.summary}</p>
+      <p class="multi-team-flow">${escapeHtml(idea.summary)}</p>
     </article>
   `;
 }
@@ -10119,8 +10432,8 @@ function renderMultiTeamPartyCard(participant, values, meRosterId) {
     : "trade partners";
   return `
     <section class="multi-team-party-card ${isMe ? "you" : "other"}">
-      <h4>${isMe ? (state.viewingSample ? "Viewing" : "You") : participant.roster.manager.displayName}</h4>
-      <p class="muted small">${receiveFromLabel} to ${sendToLabel}</p>
+      <h4>${isMe && state.viewingSample ? "Viewing" : renderMultiTeamPartyTitle(participant.roster?.manager?.displayName, isMe)}</h4>
+      <p class="muted small">${escapeHtml(`${receiveFromLabel} to ${sendToLabel}`)}</p>
       <div class="trade-body-grid">
         <section class="trade-side team-a">
           <div class="trade-side-heading">
@@ -10199,9 +10512,9 @@ function renderTradeCard(idea, index, values) {
       <summary class="trade-card-summary">
         <div>
           <h3>Idea ${index + 1}</h3>
-          ${idea.counterpartyName ? `<p class="trade-card-context">with ${idea.counterpartyName}</p>` : ""}
+          ${idea.counterpartyName ? `<p class="trade-card-context">with ${escapeHtml(idea.counterpartyName)}</p>` : ""}
           <p class="trade-card-preview">
-            Send ${formatAssetNameList(idea.myAssets)} for ${formatAssetNameList(idea.theirAssets)}
+            Send ${escapeHtml(formatAssetNameList(idea.myAssets))} for ${escapeHtml(formatAssetNameList(idea.theirAssets))}
           </p>
         </div>
         <div class="trade-summary-score ${powerDeltaClass}">
@@ -10241,7 +10554,7 @@ function renderTradeCard(idea, index, values) {
           </div>
           <div class="trade-metric">
             <strong>Even-up value</strong>
-            ${evenValueLabel}
+            ${escapeHtml(evenValueLabel)}
           </div>
         </div>
         ${idea.impactAnalysis ? renderImpactAnalysis(idea.impactAnalysis, values) : ""}
@@ -10263,7 +10576,7 @@ function renderGameImpact(upgrade, idea) {
         <div>
           <span class="game-kicker">Power Quest</span>
           <h4>${upgrade.before.score} → ${upgrade.after.score} Team Power</h4>
-          <p>${upgrade.summary}</p>
+          <p>${escapeHtml(upgrade.summary)}</p>
         </div>
         <div class="xp-chip ${deltaClass}">
           <strong>${formatSignedNumber(upgrade.delta)}</strong>
@@ -10275,7 +10588,7 @@ function renderGameImpact(upgrade, idea) {
         ${renderPowerProgress("After Trade", upgrade.after.score)}
       </div>
       <div class="power-badge-row">
-        ${upgrade.badges.map((badge) => `<span class="power-badge">${badge}</span>`).join("")}
+        ${(upgrade.badges || []).map((badge) => `<span class="power-badge">${escapeHtml(badge)}</span>`).join("")}
         ${idea.labScore ? `<span class="power-badge muted-badge">Deal Fit ${idea.labScore}/99</span>` : ""}
       </div>
     </section>
@@ -10298,13 +10611,13 @@ function renderPowerProgress(label, score) {
 
 function renderTradeNarrative(idea) {
   const tags = idea.tags?.length
-    ? `<div class="power-badge-row">${idea.tags.map((tag) => `<span class="power-badge">${tag}</span>`).join("")}</div>`
+    ? `<div class="power-badge-row">${idea.tags.map((tag) => `<span class="power-badge">${escapeHtml(tag)}</span>`).join("")}</div>`
     : "";
   return `
     <section class="trade-narrative">
       ${tags}
-      ${idea.summary ? `<p>${idea.summary}</p>` : ""}
-      ${idea.pitch ? `<blockquote>${idea.pitch}</blockquote>` : ""}
+      ${idea.summary ? `<p>${escapeHtml(idea.summary)}</p>` : ""}
+      ${idea.pitch ? `<blockquote>${escapeHtml(idea.pitch)}</blockquote>` : ""}
     </section>
   `;
 }
@@ -10315,7 +10628,7 @@ function renderImpactAnalysis(impactAnalysis, values) {
       ${renderImpactCard(impactAnalysis.mySide, "team-a")}
       ${renderImpactCard(impactAnalysis.theirSide, "team-b")}
     </div>
-    <p class="muted small">${impactAnalysis.overallSummary}</p>
+    <p class="muted small">${escapeHtml(impactAnalysis.overallSummary)}</p>
     <details class="lineup-details">
       <summary>View lineup impact</summary>
       <div class="lineup-details-body">
@@ -10331,11 +10644,12 @@ function renderImpactAnalysis(impactAnalysis, values) {
 }
 
 function renderImpactCard(side, teamClass = "") {
+  const verdictClass = String(side.verdictClass || "").replace(/[^A-Za-z0-9_-]/g, "");
   return `
     <section class="impact-card ${teamClass}">
-      <h4>${side.title}</h4>
-      <span class="impact-verdict ${side.verdictClass}">${side.verdictLabel}</span>
-      <p class="impact-summary">${side.summary}</p>
+      <h4>${escapeHtml(side.title)}</h4>
+      <span class="impact-verdict ${verdictClass}">${escapeHtml(side.verdictLabel)}</span>
+      <p class="impact-summary">${escapeHtml(side.summary)}</p>
       <div class="impact-metric-list">
         <div class="impact-metric-row">
           <strong>Starter rank</strong>
@@ -14852,7 +15166,7 @@ function renderAssetList(assets, values, teamClass = "") {
           (asset) => `
             <li class="asset-item">
               <span>${renderPlayerLabel(asset.name, facePlayerId(asset), { size: "sm" })}</span>
-              <span class="asset-value">${formatAssetSecondaryLabel(asset, values)}</span>
+              <span class="asset-value">${escapeHtml(formatAssetSecondaryLabel(asset, values))}</span>
             </li>`
         )
         .join("")}
@@ -15362,26 +15676,6 @@ function normalizeRosters(league, rosters, users, players, previousContext = { l
   });
 }
 
-function avatarUrl(avatarId) {
-  return avatarId ? `${SLEEPER_AVATAR_BASE}${avatarId}` : "";
-}
-
-function renderAvatar(manager, { size = "md", className = "" } = {}) {
-  const name = String(manager?.displayName || manager?.name || "?");
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
-  const avatar = manager?.avatar;
-  const hue = hashHue(name);
-  return avatar
-    ? `<span class="avatar avatar-${size} ${className}" style="--hue:${hue}"><img src="${avatarUrl(avatar)}" alt="${escapeHtml(name)}" loading="lazy" /></span>`
-    : `<span class="avatar avatar-${size} ${className}" style="--hue:${hue}"><span>${escapeHtml(initial)}</span></span>`;
-}
-
-function hashHue(text) {
-  let hash = 0;
-  for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
-  return hash % 360;
-}
-
 function displayNameForUser(user, fallback) {
   if (!user) return fallback;
   return user.display_name || user.username || fallback;
@@ -15722,13 +16016,18 @@ function applyValuationBundle(bundle, { rerender = true } = {}) {
   };
 }
 
-function setStatus(message, { ok = false, loading = false, error = false } = {}) {
+function setStatus(message, { ok = false, loading = false, error = false, retry = false } = {}) {
   if (el.leagueStatusText) el.leagueStatusText.textContent = message;
   if (el.leagueStatus) {
     const tone = error ? "error" : ok ? "ok" : loading ? "loading" : "muted";
     el.leagueStatus.className = `status ${tone}`;
   }
   el.leagueStatusLoader?.classList.toggle("hidden", !loading);
+  el.leagueStatusRetry?.classList.toggle("hidden", !retry);
+  if (el.landingSearchStatus) {
+    el.landingSearchStatus.classList.toggle("hidden", !retry);
+    if (el.landingSearchStatusText) el.landingSearchStatusText.textContent = retry ? message : "";
+  }
 }
 
 function setFieldError(input, errorEl, message) {
@@ -15770,6 +16069,13 @@ function focusUsernameSearch() {
 }
 
 function syncDocumentMeta() {
+  if (state.leagueSwitching) {
+    applyDocumentMeta(document, {
+      title: "Loading league — Dynasty Ticker",
+      description: "Opening a Sleeper league.",
+    });
+    return;
+  }
   if (publicRanksOpen && !state.leagueId) {
     applyDocumentMeta(document, {
       title: "Ranks — Dynasty Ticker",
@@ -15804,7 +16110,8 @@ async function bootLandingRather() {
     if (!state.valueBundles?.sf?.values || !Object.keys(state.valueBundles.sf.values).length) {
       state.valueBundles = await fetchValuationBundles();
     }
-    const cachedPlayers = getPlayersCache()?.players || {};
+    const cachedEntry = await loadPlayersCacheEntry(playersCacheAdapters()).catch(() => null);
+    const cachedPlayers = cachedEntry?.players || getPlayersCache()?.players || {};
     if (Object.keys(cachedPlayers).length) {
       ratherPromptContext = { ...ratherPromptContext, nflPlayers: cachedPlayers };
     }
@@ -15823,11 +16130,14 @@ async function loadRatherPromptContext() {
   if (nflState) state.nflState = nflState;
   const currentSeason = String(nflState?.league_season || nflState?.season || new Date().getUTCFullYear());
   const previousSeason = String(nflState?.previous_season || Number(currentSeason) - 1 || new Date().getUTCFullYear() - 1);
-  const cachedPlayers = getPlayersCache()?.players || state.players || {};
+  const cachedEntry = await loadPlayersCacheEntry(playersCacheAdapters()).catch(() => getPlayersCache());
+  const cachedPlayers = cachedEntry?.players || state.players || {};
+  const ratherPlayersEpoch = playerLoadEpoch;
   const [nflPlayers, seasonStats, draftPicks] = await Promise.all([
     Object.keys(cachedPlayers).length
       ? Promise.resolve(cachedPlayers)
       : loadPlayersWithCache().then((players) => {
+        if (ratherPlayersEpoch !== playerLoadEpoch) return state.players || {};
         if (players && Object.keys(players).length) state.players = players;
         return players || {};
       }).catch(() => ({})),
@@ -16044,13 +16354,18 @@ document.addEventListener("error", (event) => {
 }, true);
 
 function watchLandingSearchVisibility() {
-  if (landingSearchObserver || typeof IntersectionObserver !== "function" || !el.landingUsernameForm) return;
+  if (landingSearchObserver || typeof IntersectionObserver !== "function") return;
+  const targets = [el.landingUsernameForm, el.usernameSearchForm].filter(Boolean);
+  if (!targets.length) return;
+  const seen = new Map();
   landingSearchObserver = new IntersectionObserver((entries) => {
-    const entry = entries[0];
-    landingSearchOffscreen = Boolean(entry) && entry.intersectionRatio < 0.35;
+    entries.forEach((entry) => {
+      seen.set(entry.target, entry.intersectionRatio >= 0.35);
+    });
+    landingSearchOffscreen = ![...seen.values()].some(Boolean);
     syncSiteDock();
   }, { threshold: [0, 0.35, 1] });
-  landingSearchObserver.observe(el.landingUsernameForm);
+  targets.forEach((node) => landingSearchObserver.observe(node));
 }
 
 function syncSiteDock() {

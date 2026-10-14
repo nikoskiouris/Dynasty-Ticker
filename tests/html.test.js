@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, copyTextToClipboard, renderTradeAssetLabel, renderTradeMove } from "../docs/modules/html.js";
+import { escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, copyTextToClipboard, renderConnectGate, renderTradeAssetLabel, renderTradeMove } from "../docs/modules/html.js";
 
 test("escapeHtml encodes markup", () => {
   assert.equal(escapeHtml(`<img src="x" alt='y'>`), "&lt;img src=&quot;x&quot; alt=&#39;y&#39;&gt;");
@@ -103,4 +103,14 @@ test("copyTextToClipboard uses the clipboard API then a textarea fallback", asyn
   };
   const fallback = await copyTextToClipboard("paste me", { writeText: null }, doc);
   assert.equal(fallback, true);
+});
+
+test("an empty league room has one connect button and no demo league", () => {
+  const html = renderConnectGate();
+  assert.match(html, /data-action="draft-connect"/);
+  assert.match(html, /Find my leagues/);
+  assert.doesNotMatch(html, /Connect Sleeper/);
+  assert.equal((html.match(/<button/g) || []).length, 1);
+  assert.doesNotMatch(html, /demo league/i);
+  assert.match(renderConnectGate({ copy: `<script>` }), /&lt;script&gt;/);
 });
