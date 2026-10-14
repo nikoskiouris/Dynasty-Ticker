@@ -13,9 +13,10 @@ function showBootError() {
     <section class="boot-error" role="alert">
       <h2>The desk did not open</h2>
       <p>The page files did not load. Refresh and try again.</p>
-      <button type="button" onclick="location.reload()">Refresh</button>
+      <button type="button" data-boot-refresh>Refresh</button>
     </section>
   `;
+  host.querySelector("[data-boot-refresh]")?.addEventListener("click", () => location.reload());
 }
 
 try {
