@@ -167,7 +167,7 @@ import {
   releaseBootGate,
   scheduleBootFind,
 } from "./modules/boot-gate.js";
-import { ownerPossessive, sampleRosterLabels } from "./modules/sample-voice.js";
+import { ownerPossessive, sampleMockNote, sampleRoomHint, sampleRosterLabels } from "./modules/sample-voice.js";
 import {
   buildTradeMatchProfile,
   countStartableAtPosition,
@@ -1512,7 +1512,7 @@ function isReadyToGenerate() {
 }
 
 function getGenerateHelpText() {
-  if (!state.meRosterId) return "Load a league and choose your team first.";
+  if (!state.meRosterId) return sampleVoice()?.resolveRoster || "Load a league and choose your team first.";
   const mode = getTradeMode();
   if (mode === "calculator") return "Pick a partner and tap assets on both sides. The ticker grades the deal live.";
   if (mode === "surprise") return "Ready. The app will find a three-team blockbuster.";
@@ -1725,7 +1725,7 @@ function renderLeagueHero() {
           : model
             ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
             : "Matchups are syncing.";
-  const sampleNote = state.viewingSample ? "Public sample — not your account. " : "";
+  const sampleNote = state.viewingSample ? (sampleVoice()?.accountNote || "Public sample — not this account. ") : "";
   el.heroLede.textContent = `${sampleNote}${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`;
   if (el.leagueAvatar) {
     const leagueAvatarSrc = sleeperAvatarUrl(league.avatar);
@@ -1758,7 +1758,7 @@ function renderRoomNav(page, room) {
   const navKey = `${page}:${leagueTypeId(state.league)}:${state.viewingSample ? deskRoomLabel("league", HOME_ROOM) : ""}`;
   if (el.roomNav.dataset.navKey !== navKey) {
     const buttons = rooms.map((id) => `
-      <button type="button" class="room-tab" role="tab" data-room="${escapeHtml(id)}" title="${escapeHtml(roomHintFor(page, id, state.league))}">
+      <button type="button" class="room-tab" role="tab" data-room="${escapeHtml(id)}" title="${escapeHtml(sampleRoomHint(page, id, sampleVoice()) || roomHintFor(page, id, state.league))}">
         ${escapeHtml(deskRoomLabel(page, id))}
       </button>
     `).join("");
@@ -1849,9 +1849,18 @@ function syncSampleTradeCopy() {
   const option = document.querySelector("#trade-mode-select option[value='shop']");
   const strong = document.querySelector("[data-trade-mode='shop'] strong");
   const mine = document.querySelector("[data-trade-mode='shop'] span");
+  const findIntro = document.querySelector("#find-trade-intro");
+  const shopIntro = document.querySelector("#shop-target-intro");
+  const banner = document.querySelector("#sample-banner p");
   if (option) option.textContent = voice?.shopOption || "Shop a player or pick I own";
   if (strong) strong.textContent = voice?.oneOfMine || "One of mine";
   if (mine) mine.textContent = voice?.mineLabel || "Mine";
+  if (findIntro) findIntro.textContent = voice?.findIntro || "Start from a partner, one of yours, or one of theirs. Review trade fills the calculator.";
+  if (shopIntro) shopIntro.textContent = voice?.shopIntro || "One of yours, or one of theirs. Then search the name.";
+  if (banner) banner.textContent = voice?.banner || "This is a public sample league. Connect your Sleeper username anytime.";
+  if (voice && el.playerSearch && getTradeMode() === "shop" && !getCurrentPrimaryAsset()) {
+    el.playerSearch.placeholder = voice.shopSearch;
+  }
   syncLeagueFormatCopy();
 }
 
@@ -2267,7 +2276,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     setMobileRailOpen(false);
     setStatus(
       state.viewingSample
-        ? "Sample league — not your account."
+        ? (sampleVoice()?.statusSample || "Sample league — not this account.")
         : `Loaded ${state.leagueName}. Player names are still syncing...`,
       { loading: true },
     );
@@ -2301,7 +2310,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
         setStatus(
           me
             ? state.viewingSample
-              ? `Sample league — not your account. Viewing as ${me.manager?.displayName || "a roster"}; switch in Manager.`
+              ? `${sampleVoice()?.statusSample || "Sample league — not this account."} Viewing as ${me.manager?.displayName || "a roster"}; switch in Manager.`
               : `Loaded ${state.leagueName}. Viewing as ${me.manager?.displayName || "your team"}. Switch teams in the Manager panel.`
             : `Loaded ${state.leagueName}. Choose your team to continue.`,
           { ok: true },
@@ -3525,13 +3534,16 @@ function buildWindowCallForProfile(profile, { model = null, sim } = {}) {
   const resolvedSim = sim !== undefined ? sim : getSimulation(resolvedModel);
   const standing = resolvedModel?.teams?.get(String(profile.rosterId)) || null;
   const simRow = resolvedSim?.byRosterId?.get(String(profile.rosterId)) || null;
-  return analyzeWindowCall(windowCallInputFromDesk({
-    profile,
-    standing,
-    simRow,
-    model: resolvedModel,
-    horizon: windowCallHorizon(state.league),
-  }));
+  return analyzeWindowCall({
+    ...windowCallInputFromDesk({
+      profile,
+      standing,
+      simRow,
+      model: resolvedModel,
+      horizon: windowCallHorizon(state.league),
+    }),
+    sampleVoice: sampleVoice(),
+  });
 }
 
 function buildLeagueWindowCalls({ profiles = null, model = null, sim } = {}) {
@@ -4198,7 +4210,7 @@ async function finishTeamsPagePaint(generation) {
 
 function syncLeagueFormatCopy() {
   const teamsHint = document.querySelector("#teams-tab-hint");
-  if (teamsHint) teamsHint.textContent = pageHintForLeague("league", state.league) || "Your team, this week, and the league";
+  if (teamsHint) teamsHint.textContent = sampleVoice()?.pageHintLeague || pageHintForLeague("league", state.league) || "Your team, this week, and the league";
   const gridCopy = document.querySelector("#teams-grid-copy");
   if (gridCopy) {
     gridCopy.textContent = leagueTypeId(state.league) === "redraft"
@@ -4248,8 +4260,11 @@ function paintMockBoard() {
   const slotLabels = mySlot
     ? `${formatPickSlotLabel(1, mySlot)} and ${formatPickSlotLabel(2, mySlot)}`
     : "";
+  const voice = sampleVoice();
   const mineNote = mySlot
-    ? `You sit ${place.label} now, so your names are ${slotLabels}. 3rds stay pick labels. College names have no trade value.`
+    ? (voice
+      ? sampleMockNote(voice, { place: place.label, slots: slotLabels })
+      : `You sit ${place.label} now, so your names are ${slotLabels}. 3rds stay pick labels. College names have no trade value.`)
     : "1sts and 2nds get these names from current place. 3rds stay pick labels. College names have no trade value.";
   const focusId = state.mockFocus
     ? mockPickDomId(state.mockFocus.round, state.mockFocus.slot)
@@ -4278,7 +4293,7 @@ function paintMockBoard() {
               <${tag} class="sheet-row pick mock-pick${pick.mine ? " mock-mine" : ""}${focused ? " mock-focus" : ""}"${pick.id ? ` id="${escapeHtml(pick.id)}"` : ""}${href}>
                 <span class="sheet-slot">${escapeHtml(pick.pickLabel)}</span>
                 <div class="sheet-player">
-                  <strong>${escapeHtml(pick.name)}${pick.mine ? `<em class="mock-you"> your slot</em>` : ""}</strong>
+                  <strong>${escapeHtml(pick.name)}${pick.mine ? `<em class="mock-you"> ${escapeHtml(sampleVoice()?.mockSlot || "your slot")}</em>` : ""}</strong>
                   <span>${escapeHtml([pick.pos, pick.school].filter(Boolean).join(" · "))}</span>
                 </div>
                 <span class="sheet-value muted">${escapeHtml(pick.pos)}</span>
@@ -5981,6 +5996,7 @@ function renderDraftNotice() {
     note: draftReplaced?.note || "",
     saved: draftReplaced?.draft,
     current: state.valueCalc,
+    voice: sampleVoice(),
   });
   if (!text) return "";
   return `
@@ -6070,7 +6086,7 @@ function renderDraftNotes(side, view) {
     const row = view.context.items.get(String(item.uid));
     if (!row || row.status === "ok") return "";
     const owner = row.ownerRosterId != null ? findNormalizedRoster(row.ownerRosterId)?.manager?.displayName : "";
-    return `<li><strong>${escapeHtml(item.name)}:</strong> ${escapeHtml(describeDraftItem(row, { ownerName: owner, kind: item.assetType }))}</li>`;
+    return `<li><strong>${escapeHtml(item.name)}:</strong> ${escapeHtml(describeDraftItem(row, { ownerName: owner, kind: item.assetType, voice: sampleVoice() }))}</li>`;
   }).filter(Boolean);
   return notes.length ? `<ul class="draft-note-list">${notes.join("")}</ul>` : "";
 }
@@ -6271,7 +6287,7 @@ function renderDraftMethod(view) {
     lines.push("Unavailable means the current model snapshot has no supported price for that asset; Dynasty Ticker does not invent a fallback.");
   }
   lines.push("The best piece counts for more than the same total split into lesser pieces. That package credit changes the trade verdict, not any player's listed price.");
-  lines.push("Team impact is separate from price: it asks whether the move helps your starting lineup.");
+  lines.push(sampleVoice()?.methodLineup || "Team impact is separate from price: it asks whether the move helps your starting lineup.");
   return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
 }
 
@@ -6285,7 +6301,7 @@ function renderDraftVerdict(view) {
   const voice = sampleVoice();
   const { verdict, adjustment } = model;
   const meters = draftMeterValues(model);
-  const label = draftVerdictLabel(verdict, { them, getFavor: voice?.favor || "your" });
+  const label = draftVerdictLabel(verdict, { them, getFavor: voice?.favor || "your", favorName: voice?.youGive || "" });
   const maxSide = Math.max(meters.give, meters.get, 1);
   const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(Math.abs(verdict.gap), view.basis.values) : null;
   const evenSide = verdict.gap > 0 ? (voice ? voice.youGive : "You") : (view.partner ? them : "They");
@@ -6349,8 +6365,9 @@ function buildDraftOfferText(view) {
   const list = (items) => items.map((item) => `${item.name} (${formatNumber(view.priceOf(item))})`).join(", ") || "nothing";
   const partnerName = view.partner?.manager?.displayName || "them";
   const { verdict, adjustment } = view.model;
-  const label = draftVerdictLabel(verdict, { them: partnerName, getFavor: sampleVoice()?.favor || "your" });
-  const credit = adjustment ? ` Package adjustment +${formatNumber(adjustment.amount)} to ${adjustment.side === "left" ? "my side" : "your side"}.` : "";
+  const label = draftVerdictLabel(verdict, { them: partnerName, getFavor: sampleVoice()?.favor || "your", favorName: sampleVoice()?.youGive || "" });
+  const creditSide = adjustment?.side === "left" ? (sampleVoice()?.sideLabel || "my side") : "their side";
+  const credit = adjustment ? ` Package adjustment +${formatNumber(adjustment.amount)} to ${creditSide}.` : "";
   return `Trade idea: ${view.me?.manager?.displayName || "I"} sends ${list(view.draft.left)} to ${partnerName} for ${list(view.draft.right)}. Market ${formatNumber(view.give)} vs ${formatNumber(view.get)}.${credit} ${verdict.pct}% apart (${label}). Dynasty Ticker prices, ${rankFormatLabel(view.basis.format)}.`;
 }
 
@@ -6374,6 +6391,7 @@ function renderDraftTeam(view) {
     rightCount: draft.right.length,
     partnerName,
     splitNames,
+    voice: sampleVoice(),
   });
   if (!context?.ready) {
     if (isDraftEmpty(draft)) return "";
@@ -9488,7 +9506,7 @@ function buildSleeperInsightCards(profile, context) {
   if (profile.weakestPosition && profile.weakestPosition.percentile <= 0.42) {
     insights.push({
       title: "Upgrade Quest",
-      body: `${profile.weakestPosition.position} is your cleanest path to a power jump.`,
+      body: `${profile.weakestPosition.position} is ${sampleVoice()?.cleanestPath || "your cleanest path to a power jump."}`,
       tone: "gold",
     });
   }
@@ -9713,7 +9731,7 @@ function renderPlayerSearch() {
 
   if (candidates.length === 0) {
     const emptyText = mode === "shop"
-      ? "No matching assets found on your roster."
+      ? (sampleVoice()?.searchEmpty || "No matching assets found on your roster.")
       : "No matching players or picks found.";
     el.playerResults.innerHTML = `<div class="player-item muted">${emptyText}</div>`;
     return;
@@ -9851,7 +9869,8 @@ function buildTradeMatchPreview(powerProfiles = null) {
   if (!mine) return null;
   return previewBestMatch(
     mine,
-    matchProfiles.filter((profile) => String(profile.rosterId) !== String(meRoster.rosterId))
+    matchProfiles.filter((profile) => String(profile.rosterId) !== String(meRoster.rosterId)),
+    { voice: sampleVoice() },
   );
 }
 
@@ -9916,7 +9935,7 @@ function renderTradeMatchNeeds() {
   if (!el.tradeMatchNeeds) return;
   const meRoster = getMyRoster();
   if (!meRoster) {
-    el.tradeMatchNeeds.innerHTML = `<p class="muted">Pick your team. We find a partner who has your holes. Calculator is one tap away.</p>`;
+    el.tradeMatchNeeds.innerHTML = `<p class="muted">${escapeHtml(sampleVoice()?.matchNeedsEmpty || "Pick your team. We find a partner who has your holes. Calculator is one tap away.")}</p>`;
     return;
   }
   if (!Object.keys(state.values || {}).length) {
@@ -9941,9 +9960,10 @@ function renderTradeMatchNeeds() {
   const needLine = mine.needs.length
     ? `Holes: ${mine.needs.map((row) => `${row.position} (${row.rankLabel || row.grade})`).join(", ")}.`
     : "No loud positional hole. Match will look for a contend/tank window instead.";
+  const spareWho = sampleVoice()?.youGive || "You";
   const surplusLine = mine.surplus.length
-    ? `You can spare ${mine.surplus.map((row) => row.position).join(", ")}.`
-    : "No obvious surplus; any deal still has to help your starters.";
+    ? `${spareWho} can spare ${mine.surplus.map((row) => row.position).join(", ")}.`
+    : (sampleVoice()?.surplusFallback || "No obvious surplus; any deal still has to help your starters.");
   el.tradeMatchNeeds.innerHTML = `
     <div class="match-need-card">
       <div class="power-badge-row">
@@ -9966,7 +9986,7 @@ function renderTradeMatchDashboard() {
   }
   const payload = state.tradeMatch.payload;
   if (!payload) {
-    el.tradeMatchDashboard.innerHTML = `<p class="muted">Find a partner who has your holes, or open Find deals to shop a name. Calculator is one tap away.</p>`;
+    el.tradeMatchDashboard.innerHTML = `<p class="muted">${escapeHtml(sampleVoice()?.matchDashboardEmpty || "Find a partner who has your holes, or open Find deals to shop a name. Calculator is one tap away.")}</p>`;
     return;
   }
   if (!payload.groups?.length) {
@@ -10016,7 +10036,7 @@ async function generateTradeMatches({ userRequested = false } = {}) {
     const matchProfiles = buildTradeMatchProfiles();
     const myProfile = matchProfiles.find((profile) => String(profile.rosterId) === String(meRoster.rosterId));
     if (!myProfile) {
-      state.tradeMatch.payload = { groups: [], emptyText: "Could not grade your roster for match." };
+      state.tradeMatch.payload = { groups: [], emptyText: sampleVoice()?.gradeRoster || "Could not grade your roster for match." };
       return;
     }
 
@@ -10044,6 +10064,7 @@ async function generateTradeMatches({ userRequested = false } = {}) {
         playerAgeForAsset,
         fairnessPct,
         maxResults: 8,
+        voice: sampleVoice(),
       });
       const cheapIdeas = [];
       rawDeals.forEach((deal) => {
@@ -10106,8 +10127,8 @@ async function generateTradeMatches({ userRequested = false } = {}) {
     state.tradeMatch.payload = {
       groups: withDeals.length ? withDeals : groups.slice(0, 3),
       emptyText: ranked.length === 0
-        ? "No complementary windows jumped out. Your roster may already be balanced, or the league is clustered the same way."
-        : "Those complementary teams showed up, but no package helped your lineup without leftover thirds.",
+        ? (sampleVoice()?.matchEmptyBalanced || "No complementary windows jumped out. Your roster may already be balanced, or the league is clustered the same way.")
+        : (sampleVoice()?.matchEmptyLineup || "Those complementary teams showed up, but no package helped your lineup without leftover thirds."),
     };
   } catch (err) {
     state.tradeMatch.error = `Could not build matches. ${err.message}`;
@@ -10232,7 +10253,7 @@ async function generateTradeIdeas({ more = false } = {}) {
   const mode = getTradeMode();
   const meRoster = getMyRoster();
   if (!meRoster) {
-    setGenerateError("Could not resolve your roster.");
+    setGenerateError(sampleVoice()?.resolveRoster || "Could not resolve your roster.");
     return;
   }
   if (mode === "acquire" && !state.targetAsset) {
@@ -10240,7 +10261,7 @@ async function generateTradeIdeas({ more = false } = {}) {
     return;
   }
   if (mode === "shop" && !state.shopAsset) {
-    setGenerateError("Select one of your own assets to shop first.");
+    setGenerateError(sampleVoice()?.selectAsset || "Select one of your own assets to shop first.");
     return;
   }
 
@@ -10547,7 +10568,7 @@ function renderMultiTeamPartyCard(participant, values, meRosterId) {
       : `send +${formatNumber(Math.abs(participant.netValueDelta))} raw`;
   const packageAdjustmentLabel = !participant.packageAdjustment
     ? "none"
-    : `+${formatNumber(participant.packageAdjustment)} on ${participant.packageAdjustmentSide === "my" ? "your side" : "their side"}`;
+    : `+${formatNumber(participant.packageAdjustment)} on ${participant.packageAdjustmentSide === "my" ? (sampleVoice()?.sideLabel || "your side") : "their side"}`;
   const receiveFromLabel = participant.receiveFromNames?.length
     ? participant.receiveFromNames.join(", ")
     : "trade partners";
@@ -11033,7 +11054,7 @@ function buildTradePowerSummary({ beforeProfile, afterProfile, delta }) {
     ? `adds ${delta} power point${delta === 1 ? "" : "s"}`
     : delta < 0
       ? `costs ${Math.abs(delta)} power point${Math.abs(delta) === 1 ? "" : "s"}`
-      : "keeps your power score flat");
+      : (sampleVoice()?.powerFlat || "keeps your power score flat"));
 
   if (afterProfile.rank < beforeProfile.rank) {
     parts.push(`lineup rank climbs from ${ordinal(beforeProfile.rank)} to ${ordinal(afterProfile.rank)}`);
@@ -11130,7 +11151,7 @@ function buildOverallTradeImpactSummary(mySide, theirSide) {
     return sampleVoice()?.strengthens || `This trade strengthens your starting lineup while making theirs weaker or thinner.`;
   }
   if (!myImproved && theirImproved) {
-    return `This trade helps their starting lineup more than yours, even if the value stays close.`;
+    return sampleVoice()?.helpsThemMore || `This trade helps their starting lineup more than yours, even if the value stays close.`;
   }
   if (myImproved && theirImproved) {
     return `This trade improves both starting lineups, so the deal is more about which team values the target archetype most.`;
@@ -11397,7 +11418,7 @@ function getTradeTierCopy(tierId, mode, focusAssetName = "the target") {
     "level-up": {
       title: "Level Up",
       acquisitionSubtitle: `Add pieces to climb into ${focusAssetName}.`,
-      shopSubtitle: `Use your asset as the anchor for a better player coming back.`,
+      shopSubtitle: sampleVoice()?.shopAnchor || `Use your asset as the anchor for a better player coming back.`,
       emptyText: "No level-up packages fit the current setup.",
     },
     even: {
@@ -15114,15 +15135,17 @@ function buildTradeReasoning({
   }
   if (!exposesCore) {
     tags.push("Core Intact");
-    notes.push("you are not cutting into the spine of your roster");
+    notes.push(sampleVoice()?.coreIntact || "you are not cutting into the spine of your roster");
   }
   if (tradeLab.teamState === "rebuilding") {
     tags.push("Rebuild Lens");
     if (isRebuildFriendlyTarget(targetAsset)) {
-      notes.push(`the return keeps your timeline younger around ${targetAsset.name}`);
+      notes.push(sampleVoice()
+        ? `${sampleVoice().youngerTimeline} around ${targetAsset.name}`
+        : `the return keeps your timeline younger around ${targetAsset.name}`);
     }
     if (myAssets.some(isVeteranAsset)) {
-      notes.push("you are cashing out win-now value instead of shipping your youngest insulation");
+      notes.push(sampleVoice()?.youngestInsulation || "you are cashing out win-now value instead of shipping your youngest insulation");
     }
   }
   if (tradeLab.teamState === "middle") {
@@ -15131,7 +15154,7 @@ function buildTradeReasoning({
   }
   if (tradeLab.teamState === "contending") {
     tags.push("Win-Now Push");
-    notes.push(`this consolidates value into a player you actually want in your lineup now`);
+    notes.push(sampleVoice()?.lineupNow || `this consolidates value into a player you actually want in your lineup now`);
     if (myAssets.length > theirAssets.length) {
       tags.push("Consolidation");
     }
@@ -15150,7 +15173,11 @@ function buildTradeReasoning({
 
   const summary = notes.slice(0, 2).join(". ").replace(/\.$/, "") || "clean starter package with enough market logic to open the conversation";
 
-  let pitch = `I'm trying to get to ${targetAsset.name} without wasting your time. This gives you ${myAssets.length > 1 ? `${myAssets.length} usable pieces` : "real value"} and keeps it close to market.`;
+  let pitch = sampleVoice()
+    ? (myAssets.length > 1
+      ? `Trying to get to ${targetAsset.name}. This offers ${myAssets.length} usable pieces and keeps it close to market.`
+      : `Trying to get to ${targetAsset.name}. ${sampleVoice().pitchOpen}`)
+    : `I'm trying to get to ${targetAsset.name} without wasting your time. This gives you ${myAssets.length > 1 ? `${myAssets.length} usable pieces` : "real value"} and keeps it close to market.`;
   if (tradeLab.positionPremium !== "none" && myAssets.some((asset) => playerPositionForAsset(asset) === tradeLab.positionPremium)) {
     pitch = `I know ${tradeLab.positionPremium}s carry extra juice in this league, so I built this around that premium instead of random filler.`;
   } else if (tradeLab.teamState === "rebuilding") {
@@ -15259,7 +15286,7 @@ function isWinNowTarget(asset) {
 
 function formatPackageAdjustment(idea) {
   if (!idea.packageAdjustment) return "none";
-  const side = idea.packageAdjustmentSide === "my" ? "your side" : "their side";
+  const side = idea.packageAdjustmentSide === "my" ? (sampleVoice()?.sideLabel || "your side") : "their side";
   return `+${formatNumber(idea.packageAdjustment)} on ${side}`;
 }
 
@@ -16258,6 +16285,8 @@ function syncDocumentMeta() {
       loaded: Boolean(state.leagueId),
       room,
       league: state.league,
+      viewingSample: Boolean(state.viewingSample),
+      ownerName: getMyRoster()?.manager?.displayName || "",
     }),
   });
 }

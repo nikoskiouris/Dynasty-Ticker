@@ -181,7 +181,8 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /This is a public sample league\. Connect your Sleeper username anytime\./);
   assert.match(index, /id="sample-banner"[\s\S]*?data-idle-label="Find my leagues"[\s\S]*?>Loading…</);
   assert.doesNotMatch(readDocs("ui/league.html"), /Connect Sleeper|Find leagues</);
-  assert.match(readDocs("app.js"), /Sample league — not your account\. Viewing as /);
+  assert.match(readDocs("app.js"), /Sample league — not this account\./);
+  assert.match(readDocs("app.js"), /Viewing as \$\{me\.manager\?\.displayName \|\| "a roster"\}/);
   assert.match(readDocs("app.js"), /Viewing \$\{name\} · sample/);
   assert.match(readDocs("app.js"), /Example roster/);
   assert.match(index, /id="public-ranks"/);

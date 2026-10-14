@@ -101,13 +101,14 @@ export function resolveDraftContext({ draft, rosters = [], meRosterId = null, le
   return { ready, needsTeam, partnerRosterId, partnerIds, items, mismatched, canSwap, index };
 }
 
-export function describeDraftItem(row, { ownerName = "", kind = "player" } = {}) {
+export function describeDraftItem(row, { ownerName = "", kind = "player", voice = null } = {}) {
   const owner = String(ownerName || "").trim() || "Another team";
   const pick = kind === "pick";
   switch (row?.status) {
     case "not-yours":
       return pick ? `${owner} owns this pick, not you.` : `${owner} has him, not you.`;
     case "already-yours":
+      if (voice?.roster) return pick ? `This pick is already on ${voice.roster}.` : `He is already on ${voice.roster}.`;
       return pick ? "This pick is already yours." : "He is already on your roster.";
     case "unrostered":
       return pick ? "Nobody in this league owns this pick." : "He is not on a roster in this league.";
@@ -120,17 +121,27 @@ export function describeDraftItem(row, { ownerName = "", kind = "player" } = {})
   }
 }
 
-export function draftTeamSummary(context, { leftCount = 0, rightCount = 0, partnerName = "", splitNames = [] } = {}) {
+export function draftTeamSummary(context, { leftCount = 0, rightCount = 0, partnerName = "", splitNames = [], voice = null } = {}) {
   if (!context) return "";
-  if (context.needsTeam) return "Choose your team to see what this trade does to both rosters.";
+  if (context.needsTeam) {
+    return voice?.roster
+      ? `Open ${voice.roster} to see what this trade does to both rosters.`
+      : "Choose your team to see what this trade does to both rosters.";
+  }
   if (!leftCount || !rightCount) return "Add both sides to see what this trade does to both rosters.";
   if (context.partnerIds.length > 1) {
     const names = splitNames.filter(Boolean);
-    return `You get pieces from ${names.length ? names.join(" and ") : "more than one team"}. Team impact needs one partner.`;
+    const from = names.length ? names.join(" and ") : "more than one team";
+    return voice
+      ? `The other side has pieces from ${from}. Team impact needs one partner.`
+      : `You get pieces from ${from}. Team impact needs one partner.`;
   }
   if (context.mismatched > 0) {
     const n = context.mismatched;
-    return `Team impact needs You give from your roster and You get from one team. ${n} ${n === 1 ? "piece does" : "pieces do"} not fit yet. The market verdict above still counts every piece.`;
+    const fit = `${n} ${n === 1 ? "piece does" : "pieces do"} not fit yet. The market verdict above still counts every piece.`;
+    return voice?.draftNeedPieces
+      ? `${voice.draftNeedPieces} ${fit}`
+      : `Team impact needs You give from your roster and You get from one team. ${fit}`;
   }
   return partnerName ? `With ${partnerName}.` : "";
 }
@@ -199,11 +210,16 @@ export function evenUpPickChoice(gap, picks = []) {
 
 // The restore strip is only for an explicit clear. Later edits keep the same
 // sentence, which stays true, and never claim the board is still empty.
-export function draftNoticeText({ note = "", saved = null } = {}) {
+export function draftNoticeText({ note = "", saved = null, voice = null } = {}) {
   if (!saved || isDraftEmpty(saved)) return "";
   const summary = draftSummaryLine(saved);
   const claimsClear = /cleared both sides/i.test(String(note || ""));
   if (claimsClear) {
+    if (voice) {
+      return summary
+        ? `Started a new trade. Restore the saved ${summary} draft?`
+        : "Started a new trade. Restore the last draft?";
+    }
     return summary
       ? `Started a new trade. Restore your ${summary} draft?`
       : "Started a new trade. Restore your last draft?";

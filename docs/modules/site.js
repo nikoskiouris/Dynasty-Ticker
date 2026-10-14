@@ -1,6 +1,7 @@
 import { DEFAULT_ROOMS, PAGE_HINTS, PAGE_LABELS } from "./constants.js";
 import { roomDescriptionFor, roomHintFor, roomLabelFor } from "./league-format.js";
 import { normalizeDeskTab, normalizeRoom } from "./parse.js";
+import { sampleDescription, sampleRosterLabels } from "./sample-voice.js";
 
 export const SITE_NAME = "Dynasty Ticker";
 export const SITE_ORIGIN = "https://dynastyticker.com";
@@ -82,9 +83,22 @@ export function buildDocumentTitle({ page = "", leagueName = "", loaded = false,
   return DEFAULT_TITLE;
 }
 
-export function buildPageDescription({ page = "", leagueName = "", loaded = false, room = "", league = null } = {}) {
-  const pageMeta = pageMetaFor({ page, room, league });
+export function buildPageDescription({
+  page = "",
+  leagueName = "",
+  loaded = false,
+  room = "",
+  league = null,
+  viewingSample = false,
+  ownerName = "",
+} = {}) {
   const name = String(leagueName || "").trim();
+  if (viewingSample) {
+    const voice = sampleRosterLabels({ viewingSample: true, ownerName });
+    const custom = sampleDescription({ page, room, voice });
+    if (custom) return loaded && name ? `${custom} Now open: ${name}.` : custom;
+  }
+  const pageMeta = pageMetaFor({ page, room, league });
   if (loaded && name && pageMeta) return `${pageMeta.description} Now open: ${name}.`;
   return pageMeta?.description || DEFAULT_DESCRIPTION;
 }

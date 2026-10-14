@@ -1,5 +1,7 @@
 // Sample league (?sample=1) is someone else's team. Roster copy stays third person.
 
+export const SAMPLE_BANNED_VOICE = /\byours?\b|\bmine\b|you give/i;
+
 export function ownerPossessive(name) {
   const clean = String(name || "").trim();
   if (!clean) return "";
@@ -11,6 +13,8 @@ export function sampleRosterLabels({ viewingSample = false, ownerName = "" } = {
   const name = String(ownerName || "").trim();
   const poss = name ? ownerPossessive(name) : "this team's";
   const who = name || "This team";
+  const oneOf = name ? `one of ${poss}` : "one from this team";
+  const oneOfCap = name ? `One of ${poss}` : "One from this team";
   return {
     roster: name ? `${poss} roster` : "This team's roster",
     shopOption: name ? `Shop a player or pick ${name} owns` : "Shop a player or pick this team owns",
@@ -30,5 +34,69 @@ export function sampleRosterLabels({ viewingSample = false, ownerName = "" } = {
     giveLabel: name ? `${name} gives` : "This team gives",
     getLabel: "They get",
     giveGetHeading: name ? `${name} gives / They get` : "This team gives / They get",
+    findIntro: `Start from a partner, ${oneOf}, or one of theirs. Review trade fills the calculator.`,
+    shopIntro: `${oneOfCap}, or one of theirs. Then search the name.`,
+    banner: "This is a public sample league. Connect a Sleeper username anytime.",
+    accountNote: "Public sample — not this account. ",
+    statusSample: "Sample league — not this account.",
+    roomHintCalculator: `${who} gives and they get. Works before a league is connected`,
+    roomHintFind: `Shop ${oneOf}, target one of theirs, or find a partner`,
+    roomHintTeam: `${poss} outlook, then the roster`,
+    pageHintLeague: name ? `${poss} team, this week, and the league` : "This team, this week, and the league",
+    pageDescTrades: `One calculator: ${who} gives and they get. Find a deal that opens in that same calculator.`,
+    pageDescLeague: `${poss} outlook, this week's scores, standings, and league history.`,
+    roomDescFind: `Shop ${oneOf}, target one of theirs, or find a partner. Review trade opens the calculator.`,
+    roomDescActivity: `Past trades for ${name || "this team"} and the league.`,
+    searchEmpty: `No matching assets found on ${poss} roster.`,
+    gradeRoster: `Could not grade ${poss} roster for a match.`,
+    selectAsset: `Select one of ${poss} assets to shop first.`,
+    resolveRoster: `Could not resolve ${poss} roster.`,
+    matchNeedsEmpty: `Pick ${name || "this team"}. The app finds a partner who has ${poss} holes. Calculator is one tap away.`,
+    matchDashboardEmpty: `Find a partner who has ${poss} holes, or open Find deals to shop a name. Calculator is one tap away.`,
+    surplusFallback: `No obvious surplus; any deal still has to help ${poss} starters.`,
+    matchEmptyBalanced: `No complementary windows jumped out. ${poss} roster may already be balanced, or the league is clustered the same way.`,
+    matchEmptyLineup: `Those complementary teams showed up, but no package helped ${poss} lineup without leftover thirds.`,
+    methodLineup: `Team impact is separate from price: it asks whether the move helps ${poss} starting lineup.`,
+    helpsThemMore: `This trade helps their starting lineup more than ${poss}, even if the value stays close.`,
+    shopAnchor: `Use ${poss} asset as the anchor for a better player coming back.`,
+    cleanestPath: `${poss} cleanest path to a power jump.`,
+    powerFlat: `keeps ${poss} power score flat`,
+    sideLabel: `${poss} side`,
+    mockSlot: name ? `${poss} slot` : "their slot",
+    draftAlreadyPick: `This pick is already on ${poss} roster.`,
+    draftAlreadyPlayer: `He is already on ${poss} roster.`,
+    draftNeedPieces: `Team impact needs pieces from ${poss} roster and pieces from one other team.`,
+    draftRestoreNamed: "Started a new trade. Restore the saved draft?",
+    draftRestoreLast: "Started a new trade. Restore the last draft?",
+    coreIntact: `this does not cut into the spine of ${poss} roster`,
+    youngerTimeline: "the return keeps the timeline younger",
+    youngestInsulation: "this cashes out win-now value instead of shipping the youngest insulation",
+    lineupNow: "this consolidates value into a player for the lineup now",
+    pitchOpen: "This offers real value and keeps it close to market.",
   };
+}
+
+export function sampleRoomHint(page, room, voice) {
+  if (!voice) return "";
+  if (page === "trades" && room === "calculator") return voice.roomHintCalculator;
+  if (page === "trades" && room === "find") return voice.roomHintFind;
+  if (page === "league" && room === "team") return voice.roomHintTeam;
+  return "";
+}
+
+export function sampleDescription({ page = "", room = "", voice = null } = {}) {
+  if (!voice) return "";
+  if (page === "trades" && room === "find") return voice.roomDescFind;
+  if (page === "trades") return voice.pageDescTrades;
+  if (page === "league" && room === "activity") return voice.roomDescActivity;
+  if (page === "league" && room && room !== "team") return "";
+  if (page === "league") return voice.pageDescLeague;
+  return "";
+}
+
+export function sampleMockNote(voice, { place = "", slots = "" } = {}) {
+  if (!voice) return "";
+  const where = slots ? `the names at ${slots}` : "those names";
+  const sitting = place ? `${voice.youGive} sits ${place} now, so ` : "";
+  return `${sitting}${where} belong to ${voice.youGive}. 3rds stay pick labels. College names have no trade value.`;
 }

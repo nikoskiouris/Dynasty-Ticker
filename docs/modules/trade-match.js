@@ -230,14 +230,17 @@ export function rankPartnerMatches(myProfile, otherProfiles, { limit = MATCH_MAX
     .slice(0, limit);
 }
 
-export function describePartnerMatch(match, myProfile) {
+export function describePartnerMatch(match, myProfile, options = {}) {
+  const voice = options?.voice || null;
+  const poss = voice?.favor || "your";
+  const needVerb = voice ? `${voice.youGive} needs` : "you need";
   const parts = [];
   const myNeed = match.takePositions?.[0] || myProfile?.weakestPosition?.position;
   const theirNeed = match.givePositions?.[0];
   if (match.takePositions?.length && match.givePositions?.length) {
-    parts.push(`They have the ${match.takePositions.join("/")} you need, and they need your ${match.givePositions.join("/")}.`);
+    parts.push(`They have the ${match.takePositions.join("/")} ${needVerb}, and they need ${poss} ${match.givePositions.join("/")}.`);
   } else if (match.takePositions?.length) {
-    parts.push(`They are deep at ${match.takePositions.join("/")}, your weakest group.`);
+    parts.push(`They are deep at ${match.takePositions.join("/")}, ${poss} weakest group.`);
   } else if (match.givePositions?.length) {
     parts.push(`They need ${match.givePositions.join("/")}, where you have extra.`);
   } else if (myNeed) {
@@ -356,6 +359,7 @@ export function proposeMatchDeals({
   playerAgeForAsset,
   fairnessPct = MATCH_FAIRNESS_PCT,
   maxResults = MATCH_MAX_DEALS_PER_PARTNER,
+  voice = null,
 } = {}) {
   if (!myProfile || !theirProfile) return [];
 
@@ -431,7 +435,7 @@ export function proposeMatchDeals({
         myHelp,
         theirHelp,
         tags: buildMatchDealTags(resolvedMatch, myHelp, kind),
-        summary: buildMatchDealSummary({ match: resolvedMatch, myHelp, theirHelp, myProfile, theirProfile }),
+        summary: buildMatchDealSummary({ match: resolvedMatch, myHelp, theirHelp, myProfile, theirProfile, voice }),
         pitch: buildMatchDealPitch({ match: resolvedMatch, myAssets, theirAssets, myProfile, theirProfile }),
       });
     }
@@ -442,7 +446,7 @@ export function proposeMatchDeals({
     .slice(0, maxResults);
 }
 
-export function previewBestMatch(myProfile, otherProfiles) {
+export function previewBestMatch(myProfile, otherProfiles, options = {}) {
   const ranked = rankPartnerMatches(myProfile, otherProfiles, { limit: 1, minScore: 12 });
   if (!ranked.length) return null;
   const { profile, match } = ranked[0];
@@ -452,7 +456,7 @@ export function previewBestMatch(myProfile, otherProfiles) {
     managerName: profile.managerName,
     laneLabel: profile.laneLabel,
     need,
-    detail: describePartnerMatch(match, myProfile),
+    detail: describePartnerMatch(match, myProfile, { voice: options?.voice || null }),
     score: match.score,
   };
 }
@@ -691,19 +695,29 @@ function buildMatchDealTags(match, myHelp, kind) {
   return [...new Set(tags)].slice(0, 4);
 }
 
-function buildMatchDealSummary({ match, myHelp, theirHelp, myProfile, theirProfile }) {
+export function describeMatchDeal(args = {}) {
+  return buildMatchDealSummary(args);
+}
+
+function buildMatchDealSummary({ match, myHelp, theirHelp, myProfile, theirProfile, voice = null }) {
   const myPatch = myHelp.patchedNeeds[0];
   const theirPatch = theirHelp.patchedNeeds[0];
+  const poss = voice?.favor || "your";
+  const who = voice?.youGive || "You";
   if (myPatch && theirPatch) {
-    return `You patch ${myPatch.position} while ${theirProfile.managerName} patches ${theirPatch.position}.`;
+    return voice
+      ? `${who} patches ${myPatch.position} while ${theirProfile.managerName} patches ${theirPatch.position}.`
+      : `You patch ${myPatch.position} while ${theirProfile.managerName} patches ${theirPatch.position}.`;
   }
   if (match.timelinePairing === "contend-rebuild") {
     return `Win-now piece for a team that is collecting future, not starting ${myProfile.weakestPosition?.position || "this week"}.`;
   }
   if (match.timelinePairing === "rebuild-contend") {
-    return `You move a win-now piece and take the future ${theirProfile.managerName} can actually use.`;
+    return voice
+      ? `${who} moves a win-now piece and takes the future ${theirProfile.managerName} can actually use.`
+      : `You move a win-now piece and take the future ${theirProfile.managerName} can actually use.`;
   }
-  if (myPatch) return `This is aimed at your ${myPatch.position} hole, not a random value swap.`;
+  if (myPatch) return `This is aimed at ${poss} ${myPatch.position} hole, not a random value swap.`;
   return `Built from roster needs, not leftover draft capital.`;
 }
 
