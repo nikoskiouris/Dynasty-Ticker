@@ -1851,12 +1851,22 @@ function syncTradeModeUi() {
   renderSessionSnapshot();
 }
 
+function collapseLeaguePicker() {
+  [el.leaguePicker, el.landingLeaguePicker].forEach((host) => {
+    if (!host) return;
+    host.classList.add("hidden");
+    host.replaceChildren();
+  });
+  syncDeskRailOffset();
+}
+
 function handleLeaguePickClick(event) {
   const button = event.target.closest("[data-league-id]");
   if (!button) return;
   const leagueId = parseLeagueId(button.dataset.leagueId);
   if (!leagueId) return;
   if (el.leagueId) el.leagueId.value = leagueId;
+  collapseLeaguePicker();
   void loadLeagueById(leagueId);
 }
 
@@ -2177,9 +2187,6 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.leagueSwitching = false;
 
     setFieldError(el.leagueId, el.leagueIdError, "");
-    if (state.userLeagues.length) {
-      renderLeaguePicker(state.userLeagues, String(state.nflState?.league_season || state.nflState?.season || league?.season || ""));
-    }
     hydrateManagerSelector();
     syncTradeModeUi();
     renderSessionSnapshot();
