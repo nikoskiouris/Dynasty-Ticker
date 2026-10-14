@@ -1,5 +1,32 @@
 import { isRealUserId, ownerIdFromRoster } from "./franchise.js";
 
+// Which draft years a league actually owns. The price board runs six years
+// ahead so a missing year can be discounted. That board is not a pick inventory.
+export function inferPickSeasonSpan({
+  leagueSeason = null,
+  explicitSeasons = [],
+  tradedSeasons = [],
+  minOpenSeason = null,
+} = {}) {
+  const observed = [...explicitSeasons, ...tradedSeasons]
+    .map((season) => Number(season))
+    .filter((season) => Number.isFinite(season));
+  const base = Number(leagueSeason);
+  const baseSeason = Number.isFinite(base) ? base : new Date().getUTCFullYear();
+  let startSeason = observed.length ? Math.min(...observed) : baseSeason;
+  if (startSeason < baseSeason) startSeason = baseSeason;
+  const openSeason = Number(minOpenSeason);
+  if (Number.isFinite(openSeason) && startSeason < openSeason) startSeason = openSeason;
+  const inWindow = observed.filter((season) => season >= startSeason);
+  const endSeason = Math.max(
+    startSeason + (inWindow.length > 0 ? 1 : 2),
+    ...(inWindow.length ? inWindow : [startSeason]),
+  );
+  const seasons = [];
+  for (let season = startSeason; season <= endSeason; season += 1) seasons.push(String(season));
+  return seasons;
+}
+
 export function draftedPickRosterKey(season, round, originalRosterId) {
   return `${String(season || "")}:${Number(round) || 0}:roster:${String(originalRosterId ?? "")}`;
 }
