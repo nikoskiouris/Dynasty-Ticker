@@ -386,6 +386,11 @@ const el = {
   chromeLeagueLabel: document.querySelector("#chrome-league-label"),
   chromeManagerLabel: document.querySelector("#chrome-manager-label"),
   chromeModeLabel: document.querySelector("#chrome-mode-label"),
+  mobileChromeViewing: document.querySelector("#mobile-chrome-viewing"),
+  sampleChrome: document.querySelector("#sample-chrome"),
+  sampleChromeTitle: document.querySelector("#sample-chrome-title"),
+  sampleChromeViewing: document.querySelector("#sample-chrome-viewing"),
+  sampleBanner: document.querySelector("#sample-banner"),
   identitySection: document.querySelector("#identity-section"),
   meSelect: document.querySelector("#me-select"),
   deskNav: document.querySelector("#desk-nav"),
@@ -726,6 +731,7 @@ function noteSearchedUser(leagueId) {
   void recordSearchedUser(pick);
 }
 bootFromUrl();
+window.addEventListener("resize", syncDeskRailOffset);
 if (!parseShareParams(window.location.search).leagueId) {
   const place = state.pendingPlace;
   state.pendingPlace = null;
@@ -1274,14 +1280,14 @@ function bootFromUrl() {
   if (parsed.week) state.pendingWeek = parsed.week;
   if (parsed.tone) state.pendingTone = parsed.tone;
 
-  const fields = bootSearchFieldValues({ leagueFromUrl: parsed.leagueId });
+  const fields = bootSearchFieldValues({ leagueFromUrl: parsed.sample ? "" : parsed.leagueId });
   if (el.sleeperUsername) el.sleeperUsername.value = fields.username;
   if (el.landingUsername) el.landingUsername.value = fields.username;
   if (el.leagueId) el.leagueId.value = fields.leagueId;
 
   if (parsed.view === "ranks" && parsed.asset) state.ranks.selectedId = parsed.asset;
   if (parsed.leagueId) {
-    void loadLeagueById(parsed.leagueId);
+    void loadLeagueById(parsed.leagueId, { sample: parsed.sample });
   } else if (parsed.tab === "trades" && parsed.view === "ranks") {
     openPublicRanks({ history: "silent" });
   }
@@ -1350,7 +1356,7 @@ function applyDeskPopState(historyState) {
     if (parsed.tab) state.pendingPlace = { page: parsed.tab, room: parsed.view };
     if (parsed.week) state.pendingWeek = parsed.week;
     if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
-    void loadLeagueById(parsed.leagueId, { fromHistory: true });
+    void loadLeagueById(parsed.leagueId, { fromHistory: true, sample: parsed.sample });
     return;
   }
   applyDeskPlaceFromHistory(parsed, historyState);
@@ -1388,6 +1394,7 @@ function buildShareUrl(overrides = {}) {
     origin: window.location.origin,
     pathname: window.location.pathname,
     leagueId: state.leagueId,
+    sample: state.viewingSample,
     meRosterId: state.meRosterId,
     tab: page,
     view: room,
@@ -1570,8 +1577,30 @@ function scrollActiveTabIntoView() {
   scrollChildIntoStrip(el.pageTabs, active);
 }
 
+function sampleViewingLine(name) {
+  return name ? `Viewing ${name} · sample` : "Viewing · sample";
+}
+
+function sampleBannerDismissed() {
+  try {
+    return sessionStorage.getItem("dynasty_ticker_sample_banner_off") === "1";
+  } catch {
+    return false;
+  }
+}
+
+function syncDeskRailOffset() {
+  const rail = el.controlRail;
+  if (!rail || isPhoneLayout()) return;
+  const height = Math.ceil(rail.getBoundingClientRect().height);
+  if (height > 0) document.documentElement.style.setProperty("--desk-rail-height", `${height}px`);
+}
+
 function renderSessionSnapshot() {
+  const sampleOn = Boolean(state.viewingSample && state.leagueId);
+  const you = getMyRoster()?.manager?.displayName || "";
   document.body.classList.toggle("league-loaded", Boolean(state.leagueId));
+  document.body.classList.toggle("viewing-sample", sampleOn);
   if (state.leagueSwitching) {
     if (el.mobileChromeTitle) el.mobileChromeTitle.textContent = "Loading league…";
     if (el.chromeLeagueLabel) el.chromeLeagueLabel.textContent = "Loading…";
@@ -1583,18 +1612,30 @@ function renderSessionSnapshot() {
     return;
   }
   if (el.mobileChromeTitle) {
-    const you = getMyRoster()?.manager?.displayName || "";
     el.mobileChromeTitle.textContent = publicRanksOpen && !state.leagueId
       ? "Player ranks"
-      : state.leagueName
-        ? (you ? `${you} · ${state.leagueName}` : state.leagueName)
-        : "Your Sleeper league";
+      : sampleOn
+        ? (state.leagueName || "Sample league")
+        : state.leagueName
+          ? (you ? `${you} · ${state.leagueName}` : state.leagueName)
+          : "Your Sleeper league";
   }
+  if (el.mobileChromeViewing) {
+    el.mobileChromeViewing.hidden = !sampleOn;
+    el.mobileChromeViewing.textContent = sampleOn ? sampleViewingLine(you) : "";
+  }
+  document.querySelectorAll("[data-sample-chip]").forEach((chip) => {
+    chip.hidden = !sampleOn;
+  });
+  if (el.sampleChrome) el.sampleChrome.hidden = !sampleOn;
+  if (el.sampleChromeTitle) el.sampleChromeTitle.textContent = sampleOn ? (state.leagueName || "Sample league") : "";
+  if (el.sampleChromeViewing) el.sampleChromeViewing.textContent = sampleOn ? sampleViewingLine(you) : "";
+  if (el.sampleBanner) el.sampleBanner.hidden = !sampleOn || sampleBannerDismissed();
   if (el.chromeLeagueLabel) {
     el.chromeLeagueLabel.textContent = state.leagueName || "Not loaded";
   }
   if (el.chromeManagerLabel) {
-    el.chromeManagerLabel.textContent = getMyRoster()?.manager?.displayName || "Select team";
+    el.chromeManagerLabel.textContent = sampleOn ? sampleViewingLine(you) : (you || "Select team");
   }
   if (el.chromeModeLabel) {
     el.chromeModeLabel.textContent = state.leagueId ? describeSeasonWeek() : "—";
@@ -1602,6 +1643,7 @@ function renderSessionSnapshot() {
   renderLeagueHero();
   syncDocumentMeta();
   syncSiteDock();
+  requestAnimationFrame(syncDeskRailOffset);
 }
 
 function describeSeasonWeek() {
@@ -1656,7 +1698,8 @@ function renderLeagueHero() {
           : model
             ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
             : "Matchups are syncing.";
-  el.heroLede.textContent = `${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`;
+  const sampleNote = state.viewingSample ? "Public sample — not your account. " : "";
+  el.heroLede.textContent = `${sampleNote}${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`;
   if (el.leagueAvatar) {
     const leagueAvatarSrc = sleeperAvatarUrl(league.avatar);
     el.leagueAvatar.innerHTML = leagueAvatarSrc
@@ -1987,7 +2030,7 @@ function stopFindLeaguesUi() {
     if (!button) return;
     button.disabled = false;
     button.classList.remove("loading");
-    button.textContent = "Find my leagues";
+    button.textContent = button.dataset.idleLabel || "Find my leagues";
   });
   el.usernameSearchForm?.setAttribute("aria-busy", "false");
   el.landingUsernameForm?.setAttribute("aria-busy", "false");
@@ -2006,8 +2049,9 @@ async function loadLeague() {
   return loadLeagueById(leagueId);
 }
 
-async function loadLeagueById(leagueId, { fromHistory = false } = {}) {
+async function loadLeagueById(leagueId, { fromHistory = false, sample = false } = {}) {
   if (!leagueId) return;
+  state.viewingSample = Boolean(sample);
   if (shouldBlankDeskForLeagueSwitch(state.leagueId, leagueId)) blankDeskForLeagueSwitch();
   return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
 }
@@ -2151,7 +2195,12 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     noteSearchedUser(leagueId);
     scrollLoadedWorkspaceIntoView();
     setMobileRailOpen(false);
-    setStatus(`Loaded ${state.leagueName}. Player names are still syncing...`, { loading: true });
+    setStatus(
+      state.viewingSample
+        ? "Sample league — not your account."
+        : `Loaded ${state.leagueName}. Player names are still syncing...`,
+      { loading: true },
+    );
     loadTrendingPlayers();
     loadLeagueTransactions(leagueId, league);
     loadLeagueHistoryTransactions(leagueHistory);
@@ -2181,7 +2230,9 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
         const me = getMyRoster();
         setStatus(
           me
-            ? `Loaded ${state.leagueName}. Viewing as ${me.manager?.displayName || "your team"}. Switch teams in the Manager panel.`
+            ? state.viewingSample
+              ? `Sample league — not your account. Viewing as ${me.manager?.displayName || "a roster"}; switch in Manager.`
+              : `Loaded ${state.leagueName}. Viewing as ${me.manager?.displayName || "your team"}. Switch teams in the Manager panel.`
             : `Loaded ${state.leagueName}. Choose your team to continue.`,
           { ok: true },
         );
@@ -3167,7 +3218,11 @@ function hydrateManagerSelector() {
     userPickedMe: state.mePickedByUser,
   });
   state.pendingMeRosterId = null;
-  el.meSelect.innerHTML = renderMeSelectOptions(state.normalizedRosters, chosen?.rosterId);
+  el.meSelect.innerHTML = renderMeSelectOptions(
+    state.normalizedRosters,
+    chosen?.rosterId,
+    state.viewingSample ? { sample: true, rosterId: chosen?.rosterId } : null,
+  );
   if (chosen) {
     state.meRosterId = chosen.rosterId;
     applyMeSelectValue(chosen.rosterId);
@@ -3453,7 +3508,7 @@ function renderTeamIdentity(rosterId, { size = "sm", showTeamName = true, extra 
     <span class="team-identity ${isMe ? "you" : ""}">
       ${renderAvatar(manager, { size })}
       <span class="team-identity-copy">
-        <strong><span class="team-name">${escapeHtml(manager.displayName)}</span>${isMe ? `<span class="you-chip">You</span>` : ""}</strong>
+        <strong><span class="team-name">${escapeHtml(manager.displayName)}</span>${isMe ? (state.viewingSample ? `<span class="mini-chip">Viewing</span>` : `<span class="you-chip">You</span>`) : ""}</strong>
         ${subtitle ? `<span>${escapeHtml(subtitle)}</span>` : ""}
       </span>
     </span>
@@ -4610,7 +4665,7 @@ function renderLensPicker(roster, { label = "Viewing", extra = "" } = {}) {
     .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName))
     .map((entry) => `
       <option value="${entry.rosterId}" ${String(entry.rosterId) === String(roster.rosterId) ? "selected" : ""}>
-        ${escapeHtml(entry.manager.displayName)}${String(entry.rosterId) === meId ? " (you)" : ""}
+        ${escapeHtml(entry.manager.displayName)}${String(entry.rosterId) === meId ? (state.viewingSample ? " · Example roster" : " (you)") : ""}
       </option>
     `)
     .join("");
@@ -5164,7 +5219,7 @@ function renderTeamsGrid() {
             <span class="power-tier ${profile.tierClass}">${profile.grade}</span>
           </span>
         </button>
-        ${String(profile.rosterId) !== String(state.meRosterId) ? `<button type="button" class="team-card-trade" data-action="calc-with" data-roster-id="${profile.rosterId}">Build a trade</button>` : `<span class="team-card-trade muted">Your roster</span>`}
+        ${String(profile.rosterId) !== String(state.meRosterId) ? `<button type="button" class="team-card-trade" data-action="calc-with" data-roster-id="${profile.rosterId}">Build a trade</button>` : `<span class="team-card-trade muted">${state.viewingSample ? "Example roster" : "Your roster"}</span>`}
       </article>
     `;
   }).join("");
@@ -6521,6 +6576,18 @@ function handleWorkspaceClick(event) {
     }
     case "open-public-ranks":
       openPublicRanks();
+      break;
+    case "find-my-leagues":
+      document.body.classList.add("sample-connect-open");
+      focusUsernameSearch();
+      break;
+    case "dismiss-sample-banner":
+      try {
+        sessionStorage.setItem("dynasty_ticker_sample_banner_off", "1");
+      } catch {
+        // Banner still closes for this paint.
+      }
+      if (el.sampleBanner) el.sampleBanner.hidden = true;
       break;
     case "close-public-ranks":
       closePublicRanks();
@@ -10365,7 +10432,7 @@ function renderMultiTeamPartyCard(participant, values, meRosterId) {
     : "trade partners";
   return `
     <section class="multi-team-party-card ${isMe ? "you" : "other"}">
-      <h4>${renderMultiTeamPartyTitle(participant.roster?.manager?.displayName, isMe)}</h4>
+      <h4>${isMe && state.viewingSample ? "Viewing" : renderMultiTeamPartyTitle(participant.roster?.manager?.displayName, isMe)}</h4>
       <p class="muted small">${escapeHtml(`${receiveFromLabel} to ${sendToLabel}`)}</p>
       <div class="trade-body-grid">
         <section class="trade-side team-a">
@@ -10745,7 +10812,7 @@ function buildTradeImpactAnalysis({ baseline, league, rosters, myRoster, theirRo
 
   const afterRanks = rankRosterMetrics(afterMetricsByRosterId);
   const mySide = buildTradeImpactSide({
-    title: "You",
+    title: state.viewingSample ? "Viewing" : "You",
     managerName: myRoster.manager.displayName,
     beforeMetrics: myBeforeMetrics,
     afterMetrics: myAfterMetrics,
@@ -16347,7 +16414,7 @@ function stopLeagueLoadingUi() {
   el.landingLoading?.classList.add("hidden");
   if (el.stickyFindBtn) {
     el.stickyFindBtn.disabled = false;
-    el.stickyFindBtn.textContent = "Find my leagues";
+    el.stickyFindBtn.textContent = el.stickyFindBtn.dataset.idleLabel || "Find my leagues";
   }
   if (!el.loadLeagueBtn) return;
   el.loadLeagueBtn.disabled = false;

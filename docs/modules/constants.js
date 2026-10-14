@@ -1,4 +1,7 @@
 export const API_BASE = "https://api.sleeper.app/v1";
+// Public Sleeper league already used as the in-repo example. ?sample=1 opens it.
+// Do not pin a manager. Visitors are not that league's owner.
+export const SAMPLE_LEAGUE_ID = "1315165104303513600";
 export const SLEEPER_AVATAR_BASE = "https://sleepercdn.com/avatars/thumbs/";
 // Injury and status move during the week. Expire even when the NFL state
 // key has not changed, so a Sunday designation does not sit until next week.
