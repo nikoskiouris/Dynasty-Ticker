@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -83,8 +83,11 @@ test("share paths and the route table", () => {
   assert.deepEqual(hit.get, ["player:9221"]);
   assert.equal(hit.format, "sf");
   assert.equal(hit.leagueId, "");
-  assert.equal(matchRoute("/t/garbage"), null);
-  assert.equal(resolveLocation("/t/garbage").unknown, true);
+  // A broken link opens the calculator with the broken-link notice, not home.
+  assert.equal(matchRoute("/t/garbage").badShare, true);
+  assert.equal(matchRoute("/t/garbage").name, "trade");
+  assert.equal(resolveLocation("/t/garbage").unknown, false);
+  assert.equal(resolveLocation("/t/garbage").badShare, true);
   assert.equal(isSpaPath("/t/1s4984~9221"), true);
   assert.equal(isSpaPath("/t/1s4984~9221/"), true);
   assert.equal(isSpaPath("/t"), false);
@@ -137,12 +140,22 @@ test("page function serves index.html with the trade's meta and no PII", async (
   assert.match(await direct.text(), /1QB/);
 
   const bad = await handler(new Request("https://dynastyticker.com/t/nope"));
-  assert.equal(bad.status, 200);
-  assert.match(bad.headers.get("cache-control"), /max-age=0/);
-  assert.match(await bad.text(), /og-image\.jpg/);
+  assert.equal(bad.status, 404);
+  assert.equal(bad.headers.get("x-robots-tag"), "noindex");
+  const badHtml = await bad.text();
+  assert.match(badHtml, /og-image\.jpg/);
+  assert.match(badHtml, /<meta name="robots" content="noindex" \/>/);
 });
 
-test("card function renders an immutable PNG, an SVG, and 404s bad codes", async () => {
+// The PNG path needs @resvg/resvg-wasm (a dependency; CI's `npm install` in
+// .github/workflows/test.yml installs it). Without node_modules, skip locally
+// with a clear message, but never in CI.
+const resvgMissing = !existsSync(join(root, "../node_modules/@resvg/resvg-wasm/index_bg.wasm"));
+const resvgSkip = resvgMissing && !process.env.CI
+  ? "@resvg/resvg-wasm is not installed; run `npm ci` to render card PNGs (CI always runs this)"
+  : false;
+
+test("card function renders an immutable PNG, an SVG, and 404s bad codes", { skip: resvgSkip }, async () => {
   const handler = createTradeCardHandler(deps);
   const png = await handler(new Request("https://dynastyticker.com/.netlify/functions/trade-card?file=1s4984.p27r1e~9221.png"));
   assert.equal(png.status, 200);

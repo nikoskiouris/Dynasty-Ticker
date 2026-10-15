@@ -56,7 +56,7 @@ export function shareText(summary) {
     const total = key === "give" ? summary.giveCredited : summary.getCredited;
     return credited ? `${label} ${n(listed)} + ${n(summary.credit.amount)} stars cost extra = ${n(total)}` : `${label} ${n(total)}`;
   };
-  const verdictText = verdict.tone === "fair" ? `${verdict.text}, ${verdict.pctText}` : `${verdict.text} (${verdict.pctText})`;
+  const verdictText = verdict.line;
   return {
     title: `${list(summary.give)} for ${list(summary.get)}: ${verdictText}`.slice(0, 160),
     description: `${side("give", "Give")} vs ${side("get", "get")}. Prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, ${summary.formatLabel}. Check your own trade free at Dynasty Ticker.`,
@@ -198,14 +198,34 @@ export async function summaryForCode(code, deps = {}) {
   };
 }
 
+export function markNoindex(html) {
+  const page = String(html);
+  if (/<meta name="robots"/.test(page)) return page.replace(/<meta name="robots"[^>]*>/, '<meta name="robots" content="noindex" />');
+  return page.replace("</head>", '    <meta name="robots" content="noindex" />\n  </head>');
+}
+
 export function createSharePageHandler(deps = {}) {
   return async (req) => {
     const url = new URL(req.url);
     const origin = deps.origin || SITE_ORIGIN;
     const html = await (deps.readIndex || (() => readSiteFile("index.html", origin)))();
     const code = url.searchParams.get("code") || codeFromPath(url.pathname);
+    // A code that does not decode is a broken link: 404, noindex, default tags.
+    // The app still loads and shows "This trade link is broken or expired".
+    if (!decodeTradeShare(code)) {
+      return new Response(markNoindex(html), {
+        status: 404,
+        headers: {
+          ...SAFE_HEADERS,
+          "content-security-policy": PAGE_CSP,
+          "content-type": "text/html; charset=utf-8",
+          "x-robots-tag": "noindex",
+          "cache-control": "public, max-age=300",
+        },
+      });
+    }
     const hit = await summaryForCode(code, deps).catch(() => null);
-    // A bad code still opens the app, which sends it home. Keep the default tags.
+    // A valid code whose lookup failed still opens the trade, with the default tags.
     const body = hit?.summary ? injectShareMeta(html, { summary: hit.summary, code, origin, version: hit.version }) : html;
     return new Response(body, {
       status: 200,

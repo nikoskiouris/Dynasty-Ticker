@@ -171,6 +171,7 @@ function blankRoute(extra = {}) {
     next: "",
     format: "",
     shareCode: "",
+    badShare: false,
     unknown: false,
     legacy: "",
     ...extra,
@@ -196,7 +197,9 @@ export function matchRoute(pathname, search = "") {
     if (row.name === "sharedTrade") {
       const shareCode = decodePart(found.shareCode);
       const shared = decodeTradeShare(shareCode);
-      if (!shared) return null;
+      // A broken link (garbage, cut short, too long, bad date or version) opens
+      // the calculator with a "broken or expired" notice instead of going home.
+      if (!shared) return blankRoute({ name: "trade", page: row.page, room: row.room, badShare: true });
       return blankRoute({
         name: "trade",
         page: row.page,

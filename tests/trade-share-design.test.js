@@ -14,7 +14,8 @@ import {
   shareSummary,
 } from "../docs/modules/trade-share.js";
 import { matchRoute, pathForPlace } from "../docs/modules/history-route.js";
-import { shareText, summaryForCode } from "../netlify/lib/trade-share.js";
+import { verdictCopy, verdictCopyFor } from "../docs/modules/verdict-copy.js";
+import { createSharePageHandler, shareText, summaryForCode } from "../netlify/lib/trade-share.js";
 import { loadCardArt, renderCardSvg } from "../netlify/lib/trade-card.js";
 import { createMeasurer, truncateToWidth } from "../netlify/lib/text-measure.js";
 
@@ -43,7 +44,6 @@ test("credited totals: rows plus 'Stars cost extra' add up to each side, and the
 });
 
 test("the card never shows a verdict for the side with the smaller total", () => {
-  // Review H2: 'fair' showed Give 10,081 < Get 9,695... with a verdict for Give.
   for (const code of ["1s9509~11632.p27r1e", "1s7564~11632.p27r2a", "1sp27r1e.p28r1a~p27r2a.p27r3a.p28r2a.p28r1e.p27r1l"]) {
     const s = summaryOf(code);
     const svg = renderCardSvg(s, { measure });
@@ -56,10 +56,10 @@ test("the card never shows a verdict for the side with the smaller total", () =>
       assert.ok(texts.includes(`+${s.credit.amount.toLocaleString("en-US")}`));
       assert.equal(creditLine(s), `Stars cost extra +${s.credit.amount.toLocaleString("en-US")}`);
     }
+    const ahead = s.giveCredited > s.getCredited ? "Give" : "Get";
+    if (v.text !== "Fair trade") assert.match(v.text, new RegExp(`${ahead}$`), code);
     if (v.tone === "bad") assert.ok(s.giveCredited > s.getCredited);
     if (v.tone === "good") assert.ok(s.getCredited > s.giveCredited);
-    assert.match(v.text, /^(You win by|You overpay by) [\d,]+$|^Fair trade$/);
-    if (v.tone !== "fair") assert.equal(v.text.split(" by ")[1], Math.abs(s.gap).toLocaleString("en-US"));
   }
 });
 
@@ -67,35 +67,62 @@ test("og:title, og:description and alt use the card verdict and credited totals"
   const s = summaryOf("1s9509~11632.p27r1e");
   const { title, description, alt } = shareText(s);
   const v = cardVerdict(s);
-  assert.equal(title, `Bijan Robinson for Malik Nabers, 2027 Early 1st: ${v.text} (${v.pctText})`);
+  assert.equal(title, `Bijan Robinson for Malik Nabers, 2027 Early 1st: ${v.text}, ${v.pctText}`);
   assert.match(description, /^Give 11,811 \+ [\d,]+ stars cost extra = [\d,]+ vs get 14,457\./);
   assert.match(description, /Check your own trade free at Dynasty Ticker\.$/);
   assert.ok(alt.includes(s.giveCredited.toLocaleString("en-US")));
-  assert.doesNotMatch(`${title} ${description}`, /Lopsided|Favors|leans/);
+  assert.doesNotMatch(`${title} ${description} ${alt}`, /overpay|\bwin\b|\bthem\b/i);
 });
 
-test("card copy: green win, amber fair within 5%, red overpay", () => {
-  assert.deepEqual(cardVerdict({ pct: 18, gap: 2646 }), { text: "You win by 2,646", pctText: "+18%", tone: "good" });
-  assert.deepEqual(cardVerdict({ pct: 4, gap: -300 }), { text: "Fair trade", pctText: "4% apart", tone: "fair" });
-  assert.deepEqual(cardVerdict({ pct: 24.8, gap: -4767 }), { text: "You overpay by 4,767", pctText: "-24.8%", tone: "bad" });
+test("verdict tiers: the app's thresholds, amber up to 12%, giver's-side wording", () => {
+  const at = (give, get) => verdictCopyFor(give, get);
+  assert.deepEqual(at(10000, 10400), { tier: "even", side: "", label: "Fair trade", pctText: "3.8% apart", line: "Fair trade, 3.8% apart", tone: "fair" });
+  assert.equal(at(10000, 11000).label, "Fair, slight edge to Get");
+  assert.equal(at(11000, 10000).label, "Fair, slight edge to Give");
+  assert.equal(at(11000, 10000).tone, "fair");
+  assert.equal(at(10000, 12500).label, "Favors Get");
+  assert.equal(at(10000, 12500).tone, "good");
+  assert.equal(at(12500, 10000).label, "Favors Give");
+  assert.equal(at(12500, 10000).tone, "bad");
+  assert.equal(at(10000, 20000).label, "Lopsided for Get");
+  assert.equal(at(20000, 10000).label, "Lopsided for Give");
+  // 5.4% (the 5-picks card) is the slight-edge tier, amber, not a red "overpay".
+  const picks = summaryOf("1sp27r1e.p28r1a~p27r2a.p27r3a.p28r2a.p28r1e.p27r1l");
+  assert.equal(cardVerdict(picks).text, "Fair, slight edge to Give");
+  assert.equal(cardVerdict(picks).tone, "fair");
   const fair = renderCardSvg(summaryOf("1s9509~9493"), { measure });
   assert.match(fair, /font-size="48" font-weight="700" fill="#f0c36a">Fair trade</);
 });
 
-test("one neutral vocabulary for a shared trade", () => {
-  assert.equal(neutralVerdict({ pct: 50.2, gap: -10 }), "Give wins by 50.2%");
-  assert.equal(neutralVerdict({ pct: 25, gap: 10 }), "Get wins by 25%");
-  assert.equal(neutralVerdict({ pct: 3.8, gap: 10 }), "Even, 3.8% apart");
-  const s = summaryOf("1s9509~11632.p27r1e");
-  assert.equal(s.label, neutralVerdict(s));
-  assert.doesNotMatch(s.label, /them|you|Lopsided|Favors/i);
+test("parity: app, /t page, card, og:title, og:description and share text say the same verdict", () => {
+  const codes = ["1s9509~11632.p27r1e", "1s7564~11632.p27r2a", "1s9488~12527.13287.p28r1a.p27r2a",
+    "1sp27r1e.p28r1a~p27r2a.p27r3a.p28r2a.p28r1e.p27r1l", "1s9509~9493", "1s9509~9221", "1s9221~9509", "1q4984~9221"];
+  const app = readFileSync(join(root, "../docs/app.js"), "utf8");
+  // The app's verdict heading and tone come from verdictCopy(model.verdict).
+  assert.match(app, /const copy = verdictCopy\(verdict\);\s*const label = copy\.label;/);
+  assert.match(app, /calc-summary \$\{bothSides \? copy\.tone : ""\}/);
+  const tiers = new Set();
+  for (const code of codes) {
+    const s = summaryOf(code);
+    const appCopy = verdictCopy(s.verdict); // the same valueCalcVerdict the calculator renders
+    tiers.add(appCopy.tier);
+    const card = cardVerdict(s);
+    const svg = renderCardSvg(s, { measure });
+    const { title, description } = shareText(s);
+    assert.equal(card.text, appCopy.label, code);
+    assert.equal(card.tone, appCopy.tone, code);
+    assert.equal(s.label, appCopy.line, code); // /t heading and compare rows
+    assert.ok(svgText(svg).includes(appCopy.label), code);
+    assert.ok(svgText(svg).includes(appCopy.pctText), code);
+    assert.ok(title.endsWith(`: ${appCopy.line}`), code);
+    assert.equal(shareMessage(s), `${appCopy.line}. Check it on Dynasty Ticker.`);
+    for (const text of [card.text, s.label, title, description, shareMessage(s)]) {
+      assert.doesNotMatch(text, /You overpay|You win|\bthem\b|leans/, code);
+    }
+  }
+  assert.ok(tiers.size >= 3, `covers several tiers: ${[...tiers]}`);
 });
 
-test("share text uses the copy deck verdicts, sentence case, no exclamation marks", () => {
-  assert.equal(shareMessage({ pct: 18, gap: 2646 }), "You win by 2,646 (+18%). Check it on Dynasty Ticker.");
-  assert.equal(shareMessage({ pct: 4, gap: 1 }), "Fair trade, 4% apart. Check it on Dynasty Ticker.");
-  assert.doesNotMatch(shareMessage({ pct: 30, gap: -9 }), /!/);
-});
 
 test("card layout follows OG-CARD.md: sans only, wordmark, bottom bar, pills, +N more, no marks or headshots", async () => {
   const art = await loadCardArt();
@@ -153,4 +180,36 @@ test("an opened /t link keeps /t/<code> in the address bar until the trade chang
   assert.equal(pathForPlace({ ...place, shareCode: route.shareCode, leagueId: "1180189013451112448" }), "/t/1s9509~11632.p27r1e");
   assert.match(pathForPlace(place), /^\/trade\?give=/);
   assert.match(pathForPlace({ ...place, shareCode: "bogus!" }), /^\/trade\?give=/);
+});
+
+const BAD_CODES = {
+  garbage: "zzz",
+  truncated: "2s202610141917~",
+  "400 characters": "9".repeat(400),
+  "out-of-range date": "2s2099999999999221~p27r1e",
+  "wrong version": "3s4984~9221",
+};
+
+test("bad /t/ codes: 404, noindex, default meta; unknown valid stamps still work", async () => {
+  const indexHtml = readFileSync(join(root, "../docs/index.html"), "utf8");
+  const handler = createSharePageHandler({ loadValues: async () => values, loadPlayerNames: async () => names, readIndex: async () => indexHtml, origin: "https://dynastyticker.com" });
+  for (const [name, code] of Object.entries(BAD_CODES)) {
+    assert.equal(decodeTradeShare(code), null, name);
+    const route = matchRoute(`/t/${code}`);
+    assert.equal(route?.badShare, true, name);
+    assert.deepEqual([route.give, route.get], [[], []], name);
+    const res = await handler(new Request(`https://dynastyticker.com/t/${code}`));
+    assert.equal(res.status, 404, name);
+    assert.equal(res.headers.get("x-robots-tag"), "noindex", name);
+    const html = await res.text();
+    assert.match(html, /<meta name="robots" content="noindex" \/>/, name);
+    assert.doesNotMatch(html, /\/og\/t\//, name);
+    assert.match(html, /script-src 'self'/, name);
+  }
+  // A well-formed stamp with no archive is fine: today's prices, 200.
+  const ok = await handler(new Request("https://dynastyticker.com/t/2s2025010112004984~9221"));
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get("x-robots-tag"), null);
+  // v1 (no date) is a supported version, not a bad one.
+  assert.equal((await handler(new Request("https://dynastyticker.com/t/1s9221~p27r1e"))).status, 200);
 });

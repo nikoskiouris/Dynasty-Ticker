@@ -1,4 +1,5 @@
 import { draftVerdictModel } from "./trade-draft.js";
+import { verdictCopy } from "./verdict-copy.js";
 import { formatGenericPickAssetLabel, getGlobalMaxPlayerValue, pickValueBundle } from "./values.js";
 
 // A shared trade is its own state, so no server storage: /t/<code>.
@@ -154,6 +155,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     gap: model.compareGet - model.compareGive,
     pct: model.verdict.pct,
     tone: model.verdict.tone,
+    verdict: model.verdict,
     stamp: priceStamp(payload?.asOf),
   };
   summary.label = neutralVerdict(summary);
@@ -162,32 +164,20 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
 
 const formatCount = (value) => Math.round(Math.abs(Number(value) || 0)).toLocaleString("en-US");
 
-// One neutral vocabulary for anyone reading a shared trade. "Give" and "Get"
-// are the sharer's two sides, so a stranger reads the same words as the sharer.
-// Within 5% is even (the calculator's "Fair trade" band).
+// All wording comes from verdictCopy (verdict-copy.js), same as the app.
 export function neutralVerdict(summary) {
-  if (!summary) return "";
-  const pct = Number(summary.pct) || 0;
-  if (pct <= 5) return `Even, ${pct}% apart`;
-  return `${summary.gap > 0 ? "Get" : "Give"} wins by ${pct}%`;
+  return summary ? verdictCopy(summary.verdict).line : "";
 }
 
-// The sharer made the card, so it speaks to them (OG-CARD.md, COPY-DECK 27-30).
-// tone: good (you win by more than 5%), fair (within 5%), bad (you overpay).
+// text: the 48px label; pctText: "18% apart"; tone: good | fair | bad.
 export function cardVerdict(summary) {
-  const pct = Number(summary?.pct) || 0;
-  const gap = Number(summary?.gap) || 0;
-  if (pct <= 5) return { text: "Fair trade", pctText: `${pct}% apart`, tone: "fair" };
-  if (gap > 0) return { text: `You win by ${formatCount(gap)}`, pctText: `+${pct}%`, tone: "good" };
-  return { text: `You overpay by ${formatCount(gap)}`, pctText: `-${pct}%`, tone: "bad" };
+  const copy = verdictCopy(summary?.verdict);
+  return { text: copy.label, pctText: copy.pctText, tone: copy.tone || "fair", line: copy.line };
 }
 
-// The share sheet text (COPY-DECK 27-30, sentence case, no exclamation marks).
+// The share sheet text (sentence case, no exclamation marks).
 export function shareMessage(summary) {
-  const verdict = cardVerdict(summary);
-  return verdict.tone === "fair"
-    ? `Fair trade, ${verdict.pctText}. Check it on Dynasty Ticker.`
-    : `${verdict.text} (${verdict.pctText}). Check it on Dynasty Ticker.`;
+  return `${verdictCopy(summary?.verdict).line}. Check it on Dynasty Ticker.`;
 }
 
 // "Stars cost extra +7,413" on the side that gets the package credit.

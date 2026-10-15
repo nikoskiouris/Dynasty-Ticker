@@ -4045,6 +4045,12 @@ button.weekly-help-close:hover {
   background: linear-gradient(135deg, var(--green-soft), var(--panel-soft));
 }
 
+/* Fair and slight-edge trades: amber, same as the share card (verdict-copy.js). */
+.calc-summary.fair {
+  border-color: rgba(240, 195, 106, 0.45);
+  background: linear-gradient(135deg, var(--amber-soft), var(--panel-soft));
+}
+
 .calc-summary.bad {
   border-color: rgba(251, 113, 133, 0.45);
   background: linear-gradient(135deg, var(--red-soft), var(--panel-soft));
@@ -4130,6 +4136,33 @@ button.weekly-help-close:hover {
   color: var(--muted);
   font-size: var(--fs-sm);
   overflow-wrap: anywhere;
+}
+
+/* A /t/ link that does not decode. */
+.share-broken {
+  display: grid;
+  gap: var(--sp-2);
+  justify-items: start;
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-soft);
+}
+
+.share-broken h3,
+.share-broken p {
+  margin: 0;
+}
+
+.share-broken p {
+  color: var(--muted);
+}
+
+.share-broken .ghost-btn {
+  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
 }
 
 /* Shared link, prices moved: a compact two-row compare, today in bold. */

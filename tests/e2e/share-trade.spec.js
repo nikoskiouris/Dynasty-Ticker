@@ -116,12 +116,13 @@ for (const viewport of viewports) {
     const shared = page.locator(".calc-shared");
     await expect(shared).toBeVisible({ timeout: 30000 });
     // One neutral vocabulary: both rows name a side the same way.
-    await expect(shared.locator("div").first()).toHaveText(/^Oct 7\s*(Give|Get) wins by [\d.]+%$/);
-    await expect(shared.locator(".is-today")).toHaveText(/^Today\s*((Give|Get) wins by [\d.]+%|Even, [\d.]+% apart)$/);
+    const VERDICT = "(Fair trade|Fair, slight edge to (Give|Get)|Favors (Give|Get)|Lopsided for (Give|Get)), [\\d.]+% apart";
+    await expect(shared.locator("div").first()).toHaveText(new RegExp(`^Oct 7\\s*${VERDICT}$`));
+    await expect(shared.locator(".is-today")).toHaveText(new RegExp(`^Today\\s*${VERDICT}$`));
     await expect(page.locator(".calc-shared-note")).toHaveText("Prices moved since this was shared.");
     const heading = page.locator("#value-calc-verdict h3");
-    await expect(heading).toHaveText(/^Shared on Oct 7: (Give|Get) wins by [\d.]+%\. Today: ((Give|Get) wins by [\d.]+%|Even, [\d.]+% apart)\.$/);
-    await expect(page.locator("#value-calc-verdict")).not.toContainText(/for them|for Give|for Get|Lopsided/);
+    await expect(heading).toHaveText(new RegExp(`^Shared on Oct 7: ${VERDICT}\\. Today: ${VERDICT}\\.$`));
+    await expect(page.locator("#value-calc-verdict")).not.toContainText(/for them|You overpay|You win|leans/);
     const box = await shared.boundingBox();
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
   });
@@ -156,7 +157,68 @@ for (const viewport of viewports) {
   });
 }
 
-test("a bad share code goes home", async ({ page }) => {
-  await page.goto("/t/not-a-trade");
-  await expect(page.locator("#landing")).toBeVisible({ timeout: 30000 });
+const BAD_CODES = {
+  garbage: "zzz",
+  truncated: "2s202610141917~",
+  "400 characters": "9".repeat(400),
+  "out-of-range date": "2s2099999999999221~p27r1e",
+  "wrong version": "3s4984~9221",
+};
+
+for (const [name, code] of Object.entries(BAD_CODES)) {
+  test(`a broken share link (${name}) says so and offers a trade check`, async ({ page, request }) => {
+    const res = await request.get(`/t/${code}`);
+    expect(res.status()).toBe(404);
+    expect(res.headers()["x-robots-tag"]).toBe("noindex");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/t/${code}`);
+    const alert = page.locator(".share-broken[role='alert']");
+    await expect(alert).toBeVisible({ timeout: 30000 });
+    // The calculator is usable underneath once prices load.
+    await expect(page.locator(".calc-grid")).toBeVisible({ timeout: 30000 });
+    await expect(alert).toBeVisible();
+    await expect(alert.locator("h3")).toHaveText("This trade link is broken or expired");
+    const link = alert.getByRole("link", { name: "Check a trade" });
+    await expect(link).toHaveAttribute("href", "/trade");
+    const box = await link.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    await expect(page.locator("#landing")).toBeHidden();
+    await link.click();
+    await expect(page).toHaveURL(/\/trade$/);
+    await expect(page.locator(".share-broken")).toHaveCount(0);
+  });
+}
+
+test("Esc closes the info panel and returns focus to its button", async ({ page }) => {
+  await page.goto(`/t/2s${STAMP}9509~11632.p27r1e`);
+  const toggle = page.locator("[data-action='verdict-info']");
+  await expect(toggle).toBeVisible({ timeout: 30000 });
+  await toggle.click();
+  await expect(page.locator(".verdict-fine-print")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator(".verdict-fine-print")).toBeHidden();
+  await expect(toggle).toBeFocused();
+});
+
+test("pane totals say players & picks, not assets", async ({ page }) => {
+  await page.goto(`/t/2s${STAMP}9509~11632.p27r1e`);
+  await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
+  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("2 players & picks");
+  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player or pick");
+});
+
+test("after sharing from /trade the sender's address bar shows /t/<code>", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
+  });
+  await page.goto("/trade?give=player:4984&get=player:9221");
+  const share = page.locator("[data-action='trade-share']");
+  await expect(share).toBeVisible({ timeout: 30000 });
+  await share.click();
+  await expect(page.locator(".calc-share-status")).toHaveText("Link copied.");
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(new URL(copied).pathname).toBe(new URL(page.url()).pathname);
+  expect(new URL(page.url()).pathname).toBe(`/t/2s${STAMP}4984~9221`);
 });
