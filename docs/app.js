@@ -42,6 +42,7 @@ import {
   MATCHUP_FETCH_CHUNK,
   LEAGUE_HISTORY_RECORD_IDS,
 } from "./modules/constants.js";
+import { bindMobileChromeScroll } from "./modules/mobile-chrome-scroll.js";
 import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
 import { createLeagueLoader, shouldBlankDeskForLeagueSwitch } from "./modules/league-load.js";
 import {
@@ -837,6 +838,13 @@ window.addEventListener("popstate", (event) => applyDeskPopState(event.state));
 if (isPhoneLayout()) setMobileRailOpen(false);
 syncDocumentMeta();
 syncSiteDock();
+bindMobileChromeScroll(window, {
+  chrome: document.querySelector("#mobile-chrome"),
+  isPhone: isPhoneLayout,
+  prefersReducedMotion: () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  phoneMedia: window.matchMedia(PHONE_LAYOUT_QUERY),
+  reduceMedia: window.matchMedia("(prefers-reduced-motion: reduce)"),
+});
 const runQueuedFind = releaseBootGate(document);
 if (runQueuedFind) scheduleBootFind(() => requestFindLeagues());
 
