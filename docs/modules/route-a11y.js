@@ -7,6 +7,11 @@ export const ROUTE_TAB_LABELS = Object.freeze({
   trades: "Trade",
   league: "My League",
 });
+export const ROUTE_ROOM_TITLES = Object.freeze({
+  board: "League",
+  activity: "Activity",
+  history: "History",
+});
 
 const PAGE_ROOTS = new Set(["players", "trades", "league"]);
 
@@ -14,9 +19,11 @@ function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-export function routeDocumentTitle({ playerName = "", tab = "", siteName = ROUTE_SITE_NAME } = {}) {
+export function routeDocumentTitle({ playerName = "", tab = "", room = "", siteName = ROUTE_SITE_NAME } = {}) {
   const player = clean(playerName);
   if (player) return `${player} · ${siteName}`;
+  const roomLabel = tab === "league" ? (ROUTE_ROOM_TITLES[room] || "") : "";
+  if (roomLabel) return `${roomLabel} · ${siteName}`;
   const label = ROUTE_TAB_LABELS[tab] || "";
   if (label) return `${label} · ${siteName}`;
   return "";
@@ -105,10 +112,55 @@ export function fallbackLandmark(doc) {
     || doc.querySelector("h1, h2");
 }
 
+function cssAttr(value) {
+  const text = String(value || "");
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") return CSS.escape(text);
+  return text.replace(/["\\]/g, "\\$&");
+}
+
+export function invokerKey(el) {
+  const action = el?.getAttribute?.("data-action") || "";
+  const asset = el?.getAttribute?.("data-asset-id") || "";
+  const player = el?.getAttribute?.("data-player-id") || "";
+  const trade = el?.getAttribute?.("data-trade-id") || "";
+  const manager = el?.getAttribute?.("data-manager-key") || "";
+  if (action === "rank-open" && asset) return `asset:${asset}`;
+  if (action === "open-player" && player) return `player:${player}`;
+  if (action === "open-trade" && trade) return `trade\n${trade}\n${manager}`;
+  return "";
+}
+
+export function findInvokerRow(doc, trigger) {
+  const key = invokerKey(trigger);
+  if (!key || !doc?.querySelectorAll) return null;
+  const kind = key.startsWith("trade\n") ? "trade" : key.slice(0, key.indexOf(":"));
+  const rest = kind === "trade" ? "" : key.slice(kind.length + 1);
+  let selector = "";
+  if (kind === "player") selector = `[data-action="open-player"][data-player-id="${cssAttr(rest)}"]`;
+  if (kind === "asset") selector = `[data-action="rank-open"][data-asset-id="${cssAttr(rest)}"]`;
+  if (kind === "trade") {
+    const [, trade, manager] = key.split("\n");
+    selector = `[data-action="open-trade"][data-trade-id="${cssAttr(trade)}"]`;
+    if (manager) selector += `[data-manager-key="${cssAttr(manager)}"]`;
+  }
+  if (!selector) return null;
+  const nodes = [...doc.querySelectorAll(selector)].filter((node) => !isHidden(node) && !classListHas(node, "ranks-neighbor"));
+  return nodes.find((node) => classListHas(node, "ranks-row"))
+    || nodes.find((node) => node.getAttribute?.("data-action") === "open-player")
+    || nodes.find((node) => node.getAttribute?.("data-action") === "open-trade")
+    || nodes[0]
+    || null;
+}
+
 export function restoreTriggerFocus(doc, trigger) {
   if (elementConnected(doc, trigger)) {
     focusWithoutScroll(trigger);
     return trigger;
+  }
+  const row = findInvokerRow(doc, trigger);
+  if (row) {
+    focusWithoutScroll(row);
+    return row;
   }
   const land = fallbackLandmark(doc);
   if (!land) return null;
@@ -203,6 +255,7 @@ export function headingRootFor(doc, place = {}, before = {}) {
 export function createRouteFocusMemory() {
   let index = 0;
   let armed = null;
+  let remembered = null;
   const returns = new Map();
 
   return {
@@ -218,6 +271,18 @@ export function createRouteFocusMemory() {
       armed = null;
       return el || null;
     },
+    remember(el) {
+      if (!el) return;
+      remembered = el;
+    },
+    forget() {
+      remembered = null;
+    },
+    takeRemembered() {
+      const el = remembered;
+      remembered = null;
+      return el || null;
+    },
     index() {
       return index;
     },
@@ -225,7 +290,7 @@ export function createRouteFocusMemory() {
       return returns.get(index - 1) || null;
     },
     push(trigger) {
-      const el = trigger || null;
+      const el = this.takeRemembered() || trigger || null;
       returns.set(index, el);
       index += 1;
       armed = null;

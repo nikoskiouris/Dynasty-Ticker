@@ -6,10 +6,11 @@ import { createServer, get as httpGet } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PAGE_LABELS } from "../docs/modules/constants.js";
+import { PAGE_LABELS, ROOM_LABELS } from "../docs/modules/constants.js";
 import { SITE_NAME } from "../docs/modules/site.js";
 import {
   ROUTE_LIVE_ID,
+  ROUTE_ROOM_TITLES,
   ROUTE_SITE_NAME,
   ROUTE_TAB_LABELS,
   announceRoute,
@@ -190,6 +191,132 @@ test("document titles name the player or the tab", () => {
   assert.equal(routeDocumentTitle({}), "");
 });
 
+function control(attrs, { id = "", className = "", connected = true } = {}) {
+  return {
+    id,
+    className,
+    attrs: { ...attrs },
+    isConnected: connected,
+    parentElement: null,
+    hidden: false,
+    focusOpts: null,
+    setAttribute(name, value) {
+      this.attrs[name] = String(value);
+    },
+    getAttribute(name) {
+      return Object.prototype.hasOwnProperty.call(this.attrs, name) ? this.attrs[name] : null;
+    },
+    focus(opts) {
+      this.focusOpts = opts || {};
+    },
+  };
+}
+
+test("back and escape restore the player row, or the same player id when that node is gone", () => {
+  const memory = createRouteFocusMemory();
+  const playersTab = control({ "data-page": "players" }, { id: "players-tab", className: "page-tab" });
+  const gibbs = control({
+    "data-action": "rank-open",
+    "data-asset-id": "player:9221",
+  }, { id: "gibbs-row", className: "ranks-row" });
+  memory.remember(gibbs);
+  memory.push(playersTab);
+  const back = memory.pop(0);
+  assert.equal(back.focus, "restore");
+  assert.equal(back.trigger, gibbs);
+
+  gibbs.isConnected = false;
+  const live = control({
+    "data-action": "rank-open",
+    "data-asset-id": "player:9221",
+  }, { id: "gibbs-live", className: "ranks-row" });
+  const neighbor = control({
+    "data-action": "rank-open",
+    "data-asset-id": "player:9221",
+  }, { id: "gibbs-neighbor", className: "ranks-row ranks-neighbor" });
+  const shelf = control({
+    "data-action": "rank-open",
+    "data-asset-id": "player:9221",
+  }, { id: "gibbs-shelf", className: "ranks-shelf-item" });
+  const doc = {
+    body: { id: "body" },
+    contains(el) {
+      return el === live || el === shelf || el === playersTab;
+    },
+    querySelector(selector) {
+      return selector.includes("main") ? playersTab : null;
+    },
+    querySelectorAll() {
+      return [neighbor, shelf, live];
+    },
+  };
+  assert.equal(restoreTriggerFocus(doc, back.trigger), live);
+  assert.equal(live.focusOpts.preventScroll, true);
+  assert.equal(playersTab.focusOpts, null);
+
+  const trade = control({
+    "data-action": "open-trade",
+    "data-trade-id": "88",
+    "data-manager-key": "mine",
+  }, { id: "trade-row" });
+  trade.isConnected = false;
+  const liveTrade = control({
+    "data-action": "open-trade",
+    "data-trade-id": "88",
+    "data-manager-key": "mine",
+  }, { id: "trade-live" });
+  const tradeDoc = {
+    contains() {
+      return false;
+    },
+    querySelector() {
+      return playersTab;
+    },
+    querySelectorAll() {
+      return [liveTrade];
+    },
+  };
+  assert.equal(restoreTriggerFocus(tradeDoc, trade), liveTrade);
+});
+
+test("league, activity, and history have distinct document titles", () => {
+  assert.equal(ROUTE_ROOM_TITLES.board, ROOM_LABELS.league.board);
+  assert.equal(ROUTE_ROOM_TITLES.activity, ROOM_LABELS.league.activity);
+  assert.equal(ROUTE_ROOM_TITLES.history, ROOM_LABELS.league.history);
+  const league = routeDocumentTitle({ tab: "league", room: "board" });
+  const activity = routeDocumentTitle({ tab: "league", room: "activity" });
+  const history = routeDocumentTitle({ tab: "league", room: "history" });
+  assert.equal(league, "League · Dynasty Ticker");
+  assert.equal(activity, "Activity · Dynasty Ticker");
+  assert.equal(history, "History · Dynasty Ticker");
+  assert.equal(new Set([league, activity, history]).size, 3);
+  assert.equal(routeDocumentTitle({ tab: "league", room: "team" }), "My League · Dynasty Ticker");
+  assert.equal(routeDocumentTitle({ playerName: "Jahmyr Gibbs", tab: "league", room: "activity" }), "Jahmyr Gibbs · Dynasty Ticker");
+});
+
+test("a cold /player load focuses the card heading", () => {
+  const card = heading("h2", "player-heading");
+  const pageHeading = heading("h2", "page-heading");
+  const doc = {
+    querySelector(selector) {
+      if (selector === ".ranks-card") return rootWith([card]);
+      if (selector === "#players-page") return rootWith([pageHeading]);
+      if (selector === "main") return rootWith([pageHeading]);
+      return null;
+    },
+  };
+  const root = headingRootFor(doc, { overlay: "player", page: "players", playerId: "9221", tab: "players" });
+  assert.equal(focusViewHeading(root), card);
+  assert.equal(card.getAttribute("tabindex"), "-1");
+  assert.equal(card.focusOpts.preventScroll, true);
+
+  const app = read("../docs/app.js");
+  assert.match(app, /coldPlayerHeading = bootRoute\?\.name === "player"/);
+  assert.match(app, /function focusColdPlayerHeading\(\)/);
+  assert.match(app, /focusColdPlayerHeading\(\)/);
+  assert.match(app, /syncRouteA11y\(\{ focus: "heading" \}\)/);
+});
+
 test("aria-current page sits on the active tab and comes off the others", () => {
   const tabs = ["players", "trades", "league"].map((page) => ({
     attrs: page === "players" ? { "aria-current": "page" } : {},
@@ -303,6 +430,8 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(app, /routeFocus\.pop\(next\)/);
   assert.match(app, /restoreTriggerFocus\(document/);
   assert.match(app, /routeDocumentTitle\(/);
+  assert.match(app, /room: place\.view/);
+  assert.match(app, /routeFocus\.remember\(target\)/);
   assert.match(app, /syncAriaCurrent\(/);
   assert.match(app, /function escapeRouteOverlay\(event\)/);
   assert.match(app, /applyEscape\(/);
