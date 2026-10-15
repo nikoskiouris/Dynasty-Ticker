@@ -38,9 +38,10 @@ function decodePath(pathname) {
   }
 }
 
-// A real file wins. SPA_REWRITES (the same placeholder rules as netlify.toml)
-// fall back to index.html, including a segment like x.js. /api stays a 404.
-// Everything else, including a /data miss, returns 404.html.
+// A real file wins. SPA_REWRITES (the same placeholder rules as netlify.toml,
+// including the trailing-slash forms) fall back to index.html. A segment
+// like x.js matches too. /api stays a 404. Everything else, including a
+// /data miss, returns 404.html.
 export function classifyRequest(pathname) {
   const clean = decodePath(pathname);
   if (clean == null) return { status: 400, file: null };

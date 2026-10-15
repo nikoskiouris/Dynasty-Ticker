@@ -301,7 +301,8 @@ export function playerIdFromPathname(pathname) {
 // Documented Netlify rewrites: a fixed path or one :placeholder per segment.
 // A placeholder matches any single segment, including "x.js". The route
 // table still rejects a non-numeric player id and a league id that contains
-// a dot, and the desk replaceState's those to BASE.
+// a dot, and the desk replaceState's those to BASE. Trailing-slash forms
+// are their own rules so /players/ is not left to the 404 catch-all.
 export const SPA_REWRITES = Object.freeze([
   "/player/:id",
   "/player/:id/:slug",
@@ -310,16 +311,31 @@ export const SPA_REWRITES = Object.freeze([
   "/players",
   "/trade",
   "/connect",
+  "/players/",
+  "/trade/",
+  "/connect/",
+  "/l/:id/",
+  "/l/:id/:view/",
+  "/player/:id/",
+  "/player/:id/:slug/",
 ]);
+
+function rewriteParts(pattern) {
+  const raw = String(pattern || "");
+  return {
+    slash: raw.length > 1 && raw.endsWith("/"),
+    bits: raw.split("/").filter(Boolean),
+  };
+}
 
 export function isSpaPath(pathname) {
   const raw = String(pathname || "").split("?")[0];
-  if (!raw.startsWith("/") || (raw.length > 1 && raw.endsWith("/"))) return false;
-  const bits = raw.split("/").filter(Boolean);
+  if (!raw.startsWith("/")) return false;
+  const path = rewriteParts(raw);
   return SPA_REWRITES.some((pattern) => {
-    const parts = pattern.split("/").filter(Boolean);
-    if (parts.length !== bits.length) return false;
-    return parts.every((part, index) => part.startsWith(":") || part === bits[index]);
+    const rule = rewriteParts(pattern);
+    if (rule.slash !== path.slash || rule.bits.length !== path.bits.length) return false;
+    return rule.bits.every((part, index) => part.startsWith(":") || part === path.bits[index]);
   });
 }
 

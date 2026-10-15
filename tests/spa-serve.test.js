@@ -46,7 +46,13 @@ test("placeholder app routes fall back to index.html and other misses 404", () =
   assert.match(classifyRequest("/nope").file, /404\.html$/);
   assert.equal(classifyRequest("/l").status, 404);
   assert.equal(classifyRequest("/player").status, 404);
-  assert.equal(classifyRequest("/players/").status, 404);
+  assert.equal(classifyRequest("/player/").status, 404);
+  assert.equal(classifyRequest("/l/").status, 404);
+  for (const slash of ["/players/", "/trade/", "/connect/", "/l/42/", "/l/42/team/", "/player/9221/", "/player/9221/jahmyr-gibbs/"]) {
+    const hit = classifyRequest(slash);
+    assert.equal(hit.status, 200, slash);
+    assert.match(hit.file, /index\.html$/, slash);
+  }
   assert.equal(classifyRequest("/api/rather-vote").status, 404);
 
   const css = classifyRequest("/styles.css");
@@ -83,6 +89,10 @@ test("the spa server returns 404 for /data misses and extension paths", async ()
     const playerFile = await fetch(`http://127.0.0.1:${port}/player/missing.js`);
     assert.equal(playerFile.status, 200);
     assert.match(await playerFile.text(), /id="ui-pages"/);
+
+    const playersSlash = await fetch(`http://127.0.0.1:${port}/players/`);
+    assert.equal(playersSlash.status, 200);
+    assert.match(await playersSlash.text(), /id="ui-pages"/);
 
     const realCss = await fetch(`http://127.0.0.1:${port}/styles.css`);
     assert.equal(realCss.status, 200);

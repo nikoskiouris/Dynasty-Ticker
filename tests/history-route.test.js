@@ -202,6 +202,15 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(isSpaPath("/trade"), true);
   assert.equal(isSpaPath("/players"), true);
   assert.equal(isSpaPath("/connect"), true);
+  assert.equal(isSpaPath("/players/"), true);
+  assert.equal(isSpaPath("/trade/"), true);
+  assert.equal(isSpaPath("/connect/"), true);
+  assert.equal(isSpaPath("/l/42/"), true);
+  assert.equal(isSpaPath("/l/42/team/"), true);
+  assert.equal(isSpaPath("/player/9221/"), true);
+  assert.equal(isSpaPath("/player/9221/jahmyr-gibbs/"), true);
+  assert.equal(isSpaPath("/player/"), false);
+  assert.equal(isSpaPath("/l/"), false);
   assert.equal(isSpaPath("/nope"), false);
   assert.equal(resolveLocation("/player/9221").unknown, false);
   assert.equal(resolveLocation("/l/42").unknown, false);
