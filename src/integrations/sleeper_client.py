@@ -73,14 +73,6 @@ def _display_name_for_user(user: dict | None, fallback: str) -> str:
     return user.get("display_name") or user.get("username") or fallback
 
 
-def _extract_roster_points(roster: dict) -> float | None:
-    settings = roster.get("settings") or {}
-    whole = settings.get("fpts")
-    if whole is None or isinstance(whole, bool):
-        return None
-    return sleeper_points(whole, settings.get("fpts_decimal", 0))
-
-
 def sleeper_points(whole, decimal) -> float:
     whole_value = float(whole)
     if not whole_value.is_integer():
@@ -93,46 +85,6 @@ def sleeper_points(whole, decimal) -> float:
         return round(whole_value, 2)
     fraction = decimal_value if abs(decimal_value) < 1 else decimal_value / 100
     return round(whole_value + fraction, 2)
-
-
-def _ordinal(rank: int) -> str:
-    if 10 <= rank % 100 <= 20:
-        suffix = "th"
-    else:
-        suffix = {1: "st", 2: "nd", 3: "rd"}.get(rank % 10, "th")
-    return f"{rank}{suffix}"
-
-
-def _format_previous_year_rank_label(rank: int, total_teams: int) -> str:
-    if rank <= 0 or total_teams <= 0:
-        return "Previous Year"
-    return f"{_ordinal(rank)}/{_ordinal(total_teams)} in Previous Year"
-
-
-def _build_previous_finish_lookup(previous_league: dict | None, previous_rosters: list[dict] | None) -> tuple[dict[str, str], dict[str, str]]:
-    if not previous_league or not previous_rosters:
-        return {}, {}
-
-    ranked = [
-        {
-            "roster_id": str(roster.get("roster_id")),
-            "owner_id": str(roster.get("owner_id")) if roster.get("owner_id") is not None else None,
-            "points": points,
-        }
-        for roster in previous_rosters
-        if (points := _extract_roster_points(roster)) is not None
-    ]
-    ranked.sort(key=lambda row: (-row["points"], int(row["roster_id"])))
-
-    by_roster_id: dict[str, str] = {}
-    by_user_id: dict[str, str] = {}
-    total_teams = len(ranked)
-    for idx, row in enumerate(ranked, start=1):
-        label = _format_previous_year_rank_label(idx, total_teams)
-        by_roster_id[row["roster_id"]] = label
-        if row["owner_id"] is not None:
-            by_user_id[row["owner_id"]] = label
-    return by_roster_id, by_user_id
 
 
 def _resolve_pick_owner_name(original_owner: object, user_by_id: dict[str, dict], roster_by_id: dict[str, dict]) -> str | None:
@@ -153,62 +105,16 @@ def _resolve_pick_owner_name(original_owner: object, user_by_id: dict[str, dict]
     return None
 
 
-def _resolve_previous_finish_label(
-    original_owner: object,
-    current_roster_by_id: dict[str, dict],
-    previous_finish_by_roster_id: dict[str, str],
-    previous_finish_by_user_id: dict[str, str],
-) -> str | None:
-    if original_owner is None:
-        return None
-
-    owner_key = str(original_owner)
-    if owner_key in previous_finish_by_roster_id:
-        return previous_finish_by_roster_id[owner_key]
-    if owner_key in previous_finish_by_user_id:
-        return previous_finish_by_user_id[owner_key]
-
-    roster = current_roster_by_id.get(owner_key)
-    if roster is None:
-        return None
-
-    roster_id = str(roster.get("roster_id"))
-    if roster_id in previous_finish_by_roster_id:
-        return previous_finish_by_roster_id[roster_id]
-
-    owner_id = roster.get("owner_id")
-    if owner_id is not None and str(owner_id) in previous_finish_by_user_id:
-        return previous_finish_by_user_id[str(owner_id)]
-
-    return None
-
-
 def _format_pick_name(
     pick: dict,
     user_by_id: dict[str, dict],
     roster_by_id: dict[str, dict],
-    previous_finish_by_roster_id: dict[str, str],
-    previous_finish_by_user_id: dict[str, str],
 ) -> str:
     season = pick.get("season")
     round_ = pick.get("round")
     original_owner = pick.get("original_owner")
-
-    details: list[str] = []
     owner_name = _resolve_pick_owner_name(original_owner, user_by_id, roster_by_id)
-    if owner_name:
-        details.append(f"from {owner_name}")
-
-    finish_label = _resolve_previous_finish_label(
-        original_owner,
-        roster_by_id,
-        previous_finish_by_roster_id,
-        previous_finish_by_user_id,
-    )
-    if finish_label:
-        details.append(finish_label)
-
-    suffix = f" ({', '.join(details)})" if details else ""
+    suffix = f" (from {owner_name})" if owner_name else ""
     return f"{season} Round {round_} Pick{suffix}"
 
 
@@ -216,8 +122,6 @@ def normalize_pick(
     pick: dict,
     user_by_id: dict[str, dict],
     roster_by_id: dict[str, dict],
-    previous_finish_by_roster_id: dict[str, str],
-    previous_finish_by_user_id: dict[str, str],
 ) -> Asset:
     season = pick.get("season")
     round_ = pick.get("round")
@@ -227,8 +131,6 @@ def normalize_pick(
         pick,
         user_by_id=user_by_id,
         roster_by_id=roster_by_id,
-        previous_finish_by_roster_id=previous_finish_by_roster_id,
-        previous_finish_by_user_id=previous_finish_by_user_id,
     )
     return Asset(asset_id=asset_id, name=name, asset_type="pick", raw=pick)
 
@@ -392,14 +294,11 @@ def build_league_context(
     users: list[dict],
     rosters: list[dict],
     players: dict,
-    previous_league: dict | None = None,
-    previous_rosters: list[dict] | None = None,
     league: dict | None = None,
     traded_picks: list[dict] | None = None,
 ) -> LeagueContext:
     user_by_id = {str(u["user_id"]): u for u in users}
     roster_by_id = {str(r["roster_id"]): r for r in rosters}
-    previous_finish_by_roster_id, previous_finish_by_user_id = _build_previous_finish_lookup(previous_league, previous_rosters)
     owned_picks_by_roster = _build_owned_picks_by_roster(league, rosters, traded_picks)
     normalized_rosters: list[Roster] = []
 
@@ -427,8 +326,6 @@ def build_league_context(
                     pick,
                     user_by_id=user_by_id,
                     roster_by_id=roster_by_id,
-                    previous_finish_by_roster_id=previous_finish_by_roster_id,
-                    previous_finish_by_user_id=previous_finish_by_user_id,
                 )
             )
 
