@@ -50,18 +50,33 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
-# Extensionless app routes only. Not forced, so a real file still wins.
-# /data misses and any other path, including one with a file extension,
-# hit the /* rule and return 404.html instead of index.html.
-# SPA routes only. Not a catch-all rewrite to the app: /* stays a 404 so
-# /api, functions, and static files are not rewritten to index.html.
+# Documented rewrites only: a fixed path or one :placeholder per segment.
+# Not forced, so a real file still wins. /* is the only splat, and it is
+# the 404 catch-all, so /api, functions, and static files stay put.
+# A placeholder also matches a segment like x.js. The app treats a
+# non-numeric player id or a league id with a dot as unknown and sends it home.
 [[redirects]]
-  from = "/players"
+  from = "/player/:id"
   to = "/index.html"
   status = 200
 
 [[redirects]]
-  from = "/players/"
+  from = "/player/:id/:slug"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/l/:id"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/l/:id/:view"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/players"
   to = "/index.html"
   status = 200
 
@@ -71,38 +86,7 @@
   status = 200
 
 [[redirects]]
-  from = "/trade/"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
   from = "/connect"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/connect/"
-  to = "/index.html"
-  status = 200
-
-# A dotted path under these prefixes is a missing file, not a desk route.
-[[redirects]]
-  from = "/l/*.*"
-  to = "/404.html"
-  status = 404
-
-[[redirects]]
-  from = "/l/*"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/player/*.*"
-  to = "/404.html"
-  status = 404
-
-[[redirects]]
-  from = "/player/*"
   to = "/index.html"
   status = 200
 

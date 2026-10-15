@@ -26,4 +26,7 @@ test("a cold player card puts Find at the top and one submit opens the league li
   assert.match(opener, /await requestFindLeagues\(\)/);
   assert.match(opener, /landingLeaguePicker\.innerHTML/);
   assert.match(opener, /host\.hidden = !show/);
+
+  const css = readFileSync(join(root, "../docs/styles.css"), "utf8");
+  assert.match(css, /\.player-connect input \{[^}]*min-height:\s*44px/);
 });

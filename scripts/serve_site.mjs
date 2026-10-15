@@ -38,8 +38,9 @@ function decodePath(pathname) {
   }
 }
 
-// A real file wins. Extensionless app routes fall back to index.html.
-// /data misses, dotted paths, and anything else return 404.html.
+// A real file wins. SPA_REWRITES (the same placeholder rules as netlify.toml)
+// fall back to index.html, including a segment like x.js. /api stays a 404.
+// Everything else, including a /data miss, returns 404.html.
 export function classifyRequest(pathname) {
   const clean = decodePath(pathname);
   if (clean == null) return { status: 400, file: null };

@@ -298,15 +298,29 @@ export function playerIdFromPathname(pathname) {
   return hit?.name === "player" ? hit.playerId : "";
 }
 
-// Paths the static server and Netlify may rewrite to index.html.
-// Files that exist still win. This is not a catch-all.
-// /l and /player need an id. A file extension is never an app route.
+// Documented Netlify rewrites: a fixed path or one :placeholder per segment.
+// A placeholder matches any single segment, including "x.js". The route
+// table still rejects a non-numeric player id and a league id that contains
+// a dot, and the desk replaceState's those to BASE.
+export const SPA_REWRITES = Object.freeze([
+  "/player/:id",
+  "/player/:id/:slug",
+  "/l/:id",
+  "/l/:id/:view",
+  "/players",
+  "/trade",
+  "/connect",
+]);
+
 export function isSpaPath(pathname) {
-  const bits = pathBits(pathname);
-  if (!bits?.length) return false;
-  if (bits.some((bit) => bit.includes("."))) return false;
-  if (bits[0] === "l" || bits[0] === "player") return bits.length > 1;
-  return bits.length === 1 && (bits[0] === "trade" || bits[0] === "players" || bits[0] === "connect");
+  const raw = String(pathname || "").split("?")[0];
+  if (!raw.startsWith("/") || (raw.length > 1 && raw.endsWith("/"))) return false;
+  const bits = raw.split("/").filter(Boolean);
+  return SPA_REWRITES.some((pattern) => {
+    const parts = pattern.split("/").filter(Boolean);
+    if (parts.length !== bits.length) return false;
+    return parts.every((part, index) => part.startsWith(":") || part === bits[index]);
+  });
 }
 
 // Choosing a section replaces the open menu entry so Back does not reopen it.
