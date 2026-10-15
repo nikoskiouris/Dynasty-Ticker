@@ -8,6 +8,7 @@ import {
   nextMockSeason,
   shouldAttachMock,
   projectedDraftSlot,
+  compareProjectedDraftOrder,
   buildCurrentPlaceLookup,
   currentPlaceForOwner,
   mockProspectAtSlot,
@@ -81,6 +82,28 @@ test("current place ranks by wins then points", () => {
   assert.equal(currentPlaceForOwner(2, lookup).rank, 2);
   assert.equal(currentPlaceForOwner(8, lookup).rank, 3);
   assert.equal(currentPlaceForOwner(8, lookup).label, "3rd");
+});
+
+test("roster strength breaks a tied record and does not jump a better record", () => {
+  const rosters = [
+    { roster_id: 1, settings: { wins: 5, losses: 5, fpts: 1100, fpts_against: 1000 } },
+    { roster_id: 2, settings: { wins: 5, losses: 5, fpts: 1100, fpts_against: 1000 } },
+    { roster_id: 3, settings: { wins: 8, losses: 2, fpts: 900, fpts_against: 1400 } },
+  ];
+  const strength = new Map([
+    ["1", { starterValue: 1000, benchValue: 0 }],
+    ["2", { starterValue: 9000, benchValue: 0 }],
+    ["3", { starterValue: 100, benchValue: 0 }],
+  ]);
+  const lookup = buildCurrentPlaceLookup(rosters, [], strength);
+  assert.equal(currentPlaceForOwner(3, lookup).rank, 1);
+  assert.equal(currentPlaceForOwner(2, lookup).rank, 2);
+  assert.equal(currentPlaceForOwner(1, lookup).rank, 3);
+  assert.equal(projectedDraftSlot(currentPlaceForOwner(2, lookup).rank, lookup.total), 2);
+  assert.ok(compareProjectedDraftOrder(
+    { wins: 1, losses: 0, points: 10, starterValue: 1, rosterId: "1" },
+    { wins: 0, losses: 1, points: 99, starterValue: 99999, rosterId: "2" },
+  ) < 0);
 });
 
 test("tied points use points against, lower is better", () => {
