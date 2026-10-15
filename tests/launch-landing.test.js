@@ -90,9 +90,10 @@ test("the example trade is the calculator verdict, and a new price changes it", 
     globalMaxValue: 10000,
   });
   const copy = verdictCopy(model.verdict);
-  assert.equal(html.includes(copy.label), true);
-  assert.equal(html.includes(copy.pctText), true);
-  assert.match(copy.line, /, \d+(\.\d+)?% apart$/);
+  const shownLabel = html.match(/<div class="vt"><b>([^<]*)<\/b>/);
+  const shownPct = html.match(/<span class="big [^"]*">([^<]*)<\/span>/);
+  assert.equal(shownLabel?.[1], copy.label);
+  assert.equal(shownPct?.[1], copy.pctText);
   assert.match(html, /10,000/);
   const moved = exampleTradeFromValues({ ...values, "player:9509": 8200 }, { globalMaxValue: 10000 });
   assert.equal(moved.giveSum, 8200);

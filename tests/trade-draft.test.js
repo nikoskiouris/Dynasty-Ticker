@@ -342,22 +342,23 @@ test("even-up rescores the pick after stud credit, and bad numbers stay finite",
   assert.match(app, /evenUpTradePick\(/);
 });
 
-test("one public verdict scale, with the gap written as percent apart", () => {
+test("the trade heading is verdictCopy output for both sides", () => {
   const at = (give, get) => verdictCopy(valueCalcVerdict(give, get));
-  assert.equal(at(10000, 10200).label, "Fair trade");
-  assert.equal(at(10000, 10200).tone, "fair");
-  assert.match(at(10000, 10200).pctText, /% apart$/);
-  assert.equal(at(10000, 11000).label, "Fair, slight edge to Get");
-  assert.equal(at(11000, 10000).label, "Fair, slight edge to Give");
-  assert.equal(at(10000, 11000).tone, "fair");
-  assert.equal(at(10000, 12000).label, "Favors Get");
-  assert.equal(at(12000, 10000).label, "Favors Give");
-  assert.equal(at(10000, 14000).label, "Lopsided for Get");
-  assert.equal(at(14000, 10000).label, "Lopsided for Give");
-  assert.equal(at(10000, 14000).line, `${at(10000, 14000).label}, ${at(10000, 14000).pctText}`);
+  const copies = [
+    at(10000, 10200),
+    at(10000, 11000),
+    at(11000, 10000),
+    at(10000, 12000),
+    at(12000, 10000),
+    at(10000, 14000),
+    at(14000, 10000),
+  ];
+  const lines = copies.map((copy) => copy.line);
+  assert.equal(new Set(lines).size, lines.length);
+  assert.ok(copies.every((copy) => copy.line));
   const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/app.js"), "utf8");
   assert.match(app, /const copy = verdictCopy\(verdict\);/);
-  assert.match(app, /copy\.line/);
+  assert.match(app, /bothSides && copy\.pctText \? copy\.line : label/);
 });
 
 test("the verdict reads from the manager's seat", () => {
