@@ -5995,23 +5995,28 @@ button.weekly-help-close:hover {
   }
 
   .mobile-chrome {
-    position: sticky;
-    top: 0;
-    z-index: 20;
+    position: static;
+    top: auto;
+    z-index: auto;
     align-self: start;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 0.65rem;
+    gap: 0.4rem;
     align-items: center;
-    height: calc(3.75rem + env(safe-area-inset-top));
-    min-height: calc(3.75rem + env(safe-area-inset-top));
+    height: auto;
+    min-height: 0;
     margin: 0;
-    padding: 0.4rem max(0.75rem, env(safe-area-inset-right)) 0.4rem max(0.75rem, env(safe-area-inset-left));
-    padding-top: calc(0.4rem + env(safe-area-inset-top));
+    padding: 0.15rem max(0.6rem, env(safe-area-inset-right)) 0.15rem max(0.6rem, env(safe-area-inset-left));
+    padding-top: calc(0.15rem + env(safe-area-inset-top));
     background: var(--bg);
-    border-bottom: 3px solid var(--text);
+    border-bottom: 1px solid var(--line);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+
+  .desk-nav {
+    position: static;
+    top: auto;
   }
 
   .mobile-chrome-copy {
@@ -6036,9 +6041,9 @@ button.weekly-help-close:hover {
   .mobile-icon-btn {
     display: grid;
     place-items: center;
-    width: 2.75rem;
-    min-width: 2.75rem;
-    min-height: 2.75rem;
+    width: 2.5rem;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
     padding: 0;
     border: 1px solid var(--text);
     border-radius: 0;
@@ -6221,10 +6226,6 @@ button.weekly-help-close:hover {
 
   .workspace {
     padding: 0.75rem max(0.75rem, env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
-  }
-
-  body.dock-visible .workspace {
-    padding-bottom: calc(4.8rem + env(safe-area-inset-bottom));
   }
 
   .workspace-header {
@@ -6620,14 +6621,15 @@ button.weekly-help-close:hover {
 }
 
 .site-dock {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 45;
-  display: grid;
-  gap: 0.55rem;
-  padding: 0 0.85rem max(0.85rem, env(safe-area-inset-bottom));
+  position: static;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  z-index: auto;
+  display: block;
+  gap: 0;
+  margin: 0;
+  padding: 0;
   pointer-events: none;
 }
 
@@ -6680,11 +6682,18 @@ body.rail-open .site-dock {
   padding: 0.4rem 0.9rem;
 }
 
-body.dock-visible {
-  padding-bottom: 6.5rem;
-}
-
 @media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  .site-dock,
+  .sticky-mobile-cta,
+  #sticky-find-btn {
+    position: static;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    transform: none;
+  }
+
   .sticky-mobile-cta:not([hidden]) {
     display: grid;
     grid-template-columns: 1fr;
@@ -6693,10 +6702,6 @@ body.dock-visible {
 
   .sticky-mobile-cta button {
     min-height: 3rem;
-  }
-
-  body.dock-visible {
-    padding-bottom: 8.75rem;
   }
 
   .legal-shell {

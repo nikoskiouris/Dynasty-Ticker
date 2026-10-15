@@ -567,8 +567,6 @@ let managerSelectorHydrating = false;
 let managerSelectorHydrateEpoch = 0;
 let ratherPromptPair = null;
 let ratherSeasonStatsCache = { season: "", stats: null };
-let landingSearchOffscreen = false;
-let landingSearchObserver = null;
 let publicRanksOpen = false;
 let publicRanksHistory = false;
 // The draft a Review trade, a new partner, or Clear replaced, so one tap brings it back.
@@ -832,7 +830,6 @@ if (typeof history.scrollRestoration === "string") history.scrollRestoration = "
 window.addEventListener("popstate", (event) => applyDeskPopState(event.state));
 if (isPhoneLayout()) setMobileRailOpen(false);
 syncDocumentMeta();
-watchLandingSearchVisibility();
 syncSiteDock();
 const runQueuedFind = releaseBootGate(document);
 if (runQueuedFind) scheduleBootFind(() => requestFindLeagues());
@@ -16699,29 +16696,10 @@ document.addEventListener("error", (event) => {
   img.classList.add("is-broken");
 }, true);
 
-function watchLandingSearchVisibility() {
-  if (landingSearchObserver || typeof IntersectionObserver !== "function") return;
-  const targets = [el.landingUsernameForm, el.usernameSearchForm].filter(Boolean);
-  if (!targets.length) return;
-  const seen = new Map();
-  landingSearchObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      seen.set(entry.target, entry.intersectionRatio >= 0.35);
-    });
-    landingSearchOffscreen = ![...seen.values()].some(Boolean);
-    syncSiteDock();
-  }, { threshold: [0, 0.35, 1] });
-  targets.forEach((node) => landingSearchObserver.observe(node));
-}
-
 function syncSiteDock() {
-  const stickyOpen = isPhoneLayout()
-    && !state.leagueId
-    && !publicRanksOpen
-    && !document.body.classList.contains("rail-open")
-    && landingSearchOffscreen;
-  if (el.stickyMobileCta) el.stickyMobileCta.hidden = !stickyOpen;
-  document.body.classList.toggle("dock-visible", stickyOpen);
+  // Find my leagues stays in the landing form. Do not pin a second bar over the page.
+  if (el.stickyMobileCta) el.stickyMobileCta.hidden = true;
+  document.body.classList.remove("dock-visible");
 }
 
 function startLeagueLoadingUi() {
