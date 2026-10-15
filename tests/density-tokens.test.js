@@ -37,7 +37,18 @@ test("density tokens load before the desk styles and the fonts stay on this orig
   assert.match(tokens, /--r-sm:\s*6px/);
   assert.match(tokens, /--r-md:\s*8px/);
   assert.match(tokens, /--row-h-compact:\s*40px/);
+  assert.match(tokens, /--tap-min:\s*44px/);
   assert.match(tokens, /--focus:\s*0 0 0 2px/);
+  assert.match(styles, /\.ranks-card-price span,\s*\n\.ranks-facts dt \{[^}]*font-size:\s*var\(--fs-xs\)/);
+  assert.match(styles, /\.ranks-facts dd \{[^}]*font-size:\s*var\(--fs-num\)/);
+  assert.match(styles, /\.ranks-facts dd \{[^}]*font-weight:\s*700/);
+  assert.doesNotMatch(styles, /font-weight:\s*(800|900)/);
+  const product = readDocs("product.css");
+  assert.match(product, /inset:\s*-4px/);
+  assert.match(product, /inset:\s*-8px 0/);
+  assert.match(product, /\.mobile-chrome \{[^}]*background:\s*var\(--bg\)/);
+  assert.match(product, /header#mobile-chrome \{[^}]*background-color:\s*var\(--bg\)/);
+  assert.doesNotMatch(product, /\.mobile-chrome \{[^}]*88%/);
   assert.match(styles, /--font-display:\s*var\(--font-ui\)/);
   assert.match(styles, /font-size:\s*var\(--fs-body\)/);
   assert.match(styles, /font-size:\s*var\(--fs-h1\)/);
@@ -94,7 +105,26 @@ function fixtureHtml() {
         <button id="landing-find-btn" type="submit">Find my leagues</button>
       </div>
     </form>
-    <p class="ranks-card-price"><strong id="price">8421</strong></p>
+    <header class="mobile-chrome" id="mobile-chrome">
+      <button id="mobile-rail-toggle" class="mobile-icon-btn" type="button" aria-label="Menu"></button>
+      <button id="mobile-home-btn" class="mobile-icon-btn" type="button" aria-label="Home"></button>
+    </header>
+    <button id="mobile-rail-close" class="mobile-rail-close" type="button" aria-label="Close">×</button>
+    <p class="ranks-card-price"><span id="price-label">Model</span><strong id="price">8421</strong></p>
+    <dl class="ranks-facts"><div><dt id="fact-label">Projected</dt><dd id="fact-value">23.1</dd></div></dl>
+    <button id="find-leagues-btn" type="button">Find my leagues</button>
+    <button id="load-league-btn" type="button">Load League</button>
+    <button id="open-public-ranks" class="ghost-btn" type="button">Look up a player</button>
+    <button id="home-btn" class="ghost-btn" type="button">Close</button>
+    <button id="add-trade" class="ghost-btn" type="button">Add to trade</button>
+    <button id="desk-room" class="phone-desk-room" type="button">Room</button>
+    <button id="ranks-chip" class="ranks-chip" type="button">QB</button>
+    <details class="workspace-panel"><summary id="own-summary">Ownership history</summary></details>
+    <details class="league-id-fallback"><summary id="league-summary">Have a league ID or URL instead?</summary></details>
+    <select id="me-select"><option>Team</option></select>
+    <button id="page-tab" class="page-tab" type="button">Players</button>
+    <button id="room-tab" class="room-tab" type="button">Ranks</button>
+    <button id="team-trade" class="team-card-trade" type="button">Build a trade</button>
     <button class="ranks-row" type="button"><span>1</span><span>Jahmyr Gibbs</span><strong>8421</strong></button>
   </body>
 </html>`;
@@ -110,9 +140,52 @@ const MEASURE = `(() => {
   const body = styleOf(document.body);
   const h1 = styleOf(document.querySelector("h1"));
   const price = styleOf(document.querySelector(".ranks-card-price strong"));
+  const priceLabel = styleOf(document.querySelector("#price-label"));
+  const factLabel = styleOf(document.querySelector("#fact-label"));
+  const factValue = styleOf(document.querySelector("#fact-value"));
   const button = document.querySelector("#landing-find-btn");
   const input = document.querySelector("#landing-username");
   const row = document.querySelector(".ranks-row");
+  const hitOf = (el) => {
+    const r = el.getBoundingClientRect();
+    const pseudo = getComputedStyle(el, "::before");
+    const raw = (side) => Number.parseFloat(pseudo[side]) || 0;
+    const grow = (side) => {
+      const value = raw(side);
+      return value < 0 ? -value : 0;
+    };
+    const live = pseudo.content !== "none" && pseudo.content !== "normal" && pseudo.position === "absolute";
+    return {
+      height: r.height + (live ? grow("top") + grow("bottom") : 0),
+      width: r.width + (live ? grow("left") + grow("right") : 0),
+      visual: r.height,
+    };
+  };
+  const hits = {};
+  for (const id of [
+    "mobile-rail-toggle",
+    "mobile-home-btn",
+    "mobile-rail-close",
+    "landing-find-btn",
+    "find-leagues-btn",
+    "load-league-btn",
+    "open-public-ranks",
+    "home-btn",
+    "add-trade",
+    "desk-room",
+    "ranks-chip",
+    "own-summary",
+    "league-summary",
+    "me-select",
+    "page-tab",
+    "room-tab",
+    "team-trade",
+  ]) {
+    const el = document.getElementById(id);
+    hits[id] = hitOf(el);
+  }
+  button.focus({ focusVisible: true });
+  const focusOutline = styleOf(button).outlineWidth;
   let maxFont = 0;
   for (const el of document.querySelectorAll("*")) {
     const size = px(styleOf(el).fontSize);
@@ -140,7 +213,15 @@ const MEASURE = `(() => {
     h1Font: h1.fontSize,
     h1Family: h1.fontFamily,
     priceFont: price.fontSize,
+    priceWeight: price.fontWeight,
+    labelFont: priceLabel.fontSize,
+    factFont: factLabel.fontSize,
+    factWeight: factLabel.fontWeight,
+    factValueFont: factValue.fontSize,
+    factValueWeight: factValue.fontWeight,
     maxFont,
+    hits,
+    focusOutline,
     buttonHeight: box(button).height,
     inputHeight: box(input).height,
     inputFont: styleOf(input).fontSize,
@@ -149,6 +230,7 @@ const MEASURE = `(() => {
     textOnBg: contrast(root.getPropertyValue("--text").trim(), root.getPropertyValue("--bg").trim()),
     mutedOnBg: contrast(root.getPropertyValue("--muted").trim(), root.getPropertyValue("--bg").trim()),
     sansReady: document.fonts.check('14px "Instrument Sans"'),
+    chromeBg: styleOf(document.querySelector("#mobile-chrome")).backgroundColor,
   };
 })()`;
 
@@ -202,10 +284,12 @@ function launchChrome(bin) {
   };
 }
 
-async function measureAt(bin, htmlPath, width) {
+async function measureAt(bin, htmlPath, width, mobile = true) {
   const chrome = launchChrome(bin);
+  let ws;
+  try {
   const browserWs = await chrome.endpoint();
-  const ws = new WebSocket(browserWs);
+  ws = new WebSocket(browserWs);
   await new Promise((resolve, reject) => {
     ws.addEventListener("open", resolve, { once: true });
     ws.addEventListener("error", reject, { once: true });
@@ -236,7 +320,7 @@ async function measureAt(bin, htmlPath, width) {
       width,
       height: 844,
       deviceScaleFactor: 1,
-      mobile: true,
+      mobile,
     }, sessionId);
     await send("Page.navigate", { url: `file://${htmlPath}` }, sessionId);
     const started = Date.now();
@@ -261,15 +345,28 @@ async function measureAt(bin, htmlPath, width) {
       throw new Error(probed.exceptionDetails.text || JSON.stringify(probed.exceptionDetails));
     }
     return probed.result.value;
+    } finally {
+      try {
+        ws?.close();
+      } catch {
+        /* socket already closed */
+      }
+    }
   } finally {
-    ws.close();
     await chrome.stop();
   }
 }
 
-test("at 390px body, h1, number, controls, and rows use the density sizes", async () => {
+test("at 390px body, h1, number, controls, and rows use the density sizes", async (t) => {
+  if (typeof WebSocket === "undefined") {
+    t.skip("WebSocket is not available");
+    return;
+  }
   const bin = await findChrome();
-  assert.ok(bin, "headless Chrome is required to read computed sizes");
+  if (!bin) {
+    t.skip("headless Chrome is not available");
+    return;
+  }
   const dir = mkdtempSync(join(tmpdir(), "dt-density-html-"));
   const htmlPath = join(dir, "density.html");
   writeFileSync(htmlPath, fixtureHtml());
@@ -279,6 +376,12 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
     assert.equal(box.bodyFont, "14px");
     assert.equal(box.h1Font, "18px");
     assert.equal(box.priceFont, "24px");
+    assert.equal(box.priceWeight, "700");
+    assert.equal(box.labelFont, "11px");
+    assert.equal(box.factFont, "11px");
+    assert.equal(box.factWeight, "700");
+    assert.equal(box.factValueFont, "15px");
+    assert.equal(box.factValueWeight, "700");
     assert.equal(box.numXl, "24px");
     assert.ok(box.maxFont <= 24, `number max ${box.maxFont}`);
     assert.ok(Math.abs(box.buttonHeight - 36) < 0.6, `button height ${box.buttonHeight}`);
@@ -290,6 +393,20 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
     assert.equal(box.sansReady, true);
     assert.ok(box.textOnBg >= 4.5, `text contrast ${box.textOnBg}`);
     assert.ok(box.mutedOnBg >= 4.5, `muted contrast ${box.mutedOnBg}`);
+    assert.equal(box.focusOutline, "2px");
+    assert.equal(box.chromeBg, "rgb(12, 12, 14)");
+    const squares = ["mobile-rail-toggle", "mobile-home-btn", "mobile-rail-close"];
+    for (const id of Object.keys(box.hits)) {
+      assert.ok(box.hits[id].height >= 44, `${id} hit height ${box.hits[id].height}`);
+      if (squares.includes(id)) {
+        assert.ok(box.hits[id].width >= 44, `${id} hit width ${box.hits[id].width}`);
+      }
+    }
+    const desk = await measureAt(bin, htmlPath, 1280, false);
+    assert.equal(desk.innerWidth, 1280);
+    for (const id of ["page-tab", "room-tab", "team-trade", "landing-find-btn", "ranks-chip", "me-select"]) {
+      assert.ok(desk.hits[id].height >= 44, `${id} desk hit ${desk.hits[id].height}`);
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

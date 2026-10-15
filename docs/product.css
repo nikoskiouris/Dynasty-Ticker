@@ -64,7 +64,7 @@ h1,
   .control-rail {
     background: transparent;
     border-right: 0;
-    padding: 1.15rem 1.15rem 1.4rem 1.35rem;
+    padding: var(--section-gap) var(--card-pad);
     gap: 1rem;
   }
 
@@ -383,7 +383,7 @@ h1,
     min-height: 0;
     max-height: none;
     overflow: visible;
-    padding: 1.35rem 2.4rem 0;
+    padding: var(--card-pad) var(--section-gap) 0;
     border: 0;
     background: transparent;
     box-shadow: none;
@@ -813,7 +813,7 @@ details.workspace-panel > summary,
 @media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
   .mobile-chrome {
     border-bottom: 0;
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    background: var(--bg);
   }
 
   .mobile-icon-btn {
@@ -1047,7 +1047,7 @@ details.workspace-panel > summary,
     min-height: 0;
     max-height: none;
     overflow: visible;
-    padding: 0.85rem 1.4rem 0.7rem;
+    padding: var(--card-pad) var(--section-gap);
     border: 0;
     border-bottom: 1px solid var(--line);
     background: var(--bg);
@@ -1167,9 +1167,6 @@ button.ranks-shelf-item .player-face {
 }
 
 button.ranks-chip,
-.room-tab,
-.ghost-btn,
-button.ghost-btn,
 .week-chips button,
 .segmented button {
   position: relative;
@@ -1177,27 +1174,116 @@ button.ghost-btn,
   border-radius: var(--r-pill);
 }
 
-button.ranks-chip::after,
-.room-tab::after,
-.ghost-btn::after,
-button.ghost-btn::after,
-.week-chips button::after,
-.segmented button::after {
-  content: "";
-  position: absolute;
-  inset: -4px 0;
-}
-
+/* Hit area. Visual size stays. Empty ::before grows the target to --tap-min.
+   Wide controls expand on the block axis only, so neighbors do not share a side.
+   28px chips use a deeper inset. Stacked rows are already 44px, so their
+   ::before stays inside the row. The pseudo paints nothing, so the 2px
+   focus outline stays visible. */
+.mobile-icon-btn,
+.mobile-rail-close,
 .selected-token-remove,
-button.weekly-help-close {
+button.weekly-help-close,
+#landing-find-btn,
+#find-leagues-btn,
+#load-league-btn,
+.ghost-btn,
+button.ghost-btn,
+.page-tab,
+.room-tab,
+.phone-desk-room,
+.team-card-trade,
+button.ranks-chip,
+.week-chips button,
+.segmented button,
+details.workspace-panel > summary,
+.league-id-fallback summary {
   position: relative;
 }
 
-.selected-token-remove::after,
-button.weekly-help-close::after {
+.ghost-btn,
+button.ghost-btn,
+.page-tab,
+.room-tab,
+details.workspace-panel > summary,
+.league-id-fallback summary {
+  min-height: var(--btn-h);
+}
+
+.mobile-icon-btn::before,
+.mobile-rail-close::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  background: none;
+  pointer-events: auto;
+}
+
+.selected-token-remove::before,
+button.weekly-help-close::before {
   content: "";
   position: absolute;
   inset: -8px;
+  background: none;
+  pointer-events: auto;
+}
+
+#landing-find-btn::before,
+#find-leagues-btn::before,
+#load-league-btn::before,
+.ghost-btn::before,
+button.ghost-btn::before,
+.page-tab::before,
+.room-tab::before,
+details.workspace-panel > summary::before,
+.league-id-fallback summary::before {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+  background: none;
+  pointer-events: auto;
+}
+
+button.ranks-chip::before,
+.week-chips button::before,
+.segmented button::before {
+  content: "";
+  position: absolute;
+  inset: -8px 0;
+  background: none;
+  pointer-events: auto;
+}
+
+.phone-desk-room,
+.phone-desk-page,
+.team-card-trade {
+  min-height: var(--tap-min);
+  padding-block: 0;
+}
+
+.phone-desk-room::before,
+.team-card-trade::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: none;
+  pointer-events: auto;
+}
+
+#me-select {
+  min-height: var(--tap-min);
+}
+
+.mobile-icon-btn:focus-visible,
+.mobile-rail-close:focus-visible,
+.ghost-btn:focus-visible,
+.page-tab:focus-visible,
+.room-tab:focus-visible,
+button.ranks-chip:focus-visible,
+.phone-desk-room:focus-visible,
+.team-card-trade:focus-visible,
+details.workspace-panel > summary:focus-visible,
+.league-id-fallback summary:focus-visible {
+  z-index: 1;
 }
 
 @media (max-width: 700px) {
@@ -1213,5 +1299,13 @@ button.weekly-help-close::after {
   select,
   textarea {
     font-size: 16px;
+  }
+}
+
+/* Last word on the revealed phone bar. Earlier product rules used a translucent mix. */
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  header#mobile-chrome {
+    background: var(--bg);
+    background-color: var(--bg);
   }
 }

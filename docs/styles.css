@@ -242,7 +242,7 @@ h5 {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 1.15rem;
+  padding: var(--section-gap);
   background: var(--rail);
   border-right: 3px solid var(--rail-line);
   color: var(--rail-text);
@@ -392,7 +392,7 @@ a.brand-lockup:hover {
   overflow: hidden;
   border-radius: 8px;
   background: var(--gradient);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .league-pick-avatar img {
@@ -453,7 +453,7 @@ a.brand-lockup:hover {
   background: var(--panel-soft);
   color: var(--muted-strong);
   font-size: var(--fs-sm);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.06em;
 }
 
@@ -666,7 +666,7 @@ button.ghost-btn:hover {
   background: var(--green-soft);
   color: var(--green);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .status {
@@ -986,7 +986,7 @@ select.is-invalid {
   font-family: var(--font-display);
   font-synthesis: none;
   font-size: var(--fs-h1);
-  font-weight: 800;
+  font-weight: 700;
   box-shadow: none;
 }
 
@@ -1037,7 +1037,7 @@ select.is-invalid {
 .state-grid dt {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -1157,7 +1157,7 @@ select.is-invalid {
   flex: 0 0 auto;
   align-items: center;
   gap: 2.2rem;
-  padding: 0 1.1rem;
+  padding: 0 var(--section-gap);
 }
 
 .ticker-item {
@@ -1265,7 +1265,7 @@ body:not(.league-loaded) .workspace-header {
   margin: 0.55rem 0 0.1rem;
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -1359,7 +1359,7 @@ body:not(.league-loaded) .workspace-header {
 .landing-search label {
   color: var(--muted);
   font-size: var(--fs-sm);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1654,7 +1654,7 @@ body:not(.league-loaded) .workspace-header {
   font-family: var(--font-display);
   font-synthesis: none;
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0;
   line-height: 1;
   text-transform: none;
@@ -1697,7 +1697,7 @@ body:not(.league-loaded) .workspace-header {
   color: #fff;
   font-family: var(--font-display);
   font-synthesis: none;
-  font-weight: 800;
+  font-weight: 700;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
@@ -1745,12 +1745,14 @@ body:not(.league-loaded) .workspace-header {
   min-width: 0;
   overflow: hidden;
   font-size: var(--fs-body);
+  font-weight: var(--fw-bold);
   white-space: nowrap;
 }
 
 .team-identity-copy .team-name {
   min-width: 0;
   overflow: hidden;
+  font-weight: var(--fw-bold);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1774,7 +1776,7 @@ body:not(.league-loaded) .workspace-header {
   padding: 0.08rem 0.42rem;
   border-radius: var(--r-pill);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -1850,7 +1852,7 @@ body:not(.league-loaded) .workspace-header {
   background: var(--panel-soft);
   color: var(--muted-strong);
   font-size: var(--fs-sm2);
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1876,7 +1878,7 @@ body:not(.league-loaded) .workspace-header {
   margin-bottom: 0.35rem;
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -2135,7 +2137,7 @@ body:not(.league-loaded) .workspace-header {
   padding: 0 0.6rem;
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -2179,7 +2181,7 @@ body:not(.league-loaded) .workspace-header {
   border-top: 1px dashed var(--amber);
   color: var(--amber);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.12em;
   line-height: 1;
   text-transform: uppercase;
@@ -2228,7 +2230,7 @@ body:not(.league-loaded) .workspace-header {
   margin: 0.2rem 0 0.1rem;
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -2262,7 +2264,7 @@ body:not(.league-loaded) .workspace-header {
   padding: 0 0.6rem;
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -2433,8 +2435,14 @@ body:not(.league-loaded) .workspace-header {
 
 .team-card-copy {
   display: grid;
-  gap: 0.05rem;
+  gap: 0;
   min-width: 0;
+}
+
+.team-card-main .avatar-lg {
+  width: var(--avatar);
+  height: var(--avatar);
+  font-size: var(--fs-xs);
 }
 
 .team-card-copy strong {
@@ -2442,6 +2450,7 @@ body:not(.league-loaded) .workspace-header {
   font-family: var(--font-display);
   font-synthesis: none;
   font-size: var(--fs-body);
+  line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2450,7 +2459,8 @@ body:not(.league-loaded) .workspace-header {
 .team-card-copy small {
   overflow: hidden;
   color: var(--muted);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
+  line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2478,7 +2488,7 @@ body:not(.league-loaded) .workspace-header {
   background: transparent;
   color: var(--blue);
   font-size: var(--fs-sm);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-align: left;
   text-transform: uppercase;
@@ -2522,7 +2532,7 @@ body:not(.league-loaded) .workspace-header {
   margin: 0.4rem 0 0.2rem;
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -2549,7 +2559,7 @@ body:not(.league-loaded) .workspace-header {
 .sit-start-head h4 {
   margin: 0;
   font-size: var(--fs-h2);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .sit-start-calls {
@@ -2669,7 +2679,7 @@ a.inline-link {
   min-height: 0;
   color: var(--link);
   font: inherit;
-  font-weight: 800;
+  font-weight: 700;
   text-decoration: underline;
   cursor: pointer;
 }
@@ -2700,7 +2710,7 @@ a.inline-link:hover {
   color: var(--muted);
   font-style: normal;
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -2708,7 +2718,7 @@ a.inline-link:hover {
 .sheet-slot {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -2739,7 +2749,7 @@ a.inline-link:hover {
   font-family: var(--font-display);
   font-synthesis: none;
   font-size: var(--fs-h1);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.05;
   text-overflow: ellipsis;
@@ -2763,7 +2773,7 @@ a.inline-link:hover {
 
 .injury {
   color: var(--red);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .sheet-value {
@@ -2795,7 +2805,7 @@ a.inline-link:hover {
 .dynasty-chip small {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -2812,7 +2822,7 @@ a.inline-link:hover {
   font-family: var(--font-display);
   font-synthesis: none;
   font-size: var(--fs-h1);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 0.9;
 }
@@ -2903,7 +2913,7 @@ a.inline-link:hover {
 .dynasty-value-badge small {
   display: block;
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -2944,7 +2954,7 @@ button.weekly-help-btn {
   color: var(--muted-strong);
   box-shadow: none;
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   font-style: normal;
   line-height: 1;
 }
@@ -3069,7 +3079,7 @@ button.weekly-help-close:hover {
 .week-input span {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -3108,7 +3118,7 @@ button.weekly-help-close:hover {
   margin: 0 0 0.35rem;
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -3131,7 +3141,7 @@ button.weekly-help-close:hover {
 .week-game span {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .week-sheet-close {
@@ -3158,7 +3168,7 @@ button.weekly-help-close:hover {
 .log-chip small {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
 }
 
@@ -3274,7 +3284,7 @@ button.weekly-help-close:hover {
 .award-player span {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -3304,7 +3314,7 @@ button.weekly-help-close:hover {
 .award-value {
   color: var(--text);
   font-size: var(--fs-body);
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -3476,7 +3486,7 @@ button.weekly-help-close:hover {
 .mode-card span {
   color: var(--blue);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -3502,7 +3512,7 @@ button.weekly-help-close:hover {
   margin-bottom: 0.42rem;
   color: var(--muted-strong);
   font-size: var(--fs-sm);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .target-search-shell {
@@ -3677,7 +3687,7 @@ button.weekly-help-close:hover {
   align-items: center;
   justify-content: center;
   border-radius: var(--r-pill);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .asset-pill,
@@ -3811,7 +3821,7 @@ button.weekly-help-close:hover {
 .calc-partner span {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -4073,7 +4083,7 @@ button.weekly-help-close:hover {
 .calc-bar span {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -4117,7 +4127,7 @@ button.weekly-help-close:hover {
 .draft-partner span {
   color: var(--muted);
   font-size: var(--fs-sm);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -4471,7 +4481,7 @@ button.weekly-help-close:hover {
   background: var(--panel);
   color: var(--muted-strong);
   font-size: var(--fs-sm);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .trade-card-toggle::before {
@@ -4536,7 +4546,7 @@ button.weekly-help-close:hover {
 .game-kicker {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -4877,7 +4887,7 @@ button.weekly-help-close:hover {
   margin-top: -1.45rem;
   color: var(--muted);
   font-size: var(--fs-sm);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .power-hero-copy {
@@ -5118,7 +5128,7 @@ button.weekly-help-close:hover {
 .manager-score small {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .trophy-panel strong,
@@ -5290,7 +5300,7 @@ button.weekly-help-close:hover {
   place-items: center;
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
@@ -5318,7 +5328,7 @@ button.weekly-help-close:hover {
   place-items: center;
   color: var(--muted-strong);
   font-size: var(--fs-sm2);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .finish-cell.title {
@@ -5378,7 +5388,7 @@ button.weekly-help-close:hover {
   background: var(--panel-solid);
   color: var(--muted-strong);
   font-size: var(--fs-sm2);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .history-compare-mode-tabs button:hover {
@@ -5406,7 +5416,7 @@ button.weekly-help-close:hover {
 .history-compare-vs {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
@@ -5513,7 +5523,7 @@ button.weekly-help-close:hover {
   text-align: center;
   font-size: var(--fs-sm2);
   font-style: normal;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--muted);
 }
 
@@ -5542,7 +5552,7 @@ button.weekly-help-close:hover {
   min-height: 2.2rem;
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
@@ -5668,7 +5678,7 @@ button.weekly-help-close:hover {
 .analytics-row em {
   color: var(--muted-strong);
   font-style: normal;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .recent-trade {
@@ -6121,7 +6131,7 @@ button.weekly-help-close:hover {
 
   .mobile-chrome-actions {
     display: flex;
-    gap: 0.4rem;
+    gap: var(--sp-2);
     align-items: center;
   }
 
@@ -6300,8 +6310,8 @@ button.weekly-help-close:hover {
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    min-height: 2.8rem;
-    padding: 0.55rem 0.15rem;
+    min-height: var(--row-h);
+    padding: 0 var(--sp-2);
     border: 0;
     border-bottom: 1px solid var(--rail-line);
     border-radius: 0;
@@ -6642,7 +6652,7 @@ button.weekly-help-close:hover {
   border-radius: var(--radius-sm);
   background: var(--gradient);
   color: var(--on-accent);
-  font-weight: 800;
+  font-weight: 700;
   text-decoration: none;
 }
 
@@ -6759,7 +6769,7 @@ body.rail-open .site-dock {
   font-family: var(--font-display);
   font-synthesis: none;
   font-size: var(--fs-num-lg);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
 }
 
@@ -6794,7 +6804,7 @@ body.rail-open .site-dock {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 1rem;
   align-items: end;
-  padding: 1.1rem 1.2rem;
+  padding: var(--card-pad) var(--section-gap);
 }
 
 .window-call-hero h2 {
@@ -6922,7 +6932,8 @@ body.rail-open .site-dock {
   gap: 0.5rem;
   align-items: center;
   width: 100%;
-  padding: 0.45rem 0.5rem;
+  padding: 0 var(--card-pad);
+  min-height: var(--row-h-compact);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--panel);
@@ -6939,6 +6950,11 @@ body.rail-open .site-dock {
 .window-call-row.you {
   border-color: var(--team-a-border);
   background: var(--team-a-soft);
+}
+
+.window-call-row .team-identity-copy strong,
+.window-call-row .team-identity-copy > span {
+  line-height: 1.05;
 }
 
 .loyalty-dashboard {
@@ -7039,7 +7055,7 @@ body.rail-open .site-dock {
 .trade-row-week {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -7117,7 +7133,7 @@ body.rail-open .site-dock {
 .trade-arrow {
   flex: 0 0 auto;
   color: var(--muted);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .pick-selection {
@@ -7178,7 +7194,7 @@ body.rail-open .site-dock {
   height: 1.55rem;
   border-radius: 4px;
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .result-pill.win { background: var(--green-soft); color: var(--green); }
@@ -7338,7 +7354,7 @@ body.rail-open .site-dock {
   color: var(--blue);
   font-size: var(--fs-h2);
   font-style: normal;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -7408,7 +7424,7 @@ body.rail-open .site-dock {
   display: block;
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.06em;
 }
 
@@ -7445,7 +7461,7 @@ body.rail-open .site-dock {
   display: block;
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -7458,7 +7474,7 @@ body.rail-open .site-dock {
 .grade-pill {
   flex: 0 0 auto;
   font-size: var(--fs-h1);
-  font-weight: 800;
+  font-weight: 700;
   color: var(--blue);
 }
 
@@ -7572,7 +7588,7 @@ body.rail-open .site-dock {
   background: var(--panel-soft);
   color: var(--muted);
   font-size: var(--fs-sm);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -7671,7 +7687,7 @@ body.rail-open .site-dock {
 .hall-head {
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -7764,7 +7780,7 @@ body.rail-open .site-dock {
   margin: 0.45rem 0 0;
   color: var(--text);
   font-size: var(--fs-h2);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .rather-format-detail {
@@ -7801,7 +7817,7 @@ body.rail-open .site-dock {
   align-self: center;
   color: var(--muted);
   font-size: var(--fs-xs);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -7860,7 +7876,7 @@ button.rather-player:hover {
   place-items: center;
   color: var(--muted-strong);
   font-size: var(--fs-h1);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .rather-player strong {
@@ -8258,7 +8274,7 @@ button.ranks-shelf-item {
   flex: 0 0 auto;
   justify-items: center;
   align-content: start;
-  gap: 0.35rem;
+  gap: 2px;
   width: 5.1rem;
   min-height: 0;
   padding: 0;
@@ -8284,6 +8300,7 @@ button.ranks-shelf-item strong {
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-weight: 600;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
@@ -8430,7 +8447,7 @@ button.ranks-row.you {
   font-family: var(--font-display);
   font-synthesis: none;
   font-size: var(--fs-num-xl);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   line-height: 0.84;
@@ -8439,7 +8456,7 @@ button.ranks-row.you {
 .ranks-card-price span,
 .ranks-facts dt {
   color: var(--muted);
-  font-size: var(--fs-num-xl);
+  font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -8471,7 +8488,8 @@ button.ranks-row.you {
 
 .ranks-facts dd {
   margin: 0;
-  font-weight: 800;
+  font-size: var(--fs-num);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -8522,7 +8540,7 @@ body.league-loaded .workspace-lede { display: none; }
     min-height: 0;
     max-height: none;
     overflow: visible;
-    padding: 0.7rem 1.4rem;
+    padding: var(--card-pad) var(--section-gap);
     border-right: 0;
     border-bottom: 3px solid var(--text);
   }
