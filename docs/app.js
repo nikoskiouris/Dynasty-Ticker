@@ -172,7 +172,7 @@ import {
   shouldHoldCalcSearchFocus,
   shouldResetCalcSearchOnPick,
 } from "./modules/calc-search.js";
-import { isKeyboardActivation, tabWrapTarget } from "./modules/focus-trap.js";
+import { isKeyboardActivation, scheduleRankDialogFocus, tabWrapTarget } from "./modules/focus-trap.js";
 import { ideaPackageKey, selectNextDiverse } from "./modules/deal-more.js";
 import { calculatePackageAdjustment, calculatePctDiff } from "./modules/package-value.js";
 import { bindTicker } from "./modules/ticker-scrub.js";
@@ -1684,9 +1684,9 @@ function focusRankOpener(assetId) {
 }
 
 function focusRankDialog() {
-  const dialog = document.querySelector(".ranks-card[role='dialog']");
-  const target = dialog?.querySelector(".ranks-card-actions button") || dialog;
-  target?.focus();
+  scheduleRankDialogFocus(document, (run) => {
+    window.requestAnimationFrame(run);
+  });
 }
 
 function closeRankDialog(returnFocus) {

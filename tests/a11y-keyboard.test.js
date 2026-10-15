@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isKeyboardActivation, tabWrapTarget } from "../docs/modules/focus-trap.js";
+import { isKeyboardActivation, scheduleRankDialogFocus, tabWrapTarget } from "../docs/modules/focus-trap.js";
 
 const docs = join(dirname(fileURLToPath(import.meta.url)), "../docs");
 
@@ -69,6 +69,38 @@ test("names, headings, ticker, and focus wiring are in the page", () => {
   assert.match(css, /body\.league-loaded \.league-hero \{[^}]*clip:\s*rect\(0,\s*0,\s*0,\s*0\)/s);
 });
 
+test("ranks dialog focus runs after the card is painted", () => {
+  const focused = [];
+  const button = { focus() { focused.push("action"); } };
+  const doc = {
+    querySelector(selector) {
+      if (selector === ".ranks-card[role='dialog']") {
+        return { querySelector: () => button };
+      }
+      return null;
+    },
+  };
+  let queued = null;
+  const run = scheduleRankDialogFocus(doc, (fn) => {
+    queued = fn;
+  });
+  assert.equal(focused.length, 0);
+  assert.equal(queued, run);
+  queued();
+  assert.deepEqual(focused, ["action"]);
+
+  const closed = [];
+  scheduleRankDialogFocus({
+    querySelector() {
+      return null;
+    },
+  }, (fn) => fn()) ;
+  assert.deepEqual(closed, []);
+
+  const app = readDocs("app.js");
+  assert.match(app, /scheduleRankDialogFocus\(document, \(run\) => \{\s*window\.requestAnimationFrame\(run\);/s);
+});
+
 test("the two reported contrast pairs clear 4.5:1", () => {
   const css = readDocs("styles.css");
   const product = readDocs("product.css");
@@ -83,4 +115,24 @@ test("the two reported contrast pairs clear 4.5:1", () => {
     || product.match(/\.mode-card\.active span,\s*\.mode-card\.active small \{[^}]*color:\s*(#[0-9a-fA-F]{6})/s)?.[1];
   assert.equal(activeSmall, "#5c534c");
   assert.ok(contrast(activeSmall, "#f4f1ec") >= 4.5);
+
+  const root = css.match(/:root \{([\s\S]*?)\n\}/)?.[1] || "";
+  const onAccent = root.match(/--on-accent:\s*(#[0-9a-fA-F]{6})/)?.[1];
+  const field = root.match(/--field:\s*(#[0-9a-fA-F]{6})/)?.[1];
+  const label = css.match(/\.ticker-label \{([^}]+)\}/)?.[1] || "";
+  assert.match(label, /color:\s*var\(--on-accent\)/);
+  assert.equal(onAccent, "#141210");
+  assert.equal(field, "#e85d4c");
+  assert.ok(contrast(onAccent, field) >= 4.5);
+});
+
+test("ranks strip fits at tablet width and keeps its focus ring", () => {
+  const css = readDocs("styles.css");
+  const product = readDocs("product.css");
+  const shelf = css.match(/\.ranks-shelf \{([^}]+)\}/)?.[1] || "";
+  assert.match(shelf, /padding-top:\s*6px/);
+  assert.match(shelf, /padding-inline:\s*6px/);
+  assert.match(product, /@media \(min-width: 701px\) \{\s*\.ranks-shelf \{\s*overflow-x: clip;/);
+  assert.match(product, /button\.ranks-shelf-item \{\s*flex: 1 1 0;/);
+  assert.match(product, /\.rather-duel \{\s*width: 100%;\s*overflow-x: clip;/);
 });

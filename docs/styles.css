@@ -1085,7 +1085,7 @@ select.is-invalid {
   flex: 0 0 auto;
   padding: 0.45rem 0.85rem;
   background: var(--field);
-  color: #f6f1e8;
+  color: var(--on-accent);
   font-family: var(--font-display);
   font-synthesis: none;
   font-size: 1rem;
@@ -8239,7 +8239,10 @@ button.ranks-chip.active:hover {
   display: flex;
   gap: 0.85rem;
   margin: 0 0 1rem;
+  padding-top: 6px;
   padding-bottom: 0.15rem;
+  padding-inline: 6px;
+  scroll-padding-inline: 6px;
   min-width: 0;
   max-width: 100%;
   overflow-x: auto;

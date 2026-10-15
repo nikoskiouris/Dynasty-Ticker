@@ -745,6 +745,49 @@ button.ranks-chip.active:hover {
   max-width: 100%;
 }
 
+/* Tablet width: shelf faces and the Rather duel stay inside the column. */
+@media (min-width: 701px) {
+  .ranks-shelf {
+    overflow-x: clip;
+  }
+
+  button.ranks-shelf-item {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    max-width: 5.1rem;
+  }
+
+  button.ranks-shelf-item .player-face {
+    width: min(4.6rem, 100%);
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  #ranks-section,
+  .landing-rather,
+  .rather-panel,
+  .rather-duel {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .rather-duel {
+    width: 100%;
+    overflow-x: clip;
+  }
+
+  .rather-player strong,
+  .rather-meta,
+  .rather-stats,
+  .rather-format,
+  .rather-matchup,
+  .rather-status {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
+
 button.ranks-shelf-item .player-face,
 .player-face,
 .rather-headshot {
