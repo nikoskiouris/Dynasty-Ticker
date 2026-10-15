@@ -440,10 +440,11 @@ test("Got it hides the storage notice and remembers the choice", () => {
   assert.equal(classes.has("hidden"), true);
 });
 
-test("storage notice CSS does not override the hidden attribute", () => {
-  const css = readDocs("styles.css");
-  assert.match(css, /\.storage-notice:not\(\[hidden\]\)\s*\{[^}]*display:\s*flex/s);
-  assert.doesNotMatch(css, /\.storage-notice\s*\{[^}]*display:\s*flex/s);
+test("dead storage notice CSS and the sticky cta id rules are gone", () => {
+  const css = `${readDocs("styles.css")}\n${readDocs("product.css")}`;
+  assert.doesNotMatch(css, /\.storage-notice/);
+  assert.doesNotMatch(css, /#sticky-mobile-cta/);
+  assert.match(readDocs("styles.css"), /\.sticky-mobile-cta\s*\{[^}]*display:\s*none/s);
 });
 
 test("side rail is fixed so the page cannot scroll a blank screen past the last card", () => {

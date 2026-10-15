@@ -174,7 +174,11 @@ test("sample league id lives in one place and the old private league is gone", (
   const definitions = [];
   for (const path of textFiles) {
     const text = readFileSync(path, "utf8");
-    if (text.includes(OLD_SAMPLE_LEAGUE_ID)) oldHits.push(relative(root, path));
+    const rel = relative(root, path);
+    // Public snapshot for the Draft Ammo bug. Not the sample league.
+    if (text.includes(OLD_SAMPLE_LEAGUE_ID) && rel !== "tests/fixtures/try-hard-or-die-hard.json") {
+      oldHits.push(rel);
+    }
     if (/export const SAMPLE_LEAGUE_ID\s*=/.test(text)) definitions.push(relative(root, path));
   }
   assert.deepEqual(oldHits, []);
