@@ -50,22 +50,52 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
-# Missing /data files and any path with an extension 404.
-# Not forced, so a real file (styles, /data/*.json) still wins.
-# Only extensionless app routes fall through to index.html.
+# Extensionless app routes only. Not forced, so a real file still wins.
+# /data misses and any other path, including one with a file extension,
+# hit the /* rule and return 404.html instead of index.html.
+# SPA routes only. Not a catch-all rewrite to the app: /* stays a 404 so
+# /api, functions, and static files are not rewritten to index.html.
 [[redirects]]
-  from = "/data/*"
-  to = "/404.html"
-  status = 404
-
-[[redirects]]
-  from = "/*.*"
-  to = "/404.html"
-  status = 404
-
-# One SPA fallback, after /api, /data, and extension paths.
-# Not forced, so an existing extensionless file still wins.
-[[redirects]]
-  from = "/*"
+  from = "/players"
   to = "/index.html"
   status = 200
+
+[[redirects]]
+  from = "/players/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/trade"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/trade/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/connect"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/connect/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/l/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/player/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/404.html"
+  status = 404

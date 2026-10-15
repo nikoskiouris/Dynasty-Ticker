@@ -290,6 +290,7 @@ import {
   sameHistoryPlace,
   selectionFromLocation,
   sleeperIdFrom,
+  topOverlay,
 } from "./modules/history-route.js";
 import {
   analyzeWindowCall,
@@ -868,6 +869,10 @@ if (!(bootRoute?.leagueId || parseShareParams(window.location.search).leagueId))
   } else if (showRanks || bootRoute?.name === "trade" || bootRoute?.name === "player") {
     updateUrlState({ mode: "replace" });
   }
+} else if (bootRoute?.name === "player") {
+  // League is still loading. Hide the marketing page and wait for it.
+  document.querySelector("#landing")?.classList.add("hidden");
+  setActivePage(bootRoute.page || "players", { history: "silent" });
 }
 void bootLandingRather();
 void hydrateCrowdVotes().then((ok) => {
@@ -1227,8 +1232,14 @@ function cachedRankRows() {
   return rankBoardCache.rows;
 }
 
+function leagueLoadBlocksPlayer() {
+  const wanted = leagueLoader.inFlightId?.() || "";
+  if (!wanted || String(state.leagueId || "") === String(wanted)) return false;
+  return Boolean(state.ranks?.selectedId);
+}
+
 function rankViewModel() {
-  if (!rankValuesReady()) {
+  if (!rankValuesReady() || leagueLoadBlocksPlayer()) {
     return rankView({ loading: true, format: activeRankFormat() });
   }
   return rankView({
@@ -1483,12 +1494,13 @@ function activePlayerRouteId() {
 }
 
 function activeOverlay() {
-  if (state.weeklyValue?.helpOpen) return "help";
-  if (activePlayerRouteId()) return "player";
-  if (state.selectedTradeId) return "trade";
-  if (document.body.classList.contains("rail-open")) return "rail";
-  if (publicRanksOpen && !state.leagueId) return "public-ranks";
-  return "";
+  return topOverlay({
+    rail: document.body.classList.contains("rail-open"),
+    help: Boolean(state.weeklyValue?.helpOpen),
+    player: Boolean(activePlayerRouteId()),
+    trade: Boolean(state.selectedTradeId),
+    publicRanks: Boolean(publicRanksOpen && !state.leagueId),
+  });
 }
 
 function historyPlaceNow() {
@@ -1571,6 +1583,13 @@ function applyPlayerRoute(historyState, parsed) {
 function applyDeskPopState(historyState) {
   const route = resolveLocation(window.location.pathname, window.location.search);
   const parsed = parseShareParams(window.location.search);
+  const leagueId = route.leagueId || parsed.leagueId || "";
+  const inflight = leagueLoader.inFlightId?.() || "";
+  if (inflight && inflight !== String(leagueId)) {
+    leagueLoader.drop();
+    state.leagueSwitching = false;
+    stopLeagueLoadingUi();
+  }
   if (route.unknown) {
     if (state.leagueId) unloadLeague();
     document.querySelector("#landing")?.classList.remove("hidden");
@@ -1583,7 +1602,6 @@ function applyDeskPopState(historyState) {
     return;
   }
   if (route.name === "trade") applyTradeRoute(route);
-  const leagueId = route.leagueId || parsed.leagueId;
   if (leagueId && String(leagueId) !== String(state.leagueId || "")) {
     state.pendingPlace = { page: route.page || parsed.tab, room: route.room || parsed.view };
     if (!state.pendingPlace.page && parsed.tab) state.pendingPlace = { page: parsed.tab, room: parsed.view };

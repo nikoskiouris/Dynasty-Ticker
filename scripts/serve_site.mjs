@@ -1,7 +1,8 @@
 import { createReadStream, existsSync, statSync } from "node:fs";
 import http from "node:http";
-import { extname, join, normalize } from "node:path";
+import { extname, join, normalize, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
+import { isSpaPath } from "../docs/modules/history-route.js";
 
 const root = join(process.cwd(), "docs");
 const port = Number(process.env.PORT || 4173);
@@ -17,62 +18,58 @@ const types = {
   ".webp": "image/webp",
   ".ico": "image/x-icon",
   ".webmanifest": "application/manifest+json",
+  ".txt": "text/plain; charset=utf-8",
   ".woff2": "font/woff2",
 };
 
 function fileAt(rel) {
   const full = normalize(join(root, rel));
-  if (!full.startsWith(root)) return null;
+  const rootPrefix = root.endsWith(sep) ? root : `${root}${sep}`;
+  if (full !== root && !full.startsWith(rootPrefix)) return null;
   if (!existsSync(full) || !statSync(full).isFile()) return null;
   return full;
 }
 
-function cleanPath(requestPath) {
-  return decodeURIComponent(String(requestPath || "/").split("?")[0]);
+function decodePath(pathname) {
+  try {
+    return decodeURIComponent(String(pathname || "/").split("?")[0]);
+  } catch {
+    return null;
+  }
 }
 
-function lastSegmentHasExtension(pathname) {
-  const last = String(pathname || "/").split("/").pop() || "";
-  return last.includes(".");
-}
-
-// Existing files are served. /api, /data misses, and any missing path with a
-// file extension are 404. Only extensionless app routes fall back to index.html.
-export function classifySitePath(requestPath) {
-  const clean = cleanPath(requestPath);
-  if (clean === "/api" || clean.startsWith("/api/")) return { status: 404, file: null };
-  if (clean !== "/") {
-    const staticFile = fileAt(clean);
-    if (staticFile) return { status: 200, file: staticFile };
-  }
-  if (lastSegmentHasExtension(clean) || clean === "/data" || clean.startsWith("/data/")) {
-    return { status: 404, file: null };
-  }
-  const index = fileAt("/index.html");
-  return index ? { status: 200, file: index } : { status: 404, file: null };
+// A real file wins. Extensionless app routes fall back to index.html.
+// /data misses, dotted paths, and anything else return 404.html.
+export function classifyRequest(pathname) {
+  const clean = decodePath(pathname);
+  if (clean == null) return { status: 400, file: null };
+  if (clean.startsWith("/api/") || clean.startsWith("/.netlify/")) return { status: 404, file: fileAt("/404.html") };
+  const staticFile = clean === "/" ? null : fileAt(clean);
+  if (staticFile) return { status: 200, file: staticFile };
+  if (clean === "/" || isSpaPath(clean)) return { status: 200, file: fileAt("/index.html") };
+  return { status: 404, file: fileAt("/404.html") };
 }
 
 export function createSiteServer() {
   return http.createServer((req, res) => {
-    let pathname = "/";
+    let classified;
     try {
-      pathname = new URL(req.url || "/", "http://127.0.0.1").pathname;
+      classified = classifyRequest(new URL(req.url || "/", "http://127.0.0.1").pathname);
     } catch {
-      pathname = "/";
+      classified = { status: 400, file: null };
     }
-    const hit = classifySitePath(pathname);
-    if (!hit.file) {
-      res.writeHead(hit.status || 404, { "content-type": "text/plain; charset=utf-8" });
-      res.end("Not found");
+    if (!classified.file) {
+      res.writeHead(classified.status || 404, { "content-type": "text/plain; charset=utf-8" });
+      res.end(classified.status === 400 ? "Bad request" : "Not found");
       return;
     }
-    res.writeHead(hit.status, { "content-type": types[extname(hit.file)] || "application/octet-stream" });
-    createReadStream(hit.file).pipe(res);
+    res.writeHead(classified.status, { "content-type": types[extname(classified.file)] || "application/octet-stream" });
+    createReadStream(classified.file).pipe(res);
   });
 }
 
-const launchedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (launchedDirectly) {
+const entry = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : "";
+if (import.meta.url === entry) {
   const server = createSiteServer();
   server.listen(port, "127.0.0.1", () => {
     console.log(`desk http://127.0.0.1:${port}`);

@@ -24,6 +24,7 @@ import {
   safeNext,
   sameHistoryPlace,
   selectionFromLocation,
+  topOverlay,
   tradeHref,
   urlPath,
 } from "../docs/modules/history-route.js";
@@ -40,6 +41,7 @@ test("player urls are /player/<id>/<slug> and reject junk", () => {
   assert.equal(playerIdFromPathname("/player/9221/jahmyr-gibbs"), "9221");
   assert.equal(playerIdFromPathname("/player/9221/wrong-name"), "9221");
   assert.equal(assetIdFromRoute("9221"), "player:9221");
+  assert.equal(playerPathname("0"), "");
   assert.equal(playerPathname("pick:2027:r1:early"), "");
   assert.equal(playerIdFromPathname("/player/pick%3A2027%3Ar1%3Aearly"), "");
   for (const bad of ["", "../", "..", "a/b", "<script>", "javascript:alert(1)", "player:<img>"]) {
@@ -161,6 +163,9 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(resolveLocation("/players", "?asset=player:4984").name, "player");
   assert.equal(resolveLocation("/l/1312284338377383936/team", "?asset=player:9221").name, "team");
   assert.equal(resolveLocation("/", "?asset=nope").name, "home");
+  assert.equal(resolveLocation("/player/0").unknown, true);
+  assert.equal(resolveLocation("/player/0").playerId, "");
+  assert.equal(playerIdFromPathname("/player/0"), "");
   assert.equal(pathForPlace({ page: "players", room: "ranks", landing: true }), urlPath());
   assert.equal(pathForPlace({ page: "players", room: "ranks", landing: false }), urlPath("players"));
   assert.equal(pathForPlace({ page: "trades", room: "calculator" }), urlPath("trade"));
@@ -169,6 +174,13 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(pathForPlace({ page: "league", room: "board", leagueId: "42" }), urlPath("l", "42", "league"));
   assert.equal(pathForPlace({ page: "league", room: "history", leagueId: "42" }), "");
   assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221", playerName: "Jahmyr Gibbs" }), "/player/9221/jahmyr-gibbs");
+  assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221", playerName: "Jahmyr Gibbs", leagueId: "424242" }), "/player/9221/jahmyr-gibbs?league=424242");
+  assert.equal(pathForPlace({ page: "players", room: "ranks", landing: false, leagueId: "424242" }), "/players?league=424242");
+  assert.equal(pathForPlace({ page: "players", room: "ranks", landing: true, leagueId: "424242" }), "/");
+  assert.equal(pathForPlace({ page: "league", room: "team", leagueId: "424242" }), "/l/424242/team");
+  assert.equal(topOverlay({ rail: true, player: true }), "rail");
+  assert.equal(topOverlay({ help: true, player: true }), "help");
+  assert.equal(topOverlay({ player: true }), "player");
   assert.equal(backTarget({ pushed: false }), "home");
   assert.equal(backTarget({ pushed: true }), "history");
   for (const skipped of ["/api/rather-vote", "/styles.css", "/data/player_values.json", "/ui/landing.html"]) {
@@ -195,41 +207,39 @@ test("the desk pushes player routes and restores them on popstate", () => {
   assert.match(app, /closeHistoryOverlay\("player"\)/);
   assert.match(app, /closeHistoryOverlay\("help"\)/);
   assert.match(app, /closeHistoryOverlay\("rail"\)/);
+  assert.match(app, /topOverlay/);
+  assert.match(app, /leagueLoadBlocksPlayer/);
   assert.match(app, /updateUrlState\(\{ mode: "replace" \}\)/);
   assert.match(ranks, /data-action="player-back"/);
   assert.doesNotMatch(app, /onclick=/);
 });
 
-test("spa fallback is one catch-all in netlify.toml after api and data", () => {
+test("spa fallback lists desk routes then a 404 catch-all, after the api rules", () => {
   const toml = readFileSync(join(root, "../netlify.toml"), "utf8");
   const rather = toml.indexOf('from = "/api/rather-vote"');
   const searched = toml.indexOf('from = "/api/searched-user"');
-  const dataHeader = toml.indexOf('for = "/data/*"');
-  const dataMiss = toml.indexOf('from = "/data/*"');
-  const dotted = toml.indexOf('from = "/*.*"');
-  const catchAll = toml.lastIndexOf('from = "/*"');
+  const players = toml.indexOf('from = "/players"');
+  const trade = toml.indexOf('from = "/trade"');
+  const connect = toml.indexOf('from = "/connect"');
+  const league = toml.indexOf('from = "/l/*"');
+  const player = toml.indexOf('from = "/player/*"');
+  const catchAll = toml.indexOf('from = "/*"');
   assert.ok(rather >= 0 && searched > rather);
-  assert.ok(dataHeader > searched);
-  assert.ok(dataMiss > dataHeader);
-  assert.ok(dotted > dataMiss);
-  assert.ok(catchAll > dotted);
-  const dataRule = toml.slice(dataMiss, dotted);
-  const dottedRule = toml.slice(dotted, catchAll);
-  assert.match(dataRule, /to = "\/404\.html"/);
-  assert.match(dataRule, /status = 404/);
-  assert.doesNotMatch(dataRule, /force = true/);
-  assert.match(dottedRule, /to = "\/404\.html"/);
-  assert.match(dottedRule, /status = 404/);
-  assert.doesNotMatch(dottedRule, /force = true/);
-  const fallback = toml.slice(catchAll, catchAll + 120);
-  assert.match(fallback, /to = "\/index\.html"/);
-  assert.match(fallback, /status = 200/);
-  assert.doesNotMatch(fallback, /force = true/);
-  const spaLines = toml.split("\n").filter((line) => line.trim() === 'from = "/*"');
-  assert.equal(spaLines.length, 1);
-  assert.doesNotMatch(toml, /from = "\/players"/);
-  assert.doesNotMatch(toml, /from = "\/l\/\*"/);
-  assert.doesNotMatch(toml, /from = "\/player\/\*"/);
+  assert.ok(players > searched && trade > players && connect > trade);
+  assert.ok(league > connect && player > league && catchAll > player);
+  for (const from of ['"/players"', '"/trade"', '"/connect"', '"/l/*"', '"/player/*"']) {
+    const at = toml.indexOf(`from = ${from}`);
+    const rule = toml.slice(at, at + 90);
+    assert.match(rule, /to = "\/index\.html"/);
+    assert.match(rule, /status = 200/);
+    assert.doesNotMatch(rule, /force/);
+  }
+  const fallback = toml.slice(catchAll, catchAll + 80);
+  assert.match(fallback, /to = "\/404\.html"/);
+  assert.match(fallback, /status = 404/);
+  assert.doesNotMatch(fallback, /force/);
+  assert.doesNotMatch(toml, /to = "\/index\.html"\s*\n\s*status = 200\s*\n\s*force = true/);
+  assert.equal(toml.split("\n").filter((line) => line.trim() === 'from = "/*"').length, 1);
   assert.match(toml, /script-src 'self'/);
   assert.doesNotMatch(toml, /script-src 'unsafe-inline'/);
   const redirects = readFileSync(join(root, "../docs/_redirects"), "utf8");
