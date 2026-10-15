@@ -27,7 +27,7 @@ import {
   launchSkeletonRows,
 } from "../docs/modules/launch-landing.js";
 import { draftVerdictModel } from "../docs/modules/trade-draft.js";
-import { draftVerdictLabel } from "../docs/modules/value-calc.js";
+import { verdictCopy } from "../docs/modules/verdict-copy.js";
 
 const root = dirname(fileURLToPath(import.meta.url));
 
@@ -88,11 +88,14 @@ test("the example trade is the calculator verdict, and a new price changes it", 
     },
     globalMaxValue: 10000,
   });
-  assert.equal(html.includes(draftVerdictLabel(model.verdict)), true);
+  const copy = verdictCopy(model.verdict);
+  assert.equal(html.includes(copy.label), true);
+  assert.equal(html.includes(copy.pctText), true);
+  assert.match(copy.line, /, \d+(\.\d+)?% apart$/);
   assert.match(html, /10,000/);
   const moved = exampleTradeFromValues({ ...values, "player:9509": 8200 }, { globalMaxValue: 10000 });
   assert.equal(moved.giveSum, 8200);
-  assert.notEqual(moved.model.verdict.label, priced.model.verdict.label);
+  assert.notEqual(verdictCopy(moved.model.verdict).line, copy.line);
 });
 
 test("the example deep link round-trips and Back can restore the saved scroll", () => {

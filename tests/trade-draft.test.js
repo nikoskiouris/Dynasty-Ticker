@@ -12,6 +12,7 @@ import {
   swapValueCalcSides,
   valueCalcVerdict,
 } from "../docs/modules/value-calc.js";
+import { verdictCopy } from "../docs/modules/verdict-copy.js";
 import {
   TRADE_DRAFT_STORAGE_KEY,
   describeDraftItem,
@@ -236,7 +237,7 @@ test("one verdict: market totals stay visible, an uneven package gets a labeled 
   const even = draftVerdictModel([10321], [9996], { globalMaxValue: 10321 });
   assert.equal(even.adjustment, null);
   assert.deepEqual([even.give, even.get, even.compareGive, even.compareGet], [10321, 9996, 10321, 9996]);
-  assert.equal(even.verdict.label, "Fair trade");
+  assert.equal(even.verdict.label, "Dead even");
 
   const starForTwo = draftVerdictModel([10321], [7700, 7300], { globalMaxValue: 10321 });
   assert.deepEqual([starForTwo.give, starForTwo.get], [10321, 15000], "pane totals stay the plain market sums");
@@ -245,7 +246,7 @@ test("one verdict: market totals stay visible, an uneven package gets a labeled 
   assert.deepEqual(draftMeterValues(starForTwo), { give: 10321, get: 15000 });
   assert.equal(starForTwo.compareGet, 15000);
   const rawSteal = valueCalcVerdict(10321, 15000).label;
-  assert.equal(rawSteal, "Big win for you (+4,679)", "raw sums alone would call this a steal");
+  assert.equal(rawSteal, "Lopsided for Get", "raw sums alone would call this a steal");
   assert.notEqual(starForTwo.verdict.label, rawSteal);
 
   const oneSided = draftVerdictModel([10321], []);
@@ -341,13 +342,30 @@ test("even-up rescores the pick after stud credit, and bad numbers stay finite",
   assert.match(app, /evenUpTradePick\(/);
 });
 
+test("one public verdict scale, with the gap written as percent apart", () => {
+  const at = (give, get) => verdictCopy(valueCalcVerdict(give, get));
+  assert.equal(at(10000, 10200).label, "Fair trade");
+  assert.equal(at(10000, 10200).tone, "fair");
+  assert.match(at(10000, 10200).pctText, /% apart$/);
+  assert.equal(at(10000, 11000).label, "Fair, slight edge to Get");
+  assert.equal(at(11000, 10000).label, "Fair, slight edge to Give");
+  assert.equal(at(10000, 11000).tone, "fair");
+  assert.equal(at(10000, 12000).label, "Favors Get");
+  assert.equal(at(12000, 10000).label, "Favors Give");
+  assert.equal(at(10000, 14000).label, "Lopsided for Get");
+  assert.equal(at(14000, 10000).label, "Lopsided for Give");
+  assert.equal(at(10000, 14000).line, `${at(10000, 14000).label}, ${at(10000, 14000).pctText}`);
+  const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/app.js"), "utf8");
+  assert.match(app, /const copy = verdictCopy\(verdict\);/);
+});
+
 test("the verdict reads from the manager's seat", () => {
-  assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 11100), { them: "Chris" }), "You win by 2,100");
-  assert.equal(draftVerdictLabel(valueCalcVerdict(11100, 9000), { them: "Chris" }), "Chris wins by 2,100");
-  assert.equal(draftVerdictLabel(valueCalcVerdict(10000, 10200)), "Fair trade");
-  assert.equal(draftVerdictLabel(valueCalcVerdict(20000, 9000)), "Big overpay (\u221211,000)");
-  assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 20000)), "Big win for you (+11,000)");
-  assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 20000), { getFavor: "chrisalberts'" }), "Big win for chrisalberts' (+11,000)");
+  assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 11100), { them: "Chris" }), "Favors you");
+  assert.equal(draftVerdictLabel(valueCalcVerdict(11100, 9000), { them: "Chris" }), "Favors Chris");
+  assert.equal(draftVerdictLabel(valueCalcVerdict(10000, 10200)), "Dead even");
+  assert.equal(draftVerdictLabel(valueCalcVerdict(20000, 9000)), "Lopsided for them");
+  assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 20000)), "Lopsided in your favor");
+  assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 20000), { getFavor: "chrisalberts'" }), "Lopsided in chrisalberts' favor");
 });
 
 test("a zero-value piece does not mint stud credit or hide a real side", () => {
@@ -355,23 +373,23 @@ test("a zero-value piece does not mint stud credit or hide a real side", () => {
   const clean = draftVerdictModel([10000], [9000], { globalMaxValue: 10000 });
   assert.equal(withGhost.adjustment, null);
   assert.equal(withGhost.verdict.label, clean.verdict.label);
-  assert.equal(withGhost.verdict.label, "Fair, slight edge to them");
+  assert.equal(withGhost.verdict.label, "Fair, leans Give");
   const missing = draftVerdictModel([0], [9000], { globalMaxValue: 9000 });
   assert.equal(missing.give, 0);
-  assert.equal(missing.verdict.label, "Big win for you (+9,000)");
+  assert.equal(missing.verdict.label, "Lopsided for Get");
   assert.equal(valueCalcVerdict(0, 9000).label, "Now add what you get back");
   const empty = draftVerdictModel([], [], { globalMaxValue: 1 });
   assert.equal(empty.verdict.label, "Add players to both sides");
   const tiny = draftVerdictModel([1], [1], { globalMaxValue: 1 });
-  assert.equal(tiny.verdict.label, "Fair trade");
+  assert.equal(tiny.verdict.label, "Dead even");
 });
 
 test("verdict bands stay on the rounded tenth, both directions", () => {
   const band = (pct) => {
-    if (pct <= 5) return /Fair trade/;
-    if (pct <= 12) return /slight edge/;
-    if (pct <= 22) return /win by/;
-    return /Big /;
+    if (pct <= 5) return /Dead even/;
+    if (pct <= 12) return /Fair, leans/;
+    if (pct <= 22) return /Favors/;
+    return /Lopsided/;
   };
   for (let right = 1; right <= 4000; right += 41) {
     const verdict = valueCalcVerdict(1000, right);
@@ -382,9 +400,9 @@ test("verdict bands stay on the rounded tenth, both directions", () => {
     assert.equal(flipped.pct, pct);
     if (pct > 5) assert.notEqual(verdict.label, flipped.label);
   }
-  assert.equal(valueCalcVerdict(10000, 10526).label, "Fair trade");
-  assert.equal(valueCalcVerdict(10000, 12821).label, "You win by 2,821");
-  assert.equal(valueCalcVerdict(10000, 12829).label, "Big win for you (+2,829)");
+  assert.equal(valueCalcVerdict(10000, 10526).label, "Dead even");
+  assert.equal(valueCalcVerdict(10000, 12821).label, "Favors Get");
+  assert.equal(valueCalcVerdict(10000, 12829).label, "Lopsided for Get");
 });
 
 test("restore drops duplicate players, keeps repeated generic picks, and reads an old unversioned draft", () => {

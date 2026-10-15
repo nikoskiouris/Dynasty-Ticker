@@ -1,7 +1,8 @@
 import { escapeHtml, formatNumber } from "./html.js";
 import { draftVerdictModel } from "./trade-draft.js";
 import { getGlobalMaxPlayerValue } from "./values.js";
-import { draftVerdictLabel, sumValueCalcSide, valueCalcVerdict } from "./value-calc.js";
+import { sumValueCalcSide, valueCalcVerdict } from "./value-calc.js";
+import { verdictCopy } from "./verdict-copy.js";
 import { tradeHref } from "./history-route.js";
 import { playerSlug } from "./history-route.js";
 
@@ -77,11 +78,8 @@ export function launchExampleMarkup({ values = {}, names = {}, players = {}, glo
   const give = EXAMPLE_GIVE.map((id) => ({ ...assetMeta(id, { names, players }), value: Math.round(Number(values?.[id]) || 0) }));
   const get = EXAMPLE_GET.map((id) => ({ ...assetMeta(id, { names, players }), value: Math.round(Number(values?.[id]) || 0) }));
   const model = priced.model;
-  const label = draftVerdictLabel(model.verdict);
-  const gap = Number(model.verdict?.gap) || 0;
-  const pct = Number(model.verdict?.pct) || 0;
-  const sign = gap > 0 ? "+" : gap < 0 ? "−" : "";
-  const tone = gap > 0 ? "up" : gap < 0 ? "dn" : "";
+  const copy = verdictCopy(model.verdict);
+  const tone = copy.tone === "good" ? "up" : copy.tone === "bad" ? "dn" : copy.tone === "fair" ? "fair" : "";
   const giveWidth = Math.round((priced.giveSum / Math.max(priced.giveSum + priced.getSum, 1)) * 100);
   const href = exampleTradeHref();
   return `
@@ -95,7 +93,7 @@ export function launchExampleMarkup({ values = {}, names = {}, players = {}, glo
         ${get.map((row) => rowMarkup(row)).join("")}
       </div>
       <div class="launch-verdict">
-        <div class="vt"><b>${escapeHtml(label)}</b><span class="big ${tone}">${escapeHtml(`${sign}${pct}%`)}</span></div>
+        <div class="vt"><b>${escapeHtml(copy.label)}</b><span class="big ${tone}">${escapeHtml(copy.pctText)}</span></div>
         <div class="bar" aria-hidden="true"><i style="width:${giveWidth}%;background:var(--red)"></i><i style="width:${100 - giveWidth}%;background:var(--green)"></i></div>
         <span class="meta">Tap to change any player</span>
       </div>

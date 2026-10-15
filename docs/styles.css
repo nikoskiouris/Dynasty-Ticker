@@ -4045,6 +4045,12 @@ button.weekly-help-close:hover {
   background: linear-gradient(135deg, var(--green-soft), var(--panel-soft));
 }
 
+/* Fair and slight-edge trades: amber, same as the share card (verdict-copy.js). */
+.calc-summary.fair {
+  border-color: rgba(240, 195, 106, 0.45);
+  background: linear-gradient(135deg, var(--amber-soft), var(--panel-soft));
+}
+
 .calc-summary.bad {
   border-color: rgba(251, 113, 133, 0.45);
   background: linear-gradient(135deg, var(--red-soft), var(--panel-soft));

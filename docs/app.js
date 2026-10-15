@@ -145,6 +145,7 @@ import {
   tradeRowName,
   withPlayerDirectoryNames,
 } from "./modules/value-calc.js";
+import { verdictCopy } from "./modules/verdict-copy.js";
 import {
   describeDraftItem,
   draftFromReview,
@@ -6987,14 +6988,15 @@ function renderDraftVerdict(view) {
   const voice = sampleVoice();
   const { verdict, adjustment } = model;
   const meters = draftMeterValues(model);
-  const label = draftVerdictLabel(verdict, { them, getFavor: voice?.favor || "your", favorName: voice?.youGive || "" });
+  const copy = verdictCopy(verdict);
+  const label = copy.label;
   const maxSide = Math.max(meters.give, meters.get, 1);
   const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(view) : null;
   const evenSide = verdict.gap > 0 ? (voice ? voice.youGive : "You") : (view.partner ? them : "They");
   const giveLabel = voice?.giveLabel || "You give";
   const getLabel = voice?.getLabel || "You get";
   return `
-    <section class="calc-summary ${bothSides ? verdict.tone : ""}">
+    <section class="calc-summary ${bothSides ? (copy.tone || verdict.tone) : ""}">
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
         <h3>${escapeHtml(label)} ${adjustment ? infoTipMarkup({ id: "pop-stars", label: "Stars cost extra", text: "Stars cost extra: one great player beats a pile of good ones." }) : ""}</h3>
@@ -7044,7 +7046,8 @@ function buildDraftOfferText(view) {
   const list = (items) => items.map((item) => `${item.name} (${formatNumber(view.priceOf(item))})`).join(", ") || "nothing";
   const partnerName = view.partner?.manager?.displayName || "them";
   const { verdict, adjustment } = view.model;
-  const label = draftVerdictLabel(verdict, { them: partnerName, getFavor: sampleVoice()?.favor || "your", favorName: sampleVoice()?.youGive || "" });
+  const copy = verdictCopy(verdict);
+  const label = draftVerdictLabel(verdict, { them: partnerName, getFavor: sampleVoice()?.favor || "your", favorName: sampleVoice()?.youGive || "" }) || copy.line;
   const creditSide = adjustment?.side === "left" ? (sampleVoice()?.sideLabel || "my side") : "their side";
   const credit = adjustment ? ` Package adjustment +${formatNumber(adjustment.amount)} to ${creditSide}.` : "";
   return `Trade idea: ${view.me?.manager?.displayName || "I"} sends ${list(view.draft.left)} to ${partnerName} for ${list(view.draft.right)}. Market ${formatNumber(view.give)} vs ${formatNumber(view.get)}.${credit} ${verdict.pct}% apart (${label}). Dynasty Ticker prices, ${rankFormatLabel(view.basis.format)}.`;

@@ -80,7 +80,9 @@ test("sample labels are what the desk renders", () => {
   assert.match(app, /sampleVoice\(\)\?\.tradeFile/);
   assert.match(app, /sampleVoice\(\)\?\.teamOutlined/);
   assert.match(app, /sampleVoice\(\)\?\.strengthens/);
-  assert.match(app, /getFavor: voice\?\.favor/);
+  // The verdict heading is Give/Get from verdict-copy.js. The offer sentence still takes the sample seat.
+  assert.match(app, /const copy = verdictCopy\(verdict\);/);
+  assert.match(app, /getFavor: sampleVoice\(\)\?\.favor/);
   assert.match(app, /sampleRoomHint\(/);
   assert.match(app, /voice\?\.findIntro/);
   assert.match(app, /voice\?\.shopIntro/);

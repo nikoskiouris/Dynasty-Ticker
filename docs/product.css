@@ -1491,6 +1491,7 @@ details.workspace-panel > summary:focus-visible,
 }
 .launch .up { color: var(--green); }
 .launch .dn { color: var(--red); }
+.launch .fair { color: var(--amber); }
 .launch .bar {
   height: 6px;
   border-radius: 3px;
