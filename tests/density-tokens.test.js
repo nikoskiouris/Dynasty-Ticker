@@ -167,15 +167,25 @@ function launchChrome(bin) {
   proc.stderr.on("data", (chunk) => {
     stderr += chunk.toString();
   });
-  const stop = () => {
+  const exited = new Promise((resolve) => {
+    if (proc.exitCode != null) resolve();
+    else proc.once("exit", () => resolve());
+  });
+  const stop = async () => {
     try {
       proc.kill("SIGKILL");
     } catch {
       /* already gone */
     }
-    setTimeout(() => {
-      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 40 });
-    }, 30).unref?.();
+    await exited;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      try {
+        rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 40 });
+        return;
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 40 * (attempt + 1)));
+      }
+    }
   };
   return {
     stop,
@@ -253,7 +263,7 @@ async function measureAt(bin, htmlPath, width) {
     return probed.result.value;
   } finally {
     ws.close();
-    chrome.stop();
+    await chrome.stop();
   }
 }
 
