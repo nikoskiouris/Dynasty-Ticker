@@ -23,9 +23,11 @@ test("a player added in Check an offer uses the 40px face", () => {
 test("density tokens load before the desk styles and the fonts stay on this origin", () => {
   for (const page of ["index.html", "404.html", "privacy.html", "terms.html"]) {
     const html = readDocs(page);
-    const tokensAt = html.indexOf('href="./tokens.css"');
-    const stylesAt = html.indexOf('href="./styles.css"');
-    const productAt = html.indexOf('href="./product.css"');
+    // index.html sits under <base href="/">; the others use root URLs.
+    const at = (file) => Math.max(html.indexOf(`href="./${file}"`), html.indexOf(`href="/${file}"`));
+    const tokensAt = at("tokens.css");
+    const stylesAt = at("styles.css");
+    const productAt = at("product.css");
     assert.ok(tokensAt >= 0 && tokensAt < stylesAt && stylesAt < productAt, page);
     assert.doesNotMatch(html, /fonts\.googleapis|fonts\.gstatic/);
   }
@@ -421,6 +423,21 @@ const MEASURE = `(() => {
   };
 })()`;
 
+// Same hardening as tests/mobile-find-bar.test.js (#159): wait 30s for the
+// debug port, retry once, and skip only when Chrome never starts.
+const CHROME_PORT_WAIT_MS = 30000;
+
+class ChromeLaunchError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ChromeLaunchError";
+  }
+}
+
+function isChromeLaunchFailure(error) {
+  return error instanceof ChromeLaunchError || error?.name === "ChromeLaunchError";
+}
+
 function launchChrome(bin) {
   const dir = mkdtempSync(join(tmpdir(), "dt-density-"));
   const proc = spawn(bin, [
@@ -428,6 +445,9 @@ function launchChrome(bin) {
     "--no-sandbox",
     "--disable-gpu",
     "--disable-dev-shm-usage",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--allow-file-access-from-files",
     "--remote-debugging-port=0",
     `--user-data-dir=${dir}`,
     "about:blank",
@@ -460,22 +480,41 @@ function launchChrome(bin) {
     stop,
     endpoint: async () => {
       const started = Date.now();
-      while (Date.now() - started < 8000) {
+      while (Date.now() - started < CHROME_PORT_WAIT_MS) {
         const match = stderr.match(/ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[^\s]+/);
         if (match) return match[0];
-        if (proc.exitCode != null) throw new Error(`Chrome exited early: ${stderr}`);
+        if (proc.exitCode != null) throw new ChromeLaunchError(`Chrome exited early: ${stderr}`);
         await new Promise((resolve) => setTimeout(resolve, 40));
       }
-      throw new Error(`Chrome did not open a debug port: ${stderr}`);
+      throw new ChromeLaunchError(`Chrome did not open a debug port: ${stderr}`);
     },
   };
 }
 
+async function openChrome(bin) {
+  let chrome = launchChrome(bin);
+  try {
+    return { chrome, browserWs: await chrome.endpoint() };
+  } catch (error) {
+    await chrome.stop();
+    if (!isChromeLaunchFailure(error)) throw error;
+    chrome = launchChrome(bin);
+    try {
+      return { chrome, browserWs: await chrome.endpoint() };
+    } catch (retryError) {
+      await chrome.stop();
+      throw retryError;
+    }
+  }
+}
+
 async function measureAt(bin, htmlPath, width, mobile = true) {
-  const chrome = launchChrome(bin);
+  let chrome;
   let ws;
   try {
-  const browserWs = await chrome.endpoint();
+  const opened = await openChrome(bin);
+  chrome = opened.chrome;
+  const browserWs = opened.browserWs;
   ws = new WebSocket(browserWs);
   await new Promise((resolve, reject) => {
     ws.addEventListener("open", resolve, { once: true });
@@ -540,7 +579,7 @@ async function measureAt(bin, htmlPath, width, mobile = true) {
       }
     }
   } finally {
-    await chrome.stop();
+    await chrome?.stop();
   }
 }
 
@@ -558,6 +597,7 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
   const htmlPath = join(dir, "density.html");
   writeFileSync(htmlPath, fixtureHtml());
   try {
+    try {
     const box = await measureAt(bin, htmlPath, 390);
     assert.equal(box.innerWidth, 390);
     assert.equal(box.bodyFont, "14px");
@@ -638,7 +678,26 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
       assert.deepEqual(shot.short, [], `short targets ${shot.short.join(", ")}`);
       assert.ok(shot.chipOverlap <= 0.6, `chip overlap ${shot.chipOverlap}`);
     }
+    } catch (error) {
+      if (isChromeLaunchFailure(error)) {
+        t.skip(`Chrome did not start: ${error.message}`);
+        return;
+      }
+      throw error;
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("density: a failed assertion is not a Chrome launch failure", () => {
+  assert.equal(isChromeLaunchFailure(new ChromeLaunchError("Chrome did not open a debug port")), true);
+  let assertion;
+  try {
+    assert.equal(1, 2, "layout mismatch");
+  } catch (error) {
+    assertion = error;
+  }
+  assert.equal(isChromeLaunchFailure(assertion), false);
+  assert.equal(isChromeLaunchFailure(new Error("Chrome did not open a debug port")), false);
 });

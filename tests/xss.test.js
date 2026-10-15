@@ -104,8 +104,12 @@ test("content security policy blocks inline script and frames", () => {
   assert.match(toml, /script-src 'self'/);
   assert.doesNotMatch(toml, /script-src 'self' 'unsafe-inline'/);
   assert.doesNotMatch(toml, /script-src 'unsafe-inline'/);
+  // frame-ancestors is ignored in a meta CSP (browsers log a notice), so the
+  // header carries it and the HTML copy leaves it out.
+  const metaPolicy = policy.replace(" frame-ancestors 'none';", "");
   for (const file of ["docs/index.html", "docs/404.html", "docs/privacy.html", "docs/terms.html"]) {
-    assert.match(read(file), new RegExp(policy.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(read(file), new RegExp(metaPolicy.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.doesNotMatch(read(file), /frame-ancestors/);
   }
   const index = read("docs/index.html");
   assert.match(index, /src="\.\/desk-shut\.js"/);
@@ -233,7 +237,8 @@ test("docs pages have no inline handlers, inline scripts, eval, or third-party s
     for (const sheet of html.matchAll(/<link\b[^>]*\brel=["']stylesheet["'][^>]*>/gi)) {
       const href = sheet[0].match(/\bhref=["']([^"']+)["']/i);
       assert.ok(href, label);
-      assert.match(href[1], /^(?:\.\/|https:\/\/fonts\.googleapis\.com\/)/, `${label} ${href[1]}`);
+      // Same origin only: ./x or a root path /x (not protocol-relative //x).
+      assert.match(href[1], /^(?:\.\/|\/(?!\/)|https:\/\/fonts\.googleapis\.com\/)/, `${label} ${href[1]}`);
     }
   }
   for (const path of scripts) {
