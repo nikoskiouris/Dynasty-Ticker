@@ -155,9 +155,10 @@ test("the price board does not mint owned picks through its last year", () => {
 });
 
 test("league pick years come from the span helper, not the value catalog", () => {
-  const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/app.js"), "utf8");
-  const start = app.indexOf("function inferLeaguePickSeasons(");
-  const body = app.slice(start, app.indexOf("function inferLeagueDraftRounds(", start));
+  const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/modules/draft-picks.js"), "utf8");
+  const start = source.indexOf("export function inferLeaguePickSeasons(");
+  const body = source.slice(start, source.indexOf("export function inferLeagueDraftRounds(", start));
   assert.match(body, /inferPickSeasonSpan\(/);
   assert.doesNotMatch(body, /catalogSeasons/);
+  assert.match(body, /_pickValueCatalog/);
 });
