@@ -4,12 +4,15 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildOwnedPicksByRoster } from "../docs/modules/draft-picks.js";
-import { buildCurrentPlaceLookup, currentPlaceForOwner, projectedDraftSlot } from "../docs/modules/mock-drafts.js";
+import { buildCurrentPlaceLookup, currentPlaceForOwner, projectedDraftSlot, rosterPointsFor } from "../docs/modules/mock-drafts.js";
+import { renderSleeperInsight } from "../docs/modules/roster-markup.js";
+import { buildSeasonModel } from "../docs/modules/season.js";
 import {
   collectProjectedLeads,
   compareTradeSearchPicks,
   formatPickLabel,
   projectPickSlots,
+  rosterRecordsReady,
 } from "../docs/modules/pick-projection.js";
 import { bucketForProjectedSlot, chooseLeadPick, getAssetValue } from "../docs/modules/values.js";
 
@@ -168,4 +171,215 @@ test("Previous Year is gone from the app and the pick modules", () => {
   });
   assert.match(second, /2028 Middle 2nd \(2\.07\), projected to finish 6th of 12 from Niko/);
   assert.doesNotMatch(second, /Previous Year/i);
+});
+
+function slotTable(slots) {
+  return [...slots.values()]
+    .map((row) => ({ id: row.rosterId, rank: row.rank, slot: row.slot, bucket: row.bucket }))
+    .sort((a, b) => Number(a.id) - Number(b.id));
+}
+
+// Five games each. Pair whoever still has a game, then give the win to the
+// roster that still needs it. Points stay on the winner's side of the margin.
+function weeksFromRosterRecords(rosters) {
+  const records = rosters.map((roster) => ({
+    id: String(roster.roster_id),
+    wins: Number(roster.settings.wins) || 0,
+    losses: Number(roster.settings.losses) || 0,
+    pf: rosterPointsFor(roster),
+  }));
+  const games = records[0].wins + records[0].losses;
+  const remW = new Map(records.map((row) => [row.id, row.wins]));
+  const remG = new Map(records.map((row) => [row.id, games]));
+  const seen = new Map(records.map((row) => [row.id, new Set()]));
+  const played = [];
+  const ids = records.map((row) => row.id);
+  for (let week = 1; week <= games; week += 1) {
+    const pool = ids.filter((id) => remG.get(id) > 0);
+    const pairs = [];
+    while (pool.length) {
+      pool.sort((a, b) => (remW.get(b) / remG.get(b)) - (remW.get(a) / remG.get(a)));
+      const left = pool.shift();
+      let best = 0;
+      let bestScore = -1e9;
+      for (let i = 0; i < pool.length; i += 1) {
+        const right = pool[i];
+        if (seen.get(left).has(right)) continue;
+        const leftMust = remW.get(left) >= remG.get(left);
+        const rightMust = remW.get(right) >= remG.get(right);
+        const leftNone = remW.get(left) === 0;
+        const rightNone = remW.get(right) === 0;
+        let score = 10;
+        if ((leftMust && rightNone) || (rightMust && leftNone)) score = 100;
+        else if (leftMust !== rightMust) score = 80;
+        else if (leftNone !== rightNone) score = 70;
+        score -= Math.abs(remW.get(left) - remW.get(right));
+        if (score > bestScore) {
+          bestScore = score;
+          best = i;
+        }
+      }
+      const right = pool.splice(best, 1)[0];
+      pairs.push([left, right]);
+    }
+    pairs.forEach(([left, right]) => {
+      const leftMust = remW.get(left) >= remG.get(left) && remW.get(left) > 0;
+      const rightMust = remW.get(right) >= remG.get(right) && remW.get(right) > 0;
+      const leftCan = remW.get(left) > 0;
+      const rightCan = remW.get(right) > 0;
+      let winner = left;
+      if (rightMust && !leftMust) winner = right;
+      else if (leftMust && !rightMust) winner = left;
+      else if (rightCan && !leftCan) winner = right;
+      else if (!leftCan && !rightCan) winner = left;
+      else if (remW.get(right) > remW.get(left)) winner = right;
+      played.push({ week, left, right, winner });
+      remW.set(winner, remW.get(winner) - 1);
+      remG.set(left, remG.get(left) - 1);
+      remG.set(right, remG.get(right) - 1);
+      seen.get(left).add(right);
+      seen.get(right).add(left);
+    });
+  }
+  if ([...remW.values()].some((wins) => wins !== 0)) {
+    throw new Error("roster win totals could not be scheduled");
+  }
+
+  const pf = new Map(records.map((row) => [row.id, row.pf]));
+  const byTeam = new Map(ids.map((id) => [id, []]));
+  played.forEach((game, index) => {
+    byTeam.get(game.left).push(index);
+    byTeam.get(game.right).push(index);
+  });
+  const points = played.map((game) => ({ [game.left]: 0, [game.right]: 0 }));
+  ids.forEach((id) => {
+    const share = pf.get(id) / byTeam.get(id).length;
+    byTeam.get(id).forEach((index) => {
+      points[index][id] = share;
+    });
+  });
+  const margin = 0.02;
+  for (let iter = 0; iter < 200; iter += 1) {
+    let fixes = 0;
+    played.forEach((game, index) => {
+      const loser = game.winner === game.left ? game.right : game.left;
+      if (points[index][game.winner] > points[index][loser]) return;
+      const need = (points[index][loser] + margin) - points[index][game.winner];
+      points[index][game.winner] += need;
+      let left = need;
+      byTeam.get(game.winner).forEach((other) => {
+        if (other === index || left <= 1e-9) return;
+        const opp = played[other].left === game.winner ? played[other].right : played[other].left;
+        const floor = played[other].winner === game.winner ? points[other][opp] + margin : 0;
+        const take = Math.min(Math.max(0, points[other][game.winner] - floor), left);
+        points[other][game.winner] -= take;
+        left -= take;
+      });
+      fixes += 1;
+    });
+    if (!fixes) break;
+  }
+  const totals = new Map(ids.map((id) => [id, 0]));
+  points.forEach((row) => {
+    Object.entries(row).forEach(([id, value]) => totals.set(id, totals.get(id) + value));
+  });
+  ids.forEach((id) => {
+    const delta = pf.get(id) - totals.get(id);
+    if (Math.abs(delta) < 0.001) return;
+    const owned = byTeam.get(id);
+    if (delta > 0) {
+      const win = owned.find((index) => played[index].winner === id) ?? owned[0];
+      points[win][id] += delta;
+      return;
+    }
+    let left = -delta;
+    owned.forEach((index) => {
+      const opp = played[index].left === id ? played[index].right : played[index].left;
+      const floor = played[index].winner === id ? points[index][opp] + margin : 0;
+      const take = Math.min(Math.max(0, points[index][id] - floor), left);
+      points[index][id] -= take;
+      left -= take;
+    });
+  });
+
+  const weekRows = new Map();
+  played.forEach((game, index) => {
+    if (!weekRows.has(game.week)) weekRows.set(game.week, []);
+    const matchupId = weekRows.get(game.week).length / 2 + 1;
+    weekRows.get(game.week).push(
+      { roster_id: Number(game.left), matchup_id: matchupId, points: points[index][game.left] },
+      { roster_id: Number(game.right), matchup_id: matchupId, points: points[index][game.right] },
+    );
+  });
+  return weekRows;
+}
+
+test("roster settings and the full week table agree on the fixture", () => {
+  const rosters = fixture.rosters;
+  assert.equal(rosterRecordsReady(rosters), true);
+  assert.equal(rosterRecordsReady(rosters.map((roster) => ({ ...roster, settings: { wins: 0, losses: 0, fpts: 0 } }))), false);
+  assert.equal(rosterRecordsReady([{ roster_id: 1, settings: { wins: 1, losses: 0 } }]), false);
+
+  const fast = projectPickSlots(fixture.league, { settled: true, rosters, rows: [] });
+  const games = (Number(rosters[0].settings.wins) || 0) + (Number(rosters[0].settings.losses) || 0);
+  const league = {
+    ...fixture.league,
+    settings: {
+      ...fixture.league.settings,
+      playoff_week_start: 15,
+      last_scored_leg: games,
+      leg: games + 1,
+    },
+  };
+  const model = buildSeasonModel({
+    league,
+    rosters,
+    users: fixture.users,
+    weekRows: weeksFromRosterRecords(rosters),
+    nflState: { week: games + 1, season: league.season, league_season: league.season, season_type: "regular" },
+  });
+  assert.equal(model.hasComputedGames, true);
+  const full = projectPickSlots(league, { settled: true, rosters, rows: model.standings });
+  assert.deepEqual(slotTable(fast), slotTable(full));
+  assert.equal(fast.get("6").slot, 4);
+  assert.equal(full.get("6").slot, 4);
+});
+
+test("Draft Ammo calculating line is busy and has no lead", () => {
+  const busy = renderSleeperInsight({
+    title: "Draft Ammo",
+    body: "Calculating…",
+    tone: "gold",
+    busy: true,
+  });
+  assert.match(busy, /aria-busy="true"/);
+  assert.match(busy, /Calculating…/);
+  assert.match(busy, /insight-item/);
+  assert.doesNotMatch(busy, /led by|1\.\d\d|Cam Coleman|Ahmad Hardy|vault/);
+  const ready = renderSleeperInsight({
+    title: "Draft Ammo",
+    body: "5 first-round picks in the vault, led by 2027 1st from YianGhan · 9th place (1.04 Dante Moore).",
+    tone: "gold",
+  });
+  assert.doesNotMatch(ready, /aria-busy/);
+  assert.match(ready, /led by 2027 1st from YianGhan/);
+
+  const appSource = readFileSync(join(root, "docs/app.js"), "utf8");
+  const ammoFn = appSource.slice(
+    appSource.indexOf("function draftAmmoInsight("),
+    appSource.indexOf("function draftAmmoInsightForRoster("),
+  );
+  assert.match(ammoFn, /body: "Calculating…"/);
+  assert.match(ammoFn, /busy: true/);
+  assert.match(ammoFn, /leadReady/);
+  const calculating = ammoFn.slice(ammoFn.indexOf("if (!leadReady)"), ammoFn.indexOf("const count"));
+  assert.doesNotMatch(calculating, /led by|1\\\.\\d\\d|Cam Coleman|Ahmad Hardy/);
+  const dashboard = appSource.slice(
+    appSource.indexOf("function renderPowerDashboard("),
+    appSource.indexOf("function getSeasonModel("),
+  );
+  assert.match(dashboard, /draftAmmoInsightForRoster\(meRoster\)/);
+  assert.match(dashboard, /if \(!state\.playerMetadataLoaded\)/);
+  const css = readFileSync(join(root, "docs/styles.css"), "utf8");
+  assert.match(css, /\.insight-item\[aria-busy="true"\] span \{\s*animation: pulse 1\.6s ease-in-out infinite;/);
 });

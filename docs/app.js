@@ -310,6 +310,7 @@ import {
   compareTradeSearchPicks,
   formatPickLabel,
   projectPickSlots,
+  rosterRecordsReady,
 } from "./modules/pick-projection.js";
 import {
   applyDocumentMeta,
@@ -2454,8 +2455,8 @@ function resetSeasonState() {
   invalidateSeasonCaches();
 }
 
-// Matchup chunks update the standings table. Pick slots stay unpublished
-// until the current season's week loop has finished.
+// Matchup chunks update the standings table. They do not reprice picks.
+// A complete roster W-L table publishes the slots on the first paint.
 function settlePickProjection() {
   if (state.pickProjectionReady) return;
   state.pickProjectionReady = true;
@@ -3485,6 +3486,7 @@ function renderPowerDashboard() {
     return;
   }
   if (!state.playerMetadataLoaded) {
+    const ammo = draftAmmoInsightForRoster(meRoster);
     el.powerDashboard.innerHTML = `
       <div class="power-sync">
         <strong>${state.playerMetadataFailed ? "Player metadata unavailable" : "Syncing player metadata"}</strong>
@@ -3494,6 +3496,7 @@ function renderPowerDashboard() {
             : "Power Score needs Sleeper positions, ages, injury flags, and team metadata before it can grade the roster."
         }</p>
       </div>
+      ${ammo ? `<div class="insight-list">${renderSleeperInsight(ammo)}</div>` : ""}
     `;
     return;
   }
@@ -9656,6 +9659,34 @@ function buildPowerBadges({ score, lane, assetSummary, strongestPosition, weakes
   return [...new Set(badges)].slice(0, 5);
 }
 
+function draftAmmoInsight(firstRoundPickCount, lead) {
+  if (!(Number(firstRoundPickCount) > 0)) return null;
+  const leadReady = state.pickProjectionReady && Number(lead?.raw?.projectedDraftSlot) > 0;
+  if (!leadReady) {
+    return {
+      title: "Draft Ammo",
+      body: "Calculating…",
+      tone: "gold",
+      busy: true,
+    };
+  }
+  const count = Number(firstRoundPickCount);
+  return {
+    title: "Draft Ammo",
+    body: `${count} first-round pick${count === 1 ? "" : "s"} in the vault, led by ${lead.name}.`,
+    tone: "gold",
+  };
+}
+
+function draftAmmoInsightForRoster(roster) {
+  const firsts = (roster?.assets || []).filter((asset) => isFirstRoundPick(asset));
+  const lead = chooseLeadPick(firsts.map((asset) => ({
+    asset,
+    value: getAssetValue(asset, state.values),
+  })));
+  return draftAmmoInsight(firsts.length, lead);
+}
+
 function buildSleeperInsightCards(profile, context) {
   const insights = [];
   const formatInsight = describeLeagueFormat(context.league);
@@ -9681,17 +9712,8 @@ function buildSleeperInsightCards(profile, context) {
     });
   }
 
-  if (profile.assetSummary.firstRoundPickCount > 0) {
-    const topPick = profile.assetSummary.leadFirst;
-    const leadReady = state.pickProjectionReady && Number(topPick?.raw?.projectedDraftSlot) > 0;
-    if (leadReady) {
-      insights.push({
-        title: "Draft Ammo",
-        body: `${profile.assetSummary.firstRoundPickCount} first-round pick${profile.assetSummary.firstRoundPickCount === 1 ? "" : "s"} in the vault, led by ${topPick.name}.`,
-        tone: "gold",
-      });
-    }
-  }
+  const ammo = draftAmmoInsight(profile.assetSummary.firstRoundPickCount, profile.assetSummary.leadFirst);
+  if (ammo) insights.push(ammo);
 
   if (state.tradedPicks.length > 0) {
     insights.push({
@@ -15714,13 +15736,18 @@ function playerAssetsForRoster(roster, players) {
   });
 }
 
-// Slots come from projectPickSlots, and only after the week loop settles.
-// A partial table is not a place. Starter value breaks only a tied record.
+// Slots come from projectPickSlots once the table is final. Roster settings
+// are that table when every roster has wins, losses, and points. Week rows
+// are used only when Sleeper did not send that table. A partial week chunk
+// is not a place. Starter value breaks only a tied record.
 let projectedPlaceState = { key: "", lookup: null };
 let projectedPickKey = "";
 
 function settledPickStandings(rosters, strengthByRosterId = null) {
   if (!state.pickProjectionReady) return { settled: false, rosters };
+  if (rosterRecordsReady(rosters)) {
+    return { settled: true, rosters, rows: [], strengthByRosterId };
+  }
   const model = getSeasonModel();
   return {
     settled: true,
@@ -15868,6 +15895,7 @@ function refreshProjectedPickSlots() {
 }
 
 function normalizeRosters(league, rosters, users, players, previousContext = { league: null, users: [], rosters: [] }, tradedPicks = [], currentDraftContext = null) {
+  if (!state.pickProjectionReady && rosterRecordsReady(rosters)) settlePickProjection();
   const userById = new Map(users.map((u) => [String(u.user_id), u]));
   const rosterById = new Map(rosters.map((roster) => [String(roster.roster_id), roster]));
   const previousFinishLookup = buildPreviousFinishLookup(previousContext.league, previousContext.rosters);

@@ -267,7 +267,7 @@ test("a future first's tier and its projected place name the same rank", () => {
 
 test("Draft Ammo, the vault, and trade read one pick price", () => {
   assert.match(appSource, /leadFirst: chooseLeadPick\(/);
-  assert.match(appSource, /const topPick = profile\.assetSummary\.leadFirst/);
+  assert.match(appSource, /draftAmmoInsight\(profile\.assetSummary\.firstRoundPickCount, profile\.assetSummary\.leadFirst\)/);
   assert.match(appSource, /bucketForProjectedSlot\(priceSlot, priceTeams\)/);
   assert.match(appSource, /function findOwnedPickAsset\(/);
   assert.match(appSource, /function refreshProjectedPickSlots\(/);

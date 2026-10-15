@@ -5063,6 +5063,10 @@ button.weekly-help-close:hover {
   font-size: 0.8rem;
 }
 
+.insight-item[aria-busy="true"] span {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
 .green {
   border-left-color: var(--green);
 }

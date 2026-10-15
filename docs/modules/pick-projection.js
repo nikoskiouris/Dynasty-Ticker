@@ -1,6 +1,7 @@
 // One projection and one label for every draft pick.
-// Partial week rows are not a table. Callers pass settled: true only after
-// the matchup load finishes, so a lead cannot paint twice.
+// Partial week rows are not a table. Callers pass settled: true only when
+// the roster W-L table is complete, or the week loop has finished with no
+// roster table. A lead cannot paint from a half-loaded season.
 
 import { ordinal } from "./season.js";
 import {
@@ -8,12 +9,33 @@ import {
   formatHybridFirstName,
   formatPickSlotLabel,
   projectedDraftSlot,
+  rosterPointsFor,
 } from "./mock-drafts.js";
 import { bucketForProjectedSlot, formatPickBucketLabel } from "./values.js";
 
-// league is the Sleeper league. standings.settled is false while week rows
-// are still arriving. Returns null until then, otherwise a Map of roster id
-// to { rank, total, placeLabel, slot, bucket }.
+// True when every roster already has Sleeper's cumulative wins, losses, and
+// points, and at least one game is on the books. That table is enough to
+// project slots. An all-zero preseason table is not.
+export function rosterRecordsReady(rosters) {
+  const rows = Array.isArray(rosters) ? rosters : [];
+  if (!rows.length) return false;
+  let decided = 0;
+  for (const roster of rows) {
+    const settings = roster?.settings;
+    if (!settings || settings.fpts == null) return false;
+    const wins = Number(settings.wins);
+    const losses = Number(settings.losses);
+    const ties = Number(settings.ties) || 0;
+    const points = rosterPointsFor(roster);
+    if (!Number.isFinite(wins) || !Number.isFinite(losses) || !Number.isFinite(points)) return false;
+    decided += wins + losses + ties;
+  }
+  return decided > 0;
+}
+
+// league is the Sleeper league. standings.settled is false until the table
+// is final. Returns null until then, otherwise a Map of roster id to
+// { rank, total, placeLabel, slot, bucket }.
 export function projectPickSlots(league, standings) {
   if (!standings || standings.settled !== true) return null;
   const rosters = Array.isArray(standings.rosters) ? standings.rosters : [];
