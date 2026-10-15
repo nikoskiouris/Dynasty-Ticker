@@ -13,12 +13,21 @@ function readDocs(name) {
   return readFileSync(join(docs, name), "utf8");
 }
 
+test("a player added in Check an offer uses the 40px face", () => {
+  const app = readDocs("app.js");
+  const label = app.slice(app.indexOf("function renderSelectedTokenLabel"), app.indexOf("function draftItemMismatch"));
+  assert.match(label, /renderPlayerFace\(facePlayerId\(asset\), asset\?\.name, \{ size: "sm" \}\)/);
+  assert.doesNotMatch(label, /size:\s*"xs"/);
+});
+
 test("density tokens load before the desk styles and the fonts stay on this origin", () => {
   for (const page of ["index.html", "404.html", "privacy.html", "terms.html"]) {
     const html = readDocs(page);
-    const tokensAt = html.indexOf('href="./tokens.css"');
-    const stylesAt = html.indexOf('href="./styles.css"');
-    const productAt = html.indexOf('href="./product.css"');
+    // index.html sits under <base href="/">; the others use root URLs.
+    const at = (file) => Math.max(html.indexOf(`href="./${file}"`), html.indexOf(`href="/${file}"`));
+    const tokensAt = at("tokens.css");
+    const stylesAt = at("styles.css");
+    const productAt = at("product.css");
     assert.ok(tokensAt >= 0 && tokensAt < stylesAt && stylesAt < productAt, page);
     assert.doesNotMatch(html, /fonts\.googleapis|fonts\.gstatic/);
   }
@@ -158,8 +167,68 @@ function fixtureHtml() {
     </div>
     <select data-change="lens-roster" id="lens-roster"><option>Roster</option></select>
     <button type="button" id="weekly-help-btn" class="weekly-help-btn">?</button>
-    <p class="pick-mock-note">Board <button type="button" class="inline-link" id="mock-link">Full board</button></p>
+    <p class="muted small pick-mock-note">Dynasty Nerds <button type="button" class="inline-link" id="mock-link" data-action="go" data-page="league" data-room="board" data-open-mock="1">Full board</button></p>
+    <section class="workspace-panel mock-board">
+      <div class="panel-heading">
+        <p class="section-copy">Dynasty Nerds · <a class="inline-link" id="mock-article" href="https://example.com/mock">Open article</a></p>
+      </div>
+    </section>
+    <p id="landing-job-hint" class="muted landing-job-hint">Type your Sleeper username. No name yet? <a id="sample-league-link" class="sample-league-link" href="./?sample=1">See the sample league</a>.</p>
+    <form class="player-connect" data-player-connect>
+      <input id="player-connect-user" class="player-connect-user" name="username" aria-label="Sleeper username" placeholder="Sleeper username" />
+      <button id="player-connect-find" type="submit">Find my leagues</button>
+    </form>
+    <button type="button" class="selected-token" id="offer-token">
+      <span class="selected-token-label player-name"><span class="player-face player-face-sm" id="offer-headshot"><img class="player-face-photo" id="offer-photo" alt="" width="64" height="64" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="player-name-text">Jahmyr Gibbs</span></span>
+    </button>
+    <div class="week-chips" id="week-chips">
+      <button type="button">Wk 1</button>
+      <button type="button">Wk 2</button>
+      <button type="button">Wk 3</button>
+      <button type="button">Wk 4</button>
+      <button type="button" id="week-chip" class="active">Wk 5</button>
+    </div>
+    <article class="ranks-card">
+      <div class="ranks-card-main">
+        <div class="ranks-headshot" id="ranks-headshot">
+          <img class="rather-photo" id="ranks-photo" alt="" width="64" height="64" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" />
+        </div>
+      </div>
+    </article>
+    <span class="player-face player-face-md" id="card-headshot"><img class="player-face-photo" id="card-photo" alt="" width="64" height="64" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span>
     <span class="player-face player-face-sm" id="headshot"></span>
+    <div class="workspace">
+      <div class="roster-sheet">
+        <div class="sheet-grid">
+          <section class="sheet-column">
+            <div class="sheet-row">
+              <span class="sheet-slot">WR</span>
+              <div class="sheet-player">
+                <span class="player-face player-face-sm" id="list-headshot"><img class="player-face-photo" id="list-photo" alt="" width="64" height="64" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span>
+                <strong>Marquez Valdes-Scantling</strong>
+              </div>
+              <span class="sheet-metrics"><span class="weekly-chip"><small>This week</small><strong>12.1</strong></span><span class="dynasty-chip"><small>Model</small><strong>4100</strong></span></span>
+            </div>
+            <div class="sheet-row">
+              <span class="sheet-slot">WR</span>
+              <div class="sheet-player">
+                <span class="player-face player-face-sm"></span>
+                <strong>Amon-Ra St. Brown <em class="nickname">“Sun God”</em></strong>
+              </div>
+              <span class="sheet-metrics"><span class="weekly-chip"><small>This week</small><strong>18.4</strong></span><span class="dynasty-chip"><small>Model</small><strong>8421</strong></span></span>
+            </div>
+            <div class="sheet-row">
+              <span class="sheet-slot">RB</span>
+              <div class="sheet-player">
+                <span class="player-face player-face-sm"></span>
+                <strong>Christopher Rodriguez Jr.</strong>
+              </div>
+              <span class="sheet-metrics"><span class="weekly-chip"><small>This week</small><strong>8.2</strong></span><span class="dynasty-chip"><small>Model</small><strong>2200</strong></span></span>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
     <details class="workspace-panel"><summary id="own-summary">Ownership history</summary></details>
     <details class="league-id-fallback"><summary id="league-summary">Have a league ID or URL instead?</summary></details>
     <select id="me-select"><option>Team</option></select>
@@ -167,6 +236,14 @@ function fixtureHtml() {
     <button id="room-tab" class="room-tab" type="button">Ranks</button>
     <button id="team-trade" class="team-card-trade" type="button">Build a trade</button>
     <button class="ranks-row" type="button"><span>1</span><span>Jahmyr Gibbs</span><strong>8421</strong></button>
+    <button class="ranks-row" id="long-name-row" type="button">
+      <span class="ranks-num">12</span>
+      <span class="ranks-who">
+        <strong class="player-name"><span class="player-face player-face-sm"></span><span class="player-name-text">Marquez Valdes-Scantling</span></strong>
+        <small>WR · GB</small>
+      </span>
+      <span class="ranks-value">4100</span>
+    </button>
   </body>
 </html>`;
 }
@@ -238,8 +315,13 @@ const MEASURE = `(() => {
     "sample-banner-find",
     "weekly-help-btn",
     "mock-link",
+    "mock-article",
+    "sample-league-link",
+    "week-chip",
     "lens-roster",
     "player-search",
+    "player-connect-user",
+    "player-connect-find",
   ]) {
     const el = document.getElementById(id);
     hits[id] = hitOf(el);
@@ -268,6 +350,13 @@ const MEASURE = `(() => {
     }
   }
   const headshot = box(document.querySelector("#headshot"));
+  const faceBox = (id) => box(document.querySelector("#" + id));
+  const clippedNames = [];
+  for (const el of document.querySelectorAll(".sheet-player strong, .player-name-text")) {
+    const wide = el.scrollWidth > el.clientWidth + 1;
+    const tall = el.scrollHeight > el.clientHeight + 1;
+    if (wide || tall) clippedNames.push((el.textContent || "").trim().slice(0, 48));
+  }
   let maxFont = 0;
   for (const el of document.querySelectorAll("*")) {
     const size = px(styleOf(el).fontSize);
@@ -316,8 +405,38 @@ const MEASURE = `(() => {
     short,
     chipOverlap,
     headshot: headshot.width,
+    cardHead: faceBox("card-headshot").width,
+    cardPhoto: faceBox("card-photo").width,
+    listHead: faceBox("list-headshot").width,
+    listPhoto: faceBox("list-photo").width,
+    ranksHead: faceBox("ranks-headshot").width,
+    ranksPhoto: faceBox("ranks-photo").width,
+    cardHeadH: faceBox("card-headshot").height,
+    listHeadH: faceBox("list-headshot").height,
+    ranksHeadH: faceBox("ranks-headshot").height,
+    offerHead: faceBox("offer-headshot").width,
+    offerPhoto: faceBox("offer-photo").width,
+    offerHeadH: faceBox("offer-headshot").height,
+    offerPhotoH: faceBox("offer-photo").height,
+    connectFont: styleOf(document.querySelector("#player-connect-user")).fontSize,
+    clippedNames,
   };
 })()`;
+
+// Same hardening as tests/mobile-find-bar.test.js (#159): wait 30s for the
+// debug port, retry once, and skip only when Chrome never starts.
+const CHROME_PORT_WAIT_MS = 30000;
+
+class ChromeLaunchError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ChromeLaunchError";
+  }
+}
+
+function isChromeLaunchFailure(error) {
+  return error instanceof ChromeLaunchError || error?.name === "ChromeLaunchError";
+}
 
 function launchChrome(bin) {
   const dir = mkdtempSync(join(tmpdir(), "dt-density-"));
@@ -326,6 +445,9 @@ function launchChrome(bin) {
     "--no-sandbox",
     "--disable-gpu",
     "--disable-dev-shm-usage",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--allow-file-access-from-files",
     "--remote-debugging-port=0",
     `--user-data-dir=${dir}`,
     "about:blank",
@@ -358,22 +480,41 @@ function launchChrome(bin) {
     stop,
     endpoint: async () => {
       const started = Date.now();
-      while (Date.now() - started < 8000) {
+      while (Date.now() - started < CHROME_PORT_WAIT_MS) {
         const match = stderr.match(/ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[^\s]+/);
         if (match) return match[0];
-        if (proc.exitCode != null) throw new Error(`Chrome exited early: ${stderr}`);
+        if (proc.exitCode != null) throw new ChromeLaunchError(`Chrome exited early: ${stderr}`);
         await new Promise((resolve) => setTimeout(resolve, 40));
       }
-      throw new Error(`Chrome did not open a debug port: ${stderr}`);
+      throw new ChromeLaunchError(`Chrome did not open a debug port: ${stderr}`);
     },
   };
 }
 
+async function openChrome(bin) {
+  let chrome = launchChrome(bin);
+  try {
+    return { chrome, browserWs: await chrome.endpoint() };
+  } catch (error) {
+    await chrome.stop();
+    if (!isChromeLaunchFailure(error)) throw error;
+    chrome = launchChrome(bin);
+    try {
+      return { chrome, browserWs: await chrome.endpoint() };
+    } catch (retryError) {
+      await chrome.stop();
+      throw retryError;
+    }
+  }
+}
+
 async function measureAt(bin, htmlPath, width, mobile = true) {
-  const chrome = launchChrome(bin);
+  let chrome;
   let ws;
   try {
-  const browserWs = await chrome.endpoint();
+  const opened = await openChrome(bin);
+  chrome = opened.chrome;
+  const browserWs = opened.browserWs;
   ws = new WebSocket(browserWs);
   await new Promise((resolve, reject) => {
     ws.addEventListener("open", resolve, { once: true });
@@ -438,7 +579,7 @@ async function measureAt(bin, htmlPath, width, mobile = true) {
       }
     }
   } finally {
-    await chrome.stop();
+    await chrome?.stop();
   }
 }
 
@@ -456,6 +597,7 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
   const htmlPath = join(dir, "density.html");
   writeFileSync(htmlPath, fixtureHtml());
   try {
+    try {
     const box = await measureAt(bin, htmlPath, 390);
     assert.equal(box.innerWidth, 390);
     assert.equal(box.bodyFont, "14px");
@@ -473,7 +615,26 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
     assert.ok(box.inputHeight >= 44, `input height ${box.inputHeight}`);
     assert.ok(Math.abs(box.rowHeight - 44) < 0.6, `row height ${box.rowHeight}`);
     assert.ok(Math.abs(box.headshot - 40) < 0.6, `headshot ${box.headshot}`);
+    for (const [label, size] of [
+      ["card head", box.cardHead],
+      ["card photo", box.cardPhoto],
+      ["list head", box.listHead],
+      ["list photo", box.listPhoto],
+      ["ranks head", box.ranksHead],
+      ["ranks photo", box.ranksPhoto],
+      ["card head height", box.cardHeadH],
+      ["list head height", box.listHeadH],
+      ["ranks head height", box.ranksHeadH],
+      ["offer head", box.offerHead],
+      ["offer photo", box.offerPhoto],
+      ["offer head height", box.offerHeadH],
+      ["offer photo height", box.offerPhotoH],
+    ]) {
+      assert.ok(Math.abs(size - 40) < 0.6, `${label} ${size}`);
+    }
+    assert.deepEqual(box.clippedNames, [], `clipped names ${box.clippedNames.join(" | ")}`);
     assert.equal(box.inputFont, "16px");
+    assert.equal(box.connectFont, "16px");
     assert.match(box.bodyFamily, /Instrument Sans/);
     assert.match(box.h1Family, /Instrument Sans/);
     assert.equal(box.sansReady, true);
@@ -490,14 +651,53 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
     }
     const desk = await measureAt(bin, htmlPath, 1280, false);
     assert.equal(desk.innerWidth, 1280);
-    for (const id of ["page-tab", "room-tab", "team-trade", "landing-find-btn", "ranks-chip", "me-select", "sample-banner-find", "weekly-help-btn", "mock-link", "lens-roster"]) {
+    for (const id of ["page-tab", "room-tab", "team-trade", "landing-find-btn", "ranks-chip", "me-select", "sample-banner-find", "weekly-help-btn", "mock-link", "mock-article", "sample-league-link", "week-chip", "lens-roster", "player-connect-user", "player-connect-find"]) {
       assert.ok(desk.hits[id].height >= 43.5, `${id} desk hit ${desk.hits[id].height}`);
     }
+    for (const id of ["mock-link", "mock-article", "sample-league-link", "week-chip", "player-connect-user", "player-connect-find"]) {
+      for (const shot of [box, desk]) {
+        assert.ok(shot.hits[id].visual >= 43.5, `${id} box ${shot.innerWidth} ${shot.hits[id].visual}`);
+      }
+    }
+    for (const [label, size] of [
+      ["desk card head", desk.cardHead],
+      ["desk list head", desk.listHead],
+      ["desk ranks head", desk.ranksHead],
+      ["desk card photo", desk.cardPhoto],
+      ["desk list photo", desk.listPhoto],
+      ["desk ranks photo", desk.ranksPhoto],
+      ["desk offer head", desk.offerHead],
+      ["desk offer photo", desk.offerPhoto],
+      ["desk offer head height", desk.offerHeadH],
+      ["desk offer photo height", desk.offerPhotoH],
+    ]) {
+      assert.ok(Math.abs(size - 40) < 0.6, `${label} ${size}`);
+    }
+    assert.deepEqual(desk.clippedNames, [], `desk clipped names ${desk.clippedNames.join(" | ")}`);
     for (const shot of [box, desk]) {
       assert.deepEqual(shot.short, [], `short targets ${shot.short.join(", ")}`);
       assert.ok(shot.chipOverlap <= 0.6, `chip overlap ${shot.chipOverlap}`);
     }
+    } catch (error) {
+      if (isChromeLaunchFailure(error)) {
+        t.skip(`Chrome did not start: ${error.message}`);
+        return;
+      }
+      throw error;
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("density: a failed assertion is not a Chrome launch failure", () => {
+  assert.equal(isChromeLaunchFailure(new ChromeLaunchError("Chrome did not open a debug port")), true);
+  let assertion;
+  try {
+    assert.equal(1, 2, "layout mismatch");
+  } catch (error) {
+    assertion = error;
+  }
+  assert.equal(isChromeLaunchFailure(assertion), false);
+  assert.equal(isChromeLaunchFailure(new Error("Chrome did not open a debug port")), false);
 });

@@ -8423,7 +8423,7 @@ button.ranks-row.you {
 .player-connect input,
 .player-connect button {
   width: auto;
-  min-height: 2.1rem;
+  min-height: var(--tap-min);
   padding: 0.3rem 0.7rem;
 }
 
@@ -8435,6 +8435,7 @@ button.ranks-row.you {
 
 .player-connect button {
   flex: 0 0 auto;
+  min-height: var(--tap-min);
   white-space: nowrap;
 }
 

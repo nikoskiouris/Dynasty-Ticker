@@ -1,5 +1,8 @@
 import { DEFAULT_PAGE, DEFAULT_ROOMS } from "./constants.js";
 import { isRankAssetId } from "./ranks.js";
+import { isAssetLikePath } from "./asset-path.js";
+
+export { ASSET_404_PREFIXES, isAssetLikePath } from "./asset-path.js";
 
 // Every pathname is built from this prefix. Empty means the site root.
 export const BASE = "";
@@ -342,6 +345,7 @@ function rewriteParts(pattern) {
 export function isSpaPath(pathname) {
   const raw = String(pathname || "").split("?")[0];
   if (!raw.startsWith("/")) return false;
+  if (isAssetLikePath(raw)) return false;
   const path = rewriteParts(raw);
   return SPA_REWRITES.some((pattern) => {
     const rule = rewriteParts(pattern);
