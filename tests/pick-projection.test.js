@@ -14,6 +14,7 @@ import {
   projectPickSlots,
   resolvePickProjection,
   rosterRecordsReady,
+  valuedAsMidFirstHint,
 } from "../docs/modules/pick-projection.js";
 import { bucketForProjectedSlot, chooseLeadPick, getAssetValue } from "../docs/modules/values.js";
 
@@ -481,13 +482,42 @@ test("Draft Ammo calculating line is busy and has no lead", () => {
     appSource.indexOf("function getSeasonModel("),
   );
   assert.match(dashboard, /draftAmmoInsightForRoster\(meRoster\)/);
-  assert.match(dashboard, /if \(!state\.playerMetadataLoaded\)/);
-  assert.match(dashboard, /if \(ammo && ammo\.busy !== true\)/);
-  const finalBranch = dashboard.slice(
-    dashboard.indexOf("if (ammo && ammo.busy !== true)"),
-    dashboard.indexOf("el.powerDashboard.innerHTML = `"),
-  );
-  assert.doesNotMatch(finalBranch, /Syncing player metadata/);
+  assert.match(dashboard, /rosterGradeReady\(meRoster\)/);
+  assert.doesNotMatch(dashboard, /Syncing player metadata/);
+  assert.doesNotMatch(dashboard, /if \(!state\.playerMetadataLoaded\)/);
   const css = readFileSync(join(root, "docs/styles.css"), "utf8");
   assert.match(css, /\.insight-item\[aria-busy="true"\] span \{\s*animation: pulse 1\.6s ease-in-out infinite;/);
+});
+
+test("named 2028+ firsts say they are valued as a mid 1st", () => {
+  const named = {
+    assetType: "pick",
+    assetId: "pick:2029:r1:3",
+    raw: { season: "2029", round: 1, original_owner: 3 },
+  };
+  assert.equal(valuedAsMidFirstHint(named, "2026"), "valued as a mid 1st");
+  assert.equal(valuedAsMidFirstHint({
+    assetType: "pick",
+    assetId: "pick:2027:r1:6",
+    raw: { season: "2027", round: 1, original_owner: 6 },
+  }, "2026"), "");
+  assert.equal(valuedAsMidFirstHint({
+    assetType: "pick",
+    assetId: "pick:2028:r1:mid",
+    name: "2028 Mid 1st",
+    raw: { season: "2028", round: 1 },
+  }, "2026"), "");
+  assert.equal(valuedAsMidFirstHint({
+    assetType: "pick",
+    assetId: "pick:2028:r2:4",
+    raw: { season: "2028", round: 2, original_owner: 4 },
+  }, "2026"), "");
+  const markup = renderSleeperInsight({
+    title: "Draft Ammo",
+    body: "1 first-round pick in the vault, led by 2029 1st from NikoSkiouris.",
+    hint: "valued as a mid 1st",
+    tone: "gold",
+  });
+  assert.match(markup, /pick-value-hint/);
+  assert.match(markup, /valued as a mid 1st/);
 });

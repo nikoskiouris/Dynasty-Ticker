@@ -66,6 +66,32 @@ class PlayerValueBuildTests(unittest.TestCase):
         pid, how = build.resolve_nfl_id({"full_name": "Kenneth Walker", "position": "RB"}, identity, "RB")
         self.assertEqual((pid, how), ("00-0038134", "name-position"))
 
+    def test_slim_player_keeps_only_desk_fields(self):
+        record = build.slim_nfl_player({
+            "player_id": "6794",
+            "full_name": "Justin Jefferson",
+            "first_name": "Justin",
+            "last_name": "Jefferson",
+            "position": "WR",
+            "team": "MIN",
+            "age": 27,
+            "fantasy_positions": ["WR"],
+            "injury_status": "Questionable",
+            "search_rank": 1,
+            "metadata": {"rookie_year": 2020, "channel_id": "nope"},
+        }, "6794")
+        self.assertEqual(record["full_name"], "Justin Jefferson")
+        self.assertEqual(record["position"], "WR")
+        self.assertEqual(record["team"], "MIN")
+        self.assertNotIn("search_rank", record)
+        self.assertEqual(record["metadata"], {"rookie_year": 2020})
+        self.assertIsNone(build.slim_nfl_player({
+            "player_id": "1",
+            "full_name": "Some Linebacker",
+            "position": "LB",
+            "fantasy_positions": ["LB"],
+        }, "1"))
+
     def test_partial_sleeper_clock_does_not_wipe_the_season(self):
         self.assertEqual(build.resolve_nfl_clock({"season": "2026", "week": 6}), (2026, 6))
         self.assertEqual(

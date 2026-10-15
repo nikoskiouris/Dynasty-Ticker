@@ -1,6 +1,7 @@
 import { ordinal } from "./season.js";
 
 export const PLAYER_VALUES_PATH = "./data/player_values.json";
+export const NFL_PLAYERS_SLIM_PATH = "./data/nfl_players_slim.json";
 
 // Prefer meta.updatedAt when a bundle has it. Otherwise the file's asOf stamp.
 export function valuationUpdatedAt(bundle) {
@@ -134,6 +135,33 @@ export function pickValueBundle(payload, format) {
     };
   }
   return coerceValueMap(payload);
+}
+
+export function playersFromValueSnapshot(playerMeta = {}, names = {}) {
+  const out = {};
+  const meta = playerMeta && typeof playerMeta === "object" ? playerMeta : {};
+  const nameMap = names && typeof names === "object" ? names : {};
+  Object.entries(meta).forEach(([assetId, row]) => {
+    if (!String(assetId).startsWith("player:") || !row || typeof row !== "object") return;
+    const id = assetId.slice("player:".length);
+    if (!id) return;
+    const record = { player_id: id };
+    const name = String(nameMap[assetId] || "").trim();
+    if (name) record.full_name = name;
+    const position = String(row.position || "").trim().toUpperCase();
+    if (position) {
+      record.position = position;
+      record.fantasy_positions = [position];
+    }
+    const team = String(row.team || "").trim();
+    if (team) record.team = team;
+    const age = Number(row.age);
+    if (Number.isFinite(age) && age > 0) record.age = age;
+    const years = Number(row.experience);
+    if (Number.isFinite(years) && years >= 0) record.years_exp = years;
+    out[id] = record;
+  });
+  return out;
 }
 
 export function playerPositionForRaw(raw) {

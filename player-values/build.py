@@ -23,8 +23,10 @@ ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parent
 CONFIG = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
 OUTPUT = REPO / "docs" / "data" / "player_values.json"
+SLIM_PLAYERS_OUTPUT = REPO / "docs" / "data" / "nfl_players_slim.json"
 VALIDATION = ROOT / "validation.json"
 POSITIONS = ("QB", "RB", "WR", "TE")
+SLIM_POSITIONS = {"QB", "RB", "WR", "TE", "FB", "K", "DEF"}
 TWO_WAY_POSITIONS = {"CB", "DB", "S", "FS", "SS", "LB", "ILB", "OLB", "DE", "DT", "EDGE", "DL", "NB"}
 RETIRED_STATUSES = {"retired", "inactive", "reserve_retired", "reserve/did_not_report", "did_not_report"}
 REQUIRED_ASSETS = {
@@ -1208,6 +1210,115 @@ def backtest(rows, replacement=None):
     }
 
 
+def slim_nfl_player(player, player_id=""):
+    """Keep only the fields the desk reads from Sleeper."""
+    if not isinstance(player, dict):
+        return None
+    positions = []
+    for raw in player.get("fantasy_positions") or []:
+        position = str(raw or "").strip().upper()
+        if position and position not in positions:
+            positions.append(position)
+    primary = str(player.get("position") or "").strip().upper()
+    if primary and primary not in positions:
+        positions.insert(0, primary)
+    if not any(position in SLIM_POSITIONS for position in positions):
+        return None
+    status = str(player.get("status") or "").strip()
+    team = str(player.get("team") or "").strip()
+    retired = status.lower() in {"retired", "inactive", "reserve_retired", "did_not_report"}
+    if not team and (player.get("active") is False or retired):
+        return None
+    first = str(player.get("first_name") or "").strip()
+    last = str(player.get("last_name") or "").strip()
+    full = str(player.get("full_name") or "").strip() or f"{first} {last}".strip()
+    if not full:
+        return None
+    record = {"player_id": str(player.get("player_id") or player_id or "")}
+    if not record["player_id"]:
+        return None
+    record["full_name"] = full
+    if primary:
+        record["position"] = primary
+    elif positions:
+        record["position"] = positions[0]
+    team = str(player.get("team") or "").strip()
+    if team:
+        record["team"] = team
+    age = num(player.get("age"), default=None)
+    if age is not None and age > 0:
+        record["age"] = int(age) if float(age).is_integer() else round(float(age), 1)
+    injury = str(player.get("injury_status") or "").strip()
+    if injury:
+        record["injury_status"] = injury
+    status = str(player.get("status") or "").strip()
+    if status:
+        record["status"] = status
+    years = num(player.get("years_exp"), default=None)
+    if years is not None and years >= 0:
+        record["years_exp"] = int(years)
+    if player.get("active") is False:
+        record["active"] = False
+    if positions:
+        record["fantasy_positions"] = positions[:4]
+    rookie = num((player.get("metadata") or {}).get("rookie_year"), default=None)
+    if rookie is not None and rookie > 0:
+        record["metadata"] = {"rookie_year": int(rookie)}
+    return record
+
+
+def build_slim_players(sleeper_players):
+    players = {}
+    for player_id, player in (sleeper_players or {}).items():
+        record = slim_nfl_player(player, player_id)
+        if record:
+            players[str(player_id)] = record
+    return players
+
+
+SLIM_FILE_FIELDS = ("full_name", "position", "team", "age", "injury_status", "status", "years_exp")
+
+
+def compact_slim_players(records):
+    rows = {}
+    for player_id, record in records.items():
+        status = record.get("status") or ""
+        if status == "Active":
+            status = ""
+        rows[str(player_id)] = [
+            record.get("full_name") or "",
+            record.get("position") or "",
+            record.get("team") or "",
+            record.get("age") or 0,
+            record.get("injury_status") or "",
+            status,
+            record.get("years_exp") if record.get("years_exp") is not None else None,
+        ]
+    return rows
+
+
+def write_slim_players(sleeper_players, output=SLIM_PLAYERS_OUTPUT):
+    records = build_slim_players(sleeper_players)
+    payload = {
+        "asOf": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "source": "sleeper",
+        "fields": list(SLIM_FILE_FIELDS),
+        "players": compact_slim_players(records),
+    }
+    atomic_json(output, payload)
+    return payload
+
+
+def build_slim_only(cache, refresh=True):
+    sleeper_path = fetch(cache, "sleeper_players.json", SLEEPER_PLAYERS_URL, refresh=refresh)
+    sleeper = json.loads(sleeper_path.read_text(encoding="utf-8"))
+    payload = write_slim_players(sleeper)
+    print(json.dumps({
+        "output": str(SLIM_PLAYERS_OUTPUT),
+        "players": len(payload["players"]),
+    }, indent=2))
+
+
 def atomic_json(path, payload):
     path.parent.mkdir(parents=True, exist_ok=True)
     encoded = (json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
@@ -1448,6 +1559,7 @@ def build(cache, refresh=True):
     validate(bundle)
     atomic_json(OUTPUT, bundle)
     atomic_json(VALIDATION, report)
+    write_slim_players(inputs["sleeper"])
     print(json.dumps({
         "output": str(OUTPUT),
         "players": len(player_meta),
@@ -1462,7 +1574,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache-dir", type=Path, default=Path(".cache/player-values"))
     parser.add_argument("--use-cache", action="store_true", help="Reuse already-downloaded upstream files")
+    parser.add_argument("--slim-only", action="store_true", help="Write docs/data/nfl_players_slim.json and skip the value model")
     args = parser.parse_args()
+    if args.slim_only:
+        build_slim_only(args.cache_dir, refresh=not args.use_cache)
+        return
     build(args.cache_dir, refresh=not args.use_cache)
 
 

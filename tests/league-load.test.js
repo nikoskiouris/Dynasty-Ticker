@@ -141,18 +141,33 @@ test("drop abandons a league load that has not committed", async () => {
   assert.equal(committed, false);
 });
 
-test("roster sheet stops saying names are coming once player metadata fails", () => {
+test("roster sheet paints while player metadata is still missing", () => {
   const start = app.indexOf("function renderRosterSheet()");
   assert.ok(start >= 0);
   const body = app.slice(start, app.indexOf("\nfunction ", start + 10));
-  assert.match(body, /state\.playerMetadataFailed/);
-  assert.match(body, /Player metadata unavailable/);
-  assert.match(body, /Sleeper didn't return player names, positions, or ages\. Rosters and trade search still work with fallback values\./);
-  assert.match(body, /Syncing player metadata/);
-  assert.match(body, /Names, positions, and ages arrive in a moment\./);
+  assert.match(body, /rosterGradeReady\(roster\)/);
+  assert.match(body, /renderRosterDirectory\(roster\)/);
+  assert.doesNotMatch(body, /Syncing player metadata/);
+
+  const directory = app.slice(
+    app.indexOf("function renderRosterDirectory("),
+    app.indexOf("function renderPowerDashboard("),
+  );
+  assert.match(directory, /renderMetadataPlaceholder\(\)/);
+  assert.match(directory, /Player metadata unavailable\. Rosters and trade search still work with fallback values\./);
+  assert.match(directory, /renderPickVaultRow/);
+  assert.doesNotMatch(directory, /Syncing player metadata/);
 
   const loadStart = app.indexOf("const playersEpoch = playerLoadEpoch");
   const success = app.slice(loadStart, app.indexOf(".catch(", loadStart));
-  assert.match(success, /state\.playerMetadataLoaded = true/);
-  assert.match(success, /state\.playerMetadataFailed = false/);
+  assert.match(success, /commitPlayerDirectory/);
+  const commit = app.slice(
+    app.indexOf("function commitPlayerDirectory("),
+    app.indexOf("function loadSlimPlayersFile("),
+  );
+  assert.match(commit, /state\.playerMetadataLoaded = true/);
+  assert.match(commit, /state\.playerMetadataFailed = false/);
+  assert.match(app, /NFL_PLAYERS_SLIM_PATH/);
+  assert.match(app, /playersCacheIsFresh\(fromCache, now, \{ ttlMs: PLAYERS_CACHE_TTL_MS \}\)/);
+  assert.doesNotMatch(app, /Syncing player metadata/);
 });
