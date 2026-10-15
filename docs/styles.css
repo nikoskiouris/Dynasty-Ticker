@@ -4132,20 +4132,94 @@ button.weekly-help-close:hover {
   overflow-wrap: anywhere;
 }
 
+/* Shared link, prices moved: a compact two-row compare, today in bold. */
 .calc-shared {
-  margin: 0 0 0.25rem;
-  color: var(--muted);
+  display: grid;
+  gap: var(--sp-1);
+  margin: var(--sp-1) 0 0;
   font-size: var(--fs-sm2);
 }
 
-.calc-shared strong {
-  color: var(--text);
-  font-weight: 600;
+.calc-shared > div {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: baseline;
 }
 
-.calc-shared .calc-shared-num {
-  font-weight: 700;
+.calc-shared dt {
+  min-width: 3.5em;
+  color: var(--muted);
+}
+
+.calc-shared dd {
+  margin: 0;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+
+.calc-shared .is-today dt,
+.calc-shared .is-today dd strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.calc-shared .is-today dd strong {
+  font-size: var(--fs-body-lg);
+}
+
+.calc-shared-note {
+  margin: var(--sp-1) 0 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+/* ⓘ: the method, credit and even-up notes on a shared link. 44px tap, quiet look. */
+.verdict-info-toggle {
+  display: inline-grid;
+  place-items: center;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  margin: 0 0 0 calc(var(--sp-3) * -1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: var(--fs-body);
+  cursor: pointer;
+}
+
+.verdict-info-toggle:hover,
+.verdict-info-toggle[aria-expanded="true"] {
+  color: var(--text);
+}
+
+.verdict-fine-print {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.verdict-fine-print[hidden] {
+  display: none;
+}
+
+/* A routed or shared trade before names load: a bar, never a raw id. */
+.selected-token-label.is-loading {
+  display: inline-flex;
+  align-items: center;
+}
+
+.name-skeleton {
+  display: inline-block;
+  width: 7.5em;
+  height: 0.9em;
+  border-radius: var(--radius-sm);
+  background: var(--panel-soft);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .name-skeleton {
+    animation: pulse 1.4s ease-in-out infinite;
+  }
 }
 
 .calc-share-status:empty {

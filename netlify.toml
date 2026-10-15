@@ -22,6 +22,7 @@
     "docs/data/player_values.json",
     "docs/data/price-history/*.json",
     "netlify/fonts/*.ttf",
+    "docs/brand/wordmark-on-dark.svg",
     "node_modules/@resvg/resvg-wasm/index_bg.wasm",
   ]
 

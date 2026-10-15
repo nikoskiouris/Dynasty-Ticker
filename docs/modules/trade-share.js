@@ -109,24 +109,15 @@ export function shareImagePath(code, version = "") {
   return `/og/t/${code}.png${stamp ? `?v=${stamp}` : ""}`;
 }
 
-// Neutral wording for a stranger reading the card: Give and Get are the sharer's sides.
-const SHARE_LABEL = Object.freeze({
-  "Dead even": "Dead even",
-  "Fair, leans Get": "Fair, leans Get",
-  "Fair, leans Give": "Fair, leans Give",
-  "Favors Get": "Favors the Get side",
-  "Favors Give": "Favors the Give side",
-  "Lopsided for Get": "Lopsided for Get",
-  "Lopsided for Give": "Lopsided for Give",
-});
-
 // Same prices and the same verdict math as the calculator, from the public board.
 // Same verdict if the label and the gap match. Otherwise the page shows both.
 export function sameVerdict(left, right) {
   return Boolean(left && right) && left.label === right.label && left.pct === right.pct;
 }
 
-export function shareSummary(decoded, payload, playerNames = {}) {
+// directory: a payload with players (positions) and names, for archived boards
+// that carry prices only. Defaults to the board itself.
+export function shareSummary(decoded, payload, playerNames = {}, directory = payload) {
   if (!decoded) return null;
   const bundle = pickValueBundle(payload, decoded.format);
   const values = bundle.values || {};
@@ -135,25 +126,72 @@ export function shareSummary(decoded, payload, playerNames = {}) {
     const id = assetId.slice("player:".length);
     const name = isPick
       ? (bundle.nameMap?.[assetId] || formatGenericPickAssetLabel(assetId))
-      : (String(playerNames?.[id] || "").trim() || `Player ${id}`);
+      : (String(playerNames?.[id] || payload?.names?.[assetId] || directory?.names?.[assetId] || "").trim() || `Player ${id}`);
     const value = Math.max(0, Math.round(Number(values[assetId]) || 0));
-    return { assetId, name: name.slice(0, 40), value };
+    const position = isPick ? "PICK" : String((payload?.players || directory?.players)?.[assetId]?.position || "").toUpperCase().slice(0, 4);
+    return { assetId, name: name.slice(0, 40), value, position };
   };
   const give = decoded.give.map(row);
   const get = decoded.get.map(row);
   const model = draftVerdictModel(give.map((r) => r.value), get.map((r) => r.value), {
     globalMaxValue: getGlobalMaxPlayerValue(values),
   });
-  return {
+  const credit = model.adjustment
+    ? { amount: Math.round(model.adjustment.amount), side: model.adjustment.side === "left" ? "give" : "get" }
+    : null;
+  const summary = {
     format: decoded.format,
     formatLabel: decoded.format === "oneQb" ? "1QB" : "Superflex",
     give,
     get,
     giveTotal: model.give,
     getTotal: model.get,
+    // Credited totals: the listed prices plus "Stars cost extra" on one side.
+    // The gap, % and verdict all come from these, so the card's math adds up.
+    giveCredited: model.compareGive,
+    getCredited: model.compareGet,
+    credit,
+    gap: model.compareGet - model.compareGive,
     pct: model.verdict.pct,
     tone: model.verdict.tone,
-    label: SHARE_LABEL[model.verdict.label] || model.verdict.label,
     stamp: priceStamp(payload?.asOf),
   };
+  summary.label = neutralVerdict(summary);
+  return summary;
+}
+
+const formatCount = (value) => Math.round(Math.abs(Number(value) || 0)).toLocaleString("en-US");
+
+// One neutral vocabulary for anyone reading a shared trade. "Give" and "Get"
+// are the sharer's two sides, so a stranger reads the same words as the sharer.
+// Within 5% is even (the calculator's "Fair trade" band).
+export function neutralVerdict(summary) {
+  if (!summary) return "";
+  const pct = Number(summary.pct) || 0;
+  if (pct <= 5) return `Even, ${pct}% apart`;
+  return `${summary.gap > 0 ? "Get" : "Give"} wins by ${pct}%`;
+}
+
+// The sharer made the card, so it speaks to them (OG-CARD.md, COPY-DECK 27-30).
+// tone: good (you win by more than 5%), fair (within 5%), bad (you overpay).
+export function cardVerdict(summary) {
+  const pct = Number(summary?.pct) || 0;
+  const gap = Number(summary?.gap) || 0;
+  if (pct <= 5) return { text: "Fair trade", pctText: `${pct}% apart`, tone: "fair" };
+  if (gap > 0) return { text: `You win by ${formatCount(gap)}`, pctText: `+${pct}%`, tone: "good" };
+  return { text: `You overpay by ${formatCount(gap)}`, pctText: `-${pct}%`, tone: "bad" };
+}
+
+// The share sheet text (COPY-DECK 27-30, sentence case, no exclamation marks).
+export function shareMessage(summary) {
+  const verdict = cardVerdict(summary);
+  return verdict.tone === "fair"
+    ? `Fair trade, ${verdict.pctText}. Check it on Dynasty Ticker.`
+    : `${verdict.text} (${verdict.pctText}). Check it on Dynasty Ticker.`;
+}
+
+// "Stars cost extra +7,413" on the side that gets the package credit.
+export function creditLine(summary) {
+  if (!summary?.credit?.amount) return "";
+  return `Stars cost extra +${formatCount(summary.credit.amount)}`;
 }

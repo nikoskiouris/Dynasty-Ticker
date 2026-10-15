@@ -1,0 +1,156 @@
+// Review-164 fixes: credited math on the card and meta, neutral wording,
+// OG-CARD layout, measured truncation, and /t/<code> staying in the address bar.
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  cardVerdict,
+  creditLine,
+  decodeTradeShare,
+  neutralVerdict,
+  shareMessage,
+  shareSummary,
+} from "../docs/modules/trade-share.js";
+import { matchRoute, pathForPlace } from "../docs/modules/history-route.js";
+import { shareText, summaryForCode } from "../netlify/lib/trade-share.js";
+import { loadCardArt, renderCardSvg } from "../netlify/lib/trade-card.js";
+import { createMeasurer, truncateToWidth } from "../netlify/lib/text-measure.js";
+
+const root = dirname(fileURLToPath(import.meta.url));
+const values = JSON.parse(readFileSync(join(root, "../docs/data/player_values.json"), "utf8"));
+const bold = readFileSync(join(root, "../netlify/fonts/instrument-sans-700.ttf"));
+const measure = createMeasurer(bold);
+// Real Sleeper ids: 9509 Bijan Robinson, 11632 Malik Nabers, 9493 Puka Nacua,
+// 7564 Ja'Marr Chase, 9488 Jaxon Smith-Njigba, 7547 Amon-Ra St. Brown.
+const names = {};
+for (const [key, name] of Object.entries(values.names)) if (key.startsWith("player:")) names[key.slice(7)] = name;
+const summaryOf = (code) => shareSummary(decodeTradeShare(code), values, names);
+const svgText = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+
+test("credited totals: rows plus 'Stars cost extra' add up to each side, and the gap is their difference", () => {
+  for (const code of ["1s9509~11632.p27r1e", "1s7564~11632.p27r2a", "1sp27r1e.p28r1a~p27r2a.p27r3a.p28r2a.p28r1e.p27r1l", "1s9509~9493"]) {
+    const s = summaryOf(code);
+    const sum = (rows) => rows.reduce((total, row) => total + row.value, 0);
+    const credit = (side) => (s.credit?.side === side ? s.credit.amount : 0);
+    assert.ok(Math.abs(sum(s.give) + credit("give") - s.giveCredited) <= 1, code);
+    assert.ok(Math.abs(sum(s.get) + credit("get") - s.getCredited) <= 1, code);
+    assert.equal(s.gap, s.getCredited - s.giveCredited);
+    const pct = Math.round((Math.abs(s.gap) / Math.max(s.giveCredited, s.getCredited)) * 1000) / 10;
+    assert.equal(s.pct, pct, code);
+  }
+});
+
+test("the card never shows a verdict for the side with the smaller total", () => {
+  // Review H2: 'fair' showed Give 10,081 < Get 9,695... with a verdict for Give.
+  for (const code of ["1s9509~11632.p27r1e", "1s7564~11632.p27r2a", "1sp27r1e.p28r1a~p27r2a.p27r3a.p28r2a.p28r1e.p27r1l"]) {
+    const s = summaryOf(code);
+    const svg = renderCardSvg(s, { measure });
+    const texts = svgText(svg);
+    const v = cardVerdict(s);
+    assert.ok(texts.includes(s.giveCredited.toLocaleString("en-US")), `${code} give total`);
+    assert.ok(texts.includes(s.getCredited.toLocaleString("en-US")), `${code} get total`);
+    if (s.credit) {
+      assert.ok(texts.includes("Stars cost extra"));
+      assert.ok(texts.includes(`+${s.credit.amount.toLocaleString("en-US")}`));
+      assert.equal(creditLine(s), `Stars cost extra +${s.credit.amount.toLocaleString("en-US")}`);
+    }
+    if (v.tone === "bad") assert.ok(s.giveCredited > s.getCredited);
+    if (v.tone === "good") assert.ok(s.getCredited > s.giveCredited);
+    assert.match(v.text, /^(You win by|You overpay by) [\d,]+$|^Fair trade$/);
+    if (v.tone !== "fair") assert.equal(v.text.split(" by ")[1], Math.abs(s.gap).toLocaleString("en-US"));
+  }
+});
+
+test("og:title, og:description and alt use the card verdict and credited totals", () => {
+  const s = summaryOf("1s9509~11632.p27r1e");
+  const { title, description, alt } = shareText(s);
+  const v = cardVerdict(s);
+  assert.equal(title, `Bijan Robinson for Malik Nabers, 2027 Early 1st: ${v.text} (${v.pctText})`);
+  assert.match(description, /^Give 11,811 \+ [\d,]+ stars cost extra = [\d,]+ vs get 14,457\./);
+  assert.match(description, /Check your own trade free at Dynasty Ticker\.$/);
+  assert.ok(alt.includes(s.giveCredited.toLocaleString("en-US")));
+  assert.doesNotMatch(`${title} ${description}`, /Lopsided|Favors|leans/);
+});
+
+test("card copy: green win, amber fair within 5%, red overpay", () => {
+  assert.deepEqual(cardVerdict({ pct: 18, gap: 2646 }), { text: "You win by 2,646", pctText: "+18%", tone: "good" });
+  assert.deepEqual(cardVerdict({ pct: 4, gap: -300 }), { text: "Fair trade", pctText: "4% apart", tone: "fair" });
+  assert.deepEqual(cardVerdict({ pct: 24.8, gap: -4767 }), { text: "You overpay by 4,767", pctText: "-24.8%", tone: "bad" });
+  const fair = renderCardSvg(summaryOf("1s9509~9493"), { measure });
+  assert.match(fair, /font-size="48" font-weight="700" fill="#f0c36a">Fair trade</);
+});
+
+test("one neutral vocabulary for a shared trade", () => {
+  assert.equal(neutralVerdict({ pct: 50.2, gap: -10 }), "Give wins by 50.2%");
+  assert.equal(neutralVerdict({ pct: 25, gap: 10 }), "Get wins by 25%");
+  assert.equal(neutralVerdict({ pct: 3.8, gap: 10 }), "Even, 3.8% apart");
+  const s = summaryOf("1s9509~11632.p27r1e");
+  assert.equal(s.label, neutralVerdict(s));
+  assert.doesNotMatch(s.label, /them|you|Lopsided|Favors/i);
+});
+
+test("share text uses the copy deck verdicts, sentence case, no exclamation marks", () => {
+  assert.equal(shareMessage({ pct: 18, gap: 2646 }), "You win by 2,646 (+18%). Check it on Dynasty Ticker.");
+  assert.equal(shareMessage({ pct: 4, gap: 1 }), "Fair trade, 4% apart. Check it on Dynasty Ticker.");
+  assert.doesNotMatch(shareMessage({ pct: 30, gap: -9 }), /!/);
+});
+
+test("card layout follows OG-CARD.md: sans only, wordmark, bottom bar, pills, +N more, no marks or headshots", async () => {
+  const art = await loadCardArt();
+  const s = summaryOf("1sp27r1e.p28r1a~p27r2a.p27r3a.p28r2a.p28r1e.p27r1l");
+  const svg = renderCardSvg(s, art);
+  assert.doesNotMatch(svg, /serif"|Instrument Serif/);
+  assert.doesNotMatch(svg, /<image|KTC|keeptradecut|sleepercdn|football-forecast/i);
+  assert.match(svg, /<svg x="64" y="63" width="\d+" height="34" viewBox="0 0 363\.6/); // wordmark
+  assert.match(svg, /<rect x="0" y="618" width="\d+" height="12" fill="#ff7a72"\/><rect x="\d+" y="618" width="\d+" height="12" fill="#3dcc8a"\/>/);
+  assert.ok(svgText(svg).includes("+1 more"));
+  assert.equal(svgText(svg).filter((t) => t === "PK").length, 6); // 2 + 4 shown
+  const players = renderCardSvg(summaryOf("1s9509~11632"), art);
+  assert.ok(svgText(players).includes("RB") && svgText(players).includes("WR"));
+  assert.match(players, /font-size="48" font-weight="700" fill="#(?:3dcc8a|ff7a72|f0c36a)">/);
+});
+
+test("names truncate by measured width at 28px, never shrinking", () => {
+  assert.equal(truncateToWidth("Amon-Ra St. Brown", 400, 28, measure), "Amon-Ra St. Brown");
+  const cut = truncateToWidth("Amon-Ra St. Brown", 200, 28, measure);
+  assert.match(cut, /…$/);
+  assert.ok(measure(cut, 28) <= 200);
+  assert.ok(measure("WWWWWWWWWW", 28) > measure("iiiiiiiiii", 28) * 3, "real advance widths");
+  // A long 4-asset side: every name fits its column next to its value.
+  const s = shareSummary(decodeTradeShare("1s9509~7547.9488.4984.9221"), values, {
+    ...names,
+    7547: "Amon-Ra St. Brown Wwwwwwwwwwwwwwwwwwww",
+    9488: "Jaxon Smith-Njigba Mmmmmmmmmmmmmm",
+  });
+  const svg = renderCardSvg(s, { measure });
+  assert.doesNotMatch(svg, /font-size="(?:1\d|2[0-3])" font-weight="600"/);
+  const rows = [...svg.matchAll(/<text x="(\d+)" y="\d+" font-family="Instrument Sans" font-size="28" font-weight="600" fill="#f4f1ec">([^<]*)<\/text><text x="(\d+)"[^>]*>([^<]*)</g)];
+  assert.equal(rows.length, 5);
+  for (const [, nameX, name, valueX, value] of rows) {
+    const decoded = name.replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+    assert.ok(Number(nameX) + measure(decoded, 28) <= Number(valueX) - measure(value, 28) - 8, decoded);
+  }
+});
+
+test("an archived board without positions borrows them from today's board", async () => {
+  const snapshot = { asOf: values.asOf, sf: values.sf, oneQb: values.oneQb };
+  const hit = await summaryForCode("2s2026101419179509~11632", {
+    loadValues: async () => values,
+    loadPlayerNames: async () => names,
+    loadSnapshot: async () => snapshot,
+  });
+  assert.deepEqual(hit.summary.give.map((r) => r.position), ["RB"]);
+  assert.deepEqual(hit.summary.get.map((r) => r.position), ["WR"]);
+});
+
+test("an opened /t link keeps /t/<code> in the address bar until the trade changes", () => {
+  const route = matchRoute("/t/1s9509~11632.p27r1e");
+  assert.equal(route.shareCode, "1s9509~11632.p27r1e");
+  const place = { page: "trades", room: "calculator", give: route.give, get: route.get };
+  assert.equal(pathForPlace({ ...place, shareCode: route.shareCode }), "/t/1s9509~11632.p27r1e");
+  assert.equal(pathForPlace({ ...place, shareCode: route.shareCode, leagueId: "1180189013451112448" }), "/t/1s9509~11632.p27r1e");
+  assert.match(pathForPlace(place), /^\/trade\?give=/);
+  assert.match(pathForPlace({ ...place, shareCode: "bogus!" }), /^\/trade\?give=/);
+});

@@ -23,7 +23,8 @@ export const ROUTES = Object.freeze([
   { name: "ideas", pattern: "/l/:leagueId/ideas", page: "trades", room: "find" },
   { name: "leagueBoard", pattern: "/l/:leagueId/league", page: "league", room: "board" },
   { name: "player", pattern: "/player/:sleeperId/:slug?", page: "players", room: "ranks" },
-  // A shared trade. The code is the trade (see trade-share.js), so it opens as /trade.
+  // A shared trade. The code is the trade (see trade-share.js). It opens the
+  // calculator and stays /t/<code> until the trade is edited.
   { name: "sharedTrade", pattern: "/t/:shareCode", page: "trades", room: "calculator" },
 ]);
 
@@ -279,10 +280,16 @@ export function pathForPlace({
   leagueId = "",
   give = [],
   get = [],
+  shareCode = "",
   landing = false,
 } = {}) {
   const sleeperId = sleeperIdFrom(playerId);
   let href = "";
+  // An opened shared link keeps /t/<code> in the address bar while the trade is
+  // unchanged, so copying the URL shares the same trade (and its date).
+  if (!sleeperId && page === "trades" && room === "calculator" && shareCode && decodeTradeShare(shareCode)) {
+    return urlPath("t", shareCode);
+  }
   if (sleeperId) href = playerPathname(sleeperId, playerName);
   else if (page === "trades" && room === "calculator") href = tradeHref(give, get, leagueId);
   else if (page === "trades" && room === "find" && LEAGUE_ID.test(String(leagueId || ""))) {

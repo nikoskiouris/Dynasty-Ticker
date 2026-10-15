@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  cardVerdict,
   decodeTradeShare,
   isPriceStamp,
   sameVerdict,
@@ -43,20 +44,31 @@ export function codeFromPath(pathname, { suffix = "" } = {}) {
   return code;
 }
 
+// og:title and og:description use the card's own verdict and credited totals,
+// so the text, the card and the % never disagree (H2 in review-164).
 export function shareText(summary) {
   const list = (rows) => rows.map((row) => row.name).join(", ");
+  const verdict = cardVerdict(summary);
+  const n = (value) => Math.round(value).toLocaleString("en-US");
+  const side = (key, label) => {
+    const credited = summary.credit?.side === key;
+    const listed = key === "give" ? summary.giveTotal : summary.getTotal;
+    const total = key === "give" ? summary.giveCredited : summary.getCredited;
+    return credited ? `${label} ${n(listed)} + ${n(summary.credit.amount)} stars cost extra = ${n(total)}` : `${label} ${n(total)}`;
+  };
+  const verdictText = verdict.tone === "fair" ? `${verdict.text}, ${verdict.pctText}` : `${verdict.text} (${verdict.pctText})`;
   return {
-    title: `${summary.label}: ${list(summary.give)} for ${list(summary.get)}`.slice(0, 140),
-    description: `Give ${summary.giveTotal.toLocaleString("en-US")} vs get ${summary.getTotal.toLocaleString("en-US")}, ${summary.pct}% apart. Dynasty Ticker market prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, ${summary.formatLabel}.`,
+    title: `${list(summary.give)} for ${list(summary.get)}: ${verdictText}`.slice(0, 160),
+    description: `${side("give", "Give")} vs ${side("get", "get")}. Prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, ${summary.formatLabel}. Check your own trade free at Dynasty Ticker.`,
+    alt: `${verdictText}. Give ${n(summary.giveCredited)}, get ${n(summary.getCredited)}.`,
   };
 }
 
 // Swap the page's default social tags for the trade's. Bots read these without JS.
 export function injectShareMeta(html, { summary, code, origin = SITE_ORIGIN, version = "" }) {
-  const { title, description } = shareText(summary);
+  const { title, description, alt } = shareText(summary);
   const url = `${origin}${sharePath(code)}`;
   const image = `${origin}${shareImagePath(code, version)}`;
-  const alt = `${summary.label}. Give ${summary.giveTotal}, get ${summary.getTotal}.`;
   const tags = [
     `<meta property="og:title" content="${escapeMarkup(title)}" />`,
     `<meta property="og:description" content="${escapeMarkup(description)}" />`,
@@ -174,7 +186,7 @@ export async function summaryForCode(code, deps = {}) {
     decoded.stamp ? (deps.loadSnapshot || loadSnapshot)(decoded.stamp, deps) : null,
   ]);
   const today = shareSummary(decoded, payload, names);
-  const shared = snapshot ? shareSummary(decoded, snapshot, names) : null;
+  const shared = snapshot ? shareSummary(decoded, snapshot, names, payload) : null;
   const summary = shared || today;
   return {
     decoded,

@@ -44,6 +44,7 @@ for (const viewport of viewports) {
     await expect(share).toBeVisible();
     const box = await share.boundingBox();
     expect(box.height).toBeLessThanOrEqual(36);
+    await expect(share).toHaveText("Share trade");
     await share.click();
     const status = page.locator(".calc-share-status");
     await expect(status).toHaveAttribute("role", "status");
@@ -51,6 +52,47 @@ for (const viewport of viewports) {
     const copied = await page.evaluate(() => navigator.clipboard.readText());
     // The sharer's link carries the board's price stamp.
     expect(copied).toBe(`http://127.0.0.1:4173/t/2s${STAMP}4984.p27r1e~9221`);
+    // "Link copied." clears itself after about 4s.
+    await expect(status).toHaveText("", { timeout: 6000 });
+  });
+
+  test(`a cold shared link shows names, never raw ids, at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    // Real Sleeper ids: 9509 Bijan Robinson, 11632 Malik Nabers, plus the 2027 early 1st.
+    const cold = `/t/2s${STAMP}9509~11632.p27r1e`;
+    await page.setViewportSize(viewport);
+    await page.goto(cold);
+    const verdict = page.locator("#value-calc-verdict .calc-summary");
+    await expect(verdict).toBeVisible({ timeout: 30000 });
+    await expect(page.locator("[data-draft-side='left'] .calc-selected")).toContainText("Bijan Robinson");
+    await expect(page.locator("[data-draft-side='right'] .calc-selected")).toContainText("Malik Nabers");
+    await expect(page.locator("[data-draft-side='right'] .calc-selected")).toContainText("2027 Early 1st");
+    const text = await page.locator("body").innerText();
+    expect(text).not.toMatch(/player:|pick:/);
+    // The address bar keeps the share link.
+    expect(new URL(page.url()).pathname).toBe(cold);
+  });
+
+  test(`a player missing from the board shows a skeleton until Sleeper names load at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.route("**/data/player_values.json", async (route) => {
+      const res = await route.fetch();
+      const body = await res.json();
+      delete body.names["player:9509"];
+      await route.fulfill({ response: res, json: body });
+    });
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    await page.route("https://api.sleeper.app/v1/players/nfl", async (route) => {
+      await gate;
+      await route.fulfill({ json: { 9509: { player_id: "9509", full_name: "Bijan Robinson", first_name: "Bijan", last_name: "Robinson", position: "RB", team: "ATL" } } });
+    });
+    await page.setViewportSize(viewport);
+    await page.goto(`/t/2s${STAMP}9509~11632`);
+    const left = page.locator("[data-draft-side='left'] .calc-selected");
+    await expect(left.locator(".name-skeleton")).toBeVisible({ timeout: 30000 });
+    expect(await page.locator("body").innerText()).not.toMatch(/player:|pick:/);
+    release();
+    await expect(left).toContainText("Bijan Robinson", { timeout: 15000 });
+    await expect(left.locator(".name-skeleton")).toHaveCount(0);
   });
 
   test(`a dated link on today's board shows one verdict at ${viewport.width}x${viewport.height}`, async ({ page }) => {
@@ -73,10 +115,37 @@ for (const viewport of viewports) {
     await page.goto(`/t/2s${OLD}4984~9221`);
     const shared = page.locator(".calc-shared");
     await expect(shared).toBeVisible({ timeout: 30000 });
-    await expect(shared).toContainText("Shared verdict (Oct 7)");
-    await expect(page.locator("#value-calc-verdict h3")).toContainText("Today:");
+    // One neutral vocabulary: both rows name a side the same way.
+    await expect(shared.locator("div").first()).toHaveText(/^Oct 7\s*(Give|Get) wins by [\d.]+%$/);
+    await expect(shared.locator(".is-today")).toHaveText(/^Today\s*((Give|Get) wins by [\d.]+%|Even, [\d.]+% apart)$/);
+    await expect(page.locator(".calc-shared-note")).toHaveText("Prices moved since this was shared.");
+    const heading = page.locator("#value-calc-verdict h3");
+    await expect(heading).toHaveText(/^Shared on Oct 7: (Give|Get) wins by [\d.]+%\. Today: ((Give|Get) wins by [\d.]+%|Even, [\d.]+% apart)\.$/);
+    await expect(page.locator("#value-calc-verdict")).not.toContainText(/for them|for Give|for Get|Lopsided/);
     const box = await shared.boundingBox();
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  });
+
+  test(`disclaimers sit behind an accessible info button on a shared link at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    // Bijan for Nabers + a 1st gets package credit, so there is fine print to hide.
+    await page.goto(`/t/2s${STAMP}9509~11632.p27r1e`);
+    const toggle = page.locator("[data-action='verdict-info']");
+    await expect(toggle).toBeVisible({ timeout: 30000 });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(toggle).toHaveAccessibleName("How this verdict works");
+    const fine = page.locator(".verdict-fine-print");
+    await expect(fine).toBeHidden();
+    await expect(page.locator("#value-calc-verdict")).not.toContainText("Package credit");
+    const box = await toggle.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(fine).toBeVisible();
+    await expect(fine).toContainText("Stars cost extra");
+    await toggle.click();
+    await expect(fine).toBeHidden();
   });
 
   test(`an unknown date falls back to today's prices at ${viewport.width}x${viewport.height}`, async ({ page }) => {

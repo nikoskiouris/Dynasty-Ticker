@@ -292,7 +292,7 @@ import {
   topOverlay,
   urlPath,
 } from "./modules/history-route.js";
-import { decodeTradeShare, encodeTradeShare, sameVerdict, sharePath, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
+import { decodeTradeShare, encodeTradeShare, sameVerdict, shareMessage, sharePath, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
 import {
   analyzeWindowCall,
   groupWindowCalls,
@@ -944,6 +944,7 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
       landing: openingPlayers ? false : landingVisible(),
       give: draftSideIds("left"),
       get: draftSideIds("right"),
+      shareCode: activeShareCode(),
     });
     if (!href || href === window.location.pathname) return;
   }
@@ -1714,14 +1715,17 @@ function applyTradeRoute(route) {
   void loadSharedTrade(route?.shareCode, draft);
 }
 
-// A dated link shows what the sharer saw, priced from the archived board.
+// Any /t/<code> link marks the draft as shared while it still matches the code:
+// the address bar keeps /t/<code>, and the verdict speaks neutrally.
+// A dated link also shows what the sharer saw, priced from the archived board.
 // An undated or unknown stamp has no shared verdict, only today's.
 async function loadSharedTrade(code, draft) {
   state.sharedTrade = null;
   const decoded = decodeTradeShare(code || "");
-  if (!decoded?.stamp) return;
-  const entry = { decoded, key: draftAssetKey(draft), snapshot: null };
+  if (!decoded) return;
+  const entry = { code, decoded, key: draftAssetKey(draft), snapshot: null };
   state.sharedTrade = entry;
+  if (!decoded.stamp) return;
   try {
     const res = await fetch(snapshotPath(decoded.stamp));
     if (!res.ok) return;
@@ -1734,13 +1738,22 @@ async function loadSharedTrade(code, draft) {
   if (state.sharedTrade === entry && el.calculatorShell?.querySelector("#value-calc-verdict")) patchTradeDraft();
 }
 
-function sharedVerdictFor(view) {
+function activeSharedTrade(draft = state.valueCalc) {
   const entry = state.sharedTrade;
-  if (!entry?.snapshot || entry.key !== draftAssetKey(view.draft)) return null;
-  const shared = shareSummary(entry.decoded, entry.snapshot);
-  const today = state.valueBundles ? shareSummary(entry.decoded, state.valueBundles) : null;
-  if (!today || sameVerdict(shared, today)) return null;
-  return { shared, date: stampLabel(entry.decoded.stamp) };
+  return entry && entry.key === draftAssetKey(draft) ? entry : null;
+}
+
+function activeShareCode() {
+  return activeSharedTrade()?.code || "";
+}
+
+function sharedVerdictFor(view) {
+  const entry = activeSharedTrade(view.draft);
+  if (!entry || !state.valueBundles) return null;
+  const today = shareSummary(entry.decoded, state.valueBundles);
+  const shared = entry.snapshot ? shareSummary(entry.decoded, entry.snapshot, {}, state.valueBundles) : null;
+  const moved = Boolean(shared) && !sameVerdict(shared, today);
+  return { today, shared: moved ? shared : null, date: stampLabel(entry.decoded.stamp) };
 }
 
 function canonicalizePlayerUrl(playerId, name) {
@@ -1775,6 +1788,7 @@ function buildShareUrl(overrides = {}) {
     leagueId: state.leagueId,
     give: draftSideIds("left"),
     get: draftSideIds("right"),
+    shareCode: activeShareCode(),
     landing: landingVisible(),
   });
   if (href) return `${overrides.origin ?? window.location.origin}${href}`;
@@ -6603,14 +6617,48 @@ function draftItemMismatch(view, item) {
   return Boolean(view.basis.connected && view.context && !view.context.needsTeam && row && row.status !== "ok");
 }
 
+// A routed or shared draft is built from ids before names load. Resolve the
+// name at paint time: picks from the board's names (or "2027 Early 1st"),
+// players from the board, then the Sleeper directory. "" means still loading.
+function draftItemDisplayName(item, names) {
+  const id = String(item?.assetId || "");
+  const own = String(item?.name || "").trim();
+  if (own && own !== id && !/^(?:player|pick):/.test(own) && !/^\d+$/.test(own)) return own;
+  if (id.startsWith("pick:")) return String(names[id] || formatGenericPickAssetLabel(id) || "").replace(/^pick:.*$/, "");
+  return String(names[id] || "").trim();
+}
+
+let draftNamesRequested = false;
+function requestDraftPlayerNames() {
+  if (draftNamesRequested || (state.players && Object.keys(state.players).length)) return;
+  draftNamesRequested = true;
+  const epoch = playerLoadEpoch;
+  void loadPlayersWithCache()
+    .then((players) => {
+      if (epoch !== playerLoadEpoch || !players || !Object.keys(players).length) return;
+      if (!state.players || !Object.keys(state.players).length) state.players = players;
+      if (el.calculatorShell?.querySelector(".calc-grid")) patchTradeDraft();
+    })
+    .catch(() => {});
+}
+
 function renderDraftTokens(side, view) {
   const items = view.draft[side] || [];
   if (!items.length) return "";
-  return items.map((item) => {
-    const price = view.priced.get(String(item.uid));
+  const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
+  return items.map((rawItem) => {
+    const price = view.priced.get(String(rawItem.uid));
+    const name = draftItemDisplayName(rawItem, names);
+    if (!name) requestDraftPlayerNames();
+    // Keep the resolved name on the draft so notes and offer text read it too.
+    else if (rawItem.name !== name && !Object.isFrozen(rawItem)) rawItem.name = name;
+    const item = { ...rawItem, name };
+    const label = name
+      ? renderSelectedTokenLabel(item)
+      : `<span class="selected-token-label is-loading"><span class="name-skeleton" aria-hidden="true"></span><span class="sr-only">Loading player name</span></span>`;
     return `
-      <button type="button" class="selected-token${draftItemMismatch(view, item) ? " is-mismatch" : ""}" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" title="Remove ${escapeHtml(item.name)}">
-        ${renderSelectedTokenLabel(item)}
+      <button type="button" class="selected-token${draftItemMismatch(view, item) ? " is-mismatch" : ""}" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" title="${escapeHtml(name ? `Remove ${name}` : "Remove")}">
+        ${label}
         <span class="selected-token-price" title="Model price">${formatNumber(price?.value || 0)}${price?.estimated ? " est" : ""}</span>
         <span class="selected-token-remove" aria-hidden="true">×</span>
       </button>
@@ -6860,7 +6908,8 @@ function renderDraftVerdict(view) {
   const { verdict, adjustment } = model;
   const meters = draftMeterValues(model);
   const label = draftVerdictLabel(verdict, { them, getFavor: voice?.favor || "your", favorName: voice?.youGive || "" });
-  const sharedSeen = bothSides ? sharedVerdictFor(view) : null;
+  // On a shared link everyone reads one neutral vocabulary ("Give wins by 25%").
+  const sharedView = bothSides ? sharedVerdictFor(view) : null;
   const maxSide = Math.max(meters.give, meters.get, 1);
   const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(view) : null;
   const evenSide = verdict.gap > 0 ? (voice ? voice.youGive : "You") : (view.partner ? them : "They");
@@ -6871,16 +6920,20 @@ function renderDraftVerdict(view) {
     <section class="calc-summary ${bothSides ? verdict.tone : ""}">
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
-        ${sharedSeen ? `<p class="calc-shared">Shared verdict (${escapeHtml(sharedSeen.date)}): <strong>${escapeHtml(sharedSeen.shared.label)}</strong>, <strong class="calc-shared-num">${escapeHtml(String(sharedSeen.shared.pct))}%</strong> apart</p>` : ""}
-        <h3>${sharedSeen ? "Today: " : ""}${escapeHtml(label)}</h3>
+        ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${escapeHtml(label)}</h3>`}
         ${/* TODO(follow-up): spell a bare percent ("96% apart") as a plain outcome. Out of scope for this push. */ ""}
-        <p>${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : adjustment ? "" : ` ${verdict.pct}% apart.`}</p>
+        <p>${escapeHtml(sharedView ? "Give" : giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(sharedView ? "Get" : getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : adjustment ? (sharedView ? ` Stars cost extra +${formatNumber(adjustment.amount)} on ${adjustment.side === "left" ? "Give" : "Get"}.` : "") : ` ${verdict.pct}% apart.`}</p>
+        ${sharedView ? renderVerdictFinePrint(`
+          ${adjustment ? `<p class="draft-package"><strong>Stars cost extra:</strong> one great player beats a pile of good ones. That adds ${formatNumber(adjustment.amount)} to ${adjustment.side === "left" ? "Give" : "Get"}. Listed prices stay put. After that the sides are ${verdict.pct}% apart.</p>` : ""}
+          ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
+          <div class="calc-method">${renderDraftMethod(view)}</div>
+        `) : `
         ${adjustment ? `<p class="draft-package"><strong>Package credit:</strong> the best player is worth more than the same total split into smaller pieces. That adds ${formatNumber(adjustment.amount)} to ${escapeHtml(credited)}. Listed prices stay put. After that credit the sides are ${verdict.pct}% apart.</p>` : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method">
           <summary>How this number works</summary>
           ${renderDraftMethod(view)}
-        </details>
+        </details>`}
       </div>
       <div class="calc-bars">
         <div class="calc-bar team-a">
@@ -6895,11 +6948,39 @@ function renderDraftVerdict(view) {
         </div>
       </div>
       <div class="calc-actions">
-        ${bothSides && draftShareCode(view) ? `<button type="button" class="ghost-btn btn-sm calc-share" data-action="trade-share">Share</button>` : ""}
+        ${bothSides && draftShareCode(view) ? `<button type="button" class="ghost-btn btn-sm calc-share" data-action="trade-share">Share trade</button>` : ""}
         <button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>
         <p class="calc-share-status" role="status" aria-live="polite"></p>
       </div>
     </section>
+  `;
+}
+
+// Shared link: "Give wins by 25%". When prices moved since it was shared, a
+// compact two-row compare (sharer's date, then today in bold) and one line.
+function renderSharedVerdictHead(shared) {
+  if (!shared.shared) return `<h3>${escapeHtml(shared.today.label)}</h3>`;
+  return `
+    <h3 class="sr-only">Shared on ${escapeHtml(shared.date)}: ${escapeHtml(shared.shared.label)}. Today: ${escapeHtml(shared.today.label)}.</h3>
+    <dl class="calc-shared">
+      <div><dt>${escapeHtml(shared.date)}</dt><dd>${escapeHtml(shared.shared.label)}</dd></div>
+      <div class="is-today"><dt>Today</dt><dd><strong>${escapeHtml(shared.today.label)}</strong></dd></div>
+    </dl>
+    <p class="calc-shared-note">Prices moved since this was shared.</p>
+  `;
+}
+
+let verdictInfoSeq = 0;
+// The method, credit and even-up notes sit behind one ⓘ button on a shared link.
+function renderVerdictFinePrint(inner) {
+  verdictInfoSeq += 1;
+  const id = `verdict-info-${verdictInfoSeq}`;
+  const open = Boolean(state.verdictInfoOpen);
+  return `
+    <button type="button" class="info-toggle verdict-info-toggle" data-action="verdict-info" aria-expanded="${open}" aria-controls="${id}">
+      <span aria-hidden="true">ⓘ</span><span class="sr-only">How this verdict works</span>
+    </button>
+    <div class="verdict-fine-print" id="${id}"${open ? "" : " hidden"}>${inner}</div>
   `;
 }
 
@@ -6914,22 +6995,33 @@ function draftShareCode(view) {
   });
 }
 
+const SHARE_STATUS_MS = 4000;
+let shareStatusTimer = 0;
+
 async function shareDraftTrade(button) {
   const view = buildDraftView();
   const code = draftShareCode(view);
   const status = button?.closest(".calc-actions")?.querySelector(".calc-share-status");
   const say = (text) => {
-    if (status) status.textContent = text;
+    if (!status) return;
+    status.textContent = text;
+    clearTimeout(shareStatusTimer);
+    // "Link copied." and "Shared." clear after about 4s. A link to copy by hand stays.
+    if (text && !text.startsWith("Copy this link")) {
+      shareStatusTimer = setTimeout(() => {
+        if (status.isConnected && status.textContent === text) status.textContent = "";
+      }, SHARE_STATUS_MS);
+    }
   };
   if (!code) {
     say("This trade can't be shared yet.");
     return;
   }
   const url = new URL(sharePath(code), window.location.origin).href;
-  const label = draftVerdictLabel(view.model.verdict, { them: "them" });
+  const text = shareMessage(shareSummary(decodeTradeShare(code), state.valueBundles));
   if (typeof navigator.share === "function") {
     try {
-      await navigator.share({ title: "Dynasty Ticker trade check", text: `${label}, ${view.model.verdict.pct}% apart.`, url });
+      await navigator.share({ title: "Dynasty Ticker trade check", text, url });
       say("Shared.");
       return;
     } catch (error) {
@@ -7492,6 +7584,13 @@ function handleWorkspaceClick(event) {
     }
     case "trade-share": {
       void shareDraftTrade(target);
+      break;
+    }
+    case "verdict-info": {
+      state.verdictInfoOpen = target.getAttribute("aria-expanded") !== "true";
+      target.setAttribute("aria-expanded", String(state.verdictInfoOpen));
+      const panel = document.getElementById(target.getAttribute("aria-controls") || "");
+      if (panel) panel.hidden = !state.verdictInfoOpen;
       break;
     }
     case "value-clear": {
