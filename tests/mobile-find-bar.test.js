@@ -230,31 +230,33 @@ function launchChrome(bin) {
 }
 
 async function withPage(bin, htmlPath, run) {
-  const chrome = launchChrome(bin);
-  const browserWs = await chrome.endpoint();
-  const ws = new WebSocket(browserWs);
-  await new Promise((resolve, reject) => {
-    ws.addEventListener("open", resolve, { once: true });
-    ws.addEventListener("error", reject, { once: true });
-  });
-  let nextId = 0;
-  const pending = new Map();
-  ws.addEventListener("message", (event) => {
-    const msg = JSON.parse(event.data);
-    if (!msg.id || !pending.has(msg.id)) return;
-    const { resolve, reject } = pending.get(msg.id);
-    pending.delete(msg.id);
-    if (msg.error) reject(new Error(msg.error.message || JSON.stringify(msg.error)));
-    else resolve(msg.result || {});
-  });
-  const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
-    const id = ++nextId;
-    pending.set(id, { resolve, reject });
-    const payload = { id, method, params };
-    if (sessionId) payload.sessionId = sessionId;
-    ws.send(JSON.stringify(payload));
-  });
+  let chrome;
+  let ws;
   try {
+    chrome = launchChrome(bin);
+    const browserWs = await chrome.endpoint();
+    ws = new WebSocket(browserWs);
+    await new Promise((resolve, reject) => {
+      ws.addEventListener("open", resolve, { once: true });
+      ws.addEventListener("error", reject, { once: true });
+    });
+    let nextId = 0;
+    const pending = new Map();
+    ws.addEventListener("message", (event) => {
+      const msg = JSON.parse(event.data);
+      if (!msg.id || !pending.has(msg.id)) return;
+      const { resolve, reject } = pending.get(msg.id);
+      pending.delete(msg.id);
+      if (msg.error) reject(new Error(msg.error.message || JSON.stringify(msg.error)));
+      else resolve(msg.result || {});
+    });
+    const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
+      const id = ++nextId;
+      pending.set(id, { resolve, reject });
+      const payload = { id, method, params };
+      if (sessionId) payload.sessionId = sessionId;
+      ws.send(JSON.stringify(payload));
+    });
     const { targetId } = await send("Target.createTarget", { url: "about:blank" });
     const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
     await send("Page.enable", {}, sessionId);
@@ -290,12 +292,20 @@ async function withPage(bin, htmlPath, run) {
     };
     return await run(measure);
   } finally {
-    ws.close();
-    chrome.stop();
+    try {
+      ws?.close();
+    } catch {
+      // The socket may never have opened.
+    }
+    chrome?.stop();
   }
 }
 
-test("at 390px the Find bar is not sticky or fixed and does not cover the player card", async () => {
+test("at 390px the Find bar is not sticky or fixed and does not cover the player card", async (t) => {
+  if (typeof WebSocket === "undefined") {
+    t.skip("Node has no global WebSocket");
+    return;
+  }
   const bin = await findChrome();
   assert.ok(bin, "headless Chrome is required to read computed position");
   const dir = mkdtempSync(join(tmpdir(), "dt-find-html-"));
