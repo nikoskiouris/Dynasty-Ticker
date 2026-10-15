@@ -13,6 +13,13 @@ function readDocs(name) {
   return readFileSync(join(docs, name), "utf8");
 }
 
+test("a player added in Check an offer uses the 40px face", () => {
+  const app = readDocs("app.js");
+  const label = app.slice(app.indexOf("function renderSelectedTokenLabel"), app.indexOf("function draftItemMismatch"));
+  assert.match(label, /renderPlayerFace\(facePlayerId\(asset\), asset\?\.name, \{ size: "sm" \}\)/);
+  assert.doesNotMatch(label, /size:\s*"xs"/);
+});
+
 test("density tokens load before the desk styles and the fonts stay on this origin", () => {
   for (const page of ["index.html", "404.html", "privacy.html", "terms.html"]) {
     const html = readDocs(page);
@@ -165,6 +172,13 @@ function fixtureHtml() {
       </div>
     </section>
     <p id="landing-job-hint" class="muted landing-job-hint">Type your Sleeper username. No name yet? <a id="sample-league-link" class="sample-league-link" href="./?sample=1">See the sample league</a>.</p>
+    <form class="player-connect" data-player-connect>
+      <input id="player-connect-user" class="player-connect-user" name="username" aria-label="Sleeper username" placeholder="Sleeper username" />
+      <button id="player-connect-find" type="submit">Find my leagues</button>
+    </form>
+    <button type="button" class="selected-token" id="offer-token">
+      <span class="selected-token-label player-name"><span class="player-face player-face-sm" id="offer-headshot"><img class="player-face-photo" id="offer-photo" alt="" width="64" height="64" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="player-name-text">Jahmyr Gibbs</span></span>
+    </button>
     <div class="week-chips" id="week-chips">
       <button type="button">Wk 1</button>
       <button type="button">Wk 2</button>
@@ -304,6 +318,8 @@ const MEASURE = `(() => {
     "week-chip",
     "lens-roster",
     "player-search",
+    "player-connect-user",
+    "player-connect-find",
   ]) {
     const el = document.getElementById(id);
     hits[id] = hitOf(el);
@@ -396,6 +412,11 @@ const MEASURE = `(() => {
     cardHeadH: faceBox("card-headshot").height,
     listHeadH: faceBox("list-headshot").height,
     ranksHeadH: faceBox("ranks-headshot").height,
+    offerHead: faceBox("offer-headshot").width,
+    offerPhoto: faceBox("offer-photo").width,
+    offerHeadH: faceBox("offer-headshot").height,
+    offerPhotoH: faceBox("offer-photo").height,
+    connectFont: styleOf(document.querySelector("#player-connect-user")).fontSize,
     clippedNames,
   };
 })()`;
@@ -564,11 +585,16 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
       ["card head height", box.cardHeadH],
       ["list head height", box.listHeadH],
       ["ranks head height", box.ranksHeadH],
+      ["offer head", box.offerHead],
+      ["offer photo", box.offerPhoto],
+      ["offer head height", box.offerHeadH],
+      ["offer photo height", box.offerPhotoH],
     ]) {
       assert.ok(Math.abs(size - 40) < 0.6, `${label} ${size}`);
     }
     assert.deepEqual(box.clippedNames, [], `clipped names ${box.clippedNames.join(" | ")}`);
     assert.equal(box.inputFont, "16px");
+    assert.equal(box.connectFont, "16px");
     assert.match(box.bodyFamily, /Instrument Sans/);
     assert.match(box.h1Family, /Instrument Sans/);
     assert.equal(box.sansReady, true);
@@ -585,10 +611,10 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
     }
     const desk = await measureAt(bin, htmlPath, 1280, false);
     assert.equal(desk.innerWidth, 1280);
-    for (const id of ["page-tab", "room-tab", "team-trade", "landing-find-btn", "ranks-chip", "me-select", "sample-banner-find", "weekly-help-btn", "mock-link", "mock-article", "sample-league-link", "week-chip", "lens-roster"]) {
+    for (const id of ["page-tab", "room-tab", "team-trade", "landing-find-btn", "ranks-chip", "me-select", "sample-banner-find", "weekly-help-btn", "mock-link", "mock-article", "sample-league-link", "week-chip", "lens-roster", "player-connect-user", "player-connect-find"]) {
       assert.ok(desk.hits[id].height >= 43.5, `${id} desk hit ${desk.hits[id].height}`);
     }
-    for (const id of ["mock-link", "mock-article", "sample-league-link", "week-chip"]) {
+    for (const id of ["mock-link", "mock-article", "sample-league-link", "week-chip", "player-connect-user", "player-connect-find"]) {
       for (const shot of [box, desk]) {
         assert.ok(shot.hits[id].visual >= 43.5, `${id} box ${shot.innerWidth} ${shot.hits[id].visual}`);
       }
@@ -600,6 +626,10 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
       ["desk card photo", desk.cardPhoto],
       ["desk list photo", desk.listPhoto],
       ["desk ranks photo", desk.ranksPhoto],
+      ["desk offer head", desk.offerHead],
+      ["desk offer photo", desk.offerPhoto],
+      ["desk offer head height", desk.offerHeadH],
+      ["desk offer photo height", desk.offerPhotoH],
     ]) {
       assert.ok(Math.abs(size - 40) < 0.6, `${label} ${size}`);
     }
