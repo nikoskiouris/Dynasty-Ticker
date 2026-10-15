@@ -340,7 +340,7 @@ import {
   tickerDurationSeconds,
 } from "./modules/site.js";
 import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
-import { pageview as analyticsPageview, track as analyticsTrack } from "./modules/analytics.js";
+import { pageview as analyticsPageview, track as analyticsTrack, trackShareTapped, trackTradeLinkOpened } from "./modules/analytics.js";
 import {
   DEFAULT_RATHER_FORMAT,
   buildRatherBoard,
@@ -1764,17 +1764,23 @@ async function loadSharedTrade(code, draft) {
   if (!decoded) return;
   const entry = { code, decoded, key: draftAssetKey(draft), snapshot: null };
   state.sharedTrade = entry;
-  if (!decoded.stamp) return;
+  // #167: t_opened is sent once per open from the first verdict render after
+  // the archive lookup settles, so drift matches what the page shows.
+  const settle = () => {
+    entry.settled = true;
+    if (state.sharedTrade === entry && el.calculatorShell?.querySelector("#value-calc-verdict")) patchTradeDraft();
+  };
+  if (!decoded.stamp) return settle();
   try {
     const res = await fetch(snapshotPath(decoded.stamp));
-    if (!res.ok) return;
+    if (!res.ok) return settle();
     const snapshot = await res.json();
-    if (!snapshot?.sf || !snapshot?.oneQb) return;
+    if (!snapshot?.sf || !snapshot?.oneQb) return settle();
     entry.snapshot = snapshot;
   } catch {
-    return;
+    return settle();
   }
-  if (state.sharedTrade === entry && el.calculatorShell?.querySelector("#value-calc-verdict")) patchTradeDraft();
+  settle();
 }
 
 function activeSharedTrade(draft = state.valueCalc) {
@@ -1804,6 +1810,10 @@ function sharedVerdictFor(view) {
   const today = shareSummary(entry.decoded, state.valueBundles);
   const shared = entry.snapshot ? shareSummary(entry.decoded, entry.snapshot, {}, state.valueBundles) : null;
   const moved = Boolean(shared) && !sameVerdict(shared, today);
+  if (entry.settled && !entry.reported) {
+    entry.reported = true;
+    trackTradeLinkOpened({ drift: moved });
+  }
   return { today, shared: moved ? shared : null, date: stampLabel(entry.decoded.stamp) };
 }
 
@@ -7170,6 +7180,7 @@ async function shareDraftTrade(button) {
   if (typeof navigator.share === "function") {
     try {
       await navigator.share({ title: "Dynasty Ticker trade check", text, url });
+      trackShareTapped("webshare");
       say("Shared.");
       return;
     } catch (error) {
@@ -7181,6 +7192,7 @@ async function shareDraftTrade(button) {
   }
   try {
     await navigator.clipboard.writeText(url);
+    trackShareTapped("copy");
     say("Link copied.");
   } catch {
     say(`Copy this link: ${url}`);

@@ -169,3 +169,14 @@ test("injected test adapter is honoured only on a local host", () => {
   assert.equal(track("landing_view", {}, { env: { nav, win: { __dtAnalyticsTestAdapter: rec }, location: { hostname: "dynastyticker.com" } } }), false);
   assert.equal(rec.calls.length, 1);
 });
+
+test("app wires the #164 hooks: share_tapped after a completed share, t_opened from loadSharedTrade", async () => {
+  const { readFileSync } = await import("node:fs");
+  const app = readFileSync(new URL("../docs/app.js", import.meta.url), "utf8");
+  assert.match(app, /await navigator\.share\([^)]*\);\s*trackShareTapped\("webshare"\);/);
+  assert.match(app, /await navigator\.clipboard\.writeText\(url\);\s*trackShareTapped\("copy"\);/);
+  // One t_opened per open, from the first render after the archive lookup settles.
+  assert.match(app, /if \(entry\.settled && !entry\.reported\) \{\s*entry\.reported = true;\s*trackTradeLinkOpened\(\{ drift: moved \}\);/);
+  assert.equal((app.match(/trackTradeLinkOpened\(/g) || []).length, 1);
+  assert.equal((app.match(/trackShareTapped\(/g) || []).length, 2);
+});

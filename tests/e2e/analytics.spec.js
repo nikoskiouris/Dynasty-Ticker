@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
 
 // The analytics layer opts out under automation and on localhost, so these
 // tests inject a recording adapter (honoured only on a local host) and check
@@ -105,4 +106,58 @@ test("without an injected adapter, automation opts out and nothing is recorded",
   const injected = await page.evaluate(() => "__dtAnalyticsTestAdapter" in window);
   expect(injected).toBe(false);
   expect(await page.evaluate(() => navigator.webdriver)).toBe(true);
+});
+
+// #164 hooks: t_opened once per /t open (drift yes/no), share_tapped once per share.
+const VALUES_167 = JSON.parse(require_values());
+function require_values() {
+  return readFileSync(new URL("../../docs/data/player_values.json", import.meta.url), "utf8");
+}
+const STAMP_167 = new Date(Date.parse(VALUES_167.asOf)).toISOString().replace(/[^0-9]/g, "").slice(0, 12);
+
+test("a /t link sends one t_opened with drift no, and Share copy sends share_tapped copy", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const hosts = await instrument(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
+  });
+  await page.goto(`/t/2s${STAMP_167}4984~9221`);
+  await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
+  await expect.poll(async () => (await events(page)).filter((e) => e.startsWith("t_opened"))).toEqual(['t_opened {"drift":"no"}']);
+  await page.locator("[data-action='trade-share']").click();
+  await expect(page.locator(".calc-share-status")).toHaveText("Link copied.");
+  await expect.poll(async () => (await events(page)).filter((e) => e.startsWith("share_tapped"))).toEqual(['share_tapped {"method":"copy"}']);
+  expect(await events(page)).toContain("pageview /t/:code");
+  await expectClean(page);
+  expectNoThirdParty(hosts);
+});
+
+test("a dated /t link whose prices moved sends t_opened drift yes; the share sheet sends webshare", async ({ page }) => {
+  const OLD = "202610071117";
+  await page.route(`**/data/price-history/${OLD}.json`, (route) => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({ asOf: "2026-10-07T11:17:00+00:00", sf: { ...VALUES_167.sf, "player:9221": VALUES_167.sf["player:9221"] * 2 }, oneQb: VALUES_167.oneQb }),
+  }));
+  await instrument(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", { value: async () => {}, configurable: true });
+  });
+  await page.goto(`/t/2s${OLD}4984~9221`);
+  await expect(page.locator(".calc-shared")).toBeVisible({ timeout: 30000 });
+  await expect.poll(async () => (await events(page)).filter((e) => e.startsWith("t_opened"))).toEqual(['t_opened {"drift":"yes"}']);
+  await page.locator("[data-action='trade-share']").click();
+  await expect.poll(async () => (await events(page)).filter((e) => e.startsWith("share_tapped"))).toEqual(['share_tapped {"method":"webshare"}']);
+  await expectClean(page);
+});
+
+test("a cancelled share sheet sends no share_tapped", async ({ page }) => {
+  await instrument(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", { value: async () => { throw new DOMException("cancel", "AbortError"); }, configurable: true });
+  });
+  await page.goto(`/t/2s${STAMP_167}4984~9221`);
+  await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
+  await page.locator("[data-action='trade-share']").click();
+  await page.waitForTimeout(300);
+  expect((await events(page)).filter((e) => e.startsWith("share_tapped"))).toEqual([]);
 });

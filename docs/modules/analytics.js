@@ -206,9 +206,10 @@ export function pageview(route = globalThis.location?.pathname || "/", {
   return true;
 }
 
-// Hooks for #164 (shareable trade links). After #164 lands, its Share button
-// calls trackShareTapped("webshare" | "copy") once per tap, and the /t/<code>
-// loader calls trackTradeLinkOpened({ drift }) once per open.
+// Hooks for #164 (shareable trade links). The /trade Share button calls
+// trackShareTapped("webshare" | "copy") once per completed share (a cancelled
+// sheet or a manual-copy fallback sends nothing), and the first /t/<code> verdict render
+// after the archive lookup calls trackTradeLinkOpened({ drift }) once per open.
 export function trackShareTapped(method) {
   return track("share_tapped", { method });
 }
