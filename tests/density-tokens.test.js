@@ -65,6 +65,29 @@ test("density tokens load before the desk styles and the fonts stay on this orig
   }
 });
 
+test("index preloads the above-the-fold Instrument Sans file", () => {
+  const html = readDocs("index.html");
+  const tokens = readDocs("tokens.css");
+  const preloads = [...html.matchAll(/<link\b[^>]*>/gi)]
+    .map((match) => match[0])
+    .filter((tag) => /\brel=["']preload["']/.test(tag));
+  assert.deepEqual(preloads.length, 1);
+  const tag = preloads[0];
+  assert.match(tag, /\bas=["']font["']/);
+  assert.match(tag, /\btype=["']font\/woff2["']/);
+  assert.match(tag, /\bcrossorigin\b/);
+  const href = tag.match(/\bhref=["']([^"']+)["']/)[1];
+  assert.equal(href, "./fonts/instrument-sans-latin.woff2");
+  assert.ok(statSync(join(docs, href.replace(/^\.\//, ""))).size > 1000, href);
+  assert.ok(html.indexOf(tag) < html.indexOf('href="./tokens.css"'));
+  assert.match(html, /font-src 'self'/);
+  assert.doesNotMatch(html, /fonts\.googleapis|fonts\.gstatic/);
+  const faces = tokens.match(/@font-face\s*\{[^}]+\}/g);
+  assert.ok(faces?.length >= 2);
+  for (const face of faces) assert.match(face, /font-display:\s*swap/);
+  assert.match(tokens, /font-weight:\s*400 700/);
+});
+
 async function findChrome() {
   const names = [
     process.env.CHROME_PATH,
