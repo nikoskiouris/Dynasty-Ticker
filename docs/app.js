@@ -98,7 +98,6 @@ import {
   normalizePickBucket,
   getPickBucketAliases,
   formatPickBucketLabel,
-  bucketForProjectedSlot,
   chooseLeadPick,
   compareOwnedPickValue,
   formatGenericPickAssetLabel,
@@ -298,18 +297,15 @@ import {
   fetchMockDrafts,
   buildMockBoardModel,
   formatPickSlotLabel,
-  formatMockSourceLine,
   mockPickDomId,
-  mockPickTarget,
-  mockProspectAtSlot,
   nextMockSeason,
   projectedDraftSlot,
-  shouldAttachMock,
 } from "./modules/mock-drafts.js";
 import {
   compareTradeSearchPicks,
   formatPickLabel,
   projectPickSlots,
+  resolvePickProjection,
   rosterRecordsReady,
 } from "./modules/pick-projection.js";
 import {
@@ -3487,8 +3483,15 @@ function renderPowerDashboard() {
   }
   if (!state.playerMetadataLoaded) {
     const ammo = draftAmmoInsightForRoster(meRoster);
+    const ammoHtml = ammo ? `<div class="insight-list">${renderSleeperInsight(ammo)}</div>` : "";
+    // A final lead is the whole card. The player-metadata status stays on the
+    // power score, and it does not sit on a card whose value is already final.
+    if (ammo && ammo.busy !== true) {
+      el.powerDashboard.innerHTML = ammoHtml;
+      return;
+    }
     el.powerDashboard.innerHTML = `
-      <div class="power-sync">
+      <div class="power-sync" role="status">
         <strong>${state.playerMetadataFailed ? "Player metadata unavailable" : "Syncing player metadata"}</strong>
         <p class="muted">${
           state.playerMetadataFailed
@@ -3496,7 +3499,7 @@ function renderPowerDashboard() {
             : "Power Score needs Sleeper positions, ages, injury flags, and team metadata before it can grade the roster."
         }</p>
       </div>
-      ${ammo ? `<div class="insight-list">${renderSleeperInsight(ammo)}</div>` : ""}
+      ${ammoHtml}
     `;
     return;
   }
@@ -9254,24 +9257,23 @@ function buildTransactionPickAsset(pick, transaction = null) {
   const draftedPlayerValue = selection?.playerId ? playerValueById(selection.playerId) : 0;
   const placeLookup = currentProjectedPlaceLookup();
   const place = currentPlaceForOwner(originalOwner, placeLookup);
-  const slot = projectedDraftSlot(place?.rank, place?.total);
-  const labelBucket = slot ? bucketForProjectedSlot(slot, place?.total) : "any";
-  const bucket = round === 1 ? labelBucket : "any";
+  const projection = resolvePickProjection({
+    season,
+    round,
+    leagueSeason: state.league?.season,
+    place,
+  });
+  const bucket = projection.valueBucket;
   let name = formatPickWithSelection(pickLabel, draftedPlayerName, draftedPlayerValue, formatNumber);
   if (!draftedPlayerName) {
-    const mock = shouldAttachMock({ season, round }, state.mockDrafts)
-      ? mockProspectAtSlot(state.mockDrafts, slot, round)
-      : null;
     name = formatPickLabel({
       season,
       round,
       ownerName,
-      bucket: labelBucket,
-      rank: place?.rank,
-      total: place?.total,
-      slot,
-      mockName: mock?.label || "",
-      placeLabel: place?.label || "",
+      bucket: projection.nameBucket,
+      rank: projection.rank,
+      total: projection.total,
+      slot: projection.slot,
     }) || name;
   }
   const normalizedPick = {
@@ -9282,7 +9284,7 @@ function buildTransactionPickAsset(pick, transaction = null) {
     original_owner: originalOwner,
     owner_id: pick?.owner_id ?? originalOwner,
     ktcBucket: bucket,
-    projectedDraftSlot: slot,
+    projectedDraftSlot: projection.slot,
   };
   return {
     assetId: `pick:${season}:r${round}:${originalOwner}`,
@@ -9661,7 +9663,11 @@ function buildPowerBadges({ score, lane, assetSummary, strongestPosition, weakes
 
 function draftAmmoInsight(firstRoundPickCount, lead) {
   if (!(Number(firstRoundPickCount) > 0)) return null;
-  const leadReady = state.pickProjectionReady && Number(lead?.raw?.projectedDraftSlot) > 0;
+  const nextYear = Number(state.league?.season) + 1;
+  const leadSeason = Number(lead?.raw?.season);
+  const leadSlot = Number(lead?.raw?.projectedDraftSlot);
+  const waitingOnSlot = leadSeason === nextYear && !(leadSlot > 0);
+  const leadReady = state.pickProjectionReady && Boolean(lead?.name) && !waitingOnSlot;
   if (!leadReady) {
     return {
       title: "Draft Ammo",
@@ -15599,43 +15605,17 @@ function renderAssetValueBadge(asset, values = state.values) {
   `;
 }
 
-function renderPickVaultIntro(picks = []) {
-  const season = nextMockSeason(state.mockDrafts);
-  if (!season) return "";
-  const hasOverlay = picks.some((asset) => asset.raw?.mockProspectName);
-  const note = hasOverlay ? `${formatMockSourceLine(state.mockDrafts)} ` : "";
-  return `<p class="muted small pick-mock-note">${escapeHtml(note)}<button type="button" class="inline-link" data-action="go" data-page="league" data-room="board" data-open-mock="1">Full board</button></p>`;
+function renderPickVaultIntro() {
+  if (!nextMockSeason(state.mockDrafts)) return "";
+  return `<p class="muted small pick-mock-note"><button type="button" class="inline-link" data-action="go" data-page="league" data-room="board" data-open-mock="1">Full board</button></p>`;
 }
 
 function renderPickVaultRow(asset, values) {
-  const mockName = String(asset?.raw?.mockProspectName || "").trim();
-  const ownerName = String(asset?.raw?.originalOwnerName || "").trim();
-  const placeLabel = String(asset?.raw?.currentPlaceLabel || "").trim();
-  const target = mockPickTarget(asset);
-  const slotLabel = target ? formatPickSlotLabel(target.round, target.slot) : "";
-  const placeBit = placeLabel ? `${placeLabel} place` : "";
-  const mockBit = mockName ? `(${[slotLabel, mockName].filter(Boolean).join(" ")})` : "";
-  const detail = mockName
-    ? [ownerName ? `from ${ownerName}` : "", placeBit, mockBit]
-      .filter(Boolean)
-      .join(" · ")
-      .replace(" · (", " (")
-    : `Round ${asset?.raw?.round || "?"}`;
-  const heading = mockName
-    ? `${asset?.raw?.season || ""} ${ordinal(Number(asset?.raw?.round) || 1)}`.trim()
-    : asset?.name || "Pick";
   const body = `
               <span class="sheet-slot">${escapeHtml(String(asset?.raw?.season || ""))}</span>
-              <div class="sheet-player"><strong>${escapeHtml(heading)}</strong><span>${escapeHtml(detail)}</span></div>
+              <div class="sheet-player"><strong>${escapeHtml(asset?.name || "Pick")}</strong></div>
               <span class="sheet-value mono">${renderAssetValuePlain(asset, values)}</span>
           `;
-  if (target) {
-    return `
-            <button type="button" class="sheet-row pick mock-open" data-action="open-mock-pick" data-mock-round="${target.round}" data-mock-slot="${target.slot}" title="Open mock board at ${escapeHtml(formatPickSlotLabel(target.round, target.slot))}">
-              ${body}
-            </button>
-          `;
-  }
   return `
             <div class="sheet-row pick">
               ${body}
@@ -15840,18 +15820,15 @@ function buildProjectedPickAsset(pick, ctx) {
   );
   if (isConsumedDraftPick(pick, ctx.currentDraftContext, assignedDraftSlot)) return null;
   const place = currentPlaceForOwner(pick.original_owner, ctx.placeLookup);
-  const projectedSlot = projectedDraftSlot(place?.rank, place?.total);
-  const priceSlot = Number(assignedDraftSlot?.slot) || projectedSlot;
-  const priceTeams = Number(assignedDraftSlot?.totalSlots) || place?.total || ctx.rosterCount;
-  const pickBucket = Number(pick.round) === 1
-    ? (priceSlot ? bucketForProjectedSlot(priceSlot, priceTeams) : "any")
-    : "any";
-  const mockMeta = futureFirstMockMeta(pick, {
-    userById: ctx.userById,
-    rosterById: ctx.rosterById,
-    assignedDraftSlot,
-    placeLookup: ctx.placeLookup,
+  const projection = resolvePickProjection({
+    season: pick.season,
+    round: pick.round,
+    leagueSeason: state.league?.season,
+    place,
+    assignedSlot: assignedDraftSlot?.slot,
+    assignedTotal: assignedDraftSlot?.totalSlots || place?.total || ctx.rosterCount,
   });
+  const pickBucket = projection.valueBucket;
   return {
     assetId: `pick:${pick.season}:r${pick.round}:${pick.original_owner || "any"}`,
     valueAssetId: buildPickValueAssetId(pick, pickBucket),
@@ -15859,7 +15836,6 @@ function buildProjectedPickAsset(pick, ctx) {
     name: formatPickName(pick, {
       userById: ctx.userById,
       rosterById: ctx.rosterById,
-      pickBucket: priceSlot ? bucketForProjectedSlot(priceSlot, priceTeams) : "any",
       assignedDraftSlot,
       currentPlaceLookup: ctx.placeLookup,
     }),
@@ -15869,8 +15845,7 @@ function buildProjectedPickAsset(pick, ctx) {
       ktcBucket: pickBucket,
       assignedDraftSlot: assignedDraftSlot?.slot ?? null,
       assignedDraftSlotLabel: assignedDraftSlot?.label ?? null,
-      ...mockMeta,
-      projectedDraftSlot: priceSlot,
+      projectedDraftSlot: projection.slot,
     },
   };
 }
@@ -16144,47 +16119,28 @@ function buildPickValueAssetId(pick, pickBucket = "any") {
 function formatPickName(pick, {
   userById,
   rosterById,
-  pickBucket = "any",
   assignedDraftSlot = null,
   currentPlaceLookup = null,
-  mockDrafts = null,
 } = {}) {
   const ownerName = resolvePickOwnerName(pick.original_owner, rosterById, userById);
-  const mockBoard = mockDrafts || state.mockDrafts;
   const place = currentPlaceForOwner(pick.original_owner, currentPlaceLookup);
-  const projectedSlot = projectedDraftSlot(place?.rank, place?.total);
-  const slot = Number(assignedDraftSlot?.slot) || projectedSlot || null;
-  const knownOrder = Boolean(assignedDraftSlot?.label);
-  let mockName = "";
-  if (shouldAttachMock(pick, mockBoard) && !knownOrder && projectedSlot) {
-    mockName = mockProspectAtSlot(mockBoard, projectedSlot, Number(pick.round) || 1)?.label || "";
-  }
+  const projection = resolvePickProjection({
+    season: pick.season,
+    round: pick.round,
+    leagueSeason: state.league?.season,
+    place,
+    assignedSlot: assignedDraftSlot?.slot,
+    assignedTotal: assignedDraftSlot?.totalSlots || place?.total,
+  });
   return formatPickLabel({
     season: pick.season,
     round: pick.round,
-    bucket: pickBucket,
+    bucket: projection.nameBucket,
     ownerName,
-    rank: knownOrder ? null : place?.rank,
-    total: knownOrder ? null : place?.total,
-    slot,
-    mockName,
-    placeLabel: place?.label || "",
+    rank: projection.rank,
+    total: projection.total,
+    slot: projection.slot,
   });
-}
-
-function futureFirstMockMeta(pick, { userById, rosterById, assignedDraftSlot = null, placeLookup = null } = {}) {
-  if (!shouldAttachMock(pick, state.mockDrafts) || assignedDraftSlot?.label) return {};
-  const place = currentPlaceForOwner(pick.original_owner, placeLookup);
-  const slot = projectedDraftSlot(place?.rank, place?.total);
-  if (!slot) return {};
-  const mock = mockProspectAtSlot(state.mockDrafts, slot, Number(pick.round) || 1);
-  return {
-    originalOwnerName: resolvePickOwnerName(pick.original_owner, rosterById, userById) || "",
-    currentPlaceRank: place?.rank ?? null,
-    currentPlaceLabel: place?.label || "",
-    projectedDraftSlot: slot,
-    mockProspectName: mock?.label || "",
-  };
 }
 
 async function loadValues() {

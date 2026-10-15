@@ -12,6 +12,7 @@ import {
   compareTradeSearchPicks,
   formatPickLabel,
   projectPickSlots,
+  resolvePickProjection,
   rosterRecordsReady,
 } from "../docs/modules/pick-projection.js";
 import { bucketForProjectedSlot, chooseLeadPick, getAssetValue } from "../docs/modules/values.js";
@@ -85,40 +86,141 @@ test("partial week tables publish no lead, then one final slot", () => {
   assert.equal(projectPickSlots(league, { settled: true, rosters, rows: finalRows }).get("6").slot, 4);
 });
 
-test("every round uses one projected label, with the slot and the finish", () => {
-  const early = {
-    season: 2029,
-    bucket: "early",
-    ownerName: "skolnickavery",
-    rank: 12,
-    total: 12,
-    slot: 1,
-  };
-  assert.equal(
-    formatPickLabel({ ...early, round: 1 }),
-    "2029 Early 1st (1.01), projected to finish 12th of 12 from skolnickavery",
-  );
-  assert.equal(
-    formatPickLabel({ ...early, round: 2 }),
-    "2029 Early 2nd (2.01), projected to finish 12th of 12 from skolnickavery",
-  );
-  assert.equal(
-    formatPickLabel({ ...early, round: 3, bucket: "late", rank: 1, slot: 12 }),
-    "2029 Late 3rd (3.12), projected to finish 1st of 12 from skolnickavery",
-  );
+test("the next draft year uses one plain sentence, and a mock name does not change it", () => {
   assert.equal(
     formatPickLabel({
       season: 2027,
       round: 1,
+      bucket: "any",
       ownerName: "YianGhan",
-      placeLabel: "9th",
       mockName: "Dante Moore",
+      placeLabel: "9th",
       slot: 4,
       rank: 9,
       total: 12,
     }),
-    "2027 1st from YianGhan · 9th place (1.04 Dante Moore)",
+    "2027 1st (1.04), projected to finish 9th of 12 from YianGhan",
   );
+  assert.equal(
+    formatPickLabel({
+      season: 2027,
+      round: 2,
+      ownerName: "YianGhan",
+      slot: 4,
+      rank: 9,
+      total: 12,
+    }),
+    "2027 2nd (2.04), projected to finish 9th of 12 from YianGhan",
+  );
+  assert.equal(
+    formatPickLabel({ season: 2028, round: 1, ownerName: "YianGhan" }),
+    "2028 1st from YianGhan",
+  );
+  assert.doesNotMatch(
+    formatPickLabel({ season: 2028, round: 1, ownerName: "YianGhan", mockName: "Dante Moore" }),
+    /Dante|projected|1\.\d\d|place/,
+  );
+});
+
+test("only the next draft year gets a projected slot; later years are the mid price", () => {
+  const next = resolvePickProjection({
+    season: 2027,
+    round: 1,
+    leagueSeason: 2026,
+    place: { rank: 9, total: 12 },
+  });
+  assert.equal(next.project, true);
+  assert.equal(next.slot, 4);
+  assert.equal(next.valueBucket, "early");
+  assert.equal(next.nameBucket, "any");
+  assert.equal(
+    formatPickLabel({
+      season: 2027,
+      round: 1,
+      bucket: next.nameBucket,
+      ownerName: "YianGhan",
+      rank: next.rank,
+      total: next.total,
+      slot: next.slot,
+    }),
+    "2027 1st (1.04), projected to finish 9th of 12 from YianGhan",
+  );
+
+  const later = resolvePickProjection({
+    season: 2028,
+    round: 1,
+    leagueSeason: 2026,
+    place: { rank: 12, total: 12 },
+  });
+  assert.equal(later.project, false);
+  assert.equal(later.slot, null);
+  assert.equal(later.rank, null);
+  assert.equal(later.valueBucket, "mid");
+  assert.equal(
+    formatPickLabel({
+      season: 2028,
+      round: 1,
+      bucket: later.nameBucket,
+      ownerName: "skolnickavery",
+    }),
+    "2028 1st from skolnickavery",
+  );
+  const laterSecond = resolvePickProjection({
+    season: 2029,
+    round: 2,
+    leagueSeason: 2026,
+    place: { rank: 12, total: 12 },
+  });
+  assert.equal(laterSecond.valueBucket, "any");
+  assert.equal(laterSecond.slot, null);
+
+  const values = snapshot.sf;
+  const early = values["pick:2027:r1:early"];
+  const mid = values["pick:2028:r1:mid"];
+  const late = values["pick:2027:r1:late"];
+  assert.ok(early > mid);
+  const assets = [
+    {
+      asset: {
+        assetType: "pick",
+        name: "2028 1st from Niko",
+        valueAssetId: "pick:2028:r1:mid",
+        raw: { season: "2028", round: 1, projectedDraftSlot: null },
+      },
+      value: mid,
+    },
+    {
+      asset: {
+        assetType: "pick",
+        name: "2027 1st (1.04), projected to finish 9th of 12 from YianGhan",
+        valueAssetId: "pick:2027:r1:early",
+        raw: { season: "2027", round: 1, projectedDraftSlot: 4 },
+      },
+      value: early,
+    },
+    {
+      asset: {
+        assetType: "pick",
+        name: "2027 1st (1.12), projected to finish 1st of 12 from zim8box",
+        valueAssetId: "pick:2027:r1:late",
+        raw: { season: "2027", round: 1, projectedDraftSlot: 12 },
+      },
+      value: late,
+    },
+  ];
+  const lead = chooseLeadPick(assets);
+  assert.equal(lead.name, "2027 1st (1.04), projected to finish 9th of 12 from YianGhan");
+  const rows = assets.map((entry) => ({
+    value: entry.value,
+    slot: entry.asset.raw.projectedDraftSlot,
+    round: entry.asset.raw.round,
+    name: entry.asset.name,
+  }));
+  const sorted = rows.slice().sort(compareTradeSearchPicks);
+  assert.deepEqual(sorted.map((row) => row.value), [early, mid, late].sort((a, b) => b - a));
+  assert.equal(sorted[0].slot, 4);
+  assert.equal(getAssetValue(lead, values), early);
+  assert.equal(getAssetValue(assets[0].asset, values), mid);
 });
 
 test("trade search orders picks by value, then by slot", () => {
@@ -358,11 +460,11 @@ test("Draft Ammo calculating line is busy and has no lead", () => {
   assert.doesNotMatch(busy, /led by|1\.\d\d|Cam Coleman|Ahmad Hardy|vault/);
   const ready = renderSleeperInsight({
     title: "Draft Ammo",
-    body: "5 first-round picks in the vault, led by 2027 1st from YianGhan · 9th place (1.04 Dante Moore).",
+    body: "5 first-round picks in the vault, led by 2027 1st (1.04), projected to finish 9th of 12 from YianGhan.",
     tone: "gold",
   });
   assert.doesNotMatch(ready, /aria-busy/);
-  assert.match(ready, /led by 2027 1st from YianGhan/);
+  assert.match(ready, /led by 2027 1st \(1\.04\), projected to finish 9th of 12 from YianGhan/);
 
   const appSource = readFileSync(join(root, "docs/app.js"), "utf8");
   const ammoFn = appSource.slice(
@@ -380,6 +482,12 @@ test("Draft Ammo calculating line is busy and has no lead", () => {
   );
   assert.match(dashboard, /draftAmmoInsightForRoster\(meRoster\)/);
   assert.match(dashboard, /if \(!state\.playerMetadataLoaded\)/);
+  assert.match(dashboard, /if \(ammo && ammo\.busy !== true\)/);
+  const finalBranch = dashboard.slice(
+    dashboard.indexOf("if (ammo && ammo.busy !== true)"),
+    dashboard.indexOf("el.powerDashboard.innerHTML = `"),
+  );
+  assert.doesNotMatch(finalBranch, /Syncing player metadata/);
   const css = readFileSync(join(root, "docs/styles.css"), "utf8");
   assert.match(css, /\.insight-item\[aria-busy="true"\] span \{\s*animation: pulse 1\.6s ease-in-out infinite;/);
 });

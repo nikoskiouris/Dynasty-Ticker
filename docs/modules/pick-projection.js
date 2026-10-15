@@ -6,7 +6,6 @@
 import { ordinal } from "./season.js";
 import {
   buildCurrentPlaceLookup,
-  formatHybridFirstName,
   formatPickSlotLabel,
   projectedDraftSlot,
   rosterPointsFor,
@@ -72,30 +71,70 @@ export function collectProjectedLeads(league, snapshots, toLead) {
   return leads;
 }
 
-// One sentence for every round.
-// "2029 Early 1st (1.01), projected to finish 12th of 12 from skolnickavery"
-// A mock prospect keeps the slot in the same parentheses: "(1.04 Dante Moore)".
+// The season after the league's current season is the only year we project.
+export function nextDraftSeason(leagueSeason) {
+  const season = Number(leagueSeason);
+  return Number.isFinite(season) && season > 0 ? season + 1 : 0;
+}
+
+// Next year keeps a slot and a finish. Later years are the mid 1st (or that
+// round's single price) with no slot and no finish claim. An assigned slot
+// is a known pick, not a projection.
+export function resolvePickProjection({
+  season,
+  round = 1,
+  leagueSeason,
+  place = null,
+  assignedSlot = null,
+  assignedTotal = null,
+} = {}) {
+  const year = Number(season);
+  const nextYear = nextDraftSeason(leagueSeason);
+  const rnd = Number(round) || 1;
+  const later = nextYear > 0 && Number.isFinite(year) && year > nextYear;
+  if (later) {
+    return {
+      project: false,
+      slot: null,
+      rank: null,
+      total: null,
+      valueBucket: rnd === 1 ? "mid" : "any",
+      nameBucket: "any",
+    };
+  }
+
+  const knownSlot = Number(assignedSlot);
+  const hasAssigned = Number.isFinite(knownSlot) && knownSlot > 0;
+  const project = !hasAssigned && year === nextYear;
+  const teams = Number(hasAssigned ? assignedTotal : place?.total);
+  const slot = hasAssigned
+    ? knownSlot
+    : (project ? projectedDraftSlot(place?.rank, teams) : null);
+  const valueBucket = rnd === 1
+    ? (slot ? bucketForProjectedSlot(slot, teams) : "any")
+    : "any";
+  return {
+    project,
+    slot: slot || null,
+    rank: project ? place?.rank ?? null : null,
+    total: project ? teams || null : null,
+    valueBucket,
+    nameBucket: project ? "any" : valueBucket,
+  };
+}
+
+// "2027 1st (1.04), projected to finish 9th of 12 from YianGhan"
+// A later year with no slot: "2028 1st from YianGhan".
+// A mock prospect name is not part of the sentence.
 export function formatPickLabel(pick = {}) {
   const season = String(pick.season ?? "").trim();
   const round = Number(pick.round) || 1;
   const ownerName = String(pick.ownerName || "").trim();
-  const mockName = String(pick.mockName || "").trim();
   const slot = Number(pick.slot);
   const hasSlot = Number.isFinite(slot) && slot > 0;
   const rank = Number(pick.rank);
   const total = Number(pick.total);
   const hasPlace = Number.isFinite(rank) && Number.isFinite(total) && rank >= 1 && total >= 1;
-
-  if (mockName && hasSlot) {
-    return formatHybridFirstName({
-      season,
-      round,
-      ownerName,
-      placeLabel: pick.placeLabel || (hasPlace ? ordinal(rank) : ""),
-      mockName,
-      mockSlot: slot,
-    });
-  }
 
   const tier = formatPickBucketLabel(pick.bucket);
   const head = [season, tier, ordinal(round)].filter(Boolean).join(" ");
