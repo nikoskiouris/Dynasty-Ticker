@@ -6722,6 +6722,13 @@ function calcSearchList(side) {
   return el.calculatorShell?.querySelector(`#${calcListDomId(side)}`) || null;
 }
 
+function collapseCalcSearch(side) {
+  const list = calcSearchList(side);
+  const input = document.querySelector(`[data-input="value-search"][data-side="${side}"]`);
+  if (list) setCalcListOpen(list, false);
+  if (input) syncCalcCombobox(input, { open: false });
+}
+
 function revealCalcSuggestions(input, side) {
   const list = calcSearchList(side);
   if (!list || list.classList.contains("is-closed")) return;
@@ -6751,7 +6758,7 @@ function handleWorkspaceKeydown(event) {
       root: el.calculatorShell,
       side,
     });
-    if (result.action === "pick") pickDraftSuggestion(result.item);
+    if (result.action === "pick" && pickDraftSuggestion(result.item)) collapseCalcSearch(side);
     if (result.handled) return;
   }
   if (event.key !== "Enter" && event.key !== " ") return;

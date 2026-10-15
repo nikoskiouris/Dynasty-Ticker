@@ -208,6 +208,9 @@ export function handleCalcComboboxKey(event, { input, list, root, side } = {}) {
     const item = calcSuggestionFromList(root, side);
     if (!item) return { handled: false };
     event.preventDefault?.();
+    clearCalcHighlight(list);
+    setCalcListOpen(list, false);
+    syncCalcCombobox(input, { open: false });
     return { handled: true, action: "pick", item };
   }
   if (key === "Escape") {

@@ -237,6 +237,9 @@ test("arrow keys move the highlight, Enter picks it, Esc closes, focus stays", (
   assert.equal(picked.action, "pick");
   assert.equal(picked.item, second);
   assert.equal(input.focused, true);
+  assert.equal(input.attrs["aria-expanded"], "false");
+  assert.equal(input.attrs["aria-activedescendant"], undefined);
+  assert.equal(list.closed, true);
 
   const esc = keyEvent("Escape");
   const closed = handleCalcComboboxKey(esc, { input, list, root, side: "left" });
@@ -251,6 +254,30 @@ test("arrow keys move the highlight, Enter picks it, Esc closes, focus stays", (
   const hiddenEnter = keyEvent("Enter");
   const blocked = handleCalcComboboxKey(hiddenEnter, { input, list, root, side: "left" });
   assert.equal(blocked.handled, false);
+});
+
+test("Enter that adds a player closes the combobox", () => {
+  const input = mockComboInput();
+  input.attrs["aria-expanded"] = "true";
+  input.attrs["aria-activedescendant"] = "calc-opt-left-a-0";
+  const first = mockOption(true, "calc-opt-left-a-0");
+  const list = mockComboList([first]);
+  const root = {
+    querySelector(selector) {
+      return selector === "#value-list-left" ? list : null;
+    },
+    querySelectorAll() {
+      return [first];
+    },
+  };
+  const picked = handleCalcComboboxKey(keyEvent("Enter"), { input, list, root, side: "left" });
+  assert.equal(picked.action, "pick");
+  assert.equal(picked.item, first);
+  assert.equal(input.attrs["aria-expanded"], "false");
+  assert.equal("aria-activedescendant" in input.attrs, false);
+  assert.equal(list.closed, true);
+  assert.equal(input.focused, true);
+  assert.equal(input.blurred, false);
 });
 
 test("shared keyboard focus ring is one outline and trade rows are not outline none", () => {
