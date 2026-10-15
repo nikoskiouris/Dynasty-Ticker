@@ -1,6 +1,7 @@
 import { DEFAULT_ROOMS, PAGE_HINTS, PAGE_LABELS } from "./constants.js";
 import { roomDescriptionFor, roomHintFor, roomLabelFor } from "./league-format.js";
 import { normalizeDeskTab, normalizeRoom } from "./parse.js";
+import { sampleDescription, sampleRosterLabels } from "./sample-voice.js";
 
 export const SITE_NAME = "Dynasty Ticker";
 export const SITE_ORIGIN = "https://dynastyticker.com";
@@ -10,6 +11,7 @@ export const REPO_URL = "https://github.com/nikoskiouris/Dynasty-Ticker";
 export const CONTACT_URL = `${REPO_URL}/issues`;
 export const OG_IMAGE_URL = `${SITE_URL}og-image.jpg`;
 export const STORAGE_NOTICE_KEY = "dynasty_ticker_storage_notice";
+export const SAMPLE_BANNER_KEY = "dynasty_ticker_sample_banner_off";
 
 export const DEFAULT_TITLE = "Dynasty Ticker — Your Sleeper dynasty league";
 export const DEFAULT_DESCRIPTION =
@@ -82,9 +84,22 @@ export function buildDocumentTitle({ page = "", leagueName = "", loaded = false,
   return DEFAULT_TITLE;
 }
 
-export function buildPageDescription({ page = "", leagueName = "", loaded = false, room = "", league = null } = {}) {
-  const pageMeta = pageMetaFor({ page, room, league });
+export function buildPageDescription({
+  page = "",
+  leagueName = "",
+  loaded = false,
+  room = "",
+  league = null,
+  viewingSample = false,
+  ownerName = "",
+} = {}) {
   const name = String(leagueName || "").trim();
+  if (viewingSample) {
+    const voice = sampleRosterLabels({ viewingSample: true, ownerName });
+    const custom = sampleDescription({ page, room, voice });
+    if (custom) return loaded && name ? `${custom} Now open: ${name}.` : custom;
+  }
+  const pageMeta = pageMetaFor({ page, room, league });
   if (loaded && name && pageMeta) return `${pageMeta.description} Now open: ${name}.`;
   return pageMeta?.description || DEFAULT_DESCRIPTION;
 }
@@ -125,6 +140,43 @@ export function applyStorageNoticeHidden(notice, dismissed) {
   const hide = Boolean(dismissed);
   notice.hidden = hide;
   notice.classList?.toggle?.("hidden", hide);
+}
+
+// Banner dismiss lasts this visit only. A stored flag must not hide it next time.
+export function sampleBannerDismissed(memoryFlag = false) {
+  return Boolean(memoryFlag);
+}
+
+export function clearSampleBannerDismissal(storage = globalThis.sessionStorage) {
+  try {
+    storage?.removeItem(SAMPLE_BANNER_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function sampleConnectEntryVisible({ sampleOn = false, bannerDismissed = false } = {}) {
+  return Boolean(sampleOn && bannerDismissed);
+}
+
+export function focusAfterSampleBannerDismiss(doc = globalThis.document) {
+  if (!doc || typeof doc.getElementById !== "function") return null;
+  const workspace = doc.getElementById("workspace");
+  const username = doc.getElementById("sleeper-username");
+  const target = workspace || username;
+  if (!target || target === doc.body) return null;
+  if (target === workspace && target.getAttribute("tabindex") == null) {
+    target.setAttribute("tabindex", "-1");
+  }
+  if (typeof target.focus === "function") {
+    try {
+      target.focus({ preventScroll: true });
+    } catch {
+      target.focus();
+    }
+  }
+  return target;
 }
 
 function setMetaContent(doc, attr, key, value) {

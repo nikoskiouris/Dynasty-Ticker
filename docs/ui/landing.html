@@ -24,12 +24,12 @@
             enterkeyhint="search"
             aria-describedby="landing-username-error landing-job-hint"
           />
-          <button id="landing-find-btn" type="submit" data-idle-label="Find my leagues">Find my leagues</button>
+          <button id="landing-find-btn" type="submit" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
         </div>
         <p id="landing-username-error" class="field-error" hidden role="alert"></p>
         <div id="landing-search-status" class="status error landing-search-status hidden" aria-live="polite">
           <span id="landing-search-status-text"></span>
-          <button type="button" id="landing-search-retry" class="ghost-btn status-retry">Try again</button>
+          <button type="button" id="landing-search-retry" class="ghost-btn status-retry">Retry</button>
         </div>
       </form>
       <button type="button" id="open-public-ranks" class="ghost-btn landing-ranks-btn" data-action="open-public-ranks">Look up a player</button>

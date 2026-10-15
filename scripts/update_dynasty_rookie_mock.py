@@ -4,7 +4,9 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
 import re
+import tempfile
 from datetime import date
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -164,7 +166,17 @@ def build_payload(html_text: str, url: str = DEFAULT_URL, scraped_on: str | None
 
 def write_payload(payload: dict, path: Path = OUTPUT_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    encoded = (json.dumps(payload, indent=2) + "\n").encode("utf-8")
+    descriptor, temp_name = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(encoded)
+        os.replace(temp_name, path)
+    finally:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -683,6 +683,22 @@ button.ghost-btn:hover {
   margin-top: 0.55rem;
 }
 
+.landing-search-status,
+.landing-league-error,
+.desk-load-alert {
+  max-width: 100%;
+  box-sizing: border-box;
+  flex-wrap: wrap;
+}
+
+.landing-search-status > span,
+.landing-league-error > span,
+.desk-load-alert > span {
+  flex: 1 1 10rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .landing-league-error,
 .desk-load-alert {
   width: min(40rem, 100%);
@@ -692,6 +708,19 @@ button.ghost-btn:hover {
 
 .desk-load-alert {
   margin: 0 0 0.85rem;
+}
+
+body.league-switch-stale .workspace-header,
+body.league-switch-stale .mobile-chrome-title-row,
+body.league-switch-stale .desk-nav,
+body.league-switch-stale #ticker,
+body.league-switch-stale #ui-pages,
+body.league-switch-stale .sample-banner {
+  opacity: 0.45;
+}
+
+body.league-switch-stale #desk-load-alert {
+  opacity: 1;
 }
 
 .league-picker-note {
@@ -1379,7 +1408,6 @@ body:not(.league-loaded) .workspace-header {
 .league-loading .landing-actions,
 .league-loading .landing-search-row {
   opacity: 0.55;
-  pointer-events: none;
 }
 
 .landing-rather {
@@ -8053,6 +8081,7 @@ button.rather-skip {
 .sample-league-chip[hidden],
 .sample-chrome[hidden],
 .sample-banner[hidden],
+.sample-find-btn[hidden],
 .mobile-chrome-viewing[hidden] {
   display: none;
 }
@@ -8060,9 +8089,23 @@ button.rather-skip {
 .mobile-chrome-title-row,
 .sample-chrome-title-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem;
   min-width: 0;
+}
+
+.sample-find-btn {
+  width: auto;
+  margin: 0;
+  padding: 0.28rem 0.75rem;
+  min-height: 2rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+#sample-find-btn {
+  margin-bottom: 0.75rem;
 }
 
 .mobile-chrome-title-row strong,
