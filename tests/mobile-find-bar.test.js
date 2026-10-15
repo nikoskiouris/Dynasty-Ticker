@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { removeTempDir, stopChrome } from "./support/temp-dir.js";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -227,14 +228,7 @@ function launchChrome(bin) {
   proc.stderr.on("data", (chunk) => {
     stderr += chunk.toString();
   });
-  const stop = () => {
-    try {
-      proc.kill("SIGKILL");
-    } catch {
-      // The process already exited.
-    }
-    rmSync(dir, { recursive: true, force: true });
-  };
+  const stop = () => stopChrome(proc, dir);
   return { proc, stop, endpoint: async () => {
     const started = Date.now();
     while (Date.now() - started < CHROME_PORT_WAIT_MS) {
@@ -252,13 +246,13 @@ async function openChrome(bin) {
   try {
     return { chrome, browserWs: await chrome.endpoint() };
   } catch (error) {
-    chrome.stop();
+    await chrome.stop();
     if (!isChromeLaunchFailure(error)) throw error;
     chrome = launchChrome(bin);
     try {
       return { chrome, browserWs: await chrome.endpoint() };
     } catch (retryError) {
-      chrome.stop();
+      await chrome.stop();
       throw retryError;
     }
   }
@@ -332,7 +326,7 @@ async function withPage(bin, htmlPath, run) {
     } catch {
       // The socket may never have opened.
     }
-    chrome?.stop();
+    await chrome?.stop();
   }
 }
 
@@ -406,7 +400,7 @@ test("at 390px the Find bar is not sticky or fixed and does not cover the player
       throw error;
     }
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    await removeTempDir(dir);
   }
 });
 

@@ -1712,7 +1712,9 @@ function routedPlayerName() {
 
 function applyTradeRoute(route) {
   state.badShareLink = Boolean(route?.badShare);
-  // A broken link leaves any saved draft alone.
+  // Back from a just-shared /t/<code> lands on /trade and should stay there.
+  state.sentShare = null;
+  // A broken link leaves any saved draft alone, and the notice always shows.
   if (state.badShareLink) {
     state.sharedTrade = null;
     return;
@@ -1768,7 +1770,10 @@ function activeShareCode() {
 function rememberSentShare(code) {
   state.sentShare = { code, key: draftAssetKey(state.valueCalc) };
   if (typeof history?.replaceState !== "function") return;
-  history.replaceState({ ...(history.state || {}), ...historyPlaceNow() }, "", sharePath(code));
+  // A new entry, so Back returns to the /trade URL the sender was on.
+  if (window.location.pathname === sharePath(code)) return;
+  prepareDeskPush();
+  history.pushState({ ...historyPlaceNow(), pushed: true }, "", sharePath(code));
 }
 
 function sharedVerdictFor(view) {
@@ -6592,7 +6597,6 @@ function renderDraftBasis(view) {
 
 // /t/<code> that does not decode. The calculator stays usable underneath.
 function renderBadShareNotice() {
-  if (state.badShareLink && !isDraftEmpty(state.valueCalc)) state.badShareLink = false;
   if (!state.badShareLink) return "";
   return `
     <div class="share-broken" role="alert">
@@ -6969,7 +6973,8 @@ function renderDraftVerdict(view) {
   const meters = draftMeterValues(model);
   // One verdict wording everywhere (verdict-copy.js): app, /t, card, meta, share text.
   const copy = verdictCopy(verdict);
-  const label = copy.label;
+  // The headline carries the % too ("Favors Get side, 20% apart"), like the card.
+  const label = bothSides ? copy.line : copy.label;
   const sharedView = bothSides ? sharedVerdictFor(view) : null;
   const maxSide = Math.max(meters.give, meters.get, 1);
   const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(view) : null;
@@ -6983,7 +6988,7 @@ function renderDraftVerdict(view) {
         <span class="analytics-kicker">Market verdict</span>
         ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${escapeHtml(label)}</h3>`}
         ${/* TODO(follow-up): spell a bare percent ("96% apart") as a plain outcome. Out of scope for this push. */ ""}
-        <p>${escapeHtml(sharedView ? "Give" : giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(sharedView ? "Get" : getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : adjustment ? (sharedView ? ` Stars cost extra +${formatNumber(adjustment.amount)} on ${adjustment.side === "left" ? "Give" : "Get"}.` : "") : ` ${verdict.pct}% apart.`}</p>
+        <p>${escapeHtml(sharedView ? "Give" : giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(sharedView ? "Get" : getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : adjustment ? (sharedView ? ` Stars cost extra +${formatNumber(adjustment.amount)} on ${adjustment.side === "left" ? "Give" : "Get"}.` : "") : ""}</p>
         ${sharedView ? renderVerdictFinePrint(`
           ${adjustment ? `<p class="draft-package"><strong>Stars cost extra:</strong> one great player beats a pile of good ones. That adds ${formatNumber(adjustment.amount)} to ${adjustment.side === "left" ? "Give" : "Get"}. Listed prices stay put. After that the sides are ${verdict.pct}% apart.</p>` : ""}
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}

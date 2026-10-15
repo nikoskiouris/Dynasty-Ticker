@@ -116,7 +116,7 @@ for (const viewport of viewports) {
     const shared = page.locator(".calc-shared");
     await expect(shared).toBeVisible({ timeout: 30000 });
     // One neutral vocabulary: both rows name a side the same way.
-    const VERDICT = "(Fair trade|Fair, slight edge to (Give|Get)|Favors (Give|Get)|Lopsided for (Give|Get)), [\\d.]+% apart";
+    const VERDICT = "(Fair trade|Fair, slight edge to (Give|Get) side|Favors (Give|Get) side|Lopsided in favor of (Give|Get) side), [\\d.]+% apart";
     await expect(shared.locator("div").first()).toHaveText(new RegExp(`^Oct 7\\s*${VERDICT}$`));
     await expect(shared.locator(".is-today")).toHaveText(new RegExp(`^Today\\s*${VERDICT}$`));
     await expect(page.locator(".calc-shared-note")).toHaveText("Prices moved since this was shared.");
@@ -189,6 +189,24 @@ for (const [name, code] of Object.entries(BAD_CODES)) {
   });
 }
 
+test("a bad code with a saved trade still shows the notice and keeps the trade", async ({ page }) => {
+  await page.goto("/trade?give=player:4984&get=player:9221");
+  await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
+  await page.goto("/t/zzz");
+  const alert = page.locator(".share-broken[role='alert']");
+  await expect(page.locator(".calc-grid")).toBeVisible({ timeout: 30000 });
+  await expect(alert).toBeVisible();
+  await expect(alert.locator("h3")).toHaveText("This trade link is broken or expired");
+  await expect(page.locator("[data-draft-side='left'] .calc-selected")).toContainText("Josh Allen");
+  await expect(page.locator("[data-draft-side='right'] .calc-selected")).toContainText("Jahmyr Gibbs");
+});
+
+test("the /trade headline carries the % like the card", async ({ page }) => {
+  await page.goto("/trade?give=player:9221&get=pick:2027:r1:early,pick:2028:r1:any");
+  const heading = page.locator("#value-calc-verdict h3");
+  await expect(heading).toHaveText(/^Lopsided in favor of Get side, [\d.]+% apart$/, { timeout: 30000 });
+});
+
 test("Esc closes the info panel and returns focus to its button", async ({ page }) => {
   await page.goto(`/t/2s${STAMP}9509~11632.p27r1e`);
   const toggle = page.locator("[data-action='verdict-info']");
@@ -221,4 +239,10 @@ test("after sharing from /trade the sender's address bar shows /t/<code>", async
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(new URL(copied).pathname).toBe(new URL(page.url()).pathname);
   expect(new URL(page.url()).pathname).toBe(`/t/2s${STAMP}4984~9221`);
+  // Share pushed a history entry: Back returns to the /trade URL.
+  await page.goBack();
+  await expect(page).toHaveURL(/\/trade\?give=player(:|%3A)4984&get=player(:|%3A)9221$/);
+  await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible();
+  await page.waitForTimeout(300);
+  expect(new URL(page.url()).pathname).toBe("/trade");
 });

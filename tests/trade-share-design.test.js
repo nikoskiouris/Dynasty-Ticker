@@ -15,7 +15,7 @@ import {
 } from "../docs/modules/trade-share.js";
 import { matchRoute, pathForPlace } from "../docs/modules/history-route.js";
 import { verdictCopy, verdictCopyFor } from "../docs/modules/verdict-copy.js";
-import { createSharePageHandler, shareText, summaryForCode } from "../netlify/lib/trade-share.js";
+import { createSharePageHandler, injectShareMeta, shareText, summaryForCode } from "../netlify/lib/trade-share.js";
 import { loadCardArt, renderCardSvg } from "../netlify/lib/trade-card.js";
 import { createMeasurer, truncateToWidth } from "../netlify/lib/text-measure.js";
 
@@ -28,6 +28,7 @@ const measure = createMeasurer(bold);
 const names = {};
 for (const [key, name] of Object.entries(values.names)) if (key.startsWith("player:")) names[key.slice(7)] = name;
 const summaryOf = (code) => shareSummary(decodeTradeShare(code), values, names);
+const indexHtml = readFileSync(join(root, "../docs/index.html"), "utf8");
 const svgText = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
 
 test("credited totals: rows plus 'Stars cost extra' add up to each side, and the gap is their difference", () => {
@@ -56,7 +57,9 @@ test("the card never shows a verdict for the side with the smaller total", () =>
       assert.ok(texts.includes(`+${s.credit.amount.toLocaleString("en-US")}`));
       assert.equal(creditLine(s), `Stars cost extra +${s.credit.amount.toLocaleString("en-US")}`);
     }
-    const ahead = s.giveCredited > s.getCredited ? "Give" : "Get";
+    // The side named is the one that comes out ahead: the one that receives
+    // the column worth more (Give column bigger -> Get side).
+    const ahead = s.giveCredited > s.getCredited ? "Get side" : "Give side";
     if (v.text !== "Fair trade") assert.match(v.text, new RegExp(`${ahead}$`), code);
     if (v.tone === "bad") assert.ok(s.giveCredited > s.getCredited);
     if (v.tone === "good") assert.ok(s.getCredited > s.giveCredited);
@@ -74,21 +77,24 @@ test("og:title, og:description and alt use the card verdict and credited totals"
   assert.doesNotMatch(`${title} ${description} ${alt}`, /overpay|\bwin\b|\bthem\b/i);
 });
 
-test("verdict tiers: the app's thresholds, amber up to 12%, giver's-side wording", () => {
+test("verdict tiers: the app's thresholds, amber up to 12%, names the side that comes out ahead", () => {
   const at = (give, get) => verdictCopyFor(give, get);
   assert.deepEqual(at(10000, 10400), { tier: "even", side: "", label: "Fair trade", pctText: "3.8% apart", line: "Fair trade, 3.8% apart", tone: "fair" });
-  assert.equal(at(10000, 11000).label, "Fair, slight edge to Get");
-  assert.equal(at(11000, 10000).label, "Fair, slight edge to Give");
+  assert.equal(at(10000, 11000).line, "Fair, slight edge to Give side, 9.1% apart");
+  assert.equal(at(11000, 10000).line, "Fair, slight edge to Get side, 9.1% apart");
   assert.equal(at(11000, 10000).tone, "fair");
-  assert.equal(at(10000, 12500).label, "Favors Get");
+  assert.equal(at(10000, 12500).label, "Favors Give side");
   assert.equal(at(10000, 12500).tone, "good");
-  assert.equal(at(12500, 10000).label, "Favors Give");
+  assert.equal(at(12500, 10000).label, "Favors Get side");
   assert.equal(at(12500, 10000).tone, "bad");
-  assert.equal(at(10000, 20000).label, "Lopsided for Get");
-  assert.equal(at(20000, 10000).label, "Lopsided for Give");
-  // 5.4% (the 5-picks card) is the slight-edge tier, amber, not a red "overpay".
+  assert.equal(at(10000, 20000).label, "Lopsided in favor of Give side");
+  assert.equal(at(20000, 10000).label, "Lopsided in favor of Get side");
+  // PM's acceptance case: Gibbs for two 1sts.
+  const gibbs = summaryOf("1s9221~p27r1e.p28r1a");
+  assert.match(cardVerdict(gibbs).text, /in favor of Get side$/);
+  // 5.4% (the 5-picks card) is the slight-edge tier, amber.
   const picks = summaryOf("1sp27r1e.p28r1a~p27r2a.p27r3a.p28r2a.p28r1e.p27r1l");
-  assert.equal(cardVerdict(picks).text, "Fair, slight edge to Give");
+  assert.equal(cardVerdict(picks).text, "Fair, slight edge to Get side");
   assert.equal(cardVerdict(picks).tone, "fair");
   const fair = renderCardSvg(summaryOf("1s9509~9493"), { measure });
   assert.match(fair, /font-size="48" font-weight="700" fill="#f0c36a">Fair trade</);
@@ -96,10 +102,12 @@ test("verdict tiers: the app's thresholds, amber up to 12%, giver's-side wording
 
 test("parity: app, /t page, card, og:title, og:description and share text say the same verdict", () => {
   const codes = ["1s9509~11632.p27r1e", "1s7564~11632.p27r2a", "1s9488~12527.13287.p28r1a.p27r2a",
-    "1sp27r1e.p28r1a~p27r2a.p27r3a.p28r2a.p28r1e.p27r1l", "1s9509~9493", "1s9509~9221", "1s9221~9509", "1q4984~9221"];
+    "1sp27r1e.p28r1a~p27r2a.p27r3a.p28r2a.p28r1e.p27r1l", "1s9509~9493", "1s9509~9221", "1s9221~9509", "1q4984~9221",
+    "1s9221~p27r1e.p28r1a", "1sp27r1e.p28r1a~9221"];
+  const BANNED = /You overpay|You win|\byou\b|\bthem\b|leans|overpay|\bwins?\b/i;
   const app = readFileSync(join(root, "../docs/app.js"), "utf8");
   // The app's verdict heading and tone come from verdictCopy(model.verdict).
-  assert.match(app, /const copy = verdictCopy\(verdict\);\s*const label = copy\.label;/);
+  assert.match(app, /const copy = verdictCopy\(verdict\);[\s\S]{0,120}const label = bothSides \? copy\.line : copy\.label;/);
   assert.match(app, /calc-summary \$\{bothSides \? copy\.tone : ""\}/);
   const tiers = new Set();
   for (const code of codes) {
@@ -117,8 +125,17 @@ test("parity: app, /t page, card, og:title, og:description and share text say th
     assert.ok(title.endsWith(`: ${appCopy.line}`), code);
     assert.equal(shareMessage(s), `${appCopy.line}. Check it on Dynasty Ticker.`);
     for (const text of [card.text, s.label, title, description, shareMessage(s)]) {
-      assert.doesNotMatch(text, /You overpay|You win|\bthem\b|leans/, code);
+      assert.doesNotMatch(text, BANNED, code);
     }
+    // Every og:/twitter: preview tag and the <title>, including Shared vs Today.
+    const today = summaryOf(code.replace(/^1s/, "1q"));
+    for (const html of [injectShareMeta(indexHtml, { summary: s, code }), injectShareMeta(indexHtml, { summary: s, today, code })]) {
+      const tags = [...html.matchAll(/<meta (?:property="og:[^"]+"|name="twitter:[^"]+") content="([^"]*)"/g)].map((m) => m[1]);
+      const titleTag = /<title>([^<]*)<\/title>/.exec(html)[1];
+      assert.ok(tags.length >= 10, code);
+      for (const text of [...tags, titleTag]) assert.doesNotMatch(text, BANNED, `${code}: ${text}`);
+    }
+    assert.match(shareText(s, { today }).description, new RegExp(`Today: ${cardVerdict(today).line.replace(/[.,]/g, "\\$&")}\\.`));
   }
   assert.ok(tiers.size >= 3, `covers several tiers: ${[...tiers]}`);
 });
@@ -191,7 +208,6 @@ const BAD_CODES = {
 };
 
 test("bad /t/ codes: 404, noindex, default meta; unknown valid stamps still work", async () => {
-  const indexHtml = readFileSync(join(root, "../docs/index.html"), "utf8");
   const handler = createSharePageHandler({ loadValues: async () => values, loadPlayerNames: async () => names, readIndex: async () => indexHtml, origin: "https://dynastyticker.com" });
   for (const [name, code] of Object.entries(BAD_CODES)) {
     assert.equal(decodeTradeShare(code), null, name);
