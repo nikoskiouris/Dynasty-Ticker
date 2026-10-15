@@ -1,3 +1,4 @@
 https://www.dynastyticker.com/*  https://dynastyticker.com/:splat  301!
 /api/rather-vote  /.netlify/functions/rather-vote  200!
 /api/searched-user  /.netlify/functions/searched-user  200!
+/player/*  /index.html  200

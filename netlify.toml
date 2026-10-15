@@ -35,6 +35,13 @@
   status = 200
   force = true
 
+# Player pages are real URLs. The app reads /player/<id> after this rewrite.
+# /api rules above stay first so functions are not swallowed by the SPA.
+[[redirects]]
+  from = "/player/*"
+  to = "/index.html"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/404.html"
