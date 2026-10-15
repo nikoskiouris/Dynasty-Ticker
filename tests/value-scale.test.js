@@ -28,7 +28,7 @@ test("tier bands follow the published cuts, including both edges", () => {
   assert.deepEqual(VALUE_TIERS.map((tier) => [tier.id, tier.label, tier.min, tier.blurb]), [
     ["elite", "Elite", 8000, "Top ~25 players"],
     ["starter", "Starter", 3000, "Weekly starter"],
-    ["solid", "Solid", 1000, "Flex play"],
+    ["solid", "Solid", 1000, "Startable some weeks"],
     ["depth", "Depth", 250, "Depth"],
     ["deep", "Deep stash", 1, "Roster filler"],
   ]);
@@ -346,4 +346,135 @@ test("fetchPriceHistory loads one archive and a later same-day snapshot wins", a
       ? { ok: true, json: async () => ({ schemaVersion: 2, snapshots: [] }) }
       : { ok: false, json: async () => null }
   )), null);
+});
+
+function cssDeclaration(css, selector, prop) {
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const re = /([^{}]+)\{([^{}]+)\}/g;
+  let found = null;
+  for (const match of source.matchAll(re)) {
+    const selectors = match[1].split(",").map((part) => part.trim().replace(/\s+/g, " "));
+    if (!selectors.includes(selector)) continue;
+    const decl = match[2].match(new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`));
+    if (decl) found = decl[1].trim();
+  }
+  return found;
+}
+
+function cssVars(css) {
+  const vars = {};
+  for (const block of css.matchAll(/:root\s*\{([^}]+)\}/g)) {
+    for (const decl of block[1].matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
+      vars[decl[1]] = decl[2].trim();
+    }
+  }
+  return vars;
+}
+
+function resolveVars(value, vars, depth = 0) {
+  if (!value || depth > 8) return value || "";
+  return value.replace(/var\(\s*(--[a-z0-9-]+)\s*(?:,\s*([^)]+))?\)/gi, (_, name, fallback) => {
+    const raw = vars[name] ?? (fallback || "");
+    return resolveVars(String(raw).trim(), vars, depth + 1);
+  });
+}
+
+function parseColor(input) {
+  const value = String(input || "").trim();
+  const hex = value.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hex) {
+    let h = hex[1];
+    if (h.length === 3) h = [...h].map((ch) => ch + ch).join("");
+    const n = Number.parseInt(h, 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, a: 1 };
+  }
+  const rgb = value.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+))?\s*\)$/i);
+  if (rgb) {
+    return { r: Number(rgb[1]), g: Number(rgb[2]), b: Number(rgb[3]), a: rgb[4] == null ? 1 : Number(rgb[4]) };
+  }
+  const mix = value.match(/^color-mix\(\s*in\s+srgb\s*,\s*(.+?)\s+([\d.]+)%\s*,\s*(.+)\)$/i);
+  if (mix) {
+    const left = parseColor(mix[1]);
+    const right = parseColor(mix[3]);
+    const p = Number(mix[2]) / 100;
+    if (!left || !right) return null;
+    return {
+      r: left.r * p + right.r * (1 - p),
+      g: left.g * p + right.g * (1 - p),
+      b: left.b * p + right.b * (1 - p),
+      a: left.a * p + right.a * (1 - p),
+    };
+  }
+  if (value === "transparent") return { r: 0, g: 0, b: 0, a: 0 };
+  return null;
+}
+
+function paintStops(value) {
+  const colors = [];
+  const re = /#(?:[0-9a-f]{3}|[0-9a-f]{6})\b|rgba?\([^)]+\)|color-mix\([^)]+\)|transparent/gi;
+  for (const match of String(value).matchAll(re)) {
+    const color = parseColor(match[0]);
+    if (color) colors.push(color);
+  }
+  return colors;
+}
+
+function composite(fg, bg) {
+  const a = fg.a;
+  return {
+    r: fg.r * a + bg.r * (1 - a),
+    g: fg.g * a + bg.g * (1 - a),
+    b: fg.b * a + bg.b * (1 - a),
+    a: 1,
+  };
+}
+
+function contrastRatio(fg, bg) {
+  const lum = (color) => {
+    const ch = [color.r, color.g, color.b].map((v) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+  };
+  const a = lum(fg);
+  const b = lum(bg);
+  const [hi, lo] = a > b ? [a, b] : [b, a];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+test("selected ranks down trend clears 4.5 against the painted row", () => {
+  const styles = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/styles.css"), "utf8");
+  const vars = cssVars(styles);
+  const fg = parseColor(resolveVars(cssDeclaration(styles, ".value-trend.down", "color"), vars));
+  const page = parseColor(resolveVars(vars["--bg"], vars));
+  assert.ok(fg && page);
+  const selectors = [
+    "button.ranks-row.active",
+    "button.ranks-row.active:hover",
+  ];
+  for (const selector of selectors) {
+    const declared = resolveVars(cssDeclaration(styles, selector, "background"), vars);
+    const stops = paintStops(declared);
+    assert.ok(stops.length > 0, `${selector} has no background paint`);
+    const samples = [];
+    for (const stop of stops) {
+      assert.equal(stop.a, 1, `${selector} fill must be opaque so its channels are the paint`);
+      samples.push(composite(stop, page));
+    }
+    for (let i = 0; i < stops.length - 1; i += 1) {
+      const left = stops[i];
+      const right = stops[i + 1];
+      samples.push(composite({
+        r: (left.r + right.r) / 2,
+        g: (left.g + right.g) / 2,
+        b: (left.b + right.b) / 2,
+        a: 1,
+      }, page));
+    }
+    for (const sample of samples) {
+      const ratio = contrastRatio(fg, sample);
+      assert.ok(ratio >= 4.5, `${selector} down trend is ${ratio.toFixed(2)}:1`);
+    }
+  }
 });

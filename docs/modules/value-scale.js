@@ -9,7 +9,7 @@ export const DISPLAY_SCALE = 20;
 export const VALUE_TIERS = Object.freeze([
   { id: "elite", label: "Elite", min: 8000, blurb: "Top ~25 players" },
   { id: "starter", label: "Starter", min: 3000, blurb: "Weekly starter" },
-  { id: "solid", label: "Solid", min: 1000, blurb: "Flex play" },
+  { id: "solid", label: "Solid", min: 1000, blurb: "Startable some weeks" },
   { id: "depth", label: "Depth", min: 250, blurb: "Depth" },
   { id: "deep", label: "Deep stash", min: 1, blurb: "Roster filler" },
 ]);

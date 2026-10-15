@@ -8637,9 +8637,13 @@ button.ranks-row:hover {
 }
 
 button.ranks-row.active,
-button.ranks-row.you {
+button.ranks-row.active:hover,
+button.ranks-row.you,
+button.ranks-row.you:hover {
   border-color: var(--team-a-border);
-  background: var(--team-a-soft);
+  /* 10% ivory over the page, already flattened. The wash's channels are
+     #f4f1ec, which scores the down trend at 2.25:1. */
+  background: #232324;
 }
 
 .ranks-num {
