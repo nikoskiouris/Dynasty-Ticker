@@ -625,7 +625,9 @@ test("user-facing copy says players and picks, not assets", () => {
   const voice = readDocs("modules/sample-voice.js");
   assert.match(app, /tap players & picks on both sides/);
   assert.match(app, /No traded players & picks to rank yet/);
-  assert.match(app, /player or pick" : "players & picks"\} moved/);
+  assert.match(app, /\$\{playersAndPicksLabel\(movements\.length\)\} moved/);
+  assert.match(readDocs("modules/html.js"), /1 player or pick/);
+  assert.match(readDocs("modules/html.js"), /players & picks/);
   assert.match(app, /No matching players & picks found on your roster/);
   assert.match(app, /Select one of your own players & picks to shop first/);
   assert.match(app, /fewer included players & picks/);

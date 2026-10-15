@@ -62,6 +62,10 @@ function assetMeta(assetId, { names = {}, players = {} } = {}) {
   };
 }
 
+function launchPointer(arrow) {
+  return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
+}
+
 function rowMarkup(row, { href = "" } = {}) {
   const meta = [row.team, row.age ? String(row.age) : ""].filter(Boolean).join(" · ");
   const inner = `
@@ -79,22 +83,24 @@ export function launchExampleMarkup({ values = {}, names = {}, players = {}, glo
   const get = EXAMPLE_GET.map((id) => ({ ...assetMeta(id, { names, players }), value: Math.round(Number(values?.[id]) || 0) }));
   const model = priced.model;
   const copy = verdictCopy(model.verdict);
-  const tone = copy.tone === "good" ? "up" : copy.tone === "bad" ? "dn" : copy.tone === "fair" ? "fair" : "";
+  const tone = copy.publicTone === "fair" || copy.publicTone === "strong" ? copy.publicTone : "";
+  const giveMark = copy.side === "Give" ? `${launchPointer("◀")} ` : "";
+  const getMark = copy.side === "Get" ? ` ${launchPointer("▶")}` : "";
   const giveWidth = Math.round((priced.giveSum / Math.max(priced.giveSum + priced.getSum, 1)) * 100);
   const href = exampleTradeHref();
   return `
     <a class="launch-card-hit" href="${escapeHtml(href)}" data-launch="example">
       <div class="launch-side">
-        <div class="sh"><span>You give</span><span>${escapeHtml(formatNumber(priced.giveSum))}</span></div>
+        <div class="sh"><span>${giveMark}You give</span><span>${escapeHtml(formatNumber(priced.giveSum))}</span></div>
         ${give.map((row) => rowMarkup(row)).join("")}
       </div>
       <div class="launch-side">
-        <div class="sh"><span>You get</span><span>${escapeHtml(formatNumber(priced.getSum))}</span></div>
+        <div class="sh"><span>You get${getMark}</span><span>${escapeHtml(formatNumber(priced.getSum))}</span></div>
         ${get.map((row) => rowMarkup(row)).join("")}
       </div>
-      <div class="launch-verdict">
-        <div class="vt"><b>${escapeHtml(copy.label)}</b><span class="big ${tone}">${escapeHtml(copy.pctText)}</span></div>
-        <div class="bar" aria-hidden="true"><i style="width:${giveWidth}%;background:var(--red)"></i><i style="width:${100 - giveWidth}%;background:var(--green)"></i></div>
+      <div class="launch-verdict ${tone}">
+        <div class="vt"><b>${escapeHtml(copy.line)}</b></div>
+        <div class="bar" aria-hidden="true"><i style="width:${giveWidth}%;background:var(--team-a)"></i><i style="width:${100 - giveWidth}%;background:var(--team-b)"></i></div>
         <span class="meta">Tap to change any player</span>
       </div>
     </a>

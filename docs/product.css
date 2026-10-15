@@ -1556,9 +1556,8 @@ a.inline-link {
   font-weight: 700;
   font-variant-numeric: var(--num);
 }
-.launch .up { color: var(--green); }
-.launch .dn { color: var(--red); }
-.launch .fair { color: var(--amber); }
+.launch-verdict.fair .vt { color: var(--amber); }
+.launch-verdict.strong .vt { color: var(--text); }
 .launch .bar {
   height: 6px;
   border-radius: 3px;

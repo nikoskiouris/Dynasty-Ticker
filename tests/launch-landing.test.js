@@ -28,7 +28,7 @@ import {
   launchTrendMarkup,
 } from "../docs/modules/launch-landing.js";
 import { draftVerdictModel } from "../docs/modules/trade-draft.js";
-import { verdictCopy } from "../docs/modules/verdict-copy.js";
+import { TIER_BANDS, verdictCopy } from "../docs/modules/verdict-copy.js";
 
 const root = dirname(fileURLToPath(import.meta.url));
 
@@ -90,10 +90,19 @@ test("the example trade is the calculator verdict, and a new price changes it", 
     globalMaxValue: 10000,
   });
   const copy = verdictCopy(model.verdict);
-  const shownLabel = html.match(/<div class="vt"><b>([^<]*)<\/b>/);
-  const shownPct = html.match(/<span class="big [^"]*">([^<]*)<\/span>/);
-  assert.equal(shownLabel?.[1], copy.label);
-  assert.equal(shownPct?.[1], copy.pctText);
+  assert.deepEqual(
+    { even: TIER_BANDS.even, edge: TIER_BANDS.edge, favors: TIER_BANDS.favors },
+    { even: 5, edge: 14, favors: 28 },
+  );
+  assert.match(copy.line, copy.tier === "even" ? / · within \d+%$/ : / · \S+ side worth \d+(\.\d+)?% more$/);
+  const shown = html.match(/class="vt"><b>([^<]*)<\/b>/);
+  assert.equal(shown?.[1], copy.line);
+  assert.match(html, new RegExp(`launch-verdict ${copy.publicTone}`));
+  if (copy.side === "Give") assert.match(html, /calc-pointer-wide">◀/);
+  if (copy.side === "Get") assert.match(html, /calc-pointer-wide">▶/);
+  assert.doesNotMatch(html, /var\(--red\)|var\(--green\)|\.up|\.dn/);
+  assert.match(html, /var\(--team-a\)/);
+  assert.match(html, /var\(--team-b\)/);
   assert.match(html, /10,000/);
   const moved = exampleTradeFromValues({ ...values, "player:9509": 8200 }, { globalMaxValue: 10000 });
   assert.equal(moved.giveSum, 8200);

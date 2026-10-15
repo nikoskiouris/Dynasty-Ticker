@@ -122,6 +122,7 @@ test("route table maps the approved paths and unknown routes go home", () => {
     "/l/:leagueId/ideas",
     "/l/:leagueId/league",
     "/player/:sleeperId/:slug?",
+    "/t/:shareCode",
   ]);
   const home = matchRoute("/");
   assert.equal(home.name, "home");

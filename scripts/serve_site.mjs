@@ -3,6 +3,8 @@ import http from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isSpaPath } from "../docs/modules/history-route.js";
+import { createSharePageHandler } from "../netlify/lib/trade-share.js";
+import { createTradeCardHandler } from "../netlify/lib/trade-card.js";
 
 const root = join(process.cwd(), "docs");
 const port = Number(process.env.PORT || 4173);
@@ -46,19 +48,42 @@ export function classifyRequest(pathname) {
   const clean = decodePath(pathname);
   if (clean == null) return { status: 400, file: null };
   if (clean.startsWith("/api/") || clean.startsWith("/.netlify/")) return { status: 404, file: fileAt("/404.html") };
+  // Same as netlify.toml: shared trades and their cards go to the functions.
+  if (/^\/t\/[^/]+\/?$/.test(clean)) return { status: 200, file: fileAt("/index.html"), fn: "trade-page" };
+  if (/^\/og\/t\/[^/]+$/.test(clean)) return { status: 200, file: null, fn: "trade-card" };
   const staticFile = clean === "/" ? null : fileAt(clean);
   if (staticFile) return { status: 200, file: staticFile };
   if (clean === "/" || isSpaPath(clean)) return { status: 200, file: fileAt("/index.html") };
   return { status: 404, file: fileAt("/404.html") };
 }
 
-export function createSiteServer() {
+async function sendResponse(res, response) {
+  const headers = Object.fromEntries(response.headers.entries());
+  res.writeHead(response.status, headers);
+  res.end(Buffer.from(await response.arrayBuffer()));
+}
+
+export function createSiteServer(deps = {}) {
+  const origin = deps.origin || `http://127.0.0.1:${port}`;
+  const fns = {
+    "trade-page": createSharePageHandler({ origin, ...deps }),
+    "trade-card": createTradeCardHandler({ origin, ...deps }),
+  };
   return http.createServer((req, res) => {
     let classified;
     try {
       classified = classifyRequest(new URL(req.url || "/", "http://127.0.0.1").pathname);
     } catch {
       classified = { status: 400, file: null };
+    }
+    if (classified.fn) {
+      fns[classified.fn](new Request(new URL(req.url || "/", origin)))
+        .then((response) => sendResponse(res, response))
+        .catch(() => {
+          res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+          res.end("Function error");
+        });
+      return;
     }
     if (!classified.file) {
       res.writeHead(classified.status || 404, { "content-type": "text/plain; charset=utf-8" });
