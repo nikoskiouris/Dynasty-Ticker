@@ -92,7 +92,7 @@ class MarketFileTests(unittest.TestCase):
         deploy = (ROOT / "scripts" / "deploy_live_site.sh").read_text(encoding="utf-8")
         refresh_at = deploy.index("refresh_market_data.sh")
         age_at = deploy.index("check_market_files.py --fail-on-age")
-        publish_at = deploy.index("netlify-cli@27 deploy")
+        publish_at = deploy.index("netlify-cli@${NETLIFY_CLI_VERSION}\" deploy")
         self.assertLess(refresh_at, age_at)
         self.assertLess(age_at, publish_at)
         workflow = (ROOT / ".github/workflows/refresh-player-values.yml").read_text(encoding="utf-8")
