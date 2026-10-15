@@ -2,10 +2,15 @@ import { draftVerdictModel } from "./trade-draft.js";
 import { formatGenericPickAssetLabel, getGlobalMaxPlayerValue, pickValueBundle } from "./values.js";
 
 // A shared trade is its own state, so no server storage: /t/<code>.
-// Code: version "1", format "s" (Superflex) or "q" (1QB), give ids, "~", get ids.
+// Code v2: "2", format "s" (Superflex) or "q" (1QB), the 12-digit UTC price
+// stamp (YYYYMMDDHHmm of player_values.json asOf), give ids, "~", get ids.
+// v1 has no stamp and prices at today's board. The stamp is only a lookup key
+// into docs/data/price-history/, so a link carries no verdict to forge.
 // A player is its Sleeper id. A pick is p<yy>r<round><a|e|m|l>.
 // No usernames, league ids, or roster ids ever go in a code.
-export const SHARE_VERSION = "1";
+export const SHARE_VERSION = "2";
+export const PRICE_HISTORY_DIR = "data/price-history";
+const STAMP = /^20\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])([01]\d|2[0-3])[0-5]\d$/;
 export const SHARE_MAX_SIDE = 8;
 export const SHARE_MAX_LENGTH = 220; // 8 twelve-digit ids a side fit
 const FORMAT_CODE = Object.freeze({ sf: "s", oneQb: "q" });
@@ -35,30 +40,63 @@ export function decodeShareAsset(item) {
   return "";
 }
 
-export function encodeTradeShare({ give = [], get = [], format = "sf" } = {}) {
+// asOf like "2026-10-14T19:17:17+00:00" becomes "202610141917" (UTC).
+export function priceStamp(asOf) {
+  const time = Date.parse(String(asOf || ""));
+  if (!Number.isFinite(time)) return "";
+  const stamp = new Date(time).toISOString().replace(/[^0-9]/g, "").slice(0, 12);
+  return STAMP.test(stamp) ? stamp : "";
+}
+
+export function isPriceStamp(stamp) {
+  return STAMP.test(String(stamp || ""));
+}
+
+export function snapshotPath(stamp) {
+  return isPriceStamp(stamp) ? `/${PRICE_HISTORY_DIR}/${stamp}.json` : "";
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export function stampLabel(stamp, { year = false } = {}) {
+  if (!isPriceStamp(stamp)) return "";
+  const text = `${MONTHS[Number(stamp.slice(4, 6)) - 1]} ${Number(stamp.slice(6, 8))}`;
+  return year ? `${text}, ${stamp.slice(0, 4)}` : text;
+}
+
+export function encodeTradeShare({ give = [], get = [], format = "sf", asOf = "" } = {}) {
   const side = (list) => (Array.isArray(list) ? list : []).map(encodeShareAsset);
   const left = side(give);
   const right = side(get);
   if (!left.length || !right.length) return "";
   if (left.length > SHARE_MAX_SIDE || right.length > SHARE_MAX_SIDE) return "";
   if ([...left, ...right].some((item) => !item)) return "";
-  const code = `${SHARE_VERSION}${FORMAT_CODE[format] || "s"}${left.join(".")}~${right.join(".")}`;
+  const stamp = priceStamp(asOf);
+  const head = stamp ? `${SHARE_VERSION}${FORMAT_CODE[format] || "s"}${stamp}` : `1${FORMAT_CODE[format] || "s"}`;
+  const code = `${head}${left.join(".")}~${right.join(".")}`;
   return code.length <= SHARE_MAX_LENGTH ? code : "";
 }
 
 export function decodeTradeShare(code) {
   const text = String(code ?? "");
   if (!text || text.length > SHARE_MAX_LENGTH || !SHARE_CODE.test(text)) return null;
-  if (text[0] !== SHARE_VERSION) return null;
+  const version = text[0];
+  if (version !== "1" && version !== "2") return null;
   const format = CODE_FORMAT[text[1]];
   if (!format) return null;
-  const halves = text.slice(2).split("~");
+  let stamp = "";
+  let body = text.slice(2);
+  if (version === "2") {
+    stamp = body.slice(0, 12);
+    if (!isPriceStamp(stamp)) return null;
+    body = body.slice(12);
+  }
+  const halves = body.split("~");
   if (halves.length !== 2) return null;
   const sides = halves.map((half) => half.split("."));
   if (sides.some((list) => !list.length || list.length > SHARE_MAX_SIDE)) return null;
   const [give, get] = sides.map((list) => list.map(decodeShareAsset));
   if ([...give, ...get].some((id) => !id)) return null;
-  return { format, give, get };
+  return { format, give, get, stamp };
 }
 
 export function sharePath(code) {
@@ -83,6 +121,11 @@ const SHARE_LABEL = Object.freeze({
 });
 
 // Same prices and the same verdict math as the calculator, from the public board.
+// Same verdict if the label and the gap match. Otherwise the page shows both.
+export function sameVerdict(left, right) {
+  return Boolean(left && right) && left.label === right.label && left.pct === right.pct;
+}
+
 export function shareSummary(decoded, payload, playerNames = {}) {
   if (!decoded) return null;
   const bundle = pickValueBundle(payload, decoded.format);
@@ -111,5 +154,6 @@ export function shareSummary(decoded, payload, playerNames = {}) {
     pct: model.verdict.pct,
     tone: model.verdict.tone,
     label: SHARE_LABEL[model.verdict.label] || model.verdict.label,
+    stamp: priceStamp(payload?.asOf),
   };
 }

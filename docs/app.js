@@ -292,7 +292,7 @@ import {
   topOverlay,
   urlPath,
 } from "./modules/history-route.js";
-import { encodeTradeShare, sharePath } from "./modules/trade-share.js";
+import { decodeTradeShare, encodeTradeShare, sameVerdict, sharePath, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
 import {
   analyzeWindowCall,
   groupWindowCalls,
@@ -1711,6 +1711,36 @@ function applyTradeRoute(route) {
   for (const id of route?.get || []) draft = addValueCalcItem(draft, "right", { assetId: id, name: id });
   state.valueCalc = draft;
   writeStoredDraft(draft);
+  void loadSharedTrade(route?.shareCode, draft);
+}
+
+// A dated link shows what the sharer saw, priced from the archived board.
+// An undated or unknown stamp has no shared verdict, only today's.
+async function loadSharedTrade(code, draft) {
+  state.sharedTrade = null;
+  const decoded = decodeTradeShare(code || "");
+  if (!decoded?.stamp) return;
+  const entry = { decoded, key: draftAssetKey(draft), snapshot: null };
+  state.sharedTrade = entry;
+  try {
+    const res = await fetch(snapshotPath(decoded.stamp));
+    if (!res.ok) return;
+    const snapshot = await res.json();
+    if (!snapshot?.sf || !snapshot?.oneQb) return;
+    entry.snapshot = snapshot;
+  } catch {
+    return;
+  }
+  if (state.sharedTrade === entry && el.calculatorShell?.querySelector("#value-calc-verdict")) patchTradeDraft();
+}
+
+function sharedVerdictFor(view) {
+  const entry = state.sharedTrade;
+  if (!entry?.snapshot || entry.key !== draftAssetKey(view.draft)) return null;
+  const shared = shareSummary(entry.decoded, entry.snapshot);
+  const today = state.valueBundles ? shareSummary(entry.decoded, state.valueBundles) : null;
+  if (!today || sameVerdict(shared, today)) return null;
+  return { shared, date: stampLabel(entry.decoded.stamp) };
 }
 
 function canonicalizePlayerUrl(playerId, name) {
@@ -6830,6 +6860,7 @@ function renderDraftVerdict(view) {
   const { verdict, adjustment } = model;
   const meters = draftMeterValues(model);
   const label = draftVerdictLabel(verdict, { them, getFavor: voice?.favor || "your", favorName: voice?.youGive || "" });
+  const sharedSeen = bothSides ? sharedVerdictFor(view) : null;
   const maxSide = Math.max(meters.give, meters.get, 1);
   const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(view) : null;
   const evenSide = verdict.gap > 0 ? (voice ? voice.youGive : "You") : (view.partner ? them : "They");
@@ -6840,7 +6871,8 @@ function renderDraftVerdict(view) {
     <section class="calc-summary ${bothSides ? verdict.tone : ""}">
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
-        <h3>${escapeHtml(label)}</h3>
+        ${sharedSeen ? `<p class="calc-shared">Shared verdict (${escapeHtml(sharedSeen.date)}): <strong>${escapeHtml(sharedSeen.shared.label)}</strong>, <strong class="calc-shared-num">${escapeHtml(String(sharedSeen.shared.pct))}%</strong> apart</p>` : ""}
+        <h3>${sharedSeen ? "Today: " : ""}${escapeHtml(label)}</h3>
         ${/* TODO(follow-up): spell a bare percent ("96% apart") as a plain outcome. Out of scope for this push. */ ""}
         <p>${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : adjustment ? "" : ` ${verdict.pct}% apart.`}</p>
         ${adjustment ? `<p class="draft-package"><strong>Package credit:</strong> the best player is worth more than the same total split into smaller pieces. That adds ${formatNumber(adjustment.amount)} to ${escapeHtml(credited)}. Listed prices stay put. After that credit the sides are ${verdict.pct}% apart.</p>` : ""}
@@ -6878,6 +6910,7 @@ function draftShareCode(view) {
     give: ids(view.draft.left),
     get: ids(view.draft.right),
     format: view.basis.format === "oneQb" ? "oneQb" : "sf",
+    asOf: state.valueBundles?.asOf || "",
   });
 }
 

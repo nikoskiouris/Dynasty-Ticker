@@ -38,8 +38,8 @@ test("encode and decode round trip players, picks, and format", () => {
   const code = encodeTradeShare(trade);
   assert.equal(code, "1q4984.p27r1e~9221.p28r2a");
   assert.match(code, /^[0-9a-z.~]+$/);
-  assert.deepEqual(decodeTradeShare(code), trade);
-  assert.deepEqual(decodeTradeShare(encodeTradeShare({ ...trade, format: "sf" })), { ...trade, format: "sf" });
+  assert.deepEqual(decodeTradeShare(code), { ...trade, stamp: "" });
+  assert.deepEqual(decodeTradeShare(encodeTradeShare({ ...trade, format: "sf" })), { ...trade, format: "sf", stamp: "" });
   for (const bucket of ["any", "early", "mid", "late"]) {
     assert.equal(decodeTradeShare(encodeTradeShare({ give: [`pick:2029:r3:${bucket}`], get: ["player:9509"] })).give[0], `pick:2029:r3:${bucket}`);
   }
@@ -201,4 +201,101 @@ test("local serve and netlify.toml send shared trades to the functions", () => {
   assert.match(toml, /from = "\/t\/:code"\s*\n\s*to = "\/\.netlify\/functions\/trade-page\?code=:code"\s*\n\s*status = 200/);
   assert.match(toml, /from = "\/og\/t\/:file"\s*\n\s*to = "\/\.netlify\/functions\/trade-card\?file=:file"\s*\n\s*status = 200/);
   assert.match(toml, /included_files = \[[^\]]*resvg-wasm\/index_bg\.wasm/);
+});
+
+// ---- Dated links: the price snapshot archive ----
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, writeFileSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { isPriceStamp, priceStamp, sameVerdict, snapshotPath, stampLabel } from "../docs/modules/trade-share.js";
+import { loadSnapshot, summaryForCode } from "../netlify/lib/trade-share.js";
+
+const STAMP = priceStamp(values.asOf);
+// The same board a week earlier, with Gibbs priced far higher.
+const older = { asOf: "2026-10-07T11:17:00+00:00", sf: { ...values.sf, "player:9221": values.sf["player:9221"] * 2 }, oneQb: values.oneQb };
+const snapshots = { [STAMP]: { asOf: values.asOf, sf: values.sf, oneQb: values.oneQb }, "202610071117": older };
+const dated = { ...deps, loadSnapshot: async (stamp) => snapshots[stamp] || null };
+
+test("price stamps come from asOf in UTC and gate every lookup", () => {
+  assert.equal(priceStamp("2026-10-14T19:17:17+00:00"), "202610141917");
+  assert.equal(priceStamp("2026-10-14T15:17:17-04:00"), "202610141917");
+  assert.equal(priceStamp("nope"), "");
+  assert.equal(stampLabel("202610141917"), "Oct 14");
+  assert.equal(stampLabel("202610141917", { year: true }), "Oct 14, 2026");
+  for (const bad of ["20261014191", "202613141917", "202610321917", "202610142417", "../../../x", ""]) {
+    assert.equal(isPriceStamp(bad), false, bad);
+    assert.equal(snapshotPath(bad), "");
+  }
+  assert.equal(snapshotPath("202610141917"), "/data/price-history/202610141917.json");
+});
+
+test("a dated code round trips and an undated code stays v1", () => {
+  const code = encodeTradeShare({ give: ["player:4984"], get: ["player:9221"], format: "sf", asOf: values.asOf });
+  assert.equal(code, `2s${STAMP}4984~9221`);
+  assert.deepEqual(decodeTradeShare(code), { format: "sf", give: ["player:4984"], get: ["player:9221"], stamp: STAMP });
+  assert.equal(decodeTradeShare("1s4984~9221").stamp, "");
+  assert.equal(decodeTradeShare("2s4984~9221"), null);
+  assert.equal(decodeTradeShare("2s2026101419994984~9221"), null);
+});
+
+test("the archive has the live board's snapshot, and the writer is immutable and pruned", () => {
+  const live = JSON.parse(readFileSync(join(root, `../docs/data/price-history/${STAMP}.json`), "utf8"));
+  assert.deepEqual(live.sf, values.sf);
+  assert.deepEqual(live.oneQb, values.oneQb);
+  assert.equal(live.players, undefined);
+  const workflow = readFileSync(join(root, "../.github/workflows/refresh-player-values.yml"), "utf8");
+  assert.match(workflow, /python3 scripts\/archive_price_snapshot\.py/);
+  assert.match(workflow, /git add [^\n]*docs\/data\/price-history/);
+
+  const dir = mkdtempSync(join(tmpdir(), "prices-"));
+  const run = (asOf, sf) => {
+    writeFileSync(join(dir, "v.json"), JSON.stringify({ asOf, sf, oneQb: {} }));
+    execFileSync("python3", ["-c", `import sys; sys.path.insert(0, "scripts"); import archive_price_snapshot as a; from pathlib import Path; a.archive(Path("${dir}/v.json"), Path("${dir}/h"), keep=2)`], { cwd: join(root, "..") });
+  };
+  run("2026-10-01T00:00:00+00:00", { a: 1 });
+  run("2026-10-01T00:00:00+00:00", { a: 2 });
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, "h/202610010000.json"), "utf8")).sf, { a: 1 });
+  run("2026-10-08T00:00:00+00:00", { a: 3 });
+  run("2026-10-15T00:00:00+00:00", { a: 4 });
+  assert.deepEqual(readdirSync(join(dir, "h")).sort(), ["202610080000.json", "202610150000.json"]);
+});
+
+test("snapshot lookup: hit, missing, tampered", async () => {
+  assert.ok((await loadSnapshot(STAMP)).sf);
+  assert.equal(await loadSnapshot("202001010000", { origin: "http://127.0.0.1:9" }), null);
+  assert.equal(await loadSnapshot("../player_values"), null);
+});
+
+test("shared verdict comes from the snapshot; match vs differ; unknown dates fall back", async () => {
+  const same = await summaryForCode(`2s${STAMP}4984~9221`, dated);
+  assert.ok(same.shared);
+  assert.equal(same.same, true);
+  assert.equal(same.version, STAMP);
+
+  const differ = await summaryForCode("2s2026100711174984~9221", dated);
+  assert.equal(differ.same, false);
+  assert.equal(differ.summary, differ.shared);
+  assert.equal(differ.shared.getTotal, values.sf["player:9221"] * 2);
+  assert.equal(differ.today.getTotal, values.sf["player:9221"]);
+  assert.equal(sameVerdict(differ.shared, differ.today), false);
+
+  // A real-looking date with no snapshot, or an undated v1 code: today's board.
+  for (const code of ["2s2025010112004984~9221", "1s4984~9221"]) {
+    const hit = await summaryForCode(code, dated);
+    assert.equal(hit.shared, null, code);
+    assert.equal(hit.summary, hit.today, code);
+  }
+});
+
+test("meta and card say as of the snapshot date", async () => {
+  const page = await createSharePageHandler({ ...dated, origin: "https://dynastyticker.com" })(
+    new Request("https://dynastyticker.com/t/2s2026100711174984~9221"),
+  );
+  const html = await page.text();
+  assert.match(html, /og:description" content="[^"]*as of Oct 7, 2026/);
+  assert.match(html, /og\/t\/2s2026100711174984~9221\.png\?v=202610071117/);
+  const svg = await createTradeCardHandler(dated)(new Request("https://dynastyticker.com/og/t/2s2026100711174984~9221.svg"));
+  const text = await svg.text();
+  assert.match(text, /as of Oct 7, 2026/);
+  assert.match(text, new RegExp((values.sf["player:9221"] * 2).toLocaleString("en-US")));
 });

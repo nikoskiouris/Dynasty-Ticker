@@ -1,6 +1,15 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { decodeTradeShare, shareImagePath, sharePath, shareSummary } from "../../docs/modules/trade-share.js";
+import {
+  decodeTradeShare,
+  isPriceStamp,
+  sameVerdict,
+  shareImagePath,
+  sharePath,
+  shareSummary,
+  snapshotPath,
+  stampLabel,
+} from "../../docs/modules/trade-share.js";
 
 export const SHARE_NAMES_STORE = "share-names";
 export const SHARE_NAMES_KEY = "sleeper-player-names-v1";
@@ -38,7 +47,7 @@ export function shareText(summary) {
   const list = (rows) => rows.map((row) => row.name).join(", ");
   return {
     title: `${summary.label}: ${list(summary.give)} for ${list(summary.get)}`.slice(0, 140),
-    description: `Give ${summary.giveTotal.toLocaleString("en-US")} vs get ${summary.getTotal.toLocaleString("en-US")}, ${summary.pct}% apart. Dynasty Ticker market prices, ${summary.formatLabel}.`,
+    description: `Give ${summary.giveTotal.toLocaleString("en-US")} vs get ${summary.getTotal.toLocaleString("en-US")}, ${summary.pct}% apart. Dynasty Ticker market prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, ${summary.formatLabel}.`,
   };
 }
 
@@ -135,14 +144,46 @@ export function valuesVersion(payload) {
   return String(payload?.asOf || "").replace(/[^0-9]/g, "").slice(0, 12);
 }
 
+const snapshotCache = new Map();
+
+// The archived board for a stamp, or null. The stamp is checked before any
+// read, so a tampered code can only miss, never reach another file.
+export async function loadSnapshot(stamp, { origin = SITE_ORIGIN } = {}) {
+  if (!isPriceStamp(stamp)) return null;
+  if (snapshotCache.has(stamp)) return snapshotCache.get(stamp);
+  let payload = null;
+  try {
+    payload = JSON.parse(await readSiteFile(snapshotPath(stamp).slice(1), origin));
+    if (!payload?.sf || !payload?.oneQb) payload = null;
+  } catch {
+    payload = null;
+  }
+  if (snapshotCache.size > 64) snapshotCache.clear();
+  snapshotCache.set(stamp, payload);
+  return payload;
+}
+
+// shared: what the sharer saw (null when the code has no stamp or the archive
+// lacks it). today: the live board. summary: shared when there is one.
 export async function summaryForCode(code, deps = {}) {
   const decoded = decodeTradeShare(code);
   if (!decoded) return null;
-  const [payload, names] = await Promise.all([
+  const [payload, names, snapshot] = await Promise.all([
     (deps.loadValues || loadValues)(deps),
     (deps.loadPlayerNames || loadPlayerNames)(deps),
+    decoded.stamp ? (deps.loadSnapshot || loadSnapshot)(decoded.stamp, deps) : null,
   ]);
-  return { decoded, summary: shareSummary(decoded, payload, names), version: valuesVersion(payload) };
+  const today = shareSummary(decoded, payload, names);
+  const shared = snapshot ? shareSummary(decoded, snapshot, names) : null;
+  const summary = shared || today;
+  return {
+    decoded,
+    shared,
+    today,
+    summary,
+    same: shared ? sameVerdict(shared, today) : true,
+    version: shared ? decoded.stamp : valuesVersion(payload),
+  };
 }
 
 export function createSharePageHandler(deps = {}) {

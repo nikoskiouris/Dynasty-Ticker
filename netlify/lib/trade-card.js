@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { stampLabel } from "../../docs/modules/trade-share.js";
 import { CARD_CACHE, SAFE_HEADERS, codeFromPath, escapeMarkup, summaryForCode } from "./trade-share.js";
 
 const W = 1200;
@@ -42,7 +43,7 @@ export function renderCardSvg(summary) {
     + sideRows(summary.give, 80, "GIVE", summary.giveTotal)
     + sideRows(summary.get, 620, "GET", summary.getTotal)
     + `<text x="80" y="${H - 66}" font-family="${SANS}" font-size="20" font-weight="700" fill="${C.text}">Dynasty Ticker</text>`
-    + `<text x="${W - 80}" y="${H - 66}" font-family="${SANS}" font-size="20" fill="${C.muted}" text-anchor="end">${escapeMarkup(`Market prices · ${summary.formatLabel}`)}</text>`
+    + `<text x="${W - 80}" y="${H - 66}" font-family="${SANS}" font-size="20" fill="${C.muted}" text-anchor="end">${escapeMarkup(`Market prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""} · ${summary.formatLabel}`)}</text>`
     + `</svg>`;
 }
 

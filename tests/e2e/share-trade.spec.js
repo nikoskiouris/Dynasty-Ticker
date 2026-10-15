@@ -1,4 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+const VALUES = JSON.parse(readFileSync(new URL("../../docs/data/player_values.json", import.meta.url), "utf8"));
+const STAMP = new Date(Date.parse(VALUES.asOf)).toISOString().replace(/[^0-9]/g, "").slice(0, 12);
+const OLD = "202610071117";
 
 // Real Sleeper ids: 4984 Josh Allen, 9221 Jahmyr Gibbs. Superflex.
 const CODE = "1s4984.p27r1e~9221";
@@ -44,7 +49,41 @@ for (const viewport of viewports) {
     await expect(status).toHaveAttribute("role", "status");
     await expect(status).toHaveText("Link copied.");
     const copied = await page.evaluate(() => navigator.clipboard.readText());
-    expect(copied).toBe(`http://127.0.0.1:4173/t/${CODE}`);
+    // The sharer's link carries the board's price stamp.
+    expect(copied).toBe(`http://127.0.0.1:4173/t/2s${STAMP}4984.p27r1e~9221`);
+  });
+
+  test(`a dated link on today's board shows one verdict at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(`/t/2s${STAMP}4984~9221`);
+    const verdict = page.locator("#value-calc-verdict .calc-summary");
+    await expect(verdict).toBeVisible({ timeout: 30000 });
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator(".calc-shared")).toHaveCount(0);
+    await expect(verdict.locator("h3")).not.toContainText("Today:");
+  });
+
+  test(`a dated link whose prices moved shows shared and today at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    // An older archived board where Gibbs cost twice as much.
+    await page.route(`**/data/price-history/${OLD}.json`, (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ asOf: "2026-10-07T11:17:00+00:00", sf: { ...VALUES.sf, "player:9221": VALUES.sf["player:9221"] * 2 }, oneQb: VALUES.oneQb }),
+    }));
+    await page.setViewportSize(viewport);
+    await page.goto(`/t/2s${OLD}4984~9221`);
+    const shared = page.locator(".calc-shared");
+    await expect(shared).toBeVisible({ timeout: 30000 });
+    await expect(shared).toContainText("Shared verdict (Oct 7)");
+    await expect(page.locator("#value-calc-verdict h3")).toContainText("Today:");
+    const box = await shared.boundingBox();
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  });
+
+  test(`an unknown date falls back to today's prices at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/t/2s2025010112004984~9221");
+    await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
+    await expect(page.locator(".calc-shared")).toHaveCount(0);
   });
 }
 
