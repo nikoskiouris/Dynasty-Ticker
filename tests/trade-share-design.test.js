@@ -269,3 +269,17 @@ test("bad /t/ codes: 404, noindex, default meta; unknown valid stamps still work
   // v1 (no date) is a supported version, not a bad one.
   assert.equal((await handler(new Request("https://dynastyticker.com/t/1s9221~p27r1e"))).status, 200);
 });
+
+test("card split bar is sized on the credited totals, same basis as /t bars (RECHECK4)", () => {
+  for (const code of ["1s9509~11632.p27r1e", "1s9221~p27r1e.p28r1a", "1s9509~9221"]) {
+    const s = summaryOf(code);
+    const svg = renderCardSvg(s, { measure });
+    const [, giveW, , getW] = /<rect x="0" y="618" width="(\d+)" height="12" fill="[^"]+"\/><rect x="(\d+)" y="618" width="(\d+)"/.exec(svg);
+    assert.equal(Number(giveW), Math.round(1200 * s.giveCredited / (s.giveCredited + s.getCredited)), code);
+    assert.equal(Number(giveW) + Number(getW), 1200, code);
+  }
+  const app = readFileSync(join(root, "../docs/app.js"), "utf8");
+  // /t bars: credited totals with a separate stars segment; private /trade keeps listed meters.
+  assert.match(app, /const bars = sharedBarSegments\(model, sharedView \? null : meters\);/);
+  assert.match(app, /class="meter-stars"/);
+});

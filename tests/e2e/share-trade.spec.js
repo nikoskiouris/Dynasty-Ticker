@@ -143,6 +143,31 @@ for (const viewport of viewports) {
     await expect(page.locator(".calc-summary-main > p").first()).toHaveText(/^Give [\d,]+( incl\. stars)?\. Get [\d,]+( incl\. stars)?\. Listed: (Give|Get) [\d,]+ \+ [\d,]+ stars\.$/);
     await expect(page.locator("#value-calc-verdict .calc-summary")).not.toHaveClass(/\b(good|bad)\b/);
     await expect(page.locator(".calc-bar.is-bigger .calc-pointer")).toHaveCount(1);
+    // RECHECK4: bars sized on the credited totals, stars as their own segment.
+    const widths = await page.evaluate(() => {
+      const w = (el) => el ? el.getBoundingClientRect().width : 0;
+      const bar = (cls) => {
+        const row = document.querySelector(`#value-calc-verdict .calc-bar.${cls}`);
+        const segs = [...row.querySelectorAll(".meter-track span")];
+        return { track: w(row.querySelector(".meter-track")), fill: segs.reduce((t, el) => t + w(el), 0), stars: w(row.querySelector(".meter-stars")), total: Number(row.querySelector("strong").textContent.replace(/,/g, "")) };
+      };
+      return { give: bar("team-a"), get: bar("team-b") };
+    });
+    const credited = (await page.locator(".calc-summary-main > p").first().textContent()).match(/Give ([\d,]+).*Get ([\d,]+)/).slice(1).map((n) => Number(n.replace(/,/g, "")));
+    expect([widths.give.total, widths.get.total]).toEqual(credited);
+    expect(widths.give.fill / widths.get.fill).toBeCloseTo(credited[0] / credited[1], 1);
+    expect(widths.give.fill).toBeGreaterThan(widths.get.fill); // Give side is worth more
+    expect(widths.give.stars).toBeGreaterThan(0);
+    // Wide: ◀ points at the Give column. Phone (stacked bars): a plain dot.
+    const pointer = page.locator(".calc-bar.is-bigger .calc-pointer");
+    if (viewport.width <= 620) {
+      await expect(pointer.locator(".calc-pointer-narrow")).toBeVisible();
+      await expect(pointer.locator(".calc-pointer-wide")).toBeHidden();
+    } else {
+      await expect(pointer.locator(".calc-pointer-wide")).toBeVisible();
+      await expect(pointer.locator(".calc-pointer-wide")).toHaveText("◀");
+      await expect(pointer.locator(".calc-pointer-narrow")).toBeHidden();
+    }
     const box = await toggle.boundingBox();
     expect(box.height).toBeGreaterThanOrEqual(44);
     expect(box.width).toBeGreaterThanOrEqual(44);

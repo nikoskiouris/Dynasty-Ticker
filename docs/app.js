@@ -6977,7 +6977,10 @@ function renderDraftVerdict(view) {
   // The headline is the full line ("Lopsided · Give side worth 89.3% more"), like the card.
   const label = bothSides ? copy.line : copy.label;
   const sharedView = bothSides ? sharedVerdictFor(view) : null;
-  const maxSide = Math.max(meters.give, meters.get, 1);
+  // RECHECK4: on a cold /t the bars are sized on the credited totals the
+  // verdict compares, with the stars credit as its own segment.
+  const bars = sharedBarSegments(model, sharedView ? null : meters);
+  const maxSide = Math.max(bars.give.total, bars.get.total, 1);
   const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(view) : null;
   const evenSide = verdict.gap > 0 ? (voice ? voice.youGive : "You") : (view.partner ? them : "They");
   const giveLabel = voice?.giveLabel || "You give";
@@ -7004,14 +7007,14 @@ function renderDraftVerdict(view) {
       </div>
       <div class="calc-bars">
         <div class="calc-bar team-a${sharedView && copy.side === "Give" ? " is-bigger" : ""}">
-          <span>${sharedView && copy.side === "Give" ? `<b class="calc-pointer" aria-hidden="true">◀</b> ` : ""}${escapeHtml(giveLabel)}</span>
-          <div class="meter-track"><span style="width:${Math.round(meters.give / maxSide * 100)}%"></span></div>
-          <strong>${formatNumber(meters.give)}</strong>
+          <span>${sharedView && copy.side === "Give" ? `${calcPointer("◀")} ` : ""}${escapeHtml(giveLabel)}</span>
+          ${meterTrack(bars.give, maxSide)}
+          <strong>${formatNumber(bars.give.total)}</strong>
         </div>
         <div class="calc-bar team-b${sharedView && copy.side === "Get" ? " is-bigger" : ""}">
-          <span>${escapeHtml(getLabel)}${sharedView && copy.side === "Get" ? ` <b class="calc-pointer" aria-hidden="true">▶</b>` : ""}</span>
-          <div class="meter-track"><span style="width:${Math.round(meters.get / maxSide * 100)}%"></span></div>
-          <strong>${formatNumber(meters.get)}</strong>
+          <span>${escapeHtml(getLabel)}${sharedView && copy.side === "Get" ? ` ${calcPointer("▶")}` : ""}</span>
+          ${meterTrack(bars.get, maxSide)}
+          <strong>${formatNumber(bars.get.total)}</strong>
         </div>
       </div>
       <div class="calc-actions">
@@ -7021,6 +7024,30 @@ function renderDraftVerdict(view) {
       </div>
     </section>
   `;
+}
+
+// Bar segments: listed price plus a separate stars segment. Private /trade
+// passes its meters (listed totals) and gets no stars segment.
+function sharedBarSegments(model, meters = null) {
+  const adj = model?.adjustment;
+  const side = (key, listed) => {
+    const stars = !meters && adj && (adj.side === "left") === (key === "give") ? Math.round(Number(adj.amount) || 0) : 0;
+    const base = Math.round(Number(meters ? meters[key] : listed) || 0);
+    return { listed: base, stars, total: base + stars };
+  };
+  return { give: side("give", model?.give), get: side("get", model?.get) };
+}
+
+function meterTrack(seg, maxSide) {
+  const pct = (value) => Math.round((value / maxSide) * 1000) / 10;
+  if (!seg.stars) return `<div class="meter-track"><span style="width:${pct(seg.listed)}%"></span></div>`;
+  return `<div class="meter-track meter-split"><span style="width:${pct(seg.listed)}%"></span><span class="meter-stars" style="width:${pct(seg.stars)}%" title="Stars cost extra"></span></div>`;
+}
+
+// ◀/▶ beside the bigger side's bar on wide layouts; a plain dot on phones,
+// where the stacked bars leave nothing to point at (RECHECK4).
+function calcPointer(arrow) {
+  return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
 }
 
 // Cold /t detail line (RECHECK3): lead with the credited totals the verdict

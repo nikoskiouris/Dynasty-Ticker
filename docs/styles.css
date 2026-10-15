@@ -4066,6 +4066,33 @@ button.weekly-help-close:hover {
   font-weight: 700;
 }
 
+.calc-pointer-narrow {
+  display: none;
+}
+
+/* Stars credit: its own segment on the credited side's bar. */
+.meter-track.meter-split {
+  display: flex;
+}
+
+.meter-track.meter-split span {
+  border-radius: 0;
+}
+
+.calc-bar .meter-track.meter-split span.meter-stars {
+  background: repeating-linear-gradient(135deg, var(--muted-strong) 0 3px, rgba(244, 241, 236, 0.35) 3px 6px);
+}
+
+@media (max-width: 620px) {
+  .calc-pointer-wide {
+    display: none;
+  }
+
+  .calc-pointer-narrow {
+    display: inline;
+  }
+}
+
 .calc-summary.bad {
   border-color: rgba(251, 113, 133, 0.45);
   background: linear-gradient(135deg, var(--red-soft), var(--panel-soft));
