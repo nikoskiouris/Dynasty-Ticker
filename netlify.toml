@@ -17,6 +17,18 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# :placeholder rewrites also match "x.json" or "9221.png", and Netlify has no
+# documented way to exclude an extension from a placeholder. This edge function
+# answers those file-like paths with 404.html and a 404 before the rewrites run.
+# Same rule as isAssetLikePath (docs/modules/asset-path.js) and serve_site.mjs.
+[[edge_functions]]
+  path = "/player/*"
+  function = "asset-404"
+
+[[edge_functions]]
+  path = "/l/*"
+  function = "asset-404"
+
 [[redirects]]
   from = "https://www.dynastyticker.com/*"
   to = "https://dynastyticker.com/:splat"
