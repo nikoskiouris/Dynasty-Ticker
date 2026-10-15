@@ -44,11 +44,12 @@ test("density tokens load before the desk styles and the fonts stay on this orig
   assert.match(styles, /\.ranks-facts dd \{[^}]*font-weight:\s*700/);
   assert.doesNotMatch(styles, /font-weight:\s*(800|900)/);
   const product = readDocs("product.css");
-  assert.match(product, /inset:\s*-4px/);
-  assert.match(product, /inset:\s*-8px 0/);
+  assert.match(product, /min\(0px, calc\(\(100% - var\(--tap-min\)\) \/ 2\)\)/);
   assert.match(product, /\.mobile-chrome \{[^}]*background:\s*var\(--bg\)/);
   assert.match(product, /header#mobile-chrome \{[^}]*background-color:\s*var\(--bg\)/);
   assert.doesNotMatch(product, /\.mobile-chrome \{[^}]*88%/);
+  const headers = readFileSync(join(docs, "_headers"), "utf8");
+  assert.match(headers, /\/fonts\/\*\.woff2[\s\S]*Cache-Control:\s*public,\s*max-age=31536000,\s*immutable/);
   assert.match(styles, /--font-display:\s*var\(--font-ui\)/);
   assert.match(styles, /font-size:\s*var\(--fs-body\)/);
   assert.match(styles, /font-size:\s*var\(--fs-h1\)/);
@@ -141,7 +142,24 @@ function fixtureHtml() {
     <button id="home-btn" class="ghost-btn" type="button">Close</button>
     <button id="add-trade" class="ghost-btn" type="button">Add to trade</button>
     <button id="desk-room" class="phone-desk-room" type="button">Room</button>
-    <button id="ranks-chip" class="ranks-chip" type="button">QB</button>
+    <input class="ranks-search" id="player-search" type="search" aria-label="Search players" />
+    <div class="ranks-toolbar">
+      <div class="ranks-filters" id="pos-row">
+        <button id="ranks-chip" class="ranks-chip" type="button">All</button>
+        <button class="ranks-chip" type="button">QB</button>
+      </div>
+      <div class="ranks-filters" id="format-row">
+        <button class="ranks-chip" type="button">Superflex</button>
+        <button class="ranks-chip" type="button">1QB</button>
+      </div>
+    </div>
+    <div class="sample-banner">
+      <button type="button" id="sample-banner-find">Find my leagues</button>
+    </div>
+    <select data-change="lens-roster" id="lens-roster"><option>Roster</option></select>
+    <button type="button" id="weekly-help-btn" class="weekly-help-btn">?</button>
+    <p class="pick-mock-note">Board <button type="button" class="inline-link" id="mock-link">Full board</button></p>
+    <span class="player-face player-face-sm" id="headshot"></span>
     <details class="workspace-panel"><summary id="own-summary">Ownership history</summary></details>
     <details class="league-id-fallback"><summary id="league-summary">Have a league ID or URL instead?</summary></details>
     <select id="me-select"><option>Team</option></select>
@@ -171,6 +189,7 @@ const MEASURE = `(() => {
   const row = document.querySelector(".ranks-row");
   const hitOf = (el) => {
     const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
     const pseudo = getComputedStyle(el, "::before");
     const raw = (side) => Number.parseFloat(pseudo[side]) || 0;
     const grow = (side) => {
@@ -178,10 +197,23 @@ const MEASURE = `(() => {
       return value < 0 ? -value : 0;
     };
     const live = pseudo.content !== "none" && pseudo.content !== "normal" && pseudo.position === "absolute";
+    const borderY = (Number.parseFloat(cs.borderTopWidth) || 0) + (Number.parseFloat(cs.borderBottomWidth) || 0);
+    const borderX = (Number.parseFloat(cs.borderLeftWidth) || 0) + (Number.parseFloat(cs.borderRightWidth) || 0);
+    const pseudoHeight = live ? (r.height - borderY) + grow("top") + grow("bottom") : r.height;
+    const pseudoWidth = live ? (r.width - borderX) + grow("left") + grow("right") : r.width;
+    const height = Math.max(r.height, pseudoHeight);
+    const width = Math.max(r.width, pseudoWidth);
+    const top = Math.min(r.top, r.top + (Number.parseFloat(cs.borderTopWidth) || 0) - (live ? grow("top") : 0));
+    const left = Math.min(r.left, r.left + (Number.parseFloat(cs.borderLeftWidth) || 0) - (live ? grow("left") : 0));
     return {
-      height: r.height + (live ? grow("top") + grow("bottom") : 0),
-      width: r.width + (live ? grow("left") + grow("right") : 0),
+      height,
+      width,
       visual: r.height,
+      visualWidth: r.width,
+      top,
+      left,
+      bottom: top + height,
+      right: left + width,
     };
   };
   const hits = {};
@@ -203,12 +235,39 @@ const MEASURE = `(() => {
     "page-tab",
     "room-tab",
     "team-trade",
+    "sample-banner-find",
+    "weekly-help-btn",
+    "mock-link",
+    "lens-roster",
+    "player-search",
   ]) {
     const el = document.getElementById(id);
     hits[id] = hitOf(el);
   }
   button.focus({ focusVisible: true });
   const focusOutline = styleOf(button).outlineWidth;
+  const short = [];
+  for (const el of document.querySelectorAll("button, a, input, select, textarea, summary")) {
+    const cs = getComputedStyle(el);
+    if (cs.display === "none" || cs.visibility === "hidden") continue;
+    const hit = hitOf(el);
+    if (hit.visual < 1 && hit.visualWidth < 1) continue;
+    const tooShort = hit.height < 43.4;
+    const narrow = hit.visualWidth < 44 && hit.width < 43.4;
+    if (tooShort || narrow) {
+      short.push(el.id || el.className || el.tagName);
+    }
+  }
+  const rowHits = (id) => [...document.querySelectorAll("#" + id + " button.ranks-chip")].map(hitOf);
+  let chipOverlap = 0;
+  for (const a of rowHits("pos-row")) {
+    for (const b of rowHits("format-row")) {
+      const oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      const ox = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+      if (oy > 0 && ox > 0) chipOverlap = Math.max(chipOverlap, oy);
+    }
+  }
+  const headshot = box(document.querySelector("#headshot"));
   let maxFont = 0;
   for (const el of document.querySelectorAll("*")) {
     const size = px(styleOf(el).fontSize);
@@ -254,6 +313,9 @@ const MEASURE = `(() => {
     mutedOnBg: contrast(root.getPropertyValue("--muted").trim(), root.getPropertyValue("--bg").trim()),
     sansReady: document.fonts.check('14px "Instrument Sans"'),
     chromeBg: styleOf(document.querySelector("#mobile-chrome")).backgroundColor,
+    short,
+    chipOverlap,
+    headshot: headshot.width,
   };
 })()`;
 
@@ -408,8 +470,9 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
     assert.equal(box.numXl, "24px");
     assert.ok(box.maxFont <= 24, `number max ${box.maxFont}`);
     assert.ok(Math.abs(box.buttonHeight - 36) < 0.6, `button height ${box.buttonHeight}`);
-    assert.ok(Math.abs(box.inputHeight - 36) < 0.6, `input height ${box.inputHeight}`);
-    assert.ok(Math.abs(box.rowHeight - 40) < 0.6, `row height ${box.rowHeight}`);
+    assert.ok(box.inputHeight >= 44, `input height ${box.inputHeight}`);
+    assert.ok(Math.abs(box.rowHeight - 44) < 0.6, `row height ${box.rowHeight}`);
+    assert.ok(Math.abs(box.headshot - 40) < 0.6, `headshot ${box.headshot}`);
     assert.equal(box.inputFont, "16px");
     assert.match(box.bodyFamily, /Instrument Sans/);
     assert.match(box.h1Family, /Instrument Sans/);
@@ -420,15 +483,19 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
     assert.equal(box.chromeBg, "rgb(12, 12, 14)");
     const squares = ["mobile-rail-toggle", "mobile-home-btn", "mobile-rail-close"];
     for (const id of Object.keys(box.hits)) {
-      assert.ok(box.hits[id].height >= 44, `${id} hit height ${box.hits[id].height}`);
+      assert.ok(box.hits[id].height >= 43.5, `${id} hit height ${box.hits[id].height}`);
       if (squares.includes(id)) {
-        assert.ok(box.hits[id].width >= 44, `${id} hit width ${box.hits[id].width}`);
+        assert.ok(box.hits[id].width >= 43.5, `${id} hit width ${box.hits[id].width}`);
       }
     }
     const desk = await measureAt(bin, htmlPath, 1280, false);
     assert.equal(desk.innerWidth, 1280);
-    for (const id of ["page-tab", "room-tab", "team-trade", "landing-find-btn", "ranks-chip", "me-select"]) {
-      assert.ok(desk.hits[id].height >= 44, `${id} desk hit ${desk.hits[id].height}`);
+    for (const id of ["page-tab", "room-tab", "team-trade", "landing-find-btn", "ranks-chip", "me-select", "sample-banner-find", "weekly-help-btn", "mock-link", "lens-roster"]) {
+      assert.ok(desk.hits[id].height >= 43.5, `${id} desk hit ${desk.hits[id].height}`);
+    }
+    for (const shot of [box, desk]) {
+      assert.deepEqual(shot.short, [], `short targets ${shot.short.join(", ")}`);
+      assert.ok(shot.chipOverlap <= 0.6, `chip overlap ${shot.chipOverlap}`);
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });

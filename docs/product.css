@@ -1156,14 +1156,18 @@ button.ranks-row {
   font-variant-numeric: tabular-nums;
 }
 
-.player-face-sm,
-.player-face-md,
 .avatar-sm,
-.avatar-md,
-.ranks-headshot,
-button.ranks-shelf-item .player-face {
+.avatar-md {
   width: var(--avatar);
   height: var(--avatar);
+}
+
+.player-face-sm,
+.player-face-md,
+.ranks-headshot,
+button.ranks-shelf-item .player-face {
+  width: 40px;
+  height: 40px;
 }
 
 button.ranks-chip,
@@ -1209,20 +1213,21 @@ details.workspace-panel > summary,
   min-height: var(--btn-h);
 }
 
+/* ::before is positioned on the padding edge, so a 1px border made a
+   -4px inset land at 42 and a -8px chip inset land at 41. Size the
+   pseudo to --tap-min from that edge. It does not grow a target that
+   is already tall enough. */
 .mobile-icon-btn::before,
-.mobile-rail-close::before {
-  content: "";
-  position: absolute;
-  inset: -4px;
-  background: none;
-  pointer-events: auto;
-}
-
+.mobile-rail-close::before,
 .selected-token-remove::before,
-button.weekly-help-close::before {
+button.weekly-help-close::before,
+button.weekly-help-btn::before {
   content: "";
   position: absolute;
-  inset: -8px;
+  left: min(0px, calc((100% - var(--tap-min)) / 2));
+  right: min(0px, calc((100% - var(--tap-min)) / 2));
+  top: min(0px, calc((100% - var(--tap-min)) / 2));
+  bottom: min(0px, calc((100% - var(--tap-min)) / 2));
   background: none;
   pointer-events: auto;
 }
@@ -1230,34 +1235,80 @@ button.weekly-help-close::before {
 #landing-find-btn::before,
 #find-leagues-btn::before,
 #load-league-btn::before,
+#sticky-find-btn::before,
+.sample-banner > button::before,
+.sample-find-btn::before,
 .ghost-btn::before,
 button.ghost-btn::before,
 .page-tab::before,
 .room-tab::before,
+button.ranks-chip::before,
+.week-chips button::before,
+.segmented button::before,
+button.inline-link::before,
+a.inline-link::before,
 details.workspace-panel > summary::before,
 .league-id-fallback summary::before {
   content: "";
   position: absolute;
-  inset: -4px 0;
-  background: none;
-  pointer-events: auto;
-}
-
-button.ranks-chip::before,
-.week-chips button::before,
-.segmented button::before {
-  content: "";
-  position: absolute;
-  inset: -8px 0;
+  left: 0;
+  right: 0;
+  top: min(0px, calc((100% - var(--tap-min)) / 2));
+  bottom: min(0px, calc((100% - var(--tap-min)) / 2));
   background: none;
   pointer-events: auto;
 }
 
 .phone-desk-room,
 .phone-desk-page,
-.team-card-trade {
+.team-card-trade,
+button.room-tab,
+button.ranks-row {
   min-height: var(--tap-min);
   padding-block: 0;
+}
+
+.sample-banner > button,
+.sample-find-btn,
+#sample-find-btn,
+#landing-find-btn,
+#find-leagues-btn,
+#load-league-btn,
+#sticky-find-btn {
+  position: relative;
+}
+
+button.weekly-help-btn,
+button.inline-link,
+a.inline-link {
+  position: relative;
+}
+
+button.inline-link,
+a.inline-link {
+  display: inline-block;
+}
+
+input,
+.ranks-search,
+.calc-search,
+.landing-search-row input,
+body:not(.league-loaded):not(.board-tools-live) .landing-search-row input,
+body.league-loaded .league-module input,
+body.board-tools-live .league-module input,
+body.league-loaded #me-select,
+body.board-tools-live #me-select,
+select,
+select[data-change="lens-roster"] {
+  min-height: var(--tap-min);
+}
+
+.ranks-toolbar {
+  gap: calc(var(--tap-min) - var(--chip-h) + 2px);
+}
+
+.ranks-filters {
+  row-gap: calc(var(--tap-min) - var(--chip-h) + 2px);
 }
 
 .phone-desk-room::before,
