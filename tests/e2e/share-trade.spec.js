@@ -116,7 +116,7 @@ for (const viewport of viewports) {
     const shared = page.locator(".calc-shared");
     await expect(shared).toBeVisible({ timeout: 30000 });
     // One neutral vocabulary: both rows name a side the same way.
-    const VERDICT = "(Fair trade · [\\d.]+% apart|(Fair, slight edge|Favors one side|Lopsided) · (Give|Get) side worth [\\d.]+% more)";
+    const VERDICT = "(Fair trade · within 5%|(Fair, slight edge|Favors one side|Lopsided) · (Give|Get) side worth [\\d.]+% more)";
     await expect(shared.locator("div").first()).toHaveText(new RegExp(`^Oct 7\\s*${VERDICT}$`));
     await expect(shared.locator(".is-today")).toHaveText(new RegExp(`^Today\\s*${VERDICT}$`));
     await expect(page.locator(".calc-shared-note")).toHaveText("Prices moved since this was shared.");
@@ -138,6 +138,11 @@ for (const viewport of viewports) {
     const fine = page.locator(".verdict-fine-print");
     await expect(fine).toBeHidden();
     await expect(page.locator("#value-calc-verdict")).not.toContainText("Package credit");
+    // RECHECK3: the detail line leads with the credited totals, and a public
+    // link colours only the tier (no green/red by side).
+    await expect(page.locator(".calc-summary-main > p").first()).toHaveText(/^Give [\d,]+( incl\. stars)?\. Get [\d,]+( incl\. stars)?\. Listed: (Give|Get) [\d,]+ \+ [\d,]+ stars\.$/);
+    await expect(page.locator("#value-calc-verdict .calc-summary")).not.toHaveClass(/\b(good|bad)\b/);
+    await expect(page.locator(".calc-bar.is-bigger .calc-pointer")).toHaveCount(1);
     const box = await toggle.boundingBox();
     expect(box.height).toBeGreaterThanOrEqual(44);
     expect(box.width).toBeGreaterThanOrEqual(44);

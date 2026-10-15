@@ -17,9 +17,11 @@ const C = {
   text: "#f4f1ec",
   muted: "#a89e96",
   mutedStrong: "#e4dcd4",
-  green: "#3dcc8a",
-  red: "#ff7a72",
   amber: "#f0c36a",
+  // RECHECK3: one neutral strong tone for Favors/Lopsided; no red/green on a public card.
+  strong: "#f4f1ec",
+  barBigger: "#e4dcd4",
+  barSmaller: "#4a4540",
 };
 const SANS = "Instrument Sans";
 const SAFE = { top: 60, bottom: 60, left: 64, right: 64 };
@@ -32,14 +34,16 @@ const MAX_ROWS = 4;
 const NAME_SIZE = 28; // never shrinks; long names are cut by measured width
 const PAD_X = 24;
 const PILL_W = 58;
-const TONE = { good: C.green, fair: C.amber, bad: C.red };
+const TONE = { fair: C.amber, strong: C.strong };
 const WORDMARK_H = 34;
 
 // Without the font (unit tests), estimate wide: 0.62em a glyph.
 const roughMeasure = (text, size) => Array.from(String(text ?? "")).length * size * 0.62;
 const count = (value) => Math.round(Number(value) || 0).toLocaleString("en-US");
 
-function sideColumn(summary, key, x, measure) {
+// RECHECK3: direction by placement and a pointer, not colour. The bigger
+// column's total is bright and gets a small triangle pointing at it.
+function sideColumn(summary, key, x, measure, bigger = "") {
   const rows = summary[key];
   const credited = key === "give" ? summary.giveCredited : summary.getCredited;
   const label = key === "give" ? "YOU GIVE" : "YOU GET";
@@ -49,7 +53,7 @@ function sideColumn(summary, key, x, measure) {
   const parts = [
     `<rect x="${x}" y="${COL_TOP}" width="${COL_W}" height="${COL_H}" rx="12" fill="${C.panel}" stroke="${C.line}" stroke-width="1"/>`,
     `<text x="${x + PAD_X}" y="${COL_TOP + 40}" font-family="${SANS}" font-size="18" letter-spacing="1.5" fill="${C.muted}">${label}</text>`,
-    `<text x="${right}" y="${COL_TOP + 40}" font-family="${SANS}" font-size="18" font-weight="700" fill="${C.muted}" text-anchor="end">${escapeMarkup(count(credited))}</text>`,
+    `<text x="${right}" y="${COL_TOP + 40}" font-family="${SANS}" font-size="18" font-weight="700" fill="${bigger === key ? C.text : C.muted}" text-anchor="end">${escapeMarkup(count(credited))}</text>`,
   ];
   let y = COL_TOP + 50;
   shown.forEach((row, i) => {
@@ -95,27 +99,39 @@ function wordmarkMarkup(wordmark) {
   return `<svg x="${SAFE.left}" y="${SAFE.top + 3}" width="${width}" height="${WORDMARK_H}" viewBox="${escapeMarkup(box[1])}">${inner[1]}</svg>`;
 }
 
-// OG-CARD.md: the verdict (48px bold sans, colored by tone) is the boldest thing.
+// OG-CARD.md: the verdict (48px bold sans, colored by tier only) is the boldest thing.
 // Totals are credited, so the rows plus "Stars cost extra" add up to the header,
 // and the verdict compares those two numbers.
 export function renderCardSvg(summary, { measure = roughMeasure, wordmark = "" } = {}) {
   const verdict = cardVerdict(summary);
-  const tone = TONE[verdict.tone];
-  const giveShare = summary.giveCredited / Math.max(1, summary.giveCredited + summary.getCredited);
-  const redW = Math.round(W * giveShare);
+  const tone = TONE[verdict.tone] || C.amber;
   const verdictY = VERDICT_TOP + 54;
+  const bigger = verdict.side === "Give" ? "give" : verdict.side === "Get" ? "get" : "";
+  const giveShare = summary.giveCredited / Math.max(1, summary.giveCredited + summary.getCredited);
+  const giveW = Math.round(W * giveShare);
+  const giveFill = bigger === "get" ? C.barSmaller : C.barBigger;
+  const getFill = bigger === "get" ? C.barBigger : C.barSmaller;
+  const pctX = W - SAFE.right - (bigger === "get" ? 30 : 0);
+  // Pointer drawn as a path (the card font has no ◀/▶ glyph): ◀ before the
+  // line for Give (left column), ▶ after it for Get (right column).
+  const ty = verdictY - 14;
+  const tx = bigger === "give" ? Math.round(pctX - measure(verdict.pctText, 32) - 10) : W - SAFE.right;
+  const pointer = bigger === "give"
+    ? `<path d="M${tx - 20} ${ty} L${tx} ${ty - 11} L${tx} ${ty + 11} Z" fill="${tone}"/>`
+    : bigger === "get" ? `<path d="M${tx} ${ty} L${tx - 20} ${ty - 11} L${tx - 20} ${ty + 11} Z" fill="${tone}"/>` : "";
   const stamp = summary.stamp ? `as of ${stampLabel(summary.stamp, { year: true })} · ` : "";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`
     + `<rect width="${W}" height="${H}" fill="${C.bg}"/>`
     + wordmarkMarkup(wordmark)
     + `<text x="${W - SAFE.right}" y="${SAFE.top + 28}" font-family="${SANS}" font-size="22" fill="${C.muted}" text-anchor="end">dynastyticker.com</text>`
-    + sideColumn(summary, "give", SAFE.left, measure)
-    + sideColumn(summary, "get", SAFE.left + COL_W + 32, measure)
+    + sideColumn(summary, "give", SAFE.left, measure, bigger)
+    + sideColumn(summary, "get", SAFE.left + COL_W + 32, measure, bigger)
     + `<text x="${SAFE.left}" y="${verdictY}" font-family="${SANS}" font-size="48" font-weight="700" fill="${tone}">${escapeMarkup(verdict.text)}</text>`
-    + `<text x="${W - SAFE.right}" y="${verdictY - 2}" font-family="${SANS}" font-size="32" font-weight="700" fill="${tone}" text-anchor="end">${escapeMarkup(verdict.pctText)}</text>`
+    + pointer
+    + `<text x="${pctX}" y="${verdictY - 2}" font-family="${SANS}" font-size="32" font-weight="700" fill="${tone}" text-anchor="end">${escapeMarkup(verdict.pctText)}</text>`
     + `<text x="${W - SAFE.right}" y="${verdictY + 22}" font-family="${SANS}" font-size="16" fill="${C.muted}" text-anchor="end">${escapeMarkup(`${stamp}${summary.formatLabel}`)}</text>`
-    + `<rect x="0" y="${H - 12}" width="${redW}" height="12" fill="${C.red}"/>`
-    + `<rect x="${redW}" y="${H - 12}" width="${W - redW}" height="12" fill="${C.green}"/>`
+    + `<rect x="0" y="${H - 12}" width="${giveW}" height="12" fill="${giveFill}"/>`
+    + `<rect x="${giveW}" y="${H - 12}" width="${W - giveW}" height="12" fill="${getFill}"/>`
     + `</svg>`;
 }
 

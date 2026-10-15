@@ -4051,6 +4051,21 @@ button.weekly-help-close:hover {
   background: linear-gradient(135deg, var(--amber-soft), var(--panel-soft));
 }
 
+/* Public /t: Favors and Lopsided share one neutral strong tone (RECHECK3). */
+.calc-summary.strong {
+  border-color: var(--team-a-border);
+  background: linear-gradient(135deg, var(--team-a-soft), var(--panel-soft));
+}
+
+.calc-bar.is-bigger span,
+.calc-bar.is-bigger strong {
+  color: var(--text);
+}
+
+.calc-pointer {
+  font-weight: 700;
+}
+
 .calc-summary.bad {
   border-color: rgba(251, 113, 133, 0.45);
   background: linear-gradient(135deg, var(--red-soft), var(--panel-soft));

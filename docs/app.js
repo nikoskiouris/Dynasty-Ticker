@@ -292,7 +292,7 @@ import {
   topOverlay,
   urlPath,
 } from "./modules/history-route.js";
-import { verdictCopy } from "./modules/verdict-copy.js";
+import { TIER_EXPLAINER, verdictCopy } from "./modules/verdict-copy.js";
 import { decodeTradeShare, encodeTradeShare, sameVerdict, shareMessage, sharePath, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
 import {
   analyzeWindowCall,
@@ -6957,6 +6957,7 @@ function renderDraftMethod(view) {
     lines.push("Unavailable means the current model snapshot has no supported price for that asset; Dynasty Ticker does not invent a fallback.");
   }
   lines.push("The best piece counts for more than the same total split into lesser pieces. That package credit changes the trade verdict, not any player's listed price.");
+  lines.push(TIER_EXPLAINER);
   lines.push(sampleVoice()?.methodLineup || "Team impact is separate from price: it asks whether the move helps your starting lineup.");
   return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
 }
@@ -6983,12 +6984,12 @@ function renderDraftVerdict(view) {
   const getLabel = voice?.getLabel || "You get";
   const credited = adjustment?.side === "left" ? giveLabel : getLabel;
   return `
-    <section class="calc-summary ${bothSides ? copy.tone : ""}">
+    <section class="calc-summary ${bothSides ? (sharedView ? copy.publicTone : copy.tone) : ""}">
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
         ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${escapeHtml(label)}</h3>`}
         ${/* TODO(follow-up): spell a bare percent ("96% apart") as a plain outcome. Out of scope for this push. */ ""}
-        <p>${escapeHtml(sharedView ? "Give" : giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(sharedView ? "Get" : getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : adjustment ? (sharedView ? ` Stars cost extra +${formatNumber(adjustment.amount)} on ${adjustment.side === "left" ? "Give" : "Get"}.` : "") : ""}</p>
+        <p>${sharedView ? sharedTotalsLine(model) : `${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}`}</p>
         ${sharedView ? renderVerdictFinePrint(`
           ${adjustment ? `<p class="draft-package"><strong>Stars cost extra:</strong> one great player beats a pile of good ones. That adds ${formatNumber(adjustment.amount)} to ${adjustment.side === "left" ? "Give" : "Get"}. Listed prices stay put. After that: ${escapeHtml(copy.detail)}.</p>` : ""}
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
@@ -7002,13 +7003,13 @@ function renderDraftVerdict(view) {
         </details>`}
       </div>
       <div class="calc-bars">
-        <div class="calc-bar team-a">
-          <span>${escapeHtml(giveLabel)}</span>
+        <div class="calc-bar team-a${sharedView && copy.side === "Give" ? " is-bigger" : ""}">
+          <span>${sharedView && copy.side === "Give" ? `<b class="calc-pointer" aria-hidden="true">◀</b> ` : ""}${escapeHtml(giveLabel)}</span>
           <div class="meter-track"><span style="width:${Math.round(meters.give / maxSide * 100)}%"></span></div>
           <strong>${formatNumber(meters.give)}</strong>
         </div>
-        <div class="calc-bar team-b">
-          <span>${escapeHtml(getLabel)}</span>
+        <div class="calc-bar team-b${sharedView && copy.side === "Get" ? " is-bigger" : ""}">
+          <span>${escapeHtml(getLabel)}${sharedView && copy.side === "Get" ? ` <b class="calc-pointer" aria-hidden="true">▶</b>` : ""}</span>
           <div class="meter-track"><span style="width:${Math.round(meters.get / maxSide * 100)}%"></span></div>
           <strong>${formatNumber(meters.get)}</strong>
         </div>
@@ -7022,7 +7023,20 @@ function renderDraftVerdict(view) {
   `;
 }
 
-// Shared link: "Give wins by 25%". When prices moved since it was shared, a
+// Cold /t detail line (RECHECK3): lead with the credited totals the verdict
+// compares, then how the stars credit got there, so the numbers never
+// contradict the headline. "Give 19,224 incl. stars. Get 14,457. Listed: Give 11,811 + 7,413 stars."
+function sharedTotalsLine(model) {
+  const adj = model.adjustment;
+  const giveStars = adj?.side === "left" ? " incl. stars" : "";
+  const getStars = adj?.side === "right" ? " incl. stars" : "";
+  const listed = adj
+    ? ` Listed: ${adj.side === "left" ? "Give" : "Get"} ${formatNumber(adj.side === "left" ? model.give : model.get)} + ${formatNumber(adj.amount)} stars.`
+    : "";
+  return `Give ${formatNumber(model.compareGive)}${giveStars}. Get ${formatNumber(model.compareGet)}${getStars}.${listed}`;
+}
+
+// Shared link: the verdict line. When prices moved since it was shared, a
 // compact two-row compare (sharer's date, then today in bold) and one line.
 function renderSharedVerdictHead(shared) {
   if (!shared.shared) return `<h3>${escapeHtml(shared.today.label)}</h3>`;
