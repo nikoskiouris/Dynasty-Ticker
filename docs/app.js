@@ -379,8 +379,10 @@ import {
   applyEscape,
   createRouteFocusMemory,
   ensureRouteLive,
+  focusHeadingWhenPresent,
   focusViewHeading,
   headingRootFor,
+  headingSelectorFor,
   restoreTriggerFocus,
   routeAnnouncement,
   routeDocumentTitle,
@@ -854,6 +856,8 @@ syncTradeModeUi();
 let searchedUserNoted = false;
 let appBooted = false;
 let coldPlayerHeading = false;
+let rankExtrasSettled = true;
+let followHeadingsUntil = 0;
 let leagueOpenedInApp = false;
 function noteSearchedUser(leagueId) {
   if (searchedUserNoted) return;
@@ -864,6 +868,17 @@ function noteSearchedUser(leagueId) {
 }
 bootFromUrl();
 coldPlayerHeading = bootRoute?.name === "player";
+document.addEventListener("focusin", (event) => {
+  const target = event.target;
+  if (!target || target === document.body || target === document.documentElement) return;
+  if (target.id === "workspace") return;
+  const tag = String(target.tagName || "");
+  if (tag === "H1" || tag === "H2" || tag === "H3") return;
+  const cls = typeof target.className === "string" ? target.className : "";
+  if (/(?:^|\s)(?:room-tab|page-tab|phone-desk-room|phone-desk-page)(?:\s|$)/.test(cls)) return;
+  followHeadingsUntil = 0;
+  coldPlayerHeading = false;
+});
 window.addEventListener("resize", syncDeskRailOffset);
 if (!(bootRoute?.leagueId || parseShareParams(window.location.search).leagueId)) {
   const place = state.pendingPlace;
@@ -1156,6 +1171,7 @@ function renderLeagueRoom(room) {
     default:
       renderTeamsPage();
   }
+  focusLeagueRoomHeading(room);
 }
 
 function renderTeamsRoom(room) {
@@ -1371,6 +1387,7 @@ function syncRankUrl() {
 }
 
 async function ensureRankExtras() {
+  rankExtrasSettled = false;
   try {
     if (!rankValuesReady()) {
       await ensureValuesLoaded("");
@@ -1393,6 +1410,7 @@ async function ensureRankExtras() {
   } catch (err) {
     console.warn("Could not load player ranks", err);
   }
+  rankExtrasSettled = true;
   rankBoardCache = { key: "", rows: [] };
   if (publicRanksOpen || state.activePage === "players") {
     renderRankSurfaces();
@@ -1617,12 +1635,28 @@ function syncRouteAriaCurrent() {
   });
 }
 
+function armHeadingFollow() {
+  followHeadingsUntil = Date.now() + 45000;
+}
+
+function focusLeagueRoomHeading(room) {
+  if (!appBooted || Date.now() >= followHeadingsUntil) return;
+  if (room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
+  if (state.activePage !== "league" || getRoom() !== room) return;
+  focusHeadingWhenPresent(document, `[data-room-panel="${room}"] h2`);
+}
+
 function focusColdPlayerHeading() {
   if (!coldPlayerHeading || !appBooted) return;
-  const heading = document.querySelector(".ranks-card h1, .ranks-card h2, .player-week-sheet h1, .player-week-sheet h2");
-  if (!heading) return;
-  coldPlayerHeading = false;
-  syncRouteA11y({ focus: "heading" });
+  armHeadingFollow();
+  focusHeadingWhenPresent(document, ".ranks-card h2, .player-week-sheet h2", {
+    onStuck() {
+      if (!rankExtrasSettled) return;
+      coldPlayerHeading = false;
+      const message = routeAnnouncement(routePlaceNow(), {});
+      if (message) announceRoute(document, message);
+    },
+  });
 }
 
 function syncRouteA11y({ focus = "none", trigger = null, before = null } = {}) {
@@ -1633,6 +1667,12 @@ function syncRouteA11y({ focus = "none", trigger = null, before = null } = {}) {
   const message = routeAnnouncement(place, before || {});
   if (message) announceRoute(document, message);
   if (focus === "heading") {
+    armHeadingFollow();
+    const selector = headingSelectorFor(place);
+    if (selector) {
+      focusHeadingWhenPresent(document, selector);
+      return;
+    }
     const root = headingRootFor(document, place, before || {});
     if (!focusViewHeading(root)) focusViewHeading(document.querySelector("main"));
     return;
@@ -1735,7 +1775,8 @@ function updateUrlState({ mode = "replace" } = {}) {
     || before.view !== after.view
     || before.playerId !== after.playerId;
   if (!changed) return;
-  if (before.overlay && !after.overlay) {
+  const moved = before.tab !== after.tab || before.view !== after.view;
+  if (before.overlay && !after.overlay && !(before.overlay === "rail" && moved)) {
     syncRouteA11y({ focus: "restore", trigger: routeFocus.opener(), before });
     return;
   }

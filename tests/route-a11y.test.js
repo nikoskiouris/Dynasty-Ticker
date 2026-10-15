@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PAGE_LABELS, ROOM_LABELS } from "../docs/modules/constants.js";
+import { createSiteServer } from "../scripts/serve_site.mjs";
 import { SITE_NAME } from "../docs/modules/site.js";
 import {
   ROUTE_LIVE_ID,
@@ -17,8 +18,10 @@ import {
   applyEscape,
   createRouteFocusMemory,
   ensureRouteLive,
+  focusHeadingWhenPresent,
   focusViewHeading,
   headingRootFor,
+  headingSelectorFor,
   restoreTriggerFocus,
   routeAnnouncement,
   routeDocumentTitle,
@@ -279,19 +282,26 @@ test("back and escape restore the player row, or the same player id when that no
   assert.equal(restoreTriggerFocus(tradeDoc, trade), liveTrade);
 });
 
-test("league, activity, and history have distinct document titles", () => {
+test("league, activity, history, and this week have distinct document titles", () => {
   assert.equal(ROUTE_ROOM_TITLES.board, ROOM_LABELS.league.board);
+  assert.equal(ROUTE_ROOM_TITLES.scores, ROOM_LABELS.league.scores);
   assert.equal(ROUTE_ROOM_TITLES.activity, ROOM_LABELS.league.activity);
   assert.equal(ROUTE_ROOM_TITLES.history, ROOM_LABELS.league.history);
   const league = routeDocumentTitle({ tab: "league", room: "board" });
+  const week = routeDocumentTitle({ tab: "league", room: "scores" });
   const activity = routeDocumentTitle({ tab: "league", room: "activity" });
   const history = routeDocumentTitle({ tab: "league", room: "history" });
   assert.equal(league, "League · Dynasty Ticker");
+  assert.equal(week, "This week · Dynasty Ticker");
   assert.equal(activity, "Activity · Dynasty Ticker");
   assert.equal(history, "History · Dynasty Ticker");
-  assert.equal(new Set([league, activity, history]).size, 3);
+  assert.equal(new Set([league, week, activity, history]).size, 4);
   assert.equal(routeDocumentTitle({ tab: "league", room: "team" }), "My League · Dynasty Ticker");
   assert.equal(routeDocumentTitle({ playerName: "Jahmyr Gibbs", tab: "league", room: "activity" }), "Jahmyr Gibbs · Dynasty Ticker");
+  assert.equal(headingSelectorFor({ overlay: "player", playerId: "9221" }), ".ranks-card h2, .player-week-sheet h2");
+  assert.equal(headingSelectorFor({ page: "league", view: "scores" }), '[data-room-panel="scores"] h2');
+  assert.equal(headingSelectorFor({ tab: "league", view: "activity" }), '[data-room-panel="activity"] h2');
+  assert.equal(headingSelectorFor({ page: "league", view: "history" }), '[data-room-panel="history"] h2');
 });
 
 test("a cold /player load focuses the card heading", () => {
@@ -314,7 +324,82 @@ test("a cold /player load focuses the card heading", () => {
   assert.match(app, /coldPlayerHeading = bootRoute\?\.name === "player"/);
   assert.match(app, /function focusColdPlayerHeading\(\)/);
   assert.match(app, /focusColdPlayerHeading\(\)/);
-  assert.match(app, /syncRouteA11y\(\{ focus: "heading" \}\)/);
+  assert.match(app, /focusHeadingWhenPresent\(document, "\.ranks-card h2, \.player-week-sheet h2"/);
+  assert.match(app, /headingSelectorFor\(place\)/);
+});
+
+test("heading focus waits for the node and follows a replacement", () => {
+  const body = { id: "body", className: "" };
+  const doc = {
+    body,
+    documentElement: { id: "html" },
+    activeElement: body,
+    nodes: [],
+    querySelectorAll() {
+      return this.nodes;
+    },
+  };
+  const queued = [];
+  let now = 0;
+  const first = heading("h2", "one");
+  first.isConnected = true;
+  first.focus = (opts) => {
+    first.focusOpts = opts || {};
+    doc.activeElement = first;
+  };
+  const second = heading("h2", "two");
+  second.isConnected = true;
+  second.focus = (opts) => {
+    second.focusOpts = opts || {};
+    doc.activeElement = second;
+  };
+  let stuck = null;
+  focusHeadingWhenPresent(doc, ".ranks-card h2", {
+    maxMs: 1000,
+    settleMs: 50,
+    now: () => now,
+    schedule(fn) {
+      queued.push(fn);
+    },
+    onStuck(node) {
+      stuck = node;
+    },
+  });
+  assert.equal(doc.activeElement, body);
+  assert.equal(queued.length, 1);
+  doc.nodes = [first];
+  queued.shift()();
+  assert.equal(doc.activeElement, first);
+  assert.equal(first.getAttribute("tabindex"), "-1");
+  assert.equal(first.focusOpts.preventScroll, true);
+  now = 10;
+  queued.shift()();
+  assert.equal(stuck, null);
+  first.isConnected = false;
+  doc.activeElement = body;
+  doc.nodes = [second];
+  now = 20;
+  queued.shift()();
+  queued.shift()();
+  assert.equal(doc.activeElement, second);
+  assert.equal(second.getAttribute("tabindex"), "-1");
+  now = 80;
+  queued.shift()();
+  assert.equal(stuck, second);
+
+  const field = { id: "search", className: "", tagName: "INPUT" };
+  doc.activeElement = field;
+  doc.nodes = [];
+  const before = queued.length;
+  focusHeadingWhenPresent(doc, ".ranks-card h2", {
+    maxMs: 1000,
+    now: () => now,
+    schedule(fn) {
+      queued.push(fn);
+    },
+  });
+  assert.equal(doc.activeElement, field);
+  assert.equal(queued.length, before);
 });
 
 test("aria-current page sits on the active tab and comes off the others", () => {
@@ -438,6 +523,8 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(app, /history\.back\(\)/);
   assert.match(app, /announceRoute\(document/);
   assert.match(app, /ensureRouteLive\(document\)/);
+  assert.match(app, /focusHeadingWhenPresent\(document, selector\)/);
+  assert.match(app, /function focusLeagueRoomHeading\(room\)/);
   assert.equal(index.split('id="route-announcer"').length - 1, 1);
   assert.match(index, /id="route-announcer"[^>]*aria-live="polite"/);
   assert.match(index, /id="players-tab"[^>]*aria-current="page"/);
@@ -584,6 +671,55 @@ async function pageEval(session, fn) {
     throw new Error(detail || "page eval failed");
   }
   return result.result?.value;
+}
+
+async function pageEvalSource(session, source) {
+  const result = await session.send("Runtime.evaluate", {
+    expression: `(${source})()`,
+    awaitPromise: true,
+    returnByValue: true,
+  });
+  if (result.exceptionDetails) {
+    const detail = result.exceptionDetails.exception?.description || result.exceptionDetails.text;
+    throw new Error(detail || "page eval failed");
+  }
+  return result.result?.value;
+}
+
+async function waitForPage(session, source, timeoutMs, label) {
+  const started = Date.now();
+  let last = null;
+  while (Date.now() - started < timeoutMs) {
+    try {
+      last = await pageEvalSource(session, source);
+      if (last?.ok) return last;
+    } catch (err) {
+      last = { ok: false, error: String(err.message || err) };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`${label}: ${JSON.stringify(last)}`);
+}
+
+async function waitForStable(session, source, timeoutMs, stableMs, label, minMs = 0) {
+  const started = Date.now();
+  let since = 0;
+  let last = null;
+  while (Date.now() - started < timeoutMs) {
+    try {
+      last = await pageEvalSource(session, source);
+    } catch (err) {
+      last = { ok: false, error: String(err.message || err) };
+    }
+    if (last?.ok) {
+      if (!since) since = Date.now();
+      if (Date.now() - since >= stableMs && Date.now() - started >= minMs) return last;
+    } else {
+      since = 0;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`${label}: ${JSON.stringify(last)}`);
 }
 
 async function waitForA11y(session) {
@@ -760,6 +896,137 @@ test("chrome covers focus, restore, title, aria-current, escape, and the live re
     assert.equal(live.count, 1);
     assert.equal(live.polite, "polite");
     assert.equal(live.text, "Trade");
+  } finally {
+    pageSocket?.close();
+    browserSocket?.close();
+    server?.close();
+    if (chromeProc && chromeProc.exitCode == null) {
+      try { process.kill(-chromeProc.pid, "SIGKILL"); }
+      catch { chromeProc.kill("SIGKILL"); }
+      await new Promise((resolve) => {
+        if (chromeProc.exitCode != null || chromeProc.signalCode) resolve();
+        else {
+          chromeProc.once("exit", resolve);
+          setTimeout(resolve, 1000);
+        }
+      });
+    }
+    if (chromeDataDir) {
+      try { rmSync(chromeDataDir, { recursive: true, force: true, maxRetries: 3 }); }
+      catch { /* A leftover profile must not fail the assertions. */ }
+    }
+  }
+});
+
+const PLAYER_FOCUS = `() => {
+  const heading = document.querySelector(".ranks-card h2, .player-week-sheet h2");
+  const active = document.activeElement;
+  return {
+    ok: Boolean(heading && active === heading && heading.tagName === "H2"),
+    active: active ? active.tagName : "",
+    text: String((active && active.textContent) || "").replace(/\\s+/g, " ").trim().slice(0, 80),
+    title: document.title,
+  };
+}`;
+
+function roomFocusSource(room) {
+  const panel = `[data-room-panel="${room}"]`;
+  return `() => {
+    const panel = document.querySelector(${JSON.stringify(panel)});
+    const active = document.activeElement;
+    const ok = Boolean(active && active.tagName === "H2" && panel && panel.contains(active));
+    return {
+      ok,
+      active: active ? active.tagName : "",
+      text: String((active && active.textContent) || "").replace(/\\s+/g, " ").trim().slice(0, 80),
+      title: document.title,
+    };
+  }`;
+}
+
+function clickRoomSource(room) {
+  return `() => {
+    const room = ${JSON.stringify(room)};
+    const phone = window.matchMedia("(max-width: 700px)").matches;
+    if (phone) {
+      const toggle = document.querySelector("#mobile-rail-toggle");
+      if (toggle && !document.body.classList.contains("rail-open")) toggle.click();
+      const page = document.querySelector('[data-phone-page="league"]');
+      if (page && page.getAttribute("aria-expanded") !== "true") page.click();
+      const button = document.querySelector('[data-phone-room="' + room + '"]');
+      if (!button) return { ok: false, mode: "phone" };
+      button.click();
+      return { ok: true, mode: "phone" };
+    }
+    const button = document.querySelector('#room-nav [data-room="' + room + '"]');
+    if (!button) return { ok: false, mode: "desk" };
+    button.click();
+    return { ok: true, mode: "desk" };
+  }`;
+}
+
+test("cold player and league rooms focus headings at 390 and 1280", { timeout: 420000 }, async (t) => {
+  if (typeof WebSocket === "undefined") {
+    t.skip("WebSocket unavailable");
+    return;
+  }
+  let chromeProc = null;
+  let chromeDataDir = "";
+  let server = null;
+  let browserSocket = null;
+  let pageSocket = null;
+  try {
+    let started;
+    try {
+      started = await launchChrome();
+    } catch (err) {
+      t.skip(`Chrome launch failed: ${err.message}`);
+      return;
+    }
+    chromeProc = started.child;
+    chromeDataDir = started.userDataDir;
+    server = createSiteServer();
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    browserSocket = openCdp(started.ws);
+    const created = await browserSocket.send("Target.createTarget", { url: "about:blank" });
+    const target = await waitForTarget(new URL(started.ws).port, created.targetId);
+    pageSocket = openCdp(target.webSocketDebuggerUrl);
+    await pageSocket.send("Runtime.enable");
+    await pageSocket.send("Page.enable");
+
+    for (const width of [390, 1280]) {
+      await pageSocket.send("Emulation.setDeviceMetricsOverride", {
+        width,
+        height: width <= 700 ? 844 : 900,
+        deviceScaleFactor: 1,
+        mobile: width <= 700,
+      });
+      await pageSocket.send("Page.navigate", { url: `${origin}/player/9221` });
+      const layout = await waitForPage(pageSocket, `() => ({
+        ok: window.innerWidth === ${width},
+        width: window.innerWidth,
+        phone: window.matchMedia("(max-width: 700px)").matches,
+      })`, 15000, `viewport ${width}`);
+      assert.equal(layout.width, width);
+      assert.equal(layout.phone, width <= 700);
+      const player = await waitForStable(pageSocket, PLAYER_FOCUS, 30000, 1500, `player ${width}`, 8000);
+      assert.equal(player.active, "H2");
+      assert.match(player.text, /Gibbs/i);
+
+      await pageSocket.send("Page.navigate", { url: `${origin}/?sample=1` });
+      await waitForPage(pageSocket, `() => ({
+        ok: document.body.classList.contains("league-loaded") && window.innerWidth === ${width},
+      })`, 90000, `sample league ${width}`);
+      for (const room of ["board", "scores", "activity", "history"]) {
+        const clicked = await pageEvalSource(pageSocket, clickRoomSource(room));
+        assert.equal(clicked.ok, true, `${room} click at ${width}`);
+        assert.equal(clicked.mode, width <= 700 ? "phone" : "desk");
+        const focused = await waitForStable(pageSocket, roomFocusSource(room), 40000, 1500, `${room} ${width}`, 4000);
+        assert.equal(focused.active, "H2");
+        if (room === "scores") assert.match(focused.title, /This week/);
+      }
+    }
   } finally {
     pageSocket?.close();
     browserSocket?.close();
