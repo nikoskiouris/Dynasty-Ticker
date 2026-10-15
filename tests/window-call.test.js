@@ -93,8 +93,8 @@ test("young last-place pick hoarder tanks", () => {
 test("bubble mixed roster stays in the middle", () => {
   const result = callFor();
   assert.equal(result.id, "middle");
-  assert.equal(result.shortLabel, "Middle");
-  assert.match(result.summary, /not a tank/i);
+  assert.equal(result.shortLabel, "Hold");
+  assert.match(result.summary, /not a rebuild/i);
   assert.ok(result.nowScore > 35 && result.nowScore < 70);
 });
 
@@ -387,7 +387,7 @@ test("redraft lock is in it without spending future picks", () => {
     currentWeek: 12,
   });
   assert.equal(result.id, "all-in");
-  assert.equal(result.shortLabel, "In it");
+  assert.equal(result.shortLabel, "Push");
   assert.match(result.headline, /in it/i);
   assert.doesNotMatch(result.headline, /future picks/i);
 });

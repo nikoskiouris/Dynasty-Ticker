@@ -38,7 +38,19 @@ function pickTable(values) {
 }
 
 function mirrorLabel(label) {
-  return String(label).replaceAll("Get", "§").replaceAll("Give", "Get").replaceAll("§", "Give");
+  return String(label)
+    .replaceAll("Big win for you (+", "\u0001")
+    .replaceAll("Big overpay (\u2212", "\u0002")
+    .replaceAll("Fair, slight edge to you", "\u0003")
+    .replaceAll("Fair, slight edge to them", "\u0004")
+    .replaceAll("You win by", "\u0005")
+    .replaceAll("They win by", "\u0006")
+    .replaceAll("\u0001", "Big overpay (\u2212")
+    .replaceAll("\u0002", "Big win for you (+")
+    .replaceAll("\u0003", "Fair, slight edge to them")
+    .replaceAll("\u0004", "Fair, slight edge to you")
+    .replaceAll("\u0005", "They win by")
+    .replaceAll("\u0006", "You win by");
 }
 
 test("published picks stay in slot, tier, round, and year order", () => {
@@ -179,7 +191,7 @@ test("trade verdicts mirror, and empty or odd packages stay finite", () => {
   assert.equal(empty.packageAdjustment, 0);
   const odd = draftVerdictModel([100], [10, 10, 10, 10, 10, 10, 10], { globalMaxValue: 1000 });
   assert.equal(Number.isFinite(odd.verdict.pct), true);
-  assert.equal(valueCalcVerdict(0, 0).label, "Add both sides");
+  assert.equal(valueCalcVerdict(0, 0).label, "Add players to both sides");
 });
 
 test("TE premium, half-PPR, and a missing IDP price do not invent a number", () => {

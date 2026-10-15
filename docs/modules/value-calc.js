@@ -1,3 +1,4 @@
+import { formatNumber } from "./html.js";
 import {
   formatGenericPickAssetLabel,
   formatPickBucketLabel,
@@ -260,43 +261,41 @@ export function valueCalcVerdict(leftTotal, rightTotal, { leftCount = null, righ
   const pct = Math.round((Math.abs(gap) / maxSide) * 1000) / 10;
   const leftHas = leftCount == null ? left > 0 : Number(leftCount) > 0;
   const rightHas = rightCount == null ? right > 0 : Number(rightCount) > 0;
-  let label = "Add both sides";
+  const gapText = formatNumber(Math.abs(gap));
+  let label = "Add players to both sides";
   let tone = "";
   if (leftHas && rightHas) {
     if (pct <= 5) {
-      label = "Dead even";
+      label = "Fair trade";
       tone = "good";
     } else if (pct <= 12) {
-      label = gap > 0 ? "Fair, leans Get" : "Fair, leans Give";
+      label = gap > 0 ? "Fair, slight edge to you" : "Fair, slight edge to them";
       tone = "good";
     } else if (pct <= 22) {
-      label = gap > 0 ? "Favors Get" : "Favors Give";
+      label = gap > 0 ? `You win by ${gapText}` : `They win by ${gapText}`;
       tone = gap > 0 ? "good" : "bad";
     } else {
-      label = gap > 0 ? "Lopsided for Get" : "Lopsided for Give";
+      label = gap > 0 ? `Big win for you (+${gapText})` : `Big overpay (\u2212${gapText})`;
       tone = gap > 0 ? "good" : "bad";
     }
   } else if (leftHas || rightHas) {
-    label = "Add the other side";
+    label = "Now add what you get back";
   }
   return { left, right, gap, pct, label, tone };
 }
 
-// Same verdict, read from the manager's seat: "Get" is what you receive.
+// Same verdict, read from the manager's seat. "You" is whoever receives the get side.
 export function draftVerdictLabel(verdict, { them = "them", getFavor = "your", favorName = "" } = {}) {
-  const label = String(verdict?.label || "");
+  let label = String(verdict?.label || "");
   const other = String(them || "them");
   const favor = String(getFavor || "your");
-  const seat = String(favorName || "").trim();
-  const lopsidedGet = favor === "your" ? "Lopsided in your favor" : `Lopsided in ${favor} favor`;
-  const leansGet = favor === "your" ? "Fair, leans your way" : `Fair, leans ${favor} way`;
-  const favorsGet = favor === "your" ? "Favors you" : `Favors ${seat || favor}`;
-  return {
-    "Favors Get": favorsGet,
-    "Favors Give": `Favors ${other}`,
-    "Lopsided for Get": lopsidedGet,
-    "Lopsided for Give": `Lopsided for ${other}`,
-    "Fair, leans Get": leansGet,
-    "Fair, leans Give": `Fair, leans ${other}`,
-  }[label] || label;
+  const seat = String(favorName || "").trim() || favor;
+  if (favor !== "your") {
+    label = label.replace(/\bYou\b/g, seat).replace(/\byou\b/g, seat);
+  }
+  if (other !== "them") {
+    const named = other.charAt(0).toUpperCase() + other.slice(1);
+    label = label.replace(/\bThey win by\b/g, `${named} wins by`).replace(/\bThey\b/g, named).replace(/\bthem\b/g, other);
+  }
+  return label;
 }

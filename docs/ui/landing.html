@@ -1,46 +1,75 @@
-<section class="empty-workspace" id="landing">
-  <div class="landing-hero">
-    <div class="landing-copy">
-      <div class="product-hero">
-        <p class="product-kicker">Sleeper dynasty</p>
-        <p class="product-hero-copy">Prices, trades, and your roster</p>
+<section class="launch" id="landing">
+  <div class="launch-wrap">
+    <h1 id="landing-job-hint">Is your dynasty trade fair? Find out in one tap.</h1>
+    <p class="sub">Free values for Sleeper dynasty leagues. No sign-up.</p>
+    <div class="launch-main">
+      <div class="launch-example-col">
+        <div class="launch-lab">
+          <span>Example trade</span>
+          <a href="/trade" data-launch="empty">Try your own ›</a>
+        </div>
+        <div id="launch-example" class="launch-box launch-example" aria-busy="true">
+          <div class="launch-side">
+            <div class="sh"><span>You give</span></div>
+            <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+          </div>
+          <div class="launch-side">
+            <div class="sh"><span>You get</span></div>
+            <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+            <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+          </div>
+        </div>
+        <button type="button" class="launch-check" data-launch="example">Check this trade</button>
+        <div class="launch-cta">
+          <button type="button" class="ghost-btn launch-connect" data-launch="connect">Connect my league</button>
+        </div>
+        <div id="landing-connect" hidden>
+          <form id="landing-username-form" class="landing-search" novalidate>
+            <label for="landing-username">Sleeper username</label>
+            <div class="landing-search-row">
+              <input
+                id="landing-username"
+                name="landing-username"
+                placeholder="Search your Sleeper username"
+                autocomplete="off"
+                value=""
+                autocapitalize="none"
+                autocorrect="off"
+                spellcheck="false"
+                enterkeyhint="search"
+                aria-describedby="landing-username-error"
+              />
+              <button id="landing-find-btn" type="submit" data-idle-label="Connect my league" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+            </div>
+            <p id="landing-username-error" class="field-error" hidden role="alert"></p>
+            <div id="landing-search-status" class="status error landing-search-status hidden" aria-live="polite">
+              <span id="landing-search-status-text"></span>
+              <button type="button" id="landing-search-retry" class="ghost-btn status-retry">Retry</button>
+            </div>
+          </form>
+          <div id="landing-league-picker" class="league-picker landing-league-picker hidden" data-league-picker></div>
+          <p id="landing-loading" class="landing-loading hidden" aria-live="polite">
+            <span class="status-loader" aria-hidden="true"></span>
+            <span id="landing-loading-text">Opening league from Sleeper…</span>
+          </p>
+          <div id="landing-league-error" class="status error landing-league-error hidden" role="alert">
+            <span id="landing-league-error-text"></span>
+            <button type="button" id="landing-league-retry" class="ghost-btn status-retry">Retry</button>
+          </div>
+        </div>
       </div>
-      <span class="brand-lockup brand-lockup--landing">
-        <img class="brand-wordmark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
-      </span>
-      <p id="landing-job-hint" class="muted landing-job-hint">Type your Sleeper username. No name yet? <a id="sample-league-link" class="sample-league-link" href="./?sample=1">See the sample league</a>.</p>
-      <form id="landing-username-form" class="landing-search" novalidate>
-        <label for="landing-username">Sleeper username</label>
-        <div class="landing-search-row">
-          <input
-            id="landing-username"
-            name="landing-username"
-            placeholder="Search your Sleeper username"
-            autocomplete="off"
-            value=""
-            autocapitalize="none"
-            autocorrect="off"
-            spellcheck="false"
-            enterkeyhint="search"
-            aria-describedby="landing-username-error landing-job-hint"
-          />
-          <button id="landing-find-btn" type="submit" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+      <div class="launch-trend-col">
+        <div class="launch-lab">
+          <span>Hot on Sleeper</span>
+          <a href="/players" data-launch="players">All players ›</a>
         </div>
-        <p id="landing-username-error" class="field-error" hidden role="alert"></p>
-        <div id="landing-search-status" class="status error landing-search-status hidden" aria-live="polite">
-          <span id="landing-search-status-text"></span>
-          <button type="button" id="landing-search-retry" class="ghost-btn status-retry">Retry</button>
+        <div id="launch-trend" class="launch-box launch-trend" aria-busy="true">
+          <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+          <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+          <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+          <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+          <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
         </div>
-      </form>
-      <button type="button" id="open-public-ranks" class="ghost-btn landing-ranks-btn" data-action="open-public-ranks">Look up a player</button>
-      <div id="landing-league-picker" class="league-picker landing-league-picker hidden" data-league-picker></div>
-      <p id="landing-loading" class="landing-loading hidden" aria-live="polite">
-        <span class="status-loader" aria-hidden="true"></span>
-        <span id="landing-loading-text">Opening league from Sleeper…</span>
-      </p>
-      <div id="landing-league-error" class="status error landing-league-error hidden" role="alert">
-        <span id="landing-league-error-text"></span>
-        <button type="button" id="landing-league-retry" class="ghost-btn status-retry">Retry</button>
       </div>
     </div>
   </div>

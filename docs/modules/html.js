@@ -97,8 +97,8 @@ export function renderTradeMove(row, formatValue = formatNumber) {
 }
 
 export function renderConnectGate({
-  copy = "Find my leagues to open this.",
-  label = "Find my leagues",
+  copy = "Connect my league to open this.",
+  label = "Connect my league",
   action = "draft-connect",
 } = {}) {
   return `

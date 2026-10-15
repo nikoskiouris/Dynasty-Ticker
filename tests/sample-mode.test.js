@@ -91,9 +91,10 @@ test("sample chrome keeps a real Find my leagues button after the banner", () =>
   const index = siteMarkup();
   const app = readFileSync(join(root, "docs/app.js"), "utf8");
   assert.match(index, /<main class="workspace" id="workspace" tabindex="-1">/);
-  assert.match(index, /<button type="button" class="sample-find-btn" data-sample-find hidden>Find my leagues<\/button>/);
-  assert.match(index, /<button type="button" id="sample-find-btn" class="sample-find-btn" data-sample-find data-action="find-my-leagues" hidden>Find my leagues<\/button>/);
-  assert.match(index, /data-action="dismiss-sample-banner">Dismiss<\/button>/);
+  assert.match(index, /<button type="button" class="sample-find-btn" data-sample-find hidden>Connect my league<\/button>/);
+  assert.match(index, /<button type="button" id="sample-find-btn" class="sample-find-btn" data-sample-find data-action="find-my-leagues" hidden>Connect my league<\/button>/);
+  assert.match(index, /Sample league · Connect yours/);
+  assert.doesNotMatch(index, /This is a public sample league/);
   assert.match(app, /sampleBannerOff = true/);
   assert.match(app, /clearSampleBannerDismissal\(\)/);
   assert.match(app, /focusAfterSampleBannerDismiss\(document\)/);
@@ -161,7 +162,7 @@ test("sample copy drops pick I own, on your roster, and do not sell your aging s
   assert.match(ownCall.moves.join("\n"), /Do not sell your aging stars for picks/);
   assert.match(describeDraftItem({ status: "already-yours" }, { kind: "player" }), /on your roster/);
   const app = readFileSync(join(root, "docs/app.js"), "utf8");
-  assert.match(app, /voice\?\.shopOption \|\| "Shop a player or pick I own"/);
+  assert.match(app, /voice\?\.shopOption \|\| "Sell one of mine"/);
   assert.match(app, /sampleVoice\(\)\?\.heatOnRoster \|\| "is on your roster"/);
   assert.match(app, /sampleVoice\(\)\?\.searchEmpty/);
 });

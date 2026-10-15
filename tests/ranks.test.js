@@ -67,12 +67,12 @@ test("board ranks players and drops retired, defense, and unnamed scrubs", () =>
   assert.equal(rows[0].overallRank, 1);
   assert.equal(rows[0].owner.mine, true);
   assert.equal(rows[0].tape.tone, "model");
-  assert.match(rows[0].tape.line, /established NFL sample/);
+  assert.equal(rows[0].tape.line, "");
   assert.equal(rows[0].pickLine, "Worth more than a 2027 early 1st.");
   const chase = rows.find((row) => row.assetId === "player:2");
   assert.equal(chase.pickLine, "Worth about a 2027 early 1st.");
   assert.equal(chase.boardRank, "WR1");
-  assert.match(chase.tape.line, /developing NFL sample/);
+  assert.equal(chase.tape.line, "Still proving it");
   const even = rows.find((row) => row.assetId === "player:5");
   assert.equal(even.pickLine, "Worth about a 2027 late 1st.");
   assert.equal(even.pickEqual.value, 5000);
@@ -111,8 +111,9 @@ test("pick line and tape stay one sentence", () => {
   assert.equal(pickEqualLine(1300, { phrase: "2027 1st", value: 1000 }), "A step above a 2027 1st.");
   assert.equal(pickEqualLine(800, { phrase: "2027 1st", value: 1000 }), "A step under a 2027 1st.");
   assert.equal(pickEqualLine(4000, { phrase: "2028 3rd", value: 1000 }), "Closest pick is a 2028 3rd.");
-  assert.match(marketTape({ confidence: "established" }).line, /established NFL sample/);
-  assert.match(marketTape({ confidence: "thin" }).line, /thin NFL sample/);
+  assert.equal(marketTape({ confidence: "established" }).line, "");
+  assert.equal(marketTape({ confidence: "thin" }).line, "Mostly rookie hype");
+  assert.equal(marketTape({ confidence: "developing" }).line, "Still proving it");
   assert.match(marketTape({ kind: "pick" }).line, /Historical rookie-outcome/);
   assert.equal(ownerLine({ mine: true }, { leagueOpen: true }), "You have him.");
   assert.equal(ownerLine({ name: "Demetri" }, { leagueOpen: true }), "Demetri has him.");

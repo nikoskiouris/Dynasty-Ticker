@@ -35,16 +35,13 @@ export function marketTape({ confidence = "", kind = "player" } = {}) {
   if (kind === "pick") {
     return { tone: "model", line: "Historical rookie-outcome estimate." };
   }
-  if (confidence === "established") {
-    return { tone: "model", line: "Football forecast with an established NFL sample." };
-  }
   if (confidence === "developing") {
-    return { tone: "model", line: "Football forecast with a developing NFL sample." };
+    return { tone: "model", line: "Still proving it" };
   }
   if (confidence === "thin") {
-    return { tone: "model", line: "Football forecast with a thin NFL sample; the young-player prior matters more." };
+    return { tone: "model", line: "Mostly rookie hype" };
   }
-  return { tone: "model", line: "Independent full-PPR football forecast." };
+  return { tone: "model", line: "" };
 }
 
 export function pickEqualLine(value, pick, best) {
@@ -71,7 +68,7 @@ export function ownerLine(owner, { leagueOpen = false, kind = "player" } = {}) {
 }
 
 export function rankBoardNote({ format = "sf", leagueFormat = "", caveat = "" } = {}) {
-  const base = "Model price, full PPR. Same number on Trade and My League. The pick line is the closest pick.";
+  const base = "Full PPR. Same number on Trade and My League.";
   const peek = leagueFormat && format && format !== leagueFormat
     ? ` Peeking at ${rankFormatLabel(format)}. Your league is ${rankFormatLabel(leagueFormat)}.`
     : "";
@@ -241,7 +238,7 @@ export function rankView({
 export function renderPlayerConnect() {
   return `<form class="player-connect" data-player-connect>
       <input class="player-connect-user" name="username" aria-label="Sleeper username" placeholder="Sleeper username" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
-      <button type="submit">Find my leagues</button>
+      <button type="submit">Connect my league</button>
     </form>
     <div class="player-league-list league-picker" data-player-league-list hidden></div>`;
 }
@@ -324,12 +321,14 @@ function shownRankNumber(row) {
 function renderRankRow(row, active) {
   const you = row.owner?.mine ? " you" : "";
   const meta = rankMeta(row);
+  const tag = row.kind !== "pick" && row.tape?.line ? `<small class="ranks-tag">${escapeHtml(row.tape.line)}</small>` : "";
   return `
     <button type="button" class="ranks-row${active ? " active" : ""}${you}" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}" aria-pressed="${active ? "true" : "false"}">
       <span class="ranks-num">${escapeHtml(String(shownRankNumber(row)))}</span>
       <span class="ranks-who">
         ${renderRankName(row)}
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
+        ${tag}
       </span>
       <span class="ranks-value">${escapeHtml(formatNumber(row.value))}</span>
     </button>
@@ -383,7 +382,7 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
           <span>Model</span>
         </div>
       </div>
-      <p class="ranks-tape ranks-tape-${escapeHtml(row.tape?.tone || "crowd")}">${escapeHtml(row.tape?.line || "")}</p>
+      ${row.tape?.line ? `<p class="ranks-tape ranks-tape-${escapeHtml(row.tape?.tone || "crowd")}">${escapeHtml(row.tape.line)}</p>` : ""}
       ${facts.length ? `<dl class="ranks-facts">${facts.map((fact) => `<div><dt>${escapeHtml(fact.label)}</dt><dd>${escapeHtml(fact.value)}</dd></div>`).join("")}</dl>` : ""}
       ${held || league ? `<p class="ranks-held">${escapeHtml([held, league].filter(Boolean).join(" "))}</p>` : ""}
       ${neighbors.length ? `
@@ -416,7 +415,7 @@ function renderRankNeighbor(row) {
 function rankMeta(row) {
   if (row?.kind === "pick") return "Pick";
   const age = Number.isFinite(Number(row?.age)) && Number(row.age) > 0 ? `${Math.round(Number(row.age))}y` : "";
-  return [row?.boardRank, row?.team, age, pickScan(row?.pickLine)].filter(Boolean).join(" · ");
+  return [row?.boardRank, row?.team, age].filter(Boolean).join(" · ");
 }
 
 function pickScan(line) {

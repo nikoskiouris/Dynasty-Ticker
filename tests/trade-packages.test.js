@@ -128,7 +128,7 @@ test("desk uses the capped search and cached calculator baseline", () => {
     app.indexOf("function suggestShopDealsWithRoster"),
   );
   assert.ok(shop.indexOf("await waitForNextPaint()") < shop.indexOf("suggestShopDealsWithRoster("));
-  assert.match(app, /Player names still syncing/);
+  assert.match(app, /Still loading players\. One sec\./);
   assert.match(app, /if \(el\.generateBtn\?\.classList\.contains\("loading"\)\) return;/);
   assert.doesNotMatch(app, /function getGlobalMaxPlayerValue/);
   assert.doesNotMatch(app, /function ordinal\(/);
