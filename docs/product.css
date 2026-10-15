@@ -32,8 +32,8 @@ body {
 .product-kicker {
   color: var(--muted);
   font-family: var(--font-display);
-  font-style: italic;
-  font-size: 1.15rem;
+  font-style: normal;
+  font-size: var(--fs-xs);
   font-weight: 400;
   font-synthesis: none;
 }
@@ -41,8 +41,8 @@ body {
 .product-hero-copy {
   max-width: 28rem;
   color: var(--muted);
-  font-size: 1.05rem;
-  line-height: 1.5;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
 }
 
 h1,
@@ -79,14 +79,14 @@ h1,
 
   .rail-module {
     border: 0;
-    border-radius: 28px;
+    border-radius: var(--r-md);
     background: color-mix(in srgb, var(--panel) 88%, transparent);
     box-shadow: var(--product-shadow);
-    padding: 1.15rem;
+    padding: var(--card-pad);
   }
 
   .step-badge {
-    border-radius: 999px;
+    border-radius: var(--r-sm);
     border-color: transparent;
     background: var(--panel-tint);
     color: var(--link);
@@ -96,7 +96,7 @@ h1,
   }
 
   .rail-module h2 {
-    font-size: 1.35rem;
+    font-size: var(--fs-h2);
     font-weight: 400;
     letter-spacing: -0.03em;
   }
@@ -108,16 +108,16 @@ h1,
   }
 
   #home-btn {
-    border-radius: 999px;
+    border-radius: var(--r-sm);
     border: 1px solid var(--line-strong);
     background: transparent;
     color: var(--text);
-    min-height: 2.5rem;
+    min-height: var(--btn-h);
   }
 
   .workspace {
-    padding: 1.5rem 2.6rem 4.5rem;
-    gap: 1.75rem;
+    padding: var(--section-gap) var(--page-x) var(--section-gap);
+    gap: var(--section-gap);
   }
 
   .workspace-header {
@@ -127,12 +127,12 @@ h1,
   }
 
   #hero-title {
-    font-size: clamp(2.8rem, 5vw, 4.4rem);
-    line-height: 0.95;
+    font-size: var(--fs-h1);
+    line-height: var(--lh-tight);
   }
 
   .league-avatar {
-    border-radius: 22px;
+    border-radius: var(--r-md);
     border-width: 0;
     background: var(--panel);
     box-shadow: var(--product-shadow);
@@ -145,7 +145,7 @@ h1,
   .state-grid > div {
     padding: 0.85rem 1rem;
     border: 0;
-    border-radius: 18px;
+    border-radius: var(--r-md);
     background: var(--panel);
     box-shadow: var(--product-shadow);
   }
@@ -155,7 +155,7 @@ h1,
     top: 0.7rem;
     z-index: 8;
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--r-sm);
     background: color-mix(in srgb, var(--panel) 82%, transparent);
     box-shadow: var(--product-shadow);
     backdrop-filter: blur(16px);
@@ -169,7 +169,7 @@ h1,
   .page-tab {
     min-height: 0;
     padding: 0.55rem 1rem;
-    border-radius: 999px;
+    border-radius: var(--r-sm);
     background: transparent;
     box-shadow: none;
   }
@@ -191,7 +191,7 @@ h1,
 
   .tab-copy strong {
     font-family: var(--font-body);
-    font-size: 0.92rem;
+    font-size: var(--fs-body);
     font-weight: 600;
     letter-spacing: 0;
   }
@@ -207,8 +207,8 @@ h1,
     padding: 0.38rem 0.8rem;
     margin-right: 0;
     border: 1px solid transparent;
-    border-radius: 999px;
-    font-size: 0.82rem;
+    border-radius: var(--r-pill);
+    font-size: var(--fs-sm2);
   }
 
   .room-tab.active,
@@ -220,7 +220,7 @@ h1,
   }
 
   .ticker {
-    border-radius: 18px;
+    border-radius: var(--r-md);
     margin-top: 0.2rem;
   }
 
@@ -229,10 +229,10 @@ h1,
   .action-panel,
   details.workspace-panel {
     border: 0;
-    border-radius: 28px;
+    border-radius: var(--r-md);
     background: var(--panel);
     box-shadow: var(--product-shadow);
-    padding: 1.5rem 1.6rem 1.7rem;
+    padding: var(--card-pad);
   }
 
   .panel-heading {
@@ -242,14 +242,14 @@ h1,
 
   .panel-heading h2,
   .action-panel h2 {
-    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    font-size: var(--fs-h2);
     line-height: 1;
     letter-spacing: -0.03em;
   }
 
   .section-copy {
     text-align: left;
-    font-size: 0.95rem;
+    font-size: var(--fs-body-lg);
   }
 
   .empty-workspace {
@@ -262,8 +262,9 @@ h1,
   .asset-item,
   .log-row,
   .history-row {
-    border-radius: 16px;
-    padding: 0.8rem 0.85rem;
+    border-radius: var(--r-sm);
+    min-height: var(--row-h-compact);
+    padding: 0 var(--card-pad);
   }
 
   button.ranks-row:hover,
@@ -284,7 +285,7 @@ h1,
   .mode-card,
   .pulse-tile {
     border: 0;
-    border-radius: 22px;
+    border-radius: var(--r-md);
     background: var(--panel-soft);
     box-shadow: var(--product-shadow);
   }
@@ -301,14 +302,14 @@ h1,
   }
 
   .rather-panel h2 {
-    font-size: clamp(2.4rem, 5vw, 4rem);
+    font-size: var(--fs-h2);
     line-height: 0.98;
   }
 
   .rather-player,
   button.rather-player {
     border: 0;
-    border-radius: 28px;
+    border-radius: var(--r-md);
     background: var(--panel);
     box-shadow: var(--product-shadow);
     padding: 1.3rem 1rem 1.2rem;
@@ -321,7 +322,7 @@ h1,
 
   .mode-card strong {
     font-family: var(--font-display);
-    font-size: 1.45rem;
+    font-size: var(--fs-h1);
     font-weight: 400;
     letter-spacing: -0.03em;
   }
@@ -335,8 +336,8 @@ h1,
   input,
   select,
   textarea {
-    border-radius: 999px;
-    min-height: 3rem;
+    border-radius: var(--r-sm);
+    min-height: var(--input-h);
     padding-inline: 1.05rem;
     border-color: transparent;
     background: var(--panel);
@@ -351,7 +352,7 @@ h1,
 
   .ghost-btn,
   button.ghost-btn {
-    border-radius: 999px;
+    border-radius: var(--r-sm);
     border-color: var(--line-strong);
     background: transparent;
     box-shadow: none;
@@ -449,7 +450,7 @@ h1,
 
   body:not(.league-loaded):not(.board-tools-live) .tab-copy strong {
     font-family: var(--font-body);
-    font-size: 0.95rem;
+    font-size: var(--fs-body-lg);
     font-weight: 500;
   }
 
@@ -477,8 +478,8 @@ h1,
 
   body:not(.league-loaded):not(.board-tools-live) .landing-search label {
     font-family: var(--font-display);
-    font-style: italic;
-    font-size: 1rem;
+    font-style: normal;
+    font-size: var(--fs-sm);
     font-weight: 400;
     letter-spacing: 0;
     text-transform: none;
@@ -491,12 +492,12 @@ h1,
   }
 
   body:not(.league-loaded):not(.board-tools-live) .landing-search-row input {
-    min-height: 3.3rem;
+    min-height: var(--input-h);
     text-align: left;
   }
 
   body:not(.league-loaded):not(.board-tools-live) #landing-find-btn {
-    min-height: 3.3rem;
+    min-height: var(--btn-h);
     padding-inline: 1.4rem;
   }
 
@@ -525,7 +526,7 @@ h1,
   }
 
   body:not(.league-loaded):not(.board-tools-live) #ranks-section .panel-heading h2 {
-    font-size: clamp(2.2rem, 4vw, 3.2rem);
+    font-size: var(--fs-h2);
   }
 
   body:not(.league-loaded):not(.board-tools-live) #ranks-section .section-copy {
@@ -638,7 +639,7 @@ h1,
   body.league-loaded .league-module input,
   body.league-loaded #me-select {
     width: 14rem;
-    min-height: 2.6rem;
+    min-height: var(--input-h);
     box-shadow: none;
   }
 
@@ -679,8 +680,8 @@ h1,
 
 .ranks-search {
   width: min(560px, 100%);
-  min-height: 3.2rem;
-  border-radius: 999px;
+  min-height: var(--input-h);
+  border-radius: var(--r-sm);
   text-align: left;
 }
 
@@ -694,16 +695,16 @@ h1,
 }
 
 button.ranks-chip {
-  min-height: 2.15rem;
+  min-height: var(--chip-h);
   margin: 0;
   padding: 0.25rem 0.85rem;
   border: 1px solid var(--line-strong);
   border-bottom-width: 1px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: transparent;
   color: var(--muted-strong);
   font-family: var(--font-body);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
@@ -729,14 +730,14 @@ button.ranks-chip.active:hover {
 button.ranks-shelf-item .player-face,
 .player-face,
 .rather-headshot {
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   box-shadow: var(--product-shadow);
 }
 
 .ranks-num,
 .rank-number {
   font-family: var(--font-display);
-  font-size: 1.05rem;
+  font-size: var(--fs-h2);
   font-weight: 400;
   font-synthesis: none;
 }
@@ -774,7 +775,7 @@ button.ranks-shelf-item .player-face,
 .passport-card,
 .sheet-card {
   border: 0;
-  border-radius: 22px;
+  border-radius: var(--r-md);
   background: var(--panel-soft);
   box-shadow: var(--product-shadow);
 }
@@ -788,20 +789,20 @@ button.ranks-shelf-item .player-face,
 .seed-chip,
 .log-chip,
 .ticker-tag {
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 details.workspace-panel > summary,
 .league-id-fallback summary {
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: 1.15rem;
-  font-weight: 400;
+  font-family: var(--font-ui);
+  font-style: normal;
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-semi);
   letter-spacing: 0;
 }
 
 .field-error {
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
 }
 
 /* --------------------------------------------------------------------------
@@ -816,13 +817,13 @@ details.workspace-panel > summary,
   }
 
   .mobile-icon-btn {
-    border-radius: 999px;
+    border-radius: var(--r-sm);
     border-color: var(--line-strong);
     background: var(--panel);
   }
 
   .mobile-chrome-copy strong {
-    font-size: 1.05rem;
+    font-size: var(--fs-h2);
     font-weight: 400;
   }
 
@@ -902,12 +903,12 @@ details.workspace-panel > summary,
 
   #landing-find-btn,
   #sticky-find-btn {
-    min-height: 3.1rem;
+    min-height: var(--btn-h);
   }
 
   .workspace {
-    padding: 1rem;
-    gap: 1.2rem;
+    padding: var(--card-pad);
+    gap: var(--section-gap);
   }
 
   .workspace-panel,
@@ -915,14 +916,14 @@ details.workspace-panel > summary,
   .action-panel,
   details.workspace-panel {
     border: 0;
-    border-radius: 22px;
+    border-radius: var(--r-md);
     background: var(--panel);
     box-shadow: var(--product-shadow);
   }
 
   .panel-heading h2,
   .rather-panel h2 {
-    font-size: 2rem;
+    font-size: var(--fs-h2);
     line-height: 1.02;
   }
 
@@ -937,7 +938,7 @@ details.workspace-panel > summary,
   .game-card,
   .mode-card {
     border: 0;
-    border-radius: 20px;
+    border-radius: var(--r-md);
     box-shadow: var(--product-shadow);
   }
 
@@ -946,7 +947,7 @@ details.workspace-panel > summary,
   }
 
   button.ranks-row {
-    border-radius: 14px;
+    border-radius: var(--r-sm);
   }
 
   .sticky-mobile-cta {
@@ -958,7 +959,7 @@ details.workspace-panel > summary,
 
   #sticky-find-btn {
     position: static;
-    border-radius: 999px;
+    border-radius: var(--r-sm);
   }
 
   body.viewing-sample .mobile-chrome {
@@ -1004,18 +1005,18 @@ details.workspace-panel > summary,
 }
 
 .legal-shell h1 {
-  font-size: clamp(2.6rem, 6vw, 4.2rem);
-  line-height: 0.96;
+  font-size: var(--fs-h1);
+  line-height: var(--lh-tight);
 }
 
 .legal-shell h2 {
   margin-top: 2rem;
-  font-size: 1.7rem;
+  font-size: var(--fs-h2);
 }
 
 .legal-shell p,
 .legal-shell li {
-  font-size: 1.02rem;
+  font-size: var(--fs-h2);
   color: var(--muted-strong);
 }
 
@@ -1024,7 +1025,7 @@ details.workspace-panel > summary,
   display: inline-flex;
   width: auto;
   margin-top: 1.4rem;
-  border-radius: 999px;
+  border-radius: var(--r-sm);
 }
 
 /* Wide and mid desktops: wordmark row, then an opaque sticky tab row.
@@ -1105,5 +1106,112 @@ details.workspace-panel > summary,
   body.league-loaded #me-select,
   body.board-tools-live #me-select {
     width: min(16rem, 46vw);
+  }
+}
+
+/* Density lock. Tokens drive type, controls, rows, and cards. */
+.brand {
+  font-family: var(--font-brand);
+}
+
+.eyebrow,
+.product-kicker,
+.desk-jobs-kicker {
+  font-family: var(--font-ui);
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semi);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+}
+
+button.ranks-row,
+.player-item,
+.sheet-row,
+.team-card-main,
+.standings-row {
+  min-height: var(--row-h-compact);
+}
+
+button.ranks-row {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.ranks-card-price strong {
+  font-family: var(--font-ui);
+  font-size: var(--fs-num-xl);
+  font-weight: var(--fw-num);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-tight);
+}
+
+.team-card-score strong,
+.calc-pane-total strong,
+.weekly-score-badge strong,
+.dynasty-value-badge strong {
+  font-family: var(--font-ui);
+  font-size: var(--fs-num-lg);
+  font-weight: var(--fw-num);
+  font-variant-numeric: tabular-nums;
+}
+
+.player-face-sm,
+.player-face-md,
+.avatar-sm,
+.avatar-md,
+.ranks-headshot,
+button.ranks-shelf-item .player-face {
+  width: var(--avatar);
+  height: var(--avatar);
+}
+
+button.ranks-chip,
+.room-tab,
+.ghost-btn,
+button.ghost-btn,
+.week-chips button,
+.segmented button {
+  position: relative;
+  min-height: var(--chip-h);
+  border-radius: var(--r-pill);
+}
+
+button.ranks-chip::after,
+.room-tab::after,
+.ghost-btn::after,
+button.ghost-btn::after,
+.week-chips button::after,
+.segmented button::after {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+}
+
+.selected-token-remove,
+button.weekly-help-close {
+  position: relative;
+}
+
+.selected-token-remove::after,
+button.weekly-help-close::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+@media (max-width: 700px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
   }
 }

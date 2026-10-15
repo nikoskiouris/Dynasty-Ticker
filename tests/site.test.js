@@ -222,7 +222,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, />Light mode</);
   assert.doesNotMatch(index, />Dark mode</);
   assert.doesNotMatch(index, /data-theme="light"/);
-  assert.match(index, /family=Instrument\+Serif:/);
+  assert.match(index, /href="\.\/tokens\.css"/);
+  assert.doesNotMatch(index, /fonts\.googleapis\.com/);
+  assert.doesNotMatch(index, /fonts\.gstatic\.com/);
   for (const page of ["players", "trades", "league"]) {
     assert.match(index, new RegExp(`data-page="${page}"`));
     assert.match(index, new RegExp(`id="${page}-page"`));

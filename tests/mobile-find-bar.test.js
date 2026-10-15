@@ -58,6 +58,7 @@ function fixtureHtml() {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="${cssHref("tokens.css")}" />
     <link rel="stylesheet" href="${cssHref("styles.css")}" />
     <link rel="stylesheet" href="${cssHref("product.css")}" />
     <title>Find bar probe</title>
