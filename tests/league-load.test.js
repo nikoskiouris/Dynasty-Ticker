@@ -112,6 +112,8 @@ test("desk uses the league loader and drops stale player refreshes", () => {
   assert.match(app, /leagueLoader\.run\(leagueId,/);
   assert.doesNotMatch(app, /if \(leagueLoadPromise\) return leagueLoadPromise/);
   assert.match(app, /if \(!leagueLoader\.isCurrent\(token\)\) return/);
+  assert.match(app, /leagueLoader\.drop\(\)/);
+  assert.match(app, /leagueLoader\.inFlightId/);
   assert.match(app, /invalidatePlayerLoads\(\)/);
   assert.match(app, /playersLoadStale\(playersEpoch, token, leagueId\)/);
   assert.match(app, /leagueId:\s*\(\)\s*=>\s*state\.leagueId/);
@@ -120,6 +122,23 @@ test("desk uses the league loader and drops stale player refreshes", () => {
   assert.match(app, /function blankDeskForLeagueSwitch\(\)/);
   assert.match(app, /state\.leagueSwitching = true/);
   assert.match(app, /if \(state\.leagueSwitching\)/);
+});
+
+test("drop abandons a league load that has not committed", async () => {
+  const loader = createLeagueLoader();
+  const gate = deferred();
+  let committed = false;
+  const job = loader.run("777", async (_id, token) => {
+    await gate.promise;
+    if (!loader.isCurrent(token)) return;
+    committed = true;
+  });
+  assert.equal(loader.inFlightId(), "777");
+  loader.drop();
+  assert.equal(loader.inFlightId(), "");
+  gate.resolve();
+  await job;
+  assert.equal(committed, false);
 });
 
 test("roster sheet stops saying names are coming once player metadata fails", () => {

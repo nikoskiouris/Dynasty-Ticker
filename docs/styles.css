@@ -8393,6 +8393,45 @@ button.ranks-row.you {
   background: var(--panel);
 }
 
+[data-player-connect-slot]:empty {
+  display: none;
+}
+
+.player-back {
+  width: auto;
+  justify-self: start;
+}
+
+.player-connect {
+  display: flex;
+  flex: 1 1 16rem;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.player-connect input,
+.player-connect button {
+  width: auto;
+  min-height: 2.1rem;
+  padding: 0.3rem 0.7rem;
+}
+
+.player-connect input {
+  flex: 1 1 8rem;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.player-connect button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.player-league-list[hidden] {
+  display: none;
+}
+
 .ranks-card-main {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
