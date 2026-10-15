@@ -17,6 +17,11 @@ export function createLeagueLoader() {
       return token === serial;
     },
 
+    drop() {
+      serial += 1;
+      latestId = "";
+    },
+
     run(leagueId, load) {
       const id = String(leagueId || "");
       if (!id) return Promise.resolve();

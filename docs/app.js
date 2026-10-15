@@ -161,15 +161,18 @@ import {
   writeStoredDraft,
 } from "./modules/trade-draft.js";
 import {
-  calcSuggestionFromList,
+  calcListDomId,
+  calcOptionAttrs,
   calcSuggestionItem,
   clearCalcSearchBox,
+  handleCalcComboboxKey,
   keepCalcSearchFocused,
-  moveCalcSuggestion,
   renderCalcSearchInput,
+  setCalcListOpen,
   shouldArmCalcSuggestion,
   shouldHoldCalcSearchFocus,
   shouldResetCalcSearchOnPick,
+  syncCalcCombobox,
 } from "./modules/calc-search.js";
 import { ideaPackageKey, selectNextDiverse } from "./modules/deal-more.js";
 import { calculatePackageAdjustment, calculatePctDiff } from "./modules/package-value.js";
@@ -580,8 +583,6 @@ let managerSelectorHydrating = false;
 let managerSelectorHydrateEpoch = 0;
 let ratherPromptPair = null;
 let ratherSeasonStatsCache = { season: "", stats: null };
-let landingSearchOffscreen = false;
-let landingSearchObserver = null;
 let publicRanksOpen = false;
 let publicRanksHistory = false;
 let bootRoute = null;
@@ -761,6 +762,7 @@ el.controlRail?.addEventListener("click", (event) => {
 });
 el.controlRail?.addEventListener("input", handleWorkspaceInput);
 el.workspace?.addEventListener("keydown", handleWorkspaceKeydown);
+el.workspace?.addEventListener("focusin", handleCalcSearchFocus);
 el.workspace?.addEventListener("pointerdown", handleWorkspacePointerDown);
 el.workspace?.addEventListener("change", handleWorkspaceChange);
 el.workspace?.addEventListener("input", handleWorkspaceInput);
@@ -864,7 +866,6 @@ window.addEventListener("popstate", (event) => applyDeskPopState(event.state));
 if (isPhoneLayout()) setMobileRailOpen(false);
 syncDocumentMeta();
 appBooted = true;
-watchLandingSearchVisibility();
 syncSiteDock();
 const runQueuedFind = releaseBootGate(document);
 if (runQueuedFind) scheduleBootFind(() => requestFindLeagues());
@@ -1544,6 +1545,7 @@ function applyDeskPopState(historyState) {
   const route = resolveLocation(window.location.pathname, window.location.search);
   const parsed = parseShareParams(window.location.search);
   if (route.unknown) {
+    if (state.leagueId) unloadLeague();
     document.querySelector("#landing")?.classList.remove("hidden");
     state.ranks.selectedId = "";
     applyDeskPlaceFromHistory(parsed, { ...(historyState || {}), tab: "players", view: "ranks" });
@@ -1555,6 +1557,21 @@ function applyDeskPopState(historyState) {
   }
   if (route.name === "trade") applyTradeRoute(route);
   const leagueId = route.leagueId || parsed.leagueId;
+  if (leagueId && String(leagueId) !== String(state.leagueId || "")) {
+    state.pendingPlace = { page: route.page || parsed.tab, room: route.room || parsed.view };
+    if (!state.pendingPlace.page && parsed.tab) state.pendingPlace = { page: parsed.tab, room: parsed.view };
+    if (parsed.week) state.pendingWeek = parsed.week;
+    if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
+    void loadLeagueById(leagueId, { fromHistory: true, sample: parsed.sample });
+    return;
+  }
+  if (!leagueId && state.leagueId) unloadLeague();
+  const showLanding = route.name === "home" || route.name === "connect";
+  document.querySelector("#landing")?.classList.toggle("hidden", !showLanding);
+  if (!showLanding && (route.name === "players" || route.name === "player" || route.name === "trade" || route.leagueId)) {
+    document.querySelector("#landing")?.classList.add("hidden");
+  }
+  if (showLanding) state.ranks.selectedId = "";
   if (!state.leagueId && !playerIdFromPathname(window.location.pathname) && !route.leagueId && route.name !== "players" && route.name !== "trade") {
     if (parsed.tab === "trades" && parsed.view === "ranks") {
       if (parsed.asset) state.ranks.selectedId = parsed.asset;
@@ -1568,24 +1585,11 @@ function applyDeskPopState(historyState) {
     }
     if (publicRanksOpen && route.name !== "players") closePublicRanks({ fromHistory: true });
   }
-  if (leagueId && leagueId !== state.leagueId) {
-    state.pendingPlace = { page: route.unknown ? parsed.tab : (route.page || parsed.tab), room: route.room || parsed.view };
-    if (!state.pendingPlace.page && parsed.tab) state.pendingPlace = { page: parsed.tab, room: parsed.view };
-    if (parsed.week) state.pendingWeek = parsed.week;
-    if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
-    void loadLeagueById(leagueId, { fromHistory: true, sample: parsed.sample });
-    return;
-  }
   if (route.name === "players" || route.legacy === "ranks") {
     document.querySelector("#landing")?.classList.add("hidden");
   }
-  const legacyPlace = PAGE_IDS.includes(historyState?.tab) || PAGE_IDS.includes(parsed.tab);
-  if (typeof historyState?.landing === "boolean") {
-    document.querySelector("#landing")?.classList.toggle("hidden", !historyState.landing);
-  } else if (route.name === "connect" || (route.name === "home" && !legacyPlace)) {
+  if (route.name === "home" || route.name === "connect") {
     document.querySelector("#landing")?.classList.remove("hidden");
-  }
-  if (route.name === "connect" || (route.name === "home" && !legacyPlace)) {
     state.ranks.selectedId = "";
   }
   applyDeskPlaceFromHistory(parsed, historyState);
@@ -1595,20 +1599,29 @@ function applyDeskPlaceFromHistory(parsed, historyState) {
   applyingHistory = true;
   try {
     const route = resolveLocation(window.location.pathname, window.location.search);
-    let nextPage = PAGE_IDS.includes(historyState?.tab)
-      ? historyState.tab
-      : (PAGE_IDS.includes(parsed.tab) ? parsed.tab : (route.unknown ? DEFAULT_PAGE : (route.page || DEFAULT_PAGE)));
-    let nextView = historyState?.view
-      || (parsed.tab ? parsed.view : "")
-      || (route.unknown ? "" : route.room)
-      || "";
-    if (!state.leagueId && nextPage === "league" && !PAGE_IDS.includes(historyState?.tab) && !parsed.tab && !route.leagueId) {
-      state.pendingPlace = { page: nextPage, room: nextView || "team" };
+    const routeKnown = Boolean(route?.name) && !route.unknown;
+    let nextPage = routeKnown && PAGE_IDS.includes(route.page)
+      ? route.page
+      : (PAGE_IDS.includes(historyState?.tab)
+        ? historyState.tab
+        : (PAGE_IDS.includes(parsed.tab) ? parsed.tab : DEFAULT_PAGE));
+    let nextView = routeKnown
+      ? (route.room || defaultRoomFor(nextPage))
+      : (historyState?.view || (parsed.tab ? parsed.view : "") || defaultRoomFor(nextPage));
+    if (!state.leagueId && nextPage === "league" && !route.leagueId) {
       nextPage = DEFAULT_PAGE;
       nextView = defaultRoomFor(DEFAULT_PAGE);
     }
     setRoom(nextPage, nextView);
     applyPlayerRoute(historyState, parsed);
+    if (route.name === "home" || route.name === "connect" || route.unknown) {
+      state.ranks.selectedId = "";
+      if (state.weeklyValue) {
+        state.weeklyValue.selectedPlayerId = "";
+        state.weeklyValue.helpOpen = false;
+      }
+      document.querySelector("#landing")?.classList.remove("hidden");
+    }
     const snapshot = buildDeskHistorySnapshot(historyState || {});
     state.selectedTradeId = snapshot.selectedTradeId;
     state.selectedTradeManagerKey = snapshot.selectedTradeManagerKey;
@@ -2441,6 +2454,32 @@ async function loadLeagueById(leagueId, { fromHistory = false, sample = false } 
   return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
 }
 
+function unloadLeague() {
+  leagueLoader.drop();
+  stopLivePolling();
+  stopLeagueLoadingUi();
+  state.leagueSwitching = false;
+  state.leagueId = "";
+  state.leagueName = "";
+  state.league = null;
+  state.viewingSample = false;
+  state.users = [];
+  state.rosters = [];
+  state.normalizedRosters = [];
+  state.previousLeague = null;
+  state.previousUsers = [];
+  state.previousRosters = [];
+  state.leagueHistory = [];
+  state.meRosterId = null;
+  state.mePickedByUser = false;
+  state.pendingPlace = null;
+  state.transactions = [];
+  state.transactionsLoaded = false;
+  el.identitySection?.classList.add("hidden");
+  document.body.classList.remove("league-loaded", "viewing-sample");
+  renderSessionSnapshot();
+}
+
 function blankDeskForLeagueSwitch() {
   state.leagueSwitching = true;
   pageRenderQueue.settle();
@@ -2577,6 +2616,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     }
     if (keepPlace) state.pendingPlace = keepPlace;
     primeValuationData();
+    if (!leagueLoader.isCurrent(token)) return;
     setMobileRailOpen(false, { history: "silent" });
     showAppPages();
     noteSearchedUser(leagueId);
@@ -6434,6 +6474,9 @@ function draftSearchPlaceholder(side, view) {
 function renderDraftPane(side, view) {
   const left = side === "left";
   const query = String((left ? view.draft.leftQuery : view.draft.rightQuery) || "");
+  const listId = calcListDomId(side);
+  const suggestions = renderDraftSuggestions(side, view);
+  const expanded = Boolean(query.trim()) && suggestions.includes('role="option"');
   return `
     <section class="calc-pane ${left ? "team-a" : "team-b"}" data-draft-side="${side}">
       <header class="calc-pane-head">
@@ -6449,8 +6492,10 @@ function renderDraftPane(side, view) {
           side,
           input: "value-search",
           placeholder: draftSearchPlaceholder(side, view),
+          listId,
+          expanded,
         })}
-        <div class="calc-list calc-suggest${query.trim() ? "" : " is-browse"}" id="value-list-${side}">${renderDraftSuggestions(side, view)}</div>
+        <div class="calc-list calc-suggest${query.trim() ? "" : " is-browse"}" id="${listId}" role="listbox">${suggestions}</div>
       </div>
     </section>
   `;
@@ -6570,8 +6615,8 @@ function renderDraftSuggestions(side, view) {
     if (view.basis.connected && side === "right" && view.me) return `<div class="player-item muted">Type a name, or pick a team to browse.</div>`;
     return "";
   }
-  return rows.map((row) => `
-    <button type="button" class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType === "pick" ? "pick" : "player"}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""}>
+  return rows.map((row, index) => `
+    <div class="player-item calc-item" ${calcOptionAttrs({ side, assetId: row.assetId, index })} data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType === "pick" ? "pick" : "player"}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""}>
       <div class="asset-row-top">
         ${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}
         <div class="asset-name-stack">
@@ -6583,7 +6628,7 @@ function renderDraftSuggestions(side, view) {
         </div>
         <span class="asset-value-badge" title="Model price">${formatNumber(row.value)}${row.estimated ? " est" : ""}</span>
       </div>
-    </button>
+    </div>
   `).join("");
 }
 
@@ -6961,39 +7006,48 @@ function pickDraftSuggestion(item) {
   return true;
 }
 
+function calcSearchList(side) {
+  return el.calculatorShell?.querySelector(`#${calcListDomId(side)}`) || null;
+}
+
+function collapseCalcSearch(side) {
+  const list = calcSearchList(side);
+  const input = document.querySelector(`[data-input="value-search"][data-side="${side}"]`);
+  if (list) setCalcListOpen(list, false);
+  if (input) syncCalcCombobox(input, { open: false });
+}
+
+function revealCalcSuggestions(input, side) {
+  const list = calcSearchList(side);
+  if (!list || list.classList.contains("is-closed")) return;
+  setCalcListOpen(list, true);
+  const active = list.querySelector(".calc-item.is-active");
+  syncCalcCombobox(input, {
+    open: Boolean(list.querySelector("[role='option']")),
+    activeId: active?.id || "",
+  });
+}
+
+function handleCalcSearchFocus(event) {
+  const search = event.target?.closest?.("[data-input='value-search']");
+  if (!search || !el.workspace?.contains(search)) return;
+  const side = search.dataset.side === "right" ? "right" : "left";
+  revealCalcSuggestions(search, side);
+}
+
 function handleWorkspaceKeydown(event) {
   if (event.isComposing) return;
   const search = event.target?.closest?.("[data-input='value-search']");
   if (search && el.workspace?.contains(search)) {
     const side = search.dataset.side === "right" ? "right" : "left";
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      const item = moveCalcSuggestion(el.calculatorShell, side, event.key === "ArrowDown" ? 1 : -1);
-      if (!item) return;
-      event.preventDefault();
-      item.scrollIntoView?.({ block: "nearest" });
-      return;
-    }
-    if (event.key === "Enter") {
-      const item = calcSuggestionFromList(el.calculatorShell, side);
-      if (!item) return;
-      event.preventDefault();
-      pickDraftSuggestion(item);
-      return;
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
-      if (String(query || "").trim()) {
-        if (side === "right") state.valueCalc.rightQuery = "";
-        else state.valueCalc.leftQuery = "";
-        clearCalcSearchBox(search);
-        refreshDraftSuggestions(side);
-        search.focus();
-        return;
-      }
-      search.blur();
-      return;
-    }
+    const result = handleCalcComboboxKey(event, {
+      input: search,
+      list: calcSearchList(side),
+      root: el.calculatorShell,
+      side,
+    });
+    if (result.action === "pick" && pickDraftSuggestion(result.item)) collapseCalcSearch(side);
+    if (result.handled) return;
   }
   if (event.key !== "Enter" && event.key !== " ") return;
   const target = event.target.closest("[data-action][role='button']");
@@ -7038,6 +7092,7 @@ function handleWorkspaceClick(event) {
       openPublicRanks();
       break;
     case "find-my-leagues":
+      if (!state.leagueId) document.querySelector("#landing")?.classList.remove("hidden");
       if (bootIsPending()) {
         queueFindForBoot(String(el.sleeperUsername?.value || el.landingUsername?.value || ""));
         break;
@@ -7296,6 +7351,9 @@ function handleWorkspaceInput(event) {
     if (side === "right") state.valueCalc.rightQuery = target.value;
     else state.valueCalc.leftQuery = target.value;
     keepCalcSearchFocused(document, () => refreshDraftSuggestions(side));
+    const list = calcSearchList(side);
+    setCalcListOpen(list, true);
+    revealCalcSuggestions(target, side);
   }
   if (target.dataset.input === "ranks-search") {
     state.ranks.query = target.value;
@@ -16976,29 +17034,10 @@ document.addEventListener("error", (event) => {
   img.classList.add("is-broken");
 }, true);
 
-function watchLandingSearchVisibility() {
-  if (landingSearchObserver || typeof IntersectionObserver !== "function") return;
-  const targets = [el.landingUsernameForm, el.usernameSearchForm].filter(Boolean);
-  if (!targets.length) return;
-  const seen = new Map();
-  landingSearchObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      seen.set(entry.target, entry.intersectionRatio >= 0.35);
-    });
-    landingSearchOffscreen = ![...seen.values()].some(Boolean);
-    syncSiteDock();
-  }, { threshold: [0, 0.35, 1] });
-  targets.forEach((node) => landingSearchObserver.observe(node));
-}
-
 function syncSiteDock() {
-  const stickyOpen = isPhoneLayout()
-    && !state.leagueId
-    && !publicRanksOpen
-    && !document.body.classList.contains("rail-open")
-    && landingSearchOffscreen;
-  if (el.stickyMobileCta) el.stickyMobileCta.hidden = !stickyOpen;
-  document.body.classList.toggle("dock-visible", stickyOpen);
+  // Find my leagues stays in the landing form. Do not pin a second bar over the page.
+  if (el.stickyMobileCta) el.stickyMobileCta.hidden = true;
+  document.body.classList.remove("dock-visible");
 }
 
 function startLeagueLoadingUi() {

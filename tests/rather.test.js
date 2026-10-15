@@ -486,7 +486,6 @@ test("index puts rather on the landing page and never auto-opens a league overla
   assert.match(app, /ratherBootPaints\(/);
   const playersRender = app.slice(app.indexOf("function renderActivePage("), app.indexOf("function requestActivePageRender("));
   assert.match(playersRender, /bootLandingRather\(\{ playersTab: true \}\)/);
-  assert.match(app, /landingSearchOffscreen/);
   assert.match(app, /buildRatherBoard/);
   assert.match(app, /minValue: 1/);
   assert.match(app, /is \$\{winnerRow\.boardRank\} on the ticker/);

@@ -35,54 +35,6 @@
   status = 200
   force = true
 
-# SPA routes only. Not a catch-all: /* stays a 404 so /api, functions,
-# and static files are not rewritten to index.html. Rules are not forced,
-# so a real file still wins.
-[[redirects]]
-  from = "/players"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/players/"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/trade"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/trade/"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/connect"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/connect/"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/l/*"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/player/*"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/*"
-  to = "/404.html"
-  status = 404
-
 [[headers]]
   for = "/*"
   [headers.values]
@@ -97,3 +49,10 @@
   for = "/data/*"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+
+# One SPA fallback, after /api and /data. Not forced, so a real file
+# (styles, /data/*.json, functions) still wins over index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

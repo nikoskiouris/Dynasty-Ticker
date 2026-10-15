@@ -85,6 +85,57 @@ test("cold load of /player/<id> opens that player", async ({ page }) => {
   await expect(cold.locator("#landing")).toBeVisible();
 });
 
+for (const viewport of viewports) {
+  test(`back from a league restores the picker at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    await page.locator("#league-id").evaluate((el) => {
+      el.value = "1360686137898700800";
+    });
+    await page.locator("#load-league-btn").evaluate((el) => el.click());
+    await expect(page).toHaveURL(/\/l\/1360686137898700800\/team/, { timeout: 30000 });
+    await expect(page.locator("body")).toHaveClass(/league-loaded/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.locator("#landing")).toBeVisible();
+    await expect(page.locator("#landing-username")).toBeVisible();
+    await expect(page.locator("body")).not.toHaveClass(/league-loaded/);
+    await expect(page.locator("#league-page")).toBeHidden();
+    await page.goForward();
+    await expect(page).toHaveURL(/\/l\/1360686137898700800\/team/);
+    await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 30000 });
+    await expect(page.locator("#league-page")).toBeVisible();
+    await expect(page.locator("#landing")).toBeHidden();
+  });
+}
+
+test("cold player link can find leagues", async ({ page }) => {
+  await page.route("**/api.sleeper.app/v1/user/tickerfan", (route) => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({ user_id: "user-ticker", display_name: "Ticker Fan", username: "tickerfan" }),
+  }));
+  await page.route("**/api.sleeper.app/v1/user/user-ticker/leagues/nfl/**", (route) => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify([
+      { league_id: "111", name: "Alpha Dynasty", season: "2026", total_rosters: 12, status: "in_season", settings: { type: 2 } },
+      { league_id: "222", name: "Beta Dynasty", season: "2026", total_rosters: 12, status: "in_season", settings: { type: 2 } },
+    ]),
+  }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/player/9221");
+  await expect(page.locator(".ranks-card h2")).toHaveText("Jahmyr Gibbs", { timeout: 30000 });
+  const find = page.locator(".ranks-card [data-action='find-my-leagues']");
+  await expect(find).toBeVisible();
+  await find.click();
+  await expect(page.locator("#landing")).toBeVisible();
+  await expect(page.locator("#landing-username")).toBeVisible();
+  await page.locator("#landing-username").fill("tickerfan");
+  await page.locator("#landing-find-btn").evaluate((el) => el.click());
+  await expect(page.locator("#landing-league-picker")).toContainText("Alpha Dynasty", { timeout: 15000 });
+  await expect(page.locator("#landing-league-picker")).toContainText("Beta Dynasty");
+  await expect(page.locator(".ranks-card h2")).toHaveText("Jahmyr Gibbs");
+});
+
 test("legacy ?asset= opens the player route", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?asset=player:9221");
