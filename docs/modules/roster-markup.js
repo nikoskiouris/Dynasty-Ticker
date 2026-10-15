@@ -41,8 +41,9 @@ export function renderPositionMeter(position) {
 
 export function renderSleeperInsight(insight) {
   const tone = classToken(insight?.tone);
+  const busy = insight?.busy === true ? ` aria-busy="true"` : "";
   return `
-    <section class="insight-item ${tone}">
+    <section class="insight-item ${tone}"${busy}>
       <strong>${escapeHtml(insight?.title)}</strong>
       <span>${escapeHtml(insight?.body)}</span>
     </section>
