@@ -612,3 +612,21 @@ test("product name Dynasty Ticker never shares the repo with the old brand", () 
   walk(root);
   assert.deepEqual(hits, []);
 });
+
+test("user-facing copy says players and picks, not assets", () => {
+  const app = readDocs("app.js");
+  const voice = readDocs("modules/sample-voice.js");
+  assert.match(app, /tap players & picks on both sides/);
+  assert.match(app, /No traded players & picks to rank yet/);
+  assert.match(app, /player or pick" : "players & picks"\} moved/);
+  assert.match(app, /No matching players & picks found on your roster/);
+  assert.match(app, /Select one of your own players & picks to shop first/);
+  assert.match(app, /fewer included players & picks/);
+  assert.match(app, /exclude fewer players & picks/);
+  assert.match(app, /headline players & picks/);
+  assert.match(app, /high-value players & picks/);
+  assert.match(voice, /No matching players & picks found on \$\{poss\} roster/);
+  assert.match(voice, /Select one of \$\{poss\} players & picks to shop first/);
+  assert.doesNotMatch(app, /tap assets|traded assets|assets moved|matching assets|own assets|included assets|fewer assets|headline assets|high-value assets/);
+  assert.doesNotMatch(voice, /assets/);
+});

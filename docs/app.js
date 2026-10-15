@@ -2043,7 +2043,7 @@ function isReadyToGenerate() {
 function getGenerateHelpText() {
   if (!state.meRosterId) return sampleVoice()?.resolveRoster || "Load a league and choose your team first.";
   const mode = getTradeMode();
-  if (mode === "calculator") return "Pick a partner and tap assets on both sides. The ticker grades the deal live.";
+  if (mode === "calculator") return "Pick a partner and tap players & picks on both sides. The ticker grades the deal live.";
   if (mode === "surprise") return "Ready. The app will find a three-team blockbuster.";
   if (mode === "shop") {
     return state.shopAsset
@@ -9250,7 +9250,7 @@ function buildArchiveRecentTradeSummary(transaction) {
   const date = formatTransactionDate(transaction.status_updated || transaction.created);
   return {
     title: participantNames.join(" / "),
-    subtitle: `${season}${date} | ${movements.length} asset${movements.length === 1 ? "" : "s"} moved`,
+    subtitle: `${season}${date} | ${movements.length} ${movements.length === 1 ? "player or pick" : "players & picks"} moved`,
     preview: preview || "Trade details unavailable from Sleeper payload.",
   };
 }
@@ -9420,7 +9420,7 @@ function renderAssetMarketPanel(market) {
       <div class="analytics-list">
         ${market.assetLeaders.length > 0
           ? market.assetLeaders.slice(0, ANALYTICS_ASSET_LEADER_LIMIT).map((asset) => renderAssetMarketRow(asset, market.topMovedAssetCount)).join("")
-          : `<p class="muted small analytics-empty">No traded assets to rank yet.</p>`}
+          : `<p class="muted small analytics-empty">No traded players & picks to rank yet.</p>`}
       </div>
       <div class="manager-heat-list">
         ${market.managerLeaderboard.slice(0, 5).map((manager) => renderManagerHeatRow(manager, market.maxManagerTradeCount)).join("")}
@@ -9931,7 +9931,7 @@ function buildRecentTradeSummary(transaction) {
   const date = formatTransactionDate(transaction.status_updated || transaction.created);
   return {
     title: participantNames.join(" / "),
-    subtitle: `${date} • ${movements.length} asset${movements.length === 1 ? "" : "s"} moved`,
+    subtitle: `${date} • ${movements.length} ${movements.length === 1 ? "player or pick" : "players & picks"} moved`,
     preview: preview || "Trade details unavailable from Sleeper payload.",
   };
 }
@@ -10518,7 +10518,7 @@ function renderPlayerSearch() {
 
   if (candidates.length === 0) {
     const emptyText = mode === "shop"
-      ? (sampleVoice()?.searchEmpty || "No matching assets found on your roster.")
+      ? (sampleVoice()?.searchEmpty || "No matching players & picks found on your roster.")
       : "No matching players or picks found.";
     el.playerResults.innerHTML = `<div class="player-item muted">${emptyText}</div>`;
     return;
@@ -11048,7 +11048,7 @@ async function generateTradeIdeas({ more = false } = {}) {
     return;
   }
   if (mode === "shop" && !state.shopAsset) {
-    setGenerateError(sampleVoice()?.selectAsset || "Select one of your own assets to shop first.");
+    setGenerateError(sampleVoice()?.selectAsset || "Select one of your own players & picks to shop first.");
     return;
   }
 
@@ -11282,8 +11282,8 @@ function buildResultsSubtitle({ mode, meRoster, tradeLab, payload }) {
 
 function buildNoIdeasMessage(tradeLab, mode = "acquire") {
   const advice = [];
-  if (tradeLab.selectedOutgoingAssetIds.size > 0) advice.push("require fewer included assets");
-  if (tradeLab.excludedOutgoingAssetIds.size > 0) advice.push("exclude fewer assets");
+  if (tradeLab.selectedOutgoingAssetIds.size > 0) advice.push("require fewer included players & picks");
+  if (tradeLab.excludedOutgoingAssetIds.size > 0) advice.push("exclude fewer players & picks");
   if (mode === "shop") {
     advice.push("shop a different asset");
   } else if (mode === "surprise") {
@@ -12770,7 +12770,7 @@ function generateCustomMultiTeamIdeas({
       title: `${setup.participantRosters.length}-Team Blockbusters`,
       subtitle: "Automatic blockbuster ideas built across the owners you selected.",
       emptyText: anchorPlans.length === 0
-        ? "Could not find enough headline assets across those rosters to sketch a blockbuster."
+        ? "Could not find enough headline players & picks across those rosters to sketch a blockbuster."
         : "No multi-team structure stayed close enough to fair value.",
       ideas: dedupedIdeas,
     }],
@@ -12848,7 +12848,7 @@ async function generateSurpriseBlockbusterIdeas({
       title: "Surprise Blockbusters",
       subtitle: "Automatic multi-team ideas. No extra setup.",
       emptyText: participantSets.length === 0
-        ? "Could not find enough high-value assets across the league."
+        ? "Could not find enough high-value players & picks across the league."
         : "No surprise blockbuster stayed close enough to fair value.",
       ideas: dedupedIdeas,
     }],
