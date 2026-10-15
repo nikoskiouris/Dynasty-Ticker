@@ -1168,6 +1168,20 @@ button.ranks-row {
 button.ranks-shelf-item .player-face {
   width: 40px;
   height: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  flex: 0 0 40px;
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--line-strong), var(--product-shadow);
+}
+
+.player-face-sm > .player-face-photo,
+.player-face-md > .player-face-photo,
+.ranks-headshot > .rather-photo {
+  width: 40px;
+  height: 40px;
 }
 
 button.ranks-chip,
@@ -1343,6 +1357,37 @@ details.workspace-panel > summary:focus-visible,
   textarea {
     font-size: 16px;
   }
+}
+
+/* Week chips inherited the 36px button height, and the sideways scroller
+   clips a ::before that sticks out. The button box is the hit target.
+   Sample-league and mock-draft links are inline text (~17px) unless the
+   real elements grow to --tap-min. */
+.week-chips button,
+a.sample-league-link,
+.pick-mock-note button.inline-link,
+.mock-board .section-copy a.inline-link,
+button.inline-link,
+a.inline-link {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  box-sizing: border-box;
+  min-height: var(--tap-min);
+  line-height: 1.2;
+}
+
+.sheet-player strong,
+.player-name > .player-name-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  white-space: normal;
+  text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 @supports (-webkit-touch-callout: none) {

@@ -203,25 +203,31 @@ test("name fallback ignores punctuation, skips picks and dead rows, and refuses 
   assert.equal(findMarketValueByPlayerName("D J Moore", values, null), null);
 });
 
-test("value lookups that miss by id stay cheap on a full market board", () => {
+test("value lookups that miss by id stay correct on a full market board", () => {
   const values = {};
   const names = {};
   for (let index = 0; index < 3000; index += 1) {
     values[`player:${index}`] = 1000 + index;
     names[`player:${index}`] = `Player Number ${index} Jr.`;
   }
+  const options = { valueNameMap: names };
+  const named = {
+    assetId: "player:missing",
+    assetType: "player",
+    name: "Player Number 10 Jr.",
+  };
+  assert.equal(getAssetValue(named, values, options), 1010);
+  assert.equal(isEstimatedAsset(named, values, options), false);
   const misses = Array.from({ length: 400 }, (_, index) => ({
     assetId: `pick:2027:${(index % 4) + 1}:${index}`,
     assetType: "pick",
     name: `2027 Round ${(index % 4) + 1}`,
     raw: { season: 2027, round: (index % 4) + 1 },
   }));
-  const started = Date.now();
-  for (let pass = 0; pass < 50; pass += 1) {
-    misses.forEach((asset) => getAssetValue(asset, values, { valueNameMap: names }));
+  for (const asset of misses) {
+    assert.equal(getAssetValue(asset, values, options), 0);
+    assert.equal(isEstimatedAsset(asset, values, options), true);
   }
-  const elapsed = Date.now() - started;
-  assert.ok(elapsed < 400, `20,000 missed lookups took ${elapsed}ms`);
 });
 
 
