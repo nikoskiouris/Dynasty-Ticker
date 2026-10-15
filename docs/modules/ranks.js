@@ -1,4 +1,12 @@
 import { escapeHtml, formatNumber } from "./html.js";
+import {
+  playerValueTrend,
+  renderTrendSoon,
+  renderValueScaleExplainer,
+  renderValueTierBadge,
+  renderValueTrend,
+  renderValuesFreshness,
+} from "./value-scale.js";
 import { sleeperAvatarUrl } from "./sleeper.js";
 import { renderPlayerFace } from "./player-face.js";
 import { ordinal } from "./season.js";
@@ -205,6 +213,8 @@ export function rankView({
   loading = false,
   leagueValueFor = null,
   shown = RANK_PAGE_SIZE,
+  history = null,
+  updated = null,
 } = {}) {
   const visible = filterRankRows(rows, { query, position });
   const pageCount = Math.max(RANK_PAGE_SIZE, Number(shown) || RANK_PAGE_SIZE);
@@ -235,6 +245,8 @@ export function rankView({
     card,
     emptyLabel,
     leagueOpen: Boolean(leagueOpen),
+    history,
+    updated: updated || null,
   };
 }
 
@@ -257,6 +269,7 @@ export function renderRanksToolbar(view) {
         ${RANK_FORMATS.map((format) => renderRankChip("rank-format", "format", format, rankFormatLabel(format), view?.format)).join("")}
       </div>
       <p class="ranks-note muted">${escapeHtml(view?.note || "")}</p>
+      ${renderValueScaleExplainer()}
     </div>
   `;
 }
@@ -276,15 +289,16 @@ export function renderRanksMarkup(view) {
 }
 
 export function renderRanksBody(view) {
-  const card = view?.card ? renderRankCard(view.card, { leagueOpen: view.leagueOpen }) : "";
+  const card = view?.card ? renderRankCard(view.card, view) : "";
   const rows = Array.isArray(view?.rows) ? view.rows : [];
   const list = rows.length
-    ? `<div class="ranks-list">${rows.map((row) => renderRankRow(row, row.assetId === view?.card?.assetId)).join("")}</div>`
+    ? `<div class="ranks-list">${rows.map((row) => renderRankRow(row, row.assetId === view?.card?.assetId, view)).join("")}</div>`
     : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
   const more = Number(view?.hidden) > 0
     ? `<button type="button" class="ghost-btn ranks-more" data-action="ranks-more">Show more</button>`
     : "";
-  return `${renderRanksShelf(rows)}${card}${list}${more}`;
+  const freshness = renderValuesFreshness(view?.updated, { align: "end" });
+  return `${renderRanksShelf(rows)}${card}${freshness}${list}${more}`;
 }
 
 function renderRanksShelf(rows) {
@@ -321,7 +335,21 @@ function shownRankNumber(row) {
   return row?.listRank || "";
 }
 
-function renderRankRow(row, active) {
+function rankTierTrend(row, view, { soon = false, spark = false } = {}) {
+  if (row?.kind !== "player") return "";
+  const tier = renderValueTierBadge(row.value);
+  const trend = playerValueTrend(view?.history, row.assetId, view?.format || "sf");
+  const trendHtml = trend ? renderValueTrend(trend, { spark }) : (soon ? renderTrendSoon() : "");
+  return `${tier}${trendHtml}`;
+}
+
+function renderRankValue(row, view) {
+  const trend = row?.kind === "player" ? playerValueTrend(view?.history, row.assetId, view?.format || "sf") : null;
+  const trendHtml = trend ? renderValueTrend(trend) : "";
+  return `<span class="ranks-value"><span class="ranks-value-num">${escapeHtml(formatNumber(row.value))}</span>${trendHtml}</span>`;
+}
+
+function renderRankRow(row, active, view) {
   const you = row.owner?.mine ? " you" : "";
   const meta = rankMeta(row);
   return `
@@ -331,12 +359,13 @@ function renderRankRow(row, active) {
         ${renderRankName(row)}
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
       </span>
-      <span class="ranks-value">${escapeHtml(formatNumber(row.value))}</span>
+      ${renderRankValue(row, view)}
     </button>
   `;
 }
 
-function renderRankCard(row, { leagueOpen = false } = {}) {
+function renderRankCard(row, view = {}) {
+  const leagueOpen = Boolean(view?.leagueOpen);
   const held = ownerLine(row.owner, { leagueOpen, kind: row.kind });
   const league = Number.isFinite(row.leagueValue)
     ? `Your league: ${formatNumber(row.leagueValue)}.`
@@ -381,6 +410,7 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
         <div class="ranks-card-price">
           <strong>${escapeHtml(formatNumber(row.value))}</strong>
           <span>Model</span>
+          ${rankTierTrend(row, view, { soon: true, spark: true })}
         </div>
       </div>
       <p class="ranks-tape ranks-tape-${escapeHtml(row.tape?.tone || "crowd")}">${escapeHtml(row.tape?.line || "")}</p>
@@ -408,7 +438,7 @@ function renderRankNeighbor(row) {
         ${renderRankName(row)}
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
       </span>
-      <span class="ranks-value">${escapeHtml(formatNumber(row.value))}</span>
+      ${renderRankValue(row, null)}
     </button>
   `;
 }
