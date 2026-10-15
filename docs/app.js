@@ -272,7 +272,26 @@ import {
   resolveRosterIdentity,
   takeoverForRoster,
 } from "./modules/franchise.js";
-import { buildDeskHistorySnapshot, isSameDeskPlace } from "./modules/desk-history.js";
+import { buildDeskHistorySnapshot } from "./modules/desk-history.js";
+import {
+  assetIdFromRoute,
+  backTarget,
+  decideHistoryWrite,
+  isPlayerRouteId,
+  matchRoute,
+  historyModeAfterMenuChoice,
+  pathForPlace,
+  playerIdFromPathname,
+  playerPathname,
+  resolveLocation,
+  routeIdFromAsset,
+  routeIdFromPlayer,
+  sameHistoryPlace,
+  selectionFromLocation,
+  sleeperIdFrom,
+  topOverlay,
+  urlPath,
+} from "./modules/history-route.js";
 import {
   analyzeWindowCall,
   groupWindowCalls,
@@ -348,6 +367,7 @@ import {
   RANK_PAGE_SIZE,
   rankFormatLabel,
   rankView,
+  renderPlayerConnect,
   renderRanksBody,
   renderRanksMarkup,
   renderRanksToolbar,
@@ -575,6 +595,8 @@ let ratherPromptPair = null;
 let ratherSeasonStatsCache = { season: "", stats: null };
 let publicRanksOpen = false;
 let publicRanksHistory = false;
+let bootRoute = null;
+let connectNextPlace = null;
 // The draft a Review trade, a new partner, or Clear replaced, so one tap brings it back.
 let draftReplaced = null;
 // Picking a suggestion cancels the click. Swallow the follow-up so it cannot
@@ -615,6 +637,16 @@ document.getElementById("desk-load-retry")?.addEventListener("click", retryFaile
 document.getElementById("desk-load-dismiss")?.addEventListener("click", dismissFailedLeagueLoad);
 el.leaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingLeaguePicker?.addEventListener("click", handleLeaguePickClick);
+el.workspace?.addEventListener("click", (event) => {
+  if (!event.target.closest?.("[data-player-league-list]")) return;
+  handleLeaguePickClick(event);
+});
+el.workspace?.addEventListener("submit", (event) => {
+  const form = event.target?.closest?.("[data-player-connect]");
+  if (!form || !el.workspace.contains(form)) return;
+  event.preventDefault();
+  void openPlayerLeagueList(form);
+});
 el.landingJobs?.addEventListener("click", handleLandingJobClick);
 el.leagueLoadForm?.addEventListener("submit", requestLoadLeague);
 el.loadLeagueBtn?.addEventListener("pointerdown", handleLoadLeaguePointerDown);
@@ -641,7 +673,11 @@ el.pageTabButtons?.forEach((button) => {
       openRoom(state.activePage, defaultRoomFor(state.activePage));
       return;
     }
-    setActivePage(button.dataset.page, { history: "push", scroll: "top" });
+    setActivePage(button.dataset.page, {
+      history: "push",
+      scroll: "top",
+      landing: button.dataset.page === "players" ? "hide" : "",
+    });
   });
 });
 el.roomNav?.addEventListener("click", (event) => {
@@ -806,6 +842,8 @@ state.valueCalc = readStoredDraft(globalThis.sessionStorage, globalThis.localSto
 renderSessionSnapshot();
 syncTradeModeUi();
 let searchedUserNoted = false;
+let appBooted = false;
+let leagueOpenedInApp = false;
 function noteSearchedUser(leagueId) {
   if (searchedUserNoted) return;
   const pick = searchedUserPick({ sleeperUser: state.sleeperUser, userLeagues: state.userLeagues, leagueId });
@@ -815,12 +853,27 @@ function noteSearchedUser(leagueId) {
 }
 bootFromUrl();
 window.addEventListener("resize", syncDeskRailOffset);
-if (!parseShareParams(window.location.search).leagueId) {
+if (!(bootRoute?.leagueId || parseShareParams(window.location.search).leagueId)) {
   const place = state.pendingPlace;
-  state.pendingPlace = null;
+  const waitingOnLeague = place?.page === "league";
+  if (!waitingOnLeague) state.pendingPlace = null;
   const page = place?.page === "trades" ? "trades" : "players";
-  if (place?.page === page && place.room) setRoom(page, place.room);
+  if (!waitingOnLeague && place?.page === page && place.room) setRoom(page, place.room);
   setActivePage(page, { history: "silent" });
+  const showRanks = Boolean(state.ranks.selectedId) || bootRoute?.name === "players" || bootRoute?.legacy === "ranks";
+  if (showRanks) document.querySelector("#landing")?.classList.add("hidden");
+  if (bootRoute?.unknown) {
+    document.querySelector("#landing")?.classList.remove("hidden");
+    if (typeof history?.replaceState === "function") {
+      history.replaceState({ ...historyPlaceNow(), pushed: false }, "", urlPath());
+    }
+  } else if (showRanks || bootRoute?.name === "trade" || bootRoute?.name === "player") {
+    updateUrlState({ mode: "replace" });
+  }
+} else if (bootRoute?.name === "player") {
+  // League is still loading. Hide the marketing page and wait for it.
+  document.querySelector("#landing")?.classList.add("hidden");
+  setActivePage(bootRoute.page || "players", { history: "silent" });
 }
 void bootLandingRather();
 void hydrateCrowdVotes().then((ok) => {
@@ -836,6 +889,7 @@ if (typeof history.scrollRestoration === "string") history.scrollRestoration = "
 window.addEventListener("popstate", (event) => applyDeskPopState(event.state));
 if (isPhoneLayout()) setMobileRailOpen(false);
 syncDocumentMeta();
+appBooted = true;
 syncSiteDock();
 bindMobileChromeScroll(window, {
   chrome: document.querySelector("#mobile-chrome"),
@@ -879,9 +933,21 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
   const place = resolveDeskPlace({ tab: nextPage, view: room || "" });
   const aliased = place.page === nextPage ? place.room : "";
   const nextRoom = clampRoom(nextPage, isRoomOf(nextPage, room) ? room : (aliased || defaultRoomFor(nextPage)));
+  const openingPlayers = history !== "silent" && nextPage === "players" && nextRoom === "ranks";
   const samePlace = state.activePage === nextPage && getRoom(nextPage) === nextRoom && !state.selectedTradeId;
-  if (samePlace && history === "push") return;
+  if (samePlace && history === "push") {
+    const href = pathForPlace({
+      page: nextPage,
+      room: nextRoom,
+      leagueId: state.leagueId,
+      landing: openingPlayers ? false : landingVisible(),
+      give: draftSideIds("left"),
+      get: draftSideIds("right"),
+    });
+    if (!href || href === window.location.pathname) return;
+  }
   if (history === "push") prepareDeskPush();
+  if (openingPlayers) document.querySelector("#landing")?.classList.add("hidden");
   setRoom(nextPage, nextRoom);
   // Room navigation always lands on the room itself, never on an open trade file.
   state.selectedTradeId = "";
@@ -913,7 +979,8 @@ function showAppPages() {
   el.deskNav?.classList.remove("hidden");
   el.homeBtn?.classList.remove("hidden");
   el.mobileHomeBtn?.classList.remove("hidden");
-  const pending = state.pendingPlace;
+  const pending = state.pendingPlace || connectNextPlace;
+  connectNextPlace = null;
   state.pendingPlace = null;
   state.pendingJobId = "";
   const page = pending && PAGE_IDS.includes(pending.page) ? pending.page : "league";
@@ -921,6 +988,10 @@ function showAppPages() {
   else setRoom("league", "team");
   clampRoomsToLeague();
   setActivePage(page, { history: "replace", scroll: "top" });
+  if (leagueOpenedInApp && typeof history?.replaceState === "function") {
+    history.replaceState({ ...(history.state || {}), pushed: true }, "", `${window.location.pathname}${window.location.search}`);
+    leagueOpenedInApp = false;
+  }
 }
 
 function hideAppPages() {
@@ -938,10 +1009,12 @@ function hideAppPages() {
   });
 }
 
-function setActivePage(page, { history = "replace", scroll = "preserve", prepared = false } = {}) {
+function setActivePage(page, { history = "replace", scroll = "preserve", prepared = false, landing = "" } = {}) {
   const nextPage = PAGE_IDS.includes(page) ? page : DEFAULT_PAGE;
   if (nextPage !== state.activePage) phoneDeskCollapsed = false;
   if (history === "push" && !prepared) prepareDeskPush();
+  if (landing === "hide") document.querySelector("#landing")?.classList.add("hidden");
+  if (landing === "show") document.querySelector("#landing")?.classList.remove("hidden");
   state.activePage = nextPage;
   if (nextPage !== "players") releaseRankBoardTools();
 
@@ -1160,8 +1233,14 @@ function cachedRankRows() {
   return rankBoardCache.rows;
 }
 
+function leagueLoadBlocksPlayer() {
+  const wanted = leagueLoader.inFlightId?.() || "";
+  if (!wanted || String(state.leagueId || "") === String(wanted)) return false;
+  return Boolean(state.ranks?.selectedId);
+}
+
 function rankViewModel() {
-  if (!rankValuesReady()) {
+  if (!rankValuesReady() || leagueLoadBlocksPlayer()) {
     return rankView({ loading: true, format: activeRankFormat() });
   }
   return rankView({
@@ -1242,7 +1321,11 @@ function renderRankHost(host) {
   if (!view.loading) paintRankToolbar(toolbar, view, typing);
   const body = host.querySelector("[data-ranks-body]");
   if (body && !view.loading) body.innerHTML = renderRanksBody(view);
+  syncPlayerConnectSlot(host, view);
   bindRatherPhotos(host);
+  if (view.card?.kind === "player" && view.card?.name) {
+    canonicalizePlayerUrl(view.card.playerId || view.card.assetId, view.card.name);
+  }
 }
 
 function renderRankSurfaces() {
@@ -1253,18 +1336,10 @@ function renderRankSurfaces() {
 }
 
 function syncPublicRanksUrl({ mode = "replace" } = {}) {
-  if (state.leagueId || !publicRanksOpen || typeof history?.replaceState !== "function") return;
-  const params = new URLSearchParams();
-  params.set("view", "ranks");
-  if (isRankAssetId(state.ranks?.selectedId)) params.set("asset", state.ranks.selectedId);
-  const next = `${window.location.pathname}?${params}`;
-  const same = `${window.location.pathname}${window.location.search}` === next;
-  if (mode === "push" && typeof history.pushState === "function" && !same) {
-    history.pushState({ publicRanks: true }, "", next);
-    publicRanksHistory = true;
-    return;
-  }
-  if (!same) history.replaceState({ publicRanks: true }, "", next);
+  if (state.leagueId || !publicRanksOpen) return;
+  if (mode === "push") document.querySelector("#landing")?.classList.add("hidden");
+  publicRanksHistory = mode === "push" || publicRanksHistory;
+  updateUrlState({ mode });
 }
 
 function syncRankUrl() {
@@ -1304,9 +1379,9 @@ async function ensureRankExtras() {
 }
 
 function openPublicRanks({ history = "push" } = {}) {
+  document.querySelector("#landing")?.classList.add("hidden");
   if (state.leagueId || document.querySelector("#players-page")) {
     openRoom("players", "ranks", { history });
-    document.querySelector("#landing")?.classList.add("hidden");
     return;
   }
   const already = publicRanksOpen;
@@ -1363,11 +1438,19 @@ function renderHistoryRoom() {
 function bootFromUrl() {
   sampleBannerOff = false;
   clearSampleBannerDismissal();
+  const route = resolveLocation(window.location.pathname, window.location.search);
+  bootRoute = route;
   const parsed = parseShareParams(window.location.search);
   if (parsed.invalidLeague) showInvalidLeagueLink();
   if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
   const hashToken = String(window.location.hash || "").replace(/^#/, "");
-  if (parsed.tab) {
+  const routeDrivesPlace = route.name !== "home" && !route.unknown;
+  if (route.name === "connect" && route.next) {
+    const next = matchRoute(route.next);
+    if (next) connectNextPlace = { page: next.page, room: next.room };
+  } else if (routeDrivesPlace) {
+    state.pendingPlace = { page: route.page, room: route.room };
+  } else if (parsed.tab) {
     state.pendingPlace = { page: parsed.tab, room: parsed.view };
   } else if (hashToken) {
     // Old anchors like #league-hall still open the room they pointed at.
@@ -1376,32 +1459,72 @@ function bootFromUrl() {
   if (parsed.week) state.pendingWeek = parsed.week;
   if (parsed.tone) state.pendingTone = parsed.tone;
 
-  const fields = bootSearchFieldValues({ leagueFromUrl: parsed.sample ? "" : parsed.leagueId });
+  const fields = bootSearchFieldValues({ leagueFromUrl: parsed.sample ? "" : (route.leagueId || parsed.leagueId) });
   applyBootFieldValue(el.sleeperUsername, fields.username);
   applyBootFieldValue(el.landingUsername, fields.username);
   applyBootFieldValue(el.leagueId, fields.leagueId);
 
-  if (parsed.view === "ranks" && parsed.asset) state.ranks.selectedId = parsed.asset;
-  if (parsed.leagueId) {
-    void loadLeagueById(parsed.leagueId, { sample: parsed.sample });
-  } else if (parsed.tab === "trades" && parsed.view === "ranks") {
+  const routedPlayer = assetIdFromRoute(route.playerId);
+  if (routedPlayer) {
+    state.ranks.selectedId = routedPlayer;
+    if (!state.pendingPlace) state.pendingPlace = { page: route.page, room: route.room };
+  } else if (parsed.view === "ranks" && parsed.asset && !routeDrivesPlace) {
+    state.ranks.selectedId = parsed.asset;
+  }
+  if ((route.name === "trade") && (route.give.length || route.get.length)) {
+    applyTradeRoute(route);
+  }
+  const leagueId = route.leagueId || parsed.leagueId;
+  if (leagueId) {
+    void loadLeagueById(leagueId, { sample: parsed.sample });
+  } else if (!routeDrivesPlace && parsed.tab === "trades" && parsed.view === "ranks") {
+    openPublicRanks({ history: "silent" });
+  } else if (route.legacy === "ranks" || route.name === "players") {
     openPublicRanks({ history: "silent" });
   }
 }
 
-function currentDeskSnapshot() {
-  return buildDeskHistorySnapshot({
-    tab: state.activePage,
-    view: getRoom(),
-    selectedTradeId: state.selectedTradeId,
-    selectedTradeManagerKey: state.selectedTradeManagerKey,
-    scrollY: window.scrollY || 0,
+function activePlayerRouteId() {
+  const sheetId = routeIdFromPlayer(state.weeklyValue?.selectedPlayerId);
+  if (sheetId && state.weeklyValue?.helpOpen) return sheetId;
+  if (sheetId && state.activePage === "league" && getRoom() === "team") return sheetId;
+  if (state.ranks?.selectedId && (publicRanksOpen || state.activePage === "players")) {
+    return routeIdFromAsset(state.ranks.selectedId);
+  }
+  return "";
+}
+
+function activeOverlay() {
+  return topOverlay({
+    rail: document.body.classList.contains("rail-open"),
+    help: Boolean(state.weeklyValue?.helpOpen),
+    player: Boolean(activePlayerRouteId()),
+    trade: Boolean(state.selectedTradeId),
+    publicRanks: Boolean(publicRanksOpen && !state.leagueId),
   });
 }
 
+function historyPlaceNow() {
+  const playerId = activePlayerRouteId();
+  return {
+    tab: state.activePage,
+    view: getRoom(),
+    playerId,
+    overlay: activeOverlay(),
+    selectedTradeId: state.selectedTradeId,
+    selectedTradeManagerKey: state.selectedTradeManagerKey,
+    scrollY: window.scrollY || 0,
+    landing: landingVisible(),
+  };
+}
+
+function currentDeskSnapshot() {
+  return buildDeskHistorySnapshot(historyPlaceNow());
+}
+
 function deskUrlPath() {
-  const nextUrl = buildShareUrl();
-  return `${window.location.pathname}${nextUrl.includes("?") ? `?${nextUrl.split("?")[1]}` : ""}`;
+  const nextUrl = buildShareUrl({ origin: "" });
+  return nextUrl || "/";
 }
 
 function prepareDeskPush() {
@@ -1409,8 +1532,8 @@ function prepareDeskPush() {
   if (typeof history?.replaceState !== "function") return;
   const currentPath = `${window.location.pathname}${window.location.search}`;
   history.replaceState({
-    ...buildDeskHistorySnapshot(history.state || {}),
-    ...currentDeskSnapshot(),
+    ...historyPlaceNow(),
+    pushed: Boolean(history.state?.pushed),
   }, "", currentPath);
 }
 
@@ -1418,22 +1541,84 @@ function updateUrlState({ mode = "replace" } = {}) {
   if (applyingHistory) return;
   if (typeof history?.replaceState !== "function") return;
   const path = deskUrlPath();
-  const snapshot = currentDeskSnapshot();
+  const snapshot = historyPlaceNow();
   const currentPath = `${window.location.pathname}${window.location.search}`;
-  if (mode === "push" && typeof history.pushState === "function") {
-    if (isSameDeskPlace(history.state || {}, snapshot) && currentPath === path) {
-      history.replaceState(snapshot, "", path);
-      return;
-    }
-    history.pushState(snapshot, "", path);
+  const write = decideHistoryWrite({
+    current: history.state || {},
+    next: snapshot,
+    mode: sameHistoryPlace(history.state || {}, snapshot) && currentPath === path && mode === "push" ? "push" : mode,
+  });
+  const pushed = write === "push" ? true : (write === "replace" && sameHistoryPlace(history.state || {}, snapshot) && Boolean(history.state?.pushed));
+  const entry = { ...snapshot, pushed };
+  if (write === "push" && typeof history.pushState === "function") {
+    history.pushState(entry, "", path);
     return;
   }
-  history.replaceState(snapshot, "", path);
+  if (write === "silent") return;
+  history.replaceState(entry, "", path);
+}
+
+function closeHistoryOverlay(kind) {
+  if (applyingHistory) return false;
+  if (history.state?.overlay === kind && history.state?.pushed && typeof history.back === "function") {
+    history.back();
+    return true;
+  }
+  return false;
+}
+
+function applyPlayerRoute(historyState, parsed) {
+  const picked = selectionFromLocation({
+    pathname: window.location.pathname,
+    historyState,
+    parsedAsset: parsed?.asset || "",
+  });
+  state.ranks.selectedId = picked.rankAssetId;
+  if (!state.weeklyValue) state.weeklyValue = emptyWeeklyValueState();
+  state.weeklyValue.selectedPlayerId = picked.sheetPlayerId;
+  state.weeklyValue.helpOpen = picked.helpOpen;
+  if (picked.rankAssetId) document.querySelector("#landing")?.classList.add("hidden");
+  setMobileRailOpen(picked.railOpen, { history: "silent" });
 }
 
 function applyDeskPopState(historyState) {
-  if (!state.leagueId) {
-    const parsed = parseShareParams(window.location.search);
+  const route = resolveLocation(window.location.pathname, window.location.search);
+  const parsed = parseShareParams(window.location.search);
+  const leagueId = route.leagueId || parsed.leagueId || "";
+  const inflight = leagueLoader.inFlightId?.() || "";
+  if (inflight && inflight !== String(leagueId)) {
+    leagueLoader.drop();
+    state.leagueSwitching = false;
+    stopLeagueLoadingUi();
+  }
+  if (route.unknown) {
+    if (state.leagueId) unloadLeague();
+    document.querySelector("#landing")?.classList.remove("hidden");
+    state.ranks.selectedId = "";
+    applyDeskPlaceFromHistory(parsed, { ...(historyState || {}), tab: "players", view: "ranks" });
+    if (typeof history?.replaceState === "function") {
+      history.replaceState({ ...historyPlaceNow(), pushed: false }, "", urlPath());
+    }
+    restoreHistoryScroll(historyState);
+    return;
+  }
+  if (route.name === "trade") applyTradeRoute(route);
+  if (leagueId && String(leagueId) !== String(state.leagueId || "")) {
+    state.pendingPlace = { page: route.page || parsed.tab, room: route.room || parsed.view };
+    if (!state.pendingPlace.page && parsed.tab) state.pendingPlace = { page: parsed.tab, room: parsed.view };
+    if (parsed.week) state.pendingWeek = parsed.week;
+    if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
+    void loadLeagueById(leagueId, { fromHistory: true, sample: parsed.sample });
+    return;
+  }
+  if (!leagueId && state.leagueId) unloadLeague();
+  const showLanding = route.name === "home" || route.name === "connect";
+  document.querySelector("#landing")?.classList.toggle("hidden", !showLanding);
+  if (!showLanding && (route.name === "players" || route.name === "player" || route.name === "trade" || route.leagueId)) {
+    document.querySelector("#landing")?.classList.add("hidden");
+  }
+  if (showLanding) state.ranks.selectedId = "";
+  if (!state.leagueId && !playerIdFromPathname(window.location.pathname) && !route.leagueId && route.name !== "players" && route.name !== "trade") {
     if (parsed.tab === "trades" && parsed.view === "ranks") {
       if (parsed.asset) state.ranks.selectedId = parsed.asset;
       else state.ranks.selectedId = "";
@@ -1441,19 +1626,17 @@ function applyDeskPopState(historyState) {
         publicRanksHistory = true;
         openPublicRanks({ history: "silent" });
       } else renderRankSurfaces();
+      restoreHistoryScroll(historyState);
       return;
     }
-    if (publicRanksOpen) closePublicRanks({ fromHistory: true });
-    applyDeskPlaceFromHistory(parsed, historyState);
-    return;
+    if (publicRanksOpen && route.name !== "players") closePublicRanks({ fromHistory: true });
   }
-  const parsed = parseShareParams(window.location.search);
-  if (parsed.leagueId && parsed.leagueId !== state.leagueId) {
-    if (parsed.tab) state.pendingPlace = { page: parsed.tab, room: parsed.view };
-    if (parsed.week) state.pendingWeek = parsed.week;
-    if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
-    void loadLeagueById(parsed.leagueId, { fromHistory: true, sample: parsed.sample });
-    return;
+  if (route.name === "players" || route.legacy === "ranks") {
+    document.querySelector("#landing")?.classList.add("hidden");
+  }
+  if (route.name === "home" || route.name === "connect") {
+    document.querySelector("#landing")?.classList.remove("hidden");
+    state.ranks.selectedId = "";
   }
   applyDeskPlaceFromHistory(parsed, historyState);
 }
@@ -1461,23 +1644,84 @@ function applyDeskPopState(historyState) {
 function applyDeskPlaceFromHistory(parsed, historyState) {
   applyingHistory = true;
   try {
-    const nextPage = PAGE_IDS.includes(parsed.tab) ? parsed.tab : DEFAULT_PAGE;
-    setRoom(nextPage, parsed.view);
-    if (nextPage === "players") state.ranks.selectedId = parsed.asset || "";
+    const route = resolveLocation(window.location.pathname, window.location.search);
+    const routeKnown = Boolean(route?.name) && !route.unknown;
+    let nextPage = routeKnown && PAGE_IDS.includes(route.page)
+      ? route.page
+      : (PAGE_IDS.includes(historyState?.tab)
+        ? historyState.tab
+        : (PAGE_IDS.includes(parsed.tab) ? parsed.tab : DEFAULT_PAGE));
+    let nextView = routeKnown
+      ? (route.room || defaultRoomFor(nextPage))
+      : (historyState?.view || (parsed.tab ? parsed.view : "") || defaultRoomFor(nextPage));
+    if (!state.leagueId && nextPage === "league" && !route.leagueId) {
+      nextPage = DEFAULT_PAGE;
+      nextView = defaultRoomFor(DEFAULT_PAGE);
+    }
+    setRoom(nextPage, nextView);
+    applyPlayerRoute(historyState, parsed);
+    if (route.name === "home" || route.name === "connect" || route.unknown) {
+      state.ranks.selectedId = "";
+      if (state.weeklyValue) {
+        state.weeklyValue.selectedPlayerId = "";
+        state.weeklyValue.helpOpen = false;
+      }
+      document.querySelector("#landing")?.classList.remove("hidden");
+    }
     const snapshot = buildDeskHistorySnapshot(historyState || {});
     state.selectedTradeId = snapshot.selectedTradeId;
     state.selectedTradeManagerKey = snapshot.selectedTradeManagerKey;
     setActivePage(nextPage, { history: "silent", scroll: "preserve" });
-    const scrollY = Number(snapshot.scrollY);
-    if (Number.isFinite(scrollY)) {
-      requestAnimationFrame(() => {
-        window.scrollTo(0, scrollY);
-        requestAnimationFrame(() => window.scrollTo(0, scrollY));
-      });
-    }
+    restoreHistoryScroll(snapshot);
   } finally {
     applyingHistory = false;
   }
+}
+
+function landingVisible() {
+  const landing = document.querySelector("#landing");
+  return Boolean(landing && !landing.classList.contains("hidden"));
+}
+
+function draftSideIds(side) {
+  return (state.valueCalc?.[side] || []).map((item) => String(item?.assetId || "")).filter(Boolean);
+}
+
+function routedPlayerId() {
+  if (state.weeklyValue?.selectedPlayerId && state.activePage === "league" && getRoom() === "team") return "";
+  return sleeperIdFrom(state.ranks?.selectedId);
+}
+
+function routedPlayerName() {
+  const assetId = assetIdFromRoute(routedPlayerId());
+  if (!assetId) return "";
+  const row = cachedRankRows().find((entry) => entry.assetId === assetId);
+  return row?.name || "";
+}
+
+function applyTradeRoute(route) {
+  let draft = emptyValueCalcState();
+  for (const id of route?.give || []) draft = addValueCalcItem(draft, "left", { assetId: id, name: id });
+  for (const id of route?.get || []) draft = addValueCalcItem(draft, "right", { assetId: id, name: id });
+  state.valueCalc = draft;
+  writeStoredDraft(draft);
+}
+
+function canonicalizePlayerUrl(playerId, name) {
+  if (applyingHistory || typeof history?.replaceState !== "function") return;
+  if (matchRoute(window.location.pathname)?.name !== "player") return;
+  const next = playerPathname(playerId, name);
+  if (!next || next === window.location.pathname) return;
+  history.replaceState(history.state, "", `${next}${window.location.search}`);
+}
+
+function restoreHistoryScroll(historyState) {
+  const scrollY = Number(historyState?.scrollY);
+  if (!Number.isFinite(scrollY)) return;
+  requestAnimationFrame(() => {
+    window.scrollTo(0, scrollY);
+    requestAnimationFrame(() => window.scrollTo(0, scrollY));
+  });
 }
 
 function buildShareUrl(overrides = {}) {
@@ -1486,16 +1730,28 @@ function buildShareUrl(overrides = {}) {
   const week = room === "awards"
     ? state.awardsWeek || state.homeWeek
     : state.homeWeek;
+  const playerId = overrides.playerId ?? routedPlayerId();
+  const href = pathForPlace({
+    page,
+    room,
+    playerId,
+    playerName: routedPlayerName(),
+    leagueId: state.leagueId,
+    give: draftSideIds("left"),
+    get: draftSideIds("right"),
+    landing: landingVisible(),
+  });
+  if (href) return `${overrides.origin ?? window.location.origin}${href}`;
   return buildShareUrlFromParts({
-    origin: window.location.origin,
-    pathname: window.location.pathname,
+    origin: overrides.origin ?? window.location.origin,
+    pathname: "/",
     leagueId: state.leagueId,
     sample: state.viewingSample,
     meRosterId: state.meRosterId,
     tab: page,
     view: room,
     week: overrides.week ?? week,
-    asset: room === "ranks" ? state.ranks?.selectedId : "",
+    asset: playerId ? "" : (room === "ranks" ? state.ranks?.selectedId : ""),
   });
 }
 
@@ -1507,6 +1763,22 @@ function goLeagueHome() {
     return;
   }
   openRoom("league", "team");
+}
+
+function goSiteHome({ history = "push" } = {}) {
+  state.ranks.selectedId = "";
+  if (state.weeklyValue) {
+    state.weeklyValue.selectedPlayerId = "";
+    state.weeklyValue.helpOpen = false;
+  }
+  publicRanksOpen = false;
+  if (el.publicRanks) {
+    el.publicRanks.classList.add("hidden");
+    el.publicRanks.hidden = true;
+  }
+  document.querySelector("#landing")?.classList.remove("hidden");
+  if (history === "push") prepareDeskPush();
+  setActivePage("players", { history, scroll: "top", prepared: history === "push" });
 }
 
 function getTradeMode() {
@@ -1636,8 +1908,11 @@ function setDeskBoardShut(shut) {
   }
 }
 
-function setMobileRailOpen(open) {
+function setMobileRailOpen(open, { history = "auto" } = {}) {
   const shouldOpen = Boolean(open) && isPhoneLayout();
+  const wasOpen = document.body.classList.contains("rail-open");
+  if (!shouldOpen && wasOpen && history !== "silent" && closeHistoryOverlay("rail")) return;
+  if (shouldOpen && !wasOpen && history !== "silent" && !applyingHistory) prepareDeskPush();
   if (!shouldOpen && el.controlRail?.contains(document.activeElement)) {
     el.mobileRailToggle?.focus();
   }
@@ -1657,6 +1932,9 @@ function setMobileRailOpen(open) {
     el.controlRail.removeAttribute("inert");
   }
   syncSiteDock();
+  if (history === "silent" || applyingHistory) return;
+  if (shouldOpen && !wasOpen) updateUrlState({ mode: "push" });
+  else if (!shouldOpen && wasOpen) updateUrlState({ mode: "replace" });
 }
 
 function scrollChildIntoStrip(strip, child) {
@@ -1876,20 +2154,42 @@ function renderPhoneDesk() {
   }).join("");
 }
 
+function leavePhoneMenu(navigate) {
+  const mode = historyModeAfterMenuChoice(history.state || {});
+  setMobileRailOpen(false, { history: "silent" });
+  navigate(mode);
+  if (mode !== "replace" || typeof history.replaceState !== "function") return;
+  const next = history.state || {};
+  history.replaceState({
+    ...next,
+    pushed: true,
+    overlay: next.overlay === "rail" ? "" : next.overlay,
+  }, "", `${window.location.pathname}${window.location.search}`);
+}
+
 function handlePhoneDeskClick(event) {
   const roomButton = event.target.closest("[data-phone-room]");
   if (roomButton) {
-    openRoom(roomButton.dataset.page, roomButton.dataset.phoneRoom, { history: "push", scroll: "top" });
-    setMobileRailOpen(false);
+    leavePhoneMenu((mode) => {
+      openRoom(roomButton.dataset.page, roomButton.dataset.phoneRoom, { history: mode, scroll: "top" });
+    });
     return;
   }
   const pageButton = event.target.closest("[data-phone-page]");
   if (!pageButton) return;
   const page = pageButton.dataset.phonePage;
   if (!PAGE_IDS.includes(page)) return;
+  if (page === state.activePage && page === "players" && (landingVisible() || window.location.pathname !== pathForPlace({ page: "players", room: "ranks", landing: false }))) {
+    leavePhoneMenu((mode) => {
+      openRoom("players", "ranks", { history: mode, scroll: "top" });
+    });
+    return;
+  }
   if (page !== state.activePage) {
     phoneDeskCollapsed = false;
-    setActivePage(page, { history: "push", scroll: "top" });
+    leavePhoneMenu((mode) => {
+      setActivePage(page, { history: mode, scroll: "top", landing: page === "players" ? "hide" : "" });
+    });
     return;
   }
   phoneDeskCollapsed = !phoneDeskCollapsed;
@@ -2076,7 +2376,44 @@ function requestFindLeagues(event) {
     void loadLeagueById(classified.leagueId);
     return;
   }
-  void searchUserLeagues(classified.username);
+  return searchUserLeagues(classified.username);
+}
+
+function syncPlayerConnectSlot(host, view) {
+  const anchor = host?.closest?.("#ranks-section, #public-ranks") || host;
+  if (!anchor) return;
+  let slot = anchor.querySelector(":scope > [data-player-connect-slot]");
+  if (!slot) {
+    slot = document.createElement("div");
+    slot.setAttribute("data-player-connect-slot", "");
+    anchor.prepend(slot);
+  }
+  const want = Boolean(view?.card && !view.leagueOpen && !view.loading);
+  if (!want) {
+    if (slot.childElementCount) slot.replaceChildren();
+    return;
+  }
+  if (slot.querySelector("[data-player-connect]")) return;
+  slot.innerHTML = renderPlayerConnect();
+}
+
+async function openPlayerLeagueList(form) {
+  const input = form.querySelector("input");
+  const name = String(input?.value || "").trim();
+  if (!name) {
+    input?.focus();
+    return;
+  }
+  if (el.landingUsername) el.landingUsername.value = name;
+  syncUsernameFields(el.landingUsername);
+  document.querySelector("#landing")?.classList.add("hidden");
+  await requestFindLeagues();
+  const host = form.closest("[data-player-connect-slot]")?.querySelector("[data-player-league-list]");
+  if (!host || !el.landingLeaguePicker) return;
+  host.innerHTML = el.landingLeaguePicker.innerHTML;
+  const show = Boolean(host.innerHTML.trim()) && !el.landingLeaguePicker.classList.contains("hidden");
+  host.hidden = !show;
+  host.classList.toggle("hidden", !show);
 }
 
 function isPrimaryPointer(event) {
@@ -2201,15 +2538,45 @@ function rememberPickedLeague(leagueId) {
   if (applyingHistory || typeof history?.replaceState !== "function") return;
   const nextSearch = stampPickedLeagueSearch(window.location.search, leagueId);
   if (!nextSearch) return;
+  if (leagueOpenedInApp && typeof history.pushState === "function") {
+    history.pushState({ ...historyPlaceNow(), pushed: true }, "", `${window.location.pathname}${window.location.search}`);
+  }
   history.replaceState(history.state, "", `${window.location.pathname}${nextSearch}`);
 }
 
 async function loadLeagueById(leagueId, { fromHistory = false, sample = false } = {}) {
   if (!leagueId) return;
+  leagueOpenedInApp = Boolean(appBooted) && !fromHistory;
   if (!fromHistory) rememberPickedLeague(leagueId);
   state.viewingSample = Boolean(sample);
   if (shouldBlankDeskForLeagueSwitch(state.leagueId, leagueId)) blankDeskForLeagueSwitch();
   return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
+}
+
+function unloadLeague() {
+  leagueLoader.drop();
+  stopLivePolling();
+  stopLeagueLoadingUi();
+  state.leagueSwitching = false;
+  state.leagueId = "";
+  state.leagueName = "";
+  state.league = null;
+  state.viewingSample = false;
+  state.users = [];
+  state.rosters = [];
+  state.normalizedRosters = [];
+  state.previousLeague = null;
+  state.previousUsers = [];
+  state.previousRosters = [];
+  state.leagueHistory = [];
+  state.meRosterId = null;
+  state.mePickedByUser = false;
+  state.pendingPlace = null;
+  state.transactions = [];
+  state.transactionsLoaded = false;
+  el.identitySection?.classList.add("hidden");
+  document.body.classList.remove("league-loaded", "viewing-sample");
+  renderSessionSnapshot();
 }
 
 function blankDeskForLeagueSwitch() {
@@ -2262,7 +2629,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       selectedAssetId: state.ranks?.selectedId || "",
       pendingPlace: state.pendingPlace,
     });
-    if (switchingLeagues && typeof history?.pushState === "function") {
+    if (switchingLeagues && typeof history?.pushState === "function" && !leagueOpenedInApp) {
       prepareDeskPush();
       history.pushState(history.state, "", `${window.location.pathname}${window.location.search}`);
     }
@@ -2348,10 +2715,11 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     }
     if (keepPlace) state.pendingPlace = keepPlace;
     primeValuationData();
+    if (!leagueLoader.isCurrent(token)) return;
+    setMobileRailOpen(false, { history: "silent" });
     showAppPages();
     noteSearchedUser(leagueId);
     scrollLoadedWorkspaceIntoView();
-    setMobileRailOpen(false);
     const missingTeam = state.meRosterId ? "" : noTeamInLeagueCopy(state.sleeperUser);
     setStatus(
       missingTeam || (state.viewingSample
@@ -5495,13 +5863,18 @@ async function ensureWeeklyValueContext() {
   return promise;
 }
 
-function setWeeklyScoreHelpOpen(open) {
+function setWeeklyScoreHelpOpen(open, { history = "auto" } = {}) {
   if (!state.weeklyValue) state.weeklyValue = emptyWeeklyValueState();
-  state.weeklyValue.helpOpen = Boolean(open);
+  const next = Boolean(open);
+  const prev = Boolean(state.weeklyValue.helpOpen);
+  if (!next && prev && history !== "silent" && closeHistoryOverlay("help")) return;
+  if (next && !prev && history !== "silent" && !applyingHistory) prepareDeskPush();
+  state.weeklyValue.helpOpen = next;
   renderRosterSheet();
-  if (state.weeklyValue.helpOpen) {
-    document.getElementById("weekly-help-close")?.focus();
-  }
+  if (next) document.getElementById("weekly-help-close")?.focus();
+  if (history === "silent" || applyingHistory || next === prev) return;
+  if (next) updateUrlState({ mode: "push" });
+  else updateUrlState({ mode: "replace" });
 }
 
 function syncWeeklyScoreHelp() {
@@ -5926,6 +6299,9 @@ function avatarForManagerKey(managerKey) {
 function setDraft(next) {
   state.valueCalc = next;
   writeStoredDraft(next);
+  if (state.activePage === "trades" && getRoom("trades") === "calculator") {
+    updateUrlState({ mode: "replace" });
+  }
 }
 
 function draftAssetKey(draft) {
@@ -6850,6 +7226,7 @@ function handleWorkspaceClick(event) {
       openPublicRanks();
       break;
     case "find-my-leagues":
+      if (!state.leagueId) document.querySelector("#landing")?.classList.remove("hidden");
       if (bootIsPending()) {
         queueFindForBoot(String(el.sleeperUsername?.value || el.landingUsername?.value || ""));
         break;
@@ -6866,22 +7243,45 @@ function handleWorkspaceClick(event) {
       break;
     case "rank-open": {
       const id = String(target.dataset.assetId || "");
-      if (!id) return;
-      state.ranks.selectedId = state.ranks.selectedId === id ? "" : id;
+      if (!isRankAssetId(id)) return;
+      if (state.ranks.selectedId === id) {
+        if (!closeHistoryOverlay("player")) {
+          state.ranks.selectedId = "";
+          renderRankSurfaces();
+          updateUrlState({ mode: "replace" });
+        }
+        return;
+      }
+      prepareDeskPush();
+      state.ranks.selectedId = id;
+      if (state.weeklyValue) {
+        state.weeklyValue.selectedPlayerId = "";
+        state.weeklyValue.helpOpen = false;
+      }
       renderRankSurfaces();
-      syncRankUrl();
+      updateUrlState({ mode: "push" });
       document.querySelector(".ranks-card")?.scrollIntoView({ block: "nearest" });
       break;
     }
     case "rank-close":
-      state.ranks.selectedId = "";
-      renderRankSurfaces();
-      syncRankUrl();
+      if (!closeHistoryOverlay("player")) {
+        state.ranks.selectedId = "";
+        renderRankSurfaces();
+        updateUrlState({ mode: "replace" });
+      }
+      break;
+    case "player-back":
+      if (backTarget({ pushed: Boolean(history.state?.pushed) }) === "history" && typeof history.back === "function") {
+        history.back();
+        break;
+      }
+      goSiteHome({ history: "push" });
       break;
     case "rank-pos":
       state.ranks.position = target.dataset.pos || "ALL";
       state.ranks.shown = RANK_PAGE_SIZE;
       renderRankSurfaces();
+      updateUrlState({ mode: "replace" });
       break;
     case "ranks-more":
       state.ranks.shown = (Number(state.ranks.shown) || RANK_PAGE_SIZE) + RANK_PAGE_SIZE;
@@ -6891,6 +7291,7 @@ function handleWorkspaceClick(event) {
       state.ranks.format = target.dataset.format === "oneQb" ? "oneQb" : "sf";
       rankBoardCache = { key: "", rows: [] };
       renderRankSurfaces();
+      updateUrlState({ mode: "replace" });
       break;
     case "rank-calc":
       addDraftFromPlayers(target.dataset.assetId, target.dataset.name, target.dataset.kind);
@@ -6936,16 +7337,35 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "open-player": {
-      const playerId = String(target.dataset.playerId || "");
+      const playerId = routeIdFromPlayer(target.dataset.playerId);
       if (!playerId) return;
-      state.weeklyValue.selectedPlayerId = state.weeklyValue.selectedPlayerId === playerId ? "" : playerId;
+      if (!state.weeklyValue) state.weeklyValue = emptyWeeklyValueState();
+      if (state.weeklyValue.selectedPlayerId === playerId) {
+        if (!closeHistoryOverlay("player")) {
+          state.weeklyValue.selectedPlayerId = "";
+          state.weeklyValue.helpOpen = false;
+          renderRosterSheet();
+          updateUrlState({ mode: "replace" });
+        }
+        return;
+      }
+      prepareDeskPush();
+      state.weeklyValue.selectedPlayerId = playerId;
+      state.weeklyValue.helpOpen = false;
+      state.ranks.selectedId = "";
       renderRosterSheet();
+      updateUrlState({ mode: "push" });
       document.querySelector(".player-week-sheet")?.scrollIntoView({ behavior: "smooth", block: "start" });
       break;
     }
     case "close-player": {
-      state.weeklyValue.selectedPlayerId = "";
-      renderRosterSheet();
+      if (!closeHistoryOverlay("help") && !closeHistoryOverlay("player")) {
+        if (!state.weeklyValue) state.weeklyValue = emptyWeeklyValueState();
+        state.weeklyValue.selectedPlayerId = "";
+        state.weeklyValue.helpOpen = false;
+        renderRosterSheet();
+        updateUrlState({ mode: "replace" });
+      }
       break;
     }
     case "toggle-weekly-help": {
@@ -7074,7 +7494,10 @@ function handleWorkspaceInput(event) {
     state.ranks.shown = RANK_PAGE_SIZE;
     const host = target.closest("#ranks-dashboard, #public-ranks-board") || el.ranksDashboard;
     clearTimeout(ranksSearchTimer);
-    ranksSearchTimer = setTimeout(() => renderRankHost(host), 180);
+    ranksSearchTimer = setTimeout(() => {
+      renderRankHost(host);
+      updateUrlState({ mode: "replace" });
+    }, 180);
   }
 }
 
