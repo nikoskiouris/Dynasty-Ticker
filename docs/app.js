@@ -2217,11 +2217,27 @@ function leavePhoneMenu(navigate) {
   }, "", `${window.location.pathname}${window.location.search}`);
 }
 
+function scrollMotion() {
+  const reduce = typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return reduce ? "auto" : "smooth";
+}
+
+function scrollCheckOfferIntoView() {
+  const target = document.querySelector("#trades-page [data-room-panel='calculator']")
+    || document.querySelector("#calculator-section");
+  if (!target || typeof target.scrollIntoView !== "function") return;
+  target.scrollIntoView({ behavior: scrollMotion(), block: "start" });
+}
+
 function handlePhoneDeskClick(event) {
   const roomButton = event.target.closest("[data-phone-room]");
   if (roomButton) {
+    const page = roomButton.dataset.page;
+    const room = roomButton.dataset.phoneRoom;
     leavePhoneMenu((mode) => {
-      openRoom(roomButton.dataset.page, roomButton.dataset.phoneRoom, { history: mode, scroll: "top" });
+      openRoom(page, room, { history: mode, scroll: "top" });
+      if (page === "trades" && room === "calculator") scrollCheckOfferIntoView();
     });
     return;
   }
@@ -2239,11 +2255,18 @@ function handlePhoneDeskClick(event) {
     phoneDeskCollapsed = false;
     leavePhoneMenu((mode) => {
       setActivePage(page, { history: mode, scroll: "top", landing: page === "players" ? "hide" : "" });
+      if (page === "trades" && getRoom(page) === "calculator") scrollCheckOfferIntoView();
     });
     return;
   }
   phoneDeskCollapsed = !phoneDeskCollapsed;
   renderPhoneDesk();
+  if (page === "trades" && !phoneDeskCollapsed) {
+    document.querySelector("[data-phone-room='calculator']")?.scrollIntoView({
+      behavior: scrollMotion(),
+      block: "start",
+    });
+  }
 }
 
 function sampleVoice() {
@@ -6607,7 +6630,7 @@ function renderDraftPartnerPicker(view) {
 }
 
 function renderSelectedTokenLabel(asset) {
-  const face = renderPlayerFace(facePlayerId(asset), asset?.name, { size: "xs" });
+  const face = renderPlayerFace(facePlayerId(asset), asset?.name, { size: "sm" });
   if (!face) return `<span class="selected-token-label">${escapeHtml(asset?.name || "")}</span>`;
   return `<span class="selected-token-label player-name">${face}<span class="player-name-text">${escapeHtml(asset.name)}</span></span>`;
 }

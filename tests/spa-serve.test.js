@@ -26,8 +26,13 @@ test("placeholder app routes fall back to index.html and other misses 404", () =
   assert.equal(classifyRequest("/connect").status, 200);
   assert.equal(classifyRequest("/").status, 200);
 
-  // :id and :view match a segment like x.js. The app router sends those home.
-  for (const placeholder of ["/player/missing.js", "/l/12.3", "/l/42/team.js"]) {
+  // A file extension in the last segment 404s. Other bad ids open the app, which sends them home.
+  for (const asset of ["/player/missing.js", "/player/9221.png", "/l/x.json", "/l/12.3", "/l/42/team.js"]) {
+    const miss = classifyRequest(asset);
+    assert.equal(miss.status, 404, asset);
+    assert.match(miss.file, /404\.html$/, asset);
+  }
+  for (const placeholder of ["/player/abc", "/l/4.2/team"]) {
     const hit = classifyRequest(placeholder);
     assert.equal(hit.status, 200, placeholder);
     assert.match(hit.file, /index\.html$/, placeholder);
@@ -86,9 +91,11 @@ test("the spa server returns 404 for /data misses and extension paths", async ()
     assert.equal(missingJs.status, 404);
     assert.match(await missingJs.text(), /Page not found/);
 
-    const playerFile = await fetch(`http://127.0.0.1:${port}/player/missing.js`);
-    assert.equal(playerFile.status, 200);
-    assert.match(await playerFile.text(), /id="ui-pages"/);
+    const playerFile = await fetch(`http://127.0.0.1:${port}/player/9221.png`);
+    assert.equal(playerFile.status, 404);
+    assert.match(await playerFile.text(), /Page not found/);
+    const leagueFile = await fetch(`http://127.0.0.1:${port}/l/x.json`);
+    assert.equal(leagueFile.status, 404);
 
     const playersSlash = await fetch(`http://127.0.0.1:${port}/players/`);
     assert.equal(playersSlash.status, 200);

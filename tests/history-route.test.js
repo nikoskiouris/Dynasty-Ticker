@@ -14,6 +14,7 @@ import {
   historyModeAfterMenuChoice,
   historyPlaceKey,
   isPlayerRouteId,
+  isAssetLikePath,
   isSpaPath,
   SPA_REWRITES,
   matchRoute,
@@ -192,9 +193,17 @@ test("route table maps the approved paths and unknown routes go home", () => {
     assert.equal(resolveLocation(skipped).unknown, true, skipped);
   }
   // A placeholder serves these, then the desk sends a bad id home.
-  for (const dotted of ["/player/missing.js", "/player/abc", "/player/0", "/l/12.3", "/l/4.2/team", "/l/42/team.js"]) {
+  for (const dotted of ["/player/abc", "/player/0", "/l/4.2/team"]) {
     assert.equal(isSpaPath(dotted), true, dotted);
     assert.equal(resolveLocation(dotted).unknown, true, dotted);
+  }
+  // A file extension in the last segment is a file request, so it 404s.
+  for (const asset of ["/player/missing.js", "/player/9221.png", "/player/9221/jahmyr-gibbs.png", "/l/x.json", "/l/12.3", "/l/42/team.js", "/l/42/team.js/"]) {
+    assert.equal(isSpaPath(asset), false, asset);
+    assert.equal(isAssetLikePath(asset), true, asset);
+  }
+  for (const page of ["/player/9221", "/player/9221/jahmyr-gibbs", "/l/42/team", "/players", "/trade", "/data/x.json"]) {
+    assert.equal(isAssetLikePath(page), false, page);
   }
   assert.equal(isSpaPath("/player/9221/jahmyr-gibbs"), true);
   assert.equal(isSpaPath("/player/9221"), true);
