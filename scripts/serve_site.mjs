@@ -1,6 +1,9 @@
 import { createReadStream, existsSync, statSync } from "node:fs";
 import http from "node:http";
-import { extname, join, normalize } from "node:path";
+import { extname, join, normalize, resolve, sep } from "node:path";
+import { pathToFileURL } from "node:url";
+import { isSpaPath } from "../docs/modules/history-route.js";
+
 const root = join(process.cwd(), "docs");
 const port = Number(process.env.PORT || 4173);
 const types = {
@@ -15,37 +18,59 @@ const types = {
   ".webp": "image/webp",
   ".ico": "image/x-icon",
   ".webmanifest": "application/manifest+json",
+  ".txt": "text/plain; charset=utf-8",
   ".woff2": "font/woff2",
 };
 
 function fileAt(rel) {
   const full = normalize(join(root, rel));
-  if (!full.startsWith(root)) return null;
+  const rootPrefix = root.endsWith(sep) ? root : `${root}${sep}`;
+  if (full !== root && !full.startsWith(rootPrefix)) return null;
   if (!existsSync(full) || !statSync(full).isFile()) return null;
   return full;
 }
 
-function fileFor(requestPath) {
-  const clean = decodeURIComponent(String(requestPath || "/").split("?")[0]);
-  if (clean === "/api" || clean.startsWith("/api/")) return null;
-  if (clean !== "/") {
-    const staticFile = fileAt(clean);
-    if (staticFile) return staticFile;
+function decodePath(pathname) {
+  try {
+    return decodeURIComponent(String(pathname || "/").split("?")[0]);
+  } catch {
+    return null;
   }
-  return fileAt("/index.html");
 }
 
-const server = http.createServer((req, res) => {
-  const file = fileFor(new URL(req.url || "/", "http://127.0.0.1").pathname);
-  if (!file) {
-    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
-    res.end("Not found");
-    return;
-  }
-  res.writeHead(200, { "content-type": types[extname(file)] || "application/octet-stream" });
-  createReadStream(file).pipe(res);
-});
+// Same order as netlify.toml: a real file wins, then SPA routes, else 404.html.
+export function classifyRequest(pathname) {
+  const clean = decodePath(pathname);
+  if (clean == null) return { status: 400, file: null };
+  if (clean.startsWith("/api/") || clean.startsWith("/.netlify/")) return { status: 404, file: fileAt("/404.html") };
+  const staticFile = clean === "/" ? null : fileAt(clean);
+  if (staticFile) return { status: 200, file: staticFile };
+  if (clean === "/" || isSpaPath(clean)) return { status: 200, file: fileAt("/index.html") };
+  return { status: 404, file: fileAt("/404.html") };
+}
 
-server.listen(port, "127.0.0.1", () => {
-  console.log(`desk http://127.0.0.1:${port}`);
-});
+export function createSiteServer() {
+  return http.createServer((req, res) => {
+    let classified;
+    try {
+      classified = classifyRequest(new URL(req.url || "/", "http://127.0.0.1").pathname);
+    } catch {
+      classified = { status: 400, file: null };
+    }
+    if (!classified.file) {
+      res.writeHead(classified.status || 404, { "content-type": "text/plain; charset=utf-8" });
+      res.end(classified.status === 400 ? "Bad request" : "Not found");
+      return;
+    }
+    res.writeHead(classified.status, { "content-type": types[extname(classified.file)] || "application/octet-stream" });
+    createReadStream(classified.file).pipe(res);
+  });
+}
+
+const entry = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : "";
+if (import.meta.url === entry) {
+  const server = createSiteServer();
+  server.listen(port, "127.0.0.1", () => {
+    console.log(`desk http://127.0.0.1:${port}`);
+  });
+}
