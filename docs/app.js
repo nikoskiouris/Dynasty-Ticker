@@ -125,7 +125,7 @@ import {
   renderPriceLegend,
 } from "./modules/league-board.js";
 import { createLivePoller, liveUpdateMatchesLeague, shouldPollLive, shouldRefreshSim, weekRowsFingerprint } from "./modules/live.js";
-import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, renderConnectGate, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
+import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, playersAndPicksLabel, renderConnectGate, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
 import { hashHue, renderAvatar, renderMultiTeamPartyTitle, renderPositionMeter, renderPowerHero, renderPowerStat, renderSleeperInsight } from "./modules/roster-markup.js";
 import { facePlayerId, renderPlayerFace, renderPlayerLabel } from "./modules/player-face.js";
 import {
@@ -1775,7 +1775,7 @@ function paintLaunchExample() {
   host.setAttribute("aria-busy", "false");
 }
 
-function paintLaunchTrend() {
+function paintLaunchTrend(failed = false) {
   const host = document.querySelector("#launch-trend");
   if (!host) return;
   const bundle = launchValueBundle();
@@ -1784,7 +1784,7 @@ function paintLaunchTrend() {
     names: bundle?.nameMap || state.valueNameMap || {},
     players: state.valueBundles?.players || {},
   });
-  host.innerHTML = launchTrendMarkup(rows);
+  host.innerHTML = launchTrendMarkup(rows, { failed });
   host.setAttribute("aria-busy", "false");
 }
 
@@ -1885,13 +1885,15 @@ async function bootLaunchSurface() {
       host.setAttribute("aria-busy", "false");
     }
   }
+  let trendFailed = false;
   try {
     const adds = await apiGetWithRetry("/players/nfl/trending/add?lookback_hours=168&limit=25", { timeoutMs: 9000, retries: 1 });
     state.launchTrending = Array.isArray(adds) ? adds : [];
   } catch {
     state.launchTrending = [];
+    trendFailed = true;
   }
-  paintLaunchTrend();
+  paintLaunchTrend(trendFailed);
   syncLaunchChrome();
 }
 
@@ -6737,7 +6739,7 @@ function renderDraftTotal(side, view) {
   const total = side === "left" ? view.give : view.get;
   return `
     <strong>${formatNumber(total)}</strong>
-    <small>${items.length ? `${items.length} players & picks` : "Nothing added"}</small>
+    <small>${items.length ? playersAndPicksLabel(items.length) : "Nothing added"}</small>
   `;
 }
 
@@ -7022,8 +7024,8 @@ function renderDraftVerdict(view) {
     <section class="calc-summary ${bothSides ? (copy.tone || verdict.tone) : ""}">
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
-        <h3>${escapeHtml(label)} ${adjustment ? infoTipMarkup({ id: "pop-stars", label: "Stars cost extra", text: "Stars cost extra: one great player beats a pile of good ones." }) : ""}</h3>
-        <p>${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ` ${verdict.pct}% apart.`}</p>
+        <h3>${escapeHtml(bothSides && copy.pctText ? copy.line : label)} ${adjustment ? infoTipMarkup({ id: "pop-stars", label: "Stars cost extra", text: "Stars cost extra: one great player beats a pile of good ones." }) : ""}</h3>
+        <p>${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}</p>
         ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
       </div>
       <div class="calc-bars">
@@ -9017,7 +9019,7 @@ function renderSeasonLedgerCard(snapshot) {
       ${renderSeasonStat(crownLabel, crown?.managerName || "TBD", snapshot.runnerUp ? `beat ${snapshot.runnerUp.managerName}` : `${recordLeader} top record`)}
       ${renderSeasonStat("Points King", pointsLeader, `${formatNumber(snapshot.pointsLeader?.points || 0)} PF`)}
       ${renderSeasonStat("Scoring Gap", formatNumber(snapshot.scoringSpread), `${snapshot.parityScore || "N/A"} parity score`)}
-      ${renderSeasonStat("Trade Ledger", formatNumber(snapshot.tradeCount), `${formatNumber(snapshot.movedAssetCount)} players & picks traded`)}
+      ${renderSeasonStat("Trade Ledger", formatNumber(snapshot.tradeCount), `${playersAndPicksLabel(snapshot.movedAssetCount)} traded`)}
       ${renderSeasonStat("Pick Drift", formatNumber(snapshot.tradedPickCount), "traded pick records")}
     </section>
   `;

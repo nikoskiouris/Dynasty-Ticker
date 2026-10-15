@@ -357,6 +357,7 @@ test("one public verdict scale, with the gap written as percent apart", () => {
   assert.equal(at(10000, 14000).line, `${at(10000, 14000).label}, ${at(10000, 14000).pctText}`);
   const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/app.js"), "utf8");
   assert.match(app, /const copy = verdictCopy\(verdict\);/);
+  assert.match(app, /copy\.line/);
 });
 
 test("the verdict reads from the manager's seat", () => {

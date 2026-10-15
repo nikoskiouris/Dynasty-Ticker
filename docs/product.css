@@ -52,6 +52,13 @@ h1,
   font-synthesis: none;
 }
 
+#hero-title {
+  margin: 0 0 0.35rem;
+  font-size: var(--fs-h1);
+  line-height: var(--lh-tight);
+  font-weight: var(--fw-semi);
+}
+
 /* --------------------------------------------------------------------------
    Wide desk
    -------------------------------------------------------------------------- */
@@ -129,6 +136,8 @@ h1,
   #hero-title {
     font-size: var(--fs-h1);
     line-height: var(--lh-tight);
+    font-weight: var(--fw-semi);
+    margin: 0 0 0.35rem;
   }
 
   .league-avatar {
@@ -1519,6 +1528,19 @@ a.inline-link {
   font-variant-numeric: var(--num);
   font-size: var(--fs-num);
 }
+.launch-verdict-skel .vt {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 22px;
+}
+.launch-verdict-skel .sk {
+  display: block;
+  height: 12px;
+  width: 42%;
+  border-radius: 4px;
+  background: var(--panel-soft);
+}
 .launch-verdict {
   padding: var(--card-pad);
   border-top: 1px solid var(--line);
@@ -1601,9 +1623,11 @@ a.inline-link {
   color: var(--muted-strong);
   text-decoration: none;
 }
-body.launch-open .launch-header-link {
-  display: inline-flex;
-}
+body.launch-open .launch-header-link,
+body.launch-open #find-leagues-btn,
+body.launch-open #sticky-find-btn,
+body.launch-open #sample-find-btn,
+body.launch-open .sample-find-btn,
 body.launch-open #ranks-section,
 body.launch-open #landing-rather,
 body.launch-open #passport-fold,

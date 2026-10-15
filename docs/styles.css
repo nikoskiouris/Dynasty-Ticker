@@ -6025,6 +6025,12 @@ button.weekly-help-close:hover {
     padding-top: var(--mobile-chrome-space, 2.8rem);
   }
 
+  /* Launch hides the title row, so the bar is only the wordmark. Reserve that
+     height before JS measures it, or the page jumps up by about 17px. */
+  body.launch-open {
+    --mobile-chrome-space: 28px;
+  }
+
   html {
     scroll-padding-top: var(--mobile-chrome-space, 2.8rem);
   }

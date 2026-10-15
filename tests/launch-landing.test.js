@@ -25,6 +25,7 @@ import {
   exampleTradeHref,
   launchExampleMarkup,
   launchSkeletonRows,
+  launchTrendMarkup,
 } from "../docs/modules/launch-landing.js";
 import { draftVerdictModel } from "../docs/modules/trade-draft.js";
 import { verdictCopy } from "../docs/modules/verdict-copy.js";
@@ -173,4 +174,39 @@ test("launch skeletons reserve the loaded row height", () => {
   assert.match(css, /\.launch-row\s*\{[^}]*min-height:\s*var\(--row-h-compact\)/);
   const landing = readFileSync(join(root, "../docs/ui/landing.html"), "utf8");
   assert.equal((landing.match(/launch-row-skel/g) || []).length, 8);
+  assert.match(landing, /launch-verdict-skel/);
+  const index = readFileSync(join(root, "../docs/index.html"), "utf8");
+  assert.match(index, /launch-verdict-skel/);
+  assert.ok(index.indexOf('id="landing-job-hint"') < index.indexOf('src="./boot.js"'));
+});
+
+test("a pre-league landing has one heading and two calls to action", () => {
+  const index = readFileSync(join(root, "../docs/index.html"), "utf8");
+  const css = readFileSync(join(root, "../docs/product.css"), "utf8");
+  assert.match(index, /<body class="launch-open">/);
+  assert.equal((index.match(/<h1\b/g) || []).length, 1);
+  assert.match(index, /<h1 id="landing-job-hint">Is your dynasty trade fair\?/);
+  assert.match(index, /<p id="hero-title">/);
+  assert.doesNotMatch(index, /<h1 id="hero-title"/);
+  assert.match(index, /Check this trade/);
+  assert.match(index, /class="ghost-btn launch-connect"/);
+  assert.match(css, /body\.launch-open \.launch-header-link,/);
+  assert.match(css, /body\.launch-open \.mobile-chrome-title-row,/);
+  assert.match(css, /body\.launch-open #workspace-header,/);
+  assert.match(css, /body\.launch-open #site-dock \{[^}]*display:\s*none !important/);
+  assert.match(css, /body\.launch-open #sticky-find-btn,/);
+  const phone = readFileSync(join(root, "../docs/styles.css"), "utf8");
+  assert.match(phone, /body\.launch-open\s*\{[^}]*--mobile-chrome-space:\s*28px/);
+});
+
+test("a failed trending fetch is an error with Retry, not the empty week", () => {
+  const failed = launchTrendMarkup([], { failed: true });
+  assert.match(failed, /Hot list didn't load/);
+  assert.match(failed, />Retry</);
+  assert.doesNotMatch(failed, /Nothing's moving yet/);
+  const empty = launchTrendMarkup([]);
+  assert.match(empty, /Nothing's moving yet this week/);
+  assert.doesNotMatch(empty, /Retry/);
+  const app = readFileSync(join(root, "../docs/app.js"), "utf8");
+  assert.match(app, /paintLaunchTrend\(trendFailed\)/);
 });

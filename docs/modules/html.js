@@ -15,6 +15,11 @@ export function formatNumber(value) {
   return numeric.toLocaleString();
 }
 
+export function playersAndPicksLabel(count) {
+  const n = Math.max(0, Math.round(Number(count) || 0));
+  return n === 1 ? "1 player or pick" : `${formatNumber(n)} players & picks`;
+}
+
 export function formatSignedNumber(value) {
   const numericValue = Number(value) || 0;
   return `${numericValue > 0 ? "+" : ""}${formatNumber(numericValue)}`;

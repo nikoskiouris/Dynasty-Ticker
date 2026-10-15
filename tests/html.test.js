@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, copyTextToClipboard, renderConnectGate, renderTradeAssetLabel, renderTradeMove } from "../docs/modules/html.js";
+import { escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, copyTextToClipboard, playersAndPicksLabel, renderConnectGate, renderTradeAssetLabel, renderTradeMove } from "../docs/modules/html.js";
 
 test("escapeHtml encodes markup", () => {
   assert.equal(escapeHtml(`<img src="x" alt='y'>`), "&lt;img src=&quot;x&quot; alt=&#39;y&#39;&gt;");
@@ -13,6 +13,8 @@ test("number helpers keep signs and locale digits", () => {
   assert.equal(clamp(-2, 0, 10), 0);
   assert.equal(formatNumber(Number.NaN), "—");
   assert.equal(formatNumber(undefined), "—");
+  assert.equal(playersAndPicksLabel(1), "1 player or pick");
+  assert.equal(playersAndPicksLabel(4), "4 players & picks");
 });
 
 test("partner idea copy is send/receive plus a starter rank line", () => {

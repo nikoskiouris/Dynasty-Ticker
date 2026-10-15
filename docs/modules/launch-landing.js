@@ -131,7 +131,18 @@ export function hotSleeperRows(adds = [], { values = {}, names = {}, players = {
   return rows;
 }
 
-export function launchTrendMarkup(rows = []) {
+export function launchTrendErrorMarkup() {
+  return `
+    <div class="launch-error" role="alert">
+      <b>Hot list didn't load.</b>
+      <p class="meta">Check your connection and try again.</p>
+      <button type="button" class="ghost-btn" data-launch="retry">Retry</button>
+    </div>
+  `;
+}
+
+export function launchTrendMarkup(rows = [], { failed = false } = {}) {
+  if (failed) return launchTrendErrorMarkup();
   if (!rows.length) {
     return `<p class="meta launch-empty">Nothing's moving yet this week. Check back after Sunday's games.</p>`;
   }
