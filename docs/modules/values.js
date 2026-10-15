@@ -223,28 +223,6 @@ export function formatPickBucketLabel(bucket) {
   }[normalizePickBucket(bucket)] || "";
 }
 
-// The tier and the rank are one projected place. Last year's finish stays out of this sentence.
-export function formatProjectedFirstLabel({
-  season,
-  round = 1,
-  bucket,
-  ownerName = "",
-  rank = null,
-  total = null,
-} = {}) {
-  const year = String(season || "").trim();
-  const roundLabel = ordinal(Number(round) || 1);
-  const tier = formatPickBucketLabel(bucket);
-  const head = [year, tier, roundLabel].filter(Boolean).join(" ");
-  const placeRank = Number(rank);
-  const teamCount = Number(total);
-  const basis = Number.isFinite(placeRank) && Number.isFinite(teamCount) && placeRank >= 1 && teamCount >= 1
-    ? `, projected ${ordinal(placeRank)} of ${teamCount}`
-    : "";
-  const whose = String(ownerName || "").trim() ? ` from ${String(ownerName).trim()}` : "";
-  return `${head}${basis}${whose}`;
-}
-
 export function parsePickRoundToken(token) {
   const normalized = String(token || "").trim().toLowerCase();
   if (!normalized) return null;

@@ -87,6 +87,8 @@ export function createState() {
     seasonWeekRows: new Map(),
     seasonLoaded: false,
     seasonLoadError: "",
+    // Draft slots wait until the current season's matchup rows have all arrived.
+    pickProjectionReady: false,
     seasonModelCache: { key: "", model: null },
     simCache: { key: "", result: null },
     lensRosterId: null,

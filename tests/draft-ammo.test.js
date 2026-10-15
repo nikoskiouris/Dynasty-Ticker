@@ -18,9 +18,9 @@ import {
   bucketForProjectedSlot,
   chooseLeadPick,
   formatPickBucketLabel,
-  formatProjectedFirstLabel,
   getAssetValue,
 } from "../docs/modules/values.js";
+import { formatPickLabel, formatProjectedFirstLabel } from "../docs/modules/pick-projection.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const fixture = JSON.parse(readFileSync(join(root, "tests/fixtures/try-hard-or-die-hard.json"), "utf8"));
@@ -222,9 +222,10 @@ test("a future first's tier and its projected place name the same rank", () => {
         rank,
         total,
       });
-      assert.match(label, new RegExp(`${tier} 1st, projected ${ordinal(rank)} of ${total}`));
+      const slotLabel = formatPickSlotLabel(1, slot);
+      assert.match(label, new RegExp(`${tier} 1st \\(${slotLabel}\\), projected to finish ${ordinal(rank)} of ${total}`));
       assert.doesNotMatch(label, /Previous Year/i);
-      const stated = label.match(/projected (\d+)(?:st|nd|rd|th) of (\d+)/);
+      const stated = label.match(/projected to finish (\d+)(?:st|nd|rd|th) of (\d+)/);
       const statedRank = Number(stated[1]);
       const statedTotal = Number(stated[2]);
       const statedBucket = bucketForProjectedSlot(projectedDraftSlot(statedRank, statedTotal), statedTotal);
@@ -249,8 +250,19 @@ test("a future first's tier and its projected place name the same rank", () => {
   const previous = fixture.previousSeason.standings.find((row) => row.roster_id === fixture.focus.roster_id);
   assert.equal(previous.rank, 10);
   assert.notEqual(place.rank, previous.rank);
-  assert.match(label, /Middle 1st, projected 7th of 12 from NikoSkiouris/);
+  assert.match(label, /Middle 1st \(1\.06\), projected to finish 7th of 12 from NikoSkiouris/);
   assert.doesNotMatch(label, /10th|Previous Year/i);
+  const second = formatPickLabel({
+    season: 2029,
+    round: 2,
+    bucket,
+    ownerName: "NikoSkiouris",
+    rank: place.rank,
+    total: place.total,
+    slot,
+  });
+  assert.match(second, /Middle 2nd \(2\.06\), projected to finish 7th of 12 from NikoSkiouris/);
+  assert.equal(second.replace("2nd", "1st").replace("(2.06)", "(1.06)"), label);
 });
 
 test("Draft Ammo, the vault, and trade read one pick price", () => {
@@ -259,14 +271,14 @@ test("Draft Ammo, the vault, and trade read one pick price", () => {
   assert.match(appSource, /bucketForProjectedSlot\(priceSlot, priceTeams\)/);
   assert.match(appSource, /function findOwnedPickAsset\(/);
   assert.match(appSource, /function refreshProjectedPickSlots\(/);
-  assert.match(appSource, /formatProjectedFirstLabel\(/);
+  assert.match(appSource, /projectPickSlots\(/);
+  assert.match(appSource, /if \(!state\.pickProjectionReady\) return false/);
   const nameFn = appSource.slice(
     appSource.indexOf("function formatPickName("),
     appSource.indexOf("function futureFirstMockMeta("),
   );
-  const tierBranch = nameFn.slice(nameFn.indexOf("const tieredFirst"), nameFn.indexOf("const details"));
-  assert.match(tierBranch, /return formatProjectedFirstLabel\(/);
-  assert.doesNotMatch(tierBranch, /finishLabel|Previous Year/);
+  assert.match(nameFn, /return formatPickLabel\(/);
+  assert.doesNotMatch(nameFn, /finishLabel|Previous Year/);
   const render = appSource.slice(
     appSource.indexOf("function renderActivePage("),
     appSource.indexOf("function requestActivePageRender("),
