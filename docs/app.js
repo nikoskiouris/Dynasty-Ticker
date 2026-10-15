@@ -132,7 +132,6 @@ import { facePlayerId, renderPlayerFace, renderPlayerLabel } from "./modules/pla
 import {
   addValueCalcItem,
   clearValueCalcSides,
-  draftVerdictLabel,
   emptyValueCalcState,
   isGenericPickAssetId,
   isLeaguePickAssetId,
@@ -292,7 +291,7 @@ import {
   topOverlay,
   urlPath,
 } from "./modules/history-route.js";
-import { TIER_EXPLAINER, verdictCopy } from "./modules/verdict-copy.js";
+import { EVEN_UP_OFFER_ABOVE, STAR_PREMIUM_KEY, TIER_EXPLAINER, barLabel, creditedTotalsLine, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
 import { decodeTradeShare, encodeTradeShare, sameVerdict, shareMessage, sharePath, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
 import {
   analyzeWindowCall,
@@ -6938,7 +6937,8 @@ function evenUpCopy(choice, side) {
     return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
   }
   if (Number.isFinite(Number(choice.pct))) {
-    return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}). After that pick the sides are still ${choice.pct}% apart.`;
+    const after = choice.verdict ? verdictLineNamed(choice.verdict) : "";
+    return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}).${after ? ` After that pick: ${after}.` : ""}`;
   }
   const short = choice.value < choice.gap;
   const why = short
@@ -6981,7 +6981,8 @@ function renderDraftVerdict(view) {
   // verdict compares, with the stars credit as its own segment.
   const bars = sharedBarSegments(model, sharedView ? null : meters);
   const maxSide = Math.max(bars.give.total, bars.get.total, 1);
-  const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(view) : null;
+  // Same metric and bands as the headline (verdict-copy.js).
+  const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpPick(view) : null;
   const evenSide = verdict.gap > 0 ? (voice ? voice.youGive : "You") : (view.partner ? them : "They");
   const giveLabel = voice?.giveLabel || "You give";
   const getLabel = voice?.getLabel || "You get";
@@ -6990,14 +6991,13 @@ function renderDraftVerdict(view) {
     <section class="calc-summary ${bothSides ? (sharedView ? copy.publicTone : copy.tone) : ""}">
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
-        ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${escapeHtml(label)}</h3>`}
-        ${/* TODO(follow-up): spell a bare percent ("96% apart") as a plain outcome. Out of scope for this push. */ ""}
-        <p>${sharedView ? sharedTotalsLine(model) : `${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}`}</p>
-        ${sharedView ? renderVerdictFinePrint(`
+        ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${verdictLineHtml(label)}</h3>`}
+        ${sharedView ? renderVerdictFinePrint(escapeHtml(sharedTotalsLine(model)), `
           ${adjustment ? `<p class="draft-package"><strong>Stars cost extra:</strong> one great player beats a pile of good ones. That adds ${formatNumber(adjustment.amount)} to ${adjustment.side === "left" ? "Give" : "Get"}. Listed prices stay put. After that: ${escapeHtml(copy.detail)}.</p>` : ""}
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
+        <p>${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}</p>
         ${adjustment ? `<p class="draft-package"><strong>Package credit:</strong> the best player is worth more than the same total split into smaller pieces. That adds ${formatNumber(adjustment.amount)} to ${escapeHtml(credited)}. Listed prices stay put. After that credit: ${escapeHtml(copy.detail)}.</p>` : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method">
@@ -7005,15 +7005,16 @@ function renderDraftVerdict(view) {
           ${renderDraftMethod(view)}
         </details>`}
       </div>
-      <div class="calc-bars">
+      <div class="calc-bars">${bars.give.stars || bars.get.stars ? `
+        <p class="calc-legend"><span class="calc-legend-swatch" aria-hidden="true"></span>${escapeHtml(STAR_PREMIUM_KEY)}</p>` : ""}
         <div class="calc-bar team-a${sharedView && copy.side === "Give" ? " is-bigger" : ""}">
           <span>${sharedView && copy.side === "Give" ? `${calcPointer("◀")} ` : ""}${escapeHtml(giveLabel)}</span>
-          ${meterTrack(bars.give, maxSide)}
+          ${meterTrack(bars.give, maxSide, barLabel("Give", bars.give.listed, bars.give.stars))}
           <strong>${formatNumber(bars.give.total)}</strong>
         </div>
         <div class="calc-bar team-b${sharedView && copy.side === "Get" ? " is-bigger" : ""}">
           <span>${escapeHtml(getLabel)}${sharedView && copy.side === "Get" ? ` ${calcPointer("▶")}` : ""}</span>
-          ${meterTrack(bars.get, maxSide)}
+          ${meterTrack(bars.get, maxSide, barLabel("Get", bars.get.listed, bars.get.stars))}
           <strong>${formatNumber(bars.get.total)}</strong>
         </div>
       </div>
@@ -7038,10 +7039,12 @@ function sharedBarSegments(model, meters = null) {
   return { give: side("give", model?.give), get: side("get", model?.get) };
 }
 
-function meterTrack(seg, maxSide) {
+// A bar with a star premium segment carries a text label for screen readers
+// ("Give 21,472 including 8,561 star premium"); the hatch has a visible key.
+function meterTrack(seg, maxSide, label = "") {
   const pct = (value) => Math.round((value / maxSide) * 1000) / 10;
   if (!seg.stars) return `<div class="meter-track"><span style="width:${pct(seg.listed)}%"></span></div>`;
-  return `<div class="meter-track meter-split"><span style="width:${pct(seg.listed)}%"></span><span class="meter-stars" style="width:${pct(seg.stars)}%" title="Stars cost extra"></span></div>`;
+  return `<div class="meter-track meter-split" role="img" aria-label="${escapeHtml(label)}"><span style="width:${pct(seg.listed)}%"></span><span class="meter-stars" style="width:${pct(seg.stars)}%"></span></div>`;
 }
 
 // ◀/▶ beside the bigger side's bar on wide layouts; a plain dot on phones,
@@ -7050,28 +7053,32 @@ function calcPointer(arrow) {
   return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
 }
 
-// Cold /t detail line (RECHECK3): lead with the credited totals the verdict
-// compares, then how the stars credit got there, so the numbers never
-// contradict the headline. "Give 19,224 incl. stars. Get 14,457. Listed: Give 11,811 + 7,413 stars."
+// Cold /t detail line: "Give 19,224 (11,811 + 7,413 star premium). Get 14,457."
 function sharedTotalsLine(model) {
   const adj = model.adjustment;
-  const giveStars = adj?.side === "left" ? " incl. stars" : "";
-  const getStars = adj?.side === "right" ? " incl. stars" : "";
-  const listed = adj
-    ? ` Listed: ${adj.side === "left" ? "Give" : "Get"} ${formatNumber(adj.side === "left" ? model.give : model.get)} + ${formatNumber(adj.amount)} stars.`
-    : "";
-  return `Give ${formatNumber(model.compareGive)}${giveStars}. Get ${formatNumber(model.compareGet)}${getStars}.${listed}`;
+  return creditedTotalsLine({
+    giveListed: model.give,
+    getListed: model.get,
+    stars: adj ? adj.amount : 0,
+    starSide: adj ? (adj.side === "left" ? "give" : "get") : "",
+  });
+}
+
+// "Lopsided · Give side…": the dot gets real space on screen (the face's
+// word space is narrow), while the text stays the plain " · " line.
+function verdictLineHtml(line) {
+  return String(line || "").split(" · ").map(escapeHtml).join(` <span class="verdict-dot">·</span> `);
 }
 
 // Shared link: the verdict line. When prices moved since it was shared, a
 // compact two-row compare (sharer's date, then today in bold) and one line.
 function renderSharedVerdictHead(shared) {
-  if (!shared.shared) return `<h3>${escapeHtml(shared.today.label)}</h3>`;
+  if (!shared.shared) return `<h3>${verdictLineHtml(shared.today.label)}</h3>`;
   return `
     <h3 class="sr-only">Shared on ${escapeHtml(shared.date)}: ${escapeHtml(shared.shared.label)}. Today: ${escapeHtml(shared.today.label)}.</h3>
     <dl class="calc-shared">
-      <div><dt>${escapeHtml(shared.date)}</dt><dd>${escapeHtml(shared.shared.label)}</dd></div>
-      <div class="is-today"><dt>Today</dt><dd><strong>${escapeHtml(shared.today.label)}</strong></dd></div>
+      <div><dt>${escapeHtml(shared.date)}</dt><dd>${verdictLineHtml(shared.shared.label)}</dd></div>
+      <div class="is-today"><dt>Today</dt><dd><strong>${verdictLineHtml(shared.today.label)}</strong></dd></div>
     </dl>
     <p class="calc-shared-note">Prices moved since this was shared.</p>
   `;
@@ -7085,15 +7092,16 @@ function setVerdictInfoOpen(button, open) {
 }
 
 let verdictInfoSeq = 0;
-// The method, credit and even-up notes sit behind one ⓘ button on a shared link.
-function renderVerdictFinePrint(inner) {
+// The method, credit and even-up notes sit behind one ⓘ button on a shared
+// link. The button sits inline at the end of the subline (leadHtml).
+function renderVerdictFinePrint(leadHtml, inner) {
   verdictInfoSeq += 1;
   const id = `verdict-info-${verdictInfoSeq}`;
   const open = Boolean(state.verdictInfoOpen);
   return `
-    <button type="button" class="info-toggle verdict-info-toggle" data-action="verdict-info" aria-expanded="${open}" aria-controls="${id}">
+    <p class="calc-subline">${leadHtml} <button type="button" class="info-toggle verdict-info-toggle" data-action="verdict-info" aria-expanded="${open}" aria-controls="${id}">
       <span aria-hidden="true">ⓘ</span><span class="sr-only">How this verdict works</span>
-    </button>
+    </button></p>
     <div class="verdict-fine-print" id="${id}"${open ? "" : " hidden"}>${inner}</div>
   `;
 }
@@ -7178,10 +7186,12 @@ function buildDraftOfferText(view) {
   const list = (items) => items.map((item) => `${item.name} (${formatNumber(view.priceOf(item))})`).join(", ") || "nothing";
   const partnerName = view.partner?.manager?.displayName || "them";
   const { verdict, adjustment } = view.model;
-  const label = draftVerdictLabel(verdict, { them: partnerName, getFavor: sampleVoice()?.favor || "your", favorName: sampleVoice()?.youGive || "" });
+  // Same metric and bands as the headline: "Favors one side · My side worth 25% more".
+  const mySide = sampleVoice()?.sideLabel || "my side";
+  const line = verdictLineNamed(verdict, { Give: `${mySide.charAt(0).toUpperCase()}${mySide.slice(1)}`, Get: view.partner?.manager?.displayName ? `${partnerName}'s side` : "The other side" });
   const creditSide = adjustment?.side === "left" ? (sampleVoice()?.sideLabel || "my side") : "their side";
   const credit = adjustment ? ` Package adjustment +${formatNumber(adjustment.amount)} to ${creditSide}.` : "";
-  return `Trade idea: ${view.me?.manager?.displayName || "I"} sends ${list(view.draft.left)} to ${partnerName} for ${list(view.draft.right)}. Market ${formatNumber(view.give)} vs ${formatNumber(view.get)}.${credit} ${verdict.pct}% apart (${label}). Dynasty Ticker prices, ${rankFormatLabel(view.basis.format)}.`;
+  return `Trade idea: ${view.me?.manager?.displayName || "I"} sends ${list(view.draft.left)} to ${partnerName} for ${list(view.draft.right)}. Market ${formatNumber(view.give)} vs ${formatNumber(view.get)}.${credit} ${line}. Dynasty Ticker prices, ${rankFormatLabel(view.basis.format)}.`;
 }
 
 function renderDraftTeam(view) {
@@ -11527,7 +11537,7 @@ function renderMultiTeamPartyCard(participant, values, meRosterId) {
       <div class="trade-metrics">
         <div class="trade-metric">
           <strong>Raw balance</strong>
-          send ${formatNumber(participant.outgoingAdjustedValue)} vs receive ${formatNumber(participant.incomingAdjustedValue)} (${participant.pctDiff}% diff)
+          send ${formatNumber(participant.outgoingAdjustedValue)} vs receive ${formatNumber(participant.incomingAdjustedValue)} (${escapeHtml(verdictLineNamed(valueCalcVerdict(participant.outgoingAdjustedValue, participant.incomingAdjustedValue), { Give: "Send side", Get: "Receive side" }))})
         </div>
         <div class="trade-metric">
           <strong>Bridge gap</strong>
@@ -11620,7 +11630,7 @@ function renderTradeCard(idea, index, values) {
         <div class="trade-metrics">
           <div class="trade-metric">
             <strong>Adjusted value</strong>
-            you ${formatNumber(idea.myAdjustedValue)} vs them ${formatNumber(idea.theirAdjustedValue)} (${idea.pctDiff}% apart)
+            you ${formatNumber(idea.myAdjustedValue)} vs them ${formatNumber(idea.theirAdjustedValue)} (${escapeHtml(verdictLineNamed(valueCalcVerdict(idea.myAdjustedValue, idea.theirAdjustedValue), { Give: "Send side", Get: "Receive side" }))})
           </div>
           <div class="trade-metric">
             <strong>Elite premium</strong>

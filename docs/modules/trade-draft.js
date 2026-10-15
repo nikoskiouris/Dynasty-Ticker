@@ -7,6 +7,7 @@ import {
 } from "./value-calc.js";
 import { calculatePackageAdjustment, finiteAssetValue } from "./package-value.js";
 import { lookupMarketValue } from "./values.js";
+import { EVEN_UP_CLOSES_AT, EVEN_UP_OFFER_ABOVE, percentMore } from "./verdict-copy.js";
 
 export const TRADE_DRAFT_STORAGE_KEY = "dynasty_ticker_trade_draft_v1";
 const LEGACY_TRADE_DRAFT_KEYS = Object.freeze([
@@ -208,9 +209,10 @@ export function draftMeterValues(model) {
   };
 }
 
-// Same cutoff as valueCalcVerdict's "Fair" band. A suggestion closes only when
-// the trade, after the pick and the stud credit, lands inside that band.
-const EVEN_UP_FAIR_PCT = 12;
+// The shown metric (% more, gap / smaller side) and verdict-copy.js's bands.
+// A suggestion closes only when the trade, after the pick and the stud
+// credit, lands in a fair tier (<= 14% more).
+const EVEN_UP_FAIR_PCT = EVEN_UP_CLOSES_AT;
 
 // A pick evens the gap only when its price actually covers it. Pass scoreAdded
 // when adding the pick changes the package credit; the raw 0.8–1.25 band does
@@ -234,7 +236,7 @@ export function evenUpPickChoice(gap, picks = [], { scoreAdded = null } = {}) {
     if (!Number.isFinite(afterGap) || !Number.isFinite(pct)) continue;
     const miss = Math.abs(afterGap);
     const closes = pct <= EVEN_UP_FAIR_PCT;
-    const candidate = { name: String(pick.name), value, miss, closes, gap: need, afterGap, pct };
+    const candidate = { name: String(pick.name), value, miss, closes, gap: need, afterGap, pct, verdict: scored.verdict || null };
     const betterClose = Boolean(best) && closes && !best.closes;
     const tighter = Boolean(best) && closes === best.closes && (miss < best.miss || (miss === best.miss && value < best.value));
     if (!best || betterClose || tighter) best = candidate;
@@ -253,7 +255,7 @@ export function evenUpTradePick({ giveValues = [], getValues = [], picks = [], g
   if (!give.length || !get.length) return null;
   const model = draftVerdictModel(give, get, { globalMaxValue });
   const gap = model.verdict.gap;
-  if (!(Math.abs(gap) > 0) || model.verdict.pct <= 5) return null;
+  if (!(Math.abs(gap) > 0) || (percentMore(model.verdict.left, model.verdict.right) ?? Infinity) <= EVEN_UP_OFFER_ABOVE) return null;
   const shortIsGive = gap > 0;
   return evenUpPickChoice(gap, picks, {
     scoreAdded(value) {
@@ -262,7 +264,7 @@ export function evenUpTradePick({ giveValues = [], getValues = [], picks = [], g
         shortIsGive ? get : [...get, value],
         { globalMaxValue },
       );
-      return { gap: next.verdict.gap, pct: next.verdict.pct };
+      return { gap: next.verdict.gap, pct: percentMore(next.verdict.left, next.verdict.right) ?? Infinity, verdict: next.verdict };
     },
   });
 }

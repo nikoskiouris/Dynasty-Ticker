@@ -4268,6 +4268,37 @@ button.weekly-help-close:hover {
   color: var(--text);
 }
 
+/* The ⓘ sits inline at the end of the subline; the 44px hit area overlaps
+   the line box with negative margins instead of pushing a new row. */
+.calc-subline .verdict-info-toggle {
+  margin: calc((var(--tap-min) - 1.4em) / -2) 0;
+  vertical-align: middle;
+}
+
+/* Spaces around the verdict dot: the face's word space reads as none. */
+.verdict-dot {
+  display: inline-block;
+  margin: 0 0.12em;
+}
+
+/* Visible key for the hatched star premium segment. */
+.calc-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+.calc-legend-swatch {
+  display: inline-block;
+  width: 1.4rem;
+  height: 0.46rem;
+  border-radius: var(--r-pill);
+  background: repeating-linear-gradient(135deg, var(--muted-strong) 0 3px, rgba(244, 241, 236, 0.35) 3px 6px);
+}
+
 .verdict-fine-print {
   display: grid;
   gap: var(--sp-2);

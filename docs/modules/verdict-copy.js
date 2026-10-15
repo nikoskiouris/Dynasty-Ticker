@@ -79,3 +79,43 @@ export function verdictCopy(verdict) {
 export function verdictCopyFor(giveTotal, getTotal, counts = {}) {
   return verdictCopy(valueCalcVerdict(giveTotal, getTotal, counts));
 }
+
+// Same verdict for surfaces that name the sides differently (the offer text,
+// trade ideas, the even-up line): "Favors one side · My side worth 25% more".
+// names: { Give, Get } display names for the two columns.
+export function verdictLineNamed(verdict, names = {}) {
+  const copy = verdictCopy(verdict);
+  if (!copy.tier || copy.tier === "even" || !copy.side) return copy.line;
+  const name = String(names[copy.side] || `${copy.side} side`);
+  const amount = copy.more == null ? "" : `${copy.more}% `;
+  return `${copy.label} · ${name} worth ${amount}more`;
+}
+
+// The even-up suggestion "closes" a trade when the shown % lands inside the
+// two fair tiers (fair trade or fair, slight edge), and is offered only when
+// the trade is outside "Fair trade".
+export const EVEN_UP_OFFER_ABOVE = TIER_BANDS.even;
+export const EVEN_UP_CLOSES_AT = TIER_BANDS.edge;
+
+const countText = (value) => Math.round(Math.abs(Number(value) || 0)).toLocaleString("en-US");
+
+// Cold /t detail line: credited totals first, the star premium in brackets.
+// "Give 19,224 (11,811 + 7,413 star premium). Get 14,457."
+export function creditedTotalsLine({ giveListed = 0, getListed = 0, stars = 0, starSide = "" } = {}) {
+  const part = (name, listed, key) => {
+    const extra = starSide === key && stars > 0 ? Math.round(stars) : 0;
+    return extra
+      ? `${name} ${countText(listed + extra)} (${countText(listed)} + ${countText(extra)} star premium).`
+      : `${name} ${countText(listed)}.`;
+  };
+  return `${part("Give", Number(giveListed) || 0, "give")} ${part("Get", Number(getListed) || 0, "get")}`;
+}
+
+// Screen-reader label for a verdict bar: "Give 21,472 including 8,561 star premium".
+export function barLabel(name, listed = 0, stars = 0) {
+  const extra = Math.round(Number(stars) || 0);
+  const total = (Number(listed) || 0) + extra;
+  return extra > 0 ? `${name} ${countText(total)} including ${countText(extra)} star premium` : `${name} ${countText(total)}`;
+}
+
+export const STAR_PREMIUM_KEY = "Star premium";
