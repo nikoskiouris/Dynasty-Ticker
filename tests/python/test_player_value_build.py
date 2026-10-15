@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import random
+import re
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -91,6 +94,75 @@ class PlayerValueBuildTests(unittest.TestCase):
             "position": "LB",
             "fantasy_positions": ["LB"],
         }, "1"))
+
+    def test_slim_file_bytes_do_not_change_when_the_input_order_does(self):
+        sleeper = {
+            "20": {
+                "player_id": "20",
+                "full_name": "Amon-Ra St. Brown",
+                "position": "WR",
+                "team": "DET",
+                "age": 25,
+                "status": "Active",
+                "years_exp": 5,
+            },
+            "3": {
+                "player_id": "3",
+                "full_name": "No Team Yet",
+                "position": "RB",
+                "status": "Active",
+                "years_exp": 1,
+            },
+        }
+        flipped = {"3": sleeper["3"], "20": sleeper["20"]}
+        teams = {"3": "SEA"}
+        with tempfile.TemporaryDirectory() as tmp:
+            first = Path(tmp) / "a.json"
+            second = Path(tmp) / "b.json"
+            build.write_slim_players(sleeper, output=first, teams_by_id=teams)
+            build.write_slim_players(flipped, output=second, teams_by_id=dict(reversed(list(teams.items()))))
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+            text = first.read_text(encoding="utf-8")
+            self.assertNotIn("asOf", text)
+            self.assertNotIn("generatedAt", text)
+            self.assertIsNone(re.search(r"\d{4}-\d{2}-\d{2}T", text))
+            payload = json.loads(text)
+            self.assertEqual(list(payload["players"]), ["20", "3"])
+            self.assertEqual(payload["players"]["3"][2], "SEA")
+
+    def test_shipped_slim_file_covers_priced_players_without_a_clock(self):
+        # Shipped file is 140744 bytes. 180KB leaves room for a season of
+        # call-ups and still rejects the old ~900KB object dump.
+        cap = 180_000
+        path = ROOT / "docs" / "data" / "nfl_players_slim.json"
+        raw = path.read_bytes()
+        self.assertLess(len(raw), cap, f"slim file is {len(raw)} bytes")
+        self.assertIsNone(re.search(r"\d{4}-\d{2}-\d{2}T", raw.decode("utf-8")))
+        payload = json.loads(raw)
+        self.assertEqual(sorted(payload), ["fields", "players", "source"])
+        self.assertEqual(
+            payload["fields"],
+            ["full_name", "position", "team", "age", "injury_status", "status", "years_exp"],
+        )
+        name_at = payload["fields"].index("full_name")
+        position_at = payload["fields"].index("position")
+        team_at = payload["fields"].index("team")
+        values = json.loads((ROOT / "docs" / "data" / "player_values.json").read_text(encoding="utf-8"))
+        missing = []
+        for asset_id, info in (values.get("players") or {}).items():
+            if not str(asset_id).startswith("player:"):
+                continue
+            player_id = str(asset_id).split(":", 1)[1]
+            row = payload["players"].get(player_id)
+            published_team = str((info or {}).get("team") or "").strip()
+            if (
+                not isinstance(row, list)
+                or not str(row[name_at] or "").strip()
+                or not str(row[position_at] or "").strip()
+                or (published_team and not str(row[team_at] or "").strip())
+            ):
+                missing.append(player_id)
+        self.assertEqual(missing, [])
 
     def test_partial_sleeper_clock_does_not_wipe_the_season(self):
         self.assertEqual(build.resolve_nfl_clock({"season": "2026", "week": 6}), (2026, 6))

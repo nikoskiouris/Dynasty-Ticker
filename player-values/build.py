@@ -1281,7 +1281,8 @@ SLIM_FILE_FIELDS = ("full_name", "position", "team", "age", "injury_status", "st
 
 def compact_slim_players(records):
     rows = {}
-    for player_id, record in records.items():
+    for player_id in sorted(records or {}, key=str):
+        record = records[player_id]
         status = record.get("status") or ""
         if status == "Active":
             status = ""
@@ -1297,10 +1298,31 @@ def compact_slim_players(records):
     return rows
 
 
-def write_slim_players(sleeper_players, output=SLIM_PLAYERS_OUTPUT):
+def published_player_teams(path=OUTPUT):
+    """Team on the published snapshot, used only when Sleeper has none."""
+    if not path.exists():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    teams = {}
+    for asset_id, info in (payload.get("players") or {}).items():
+        if not str(asset_id).startswith("player:"):
+            continue
+        team = str((info or {}).get("team") or "").strip()
+        if team:
+            teams[str(asset_id).split(":", 1)[1]] = team
+    return teams
+
+
+def write_slim_players(sleeper_players, output=SLIM_PLAYERS_OUTPUT, teams_by_id=None):
+    """Byte-stable. No clock, and player ids are sorted."""
     records = build_slim_players(sleeper_players)
+    for player_id, record in records.items():
+        if str(record.get("team") or "").strip():
+            continue
+        team = str((teams_by_id or {}).get(str(player_id)) or "").strip()
+        if team:
+            record["team"] = team
     payload = {
-        "asOf": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "source": "sleeper",
         "fields": list(SLIM_FILE_FIELDS),
         "players": compact_slim_players(records),
@@ -1312,7 +1334,7 @@ def write_slim_players(sleeper_players, output=SLIM_PLAYERS_OUTPUT):
 def build_slim_only(cache, refresh=True):
     sleeper_path = fetch(cache, "sleeper_players.json", SLEEPER_PLAYERS_URL, refresh=refresh)
     sleeper = json.loads(sleeper_path.read_text(encoding="utf-8"))
-    payload = write_slim_players(sleeper)
+    payload = write_slim_players(sleeper, teams_by_id=published_player_teams())
     print(json.dumps({
         "output": str(SLIM_PLAYERS_OUTPUT),
         "players": len(payload["players"]),
@@ -1559,7 +1581,7 @@ def build(cache, refresh=True):
     validate(bundle)
     atomic_json(OUTPUT, bundle)
     atomic_json(VALIDATION, report)
-    write_slim_players(inputs["sleeper"])
+    write_slim_players(inputs["sleeper"], teams_by_id=published_player_teams())
     print(json.dumps({
         "output": str(OUTPUT),
         "players": len(player_meta),

@@ -3,8 +3,8 @@ name: Refresh independent player values
 on:
   workflow_dispatch:
   schedule:
-    # Runs only after develop is the repository default branch.
-    - cron: "17 11 * * 2"
+    # Daily UTC check. GitHub runs this only from the default branch.
+    - cron: "17 11 * * *"
 
 concurrency:
   group: refresh-player-values
@@ -67,6 +67,21 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "data: refresh independent player values"
-          git pull --rebase origin develop
+          git commit -m "data: refresh independent player values [skip netlify]"
+          git -c rebase.autostash=true pull --rebase origin develop
+          git push origin HEAD:develop
+
+      - name: Commit slim NFL player file
+        run: |
+          # build.py writes this file. Identical input is identical bytes, so
+          # an unchanged dump stages nothing and this step does not commit.
+          git add docs/data/nfl_players_slim.json
+          if git diff --cached --quiet -- docs/data/nfl_players_slim.json; then
+            echo "Slim player file unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "data: refresh slim NFL players [skip netlify]"
+          git -c rebase.autostash=true pull --rebase origin develop
           git push origin HEAD:develop
