@@ -41,6 +41,9 @@ jobs:
       - name: Build independent values
         run: python3 player-values/build.py
 
+      - name: Archive the dated price snapshot for shared trade links
+        run: python3 scripts/archive_price_snapshot.py
+
       - name: Fail if the refreshed snapshot is still stale
         run: python3 scripts/check_market_files.py --fail-on-age
 
@@ -57,7 +60,7 @@ jobs:
 
       - name: Commit refreshed snapshot
         run: |
-          git add docs/data/player_values.json player-values/validation.json
+          git add docs/data/player_values.json player-values/validation.json docs/data/price-history
           if git diff --cached --quiet; then
             echo "No player-value changes."
             exit 0
