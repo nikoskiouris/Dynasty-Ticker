@@ -214,23 +214,31 @@ test("the desk pushes player routes and restores them on popstate", () => {
   assert.doesNotMatch(app, /onclick=/);
 });
 
-test("spa fallback is one catch-all in netlify.toml after api and data", () => {
+test("spa fallback lists desk routes then a 404 catch-all, after the api rules", () => {
   const toml = readFileSync(join(root, "../netlify.toml"), "utf8");
   const rather = toml.indexOf('from = "/api/rather-vote"');
   const searched = toml.indexOf('from = "/api/searched-user"');
-  const data = toml.indexOf('for = "/data/*"');
+  const players = toml.indexOf('from = "/players"');
+  const trade = toml.indexOf('from = "/trade"');
+  const connect = toml.indexOf('from = "/connect"');
+  const league = toml.indexOf('from = "/l/*"');
+  const player = toml.indexOf('from = "/player/*"');
   const catchAll = toml.indexOf('from = "/*"');
   assert.ok(rather >= 0 && searched > rather);
-  assert.ok(data > searched);
-  assert.ok(catchAll > data);
-  const fallback = toml.slice(catchAll, catchAll + 120);
-  assert.match(fallback, /to = "\/index\.html"/);
-  assert.match(fallback, /status = 200/);
-  assert.doesNotMatch(fallback, /force = true/);
-  assert.equal(toml.split('from = "/*"').length, 2);
-  assert.doesNotMatch(toml, /from = "\/players"/);
-  assert.doesNotMatch(toml, /from = "\/l\/\*"/);
-  assert.doesNotMatch(toml, /from = "\/player\/\*"/);
+  assert.ok(players > searched && trade > players && connect > trade);
+  assert.ok(league > connect && player > league && catchAll > player);
+  for (const from of ['"/players"', '"/trade"', '"/connect"', '"/l/*"', '"/player/*"']) {
+    const at = toml.indexOf(`from = ${from}`);
+    const rule = toml.slice(at, at + 90);
+    assert.match(rule, /to = "\/index\.html"/);
+    assert.match(rule, /status = 200/);
+    assert.doesNotMatch(rule, /force/);
+  }
+  const fallback = toml.slice(catchAll, catchAll + 80);
+  assert.match(fallback, /to = "\/404\.html"/);
+  assert.match(fallback, /status = 404/);
+  assert.doesNotMatch(fallback, /force/);
+  assert.doesNotMatch(toml, /to = "\/index\.html"\s*\n\s*status = 200\s*\n\s*force = true/);
   assert.match(toml, /script-src 'self'/);
   assert.doesNotMatch(toml, /script-src 'unsafe-inline'/);
   const redirects = readFileSync(join(root, "../docs/_redirects"), "utf8");
