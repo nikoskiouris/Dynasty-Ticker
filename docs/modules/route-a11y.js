@@ -46,6 +46,8 @@ export function routeAnnouncement(place = {}, before = {}) {
   if (overlay === "rail" && !changed) return "Menu";
   if (overlay === "player" || player) return player || "Player";
   if (overlay === "public-ranks") return ROUTE_TAB_LABELS.players;
+  const roomLabel = place.tab === "league" ? (ROUTE_ROOM_TITLES[place.view] || "") : "";
+  if (roomLabel) return roomLabel;
   return ROUTE_TAB_LABELS[place.tab] || "";
 }
 

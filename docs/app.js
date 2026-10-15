@@ -6402,7 +6402,7 @@ function renderWeeklyHonors() {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">Weekly Honors</span>
-          <h2>${weekEntry ? `${escapeHtml(weekEntry.label)} ${weekStatusChip(weekEntry)}` : "Weekly honors"}</h2>
+          <h2>Weekly honors</h2>
         </div>
         <p class="section-copy">${weekly?.provisional ? "Games are still in progress, so these are provisional." : "Final-week honors from Sleeper box scores."}</p>
       </div>

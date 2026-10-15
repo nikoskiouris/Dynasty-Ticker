@@ -504,6 +504,15 @@ test("one polite live region announces the route", () => {
     { tab: "players", view: "ranks", playerId: "" },
   ), "Trade");
   assert.equal(routeAnnouncement({ overlay: "help", playerName: "Jahmyr Gibbs" }), "Help");
+  assert.equal(routeAnnouncement({ tab: "league", view: "board" }, { tab: "league", view: "team" }), "League");
+  assert.equal(routeAnnouncement({ tab: "league", view: "scores" }, { tab: "league", view: "board" }), "This week");
+  assert.equal(routeAnnouncement({ tab: "league", view: "activity" }, { tab: "league", view: "scores" }), "Activity");
+  assert.equal(routeAnnouncement({ tab: "league", view: "history" }, { tab: "league", view: "activity" }), "History");
+  assert.equal(routeAnnouncement({ tab: "league", view: "team" }, { tab: "league", view: "history" }), "My League");
+  assert.equal(routeAnnouncement(
+    { tab: "league", view: "scores", overlay: "player", playerName: "Jahmyr Gibbs" },
+    { tab: "league", view: "board" },
+  ), "Jahmyr Gibbs");
 });
 
 test("the desk calls the accessibility hooks and leaves the router alone", () => {
@@ -528,6 +537,12 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.equal(index.split('id="route-announcer"').length - 1, 1);
   assert.match(index, /id="route-announcer"[^>]*aria-live="polite"/);
   assert.match(index, /id="players-tab"[^>]*aria-current="page"/);
+  assert.match(index, /<h1 id="mobile-chrome-title">/);
+  assert.doesNotMatch(index, /<(?:body|html)[^>]*\stabindex/);
+  assert.match(index, /id="workspace"[^>]*tabindex="-1"/);
+  const honors = app.slice(app.indexOf("function renderWeeklyHonors"), app.indexOf("function renderSeasonSuperlatives"));
+  assert.match(honors, /<h2>Weekly honors<\/h2>/);
+  assert.doesNotMatch(honors, /weekStatusChip/);
   assert.doesNotMatch(router, /focusViewHeading|route-announcer|aria-current/);
   assert.match(router, /export function decideHistoryWrite/);
 });
@@ -1027,6 +1042,108 @@ test("cold player and league rooms focus headings at 390 and 1280", { timeout: 4
         if (room === "scores") assert.match(focused.title, /This week/);
       }
     }
+  } finally {
+    pageSocket?.close();
+    browserSocket?.close();
+    server?.close();
+    if (chromeProc && chromeProc.exitCode == null) {
+      try { process.kill(-chromeProc.pid, "SIGKILL"); }
+      catch { chromeProc.kill("SIGKILL"); }
+      await new Promise((resolve) => {
+        if (chromeProc.exitCode != null || chromeProc.signalCode) resolve();
+        else {
+          chromeProc.once("exit", resolve);
+          setTimeout(resolve, 1000);
+        }
+      });
+    }
+    if (chromeDataDir) {
+      try { rmSync(chromeDataDir, { recursive: true, force: true, maxRetries: 3 }); }
+      catch { /* A leftover profile must not fail the assertions. */ }
+    }
+  }
+});
+
+test("trade tab order skips the body and the workspace", { timeout: 60000 }, async (t) => {
+  if (typeof WebSocket === "undefined") {
+    t.skip("WebSocket unavailable");
+    return;
+  }
+  let chromeProc = null;
+  let chromeDataDir = "";
+  let server = null;
+  let browserSocket = null;
+  let pageSocket = null;
+  try {
+    let started;
+    try {
+      started = await launchChrome();
+    } catch (err) {
+      t.skip(`Chrome launch failed: ${err.message}`);
+      return;
+    }
+    chromeProc = started.child;
+    chromeDataDir = started.userDataDir;
+    server = createSiteServer();
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    browserSocket = openCdp(started.ws);
+    const created = await browserSocket.send("Target.createTarget", { url: `${origin}/trade` });
+    const target = await waitForTarget(new URL(started.ws).port, created.targetId);
+    pageSocket = openCdp(target.webSocketDebuggerUrl);
+    await pageSocket.send("Runtime.enable");
+    await pageSocket.send("Emulation.setDeviceMetricsOverride", {
+      width: 1280,
+      height: 800,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    try {
+      await pageSocket.send("Emulation.setFocusEmulationEnabled", { enabled: true });
+    } catch {
+      // Older Chrome still reports sequential focus without this.
+    }
+    await waitForPage(pageSocket, `() => ({
+      ok: Boolean(document.querySelector("#trades-tab")),
+    })`, 15000, "trade shell");
+    await pageEval(pageSocket, () => {
+      window.__stops = [];
+      document.addEventListener("focusin", (event) => {
+        const el = event.target;
+        window.__stops.push(el === document.body ? "BODY" : (el.id || el.tagName));
+      });
+    });
+    for (let i = 0; i < 14; i += 1) {
+      await pageSocket.send("Input.dispatchKeyEvent", {
+        type: "keyDown", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9,
+      });
+      await pageSocket.send("Input.dispatchKeyEvent", {
+        type: "keyUp", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    const stops = await pageEval(pageSocket, () => window.__stops);
+    assert.ok(stops.includes("trades-tab"), JSON.stringify(stops));
+    assert.equal(stops.includes("BODY"), false, JSON.stringify(stops));
+    assert.equal(stops.includes("workspace"), false, JSON.stringify(stops));
+    await pageEval(pageSocket, () => document.querySelector(".skip-link").focus());
+    await pageSocket.send("Input.dispatchKeyEvent", {
+      type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
+    });
+    await pageSocket.send("Input.dispatchKeyEvent", {
+      type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
+    });
+    const skipped = await waitForPage(pageSocket, `() => {
+      const el = document.activeElement;
+      return {
+        ok: el?.id === "workspace" && location.pathname === "/trade",
+        id: el?.id || el?.tagName || "",
+        tab: el?.getAttribute?.("tabindex") || "",
+        path: location.pathname,
+      };
+    }`, 3000, "skip link");
+    assert.equal(skipped.id, "workspace");
+    assert.equal(skipped.path, "/trade");
   } finally {
     pageSocket?.close();
     browserSocket?.close();
