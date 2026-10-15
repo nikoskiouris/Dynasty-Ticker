@@ -15,6 +15,7 @@ import {
   historyPlaceKey,
   isPlayerRouteId,
   isSpaPath,
+  SPA_REWRITES,
   matchRoute,
   pathForPlace,
   playerIdFromPathname,
@@ -184,9 +185,15 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(topOverlay({ player: true }), "player");
   assert.equal(backTarget({ pushed: false }), "home");
   assert.equal(backTarget({ pushed: true }), "history");
-  for (const skipped of ["/api/rather-vote", "/styles.css", "/data/player_values.json", "/ui/landing.html", "/l", "/player", "/player/missing.js", "/l/42/team.js"]) {
+  assert.equal(urlPath(), "/");
+  for (const skipped of ["/api/rather-vote", "/styles.css", "/data/player_values.json", "/ui/landing.html", "/l", "/player", "/nope"]) {
     assert.equal(isSpaPath(skipped), false, skipped);
     assert.equal(resolveLocation(skipped).unknown, true, skipped);
+  }
+  // A placeholder serves these, then the desk sends a bad id home.
+  for (const dotted of ["/player/missing.js", "/player/abc", "/player/0", "/l/12.3", "/l/4.2/team", "/l/42/team.js"]) {
+    assert.equal(isSpaPath(dotted), true, dotted);
+    assert.equal(resolveLocation(dotted).unknown, true, dotted);
   }
   assert.equal(isSpaPath("/player/9221/jahmyr-gibbs"), true);
   assert.equal(isSpaPath("/player/9221"), true);
@@ -195,7 +202,18 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(isSpaPath("/trade"), true);
   assert.equal(isSpaPath("/players"), true);
   assert.equal(isSpaPath("/connect"), true);
+  assert.equal(isSpaPath("/players/"), true);
+  assert.equal(isSpaPath("/trade/"), true);
+  assert.equal(isSpaPath("/connect/"), true);
+  assert.equal(isSpaPath("/l/42/"), true);
+  assert.equal(isSpaPath("/l/42/team/"), true);
+  assert.equal(isSpaPath("/player/9221/"), true);
+  assert.equal(isSpaPath("/player/9221/jahmyr-gibbs/"), true);
+  assert.equal(isSpaPath("/player/"), false);
+  assert.equal(isSpaPath("/l/"), false);
   assert.equal(isSpaPath("/nope"), false);
+  assert.equal(resolveLocation("/player/9221").unknown, false);
+  assert.equal(resolveLocation("/l/42").unknown, false);
   assert.equal(historyModeAfterMenuChoice({ overlay: "rail", pushed: true }), "replace");
   assert.equal(historyModeAfterMenuChoice({ overlay: "rail", pushed: false }), "push");
   assert.equal(historyModeAfterMenuChoice({ overlay: "player", pushed: true }), "push");
@@ -227,43 +245,59 @@ test("the desk pushes player routes and restores them on popstate", () => {
   assert.doesNotMatch(app, /onclick=/);
 });
 
-test("spa fallback lists desk routes then a 404 catch-all, after the api rules", () => {
+function redirectBlocks(toml) {
+  return toml.split("[[redirects]]").slice(1).map((chunk) => chunk.split(/\n\[\[/)[0]);
+}
+
+function redirectField(block, name) {
+  const quoted = block.match(new RegExp(`^\\s*${name}\\s*=\\s*"([^"]*)"`, "m"));
+  if (quoted) return quoted[1];
+  const bare = block.match(new RegExp(`^\\s*${name}\\s*=\\s*(\\S+)`, "m"));
+  return bare ? bare[1] : "";
+}
+
+// A trailing splat ("/*" or "/files/*") is documented. A star in any earlier
+// segment, or beside other characters ("*.*", "file.*"), is a mid-path wildcard.
+function hasMidPathStar(from) {
+  const path = from.startsWith("http://") || from.startsWith("https://") ? new URL(from).pathname : from;
+  const segments = path.split("/");
+  return segments.some((segment, index) => segment.includes("*") && (index !== segments.length - 1 || segment !== "*"));
+}
+
+test("spa fallback lists placeholder routes then a 404 catch-all, after the api rules", () => {
   const toml = readFileSync(join(root, "../netlify.toml"), "utf8");
-  const lineAt = (from) => toml.split("\n").findIndex((line) => line.trim() === `from = ${from}`);
-  const rather = lineAt('"/api/rather-vote"');
-  const searched = lineAt('"/api/searched-user"');
-  const players = lineAt('"/players"');
-  const trade = lineAt('"/trade"');
-  const connect = lineAt('"/connect"');
-  const leagueFile = lineAt('"/l/*.*"');
-  const playerFile = lineAt('"/player/*.*"');
-  const league = lineAt('"/l/*"');
-  const player = lineAt('"/player/*"');
-  const catchAll = lineAt('"/*"');
-  assert.ok(rather >= 0 && searched > rather);
-  assert.ok(players > searched && trade > players && connect > trade);
-  assert.ok(leagueFile > connect && league > leagueFile);
-  assert.ok(playerFile > league && player > playerFile && catchAll > player);
-  for (const from of ['"/players"', '"/trade"', '"/connect"', '"/l/*"', '"/player/*"']) {
-    const at = toml.indexOf(`\n  from = ${from}\n`);
-    const rule = toml.slice(at, at + 90);
-    assert.match(rule, /to = "\/index\.html"/);
-    assert.match(rule, /status = 200/);
-    assert.doesNotMatch(rule, /force/);
+  const blocks = redirectBlocks(toml).map((block) => ({
+    from: redirectField(block, "from"),
+    to: redirectField(block, "to"),
+    status: redirectField(block, "status"),
+    force: redirectField(block, "force") === "true",
+  }));
+  assert.equal(hasMidPathStar("/l/*.*"), true);
+  assert.equal(hasMidPathStar("/player/*.*"), true);
+  assert.equal(hasMidPathStar("/l/*/team"), true);
+  assert.equal(hasMidPathStar("/player/*"), false);
+  assert.equal(hasMidPathStar("/*"), false);
+  for (const rule of blocks) assert.equal(hasMidPathStar(rule.from), false, rule.from);
+  const pages = blocks.filter((rule) => rule.to === "/index.html");
+  assert.deepEqual(pages.map((rule) => rule.from), [...SPA_REWRITES]);
+  for (const rule of pages) {
+    assert.equal(rule.status, "200");
+    assert.equal(rule.force, false);
   }
-  for (const from of ['"/l/*.*"', '"/player/*.*"']) {
-    const at = toml.indexOf(`\n  from = ${from}\n`);
-    const rule = toml.slice(at, at + 80);
-    assert.match(rule, /to = "\/404\.html"/);
-    assert.match(rule, /status = 404/);
-    assert.doesNotMatch(rule, /force/);
-  }
-  const fallback = toml.slice(toml.indexOf('\n  from = "/*"\n'));
-  assert.match(fallback, /to = "\/404\.html"/);
-  assert.match(fallback, /status = 404/);
-  assert.doesNotMatch(fallback, /force/);
+  const forced = blocks.filter((rule) => rule.force);
+  assert.deepEqual(forced.map((rule) => rule.from), [
+    "https://www.dynastyticker.com/*",
+    "/api/rather-vote",
+    "/api/searched-user",
+  ]);
+  assert.ok(blocks.findIndex((rule) => rule.from === "/api/searched-user") < blocks.findIndex((rule) => rule.from === SPA_REWRITES[0]));
+  const catchAll = blocks.at(-1);
+  assert.equal(catchAll.from, "/*");
+  assert.equal(catchAll.to, "/404.html");
+  assert.equal(catchAll.status, "404");
+  assert.equal(catchAll.force, false);
+  assert.equal(blocks.filter((rule) => rule.from === "/*").length, 1);
   assert.doesNotMatch(toml, /to = "\/index\.html"\s*\n\s*status = 200\s*\n\s*force = true/);
-  assert.equal(toml.split("\n").filter((line) => line.trim() === 'from = "/*"').length, 1);
   assert.match(toml, /script-src 'self'/);
   assert.doesNotMatch(toml, /script-src 'unsafe-inline'/);
   const redirects = readFileSync(join(root, "../docs/_redirects"), "utf8");

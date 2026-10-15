@@ -15,13 +15,23 @@ test("npm run serve and the e2e use the spa fallback server", () => {
   assert.match(playwright, /command:\s*"npm run serve"/);
 });
 
-test("extensionless app routes fall back to index.html and dotted paths 404", () => {
+test("placeholder app routes fall back to index.html and other misses 404", () => {
   assert.equal(classifyRequest("/players").status, 200);
   assert.match(classifyRequest("/players").file, /index\.html$/);
   assert.equal(classifyRequest("/player/9221").status, 200);
+  assert.equal(classifyRequest("/player/9221/jahmyr-gibbs").status, 200);
+  assert.equal(classifyRequest("/l/1360686137898700800").status, 200);
   assert.equal(classifyRequest("/l/1360686137898700800/team").status, 200);
   assert.equal(classifyRequest("/trade").status, 200);
+  assert.equal(classifyRequest("/connect").status, 200);
   assert.equal(classifyRequest("/").status, 200);
+
+  // :id and :view match a segment like x.js. The app router sends those home.
+  for (const placeholder of ["/player/missing.js", "/l/12.3", "/l/42/team.js"]) {
+    const hit = classifyRequest(placeholder);
+    assert.equal(hit.status, 200, placeholder);
+    assert.match(hit.file, /index\.html$/, placeholder);
+  }
 
   const missingData = classifyRequest("/data/does-not-exist.json");
   assert.equal(missingData.status, 404);
@@ -36,10 +46,13 @@ test("extensionless app routes fall back to index.html and dotted paths 404", ()
   assert.match(classifyRequest("/nope").file, /404\.html$/);
   assert.equal(classifyRequest("/l").status, 404);
   assert.equal(classifyRequest("/player").status, 404);
-  const playerFile = classifyRequest("/player/missing.js");
-  assert.equal(playerFile.status, 404);
-  assert.match(playerFile.file, /404\.html$/);
-  assert.doesNotMatch(playerFile.file, /index\.html$/);
+  assert.equal(classifyRequest("/player/").status, 404);
+  assert.equal(classifyRequest("/l/").status, 404);
+  for (const slash of ["/players/", "/trade/", "/connect/", "/l/42/", "/l/42/team/", "/player/9221/", "/player/9221/jahmyr-gibbs/"]) {
+    const hit = classifyRequest(slash);
+    assert.equal(hit.status, 200, slash);
+    assert.match(hit.file, /index\.html$/, slash);
+  }
   assert.equal(classifyRequest("/api/rather-vote").status, 404);
 
   const css = classifyRequest("/styles.css");
@@ -72,6 +85,14 @@ test("the spa server returns 404 for /data misses and extension paths", async ()
     const missingJs = await fetch(`http://127.0.0.1:${port}/not-a-real-file.js`);
     assert.equal(missingJs.status, 404);
     assert.match(await missingJs.text(), /Page not found/);
+
+    const playerFile = await fetch(`http://127.0.0.1:${port}/player/missing.js`);
+    assert.equal(playerFile.status, 200);
+    assert.match(await playerFile.text(), /id="ui-pages"/);
+
+    const playersSlash = await fetch(`http://127.0.0.1:${port}/players/`);
+    assert.equal(playersSlash.status, 200);
+    assert.match(await playersSlash.text(), /id="ui-pages"/);
 
     const realCss = await fetch(`http://127.0.0.1:${port}/styles.css`);
     assert.equal(realCss.status, 200);

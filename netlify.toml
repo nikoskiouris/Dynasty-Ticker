@@ -38,7 +38,7 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app https://fonts.googleapis.com https://fonts.gstatic.com; form-action 'self'; frame-src 'none'"
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'"
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
 
@@ -50,18 +50,33 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
-# Extensionless app routes only. Not forced, so a real file still wins.
-# /data misses and any other path, including one with a file extension,
-# hit the /* rule and return 404.html instead of index.html.
-# SPA routes only. Not a catch-all rewrite to the app: /* stays a 404 so
-# /api, functions, and static files are not rewritten to index.html.
+# Documented rewrites only: a fixed path or one :placeholder per segment.
+# Not forced, so a real file still wins. /* is the only splat, and it is
+# the 404 catch-all, so /api, functions, and static files stay put.
+# A placeholder also matches a segment like x.js. The app treats a
+# non-numeric player id or a league id with a dot as unknown and sends it home.
 [[redirects]]
-  from = "/players"
+  from = "/player/:id"
   to = "/index.html"
   status = 200
 
 [[redirects]]
-  from = "/players/"
+  from = "/player/:id/:slug"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/l/:id"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/l/:id/:view"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/players"
   to = "/index.html"
   status = 200
 
@@ -71,12 +86,17 @@
   status = 200
 
 [[redirects]]
-  from = "/trade/"
+  from = "/connect"
   to = "/index.html"
   status = 200
 
 [[redirects]]
-  from = "/connect"
+  from = "/players/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/trade/"
   to = "/index.html"
   status = 200
 
@@ -85,24 +105,23 @@
   to = "/index.html"
   status = 200
 
-# A dotted path under these prefixes is a missing file, not a desk route.
 [[redirects]]
-  from = "/l/*.*"
-  to = "/404.html"
-  status = 404
-
-[[redirects]]
-  from = "/l/*"
+  from = "/l/:id/"
   to = "/index.html"
   status = 200
 
 [[redirects]]
-  from = "/player/*.*"
-  to = "/404.html"
-  status = 404
+  from = "/l/:id/:view/"
+  to = "/index.html"
+  status = 200
 
 [[redirects]]
-  from = "/player/*"
+  from = "/player/:id/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/player/:id/:slug/"
   to = "/index.html"
   status = 200
 

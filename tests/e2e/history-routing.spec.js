@@ -128,6 +128,8 @@ test("cold player link can find leagues", async ({ page }) => {
   await expect(connect).toBeVisible();
   const box = await connect.boundingBox();
   expect(box.y).toBeLessThan(240);
+  const inputBox = await connect.locator("input").boundingBox();
+  expect(inputBox.height).toBeGreaterThanOrEqual(44);
   await connect.locator("input").fill("tickerfan");
   await connect.locator("button").click();
   const list = connect.locator("xpath=ancestor::*[@data-player-connect-slot]").locator("[data-player-league-list]");
