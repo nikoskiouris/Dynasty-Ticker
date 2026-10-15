@@ -47,12 +47,15 @@
   status = 200
   force = true
 
+# Keep these /* values identical to netlify/lib/security-headers.js, which
+# the asset-404 edge function sets on its own response. tests check they match.
 [[headers]]
   for = "/*"
   [headers.values]
     Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'"
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
 
 # data/*.json is not fingerprinted. player_values.json is about 2.9MB.
 # max-age=0 lets the browser revalidate instead of keeping a stale price file.

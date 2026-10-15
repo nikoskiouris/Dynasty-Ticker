@@ -237,7 +237,8 @@ test("docs pages have no inline handlers, inline scripts, eval, or third-party s
     for (const sheet of html.matchAll(/<link\b[^>]*\brel=["']stylesheet["'][^>]*>/gi)) {
       const href = sheet[0].match(/\bhref=["']([^"']+)["']/i);
       assert.ok(href, label);
-      assert.match(href[1], /^(?:\.\/|https:\/\/fonts\.googleapis\.com\/)/, `${label} ${href[1]}`);
+      // Same origin only: ./x or a root path /x (not protocol-relative //x).
+      assert.match(href[1], /^(?:\.\/|\/(?!\/)|https:\/\/fonts\.googleapis\.com\/)/, `${label} ${href[1]}`);
     }
   }
   for (const path of scripts) {

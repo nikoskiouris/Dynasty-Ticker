@@ -1,4 +1,5 @@
 import { isAssetLikePath } from "../../docs/modules/asset-path.js";
+import { SECURITY_HEADERS } from "../lib/security-headers.js";
 
 // Runs on /player/* and /l/* only (netlify.toml). A real page passes through
 // to the rewrites. A file-like path gets the 404 page with a real 404 status.
@@ -18,7 +19,7 @@ export async function asset404(request, next, fetchImpl = fetch) {
   }
   return new Response(body, {
     status: 404,
-    headers: { "content-type": type, "cache-control": "public, max-age=0, must-revalidate", "x-content-type-options": "nosniff" },
+    headers: { ...SECURITY_HEADERS, "content-type": type, "cache-control": "public, max-age=0, must-revalidate" },
   });
 }
 
