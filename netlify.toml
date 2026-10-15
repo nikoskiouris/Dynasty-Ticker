@@ -50,8 +50,21 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
-# One SPA fallback, after /api and /data. Not forced, so a real file
-# (styles, /data/*.json, functions) still wins over index.html.
+# Missing /data files and any path with an extension 404.
+# Not forced, so a real file (styles, /data/*.json) still wins.
+# Only extensionless app routes fall through to index.html.
+[[redirects]]
+  from = "/data/*"
+  to = "/404.html"
+  status = 404
+
+[[redirects]]
+  from = "/*.*"
+  to = "/404.html"
+  status = 404
+
+# One SPA fallback, after /api, /data, and extension paths.
+# Not forced, so an existing extensionless file still wins.
 [[redirects]]
   from = "/*"
   to = "/index.html"

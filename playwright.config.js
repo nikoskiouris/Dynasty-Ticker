@@ -8,7 +8,7 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:4173",
   },
   webServer: {
-    command: "node scripts/serve_site.mjs",
+    command: "npm run serve",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: false,
     timeout: 15000,

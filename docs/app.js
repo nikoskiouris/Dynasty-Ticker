@@ -365,6 +365,7 @@ import {
   RANK_PAGE_SIZE,
   rankFormatLabel,
   rankView,
+  renderPlayerConnect,
   renderRanksBody,
   renderRanksMarkup,
   renderRanksToolbar,
@@ -634,6 +635,16 @@ document.getElementById("desk-load-retry")?.addEventListener("click", retryFaile
 document.getElementById("desk-load-dismiss")?.addEventListener("click", dismissFailedLeagueLoad);
 el.leaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingLeaguePicker?.addEventListener("click", handleLeaguePickClick);
+el.workspace?.addEventListener("click", (event) => {
+  if (!event.target.closest?.("[data-player-league-list]")) return;
+  handleLeaguePickClick(event);
+});
+el.workspace?.addEventListener("submit", (event) => {
+  const form = event.target?.closest?.("[data-player-connect]");
+  if (!form || !el.workspace.contains(form)) return;
+  event.preventDefault();
+  void openPlayerLeagueList(form);
+});
 el.landingJobs?.addEventListener("click", handleLandingJobClick);
 el.leagueLoadForm?.addEventListener("submit", requestLoadLeague);
 el.loadLeagueBtn?.addEventListener("pointerdown", handleLoadLeaguePointerDown);
@@ -1298,6 +1309,7 @@ function renderRankHost(host) {
   if (!view.loading) paintRankToolbar(toolbar, view, typing);
   const body = host.querySelector("[data-ranks-body]");
   if (body && !view.loading) body.innerHTML = renderRanksBody(view);
+  syncPlayerConnectSlot(host, view);
   bindRatherPhotos(host);
   if (view.card?.kind === "player" && view.card?.name) {
     canonicalizePlayerUrl(view.card.playerId || view.card.assetId, view.card.name);
@@ -2329,7 +2341,44 @@ function requestFindLeagues(event) {
     void loadLeagueById(classified.leagueId);
     return;
   }
-  void searchUserLeagues(classified.username);
+  return searchUserLeagues(classified.username);
+}
+
+function syncPlayerConnectSlot(host, view) {
+  const anchor = host?.closest?.("#ranks-section, #public-ranks") || host;
+  if (!anchor) return;
+  let slot = anchor.querySelector(":scope > [data-player-connect-slot]");
+  if (!slot) {
+    slot = document.createElement("div");
+    slot.setAttribute("data-player-connect-slot", "");
+    anchor.prepend(slot);
+  }
+  const want = Boolean(view?.card && !view.leagueOpen && !view.loading);
+  if (!want) {
+    if (slot.childElementCount) slot.replaceChildren();
+    return;
+  }
+  if (slot.querySelector("[data-player-connect]")) return;
+  slot.innerHTML = renderPlayerConnect();
+}
+
+async function openPlayerLeagueList(form) {
+  const input = form.querySelector("input");
+  const name = String(input?.value || "").trim();
+  if (!name) {
+    input?.focus();
+    return;
+  }
+  if (el.landingUsername) el.landingUsername.value = name;
+  syncUsernameFields(el.landingUsername);
+  document.querySelector("#landing")?.classList.add("hidden");
+  await requestFindLeagues();
+  const host = form.closest("[data-player-connect-slot]")?.querySelector("[data-player-league-list]");
+  if (!host || !el.landingLeaguePicker) return;
+  host.innerHTML = el.landingLeaguePicker.innerHTML;
+  const show = Boolean(host.innerHTML.trim()) && !el.landingLeaguePicker.classList.contains("hidden");
+  host.hidden = !show;
+  host.classList.toggle("hidden", !show);
 }
 
 function isPrimaryPointer(event) {
