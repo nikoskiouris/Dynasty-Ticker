@@ -690,6 +690,56 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
   }
 });
 
+test("trade chip prices use token colors at 4.5:1", () => {
+  const css = readDocs("styles.css");
+  const rule = css.match(/\.selected-token-price\s*\{([^}]*)\}/)?.[1] || "";
+  const opacity = Number((rule.match(/opacity:\s*([0-9.]+)/) || [, "1"])[1]);
+  const decl = (name) => {
+    const match = css.match(new RegExp(`${name}\\s*:\\s*([^;]+);`));
+    assert.ok(match, name);
+    return match[1].trim();
+  };
+  const parse = (value) => {
+    const hex = value.match(/^#([0-9a-f]{6})$/i);
+    if (hex) {
+      const n = Number.parseInt(hex[1], 16);
+      return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, a: 1 };
+    }
+    const rgba = value.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/i);
+    assert.ok(rgba, value);
+    return { r: Number(rgba[1]), g: Number(rgba[2]), b: Number(rgba[3]), a: rgba[4] == null ? 1 : Number(rgba[4]) };
+  };
+  const over = (top, bottom) => ({
+    r: top.r * top.a + bottom.r * (1 - top.a),
+    g: top.g * top.a + bottom.g * (1 - top.a),
+    b: top.b * top.a + bottom.b * (1 - top.a),
+    a: 1,
+  });
+  const lum = ({ r, g, b }) => {
+    const ch = [r, g, b].map((v) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+  };
+  const ratio = (fg, bg) => {
+    const hi = Math.max(lum(fg), lum(bg));
+    const lo = Math.min(lum(fg), lum(bg));
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const panel = parse(decl("--panel"));
+  const paint = (paneTint, chipTint, ink) => {
+    const pane = over(parse(paneTint), panel);
+    const chip = over(parse(chipTint), pane);
+    const text = over({ ...parse(ink), a: opacity }, chip);
+    return ratio(text, chip);
+  };
+  const give = paint(decl("--team-a-soft"), decl("--blue-soft"), decl("--blue"));
+  const get = paint(decl("--team-b-soft"), decl("--team-b-soft"), decl("--team-b"));
+  assert.ok(give >= 4.5, `give price contrast ${give}`);
+  assert.ok(get >= 4.5, `get price contrast ${get}`);
+});
+
 test("density: a failed assertion is not a Chrome launch failure", () => {
   assert.equal(isChromeLaunchFailure(new ChromeLaunchError("Chrome did not open a debug port")), true);
   let assertion;

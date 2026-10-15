@@ -526,6 +526,13 @@ test("wide board can shut so the page fills the screen", () => {
   assert.match(css, /html\.desk-shut \.workspace \{[^}]*grid-column:\s*1/s);
   assert.match(css, /html\.desk-shut \.control-rail \{[^}]*display:\s*none !important/s);
   assert.match(css, /Wide board shuts so the page fills the screen/);
+  assert.match(index, /id="mobile-rail-close"[^>]*tabindex="-1"/);
+  const deskShut = app.slice(app.indexOf("function setDeskBoardShut"), app.indexOf("function setMobileRailOpen"));
+  assert.match(deskShut, /deskBoardClose\?\.setAttribute\("tabindex", "-1"\)/);
+  assert.match(deskShut, /deskBoardClose\?\.removeAttribute\("tabindex"\)/);
+  const rail = app.slice(app.indexOf("function setMobileRailOpen"), app.indexOf("function scrollChildIntoStrip"));
+  assert.match(rail, /mobileRailClose\?\.setAttribute\("tabindex", "-1"\)/);
+  assert.match(rail, /mobileRailClose\?\.removeAttribute\("tabindex"\)/);
 });
 
 test("each desk page is its own file and boot mounts them before the app", () => {

@@ -2086,6 +2086,8 @@ function setDeskBoardShut(shut) {
   const next = Boolean(shut);
   document.documentElement.classList.toggle("desk-shut", next);
   el.deskBoardOpen?.setAttribute("aria-expanded", String(!next));
+  if (next) el.deskBoardClose?.setAttribute("tabindex", "-1");
+  else el.deskBoardClose?.removeAttribute("tabindex");
   if (!isPhoneLayout() && el.controlRail) {
     if (next) el.controlRail.setAttribute("inert", "");
     else el.controlRail.removeAttribute("inert");
@@ -2120,6 +2122,8 @@ function setMobileRailOpen(open, { history = "auto" } = {}) {
     el.controlRail.removeAttribute("aria-hidden");
     el.controlRail.removeAttribute("inert");
   }
+  if (shouldOpen) el.mobileRailClose?.removeAttribute("tabindex");
+  else el.mobileRailClose?.setAttribute("tabindex", "-1");
   syncSiteDock();
   if (history === "silent" || applyingHistory) return;
   if (shouldOpen && !wasOpen) updateUrlState({ mode: "push" });

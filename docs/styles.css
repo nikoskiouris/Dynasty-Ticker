@@ -4169,7 +4169,7 @@ button.weekly-help-close:hover {
 .selected-token-price {
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
-  opacity: 0.8;
+  color: inherit;
 }
 
 .selected-token.is-mismatch,
