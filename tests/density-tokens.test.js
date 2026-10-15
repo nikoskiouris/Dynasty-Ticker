@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { removeTempDir, stopChrome } from "./support/temp-dir.js";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -456,26 +457,7 @@ function launchChrome(bin) {
   proc.stderr.on("data", (chunk) => {
     stderr += chunk.toString();
   });
-  const exited = new Promise((resolve) => {
-    if (proc.exitCode != null) resolve();
-    else proc.once("exit", () => resolve());
-  });
-  const stop = async () => {
-    try {
-      proc.kill("SIGKILL");
-    } catch {
-      /* already gone */
-    }
-    await exited;
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-      try {
-        rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 40 });
-        return;
-      } catch {
-        await new Promise((resolve) => setTimeout(resolve, 40 * (attempt + 1)));
-      }
-    }
-  };
+  const stop = () => stopChrome(proc, dir);
   return {
     stop,
     endpoint: async () => {
@@ -686,7 +668,7 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
       throw error;
     }
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    await removeTempDir(dir);
   }
 });
 
