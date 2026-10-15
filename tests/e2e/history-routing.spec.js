@@ -72,7 +72,13 @@ test("cold load of /player/<id> opens that player", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const playerUrl = await openGibbs(page);
   const path = new URL(playerUrl).pathname;
-  await page.goto(path);
-  await expect(page.locator(".ranks-card h2")).toHaveText("Jahmyr Gibbs", { timeout: 30000 });
-  await expect(page).toHaveURL(new RegExp(`${path}$`));
+  const cold = await page.context().newPage();
+  await cold.setViewportSize({ width: 390, height: 844 });
+  await cold.goto(path);
+  await expect(cold.locator(".ranks-card h2")).toHaveText("Jahmyr Gibbs", { timeout: 30000 });
+  await expect(cold).toHaveURL(/\/player\/\d+/);
+  await cold.locator(".player-back").click();
+  await expect(cold).toHaveURL(/\/$/);
+  await expect(cold.locator(".ranks-card")).toHaveCount(0);
+  await expect(cold.locator("#landing")).toBeVisible();
 });

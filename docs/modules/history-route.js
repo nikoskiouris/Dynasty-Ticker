@@ -4,23 +4,30 @@ import { isRankAssetId } from "./ranks.js";
 // Every pathname is built from this prefix. Empty means the site root.
 export const BASE = "";
 
-// Boot home. A reserved path with no desk section opens this view.
+// Boot home. Unknown paths and `/` open this view.
 export const HOME_PLACE = Object.freeze({
   page: DEFAULT_PAGE,
   room: DEFAULT_ROOMS[DEFAULT_PAGE],
 });
 
-// One line per top-level section. page null → no desk section yet → home.
+// One line per route. Add a future section by appending a line.
+// :slug? is cosmetic. Closest current desk place is page + room.
 export const ROUTES = Object.freeze([
-  { path: "trade", page: "trades", room: "calculator" },
-  { path: "team", page: "league", room: "team" },
-  { path: "history", page: "league", room: "history" },
-  { path: "plan", page: null, room: null },
+  { name: "home", pattern: "/", page: "players", room: "ranks" },
+  { name: "players", pattern: "/players", page: "players", room: "ranks" },
+  { name: "trade", pattern: "/trade", page: "trades", room: "calculator" },
+  { name: "connect", pattern: "/connect", page: "players", room: "ranks" },
+  { name: "league", pattern: "/l/:leagueId", page: "league", room: "team" },
+  { name: "team", pattern: "/l/:leagueId/team", page: "league", room: "team" },
+  { name: "ideas", pattern: "/l/:leagueId/ideas", page: "trades", room: "find" },
+  { name: "leagueBoard", pattern: "/l/:leagueId/league", page: "league", room: "board" },
+  { name: "player", pattern: "/player/:sleeperId/:slug?", page: "players", room: "ranks" },
 ]);
 
-// Sleeper player ids are digits. Picks keep their asset id. Nothing else is a route.
 const ROUTE_ID = /^(?:\d{1,12}|player:\d+|pick:\d{4}:r\d+:(?:any|early|mid|late))$/;
-const PLAYER_SEGMENT = "player";
+const SLEEPER_ID = /^\d{1,12}$/;
+const LEAGUE_ID = /^\d{1,20}$/;
+const ASSET_ID = /^(?:player:\d{1,12}|pick:\d{4}:r\d+:(?:any|early|mid|late))$/;
 
 export function urlPath(...segments) {
   const base = String(BASE).replace(/\/+$/g, "");
@@ -33,6 +40,21 @@ export function urlPath(...segments) {
 
 export function isPlayerRouteId(value) {
   return ROUTE_ID.test(String(value || "").trim());
+}
+
+export function playerSlug(name) {
+  return String(name || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+export function sleeperIdFrom(value) {
+  const id = String(value || "").trim().replace(/^player:/, "");
+  return SLEEPER_ID.test(id) ? id : "";
 }
 
 export function routeIdFromAsset(assetId) {
@@ -50,58 +72,208 @@ export function routeIdFromPlayer(playerId) {
 export function assetIdFromRoute(routeId) {
   const id = String(routeId || "").trim();
   if (!isPlayerRouteId(id)) return "";
-  if (/^\d{1,12}$/.test(id)) return `player:${id}`;
+  if (SLEEPER_ID.test(id)) return `player:${id}`;
   return isRankAssetId(id) ? id : "";
 }
 
-export function playerPathname(routeId) {
-  const id = String(routeId || "").trim();
-  if (!isPlayerRouteId(id)) return "";
-  return urlPath(PLAYER_SEGMENT, encodeURIComponent(id));
+export function parseAssetList(raw) {
+  return String(raw || "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter((id) => ASSET_ID.test(id))
+    .slice(0, 12);
 }
 
-export function matchRoute(pathname) {
+export function tradeHref(give = [], get = [], leagueId = "") {
+  const params = new URLSearchParams();
+  const giveIds = parseAssetList(Array.isArray(give) ? give.join(",") : give);
+  const getIds = parseAssetList(Array.isArray(get) ? get.join(",") : get);
+  if (giveIds.length) params.set("give", giveIds.join(","));
+  if (getIds.length) params.set("get", getIds.join(","));
+  if (LEAGUE_ID.test(String(leagueId || ""))) params.set("league", String(leagueId));
+  const query = params.toString();
+  return `${urlPath("trade")}${query ? `?${query}` : ""}`;
+}
+
+export function playerPathname(routeId, name = "") {
+  const id = sleeperIdFrom(routeId);
+  if (!id) return "";
+  const slug = playerSlug(name);
+  return slug ? urlPath("player", id, slug) : urlPath("player", id);
+}
+
+function pathBits(pathname) {
   const raw = String(pathname || "").split("?")[0];
   const base = String(BASE).replace(/\/+$/g, "");
-  let path = raw;
+  let path = raw || "/";
   if (base) {
     if (path !== base && !path.startsWith(`${base}/`)) return null;
     path = path.slice(base.length) || "/";
   }
-  const bits = path.split("/").filter(Boolean);
-  if (bits[0] === PLAYER_SEGMENT && bits.length === 2) {
-    let id = "";
-    try {
-      id = decodeURIComponent(bits[1]);
-    } catch {
-      return null;
-    }
-    if (!isPlayerRouteId(id)) return null;
-    return { path: PLAYER_SEGMENT, page: "players", room: "ranks", playerId: id, home: false };
-  }
-  if (bits.length !== 1) return null;
-  const row = ROUTES.find((route) => route.path === bits[0]);
-  if (!row) return null;
-  if (!row.page) {
-    return { path: row.path, page: HOME_PLACE.page, room: HOME_PLACE.room, playerId: "", home: true };
-  }
-  return { path: row.path, page: row.page, room: row.room, playerId: "", home: false };
+  return path.split("/").filter(Boolean);
 }
 
-export function pathForPlace({ page = "", room = "", playerId = "" } = {}) {
-  const id = isPlayerRouteId(playerId) ? String(playerId).trim() : "";
-  if (id) return urlPath(PLAYER_SEGMENT, encodeURIComponent(id));
-  const row = ROUTES.find((route) => route.page === page && route.room === room);
-  if (row) return urlPath(row.path);
-  return urlPath();
+function decodePart(value) {
+  try {
+    return decodeURIComponent(String(value || ""));
+  } catch {
+    return "";
+  }
+}
+
+function patternScore(pattern) {
+  const parts = String(pattern || "").split("/").filter(Boolean);
+  const fixed = parts.filter((part) => !part.startsWith(":")).length;
+  return fixed * 10 + parts.length;
+}
+
+function matchPattern(bits, pattern) {
+  const parts = String(pattern || "").split("/").filter(Boolean);
+  const params = {};
+  let index = 0;
+  for (const token of parts) {
+    const optional = token.endsWith("?");
+    const name = token.replace(/^\??:/, "").replace(/\?$/, "");
+    if (token.startsWith(":")) {
+      if (index >= bits.length) {
+        if (optional) return params;
+        return null;
+      }
+      params[name] = bits[index];
+      index += 1;
+      continue;
+    }
+    if (bits[index] !== token) return null;
+    index += 1;
+  }
+  if (index !== bits.length) return null;
+  return params;
+}
+
+function blankRoute(extra = {}) {
+  return {
+    name: "home",
+    page: HOME_PLACE.page,
+    room: HOME_PLACE.room,
+    leagueId: "",
+    playerId: "",
+    slug: "",
+    give: [],
+    get: [],
+    next: "",
+    unknown: false,
+    legacy: "",
+    ...extra,
+  };
+}
+
+const ORDERED_ROUTES = Object.freeze(
+  [...ROUTES].sort((left, right) => patternScore(right.pattern) - patternScore(left.pattern)),
+);
+
+export function matchRoute(pathname, search = "") {
+  const bits = pathBits(pathname);
+  if (!bits) return null;
+  const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+  for (const row of ORDERED_ROUTES) {
+    const found = matchPattern(bits, row.pattern);
+    if (!found) continue;
+    const leagueId = found.leagueId ? decodePart(found.leagueId) : "";
+    const playerId = found.sleeperId ? decodePart(found.sleeperId) : "";
+    const slug = found.slug ? decodePart(found.slug) : "";
+    if (found.leagueId && !LEAGUE_ID.test(leagueId)) return null;
+    if (found.sleeperId && !SLEEPER_ID.test(playerId)) return null;
+    return blankRoute({
+      name: row.name,
+      page: row.page,
+      room: row.room,
+      leagueId,
+      playerId,
+      slug,
+      give: row.name === "trade" ? parseAssetList(params.get("give")) : [],
+      get: row.name === "trade" ? parseAssetList(params.get("get")) : [],
+      next: row.name === "connect" ? safeNext(params.get("next")) : "",
+    });
+  }
+  return null;
+}
+
+// Same-site path only. Rejects connect loops and off-site targets.
+export function safeNext(value) {
+  const raw = String(value || "").trim();
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) return "";
+  let url;
+  try {
+    url = new URL(raw, "http://desk.local");
+  } catch {
+    return "";
+  }
+  if (url.origin !== "http://desk.local") return "";
+  const hit = matchRoute(url.pathname, url.search);
+  if (!hit || hit.name === "home" || hit.name === "connect") return "";
+  if (hit.name === "player") return playerPathname(hit.playerId, hit.slug);
+  if (hit.name === "trade") return tradeHref(hit.give, hit.get);
+  if (hit.name === "players") return urlPath("players");
+  if (hit.name === "ideas") return urlPath("l", hit.leagueId, "ideas");
+  if (hit.name === "leagueBoard") return urlPath("l", hit.leagueId, "league");
+  if (hit.leagueId) return urlPath("l", hit.leagueId, "team");
+  return "";
+}
+
+// Legacy `?ranks=1` opens /players. Anything else unknown opens home.
+export function resolveLocation(pathname = "/", search = "") {
+  const [pathOnly, inline = ""] = String(pathname || "/").split("?");
+  const params = new URLSearchParams(String(search || inline).replace(/^\?/, ""));
+  if (params.get("ranks") === "1") {
+    return blankRoute({ name: "players", legacy: "ranks" });
+  }
+  return matchRoute(pathOnly, search || inline) || blankRoute({ unknown: true });
+}
+
+export function pathForPlace({
+  page = "",
+  room = "",
+  playerId = "",
+  playerName = "",
+  leagueId = "",
+  give = [],
+  get = [],
+  landing = false,
+} = {}) {
+  const sleeperId = sleeperIdFrom(playerId);
+  if (sleeperId) return playerPathname(sleeperId, playerName);
+  if (page === "trades" && room === "calculator") return tradeHref(give, get, leagueId);
+  if (page === "trades" && room === "find" && LEAGUE_ID.test(String(leagueId || ""))) {
+    return urlPath("l", leagueId, "ideas");
+  }
+  if (page === "league" && room === "board" && LEAGUE_ID.test(String(leagueId || ""))) {
+    return urlPath("l", leagueId, "league");
+  }
+  if (page === "league" && room === "team" && LEAGUE_ID.test(String(leagueId || ""))) {
+    return urlPath("l", leagueId, "team");
+  }
+  if (page === "players" && room === "ranks" && !landing) return urlPath("players");
+  if (page === "players" && room === "ranks" && landing) return urlPath();
+  return "";
 }
 
 export function playerIdFromPathname(pathname) {
-  return matchRoute(pathname)?.playerId || "";
+  const hit = matchRoute(pathname);
+  return hit?.name === "player" ? hit.playerId : "";
 }
 
+// Paths the static server and Netlify may rewrite to index.html.
+// Files that exist still win. This is not a catch-all.
 export function isSpaPath(pathname) {
-  return Boolean(matchRoute(pathname));
+  const bits = pathBits(pathname);
+  if (!bits?.length) return false;
+  if (bits[0] === "l" || bits[0] === "player") return true;
+  return bits.length === 1 && (bits[0] === "trade" || bits[0] === "players" || bits[0] === "connect");
+}
+
+// Cold deep links have no pushed entry, so the header arrow goes home.
+export function backTarget({ pushed = false } = {}) {
+  return pushed ? "history" : "home";
 }
 
 export function buildHistoryPlace({
@@ -141,7 +313,7 @@ export function sameHistoryPlace(left, right) {
   return historyPlaceKey(left) === historyPlaceKey(right);
 }
 
-// Re-rendering the same tab or the same open player must not push another entry.
+// Screen changes and overlay opens push. Filters and give/get edits replace.
 export function decideHistoryWrite({ current, next, mode = "replace" } = {}) {
   if (mode === "silent") return "silent";
   if (mode === "push" && !sameHistoryPlace(current, next)) return "push";
@@ -153,14 +325,18 @@ export function selectionFromLocation({
   historyState = null,
   parsedAsset = "",
 } = {}) {
-  const routeId = playerIdFromPathname(pathname);
+  const fromPath = playerIdFromPathname(pathname);
+  const fromState = isPlayerRouteId(historyState?.playerId)
+    ? String(historyState.playerId).trim().replace(/^player:/, "")
+    : "";
+  const routeId = fromPath || fromState;
   const assetId = assetIdFromRoute(routeId);
   const overlay = String(historyState?.overlay || "");
   const tab = String(historyState?.tab || "");
   const view = String(historyState?.view || "");
   const sheet = Boolean(routeId) && (
     overlay === "help"
-    || (overlay === "player" && tab === "league" && view === "team")
+    || (!fromPath && overlay === "player" && tab === "league" && view === "team")
   );
   const rankAsset = assetId && !sheet
     ? assetId
@@ -172,6 +348,6 @@ export function selectionFromLocation({
     helpOpen: overlay === "help",
     railOpen: overlay === "rail",
     publicRanks: overlay === "public-ranks",
-    playerOpen: Boolean(routeId) && !sheet && overlay !== "rail",
+    playerOpen: Boolean(fromPath) && !sheet && overlay !== "rail",
   };
 }

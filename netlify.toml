@@ -35,9 +35,19 @@
   status = 200
   force = true
 
-# Reserved desk paths. Exact matches only, after /api, so functions and
-# static files (/styles.css, /data/*, /ui/*) are not swallowed.
-# /plan has no desk section yet; the app opens the home view.
+# SPA routes only. Not a catch-all: /* stays a 404 so /api, functions,
+# and static files are not rewritten to index.html. Rules are not forced,
+# so a real file still wins.
+[[redirects]]
+  from = "/players"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/players/"
+  to = "/index.html"
+  status = 200
+
 [[redirects]]
   from = "/trade"
   to = "/index.html"
@@ -49,36 +59,20 @@
   status = 200
 
 [[redirects]]
-  from = "/team"
+  from = "/connect"
   to = "/index.html"
   status = 200
 
 [[redirects]]
-  from = "/team/"
+  from = "/connect/"
   to = "/index.html"
   status = 200
 
 [[redirects]]
-  from = "/plan"
+  from = "/l/*"
   to = "/index.html"
   status = 200
 
-[[redirects]]
-  from = "/plan/"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/history"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/history/"
-  to = "/index.html"
-  status = 200
-
-# Player pages are real URLs. The app reads /player/<id> after this rewrite.
 [[redirects]]
   from = "/player/*"
   to = "/index.html"

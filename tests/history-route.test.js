@@ -8,38 +8,47 @@ import {
   HOME_PLACE,
   ROUTES,
   assetIdFromRoute,
+  backTarget,
   buildHistoryPlace,
   decideHistoryWrite,
   historyPlaceKey,
   isPlayerRouteId,
+  isSpaPath,
   matchRoute,
   pathForPlace,
   playerIdFromPathname,
   playerPathname,
+  playerSlug,
+  resolveLocation,
   routeIdFromAsset,
+  safeNext,
   sameHistoryPlace,
   selectionFromLocation,
+  tradeHref,
   urlPath,
 } from "../docs/modules/history-route.js";
 
 const root = dirname(fileURLToPath(import.meta.url));
 
-test("player urls are /player/<id> and reject junk", () => {
+test("player urls are /player/<id>/<slug> and reject junk", () => {
   assert.equal(routeIdFromAsset("player:9221"), "9221");
+  assert.equal(playerSlug("Jahmyr Gibbs"), "jahmyr-gibbs");
   assert.equal(playerPathname("9221"), "/player/9221");
+  assert.equal(playerPathname("9221", "Jahmyr Gibbs"), "/player/9221/jahmyr-gibbs");
   assert.equal(playerIdFromPathname("/player/9221"), "9221");
   assert.equal(playerIdFromPathname("/player/9221/"), "9221");
+  assert.equal(playerIdFromPathname("/player/9221/jahmyr-gibbs"), "9221");
+  assert.equal(playerIdFromPathname("/player/9221/wrong-name"), "9221");
   assert.equal(assetIdFromRoute("9221"), "player:9221");
-  assert.equal(playerPathname("pick:2027:r1:early"), "/player/pick%3A2027%3Ar1%3Aearly");
-  assert.equal(playerIdFromPathname("/player/pick%3A2027%3Ar1%3Aearly"), "pick:2027:r1:early");
-  assert.equal(assetIdFromRoute("pick:2027:r1:early"), "pick:2027:r1:early");
-  for (const bad of ["", "../", "..", "a/b", "<script>", "javascript:alert(1)", "player:<img>", "9221/extra"]) {
-    assert.equal(isPlayerRouteId(bad), false, bad);
+  assert.equal(playerPathname("pick:2027:r1:early"), "");
+  assert.equal(playerIdFromPathname("/player/pick%3A2027%3Ar1%3Aearly"), "");
+  for (const bad of ["", "../", "..", "a/b", "<script>", "javascript:alert(1)", "player:<img>"]) {
     assert.equal(playerPathname(bad), "");
     assert.equal(playerIdFromPathname(`/player/${bad}`), "");
   }
   assert.equal(playerIdFromPathname("/api/rather-vote"), "");
   assert.equal(playerIdFromPathname("/"), "");
+  assert.equal(isPlayerRouteId("9221"), true);
 });
 
 test("same view does not push a second history entry", () => {
@@ -93,84 +102,126 @@ test("popstate restores the player or the previous view", () => {
   assert.equal(legacy.rankAssetId, "player:7");
 });
 
-test("route table is one line per section and every url uses BASE", () => {
+test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(typeof BASE, "string");
   assert.deepEqual(HOME_PLACE, { page: "players", room: "ranks" });
-  assert.deepEqual(ROUTES.map((row) => row.path), ["trade", "team", "history", "plan"]);
-  for (const row of ROUTES) {
-    assert.deepEqual(Object.keys(row), ["path", "page", "room"]);
-    const hit = matchRoute(urlPath(row.path));
-    assert.equal(hit.path, row.path);
-    assert.equal(playerIdFromPathname(urlPath(row.path)), "");
-    if (row.page) {
-      assert.equal(hit.home, false);
-      assert.equal(hit.page, row.page);
-      assert.equal(hit.room, row.room);
-      assert.equal(pathForPlace({ page: row.page, room: row.room }), urlPath(row.path));
-    } else {
-      assert.equal(hit.home, true);
-      assert.equal(hit.page, HOME_PLACE.page);
-      assert.equal(hit.room, HOME_PLACE.room);
-      assert.equal(pathForPlace(HOME_PLACE), urlPath());
-    }
+  assert.deepEqual(ROUTES.map((row) => row.pattern), [
+    "/",
+    "/players",
+    "/trade",
+    "/connect",
+    "/l/:leagueId",
+    "/l/:leagueId/team",
+    "/l/:leagueId/ideas",
+    "/l/:leagueId/league",
+    "/player/:sleeperId/:slug?",
+  ]);
+  const home = matchRoute("/");
+  assert.equal(home.name, "home");
+  assert.equal(home.page, "players");
+  const players = matchRoute("/players");
+  assert.equal(players.name, "players");
+  assert.equal(players.page, "players");
+  assert.equal(players.room, "ranks");
+  const trade = matchRoute("/trade", "?give=player:9221&get=pick:2027:r1:early");
+  assert.equal(trade.name, "trade");
+  assert.equal(trade.page, "trades");
+  assert.equal(trade.room, "calculator");
+  assert.deepEqual(trade.give, ["player:9221"]);
+  assert.deepEqual(trade.get, ["pick:2027:r1:early"]);
+  assert.equal(tradeHref(["player:9221"], ["pick:2027:r1:early"], "1360686137898700800"), "/trade?give=player%3A9221&get=pick%3A2027%3Ar1%3Aearly&league=1360686137898700800");
+  const league = matchRoute("/l/1360686137898700800");
+  assert.equal(league.name, "league");
+  assert.equal(league.page, "league");
+  assert.equal(league.room, "team");
+  assert.equal(matchRoute("/l/1360686137898700800/team").name, "team");
+  assert.equal(matchRoute("/l/1360686137898700800/ideas").room, "find");
+  assert.equal(matchRoute("/l/1360686137898700800/ideas").page, "trades");
+  assert.equal(matchRoute("/l/1360686137898700800/league").room, "board");
+  const player = matchRoute("/player/9221/jahmyr-gibbs");
+  assert.equal(player.name, "player");
+  assert.equal(player.playerId, "9221");
+  assert.equal(player.slug, "jahmyr-gibbs");
+  const connect = matchRoute("/connect", "?next=/players");
+  assert.equal(connect.name, "connect");
+  assert.equal(connect.next, "/players");
+  assert.equal(safeNext("https://evil.example/players"), "");
+  assert.equal(safeNext("//evil.example/players"), "");
+  assert.equal(resolveLocation("/nope").unknown, true);
+  assert.equal(resolveLocation("/nope").name, "home");
+  assert.equal(resolveLocation("/l/not-a-league").unknown, true);
+  assert.equal(resolveLocation("/?ranks=1").name, "players");
+  assert.equal(resolveLocation("/?ranks=1").legacy, "ranks");
+  assert.equal(pathForPlace({ page: "players", room: "ranks", landing: true }), urlPath());
+  assert.equal(pathForPlace({ page: "players", room: "ranks", landing: false }), urlPath("players"));
+  assert.equal(pathForPlace({ page: "trades", room: "calculator" }), urlPath("trade"));
+  assert.equal(pathForPlace({ page: "trades", room: "find", leagueId: "42" }), urlPath("l", "42", "ideas"));
+  assert.equal(pathForPlace({ page: "league", room: "team", leagueId: "42" }), urlPath("l", "42", "team"));
+  assert.equal(pathForPlace({ page: "league", room: "board", leagueId: "42" }), urlPath("l", "42", "league"));
+  assert.equal(pathForPlace({ page: "league", room: "history", leagueId: "42" }), "");
+  assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221", playerName: "Jahmyr Gibbs" }), "/player/9221/jahmyr-gibbs");
+  assert.equal(backTarget({ pushed: false }), "home");
+  assert.equal(backTarget({ pushed: true }), "history");
+  for (const skipped of ["/api/rather-vote", "/styles.css", "/data/player_values.json", "/ui/landing.html"]) {
+    assert.equal(isSpaPath(skipped), false, skipped);
+    assert.equal(resolveLocation(skipped).unknown, true, skipped);
   }
-  assert.deepEqual(matchRoute("/trade/"), { path: "trade", page: "trades", room: "calculator", playerId: "", home: false });
-  assert.deepEqual(matchRoute("/team"), { path: "team", page: "league", room: "team", playerId: "", home: false });
-  assert.deepEqual(matchRoute("/history"), { path: "history", page: "league", room: "history", playerId: "", home: false });
-  assert.equal(matchRoute("/plan").home, true);
-  assert.equal(pathForPlace({ page: "trades", room: "find" }), urlPath());
-  assert.equal(pathForPlace({ page: "league", room: "scores" }), urlPath());
-  assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221" }), urlPath("player", "9221"));
-  assert.equal(playerPathname("9221"), urlPath("player", "9221"));
-  assert.equal(matchRoute("/player/9221").playerId, "9221");
-  assert.equal(matchRoute("/player/9221").page, "players");
-  for (const skipped of ["/api/rather-vote", "/api/searched-user", "/styles.css", "/data/player_values.json", "/ui/landing.html", "/players", "/trade/extra", "/player", "/"]) {
-    assert.equal(matchRoute(skipped), null, skipped);
-  }
+  assert.equal(isSpaPath("/player/9221/jahmyr-gibbs"), true);
+  assert.equal(isSpaPath("/l/42/team"), true);
+  assert.equal(isSpaPath("/trade"), true);
+  assert.equal(isSpaPath("/players"), true);
+  assert.equal(isSpaPath("/connect"), true);
+  assert.equal(isSpaPath("/nope"), false);
 });
 
 test("the desk pushes player routes and restores them on popstate", () => {
   const app = readFileSync(join(root, "../docs/app.js"), "utf8");
+  const ranks = readFileSync(join(root, "../docs/modules/ranks.js"), "utf8");
   assert.match(app, /addEventListener\("popstate"/);
   assert.match(app, /pathForPlace/);
-  assert.match(app, /matchRoute/);
+  assert.match(app, /resolveLocation/);
+  assert.match(app, /backTarget/);
+  assert.match(app, /goSiteHome/);
+  assert.match(app, /restoreHistoryScroll/);
   assert.match(app, /closeHistoryOverlay\("player"\)/);
   assert.match(app, /closeHistoryOverlay\("help"\)/);
   assert.match(app, /closeHistoryOverlay\("rail"\)/);
+  assert.match(app, /updateUrlState\(\{ mode: "replace" \}\)/);
+  assert.match(ranks, /data-action="player-back"/);
   assert.doesNotMatch(app, /onclick=/);
 });
 
-test("section rewrites sit behind /api and do not shadow files", () => {
+test("spa fallback lives in netlify.toml only and does not catch all files", () => {
   const toml = readFileSync(join(root, "../netlify.toml"), "utf8");
   const rather = toml.indexOf('from = "/api/rather-vote"');
   const searched = toml.indexOf('from = "/api/searched-user"');
+  const players = toml.indexOf('from = "/players"');
+  const trade = toml.indexOf('from = "/trade"');
+  const connect = toml.indexOf('from = "/connect"');
+  const league = toml.indexOf('from = "/l/*"');
   const player = toml.indexOf('from = "/player/*"');
   const catchAll = toml.indexOf('from = "/*"');
-  assert.ok(rather >= 0 && searched >= 0 && player >= 0 && catchAll >= 0);
-  assert.ok(rather < player);
-  assert.ok(searched < player);
-  assert.ok(player < catchAll);
+  assert.ok(rather >= 0 && searched > rather);
+  for (const at of [players, trade, connect, league, player]) {
+    assert.ok(at > searched);
+    assert.ok(at < catchAll);
+  }
   const rule = toml.slice(player, catchAll);
   assert.match(rule, /to = "\/index\.html"/);
   assert.match(rule, /status = 200/);
+  const fallback = toml.slice(catchAll, catchAll + 90);
+  assert.match(fallback, /to = "\/404\.html"/);
+  assert.match(fallback, /status = 404/);
+  assert.doesNotMatch(fallback, /index\.html/);
   assert.match(toml, /script-src 'self'/);
   assert.doesNotMatch(toml, /script-src 'unsafe-inline'/);
+  assert.doesNotMatch(toml, /from = "\/plan"/);
+  assert.doesNotMatch(toml, /from = "\/team"/);
+  assert.doesNotMatch(toml, /from = "\/history"/);
   const redirects = readFileSync(join(root, "../docs/_redirects"), "utf8");
-  const apiAt = redirects.indexOf("/api/searched-user");
-  const playerAt = redirects.indexOf("/player/*");
-  assert.ok(apiAt >= 0 && playerAt > apiAt);
-  assert.match(redirects, /\/player\/\*\s+\/index\.html\s+200/);
-  for (const section of ROUTES.map((row) => row.path)) {
-    const from = toml.indexOf(`from = "/${section}"`);
-    assert.ok(from > searched, section);
-    assert.ok(from < player, section);
-    const block = toml.slice(from, from + 80);
-    assert.match(block, /to = "\/index\.html"/);
-    assert.match(block, /status = 200/);
-    assert.doesNotMatch(toml, new RegExp(`from = "/${section}/\\*"`));
-    const lineAt = redirects.indexOf(`\n/${section}  /index.html  200`);
-    assert.ok(lineAt > apiAt && lineAt < playerAt, section);
-  }
-  assert.doesNotMatch(toml, /from = "\/data\/\*"/);
-  assert.doesNotMatch(toml, /from = "\/styles\.css"/);
+  assert.match(redirects, /\/api\/searched-user\s+\/\.netlify\/functions\/searched-user\s+200!/);
+  assert.match(redirects, /\/api\/rather-vote\s+\/\.netlify\/functions\/rather-vote\s+200!/);
+  assert.doesNotMatch(redirects, /index\.html/);
+  assert.doesNotMatch(redirects, /\/player/);
+  assert.doesNotMatch(redirects, /\/l\//);
 });
