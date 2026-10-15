@@ -271,8 +271,9 @@ import {
   assetIdFromRoute,
   decideHistoryWrite,
   isPlayerRouteId,
+  matchRoute,
+  pathForPlace,
   playerIdFromPathname,
-  playerPathname,
   routeIdFromAsset,
   routeIdFromPlayer,
   sameHistoryPlace,
@@ -820,9 +821,10 @@ bootFromUrl();
 window.addEventListener("resize", syncDeskRailOffset);
 if (!parseShareParams(window.location.search).leagueId) {
   const place = state.pendingPlace;
-  state.pendingPlace = null;
+  const waitingOnLeague = place?.page === "league";
+  if (!waitingOnLeague) state.pendingPlace = null;
   const page = place?.page === "trades" ? "trades" : "players";
-  if (place?.page === page && place.room) setRoom(page, place.room);
+  if (!waitingOnLeague && place?.page === page && place.room) setRoom(page, place.room);
   setActivePage(page, { history: "silent" });
   if (state.ranks.selectedId) {
     document.querySelector("#landing")?.classList.add("hidden");
@@ -1381,10 +1383,13 @@ function bootFromUrl() {
   applyBootFieldValue(el.landingUsername, fields.username);
   applyBootFieldValue(el.leagueId, fields.leagueId);
 
-  const routedPlayer = assetIdFromRoute(playerIdFromPathname(window.location.pathname));
+  const route = matchRoute(window.location.pathname);
+  const routedPlayer = assetIdFromRoute(route?.playerId || "");
   if (routedPlayer) {
     state.ranks.selectedId = routedPlayer;
-    if (!state.pendingPlace) state.pendingPlace = { page: "players", room: "ranks" };
+    if (!state.pendingPlace) state.pendingPlace = { page: route.page, room: route.room };
+  } else if (route && !state.pendingPlace) {
+    state.pendingPlace = { page: route.page, room: route.room };
   } else if (parsed.view === "ranks" && parsed.asset) {
     state.ranks.selectedId = parsed.asset;
   }
@@ -1520,10 +1525,19 @@ function applyDeskPopState(historyState) {
 function applyDeskPlaceFromHistory(parsed, historyState) {
   applyingHistory = true;
   try {
-    const nextPage = PAGE_IDS.includes(historyState?.tab)
+    const route = matchRoute(window.location.pathname);
+    let nextPage = PAGE_IDS.includes(historyState?.tab)
       ? historyState.tab
-      : (PAGE_IDS.includes(parsed.tab) ? parsed.tab : DEFAULT_PAGE);
-    const nextView = historyState?.view || parsed.view;
+      : (PAGE_IDS.includes(parsed.tab) ? parsed.tab : (route?.page || DEFAULT_PAGE));
+    let nextView = historyState?.view
+      || (parsed.tab ? parsed.view : "")
+      || route?.room
+      || "";
+    if (!state.leagueId && nextPage === "league" && !PAGE_IDS.includes(historyState?.tab) && !parsed.tab && route?.page === "league") {
+      state.pendingPlace = { page: route.page, room: route.room };
+      nextPage = DEFAULT_PAGE;
+      nextView = defaultRoomFor(DEFAULT_PAGE);
+    }
     setRoom(nextPage, nextView);
     applyPlayerRoute(historyState, parsed);
     const snapshot = buildDeskHistorySnapshot(historyState || {});
@@ -1549,9 +1563,7 @@ function buildShareUrl(overrides = {}) {
     ? state.awardsWeek || state.homeWeek
     : state.homeWeek;
   const playerId = overrides.playerId ?? activePlayerRouteId();
-  let pathname = window.location.pathname || "/";
-  if (playerId) pathname = playerPathname(playerId);
-  else if (playerIdFromPathname(pathname)) pathname = "/";
+  const pathname = pathForPlace({ page, room, playerId });
   return buildShareUrlFromParts({
     origin: overrides.origin ?? window.location.origin,
     pathname,

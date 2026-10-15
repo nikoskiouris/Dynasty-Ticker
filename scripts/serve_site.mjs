@@ -1,6 +1,7 @@
 import { createReadStream, existsSync, statSync } from "node:fs";
 import http from "node:http";
 import { extname, join, normalize } from "node:path";
+import { isSpaPath } from "../docs/modules/history-route.js";
 
 const root = join(process.cwd(), "docs");
 const port = Number(process.env.PORT || 4173);
@@ -19,14 +20,20 @@ const types = {
   ".woff2": "font/woff2",
 };
 
-function fileFor(urlPath) {
-  const clean = decodeURIComponent(String(urlPath || "/").split("?")[0]);
-  if (clean.startsWith("/api/")) return null;
-  const rel = clean === "/" || clean.startsWith("/player/") ? "/index.html" : clean;
+function fileAt(rel) {
   const full = normalize(join(root, rel));
   if (!full.startsWith(root)) return null;
   if (!existsSync(full) || !statSync(full).isFile()) return null;
   return full;
+}
+
+function fileFor(requestPath) {
+  const clean = decodeURIComponent(String(requestPath || "/").split("?")[0]);
+  if (clean.startsWith("/api/")) return null;
+  const staticFile = clean === "/" ? null : fileAt(clean);
+  if (staticFile) return staticFile;
+  if (clean === "/" || isSpaPath(clean) || clean.startsWith("/player/")) return fileAt("/index.html");
+  return null;
 }
 
 const server = http.createServer((req, res) => {

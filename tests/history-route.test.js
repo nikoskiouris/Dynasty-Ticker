@@ -4,16 +4,22 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  BASE,
+  HOME_PLACE,
+  ROUTES,
   assetIdFromRoute,
   buildHistoryPlace,
   decideHistoryWrite,
   historyPlaceKey,
   isPlayerRouteId,
+  matchRoute,
+  pathForPlace,
   playerIdFromPathname,
   playerPathname,
   routeIdFromAsset,
   sameHistoryPlace,
   selectionFromLocation,
+  urlPath,
 } from "../docs/modules/history-route.js";
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -87,17 +93,54 @@ test("popstate restores the player or the previous view", () => {
   assert.equal(legacy.rankAssetId, "player:7");
 });
 
+test("route table is one line per section and every url uses BASE", () => {
+  assert.equal(typeof BASE, "string");
+  assert.deepEqual(HOME_PLACE, { page: "players", room: "ranks" });
+  assert.deepEqual(ROUTES.map((row) => row.path), ["trade", "team", "history", "plan"]);
+  for (const row of ROUTES) {
+    assert.deepEqual(Object.keys(row), ["path", "page", "room"]);
+    const hit = matchRoute(urlPath(row.path));
+    assert.equal(hit.path, row.path);
+    assert.equal(playerIdFromPathname(urlPath(row.path)), "");
+    if (row.page) {
+      assert.equal(hit.home, false);
+      assert.equal(hit.page, row.page);
+      assert.equal(hit.room, row.room);
+      assert.equal(pathForPlace({ page: row.page, room: row.room }), urlPath(row.path));
+    } else {
+      assert.equal(hit.home, true);
+      assert.equal(hit.page, HOME_PLACE.page);
+      assert.equal(hit.room, HOME_PLACE.room);
+      assert.equal(pathForPlace(HOME_PLACE), urlPath());
+    }
+  }
+  assert.deepEqual(matchRoute("/trade/"), { path: "trade", page: "trades", room: "calculator", playerId: "", home: false });
+  assert.deepEqual(matchRoute("/team"), { path: "team", page: "league", room: "team", playerId: "", home: false });
+  assert.deepEqual(matchRoute("/history"), { path: "history", page: "league", room: "history", playerId: "", home: false });
+  assert.equal(matchRoute("/plan").home, true);
+  assert.equal(pathForPlace({ page: "trades", room: "find" }), urlPath());
+  assert.equal(pathForPlace({ page: "league", room: "scores" }), urlPath());
+  assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221" }), urlPath("player", "9221"));
+  assert.equal(playerPathname("9221"), urlPath("player", "9221"));
+  assert.equal(matchRoute("/player/9221").playerId, "9221");
+  assert.equal(matchRoute("/player/9221").page, "players");
+  for (const skipped of ["/api/rather-vote", "/api/searched-user", "/styles.css", "/data/player_values.json", "/ui/landing.html", "/players", "/trade/extra", "/player", "/"]) {
+    assert.equal(matchRoute(skipped), null, skipped);
+  }
+});
+
 test("the desk pushes player routes and restores them on popstate", () => {
   const app = readFileSync(join(root, "../docs/app.js"), "utf8");
   assert.match(app, /addEventListener\("popstate"/);
-  assert.match(app, /playerPathname/);
+  assert.match(app, /pathForPlace/);
+  assert.match(app, /matchRoute/);
   assert.match(app, /closeHistoryOverlay\("player"\)/);
   assert.match(app, /closeHistoryOverlay\("help"\)/);
   assert.match(app, /closeHistoryOverlay\("rail"\)/);
   assert.doesNotMatch(app, /onclick=/);
 });
 
-test("player rewrite sits behind /api and ahead of the 404", () => {
+test("section rewrites sit behind /api and do not shadow files", () => {
   const toml = readFileSync(join(root, "../netlify.toml"), "utf8");
   const rather = toml.indexOf('from = "/api/rather-vote"');
   const searched = toml.indexOf('from = "/api/searched-user"');
@@ -117,4 +160,17 @@ test("player rewrite sits behind /api and ahead of the 404", () => {
   const playerAt = redirects.indexOf("/player/*");
   assert.ok(apiAt >= 0 && playerAt > apiAt);
   assert.match(redirects, /\/player\/\*\s+\/index\.html\s+200/);
+  for (const section of ROUTES.map((row) => row.path)) {
+    const from = toml.indexOf(`from = "/${section}"`);
+    assert.ok(from > searched, section);
+    assert.ok(from < player, section);
+    const block = toml.slice(from, from + 80);
+    assert.match(block, /to = "\/index\.html"/);
+    assert.match(block, /status = 200/);
+    assert.doesNotMatch(toml, new RegExp(`from = "/${section}/\\*"`));
+    const lineAt = redirects.indexOf(`\n/${section}  /index.html  200`);
+    assert.ok(lineAt > apiAt && lineAt < playerAt, section);
+  }
+  assert.doesNotMatch(toml, /from = "\/data\/\*"/);
+  assert.doesNotMatch(toml, /from = "\/styles\.css"/);
 });
