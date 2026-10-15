@@ -227,7 +227,13 @@ export function resolveLocation(pathname = "/", search = "") {
   if (params.get("ranks") === "1") {
     return blankRoute({ name: "players", legacy: "ranks" });
   }
-  return matchRoute(pathOnly, search || inline) || blankRoute({ unknown: true });
+  const hit = matchRoute(pathOnly, search || inline) || blankRoute({ unknown: true });
+  // Old player links were `?asset=<id>` on the page you were already on.
+  const assetId = sleeperIdFrom(params.get("asset") || "");
+  if (assetId && (hit.name === "home" || hit.name === "players" || hit.unknown)) {
+    return blankRoute({ name: "player", playerId: assetId, legacy: "asset" });
+  }
+  return hit;
 }
 
 export function pathForPlace({
@@ -284,6 +290,7 @@ export function buildHistoryPlace({
   selectedTradeId = "",
   selectedTradeManagerKey = "",
   scrollY = 0,
+  landing = false,
 } = {}) {
   const routeId = isPlayerRouteId(playerId) ? String(playerId).trim() : "";
   return {
@@ -294,6 +301,7 @@ export function buildHistoryPlace({
     selectedTradeId: String(selectedTradeId || ""),
     selectedTradeManagerKey: String(selectedTradeManagerKey || ""),
     scrollY: Number(scrollY) || 0,
+    landing: Boolean(landing),
   };
 }
 
@@ -306,6 +314,7 @@ export function historyPlaceKey(place = {}) {
     row.overlay,
     row.selectedTradeId,
     row.selectedTradeManagerKey,
+    row.landing ? "1" : "",
   ].join("|");
 }
 

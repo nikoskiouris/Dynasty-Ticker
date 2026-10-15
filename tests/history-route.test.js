@@ -57,8 +57,10 @@ test("same view does not push a second history entry", () => {
   const gibbs = buildHistoryPlace({ tab: "players", view: "ranks", playerId: "9221", overlay: "player" });
   const trades = buildHistoryPlace({ tab: "trades", view: "calculator" });
   const help = buildHistoryPlace({ tab: "league", view: "team", playerId: "9221", overlay: "help" });
+  const home = buildHistoryPlace({ tab: "players", view: "ranks", landing: true });
   assert.equal(sameHistoryPlace(list, scrolled), true);
-  assert.equal(historyPlaceKey(list), "players|ranks||||");
+  assert.equal(historyPlaceKey(list), "players|ranks|||||");
+  assert.equal(decideHistoryWrite({ current: home, next: list, mode: "push" }), "push");
   assert.equal(decideHistoryWrite({ current: list, next: scrolled, mode: "push" }), "replace");
   assert.equal(decideHistoryWrite({ current: list, next: gibbs, mode: "push" }), "push");
   assert.equal(decideHistoryWrite({ current: gibbs, next: trades, mode: "push" }), "push");
@@ -152,6 +154,13 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(resolveLocation("/l/not-a-league").unknown, true);
   assert.equal(resolveLocation("/?ranks=1").name, "players");
   assert.equal(resolveLocation("/?ranks=1").legacy, "ranks");
+  assert.equal(resolveLocation("/", "?asset=player:9221").name, "player");
+  assert.equal(resolveLocation("/", "?asset=player:9221").playerId, "9221");
+  assert.equal(resolveLocation("/", "?asset=player:9221").legacy, "asset");
+  assert.equal(resolveLocation("/?asset=9221").playerId, "9221");
+  assert.equal(resolveLocation("/players", "?asset=player:4984").name, "player");
+  assert.equal(resolveLocation("/l/1312284338377383936/team", "?asset=player:9221").name, "team");
+  assert.equal(resolveLocation("/", "?asset=nope").name, "home");
   assert.equal(pathForPlace({ page: "players", room: "ranks", landing: true }), urlPath());
   assert.equal(pathForPlace({ page: "players", room: "ranks", landing: false }), urlPath("players"));
   assert.equal(pathForPlace({ page: "trades", room: "calculator" }), urlPath("trade"));

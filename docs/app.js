@@ -652,7 +652,11 @@ el.pageTabButtons?.forEach((button) => {
       openRoom(state.activePage, defaultRoomFor(state.activePage));
       return;
     }
-    setActivePage(button.dataset.page, { history: "push", scroll: "top" });
+    setActivePage(button.dataset.page, {
+      history: "push",
+      scroll: "top",
+      landing: button.dataset.page === "players" ? "hide" : "",
+    });
   });
 });
 el.roomNav?.addEventListener("click", (event) => {
@@ -816,6 +820,8 @@ state.valueCalc = readStoredDraft(globalThis.sessionStorage, globalThis.localSto
 renderSessionSnapshot();
 syncTradeModeUi();
 let searchedUserNoted = false;
+let appBooted = false;
+let leagueOpenedInApp = false;
 function noteSearchedUser(leagueId) {
   if (searchedUserNoted) return;
   const pick = searchedUserPick({ sleeperUser: state.sleeperUser, userLeagues: state.userLeagues, leagueId });
@@ -857,6 +863,7 @@ if (typeof history.scrollRestoration === "string") history.scrollRestoration = "
 window.addEventListener("popstate", (event) => applyDeskPopState(event.state));
 if (isPhoneLayout()) setMobileRailOpen(false);
 syncDocumentMeta();
+appBooted = true;
 watchLandingSearchVisibility();
 syncSiteDock();
 const runQueuedFind = releaseBootGate(document);
@@ -894,9 +901,21 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
   const place = resolveDeskPlace({ tab: nextPage, view: room || "" });
   const aliased = place.page === nextPage ? place.room : "";
   const nextRoom = clampRoom(nextPage, isRoomOf(nextPage, room) ? room : (aliased || defaultRoomFor(nextPage)));
+  const openingPlayers = history === "push" && nextPage === "players" && nextRoom === "ranks";
   const samePlace = state.activePage === nextPage && getRoom(nextPage) === nextRoom && !state.selectedTradeId;
-  if (samePlace && history === "push") return;
+  if (samePlace && history === "push") {
+    const href = pathForPlace({
+      page: nextPage,
+      room: nextRoom,
+      leagueId: state.leagueId,
+      landing: openingPlayers ? false : landingVisible(),
+      give: draftSideIds("left"),
+      get: draftSideIds("right"),
+    });
+    if (!href || href === window.location.pathname) return;
+  }
   if (history === "push") prepareDeskPush();
+  if (openingPlayers) document.querySelector("#landing")?.classList.add("hidden");
   setRoom(nextPage, nextRoom);
   // Room navigation always lands on the room itself, never on an open trade file.
   state.selectedTradeId = "";
@@ -937,6 +956,10 @@ function showAppPages() {
   else setRoom("league", "team");
   clampRoomsToLeague();
   setActivePage(page, { history: "replace", scroll: "top" });
+  if (leagueOpenedInApp && typeof history?.replaceState === "function") {
+    history.replaceState({ ...(history.state || {}), pushed: true }, "", `${window.location.pathname}${window.location.search}`);
+    leagueOpenedInApp = false;
+  }
 }
 
 function hideAppPages() {
@@ -954,10 +977,12 @@ function hideAppPages() {
   });
 }
 
-function setActivePage(page, { history = "replace", scroll = "preserve", prepared = false } = {}) {
+function setActivePage(page, { history = "replace", scroll = "preserve", prepared = false, landing = "" } = {}) {
   const nextPage = PAGE_IDS.includes(page) ? page : DEFAULT_PAGE;
   if (nextPage !== state.activePage) phoneDeskCollapsed = false;
   if (history === "push" && !prepared) prepareDeskPush();
+  if (landing === "hide") document.querySelector("#landing")?.classList.add("hidden");
+  if (landing === "show") document.querySelector("#landing")?.classList.remove("hidden");
   state.activePage = nextPage;
   if (nextPage !== "players") releaseRankBoardTools();
 
@@ -1271,18 +1296,10 @@ function renderRankSurfaces() {
 }
 
 function syncPublicRanksUrl({ mode = "replace" } = {}) {
-  if (state.leagueId || !publicRanksOpen || typeof history?.replaceState !== "function") return;
-  const params = new URLSearchParams();
-  params.set("view", "ranks");
-  if (isRankAssetId(state.ranks?.selectedId)) params.set("asset", state.ranks.selectedId);
-  const next = `${window.location.pathname}?${params}`;
-  const same = `${window.location.pathname}${window.location.search}` === next;
-  if (mode === "push" && typeof history.pushState === "function" && !same) {
-    history.pushState({ publicRanks: true }, "", next);
-    publicRanksHistory = true;
-    return;
-  }
-  if (!same) history.replaceState({ publicRanks: true }, "", next);
+  if (state.leagueId || !publicRanksOpen) return;
+  if (mode === "push") document.querySelector("#landing")?.classList.add("hidden");
+  publicRanksHistory = mode === "push" || publicRanksHistory;
+  updateUrlState({ mode });
 }
 
 function syncRankUrl() {
@@ -1456,6 +1473,7 @@ function historyPlaceNow() {
     selectedTradeId: state.selectedTradeId,
     selectedTradeManagerKey: state.selectedTradeManagerKey,
     scrollY: window.scrollY || 0,
+    landing: landingVisible(),
   };
 }
 
@@ -1562,8 +1580,12 @@ function applyDeskPopState(historyState) {
     document.querySelector("#landing")?.classList.add("hidden");
   }
   const legacyPlace = PAGE_IDS.includes(historyState?.tab) || PAGE_IDS.includes(parsed.tab);
-  if (route.name === "connect" || (route.name === "home" && !legacyPlace)) {
+  if (typeof historyState?.landing === "boolean") {
+    document.querySelector("#landing")?.classList.toggle("hidden", !historyState.landing);
+  } else if (route.name === "connect" || (route.name === "home" && !legacyPlace)) {
     document.querySelector("#landing")?.classList.remove("hidden");
+  }
+  if (route.name === "connect" || (route.name === "home" && !legacyPlace)) {
     state.ranks.selectedId = "";
   }
   applyDeskPlaceFromHistory(parsed, historyState);
@@ -2077,16 +2099,22 @@ function handlePhoneDeskClick(event) {
   const roomButton = event.target.closest("[data-phone-room]");
   if (roomButton) {
     openRoom(roomButton.dataset.page, roomButton.dataset.phoneRoom, { history: "push", scroll: "top" });
-    setMobileRailOpen(false);
+    setMobileRailOpen(false, { history: "silent" });
     return;
   }
   const pageButton = event.target.closest("[data-phone-page]");
   if (!pageButton) return;
   const page = pageButton.dataset.phonePage;
   if (!PAGE_IDS.includes(page)) return;
+  if (page === state.activePage && page === "players" && (landingVisible() || window.location.pathname !== pathForPlace({ page: "players", room: "ranks", landing: false }))) {
+    openRoom("players", "ranks", { history: "push", scroll: "top" });
+    setMobileRailOpen(false, { history: "silent" });
+    return;
+  }
   if (page !== state.activePage) {
     phoneDeskCollapsed = false;
-    setActivePage(page, { history: "push", scroll: "top" });
+    setActivePage(page, { history: "push", scroll: "top", landing: page === "players" ? "hide" : "" });
+    setMobileRailOpen(false, { history: "silent" });
     return;
   }
   phoneDeskCollapsed = !phoneDeskCollapsed;
@@ -2398,11 +2426,15 @@ function rememberPickedLeague(leagueId) {
   if (applyingHistory || typeof history?.replaceState !== "function") return;
   const nextSearch = stampPickedLeagueSearch(window.location.search, leagueId);
   if (!nextSearch) return;
+  if (leagueOpenedInApp && typeof history.pushState === "function") {
+    history.pushState({ ...historyPlaceNow(), pushed: true }, "", `${window.location.pathname}${window.location.search}`);
+  }
   history.replaceState(history.state, "", `${window.location.pathname}${nextSearch}`);
 }
 
 async function loadLeagueById(leagueId, { fromHistory = false, sample = false } = {}) {
   if (!leagueId) return;
+  leagueOpenedInApp = Boolean(appBooted) && !fromHistory;
   if (!fromHistory) rememberPickedLeague(leagueId);
   state.viewingSample = Boolean(sample);
   if (shouldBlankDeskForLeagueSwitch(state.leagueId, leagueId)) blankDeskForLeagueSwitch();
@@ -2459,7 +2491,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       selectedAssetId: state.ranks?.selectedId || "",
       pendingPlace: state.pendingPlace,
     });
-    if (switchingLeagues && typeof history?.pushState === "function") {
+    if (switchingLeagues && typeof history?.pushState === "function" && !leagueOpenedInApp) {
       prepareDeskPush();
       history.pushState(history.state, "", `${window.location.pathname}${window.location.search}`);
     }
@@ -2545,10 +2577,10 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     }
     if (keepPlace) state.pendingPlace = keepPlace;
     primeValuationData();
+    setMobileRailOpen(false, { history: "silent" });
     showAppPages();
     noteSearchedUser(leagueId);
     scrollLoadedWorkspaceIntoView();
-    setMobileRailOpen(false);
     const missingTeam = state.meRosterId ? "" : noTeamInLeagueCopy(state.sleeperUser);
     setStatus(
       missingTeam || (state.viewingSample
