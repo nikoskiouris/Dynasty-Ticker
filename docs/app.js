@@ -363,6 +363,20 @@ import {
   renderRanksToolbar,
 } from "./modules/ranks.js";
 import { fetchRatherCrowdVotes, submitRatherCrowdVote } from "./modules/rather-crowd.js";
+import {
+  announceRoute,
+  applyEscape,
+  createRouteFocusMemory,
+  ensureRouteLive,
+  focusViewHeading,
+  headingRootFor,
+  restoreTriggerFocus,
+  routeAnnouncement,
+  routeDocumentTitle,
+  syncAriaCurrent,
+} from "./modules/route-a11y.js";
+
+const routeFocus = createRouteFocusMemory();
 
 const BOARD_STORAGE_KEY = "dynasty_ticker_board";
 const OUTGOING_POOL_LIMIT = 14;
@@ -686,18 +700,13 @@ el.deskBoardOpen?.addEventListener("click", () => {
   setDeskBoardShut(false);
   requestAnimationFrame(() => el.deskBoardClose?.focus());
 });
+document.addEventListener("click", (event) => {
+  const trigger = event.target?.closest?.("button, a, [role='button']");
+  if (trigger) routeFocus.arm(trigger);
+}, true);
 document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape") return;
-  if (state.weeklyValue?.helpOpen) {
-    event.preventDefault();
-    setWeeklyScoreHelpOpen(false);
-    return;
-  }
-  if (document.body.classList.contains("rail-open")) {
-    setMobileRailOpen(false);
-    el.mobileRailToggle?.focus();
-    return;
-  }
+  if (event.key !== "Escape" || event.defaultPrevented) return;
+  if (escapeRouteOverlay(event)) return;
   const field = event.target?.closest?.("input, textarea, select");
   if (field) return;
   if (!isPhoneLayout() && !document.documentElement.classList.contains("desk-shut")) {
@@ -845,7 +854,7 @@ if (!(bootRoute?.leagueId || parseShareParams(window.location.search).leagueId))
   if (bootRoute?.unknown) {
     document.querySelector("#landing")?.classList.remove("hidden");
     if (typeof history?.replaceState === "function") {
-      history.replaceState({ ...historyPlaceNow(), pushed: false }, "", "/");
+      history.replaceState({ ...historyPlaceNow(), pushed: false, idx: routeFocus.index() }, "", "/");
     }
   } else if (showRanks || bootRoute?.name === "trade" || bootRoute?.name === "player") {
     updateUrlState({ mode: "replace" });
@@ -862,7 +871,14 @@ void hydrateCrowdVotes().then((ok) => {
   }
 });
 if (typeof history.scrollRestoration === "string") history.scrollRestoration = "manual";
-window.addEventListener("popstate", (event) => applyDeskPopState(event.state));
+ensureRouteLive(document);
+window.addEventListener("popstate", (event) => {
+  const raw = event.state?.idx;
+  const next = Number.isFinite(Number(raw)) ? Number(raw) : Math.max(0, routeFocus.index() - 1);
+  const step = routeFocus.pop(next);
+  applyDeskPopState(event.state);
+  syncRouteA11y({ focus: appBooted ? step.focus : "none", trigger: step.trigger });
+});
 if (isPhoneLayout()) setMobileRailOpen(false);
 syncDocumentMeta();
 appBooted = true;
@@ -1005,6 +1021,7 @@ function setActivePage(page, { history = "replace", scroll = "preserve", prepare
   if (scroll === "top") window.scrollTo(0, 0);
   if (history !== "silent") updateUrlState({ mode: history });
   syncDocumentMeta();
+  syncRouteAriaCurrent();
 }
 
 function stepTabIndex(event, count, currentIndex) {
@@ -1286,6 +1303,7 @@ function renderRankHost(host) {
   bindRatherPhotos(host);
   if (view.card?.kind === "player" && view.card?.name) {
     canonicalizePlayerUrl(view.card.playerId || view.card.assetId, view.card.name);
+    syncDocumentMeta();
   }
 }
 
@@ -1374,7 +1392,7 @@ function closePublicRanks({ fromHistory = false } = {}) {
     publicRanksHistory = false;
     history.back();
   } else if (!fromHistory && wasOpen && !state.leagueId && typeof history?.replaceState === "function") {
-    history.replaceState({}, "", window.location.pathname);
+    history.replaceState({ idx: routeFocus.index() }, "", window.location.pathname);
   } else if (fromHistory) {
     publicRanksHistory = false;
   }
@@ -1494,12 +1512,142 @@ function prepareDeskPush() {
   history.replaceState({
     ...historyPlaceNow(),
     pushed: Boolean(history.state?.pushed),
+    idx: routeFocus.index(),
   }, "", currentPath);
+}
+
+function activeRouteElement() {
+  const active = document.activeElement;
+  if (!active || active === document.body || active === document.documentElement) return null;
+  return active;
+}
+
+function historySnap(entry = {}) {
+  return {
+    overlay: String(entry.overlay || ""),
+    tab: String(entry.tab || ""),
+    view: String(entry.view || ""),
+    playerId: String(entry.playerId || ""),
+  };
+}
+
+function routePlayerName() {
+  const fromRanks = routedPlayerName();
+  if (fromRanks) return fromRanks;
+  const sheetId = String(state.weeklyValue?.selectedPlayerId || "");
+  if (!sheetId) return "";
+  const roster = getLensRoster();
+  const asset = roster?.assets?.find((item) => item.assetType === "player" && playerIdFromAssetId(item.assetId) === sheetId);
+  if (asset?.name) return asset.name;
+  return String(document.querySelector(".player-week-sheet h2, .player-week-sheet h3")?.textContent || "").trim();
+}
+
+function routePlaceNow() {
+  const overlay = activeOverlay();
+  const playerId = activePlayerRouteId();
+  const playerName = routePlayerName();
+  const showPlayer = Boolean(playerName) && (Boolean(playerId) || overlay === "player");
+  const onLanding = landingVisible()
+    && !state.leagueId
+    && !showPlayer
+    && state.activePage === "players"
+    && overlay !== "public-ranks";
+  return {
+    playerName: showPlayer ? playerName : "",
+    playerId,
+    tab: state.activePage,
+    titleTab: onLanding ? "" : state.activePage,
+    view: getRoom(),
+    overlay,
+    page: state.activePage,
+  };
+}
+
+function syncRouteAriaCurrent() {
+  const room = getRoom();
+  syncAriaCurrent(el.pageTabButtons, (button) => button.dataset.page === state.activePage);
+  syncAriaCurrent(el.roomNav?.querySelectorAll("[data-room]") || [], (button) => button.dataset.room === room);
+  syncAriaCurrent(document.querySelectorAll("[data-phone-page]"), (button) => button.dataset.phonePage === state.activePage);
+  syncAriaCurrent(document.querySelectorAll("[data-phone-room]"), (button) => {
+    return button.dataset.page === state.activePage && button.dataset.phoneRoom === room;
+  });
+}
+
+function syncRouteA11y({ focus = "none", trigger = null, before = null } = {}) {
+  syncDocumentMeta();
+  syncRouteAriaCurrent();
+  if (!appBooted || focus === "none") return;
+  const place = routePlaceNow();
+  const message = routeAnnouncement(place, before || {});
+  if (message) announceRoute(document, message);
+  if (focus === "heading") {
+    const root = headingRootFor(document, place, before || {});
+    if (!focusViewHeading(root)) focusViewHeading(document.querySelector("main"));
+    return;
+  }
+  if (focus === "restore") restoreTriggerFocus(document, trigger || routeFocus.opener());
+}
+
+function overlayPushed(overlay) {
+  const entry = history.state || {};
+  if (!entry.pushed || !overlay) return false;
+  if (overlay === "trade") return Boolean(entry.selectedTradeId);
+  return entry.overlay === overlay;
+}
+
+function dismissRouteOverlay(overlay) {
+  if (overlay === "help") {
+    setWeeklyScoreHelpOpen(false);
+    return;
+  }
+  if (overlay === "rail") {
+    setMobileRailOpen(false);
+    return;
+  }
+  if (overlay === "public-ranks") {
+    closePublicRanks();
+    return;
+  }
+  if (overlay === "trade") {
+    state.selectedTradeId = "";
+    state.selectedTradeManagerKey = "";
+    renderTradeLogDesk();
+    updateUrlState({ mode: "replace" });
+    return;
+  }
+  if (overlay === "player") {
+    if (state.weeklyValue) {
+      state.weeklyValue.selectedPlayerId = "";
+      state.weeklyValue.helpOpen = false;
+    }
+    state.ranks.selectedId = "";
+    if (state.activePage === "league" && getRoom() === "team") renderRosterSheet();
+    renderRankSurfaces();
+    updateUrlState({ mode: "replace" });
+  }
+}
+
+function escapeRouteOverlay(event) {
+  const overlay = activeOverlay();
+  const action = applyEscape({
+    overlay,
+    pushed: overlayPushed(overlay),
+    back() {
+      if (typeof history.back === "function") history.back();
+    },
+    close() {
+      dismissRouteOverlay(overlay);
+    },
+  });
+  if (action === "none") return false;
+  event.preventDefault();
+  return true;
 }
 
 function updateUrlState({ mode = "replace" } = {}) {
   if (applyingHistory) return;
   if (typeof history?.replaceState !== "function") return;
+  const before = historySnap(history.state || {});
   const path = deskUrlPath();
   const snapshot = historyPlaceNow();
   const currentPath = `${window.location.pathname}${window.location.search}`;
@@ -1511,11 +1659,25 @@ function updateUrlState({ mode = "replace" } = {}) {
   const pushed = write === "push" ? true : (write === "replace" && sameHistoryPlace(history.state || {}, snapshot) && Boolean(history.state?.pushed));
   const entry = { ...snapshot, pushed };
   if (write === "push" && typeof history.pushState === "function") {
-    history.pushState(entry, "", path);
+    const step = routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
+    history.pushState({ ...entry, idx: step.index }, "", path);
+    syncRouteA11y({ focus: appBooted ? "heading" : "none", before });
     return;
   }
   if (write === "silent") return;
-  history.replaceState(entry, "", path);
+  history.replaceState({ ...entry, idx: routeFocus.index() }, "", path);
+  if (!appBooted) return;
+  const after = historySnap(entry);
+  const changed = before.overlay !== after.overlay
+    || before.tab !== after.tab
+    || before.view !== after.view
+    || before.playerId !== after.playerId;
+  if (!changed) return;
+  if (before.overlay && !after.overlay) {
+    syncRouteA11y({ focus: "restore", trigger: routeFocus.opener(), before });
+    return;
+  }
+  syncRouteA11y({ focus: "heading", before });
 }
 
 function closeHistoryOverlay(kind) {
@@ -1550,7 +1712,7 @@ function applyDeskPopState(historyState) {
     state.ranks.selectedId = "";
     applyDeskPlaceFromHistory(parsed, { ...(historyState || {}), tab: "players", view: "ranks" });
     if (typeof history?.replaceState === "function") {
-      history.replaceState({ ...historyPlaceNow(), pushed: false }, "", "/");
+      history.replaceState({ ...historyPlaceNow(), pushed: false, idx: routeFocus.index() }, "", "/");
     }
     restoreHistoryScroll(historyState);
     return;
@@ -2074,6 +2236,7 @@ function renderRoomNav(page, room) {
     if (isActive) activeButton = button;
   });
   scrollChildIntoStrip(el.roomNav.querySelector(".room-nav-scroll") || el.roomNav, activeButton);
+  syncRouteAriaCurrent();
 }
 
 function phoneDeskRoomLabel(page, room) {
@@ -2106,6 +2269,7 @@ function renderPhoneDesk() {
       </div>
     `;
   }).join("");
+  syncRouteAriaCurrent();
 }
 
 function handlePhoneDeskClick(event) {
@@ -2440,7 +2604,8 @@ function rememberPickedLeague(leagueId) {
   const nextSearch = stampPickedLeagueSearch(window.location.search, leagueId);
   if (!nextSearch) return;
   if (leagueOpenedInApp && typeof history.pushState === "function") {
-    history.pushState({ ...historyPlaceNow(), pushed: true }, "", `${window.location.pathname}${window.location.search}`);
+    const step = routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
+    history.pushState({ ...historyPlaceNow(), pushed: true, idx: step.index }, "", `${window.location.pathname}${window.location.search}`);
   }
   history.replaceState(history.state, "", `${window.location.pathname}${nextSearch}`);
 }
@@ -2532,7 +2697,8 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     });
     if (switchingLeagues && typeof history?.pushState === "function" && !leagueOpenedInApp) {
       prepareDeskPush();
-      history.pushState(history.state, "", `${window.location.pathname}${window.location.search}`);
+      const step = routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
+      history.pushState({ ...(history.state || {}), idx: step.index }, "", `${window.location.pathname}${window.location.search}`);
     }
     state.targetAsset = null;
     state.shopAsset = null;
@@ -16746,31 +16912,32 @@ function syncDocumentMeta() {
     });
     return;
   }
-  if (publicRanksOpen && !state.leagueId) {
-    applyDocumentMeta(document, {
-      title: "Ranks — Dynasty Ticker",
-      description: "Independent full-PPR dynasty player and pick values from football production, role, age, availability, and team context.",
-    });
-    return;
-  }
+  const place = routePlaceNow();
+  const routedTitle = routeDocumentTitle({
+    playerName: place.playerName,
+    tab: place.titleTab,
+  });
   const room = state.leagueId ? getRoom() : "";
-  applyDocumentMeta(document, {
-    title: buildDocumentTitle({
-      page: state.leagueId ? state.activePage : "",
-      leagueName: state.leagueName,
-      loaded: Boolean(state.leagueId),
-      room,
-      league: state.league,
-    }),
-    description: buildPageDescription({
-      page: state.leagueId ? state.activePage : "",
+  const description = publicRanksOpen && !state.leagueId
+    ? "Independent full-PPR dynasty player and pick values from football production, role, age, availability, and team context."
+    : buildPageDescription({
+      page: state.leagueId ? state.activePage : (place.titleTab || ""),
       leagueName: state.leagueName,
       loaded: Boolean(state.leagueId),
       room,
       league: state.league,
       viewingSample: Boolean(state.viewingSample),
       ownerName: getMyRoster()?.manager?.displayName || "",
+    });
+  applyDocumentMeta(document, {
+    title: routedTitle || buildDocumentTitle({
+      page: state.leagueId ? state.activePage : "",
+      leagueName: state.leagueName,
+      loaded: Boolean(state.leagueId),
+      room,
+      league: state.league,
     }),
+    description,
   });
 }
 

@@ -1,0 +1,248 @@
+// Additive accessibility hooks. History decisions stay in history-route.js.
+
+export const ROUTE_LIVE_ID = "route-announcer";
+export const ROUTE_SITE_NAME = "Dynasty Ticker";
+export const ROUTE_TAB_LABELS = Object.freeze({
+  players: "Players",
+  trades: "Trade",
+  league: "My League",
+});
+
+const PAGE_ROOTS = new Set(["players", "trades", "league"]);
+
+function clean(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+export function routeDocumentTitle({ playerName = "", tab = "", siteName = ROUTE_SITE_NAME } = {}) {
+  const player = clean(playerName);
+  if (player) return `${player} · ${siteName}`;
+  const label = ROUTE_TAB_LABELS[tab] || "";
+  if (label) return `${label} · ${siteName}`;
+  return "";
+}
+
+function placeChanged(before, place) {
+  if (!before?.tab) return false;
+  return before.tab !== place.tab
+    || before.view !== place.view
+    || String(before.playerId || "") !== String(place.playerId || "");
+}
+
+export function routeAnnouncement(place = {}, before = {}) {
+  const overlay = String(place.overlay || "");
+  const player = clean(place.playerName);
+  const changed = placeChanged(before, place);
+  if (overlay === "help") return "Help";
+  if (overlay === "trade") return "Trade";
+  if (overlay === "rail" && !changed) return "Menu";
+  if (overlay === "player" || player) return player || "Player";
+  if (overlay === "public-ranks") return ROUTE_TAB_LABELS.players;
+  return ROUTE_TAB_LABELS[place.tab] || "";
+}
+
+export function focusWithoutScroll(el) {
+  if (!el || typeof el.focus !== "function") return false;
+  try {
+    el.focus({ preventScroll: true });
+  } catch {
+    el.focus();
+  }
+  return true;
+}
+
+function classListHas(el, name) {
+  const cls = typeof el?.className === "string"
+    ? el.className
+    : (el?.getAttribute?.("class") || "");
+  if (typeof cls !== "string" || !cls) return false;
+  return cls.split(/\s+/).includes(name);
+}
+
+function isHidden(el) {
+  let node = el;
+  while (node) {
+    if (node.hidden === true) return true;
+    const hiddenAttr = node.getAttribute?.("hidden");
+    if (hiddenAttr != null && hiddenAttr !== "false") return true;
+    if (classListHas(node, "hidden")) return true;
+    node = node.parentElement || null;
+  }
+  return false;
+}
+
+function visibleHeading(root, selector) {
+  if (!root) return null;
+  if (root.matches?.(selector) && !isHidden(root)) return root;
+  const nodes = root.querySelectorAll?.(selector) || [];
+  for (const node of nodes) {
+    if (!isHidden(node)) return node;
+  }
+  return null;
+}
+
+// Prefer the view's h1 or h2. Dialogs that only have an h3 still receive focus.
+export function focusViewHeading(root) {
+  const heading = visibleHeading(root, "h1, h2") || visibleHeading(root, "h3");
+  if (!heading) return null;
+  if (typeof heading.setAttribute === "function") heading.setAttribute("tabindex", "-1");
+  focusWithoutScroll(heading);
+  return heading;
+}
+
+export function elementConnected(doc, el) {
+  if (!el || !doc) return false;
+  if (el === doc.body || el === doc.documentElement) return false;
+  if (el.isConnected === false) return false;
+  if (typeof doc.contains === "function" && doc.contains(el) === false) return false;
+  return true;
+}
+
+export function fallbackLandmark(doc) {
+  if (!doc?.querySelector) return null;
+  return doc.querySelector("main, [role='main']")
+    || doc.getElementById?.("workspace")
+    || doc.querySelector("h1, h2");
+}
+
+export function restoreTriggerFocus(doc, trigger) {
+  if (elementConnected(doc, trigger)) {
+    focusWithoutScroll(trigger);
+    return trigger;
+  }
+  const land = fallbackLandmark(doc);
+  if (!land) return null;
+  const focusable = land.matches?.("a, button, input, select, textarea, [tabindex]");
+  if (!focusable && land.getAttribute?.("tabindex") == null && typeof land.setAttribute === "function") {
+    land.setAttribute("tabindex", "-1");
+  }
+  focusWithoutScroll(land);
+  return land;
+}
+
+export function syncAriaCurrent(nodes, isCurrent) {
+  for (const node of nodes || []) {
+    if (!node || typeof node.setAttribute !== "function" || typeof node.removeAttribute !== "function") continue;
+    if (isCurrent(node)) node.setAttribute("aria-current", "page");
+    else node.removeAttribute("aria-current");
+  }
+}
+
+export function ensureRouteLive(doc) {
+  if (!doc || typeof doc.getElementById !== "function") return null;
+  const existing = doc.getElementById(ROUTE_LIVE_ID);
+  if (existing) return existing;
+  if (typeof doc.createElement !== "function" || !doc.body || typeof doc.body.appendChild !== "function") return null;
+  const node = doc.createElement("div");
+  node.id = ROUTE_LIVE_ID;
+  node.setAttribute("aria-live", "polite");
+  node.setAttribute("aria-atomic", "true");
+  node.className = "sr-only";
+  doc.body.appendChild(node);
+  return node;
+}
+
+export function announceRoute(doc, message) {
+  const node = ensureRouteLive(doc);
+  if (!node) return null;
+  const text = clean(message);
+  node.textContent = "";
+  if (text) node.textContent = text;
+  return node;
+}
+
+// Pushed overlays use history.back(), the same path as Back. Otherwise close in place.
+export function applyEscape({ overlay = "", pushed = false, back, close } = {}) {
+  if (!overlay) return "none";
+  if (pushed && typeof back === "function") {
+    back();
+    return "back";
+  }
+  if (typeof close === "function") close();
+  return "close";
+}
+
+function pageRoot(doc, page) {
+  if (!doc?.querySelector) return null;
+  if (!PAGE_ROOTS.has(page)) return doc.querySelector("main");
+  const root = doc.querySelector(`#${page}-page`);
+  if (!root) return doc.querySelector("main");
+  const rooms = root.querySelectorAll?.("[data-room-panel]") || [];
+  for (const room of rooms) {
+    if (!isHidden(room)) return room;
+  }
+  return root;
+}
+
+export function headingRootFor(doc, place = {}, before = {}) {
+  if (!doc?.querySelector) return null;
+  const overlay = String(place.overlay || "");
+  const changed = placeChanged(before, place);
+  if (overlay === "player" || place.playerId) {
+    return doc.querySelector(".ranks-card")
+      || doc.querySelector(".player-week-sheet")
+      || pageRoot(doc, place.page);
+  }
+  if (overlay === "help") {
+    return doc.querySelector("#weekly-help-pop")
+      || doc.querySelector(".weekly-help-pop")
+      || pageRoot(doc, place.page);
+  }
+  if (overlay === "trade") {
+    return doc.querySelector("#trade-log-dashboard")
+      || doc.querySelector("[data-room-panel='activity']")
+      || pageRoot(doc, place.page);
+  }
+  if (overlay === "rail" && !changed) return doc.querySelector("#control-rail");
+  if (overlay === "public-ranks") {
+    return doc.querySelector("#public-ranks") || pageRoot(doc, place.page);
+  }
+  return pageRoot(doc, place.page) || doc.querySelector("main");
+}
+
+export function createRouteFocusMemory() {
+  let index = 0;
+  let armed = null;
+  const returns = new Map();
+
+  return {
+    arm(el) {
+      if (!el) return;
+      armed = el;
+      queueMicrotask(() => {
+        if (armed === el) armed = null;
+      });
+    },
+    consumeArmed() {
+      const el = armed;
+      armed = null;
+      return el || null;
+    },
+    index() {
+      return index;
+    },
+    opener() {
+      return returns.get(index - 1) || null;
+    },
+    push(trigger) {
+      const el = trigger || null;
+      returns.set(index, el);
+      index += 1;
+      armed = null;
+      return { index, focus: "heading" };
+    },
+    pop(nextIndex) {
+      const next = Number(nextIndex);
+      const goingBack = next < index;
+      const trigger = returns.get(next) || null;
+      if (goingBack) {
+        for (const key of [...returns.keys()]) {
+          if (key > next) returns.delete(key);
+        }
+      }
+      index = Number.isFinite(next) ? next : index;
+      armed = null;
+      return { index, focus: goingBack ? "restore" : "heading", trigger };
+    },
+  };
+}

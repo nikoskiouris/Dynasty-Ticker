@@ -35,6 +35,7 @@
   </head>
   <body>
     <a class="skip-link" href="#workspace">Skip to content</a>
+    <div id="route-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     <div class="app-frame">
       <header class="mobile-chrome" id="mobile-chrome">
         <button
@@ -225,7 +226,7 @@
 
         <div class="desk-nav" id="desk-nav">
           <nav class="workspace-tabs" id="page-tabs" role="tablist" aria-label="What you can do">
-            <button id="players-tab" class="page-tab active" type="button" role="tab" aria-selected="true" aria-controls="players-page" tabindex="0" data-page="players">
+            <button id="players-tab" class="page-tab active" type="button" role="tab" aria-selected="true" aria-current="page" aria-controls="players-page" tabindex="0" data-page="players">
               <span class="tab-copy"><strong>Players</strong><small>What is he worth?</small></span>
             </button>
             <button id="trades-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades">
