@@ -1,5 +1,6 @@
 import { DEFAULT_PAGE, DEFAULT_ROOMS } from "./constants.js";
 import { isRankAssetId } from "./ranks.js";
+import { decodeTradeShare } from "./trade-share.js";
 
 // Every pathname is built from this prefix. Empty means the site root.
 export const BASE = "";
@@ -22,6 +23,8 @@ export const ROUTES = Object.freeze([
   { name: "ideas", pattern: "/l/:leagueId/ideas", page: "trades", room: "find" },
   { name: "leagueBoard", pattern: "/l/:leagueId/league", page: "league", room: "board" },
   { name: "player", pattern: "/player/:sleeperId/:slug?", page: "players", room: "ranks" },
+  // A shared trade. The code is the trade (see trade-share.js), so it opens as /trade.
+  { name: "sharedTrade", pattern: "/t/:shareCode", page: "trades", room: "calculator" },
 ]);
 
 const ROUTE_ID = /^(?:\d{1,12}|player:\d+|pick:\d{4}:r\d+:(?:any|early|mid|late))$/;
@@ -162,6 +165,8 @@ function blankRoute(extra = {}) {
     give: [],
     get: [],
     next: "",
+    format: "",
+    shareCode: "",
     unknown: false,
     legacy: "",
     ...extra,
@@ -184,6 +189,20 @@ export function matchRoute(pathname, search = "") {
     const slug = found.slug ? decodePart(found.slug) : "";
     if (found.leagueId && !LEAGUE_ID.test(leagueId)) return null;
     if (found.sleeperId && !SLEEPER_ID.test(playerId)) return null;
+    if (row.name === "sharedTrade") {
+      const shareCode = decodePart(found.shareCode);
+      const shared = decodeTradeShare(shareCode);
+      if (!shared) return null;
+      return blankRoute({
+        name: "trade",
+        page: row.page,
+        room: row.room,
+        give: shared.give,
+        get: shared.get,
+        format: shared.format,
+        shareCode,
+      });
+    }
     return blankRoute({
       name: row.name,
       page: row.page,
@@ -320,6 +339,10 @@ export const SPA_REWRITES = Object.freeze([
   "/player/:id/:slug/",
 ]);
 
+// /t/:code is served by the trade-page function so bots get the trade's
+// og: and twitter: tags without JS. The page it returns is index.html.
+export const SHARE_REWRITES = Object.freeze(["/t/:code", "/t/:code/"]);
+
 function rewriteParts(pattern) {
   const raw = String(pattern || "");
   return {
@@ -332,7 +355,7 @@ export function isSpaPath(pathname) {
   const raw = String(pathname || "").split("?")[0];
   if (!raw.startsWith("/")) return false;
   const path = rewriteParts(raw);
-  return SPA_REWRITES.some((pattern) => {
+  return [...SPA_REWRITES, ...SHARE_REWRITES].some((pattern) => {
     const rule = rewriteParts(pattern);
     if (rule.slash !== path.slash || rule.bits.length !== path.bits.length) return false;
     return rule.bits.every((part, index) => part.startsWith(":") || part === path.bits[index]);

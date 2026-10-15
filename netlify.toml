@@ -16,6 +16,13 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+  # Shared-trade cards read the deploy's own prices, fonts, and the resvg wasm.
+  included_files = [
+    "docs/index.html",
+    "docs/data/player_values.json",
+    "netlify/fonts/*.ttf",
+    "node_modules/@resvg/resvg-wasm/index_bg.wasm",
+  ]
 
 [[redirects]]
   from = "https://www.dynastyticker.com/*"
@@ -34,6 +41,23 @@
   to = "/.netlify/functions/searched-user"
   status = 200
   force = true
+
+# Shared trades. /t/:code returns index.html with that trade's og: and
+# twitter: tags so bots read them without JS. /og/t/:file is the card image.
+[[redirects]]
+  from = "/t/:code"
+  to = "/.netlify/functions/trade-page?code=:code"
+  status = 200
+
+[[redirects]]
+  from = "/t/:code/"
+  to = "/.netlify/functions/trade-page?code=:code"
+  status = 200
+
+[[redirects]]
+  from = "/og/t/:file"
+  to = "/.netlify/functions/trade-card?file=:file"
+  status = 200
 
 [[headers]]
   for = "/*"

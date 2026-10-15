@@ -4109,6 +4109,33 @@ button.weekly-help-close:hover {
   grid-column: 1 / -1;
 }
 
+/* Share sits beside Clear. It is a quiet control; the verdict number stays loudest. */
+.calc-share {
+  position: relative;
+  min-height: var(--btn-h-sm);
+  padding: 0 var(--btn-px);
+  font-size: var(--fs-sm2);
+}
+
+.calc-share::before {
+  content: "";
+  position: absolute;
+  inset: -6px 0;
+}
+
+.calc-share-status {
+  flex-basis: 100%;
+  margin: 0;
+  min-height: 1em;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+}
+
+.calc-share-status:empty {
+  display: none;
+}
+
 .draft-basis {
   display: grid;
   justify-items: end;

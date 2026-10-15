@@ -292,6 +292,7 @@ import {
   topOverlay,
   urlPath,
 } from "./modules/history-route.js";
+import { encodeTradeShare, sharePath } from "./modules/trade-share.js";
 import {
   analyzeWindowCall,
   groupWindowCalls,
@@ -1700,6 +1701,11 @@ function routedPlayerName() {
 }
 
 function applyTradeRoute(route) {
+  // A shared link names its scoring. Without a league that sets the board format.
+  if ((route?.format === "sf" || route?.format === "oneQb") && !state.leagueId) {
+    if (!state.ranks) state.ranks = {};
+    state.ranks.format = route.format;
+  }
   let draft = emptyValueCalcState();
   for (const id of route?.give || []) draft = addValueCalcItem(draft, "left", { assetId: id, name: id });
   for (const id of route?.get || []) draft = addValueCalcItem(draft, "right", { assetId: id, name: id });
@@ -6857,10 +6863,55 @@ function renderDraftVerdict(view) {
         </div>
       </div>
       <div class="calc-actions">
+        ${bothSides && draftShareCode(view) ? `<button type="button" class="ghost-btn btn-sm calc-share" data-action="trade-share">Share</button>` : ""}
         <button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>
+        <p class="calc-share-status" role="status" aria-live="polite"></p>
       </div>
     </section>
   `;
+}
+
+// Ids and scoring only. A league pick shares as that round's generic pick.
+function draftShareCode(view) {
+  const ids = (items) => items.map((item) => String(item.assetId || ""));
+  return encodeTradeShare({
+    give: ids(view.draft.left),
+    get: ids(view.draft.right),
+    format: view.basis.format === "oneQb" ? "oneQb" : "sf",
+  });
+}
+
+async function shareDraftTrade(button) {
+  const view = buildDraftView();
+  const code = draftShareCode(view);
+  const status = button?.closest(".calc-actions")?.querySelector(".calc-share-status");
+  const say = (text) => {
+    if (status) status.textContent = text;
+  };
+  if (!code) {
+    say("This trade can't be shared yet.");
+    return;
+  }
+  const url = new URL(sharePath(code), window.location.origin).href;
+  const label = draftVerdictLabel(view.model.verdict, { them: "them" });
+  if (typeof navigator.share === "function") {
+    try {
+      await navigator.share({ title: "Dynasty Ticker trade check", text: `${label}, ${view.model.verdict.pct}% apart.`, url });
+      say("Shared.");
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        say("");
+        return;
+      }
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    say("Link copied.");
+  } catch {
+    say(`Copy this link: ${url}`);
+  }
 }
 
 function buildDraftImpact(view) {
@@ -7404,6 +7455,10 @@ function handleWorkspaceClick(event) {
     case "value-remove": {
       setDraft(removeValueCalcItem(state.valueCalc, target.dataset.side, target.dataset.uid));
       patchTradeDraft(["left", "right"]);
+      break;
+    }
+    case "trade-share": {
+      void shareDraftTrade(target);
       break;
     }
     case "value-clear": {
