@@ -124,15 +124,15 @@ test("cold player link can find leagues", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/player/9221");
   await expect(page.locator(".ranks-card h2")).toHaveText("Jahmyr Gibbs", { timeout: 30000 });
-  const find = page.locator(".ranks-card [data-action='find-my-leagues']");
-  await expect(find).toBeVisible();
-  await find.click();
-  await expect(page.locator("#landing")).toBeVisible();
-  await expect(page.locator("#landing-username")).toBeVisible();
-  await page.locator("#landing-username").fill("tickerfan");
-  await page.locator("#landing-find-btn").evaluate((el) => el.click());
-  await expect(page.locator("#landing-league-picker")).toContainText("Alpha Dynasty", { timeout: 15000 });
-  await expect(page.locator("#landing-league-picker")).toContainText("Beta Dynasty");
+  const connect = page.locator("[data-player-connect-slot] .player-connect").locator("visible=true");
+  await expect(connect).toBeVisible();
+  const box = await connect.boundingBox();
+  expect(box.y).toBeLessThan(240);
+  await connect.locator("input").fill("tickerfan");
+  await connect.locator("button").click();
+  const list = connect.locator("xpath=ancestor::*[@data-player-connect-slot]").locator("[data-player-league-list]");
+  await expect(list).toContainText("Alpha Dynasty", { timeout: 15000 });
+  await expect(list).toContainText("Beta Dynasty");
   await expect(page.locator(".ranks-card h2")).toHaveText("Jahmyr Gibbs");
 });
 

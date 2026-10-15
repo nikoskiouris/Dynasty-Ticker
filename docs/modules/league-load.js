@@ -17,6 +17,11 @@ export function createLeagueLoader() {
       return token === serial;
     },
 
+    inFlightId() {
+      return latestId;
+    },
+
+    // Drop the load that has not committed. Back during the fetch uses this.
     drop() {
       serial += 1;
       latestId = "";

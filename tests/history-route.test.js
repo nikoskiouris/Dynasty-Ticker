@@ -11,6 +11,7 @@ import {
   backTarget,
   buildHistoryPlace,
   decideHistoryWrite,
+  historyModeAfterMenuChoice,
   historyPlaceKey,
   isPlayerRouteId,
   isSpaPath,
@@ -24,6 +25,7 @@ import {
   safeNext,
   sameHistoryPlace,
   selectionFromLocation,
+  topOverlay,
   tradeHref,
   urlPath,
 } from "../docs/modules/history-route.js";
@@ -40,6 +42,7 @@ test("player urls are /player/<id>/<slug> and reject junk", () => {
   assert.equal(playerIdFromPathname("/player/9221/jahmyr-gibbs"), "9221");
   assert.equal(playerIdFromPathname("/player/9221/wrong-name"), "9221");
   assert.equal(assetIdFromRoute("9221"), "player:9221");
+  assert.equal(playerPathname("0"), "");
   assert.equal(playerPathname("pick:2027:r1:early"), "");
   assert.equal(playerIdFromPathname("/player/pick%3A2027%3Ar1%3Aearly"), "");
   for (const bad of ["", "../", "..", "a/b", "<script>", "javascript:alert(1)", "player:<img>"]) {
@@ -161,6 +164,9 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(resolveLocation("/players", "?asset=player:4984").name, "player");
   assert.equal(resolveLocation("/l/1312284338377383936/team", "?asset=player:9221").name, "team");
   assert.equal(resolveLocation("/", "?asset=nope").name, "home");
+  assert.equal(resolveLocation("/player/0").unknown, true);
+  assert.equal(resolveLocation("/player/0").playerId, "");
+  assert.equal(playerIdFromPathname("/player/0"), "");
   assert.equal(pathForPlace({ page: "players", room: "ranks", landing: true }), urlPath());
   assert.equal(pathForPlace({ page: "players", room: "ranks", landing: false }), urlPath("players"));
   assert.equal(pathForPlace({ page: "trades", room: "calculator" }), urlPath("trade"));
@@ -169,18 +175,30 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(pathForPlace({ page: "league", room: "board", leagueId: "42" }), urlPath("l", "42", "league"));
   assert.equal(pathForPlace({ page: "league", room: "history", leagueId: "42" }), "");
   assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221", playerName: "Jahmyr Gibbs" }), "/player/9221/jahmyr-gibbs");
+  assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221", playerName: "Jahmyr Gibbs", leagueId: "424242" }), "/player/9221/jahmyr-gibbs?league=424242");
+  assert.equal(pathForPlace({ page: "players", room: "ranks", landing: false, leagueId: "424242" }), "/players?league=424242");
+  assert.equal(pathForPlace({ page: "players", room: "ranks", landing: true, leagueId: "424242" }), "/");
+  assert.equal(pathForPlace({ page: "league", room: "team", leagueId: "424242" }), "/l/424242/team");
+  assert.equal(topOverlay({ rail: true, player: true }), "rail");
+  assert.equal(topOverlay({ help: true, player: true }), "help");
+  assert.equal(topOverlay({ player: true }), "player");
   assert.equal(backTarget({ pushed: false }), "home");
   assert.equal(backTarget({ pushed: true }), "history");
-  for (const skipped of ["/api/rather-vote", "/styles.css", "/data/player_values.json", "/ui/landing.html"]) {
+  for (const skipped of ["/api/rather-vote", "/styles.css", "/data/player_values.json", "/ui/landing.html", "/l", "/player", "/player/missing.js", "/l/42/team.js"]) {
     assert.equal(isSpaPath(skipped), false, skipped);
     assert.equal(resolveLocation(skipped).unknown, true, skipped);
   }
   assert.equal(isSpaPath("/player/9221/jahmyr-gibbs"), true);
+  assert.equal(isSpaPath("/player/9221"), true);
   assert.equal(isSpaPath("/l/42/team"), true);
+  assert.equal(isSpaPath("/l/42"), true);
   assert.equal(isSpaPath("/trade"), true);
   assert.equal(isSpaPath("/players"), true);
   assert.equal(isSpaPath("/connect"), true);
   assert.equal(isSpaPath("/nope"), false);
+  assert.equal(historyModeAfterMenuChoice({ overlay: "rail", pushed: true }), "replace");
+  assert.equal(historyModeAfterMenuChoice({ overlay: "rail", pushed: false }), "push");
+  assert.equal(historyModeAfterMenuChoice({ overlay: "player", pushed: true }), "push");
 });
 
 test("the desk pushes player routes and restores them on popstate", () => {
@@ -195,28 +213,57 @@ test("the desk pushes player routes and restores them on popstate", () => {
   assert.match(app, /closeHistoryOverlay\("player"\)/);
   assert.match(app, /closeHistoryOverlay\("help"\)/);
   assert.match(app, /closeHistoryOverlay\("rail"\)/);
+  assert.match(app, /topOverlay/);
+  assert.match(app, /leagueLoadBlocksPlayer/);
   assert.match(app, /updateUrlState\(\{ mode: "replace" \}\)/);
+  assert.match(app, /history\.replaceState\(\{ \.\.\.historyPlaceNow\(\), pushed: false \}, "", urlPath\(\)\)/);
+  assert.doesNotMatch(app, /history\.replaceState\(\{ \.\.\.historyPlaceNow\(\), pushed: false \}, "", "\/"\)/);
+  const leave = app.slice(app.indexOf("function leavePhoneMenu"), app.indexOf("function handlePhoneDeskClick"));
+  assert.ok(leave.indexOf("setMobileRailOpen(false") < leave.indexOf("navigate(mode)"));
+  const phone = app.slice(app.indexOf("function handlePhoneDeskClick"), app.indexOf("function sampleVoice"));
+  assert.match(phone, /leavePhoneMenu/);
+  assert.doesNotMatch(phone, /history: "silent"/);
   assert.match(ranks, /data-action="player-back"/);
   assert.doesNotMatch(app, /onclick=/);
 });
 
-test("spa fallback is one catch-all in netlify.toml after api and data", () => {
+test("spa fallback lists desk routes then a 404 catch-all, after the api rules", () => {
   const toml = readFileSync(join(root, "../netlify.toml"), "utf8");
-  const rather = toml.indexOf('from = "/api/rather-vote"');
-  const searched = toml.indexOf('from = "/api/searched-user"');
-  const data = toml.indexOf('for = "/data/*"');
-  const catchAll = toml.indexOf('from = "/*"');
+  const lineAt = (from) => toml.split("\n").findIndex((line) => line.trim() === `from = ${from}`);
+  const rather = lineAt('"/api/rather-vote"');
+  const searched = lineAt('"/api/searched-user"');
+  const players = lineAt('"/players"');
+  const trade = lineAt('"/trade"');
+  const connect = lineAt('"/connect"');
+  const leagueFile = lineAt('"/l/*.*"');
+  const playerFile = lineAt('"/player/*.*"');
+  const league = lineAt('"/l/*"');
+  const player = lineAt('"/player/*"');
+  const catchAll = lineAt('"/*"');
   assert.ok(rather >= 0 && searched > rather);
-  assert.ok(data > searched);
-  assert.ok(catchAll > data);
-  const fallback = toml.slice(catchAll, catchAll + 120);
-  assert.match(fallback, /to = "\/index\.html"/);
-  assert.match(fallback, /status = 200/);
-  assert.doesNotMatch(fallback, /force = true/);
-  assert.equal(toml.split('from = "/*"').length, 2);
-  assert.doesNotMatch(toml, /from = "\/players"/);
-  assert.doesNotMatch(toml, /from = "\/l\/\*"/);
-  assert.doesNotMatch(toml, /from = "\/player\/\*"/);
+  assert.ok(players > searched && trade > players && connect > trade);
+  assert.ok(leagueFile > connect && league > leagueFile);
+  assert.ok(playerFile > league && player > playerFile && catchAll > player);
+  for (const from of ['"/players"', '"/trade"', '"/connect"', '"/l/*"', '"/player/*"']) {
+    const at = toml.indexOf(`\n  from = ${from}\n`);
+    const rule = toml.slice(at, at + 90);
+    assert.match(rule, /to = "\/index\.html"/);
+    assert.match(rule, /status = 200/);
+    assert.doesNotMatch(rule, /force/);
+  }
+  for (const from of ['"/l/*.*"', '"/player/*.*"']) {
+    const at = toml.indexOf(`\n  from = ${from}\n`);
+    const rule = toml.slice(at, at + 80);
+    assert.match(rule, /to = "\/404\.html"/);
+    assert.match(rule, /status = 404/);
+    assert.doesNotMatch(rule, /force/);
+  }
+  const fallback = toml.slice(toml.indexOf('\n  from = "/*"\n'));
+  assert.match(fallback, /to = "\/404\.html"/);
+  assert.match(fallback, /status = 404/);
+  assert.doesNotMatch(fallback, /force/);
+  assert.doesNotMatch(toml, /to = "\/index\.html"\s*\n\s*status = 200\s*\n\s*force = true/);
+  assert.equal(toml.split("\n").filter((line) => line.trim() === 'from = "/*"').length, 1);
   assert.match(toml, /script-src 'self'/);
   assert.doesNotMatch(toml, /script-src 'unsafe-inline'/);
   const redirects = readFileSync(join(root, "../docs/_redirects"), "utf8");

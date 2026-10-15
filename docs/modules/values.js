@@ -164,6 +164,45 @@ export function isInactivePlayerAsset(asset) {
   return false;
 }
 
+// Published firsts are three thirds of the round: slots 1-4 early, 5-8 mid,
+// 9-12 late in a 12-team draft. Slot 1 is the earliest pick. No slot stays "any".
+export function bucketForProjectedSlot(slot, teamCount) {
+  const n = Number(slot);
+  const total = Number(teamCount);
+  if (!Number.isFinite(n) || !Number.isFinite(total) || n < 1 || total < 1 || n > total) return "any";
+  const tierSize = Math.max(1, Math.floor(total / 3));
+  if (n <= tierSize) return "early";
+  if (n > total - tierSize) return "late";
+  return "mid";
+}
+
+function ownedPickSlot(asset) {
+  const slot = Number(asset?.raw?.projectedDraftSlot ?? asset?.raw?.assignedDraftSlot);
+  return Number.isFinite(slot) && slot > 0 ? slot : Number.POSITIVE_INFINITY;
+}
+
+// Highest getAssetValue first. A tie keeps the earlier projected slot, then
+// the earlier round, then the nearer season. Name is only the last tiebreak.
+export function compareOwnedPickValue(a, b) {
+  const valueDiff = Number(b?.value) - Number(a?.value);
+  if (valueDiff) return valueDiff;
+  const slotDiff = ownedPickSlot(a?.asset) - ownedPickSlot(b?.asset);
+  if (slotDiff) return slotDiff;
+  const roundDiff = (Number(a?.asset?.raw?.round) || 99) - (Number(b?.asset?.raw?.round) || 99);
+  if (roundDiff) return roundDiff;
+  const seasonDiff = (Number(a?.asset?.raw?.season) || 9999) - (Number(b?.asset?.raw?.season) || 9999);
+  if (seasonDiff) return seasonDiff;
+  return String(a?.asset?.name || "").localeCompare(String(b?.asset?.name || ""));
+}
+
+export function chooseLeadPick(entries) {
+  const rows = (Array.isArray(entries) ? entries : []).filter((entry) => (
+    entry?.asset && Number.isFinite(Number(entry.value))
+  ));
+  rows.sort(compareOwnedPickValue);
+  return rows[0]?.asset || null;
+}
+
 export function normalizePickBucket(bucket) {
   const normalized = String(bucket || "any").trim().toLowerCase();
   if (normalized === "middle") return "mid";
@@ -182,6 +221,28 @@ export function formatPickBucketLabel(bucket) {
     mid: "Middle",
     late: "Late",
   }[normalizePickBucket(bucket)] || "";
+}
+
+// The tier and the rank are one projected place. Last year's finish stays out of this sentence.
+export function formatProjectedFirstLabel({
+  season,
+  round = 1,
+  bucket,
+  ownerName = "",
+  rank = null,
+  total = null,
+} = {}) {
+  const year = String(season || "").trim();
+  const roundLabel = ordinal(Number(round) || 1);
+  const tier = formatPickBucketLabel(bucket);
+  const head = [year, tier, roundLabel].filter(Boolean).join(" ");
+  const placeRank = Number(rank);
+  const teamCount = Number(total);
+  const basis = Number.isFinite(placeRank) && Number.isFinite(teamCount) && placeRank >= 1 && teamCount >= 1
+    ? `, projected ${ordinal(placeRank)} of ${teamCount}`
+    : "";
+  const whose = String(ownerName || "").trim() ? ` from ${String(ownerName).trim()}` : "";
+  return `${head}${basis}${whose}`;
 }
 
 export function parsePickRoundToken(token) {

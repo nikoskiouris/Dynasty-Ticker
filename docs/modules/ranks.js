@@ -238,6 +238,14 @@ export function rankView({
   };
 }
 
+export function renderPlayerConnect() {
+  return `<form class="player-connect" data-player-connect>
+      <input class="player-connect-user" name="username" aria-label="Sleeper username" placeholder="Sleeper username" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
+      <button type="submit">Find my leagues</button>
+    </form>
+    <div class="player-league-list league-picker" data-player-league-list hidden></div>`;
+}
+
 export function renderRanksToolbar(view) {
   return `
     <div class="ranks-toolbar" data-ranks-toolbar>
@@ -354,9 +362,6 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
     ? `<img class="rather-photo" src="${escapeHtml(photoSrc)}" alt="" />`
     : "";
   const calc = `<button type="button" class="ghost-btn" data-action="rank-calc" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-value="${escapeHtml(String(row.value))}" data-kind="${escapeHtml(row.kind)}">Add to trade</button>`;
-  const connect = leagueOpen
-    ? ""
-    : `<button type="button" class="ghost-btn" data-action="find-my-leagues">Find my leagues</button>`;
   return `
     <article class="ranks-card">
       <button type="button" class="ghost-btn player-back" data-action="player-back" aria-label="Back"><span aria-hidden="true">←</span> Back</button>
@@ -388,7 +393,6 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
         </div>
       ` : ""}
       <div class="ranks-card-actions">
-        ${connect}
         ${calc}
         <button type="button" class="ghost-btn" data-action="rank-close">Close</button>
       </div>
