@@ -25,7 +25,8 @@ export const ROUTES = Object.freeze([
 ]);
 
 const ROUTE_ID = /^(?:\d{1,12}|player:\d+|pick:\d{4}:r\d+:(?:any|early|mid|late))$/;
-const SLEEPER_ID = /^\d{1,12}$/;
+// "0" is not a Sleeper player. Faces already skip it.
+const SLEEPER_ID = /^(?!0$)\d{1,12}$/;
 const LEAGUE_ID = /^\d{1,20}$/;
 const ASSET_ID = /^(?:player:\d{1,12}|pick:\d{4}:r\d+:(?:any|early|mid|late))$/;
 
@@ -236,6 +237,21 @@ export function resolveLocation(pathname = "/", search = "") {
   return hit;
 }
 
+// Keep a connected league on routes that do not already name it.
+// Home (`/`) stays bare so a cold home visit does not reopen a league.
+function rememberLeague(path, leagueId) {
+  const id = String(leagueId || "");
+  if (!path || path === urlPath() || !LEAGUE_ID.test(id)) return path;
+  const leagueRoot = urlPath("l", id);
+  if (path === leagueRoot || path.startsWith(`${leagueRoot}/`) || path.startsWith(`${leagueRoot}?`)) return path;
+  const [pathname, query = ""] = path.split("?");
+  const params = new URLSearchParams(query);
+  if (params.get("league") === id) return path;
+  params.set("league", id);
+  const next = params.toString();
+  return next ? `${pathname}?${next}` : pathname;
+}
+
 export function pathForPlace({
   page = "",
   room = "",
@@ -247,19 +263,33 @@ export function pathForPlace({
   landing = false,
 } = {}) {
   const sleeperId = sleeperIdFrom(playerId);
-  if (sleeperId) return playerPathname(sleeperId, playerName);
-  if (page === "trades" && room === "calculator") return tradeHref(give, get, leagueId);
-  if (page === "trades" && room === "find" && LEAGUE_ID.test(String(leagueId || ""))) {
-    return urlPath("l", leagueId, "ideas");
-  }
-  if (page === "league" && room === "board" && LEAGUE_ID.test(String(leagueId || ""))) {
-    return urlPath("l", leagueId, "league");
-  }
-  if (page === "league" && room === "team" && LEAGUE_ID.test(String(leagueId || ""))) {
-    return urlPath("l", leagueId, "team");
-  }
-  if (page === "players" && room === "ranks" && !landing) return urlPath("players");
-  if (page === "players" && room === "ranks" && landing) return urlPath();
+  let href = "";
+  if (sleeperId) href = playerPathname(sleeperId, playerName);
+  else if (page === "trades" && room === "calculator") href = tradeHref(give, get, leagueId);
+  else if (page === "trades" && room === "find" && LEAGUE_ID.test(String(leagueId || ""))) {
+    href = urlPath("l", leagueId, "ideas");
+  } else if (page === "league" && room === "board" && LEAGUE_ID.test(String(leagueId || ""))) {
+    href = urlPath("l", leagueId, "league");
+  } else if (page === "league" && room === "team" && LEAGUE_ID.test(String(leagueId || ""))) {
+    href = urlPath("l", leagueId, "team");
+  } else if (page === "players" && room === "ranks" && !landing) href = urlPath("players");
+  else if (page === "players" && room === "ranks" && landing) href = urlPath();
+  return rememberLeague(href, leagueId);
+}
+
+// The phone menu sits on top of a player card. Back closes that layer only.
+export function topOverlay({
+  rail = false,
+  help = false,
+  player = false,
+  trade = false,
+  publicRanks = false,
+} = {}) {
+  if (rail) return "rail";
+  if (help) return "help";
+  if (player) return "player";
+  if (trade) return "trade";
+  if (publicRanks) return "public-ranks";
   return "";
 }
 

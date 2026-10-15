@@ -24,6 +24,7 @@ import {
   safeNext,
   sameHistoryPlace,
   selectionFromLocation,
+  topOverlay,
   tradeHref,
   urlPath,
 } from "../docs/modules/history-route.js";
@@ -40,6 +41,7 @@ test("player urls are /player/<id>/<slug> and reject junk", () => {
   assert.equal(playerIdFromPathname("/player/9221/jahmyr-gibbs"), "9221");
   assert.equal(playerIdFromPathname("/player/9221/wrong-name"), "9221");
   assert.equal(assetIdFromRoute("9221"), "player:9221");
+  assert.equal(playerPathname("0"), "");
   assert.equal(playerPathname("pick:2027:r1:early"), "");
   assert.equal(playerIdFromPathname("/player/pick%3A2027%3Ar1%3Aearly"), "");
   for (const bad of ["", "../", "..", "a/b", "<script>", "javascript:alert(1)", "player:<img>"]) {
@@ -161,6 +163,9 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(resolveLocation("/players", "?asset=player:4984").name, "player");
   assert.equal(resolveLocation("/l/1312284338377383936/team", "?asset=player:9221").name, "team");
   assert.equal(resolveLocation("/", "?asset=nope").name, "home");
+  assert.equal(resolveLocation("/player/0").unknown, true);
+  assert.equal(resolveLocation("/player/0").playerId, "");
+  assert.equal(playerIdFromPathname("/player/0"), "");
   assert.equal(pathForPlace({ page: "players", room: "ranks", landing: true }), urlPath());
   assert.equal(pathForPlace({ page: "players", room: "ranks", landing: false }), urlPath("players"));
   assert.equal(pathForPlace({ page: "trades", room: "calculator" }), urlPath("trade"));
@@ -169,6 +174,13 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(pathForPlace({ page: "league", room: "board", leagueId: "42" }), urlPath("l", "42", "league"));
   assert.equal(pathForPlace({ page: "league", room: "history", leagueId: "42" }), "");
   assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221", playerName: "Jahmyr Gibbs" }), "/player/9221/jahmyr-gibbs");
+  assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221", playerName: "Jahmyr Gibbs", leagueId: "424242" }), "/player/9221/jahmyr-gibbs?league=424242");
+  assert.equal(pathForPlace({ page: "players", room: "ranks", landing: false, leagueId: "424242" }), "/players?league=424242");
+  assert.equal(pathForPlace({ page: "players", room: "ranks", landing: true, leagueId: "424242" }), "/");
+  assert.equal(pathForPlace({ page: "league", room: "team", leagueId: "424242" }), "/l/424242/team");
+  assert.equal(topOverlay({ rail: true, player: true }), "rail");
+  assert.equal(topOverlay({ help: true, player: true }), "help");
+  assert.equal(topOverlay({ player: true }), "player");
   assert.equal(backTarget({ pushed: false }), "home");
   assert.equal(backTarget({ pushed: true }), "history");
   for (const skipped of ["/api/rather-vote", "/styles.css", "/data/player_values.json", "/ui/landing.html"]) {
@@ -195,6 +207,8 @@ test("the desk pushes player routes and restores them on popstate", () => {
   assert.match(app, /closeHistoryOverlay\("player"\)/);
   assert.match(app, /closeHistoryOverlay\("help"\)/);
   assert.match(app, /closeHistoryOverlay\("rail"\)/);
+  assert.match(app, /topOverlay/);
+  assert.match(app, /leagueLoadBlocksPlayer/);
   assert.match(app, /updateUrlState\(\{ mode: "replace" \}\)/);
   assert.match(ranks, /data-action="player-back"/);
   assert.doesNotMatch(app, /onclick=/);
