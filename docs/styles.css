@@ -5976,6 +5976,11 @@ button.player-item.calc-item:focus-visible {
     /* svh stays put while the URL bar shows and hides. dvh resizes the page mid-scroll. */
     min-height: 100svh;
     align-content: start;
+    padding-top: var(--mobile-chrome-space, 2.8rem);
+  }
+
+  html {
+    scroll-padding-top: var(--mobile-chrome-space, 2.8rem);
   }
 
   .workspace {
@@ -5983,11 +5988,15 @@ button.player-item.calc-item:focus-visible {
   }
 
   .mobile-chrome {
-    position: static;
-    top: auto;
-    z-index: auto;
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 30;
     align-self: start;
     display: grid;
+    transform: translateY(0);
+    transition: transform 180ms ease;
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 0.4rem;
     align-items: center;
@@ -6000,6 +6009,15 @@ button.player-item.calc-item:focus-visible {
     border-bottom: 1px solid var(--line);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+
+  .mobile-chrome.is-away {
+    transform: translateY(-100%);
+    pointer-events: none;
+  }
+
+  .mobile-chrome.is-instant {
+    transition: none;
   }
 
   .desk-nav {
@@ -6608,17 +6626,23 @@ button.player-item.calc-item:focus-visible {
   color: var(--text);
 }
 
+/* Fixed on the desk so an empty dock is out of the flex column.
+   A static zero-height dock still takes the 1.75rem workspace gap (28px). */
 .site-dock {
-  position: static;
-  right: auto;
-  bottom: auto;
-  left: auto;
-  z-index: auto;
-  display: block;
-  gap: 0;
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 45;
+  display: grid;
+  gap: 0.55rem;
   margin: 0;
   padding: 0;
   pointer-events: none;
+}
+
+.site-dock:has(> :not([hidden])) {
+  padding: 0 0.85rem max(0.85rem, env(safe-area-inset-bottom));
 }
 
 .site-dock > *:not([hidden]) {
@@ -6633,43 +6657,6 @@ body.rail-open .site-dock {
   display: none;
 }
 
-.storage-notice {
-  display: none;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.7rem;
-  padding: 0.8rem 0.95rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-.storage-notice:not([hidden]) {
-  display: flex;
-}
-
-.storage-notice p {
-  margin: 0;
-  color: var(--muted-strong);
-  font-size: 0.82rem;
-  line-height: 1.4;
-}
-
-.storage-notice a {
-  color: var(--link);
-  font-weight: 700;
-}
-
-.storage-notice button {
-  width: auto;
-  min-height: 2.35rem;
-  padding: 0.4rem 0.9rem;
-}
-
 @media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
   .site-dock,
   .sticky-mobile-cta,
@@ -6680,6 +6667,10 @@ body.rail-open .site-dock {
     bottom: auto;
     left: auto;
     transform: none;
+  }
+
+  .site-dock:not(:has(> :not([hidden]))) {
+    display: none;
   }
 
   .sticky-mobile-cta:not([hidden]) {
@@ -7977,6 +7968,10 @@ button.rather-skip {
     animation: none !important;
   }
 
+  .mobile-chrome {
+    transition: none;
+  }
+
   .ticker-track {
     white-space: normal;
     flex-wrap: wrap;
@@ -8528,9 +8523,7 @@ body.league-loaded .workspace-lede { display: none; }
 }
 
 body:not(.league-loaded):has(#trades-page:not(.hidden)) #landing,
-body:not(.league-loaded):has(#league-page:not(.hidden)) #landing,
-body:not(.league-loaded):has(#trades-page:not(.hidden)) #sticky-mobile-cta,
-body:not(.league-loaded):has(#league-page:not(.hidden)) #sticky-mobile-cta {
+body:not(.league-loaded):has(#league-page:not(.hidden)) #landing {
   display: none;
 }
 
@@ -8591,8 +8584,7 @@ body:not(.league-loaded):has(#league-page:not(.hidden)) #sticky-mobile-cta {
   margin-right: 0;
 }
 
-html:not(.desk-shut) body.board-tools-live #landing,
-html:not(.desk-shut) body.board-tools-live #sticky-mobile-cta {
+html:not(.desk-shut) body.board-tools-live #landing {
   display: none;
 }
 

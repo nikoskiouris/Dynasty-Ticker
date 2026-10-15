@@ -4,7 +4,8 @@ import { spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { PHONE_LAYOUT_QUERY } from "../docs/modules/constants.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const docs = join(root, "docs");
@@ -27,7 +28,8 @@ test("Find my leagues stays a real button and no longer docks on scroll", () => 
   assert.doesNotMatch(app, /new IntersectionObserver/);
   assert.doesNotMatch(app, /landingSearchOffscreen/);
   assert.doesNotMatch(css, /body\.dock-visible/);
-  assert.doesNotMatch(css, /\.site-dock\s*\{[^}]*position:\s*fixed/);
+  assert.match(css, /\.site-dock\s*\{[^}]*position:\s*fixed/s);
+  assert.match(css, /@media \(max-width:\s*700px\)[\s\S]*?\.site-dock,[\s\S]*?position:\s*static/);
   assert.doesNotMatch(css, /\.mobile-chrome\s*\{[^}]*position:\s*sticky/);
 });
 
@@ -53,6 +55,7 @@ async function findChrome() {
 
 function fixtureHtml() {
   const cssHref = (name) => `file://${join(docs, name)}`;
+  const scrollModule = pathToFileURL(join(docs, "modules/mobile-chrome-scroll.js")).href;
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -96,7 +99,7 @@ function fixtureHtml() {
           <p>Neighbor row that used to sit under the pinned bar.</p>
         </article>
         <div id="site-dock" class="site-dock">
-          <div id="sticky-mobile-cta" class="sticky-mobile-cta">
+          <div id="sticky-mobile-cta" class="sticky-mobile-cta" hidden>
             <button id="sticky-find-btn" type="button">Find my leagues</button>
           </div>
         </div>
@@ -105,13 +108,45 @@ function fixtureHtml() {
     <style>
       #player-card { min-height: 1600px; }
     </style>
+    <script type="module">
+      import { bindMobileChromeScroll } from ${JSON.stringify(scrollModule)};
+      bindMobileChromeScroll(window, {
+        chrome: document.getElementById("mobile-chrome"),
+        isPhone: () => window.matchMedia(${JSON.stringify(PHONE_LAYOUT_QUERY)}).matches,
+        prefersReducedMotion: () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      });
+      window.__chromeScrollBound = true;
+    </script>
   </body>
 </html>`;
 }
 
-const MEASURE = `(() => {
+const MEASURE = `(async () => {
+  document.documentElement.style.scrollBehavior = "auto";
   const card = document.querySelector(".ranks-card");
-  window.scrollTo(0, card.getBoundingClientRect().top + window.scrollY);
+  const chrome = document.getElementById("mobile-chrome");
+  const settle = () => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  });
+  const scrollToY = async (y) => {
+    window.scrollTo({ top: y, behavior: "instant" });
+    await settle();
+  };
+  await scrollToY(0);
+  const atTopAway = chrome.classList.contains("is-away");
+  await scrollToY(120);
+  const afterDown = chrome.classList.contains("is-away");
+  const inertWhenHidden = chrome.hasAttribute("inert");
+  const downTransform = getComputedStyle(chrome).transform;
+  const transitionDuration = getComputedStyle(chrome).transitionDuration;
+  await scrollToY(112);
+  const afterSmallUp = chrome.classList.contains("is-away");
+  await scrollToY(90);
+  const afterUp = chrome.classList.contains("is-away");
+  const inertWhenShown = chrome.hasAttribute("inert");
+  await scrollToY(96);
+  const afterSmallDown = chrome.classList.contains("is-away");
+  await scrollToY(card.getBoundingClientRect().top + window.scrollY);
   const rect = (el) => {
     const r = el.getBoundingClientRect();
     return { top: r.top, left: r.left, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
@@ -126,7 +161,9 @@ const MEASURE = `(() => {
   for (const el of document.querySelectorAll("*")) {
     const pos = getComputedStyle(el).position;
     if (pos !== "fixed" && pos !== "sticky") continue;
+    if (el.classList.contains("is-away")) continue;
     const box = rect(el);
+    if (box.bottom <= 1) continue;
     const hit = overlapArea(cardBox, box);
     if (hit > 1) overlaps.push({ id: el.id, className: String(el.className), pos, hit });
   }
@@ -134,8 +171,18 @@ const MEASURE = `(() => {
   for (const id of ["site-dock", "sticky-mobile-cta", "sticky-find-btn", "mobile-chrome"]) {
     position[id] = getComputedStyle(document.getElementById(id)).position;
   }
-  const chrome = document.getElementById("mobile-chrome");
   return {
+    bound: window.__chromeScrollBound === true,
+    atTopAway,
+    afterDown,
+    afterSmallUp,
+    afterUp,
+    afterSmallDown,
+    inertWhenHidden,
+    inertWhenShown,
+    downTransform,
+    transitionDuration,
+    scrollPadding: getComputedStyle(document.documentElement).scrollPaddingTop,
     innerWidth: window.innerWidth,
     innerHeight: window.innerHeight,
     position,
@@ -157,6 +204,7 @@ function launchChrome(bin) {
     "--no-sandbox",
     "--disable-gpu",
     "--disable-dev-shm-usage",
+    "--allow-file-access-from-files",
     "--remote-debugging-port=0",
     `--user-data-dir=${dir}`,
     "about:blank",
@@ -212,7 +260,8 @@ async function withPage(bin, htmlPath, run) {
     await send("Page.enable", {}, sessionId);
     await send("Runtime.enable", {}, sessionId);
     const fileUrl = `file://${htmlPath}`;
-    const measure = async (width, height, mobile) => {
+    const measure = async (width, height, mobile, media = []) => {
+      await send("Emulation.setEmulatedMedia", { features: media }, sessionId);
       await send("Emulation.setDeviceMetricsOverride", {
         width,
         height,
@@ -223,14 +272,15 @@ async function withPage(bin, htmlPath, run) {
       const started = Date.now();
       while (Date.now() - started < 8000) {
         const state = await send("Runtime.evaluate", {
-          expression: "document.readyState",
+          expression: "document.readyState === 'complete' && window.__chromeScrollBound === true",
           returnByValue: true,
         }, sessionId);
-        if (state.result?.value === "complete") break;
+        if (state.result?.value === true) break;
         await new Promise((resolve) => setTimeout(resolve, 40));
       }
       const probed = await send("Runtime.evaluate", {
         expression: MEASURE,
+        awaitPromise: true,
         returnByValue: true,
       }, sessionId);
       if (probed.exceptionDetails) {
@@ -255,11 +305,23 @@ test("at 390px the Find bar is not sticky or fixed and does not cover the player
     await withPage(bin, htmlPath, async (measure) => {
       for (const width of [360, 390, 414]) {
         const box = await measure(width, 844, true);
+        assert.equal(box.bound, true, `scroll binder at ${width}`);
         assert.equal(box.innerWidth, width, `viewport ${width}`);
-        for (const id of ["site-dock", "sticky-mobile-cta", "sticky-find-btn", "mobile-chrome"]) {
+        for (const id of ["site-dock", "sticky-mobile-cta", "sticky-find-btn"]) {
           assert.notEqual(box.position[id], "sticky", `${id} at ${width}`);
           assert.notEqual(box.position[id], "fixed", `${id} at ${width}`);
         }
+        assert.equal(box.position["mobile-chrome"], "fixed", `top bar at ${width}`);
+        assert.equal(box.atTopAway, false, `shown near the top at ${width}`);
+        assert.equal(box.afterDown, true, `hidden after scroll down at ${width}`);
+        assert.equal(box.afterSmallUp, true, `stays hidden under the threshold at ${width}`);
+        assert.equal(box.afterUp, false, `shown on scroll up at ${width}`);
+        assert.equal(box.afterSmallDown, false, `stays shown under the threshold at ${width}`);
+        assert.equal(box.inertWhenHidden, true, `hidden bar leaves the tab order at ${width}`);
+        assert.equal(box.inertWhenShown, false, `shown bar can take focus at ${width}`);
+        assert.notEqual(box.downTransform, "none");
+        assert.equal(box.transitionDuration, "0.18s");
+        assert.ok(Number.parseFloat(box.scrollPadding) >= 40, `scroll padding ${box.scrollPadding}`);
         assert.equal(box.buttonTag, "BUTTON");
         assert.equal(box.bodyPad, "0px");
         assert.ok(Number.parseFloat(box.workspacePad) < 48, `workspace pad ${box.workspacePad}`);
@@ -271,9 +333,18 @@ test("at 390px the Find bar is not sticky or fixed and does not cover the player
       assert.ok(phone.chromeHeight > 0 && phone.chromeHeight <= 48, `top bar ${phone.chromeHeight}px`);
       assert.equal(phone.chromeDisplay, "grid");
 
+      const reduced = await measure(390, 844, true, [
+        { name: "prefers-reduced-motion", value: "reduce" },
+      ]);
+      assert.equal(reduced.afterDown, true, "reduced motion still hides on scroll down");
+      assert.equal(reduced.afterUp, false, "reduced motion still shows on scroll up");
+      assert.equal(reduced.transitionDuration, "0s");
+
       const desk = await measure(768, 1024, false);
       assert.equal(desk.innerWidth, 768);
-      for (const id of ["site-dock", "sticky-mobile-cta", "sticky-find-btn"]) {
+      assert.equal(desk.position["site-dock"], "fixed", "desktop dock stays fixed");
+      assert.equal(desk.afterDown, false, "desktop scroll does not hide a phone bar");
+      for (const id of ["sticky-mobile-cta", "sticky-find-btn"]) {
         assert.notEqual(desk.position[id], "sticky", `${id} at 768`);
         assert.notEqual(desk.position[id], "fixed", `${id} at 768`);
       }
