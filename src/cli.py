@@ -71,23 +71,11 @@ def main() -> int:
             logging.warning("Could not load traded picks for league %s: %s", league_id, exc)
         players = client.get_players("nfl")
 
-        previous_league = None
-        previous_rosters = None
-        previous_league_id = league.get("previous_league_id")
-        if previous_league_id:
-            try:
-                previous_league = client.get_league(previous_league_id)
-                previous_rosters = client.get_rosters(previous_league_id)
-            except RuntimeError as exc:
-                logging.warning("Could not load previous league context for pick labels: %s", exc)
-
         ctx = build_league_context(
             league_id,
             users,
             rosters,
             players,
-            previous_league=previous_league,
-            previous_rosters=previous_rosters,
             league=league,
             traded_picks=traded_picks,
         )

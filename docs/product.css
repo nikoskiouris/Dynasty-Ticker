@@ -1107,6 +1107,16 @@ details.workspace-panel > summary,
   body.board-tools-live #me-select {
     width: min(16rem, 46vw);
   }
+
+  /* /players and other public boards have no league rail. The empty wordmark
+     strip was a 51px sticky bar. Phone .mobile-chrome scroll-reveal stays. */
+  body:not(.league-loaded):has(#landing.hidden) .control-rail {
+    display: none;
+  }
+
+  body:not(.league-loaded):has(#landing.hidden) .desk-nav {
+    top: 0;
+  }
 }
 
 /* Density lock. Tokens drive type, controls, rows, and cards. */

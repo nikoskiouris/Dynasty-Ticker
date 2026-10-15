@@ -5087,6 +5087,10 @@ button.weekly-help-close:hover {
   font-size: var(--fs-sm2);
 }
 
+.insight-item[aria-busy="true"] span {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
 .green {
   border-left-color: var(--green);
 }
@@ -8391,6 +8395,45 @@ button.ranks-row.you {
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
   background: var(--panel);
+}
+
+[data-player-connect-slot]:empty {
+  display: none;
+}
+
+.player-back {
+  width: auto;
+  justify-self: start;
+}
+
+.player-connect {
+  display: flex;
+  flex: 1 1 16rem;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.player-connect input,
+.player-connect button {
+  width: auto;
+  min-height: 2.1rem;
+  padding: 0.3rem 0.7rem;
+}
+
+.player-connect input {
+  flex: 1 1 8rem;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.player-connect button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.player-league-list[hidden] {
+  display: none;
 }
 
 .ranks-card-main {
