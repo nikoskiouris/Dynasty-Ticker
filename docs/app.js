@@ -338,6 +338,7 @@ import {
   tickerDurationSeconds,
 } from "./modules/site.js";
 import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
+import { pageview as analyticsPageview, track as analyticsTrack } from "./modules/analytics.js";
 import {
   DEFAULT_RATHER_FORMAT,
   buildRatherBoard,
@@ -843,6 +844,7 @@ renderSessionSnapshot();
 syncTradeModeUi();
 let searchedUserNoted = false;
 let appBooted = false;
+let routeReports = 0;
 let leagueOpenedInApp = false;
 function noteSearchedUser(leagueId) {
   if (searchedUserNoted) return;
@@ -886,9 +888,13 @@ void hydrateCrowdVotes().then((ok) => {
   }
 });
 if (typeof history.scrollRestoration === "string") history.scrollRestoration = "manual";
-window.addEventListener("popstate", (event) => applyDeskPopState(event.state));
+window.addEventListener("popstate", (event) => {
+  applyDeskPopState(event.state);
+  reportRoute();
+});
 if (isPhoneLayout()) setMobileRailOpen(false);
 syncDocumentMeta();
+reportRoute({ first: true });
 appBooted = true;
 syncSiteDock();
 bindMobileChromeScroll(window, {
@@ -1552,10 +1558,26 @@ function updateUrlState({ mode = "replace" } = {}) {
   const entry = { ...snapshot, pushed };
   if (write === "push" && typeof history.pushState === "function") {
     history.pushState(entry, "", path);
+    reportRoute();
     return;
   }
   if (write === "silent") return;
   history.replaceState(entry, "", path);
+  reportRoute();
+}
+
+// One pageview per route change (templated, no ids), plus landing_view when
+// the route lands on the home landing. Analytics is a no-op until a provider
+// adapter is set in modules/analytics.js.
+function reportRoute({ first = false } = {}) {
+  const fresh = analyticsPageview(window.location.pathname, first
+    ? { search: window.location.search, referrer: document.referrer }
+    : {});
+  if (!fresh) return;
+  routeReports += 1;
+  if (window.location.pathname === urlPath() && landingVisible()) {
+    analyticsTrack("landing_view", {}, { once: `route:${routeReports}` });
+  }
 }
 
 function closeHistoryOverlay(kind) {
@@ -2742,6 +2764,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     setMobileRailOpen(false, { history: "silent" });
     showAppPages();
     noteSearchedUser(leagueId);
+    analyticsTrack("league_connected", { sample: state.viewingSample ? "yes" : "no" });
     scrollLoadedWorkspaceIntoView();
     const missingTeam = state.meRosterId ? "" : noTeamInLeagueCopy(state.sleeperUser);
     setStatus(
@@ -6836,12 +6859,22 @@ function renderDraftMethod(view) {
   return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
 }
 
+// trade_checked fires once per distinct give/get pair that reaches a verdict.
+// The key stays in memory; only { mode } is sent.
+function noteTradeChecked(draft) {
+  const side = (rows) => rows.map((row) => String(row.assetId || row.uid || "")).sort().join(",");
+  analyticsTrack("trade_checked", { mode: state.leagueId ? "league" : "public" }, {
+    once: `${side(draft.left)}|${side(draft.right)}`,
+  });
+}
+
 function renderDraftVerdict(view) {
   const { draft, model } = view;
   if (!draft.left.length && !draft.right.length) {
     return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. The verdict uses the same prices as Players.</p>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
+  if (bothSides) noteTradeChecked(draft);
   const them = view.partner?.manager?.displayName || "them";
   const voice = sampleVoice();
   const { verdict, adjustment } = model;
