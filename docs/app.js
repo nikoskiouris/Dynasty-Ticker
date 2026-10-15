@@ -6973,7 +6973,7 @@ function renderDraftVerdict(view) {
   const meters = draftMeterValues(model);
   // One verdict wording everywhere (verdict-copy.js): app, /t, card, meta, share text.
   const copy = verdictCopy(verdict);
-  // The headline carries the % too ("Favors Get side, 20% apart"), like the card.
+  // The headline is the full line ("Lopsided · Give side worth 89.3% more"), like the card.
   const label = bothSides ? copy.line : copy.label;
   const sharedView = bothSides ? sharedVerdictFor(view) : null;
   const maxSide = Math.max(meters.give, meters.get, 1);
@@ -6990,11 +6990,11 @@ function renderDraftVerdict(view) {
         ${/* TODO(follow-up): spell a bare percent ("96% apart") as a plain outcome. Out of scope for this push. */ ""}
         <p>${escapeHtml(sharedView ? "Give" : giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(sharedView ? "Get" : getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : adjustment ? (sharedView ? ` Stars cost extra +${formatNumber(adjustment.amount)} on ${adjustment.side === "left" ? "Give" : "Get"}.` : "") : ""}</p>
         ${sharedView ? renderVerdictFinePrint(`
-          ${adjustment ? `<p class="draft-package"><strong>Stars cost extra:</strong> one great player beats a pile of good ones. That adds ${formatNumber(adjustment.amount)} to ${adjustment.side === "left" ? "Give" : "Get"}. Listed prices stay put. After that the sides are ${verdict.pct}% apart.</p>` : ""}
+          ${adjustment ? `<p class="draft-package"><strong>Stars cost extra:</strong> one great player beats a pile of good ones. That adds ${formatNumber(adjustment.amount)} to ${adjustment.side === "left" ? "Give" : "Get"}. Listed prices stay put. After that: ${escapeHtml(copy.detail)}.</p>` : ""}
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
-        ${adjustment ? `<p class="draft-package"><strong>Package credit:</strong> the best player is worth more than the same total split into smaller pieces. That adds ${formatNumber(adjustment.amount)} to ${escapeHtml(credited)}. Listed prices stay put. After that credit the sides are ${verdict.pct}% apart.</p>` : ""}
+        ${adjustment ? `<p class="draft-package"><strong>Package credit:</strong> the best player is worth more than the same total split into smaller pieces. That adds ${formatNumber(adjustment.amount)} to ${escapeHtml(credited)}. Listed prices stay put. After that credit: ${escapeHtml(copy.detail)}.</p>` : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method">
           <summary>How this number works</summary>

@@ -116,13 +116,13 @@ for (const viewport of viewports) {
     const shared = page.locator(".calc-shared");
     await expect(shared).toBeVisible({ timeout: 30000 });
     // One neutral vocabulary: both rows name a side the same way.
-    const VERDICT = "(Fair trade|Fair, slight edge to (Give|Get) side|Favors (Give|Get) side|Lopsided in favor of (Give|Get) side), [\\d.]+% apart";
+    const VERDICT = "(Fair trade · [\\d.]+% apart|(Fair, slight edge|Favors one side|Lopsided) · (Give|Get) side worth [\\d.]+% more)";
     await expect(shared.locator("div").first()).toHaveText(new RegExp(`^Oct 7\\s*${VERDICT}$`));
     await expect(shared.locator(".is-today")).toHaveText(new RegExp(`^Today\\s*${VERDICT}$`));
     await expect(page.locator(".calc-shared-note")).toHaveText("Prices moved since this was shared.");
     const heading = page.locator("#value-calc-verdict h3");
     await expect(heading).toHaveText(new RegExp(`^Shared on Oct 7: ${VERDICT}\\. Today: ${VERDICT}\\.$`));
-    await expect(page.locator("#value-calc-verdict")).not.toContainText(/for them|You overpay|You win|leans/);
+    await expect(page.locator("#value-calc-verdict")).not.toContainText(/for them|in favor of|overpay|\bwins?\b|leans/i);
     const box = await shared.boundingBox();
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
   });
@@ -204,7 +204,8 @@ test("a bad code with a saved trade still shows the notice and keeps the trade",
 test("the /trade headline carries the % like the card", async ({ page }) => {
   await page.goto("/trade?give=player:9221&get=pick:2027:r1:early,pick:2028:r1:any");
   const heading = page.locator("#value-calc-verdict h3");
-  await expect(heading).toHaveText(/^Lopsided in favor of Get side, [\d.]+% apart$/, { timeout: 30000 });
+  // Gibbs for two 1sts: credited 21,031 vs 11,112 -> 89.3% more.
+  await expect(heading).toHaveText("Lopsided · Give side worth 89.3% more", { timeout: 30000 });
 });
 
 test("Esc closes the info panel and returns focus to its button", async ({ page }) => {

@@ -169,7 +169,7 @@ export function neutralVerdict(summary) {
   return summary ? verdictCopy(summary.verdict).line : "";
 }
 
-// text: the 48px label; pctText: "18% apart"; tone: good | fair | bad.
+// text: the 48px tier; pctText: "Give side worth 15% more" / "1.4% apart"; tone: good | fair | bad.
 export function cardVerdict(summary) {
   const copy = verdictCopy(summary?.verdict);
   return { text: copy.label, pctText: copy.pctText, tone: copy.tone || "fair", line: copy.line };

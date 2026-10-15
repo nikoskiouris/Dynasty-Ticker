@@ -14,7 +14,7 @@ import {
   shareSummary,
 } from "../docs/modules/trade-share.js";
 import { matchRoute, pathForPlace } from "../docs/modules/history-route.js";
-import { verdictCopy, verdictCopyFor } from "../docs/modules/verdict-copy.js";
+import { percentMore, verdictCopy, verdictCopyFor } from "../docs/modules/verdict-copy.js";
 import { createSharePageHandler, injectShareMeta, shareText, summaryForCode } from "../netlify/lib/trade-share.js";
 import { loadCardArt, renderCardSvg } from "../netlify/lib/trade-card.js";
 import { createMeasurer, truncateToWidth } from "../netlify/lib/text-measure.js";
@@ -57,10 +57,11 @@ test("the card never shows a verdict for the side with the smaller total", () =>
       assert.ok(texts.includes(`+${s.credit.amount.toLocaleString("en-US")}`));
       assert.equal(creditLine(s), `Stars cost extra +${s.credit.amount.toLocaleString("en-US")}`);
     }
-    // The side named is the one that comes out ahead: the one that receives
-    // the column worth more (Give column bigger -> Get side).
-    const ahead = s.giveCredited > s.getCredited ? "Get side" : "Give side";
-    if (v.text !== "Fair trade") assert.match(v.text, new RegExp(`${ahead}$`), code);
+    // The side named is the column worth more, by the true "% more".
+    const bigger = s.giveCredited > s.getCredited ? "Give" : "Get";
+    const small = Math.min(s.giveCredited, s.getCredited);
+    const more = Math.round((Math.abs(s.giveCredited - s.getCredited) / small) * 1000) / 10;
+    if (v.text !== "Fair trade") assert.equal(v.pctText, `${bigger} side worth ${more}% more`, code);
     if (v.tone === "bad") assert.ok(s.giveCredited > s.getCredited);
     if (v.tone === "good") assert.ok(s.getCredited > s.giveCredited);
   }
@@ -70,41 +71,48 @@ test("og:title, og:description and alt use the card verdict and credited totals"
   const s = summaryOf("1s9509~11632.p27r1e");
   const { title, description, alt } = shareText(s);
   const v = cardVerdict(s);
-  assert.equal(title, `Bijan Robinson for Malik Nabers, 2027 Early 1st: ${v.text}, ${v.pctText}`);
+  assert.equal(title, `Bijan Robinson for Malik Nabers, 2027 Early 1st: ${v.text} · ${v.pctText}`);
+  assert.equal(v.line, "Lopsided · Give side worth 33% more"); // 19,224 vs 14,457
   assert.match(description, /^Give 11,811 \+ [\d,]+ stars cost extra = [\d,]+ vs get 14,457\./);
   assert.match(description, /Check your own trade free at Dynasty Ticker\.$/);
   assert.ok(alt.includes(s.giveCredited.toLocaleString("en-US")));
   assert.doesNotMatch(`${title} ${description} ${alt}`, /overpay|\bwin\b|\bthem\b/i);
 });
 
-test("verdict tiers: the app's thresholds, amber up to 12%, names the side that comes out ahead", () => {
+test("verdict format: tier · column worth N% more, tiers on the app's metric, N is true", () => {
   const at = (give, get) => verdictCopyFor(give, get);
-  assert.deepEqual(at(10000, 10400), { tier: "even", side: "", label: "Fair trade", pctText: "3.8% apart", line: "Fair trade, 3.8% apart", tone: "fair" });
-  assert.equal(at(10000, 11000).line, "Fair, slight edge to Give side, 9.1% apart");
-  assert.equal(at(11000, 10000).line, "Fair, slight edge to Get side, 9.1% apart");
+  // Fair tier keeps "apart", with the same displayed metric: 400 / 10000 = 4%.
+  assert.equal(at(10000, 10400).line, "Fair trade · 4% apart");
+  assert.equal(at(10000, 10400).tierPct, 3.8); // app metric, used only for the tier
+  assert.equal(at(10000, 11000).line, "Fair, slight edge · Get side worth 10% more");
+  assert.equal(at(11000, 10000).line, "Fair, slight edge · Give side worth 10% more");
   assert.equal(at(11000, 10000).tone, "fair");
-  assert.equal(at(10000, 12500).label, "Favors Give side");
+  assert.equal(at(10000, 12500).line, "Favors one side · Get side worth 25% more");
   assert.equal(at(10000, 12500).tone, "good");
-  assert.equal(at(12500, 10000).label, "Favors Get side");
   assert.equal(at(12500, 10000).tone, "bad");
-  assert.equal(at(10000, 20000).label, "Lopsided in favor of Give side");
-  assert.equal(at(20000, 10000).label, "Lopsided in favor of Get side");
-  // PM's acceptance case: Gibbs for two 1sts.
+  assert.equal(at(20000, 10000).line, "Lopsided · Give side worth 100% more");
+  // Thresholds stay on the old metric: 12.5% "more" is still 11.1% of the larger side.
+  assert.equal(at(10000, 11250).tier, "edge");
+  assert.equal(percentMore(11112, 21031), 89.3);
+  // PM's acceptance case: Gibbs for two 1sts (credited 21,031 vs 11,112).
   const gibbs = summaryOf("1s9221~p27r1e.p28r1a");
-  assert.match(cardVerdict(gibbs).text, /in favor of Get side$/);
-  // 5.4% (the 5-picks card) is the slight-edge tier, amber.
+  assert.equal(gibbs.giveCredited, 21031);
+  assert.equal(gibbs.getCredited, 11112);
+  assert.equal(gibbs.pct, 47.2); // app metric: gap / larger side
+  assert.equal(cardVerdict(gibbs).line, "Lopsided · Give side worth 89.3% more");
   const picks = summaryOf("1sp27r1e.p28r1a~p27r2a.p27r3a.p28r2a.p28r1e.p27r1l");
-  assert.equal(cardVerdict(picks).text, "Fair, slight edge to Get side");
   assert.equal(cardVerdict(picks).tone, "fair");
+  assert.match(cardVerdict(picks).line, /^Fair, slight edge · Give side worth [\d.]+% more$/);
   const fair = renderCardSvg(summaryOf("1s9509~9493"), { measure });
   assert.match(fair, /font-size="48" font-weight="700" fill="#f0c36a">Fair trade</);
+  assert.ok(svgText(fair).includes("1.4% apart"));
 });
 
 test("parity: app, /t page, card, og:title, og:description and share text say the same verdict", () => {
   const codes = ["1s9509~11632.p27r1e", "1s7564~11632.p27r2a", "1s9488~12527.13287.p28r1a.p27r2a",
     "1sp27r1e.p28r1a~p27r2a.p27r3a.p28r2a.p28r1e.p27r1l", "1s9509~9493", "1s9509~9221", "1s9221~9509", "1q4984~9221",
     "1s9221~p27r1e.p28r1a", "1sp27r1e.p28r1a~9221"];
-  const BANNED = /You overpay|You win|\byou\b|\bthem\b|leans|overpay|\bwins?\b/i;
+  const BANNED = /in favor of|\bwins?\b|overpay|leans|\byou\b|\bthem\b/i;
   const app = readFileSync(join(root, "../docs/app.js"), "utf8");
   // The app's verdict heading and tone come from verdictCopy(model.verdict).
   assert.match(app, /const copy = verdictCopy\(verdict\);[\s\S]{0,120}const label = bothSides \? copy\.line : copy\.label;/);
@@ -123,6 +131,7 @@ test("parity: app, /t page, card, og:title, og:description and share text say th
     assert.ok(svgText(svg).includes(appCopy.label), code);
     assert.ok(svgText(svg).includes(appCopy.pctText), code);
     assert.ok(title.endsWith(`: ${appCopy.line}`), code);
+    assert.match(appCopy.line, /^(Fair trade · [\d.]+% apart|(Fair, slight edge|Favors one side|Lopsided) · (Give|Get) side worth [\d.]+% more)$/, code);
     assert.equal(shareMessage(s), `${appCopy.line}. Check it on Dynasty Ticker.`);
     for (const text of [card.text, s.label, title, description, shareMessage(s)]) {
       assert.doesNotMatch(text, BANNED, code);
