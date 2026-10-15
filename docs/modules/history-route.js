@@ -300,11 +300,18 @@ export function playerIdFromPathname(pathname) {
 
 // Paths the static server and Netlify may rewrite to index.html.
 // Files that exist still win. This is not a catch-all.
+// /l and /player need an id. A file extension is never an app route.
 export function isSpaPath(pathname) {
   const bits = pathBits(pathname);
   if (!bits?.length) return false;
-  if (bits[0] === "l" || bits[0] === "player") return true;
+  if (bits.some((bit) => bit.includes("."))) return false;
+  if (bits[0] === "l" || bits[0] === "player") return bits.length > 1;
   return bits.length === 1 && (bits[0] === "trade" || bits[0] === "players" || bits[0] === "connect");
+}
+
+// Choosing a section replaces the open menu entry so Back does not reopen it.
+export function historyModeAfterMenuChoice({ overlay = "", pushed = false } = {}) {
+  return overlay === "rail" && pushed ? "replace" : "push";
 }
 
 // Cold deep links have no pushed entry, so the header arrow goes home.

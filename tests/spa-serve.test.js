@@ -34,6 +34,12 @@ test("extensionless app routes fall back to index.html and dotted paths 404", ()
 
   assert.equal(classifyRequest("/nope").status, 404);
   assert.match(classifyRequest("/nope").file, /404\.html$/);
+  assert.equal(classifyRequest("/l").status, 404);
+  assert.equal(classifyRequest("/player").status, 404);
+  const playerFile = classifyRequest("/player/missing.js");
+  assert.equal(playerFile.status, 404);
+  assert.match(playerFile.file, /404\.html$/);
+  assert.doesNotMatch(playerFile.file, /index\.html$/);
   assert.equal(classifyRequest("/api/rather-vote").status, 404);
 
   const css = classifyRequest("/styles.css");

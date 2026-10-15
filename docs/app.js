@@ -281,6 +281,7 @@ import {
   decideHistoryWrite,
   isPlayerRouteId,
   matchRoute,
+  historyModeAfterMenuChoice,
   pathForPlace,
   playerIdFromPathname,
   playerPathname,
@@ -291,6 +292,7 @@ import {
   selectionFromLocation,
   sleeperIdFrom,
   topOverlay,
+  urlPath,
 } from "./modules/history-route.js";
 import {
   analyzeWindowCall,
@@ -864,7 +866,7 @@ if (!(bootRoute?.leagueId || parseShareParams(window.location.search).leagueId))
   if (bootRoute?.unknown) {
     document.querySelector("#landing")?.classList.remove("hidden");
     if (typeof history?.replaceState === "function") {
-      history.replaceState({ ...historyPlaceNow(), pushed: false }, "", "/");
+      history.replaceState({ ...historyPlaceNow(), pushed: false }, "", urlPath());
     }
   } else if (showRanks || bootRoute?.name === "trade" || bootRoute?.name === "player") {
     updateUrlState({ mode: "replace" });
@@ -932,7 +934,7 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
   const place = resolveDeskPlace({ tab: nextPage, view: room || "" });
   const aliased = place.page === nextPage ? place.room : "";
   const nextRoom = clampRoom(nextPage, isRoomOf(nextPage, room) ? room : (aliased || defaultRoomFor(nextPage)));
-  const openingPlayers = history === "push" && nextPage === "players" && nextRoom === "ranks";
+  const openingPlayers = history !== "silent" && nextPage === "players" && nextRoom === "ranks";
   const samePlace = state.activePage === nextPage && getRoom(nextPage) === nextRoom && !state.selectedTradeId;
   if (samePlace && history === "push") {
     const href = pathForPlace({
@@ -1596,7 +1598,7 @@ function applyDeskPopState(historyState) {
     state.ranks.selectedId = "";
     applyDeskPlaceFromHistory(parsed, { ...(historyState || {}), tab: "players", view: "ranks" });
     if (typeof history?.replaceState === "function") {
-      history.replaceState({ ...historyPlaceNow(), pushed: false }, "", "/");
+      history.replaceState({ ...historyPlaceNow(), pushed: false }, "", urlPath());
     }
     restoreHistoryScroll(historyState);
     return;
@@ -2153,11 +2155,25 @@ function renderPhoneDesk() {
   }).join("");
 }
 
+function leavePhoneMenu(navigate) {
+  const mode = historyModeAfterMenuChoice(history.state || {});
+  setMobileRailOpen(false, { history: "silent" });
+  navigate(mode);
+  if (mode !== "replace" || typeof history.replaceState !== "function") return;
+  const next = history.state || {};
+  history.replaceState({
+    ...next,
+    pushed: true,
+    overlay: next.overlay === "rail" ? "" : next.overlay,
+  }, "", `${window.location.pathname}${window.location.search}`);
+}
+
 function handlePhoneDeskClick(event) {
   const roomButton = event.target.closest("[data-phone-room]");
   if (roomButton) {
-    openRoom(roomButton.dataset.page, roomButton.dataset.phoneRoom, { history: "push", scroll: "top" });
-    setMobileRailOpen(false, { history: "silent" });
+    leavePhoneMenu((mode) => {
+      openRoom(roomButton.dataset.page, roomButton.dataset.phoneRoom, { history: mode, scroll: "top" });
+    });
     return;
   }
   const pageButton = event.target.closest("[data-phone-page]");
@@ -2165,14 +2181,16 @@ function handlePhoneDeskClick(event) {
   const page = pageButton.dataset.phonePage;
   if (!PAGE_IDS.includes(page)) return;
   if (page === state.activePage && page === "players" && (landingVisible() || window.location.pathname !== pathForPlace({ page: "players", room: "ranks", landing: false }))) {
-    openRoom("players", "ranks", { history: "push", scroll: "top" });
-    setMobileRailOpen(false, { history: "silent" });
+    leavePhoneMenu((mode) => {
+      openRoom("players", "ranks", { history: mode, scroll: "top" });
+    });
     return;
   }
   if (page !== state.activePage) {
     phoneDeskCollapsed = false;
-    setActivePage(page, { history: "push", scroll: "top", landing: page === "players" ? "hide" : "" });
-    setMobileRailOpen(false, { history: "silent" });
+    leavePhoneMenu((mode) => {
+      setActivePage(page, { history: mode, scroll: "top", landing: page === "players" ? "hide" : "" });
+    });
     return;
   }
   phoneDeskCollapsed = !phoneDeskCollapsed;

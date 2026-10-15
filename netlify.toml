@@ -85,10 +85,21 @@
   to = "/index.html"
   status = 200
 
+# A dotted path under these prefixes is a missing file, not a desk route.
+[[redirects]]
+  from = "/l/*.*"
+  to = "/404.html"
+  status = 404
+
 [[redirects]]
   from = "/l/*"
   to = "/index.html"
   status = 200
+
+[[redirects]]
+  from = "/player/*.*"
+  to = "/404.html"
+  status = 404
 
 [[redirects]]
   from = "/player/*"
