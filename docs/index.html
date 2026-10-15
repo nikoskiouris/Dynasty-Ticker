@@ -8,6 +8,7 @@
     <meta name="description" content="See what your players are worth, check a trade, and find your team's next move." />
     <meta name="theme-color" content="#0c0c0e" />
     <script src="./desk-shut.js"></script>
+    <script src="./boot-intent.js"></script>
     <meta property="og:title" content="Dynasty Ticker — Your Sleeper dynasty league" />
     <meta property="og:description" content="See what your players are worth, check a trade, and find your team's next move." />
     <meta property="og:type" content="website" />
@@ -53,6 +54,7 @@
           <div class="mobile-chrome-title-row">
             <strong id="mobile-chrome-title">Your Sleeper league</strong>
             <span id="sample-league-chip" class="sample-league-chip" data-sample-chip hidden>Sample league</span>
+            <button type="button" class="sample-find-btn" data-sample-find hidden>Find my leagues</button>
           </div>
           <p id="mobile-chrome-viewing" class="mobile-chrome-viewing" hidden></p>
         </div>
@@ -80,6 +82,7 @@
             <div class="sample-chrome-title-row">
               <strong id="sample-chrome-title"></strong>
               <span class="sample-league-chip" data-sample-chip hidden>Sample league</span>
+              <button type="button" class="sample-find-btn" data-sample-find hidden>Find my leagues</button>
             </div>
             <p id="sample-chrome-viewing" class="sample-chrome-viewing"></p>
           </div>
@@ -124,7 +127,7 @@
               aria-describedby="username-error"
             />
             <p id="username-error" class="field-error" hidden role="alert"></p>
-            <button id="find-leagues-btn" type="submit" data-idle-label="Find my leagues">Find my leagues</button>
+            <button id="find-leagues-btn" type="submit" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
           </form>
           <div id="league-picker" class="league-picker hidden" data-league-picker></div>
 
@@ -152,7 +155,7 @@
           <div id="league-status" class="status muted" aria-live="polite">
             <span id="league-status-loader" class="status-loader hidden" aria-hidden="true"></span>
             <span id="league-status-text">Search your Sleeper username to pick a league.</span>
-            <button type="button" id="league-status-retry" class="ghost-btn status-retry hidden">Try again</button>
+            <button type="button" id="league-status-retry" class="ghost-btn status-retry hidden">Retry</button>
           </div>
         </section>
 
@@ -180,12 +183,13 @@
         <span class="desk-board-bars" aria-hidden="true"></span>
       </button>
 
-      <main class="workspace" id="workspace">
+      <main class="workspace" id="workspace" tabindex="-1">
         <div id="sample-banner" class="sample-banner" hidden>
           <p>This is a public sample league. Connect your Sleeper username anytime.</p>
-          <button type="button" data-action="find-my-leagues">Find my leagues</button>
+          <button type="button" data-action="find-my-leagues" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
           <button type="button" class="ghost-btn sample-banner-dismiss" data-action="dismiss-sample-banner">Dismiss</button>
         </div>
+        <button type="button" id="sample-find-btn" class="sample-find-btn" data-sample-find data-action="find-my-leagues" hidden>Find my leagues</button>
         <header class="workspace-header" id="workspace-header">
           <div class="league-hero">
             <div class="league-avatar" id="league-avatar">
@@ -216,6 +220,7 @@
         <div id="desk-load-alert" class="status error desk-load-alert hidden" role="alert">
           <span id="desk-load-alert-text"></span>
           <button type="button" id="desk-load-retry" class="ghost-btn status-retry">Retry</button>
+          <button type="button" id="desk-load-dismiss" class="ghost-btn status-retry">Dismiss</button>
         </div>
 
         <div class="desk-nav" id="desk-nav">
@@ -244,7 +249,7 @@
 
     <div id="site-dock" class="site-dock">
       <div id="sticky-mobile-cta" class="sticky-mobile-cta" hidden>
-        <button id="sticky-find-btn" type="button" data-idle-label="Find my leagues">Find my leagues</button>
+        <button id="sticky-find-btn" type="button" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
       </div>
     </div>
 

@@ -19,6 +19,7 @@ import {
   tickerDurationSeconds,
   writeStorageNoticeDismissed,
 } from "../docs/modules/site.js";
+import { SAMPLE_LEAGUE_ID } from "../docs/modules/constants.js";
 import { siteMarkup } from "./site-markup.js";
 
 const docs = join(dirname(fileURLToPath(import.meta.url)), "../docs");
@@ -179,9 +180,10 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, />Sample league</);
   assert.match(index, /id="sample-banner"/);
   assert.match(index, /This is a public sample league\. Connect your Sleeper username anytime\./);
-  assert.match(index, /id="sample-banner"[\s\S]*?>Find my leagues</);
+  assert.match(index, /id="sample-banner"[\s\S]*?data-idle-label="Find my leagues"[\s\S]*?>Loading…</);
   assert.doesNotMatch(readDocs("ui/league.html"), /Connect Sleeper|Find leagues</);
-  assert.match(readDocs("app.js"), /Sample league — not your account\. Viewing as /);
+  assert.match(readDocs("app.js"), /Sample league — not this account\./);
+  assert.match(readDocs("app.js"), /Viewing as \$\{me\.manager\?\.displayName \|\| "a roster"\}/);
   assert.match(readDocs("app.js"), /Viewing \$\{name\} · sample/);
   assert.match(readDocs("app.js"), /Example roster/);
   assert.match(index, /id="public-ranks"/);
@@ -328,7 +330,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(notFound, /class="brand-mark"/);
   assert.doesNotMatch(notFound, /League Command Center/);
   assert.doesNotMatch(notFound, /demo league/i);
-  assert.doesNotMatch(notFound, /1315165104303513600/);
+  assert.doesNotMatch(notFound, new RegExp(SAMPLE_LEAGUE_ID));
   assert.doesNotMatch(notFound, /privacy\.html/);
   assert.doesNotMatch(notFound, /terms\.html/);
   assert.doesNotMatch(notFound, /Contact/);
@@ -539,6 +541,23 @@ test("each desk page is its own file and boot mounts them before the app", () =>
   assert.match(boot, /await import\("\.\/app\.js"\)/);
   assert.match(boot, /showBootError/);
   assert.match(boot, /role="alert"/);
+  assert.match(boot, /paintFindLeagueButtons\(document, "loading"\)/);
+  assert.doesNotMatch(boot, /player_values/);
+  assert.match(readDocs("app.js"), /releaseBootGate\(document\)/);
+  assert.match(readDocs("app.js"), /scheduleBootFind\(\(\) => requestFindLeagues\(\)\)/);
+  assert.match(readDocs("app.js"), /applyBootFieldValue/);
+  assert.match(index, /src="\.\/boot-intent\.js"/);
+  assert.ok(index.indexOf('src="./boot-intent.js"') < index.indexOf('src="./boot.js"'));
+  assert.match(index, /id="find-leagues-btn"[^>]*aria-disabled="true"[^>]*aria-busy="true"/);
+  assert.match(index, /id="sticky-find-btn"[^>]*aria-disabled="true"[^>]*aria-busy="true"/);
+  assert.doesNotMatch(index, /id="find-leagues-btn"[^>]*\sdisabled[\s=]/);
+  assert.doesNotMatch(index, /id="sticky-find-btn"[^>]*\sdisabled[\s=]/);
+  assert.match(readDocs("ui/landing.html"), /id="landing-find-btn"[^>]*aria-disabled="true"[^>]*aria-busy="true"/);
+  assert.doesNotMatch(readDocs("ui/landing.html"), /id="landing-find-btn"[^>]*\sdisabled[\s=]/);
+  assert.match(readDocs("ui/league.html"), /data-action="find-my-leagues"[^>]*aria-busy="true"/);
+  assert.doesNotMatch(readDocs("ui/league.html"), /data-action="find-my-leagues"[^>]*\sdisabled[\s=]/);
+  assert.doesNotMatch(index, /id="sleeper-username"[^>]*disabled/);
+  assert.doesNotMatch(readDocs("ui/landing.html"), /id="landing-username"[^>]*disabled/);
   assert.match(index, /class="skip-link"/);
   assert.match(siteMarkup(), /id="landing-rather"/);
   assert.match(siteMarkup(), /id="calculator-shell"/);

@@ -303,9 +303,10 @@ function adjustPickAcrossYears(value, sourceSeason, targetSeason) {
   const target = Number(targetSeason);
   if (!Number.isFinite(value) || !Number.isFinite(source) || !Number.isFinite(target)) return value;
   const yearDelta = target - source;
+  // A later catalog row is not marked up onto an earlier year. Forward years use 0.85^n.
   if (yearDelta <= 0) return Math.max(1, Math.round(value));
   const factor = PICK_YEAR_DISCOUNT ** yearDelta;
-  return Math.max(1, Math.round(value * Math.max(0.5, factor)));
+  return Math.max(1, Math.round(value * factor));
 }
 
 const pickCatalogs = new WeakMap();
@@ -346,7 +347,13 @@ export function findPickCatalogValue(meta, values, valueNameMap = NO_NAMES, cata
   if (!Number.isFinite(numericSeason)) return null;
   const nearest = list
     .filter((pick) => pick.round === meta.round && desiredBuckets.includes(pick.bucket))
-    .sort((a, b) => Math.abs(Number(a.season) - numericSeason) - Math.abs(Number(b.season) - numericSeason))[0];
+    .sort((a, b) => {
+      const distance = Math.abs(Number(a.season) - numericSeason) - Math.abs(Number(b.season) - numericSeason);
+      if (distance) return distance;
+      const bucketOrder = desiredBuckets.indexOf(a.bucket) - desiredBuckets.indexOf(b.bucket);
+      if (bucketOrder) return bucketOrder;
+      return Number(a.season) - Number(b.season);
+    })[0];
   return nearest ? adjustPickAcrossYears(nearest.value, nearest.season, meta.season) : null;
 }
 

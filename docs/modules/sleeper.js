@@ -5,6 +5,19 @@ function defaultSleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function defaultYieldFrame() {
+  return new Promise((resolve) => {
+    const raf = globalThis.requestAnimationFrame;
+    if (typeof raf !== "function") {
+      setTimeout(resolve, 0);
+      return;
+    }
+    // One frame paints, then the second callback runs. Parsing in the first
+    // callback would block the paint the username search just queued.
+    raf(() => raf(() => resolve()));
+  });
+}
+
 function withTimeout(promise, timeoutMs, message) {
   return new Promise((resolve, reject) => {
     const id = setTimeout(() => reject(new Error(message)), timeoutMs);
@@ -29,6 +42,7 @@ export function createSleeperClient(options = {}) {
     minIntervalMs = 110,
     now = () => Date.now(),
     sleep = defaultSleep,
+    yieldFrame = defaultYieldFrame,
   } = options;
 
   let active = 0;
@@ -113,7 +127,7 @@ export function createSleeperClient(options = {}) {
       if (response.status === 429) {
         const error = new Error("Sleeper API returned 429");
         error.status = 429;
-        error.retryAfterMs = Number(response.headers?.get?.("Retry-After")) * 1000;
+        error.retryAfterMs = retryAfterDelayMs(response.headers?.get?.("Retry-After"));
         throw error;
       }
       if (!response.ok) {
@@ -126,7 +140,12 @@ export function createSleeperClient(options = {}) {
       // the download abort timer cancel a body we already have.
       if (isBackgroundPath(path)) {
         if (abortTimeoutId) clearTimeout(abortTimeoutId);
-        await whenInteractiveIdle();
+        // Idle can flicker while a search sleeps between tries. Yield a frame
+        // so the picker can paint, then look again before the fat parse.
+        do {
+          await whenInteractiveIdle();
+          await yieldFrame();
+        } while (interactive > 0);
       }
       return await withTimeout(response.json(), timeoutMs + 1500, "Sleeper API response parse timed out");
     } catch (err) {
@@ -182,23 +201,31 @@ export function createSleeperClient(options = {}) {
   }
 
   async function apiGetWithRetry(path, { timeoutMs = 25000, retries = 1, cache = "no-store", signal = null } = {}) {
-    let lastError = null;
-    for (let attempt = 0; attempt <= retries; attempt += 1) {
-      try {
-        return await apiGet(path, { timeoutMs, cache, signal });
-      } catch (err) {
-        lastError = err;
-        if (attempt >= retries) break;
-        // A missing resource will not appear on a second try. Cancellation either.
-        if (err?.name === "AbortError" || err?.status === 404) break;
-        const retryAfter = Number(err?.retryAfterMs);
-        const delay = Number.isFinite(retryAfter) && retryAfter > 0
-          ? retryAfter
-          : 250 * (attempt + 1) * (err?.status === 429 ? 4 : 1);
-        await sleep(delay);
+    // apiGet drops its count in finally, before this sleep. Hold the whole
+    // retry, backoff included, so /players/nfl cannot parse in that gap.
+    const background = isBackgroundPath(path);
+    if (!background) bumpInteractive(1);
+    try {
+      let lastError = null;
+      for (let attempt = 0; attempt <= retries; attempt += 1) {
+        try {
+          return await apiGet(path, { timeoutMs, cache, signal });
+        } catch (err) {
+          lastError = err;
+          if (attempt >= retries) break;
+          // A missing resource will not appear on a second try. Cancellation either.
+          if (err?.name === "AbortError" || err?.status === 404) break;
+          const retryAfter = Number(err?.retryAfterMs);
+          const delay = Number.isFinite(retryAfter) && retryAfter > 0
+            ? retryAfter
+            : 250 * (attempt + 1) * (err?.status === 429 ? 4 : 1);
+          await sleep(delay);
+        }
       }
+      throw lastError;
+    } finally {
+      if (!background) bumpInteractive(-1);
     }
-    throw lastError;
   }
 
   return {
@@ -241,7 +268,7 @@ export function preferLatestLeagues(leagues) {
   const ids = new Set(rows.map((league) => String(league?.league_id || "")).filter(Boolean));
   const superseded = new Set();
   rows.forEach((league) => {
-    const previousId = String(league?.previous_league_id || "");
+    const previousId = previousLeagueId(league?.previous_league_id);
     if (previousId && ids.has(previousId)) superseded.add(previousId);
   });
   if (!superseded.size) return rows;
@@ -420,3 +447,30 @@ const defaultClient = createSleeperClient();
 export const apiGet = (...args) => defaultClient.apiGet(...args);
 export const apiGetWithRetry = (...args) => defaultClient.apiGetWithRetry(...args);
 export { defaultClient as sleeperClient };
+
+const RETRY_AFTER_CAP_MS = 10_000;
+const RETRY_AFTER_FALLBACK_MS = 1_000;
+
+// Retry-After is seconds. Sleeper does not expose that header cross-origin
+// (no Access-Control-Expose-Headers), so headers.get("Retry-After") is null
+// in the browser. The 1s fallback is what actually runs. A value that does
+// arrive is still capped at 10s.
+export function retryAfterDelayMs(headerValue) {
+  const seconds = Number(headerValue);
+  if (!Number.isFinite(seconds) || seconds <= 0) return RETRY_AFTER_FALLBACK_MS;
+  return Math.min(seconds * 1000, RETRY_AFTER_CAP_MS);
+}
+
+// Sleeper uses "" / 0 / "0" / null when a league has no prior season.
+export function previousLeagueId(value) {
+  if (value == null) return "";
+  const id = String(value).trim();
+  if (!id || id === "0") return "";
+  return id;
+}
+
+export function sleeperLeaguePath(leagueId, suffix = "") {
+  const id = encodeURIComponent(String(leagueId ?? ""));
+  const extra = String(suffix || "").replace(/^\/+/, "");
+  return extra ? `/league/${id}/${extra}` : `/league/${id}`;
+}
