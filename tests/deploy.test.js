@@ -43,7 +43,12 @@ test("live deploy script uses Netlify CLI, not a build hook", () => {
   const script = read("scripts/deploy_live_site.sh");
   assert.match(script, /NETLIFY_AUTH_TOKEN/);
   assert.match(script, /NETLIFY_SITE_ID/);
-  assert.match(script, /netlify-cli@27 deploy/);
+  assert.match(script, /NETLIFY_CLI_VERSION="27\.12\.1"/);
+  assert.match(script, /npx --yes "netlify-cli@\$\{NETLIFY_CLI_VERSION\}" deploy/);
+  assert.match(script, /--skip-functions-cache/);
+  // Static check runs before any Netlify call; the bundle check runs before the upload.
+  assert.ok(script.indexOf("deploy_bundle_expect.mjs") < script.indexOf("ensure_netlify_salts.py"));
+  assert.ok(script.indexOf("node \"$bundle_tools/verify_deploy_bundle.mjs\"") < script.indexOf("npx --yes \"netlify-cli@"));
   assert.match(script, /--prod/);
   assert.match(script, /--no-build/);
   assert.match(script, /npm ci/);
