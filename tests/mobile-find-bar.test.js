@@ -197,6 +197,19 @@ const MEASURE = `(async () => {
   };
 })()`;
 
+const CHROME_PORT_WAIT_MS = 30000;
+
+class ChromeLaunchError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ChromeLaunchError";
+  }
+}
+
+function isChromeLaunchFailure(error) {
+  return error instanceof ChromeLaunchError || error?.name === "ChromeLaunchError";
+}
+
 function launchChrome(bin) {
   const dir = mkdtempSync(join(tmpdir(), "dt-find-bar-"));
   const proc = spawn(bin, [
@@ -214,28 +227,49 @@ function launchChrome(bin) {
     stderr += chunk.toString();
   });
   const stop = () => {
-    proc.kill("SIGKILL");
+    try {
+      proc.kill("SIGKILL");
+    } catch {
+      // The process already exited.
+    }
     rmSync(dir, { recursive: true, force: true });
   };
   return { proc, stop, endpoint: async () => {
     const started = Date.now();
-    while (Date.now() - started < 8000) {
+    while (Date.now() - started < CHROME_PORT_WAIT_MS) {
       const match = stderr.match(/ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[^\s]+/);
       if (match) return match[0];
-      if (proc.exitCode != null) throw new Error(`Chrome exited early: ${stderr}`);
+      if (proc.exitCode != null) throw new ChromeLaunchError(`Chrome exited early: ${stderr}`);
       await new Promise((resolve) => setTimeout(resolve, 40));
     }
-    throw new Error(`Chrome did not open a debug port: ${stderr}`);
+    throw new ChromeLaunchError(`Chrome did not open a debug port: ${stderr}`);
   } };
+}
+
+async function openChrome(bin) {
+  let chrome = launchChrome(bin);
+  try {
+    return { chrome, browserWs: await chrome.endpoint() };
+  } catch (error) {
+    chrome.stop();
+    if (!isChromeLaunchFailure(error)) throw error;
+    chrome = launchChrome(bin);
+    try {
+      return { chrome, browserWs: await chrome.endpoint() };
+    } catch (retryError) {
+      chrome.stop();
+      throw retryError;
+    }
+  }
 }
 
 async function withPage(bin, htmlPath, run) {
   let chrome;
   let ws;
   try {
-    chrome = launchChrome(bin);
-    const browserWs = await chrome.endpoint();
-    ws = new WebSocket(browserWs);
+    const opened = await openChrome(bin);
+    chrome = opened.chrome;
+    ws = new WebSocket(opened.browserWs);
     await new Promise((resolve, reject) => {
       ws.addEventListener("open", resolve, { once: true });
       ws.addEventListener("error", reject, { once: true });
@@ -312,7 +346,8 @@ test("at 390px the Find bar is not sticky or fixed and does not cover the player
   const htmlPath = join(dir, "find-bar.html");
   writeFileSync(htmlPath, fixtureHtml());
   try {
-    await withPage(bin, htmlPath, async (measure) => {
+    try {
+      await withPage(bin, htmlPath, async (measure) => {
       for (const width of [360, 390, 414]) {
         const box = await measure(width, 844, true);
         assert.equal(box.bound, true, `scroll binder at ${width}`);
@@ -362,7 +397,27 @@ test("at 390px the Find bar is not sticky or fixed and does not cover the player
       assert.equal(desk.chromeDisplay, "none");
       assert.ok(desk.overflow <= 1, `desktop overflow ${desk.overflow}`);
     });
+    } catch (error) {
+      if (isChromeLaunchFailure(error)) {
+        t.skip(`Chrome did not start: ${error.message}`);
+        return;
+      }
+      throw error;
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("a failed assertion is not a Chrome launch failure", () => {
+  const launch = new ChromeLaunchError("Chrome did not open a debug port");
+  assert.equal(isChromeLaunchFailure(launch), true);
+  let assertion;
+  try {
+    assert.equal(1, 2, "layout mismatch");
+  } catch (error) {
+    assertion = error;
+  }
+  assert.equal(assertion.name, "AssertionError");
+  assert.equal(isChromeLaunchFailure(assertion), false);
 });
