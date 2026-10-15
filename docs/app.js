@@ -162,15 +162,18 @@ import {
   writeStoredDraft,
 } from "./modules/trade-draft.js";
 import {
-  calcSuggestionFromList,
+  calcListDomId,
+  calcOptionAttrs,
   calcSuggestionItem,
   clearCalcSearchBox,
+  handleCalcComboboxKey,
   keepCalcSearchFocused,
-  moveCalcSuggestion,
   renderCalcSearchInput,
+  setCalcListOpen,
   shouldArmCalcSuggestion,
   shouldHoldCalcSearchFocus,
   shouldResetCalcSearchOnPick,
+  syncCalcCombobox,
 } from "./modules/calc-search.js";
 import { ideaPackageKey, selectNextDiverse } from "./modules/deal-more.js";
 import { calculatePackageAdjustment, calculatePctDiff } from "./modules/package-value.js";
@@ -738,6 +741,7 @@ el.controlRail?.addEventListener("click", (event) => {
 });
 el.controlRail?.addEventListener("input", handleWorkspaceInput);
 el.workspace?.addEventListener("keydown", handleWorkspaceKeydown);
+el.workspace?.addEventListener("focusin", handleCalcSearchFocus);
 el.workspace?.addEventListener("pointerdown", handleWorkspacePointerDown);
 el.workspace?.addEventListener("change", handleWorkspaceChange);
 el.workspace?.addEventListener("input", handleWorkspaceInput);
@@ -6187,6 +6191,9 @@ function draftSearchPlaceholder(side, view) {
 function renderDraftPane(side, view) {
   const left = side === "left";
   const query = String((left ? view.draft.leftQuery : view.draft.rightQuery) || "");
+  const listId = calcListDomId(side);
+  const suggestions = renderDraftSuggestions(side, view);
+  const expanded = Boolean(query.trim()) && suggestions.includes('role="option"');
   return `
     <section class="calc-pane ${left ? "team-a" : "team-b"}" data-draft-side="${side}">
       <header class="calc-pane-head">
@@ -6202,8 +6209,10 @@ function renderDraftPane(side, view) {
           side,
           input: "value-search",
           placeholder: draftSearchPlaceholder(side, view),
+          listId,
+          expanded,
         })}
-        <div class="calc-list calc-suggest${query.trim() ? "" : " is-browse"}" id="value-list-${side}">${renderDraftSuggestions(side, view)}</div>
+        <div class="calc-list calc-suggest${query.trim() ? "" : " is-browse"}" id="${listId}" role="listbox">${suggestions}</div>
       </div>
     </section>
   `;
@@ -6323,8 +6332,8 @@ function renderDraftSuggestions(side, view) {
     if (view.basis.connected && side === "right" && view.me) return `<div class="player-item muted">Type a name, or pick a team to browse.</div>`;
     return "";
   }
-  return rows.map((row) => `
-    <button type="button" class="player-item calc-item" data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType === "pick" ? "pick" : "player"}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""}>
+  return rows.map((row, index) => `
+    <div class="player-item calc-item" ${calcOptionAttrs({ side, assetId: row.assetId, index })} data-action="value-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType === "pick" ? "pick" : "player"}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""}>
       <div class="asset-row-top">
         ${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}
         <div class="asset-name-stack">
@@ -6336,7 +6345,7 @@ function renderDraftSuggestions(side, view) {
         </div>
         <span class="asset-value-badge" title="Model price">${formatNumber(row.value)}${row.estimated ? " est" : ""}</span>
       </div>
-    </button>
+    </div>
   `).join("");
 }
 
@@ -6714,39 +6723,48 @@ function pickDraftSuggestion(item) {
   return true;
 }
 
+function calcSearchList(side) {
+  return el.calculatorShell?.querySelector(`#${calcListDomId(side)}`) || null;
+}
+
+function collapseCalcSearch(side) {
+  const list = calcSearchList(side);
+  const input = document.querySelector(`[data-input="value-search"][data-side="${side}"]`);
+  if (list) setCalcListOpen(list, false);
+  if (input) syncCalcCombobox(input, { open: false });
+}
+
+function revealCalcSuggestions(input, side) {
+  const list = calcSearchList(side);
+  if (!list || list.classList.contains("is-closed")) return;
+  setCalcListOpen(list, true);
+  const active = list.querySelector(".calc-item.is-active");
+  syncCalcCombobox(input, {
+    open: Boolean(list.querySelector("[role='option']")),
+    activeId: active?.id || "",
+  });
+}
+
+function handleCalcSearchFocus(event) {
+  const search = event.target?.closest?.("[data-input='value-search']");
+  if (!search || !el.workspace?.contains(search)) return;
+  const side = search.dataset.side === "right" ? "right" : "left";
+  revealCalcSuggestions(search, side);
+}
+
 function handleWorkspaceKeydown(event) {
   if (event.isComposing) return;
   const search = event.target?.closest?.("[data-input='value-search']");
   if (search && el.workspace?.contains(search)) {
     const side = search.dataset.side === "right" ? "right" : "left";
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      const item = moveCalcSuggestion(el.calculatorShell, side, event.key === "ArrowDown" ? 1 : -1);
-      if (!item) return;
-      event.preventDefault();
-      item.scrollIntoView?.({ block: "nearest" });
-      return;
-    }
-    if (event.key === "Enter") {
-      const item = calcSuggestionFromList(el.calculatorShell, side);
-      if (!item) return;
-      event.preventDefault();
-      pickDraftSuggestion(item);
-      return;
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      const query = side === "right" ? state.valueCalc.rightQuery : state.valueCalc.leftQuery;
-      if (String(query || "").trim()) {
-        if (side === "right") state.valueCalc.rightQuery = "";
-        else state.valueCalc.leftQuery = "";
-        clearCalcSearchBox(search);
-        refreshDraftSuggestions(side);
-        search.focus();
-        return;
-      }
-      search.blur();
-      return;
-    }
+    const result = handleCalcComboboxKey(event, {
+      input: search,
+      list: calcSearchList(side),
+      root: el.calculatorShell,
+      side,
+    });
+    if (result.action === "pick" && pickDraftSuggestion(result.item)) collapseCalcSearch(side);
+    if (result.handled) return;
   }
   if (event.key !== "Enter" && event.key !== " ") return;
   const target = event.target.closest("[data-action][role='button']");
@@ -7006,6 +7024,9 @@ function handleWorkspaceInput(event) {
     if (side === "right") state.valueCalc.rightQuery = target.value;
     else state.valueCalc.leftQuery = target.value;
     keepCalcSearchFocused(document, () => refreshDraftSuggestions(side));
+    const list = calcSearchList(side);
+    setCalcListOpen(list, true);
+    revealCalcSuggestions(target, side);
   }
   if (target.dataset.input === "ranks-search") {
     state.ranks.query = target.value;

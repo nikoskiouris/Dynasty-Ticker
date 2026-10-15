@@ -522,7 +522,11 @@ summary:focus-visible,
 a:focus-visible,
 .page-tab:focus-visible,
 .room-tab:focus-visible,
+#open-public-ranks:focus-visible,
 .ranks-chip:focus-visible,
+.ranks-shelf-item:focus-visible,
+.ranks-row:focus-visible,
+.trade-row:focus-visible,
 [role="button"]:focus-visible {
   outline: 2px solid var(--text);
   outline-offset: 2px;
@@ -3897,7 +3901,7 @@ button.weekly-help-close:hover {
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
 }
 
-button.player-item.calc-item {
+.player-item.calc-item {
   display: block;
   width: 100%;
   margin: 0;
@@ -3914,11 +3918,19 @@ button.player-item.calc-item {
   cursor: pointer;
 }
 
-button.player-item.calc-item:hover,
-button.player-item.calc-item:focus-visible {
+.player-item.calc-item:hover,
+.player-item.calc-item.is-active {
   filter: none;
   transform: none;
   background: var(--panel-tint);
+}
+
+.player-item.calc-item.is-active {
+  box-shadow: inset 3px 0 0 var(--blue);
+}
+
+.calc-suggest.is-closed {
+  display: none;
 }
 
 .calculator-shell:has(.calc-search-wrap:focus-within) .calc-hint,
@@ -6984,7 +6996,6 @@ body.rail-open .site-dock {
 }
 
 .trade-row:focus-visible {
-  outline: none;
   border-color: var(--blue);
   box-shadow: var(--focus);
 }
