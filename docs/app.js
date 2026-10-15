@@ -97,6 +97,7 @@ import {
   normalizePickBucket,
   getPickBucketAliases,
   formatPickBucketLabel,
+  formatProjectedFirstLabel,
   bucketForProjectedSlot,
   chooseLeadPick,
   compareOwnedPickValue,
@@ -16077,8 +16078,8 @@ function formatPickName(pick, {
   const ownerName = resolvePickOwnerName(pick.original_owner, rosterById, userById);
   const mockBoard = mockDrafts || state.mockDrafts;
   const placeLookup = currentPlaceLookup || buildCurrentPlaceLookup(state.rosters, getSeasonModel()?.standings);
+  const place = currentPlaceForOwner(pick.original_owner, placeLookup);
   if (shouldAttachMock(pick, mockBoard) && !assignedDraftSlot?.label) {
-    const place = currentPlaceForOwner(pick.original_owner, placeLookup);
     const slot = projectedDraftSlot(place?.rank, place?.total);
     const mock = mockProspectAtSlot(mockBoard, slot, Number(pick.round) || 1);
     return formatHybridFirstName({
@@ -16088,6 +16089,19 @@ function formatPickName(pick, {
       placeLabel: place?.label,
       mockName: mock?.label || "",
       mockSlot: slot,
+    });
+  }
+
+  const bucket = normalizePickBucket(pickBucket);
+  const tieredFirst = Number(pick.round) === 1 && bucket !== "any" && !assignedDraftSlot?.label;
+  if (tieredFirst) {
+    return formatProjectedFirstLabel({
+      season: pick.season,
+      round: pick.round,
+      bucket,
+      ownerName,
+      rank: place?.rank,
+      total: place?.total,
     });
   }
 

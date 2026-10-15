@@ -13,9 +13,12 @@ import {
   parseMockDrafts,
   projectedDraftSlot,
 } from "../docs/modules/mock-drafts.js";
+import { ordinal } from "../docs/modules/season.js";
 import {
   bucketForProjectedSlot,
   chooseLeadPick,
+  formatPickBucketLabel,
+  formatProjectedFirstLabel,
   getAssetValue,
 } from "../docs/modules/values.js";
 
@@ -205,12 +208,65 @@ test("a 2nd-place 1.11 does not lead when week standings give someone an earlier
   assert.equal(getAssetValue(lead, values), getAssetValue(yian.asset, values));
 });
 
+test("a future first's tier and its projected place name the same rank", () => {
+  for (const total of [10, 12, 14]) {
+    for (let rank = 1; rank <= total; rank += 1) {
+      const slot = projectedDraftSlot(rank, total);
+      const bucket = bucketForProjectedSlot(slot, total);
+      const tier = formatPickBucketLabel(bucket);
+      const label = formatProjectedFirstLabel({
+        season: 2029,
+        round: 1,
+        bucket,
+        ownerName: "Niko",
+        rank,
+        total,
+      });
+      assert.match(label, new RegExp(`${tier} 1st, projected ${ordinal(rank)} of ${total}`));
+      assert.doesNotMatch(label, /Previous Year/i);
+      const stated = label.match(/projected (\d+)(?:st|nd|rd|th) of (\d+)/);
+      const statedRank = Number(stated[1]);
+      const statedTotal = Number(stated[2]);
+      const statedBucket = bucketForProjectedSlot(projectedDraftSlot(statedRank, statedTotal), statedTotal);
+      assert.equal(formatPickBucketLabel(statedBucket), tier);
+      assert.equal(statedRank, rank);
+      assert.equal(statedTotal, total);
+    }
+  }
+
+  const placeLookup = buildCurrentPlaceLookup(fixture.rosters);
+  const place = currentPlaceForOwner(fixture.focus.roster_id, placeLookup);
+  const slot = projectedDraftSlot(place.rank, place.total);
+  const bucket = bucketForProjectedSlot(slot, place.total);
+  const label = formatProjectedFirstLabel({
+    season: 2029,
+    round: 1,
+    bucket,
+    ownerName: "NikoSkiouris",
+    rank: place.rank,
+    total: place.total,
+  });
+  const previous = fixture.previousSeason.standings.find((row) => row.roster_id === fixture.focus.roster_id);
+  assert.equal(previous.rank, 10);
+  assert.notEqual(place.rank, previous.rank);
+  assert.match(label, /Middle 1st, projected 7th of 12 from NikoSkiouris/);
+  assert.doesNotMatch(label, /10th|Previous Year/i);
+});
+
 test("Draft Ammo, the vault, and trade read one pick price", () => {
   assert.match(appSource, /leadFirst: chooseLeadPick\(/);
   assert.match(appSource, /const topPick = profile\.assetSummary\.leadFirst/);
   assert.match(appSource, /bucketForProjectedSlot\(priceSlot, priceTeams\)/);
   assert.match(appSource, /function findOwnedPickAsset\(/);
   assert.match(appSource, /function refreshProjectedPickSlots\(/);
+  assert.match(appSource, /formatProjectedFirstLabel\(/);
+  const nameFn = appSource.slice(
+    appSource.indexOf("function formatPickName("),
+    appSource.indexOf("function futureFirstMockMeta("),
+  );
+  const tierBranch = nameFn.slice(nameFn.indexOf("const tieredFirst"), nameFn.indexOf("const details"));
+  assert.match(tierBranch, /return formatProjectedFirstLabel\(/);
+  assert.doesNotMatch(tierBranch, /finishLabel|Previous Year/);
   const render = appSource.slice(
     appSource.indexOf("function renderActivePage("),
     appSource.indexOf("function requestActivePageRender("),
