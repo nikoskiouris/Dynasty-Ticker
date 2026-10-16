@@ -232,6 +232,13 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(isSpaPath("/l/4.2/team"), true);
   assert.equal(resolveLocation("/l/4.2/team").unknown, false);
   assert.equal(resolveLocation("/l/4.2/team").badLeague, true);
+  for (const room of ["/l/x/week", "/l/x/team", "/l/x/ideas", "/l/x/league", "/l/x/activity", "/l/x/history", "/l/4.2/week"]) {
+    const badRoom = resolveLocation(room);
+    assert.equal(isSpaPath(room), true, room);
+    assert.equal(badRoom.badLeague, true, room);
+    assert.equal(badRoom.unknown, false, room);
+    assert.equal(badRoom.name, "league", room);
+  }
   // A file extension in the last segment is a file request, so it 404s.
   for (const asset of ["/player/missing.js", "/player/9221.png", "/player/9221/jahmyr-gibbs.png", "/l/x.json", "/l/12.3", "/l/42/team.js", "/l/42/team.js/"]) {
     assert.equal(isSpaPath(asset), false, asset);

@@ -41,7 +41,19 @@ function quietClient(fetchImpl) {
 }
 
 test("an invalid league id stays on /l and is not the landing", () => {
-  for (const path of ["/l/x", "/l/not-a-league", "/l/4.2/team"]) {
+  for (const path of [
+    "/l/x",
+    "/l/not-a-league",
+    "/l/4.2/team",
+    "/l/x/week",
+    "/l/x/team",
+    "/l/x/ideas",
+    "/l/x/league",
+    "/l/x/activity",
+    "/l/x/history",
+    "/l/4.2/week",
+    "/l/x/week/",
+  ]) {
     const route = resolveLocation(path);
     assert.equal(isSpaPath(path), true, path);
     assert.equal(route.unknown, false, path);
@@ -50,6 +62,9 @@ test("an invalid league id stays on /l and is not the landing", () => {
     assert.equal(route.leagueId, "", path);
     assert.ok(route.badLeagueId, path);
   }
+  const unknownRoom = resolveLocation("/l/abc/not-a-room");
+  assert.equal(unknownRoom.unknown, true);
+  assert.equal(unknownRoom.badLeague, false);
   const numeric = resolveLocation("/l/999001");
   assert.equal(numeric.badLeague, false);
   assert.equal(numeric.unknown, false);
