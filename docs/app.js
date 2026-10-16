@@ -307,7 +307,7 @@ import {
   topOverlay,
   urlPath,
 } from "./modules/history-route.js";
-import { EVEN_UP_OFFER_ABOVE, ideaLimitMore, oldPctToMore, STAR_PREMIUM_KEY, TIER_EXPLAINER, barLabel, creditedTotalsLine, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
+import { EVEN_UP_OFFER_ABOVE, displayMore, ideaLimitMore, oldPctToMore, STAR_PREMIUM_KEY, TIER_EXPLAINER, barLabel, creditedTotalsLine, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
 import { bindInfoTips, infoTipMarkup, valuesWorkText } from "./modules/info-tip.js";
 import {
   EXAMPLE_GET,
@@ -7802,7 +7802,7 @@ function renderDraftVerdict(view) {
   const meters = draftMeterValues(model);
   // One verdict wording everywhere (verdict-copy.js): app, /t, card, meta, share text.
   const copy = verdictCopy(verdict);
-  // The headline is the full line ("Lopsided · Give side worth 89.3% more"), like the card.
+  // The headline is the full line ("Lopsided · Give side worth 89% more"), like the card.
   const label = bothSides ? copy.line : copy.label;
   const sharedView = bothSides ? sharedVerdictFor(view) : null;
   // RECHECK4: on a cold /t the bars are sized on the credited totals the
@@ -12370,7 +12370,7 @@ function renderMultiTeamCard(idea, index, values) {
       <div class="multi-team-card-header">
         <div>
           <h3>Idea ${index + 1}</h3>
-          <p class="muted small">${idea.teamCount} teams • one side worth up to ${idea.maxPctDiff}% more • added value ${formatNumber(idea.extraMovedValueTotal || 0)} • common value ${formatNumber(idea.commonValue)}</p>
+          <p class="muted small">${idea.teamCount} teams • one side worth up to ${displayMore(idea.maxPctDiff, { band: false })}% more • added value ${formatNumber(idea.extraMovedValueTotal || 0)} • common value ${formatNumber(idea.commonValue)}</p>
         </div>
         <div class="participant-pill-row">
           ${(idea.tags || []).map((tag) => `<span class="participant-pill">${escapeHtml(tag)}</span>`).join("")}

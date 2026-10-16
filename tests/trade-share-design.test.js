@@ -14,7 +14,7 @@ import {
   shareSummary,
 } from "../docs/modules/trade-share.js";
 import { matchRoute, pathForPlace } from "../docs/modules/history-route.js";
-import { TIER_BANDS, TIER_EXPLAINER, percentMore, tierForMore, verdictCopy, verdictCopyFor } from "../docs/modules/verdict-copy.js";
+import { TIER_BANDS, TIER_EXPLAINER, displayMore, percentMore, tierForMore, verdictCopy, verdictCopyFor } from "../docs/modules/verdict-copy.js";
 import { createSharePageHandler, injectShareMeta, shareText, summaryForCode } from "../netlify/lib/trade-share.js";
 import { loadCardArt, renderCardSvg } from "../netlify/lib/trade-card.js";
 import { createMeasurer, truncateToWidth } from "../netlify/lib/text-measure.js";
@@ -60,7 +60,7 @@ test("the card never shows a verdict for the side with the smaller total", () =>
     // The side named is the column worth more, by the true "% more".
     const bigger = s.giveCredited > s.getCredited ? "Give" : "Get";
     const small = Math.min(s.giveCredited, s.getCredited);
-    const more = Math.round((Math.abs(s.giveCredited - s.getCredited) / small) * 1000) / 10;
+    const more = displayMore(Math.round((Math.abs(s.giveCredited - s.getCredited) / small) * 1000) / 10);
     if (v.text !== "Fair trade") assert.equal(v.pctText, `${bigger} side worth ${more}% more`, code);
     // RECHECK3: public card colours only the tier, never red/green by side.
     assert.ok(["fair", "strong"].includes(v.tone), code);
@@ -101,7 +101,8 @@ test("verdict format: tier · column worth N% more, tiers banded on the shown N 
   assert.equal(gibbs.giveCredited, 21031);
   assert.equal(gibbs.getCredited, 11112);
   assert.equal(gibbs.pct, 47.2); // app metric: gap / larger side
-  assert.equal(cardVerdict(gibbs).line, "Lopsided · Give side worth 89.3% more");
+  assert.equal(percentMore(gibbs.giveCredited, gibbs.getCredited), 89.3);
+  assert.equal(cardVerdict(gibbs).line, "Lopsided · Give side worth 89% more");
   assert.equal(cardVerdict(gibbs).tone, "strong");
   const fair = renderCardSvg(summaryOf("1s9509~9493"), { measure });
   assert.match(fair, /font-size="48" font-weight="700" fill="#f0c36a">Fair trade</);
@@ -111,11 +112,11 @@ test("verdict format: tier · column worth N% more, tiers banded on the shown N 
 test("tier bands: just below and just above 5, 14 and 28 (shown % more), both directions", () => {
   const cases = [
     [10499, "even", "Fair trade · within 5%"], [10500, "even", "Fair trade · within 5%"],
-    [10510, "edge", "Fair, slight edge · Get side worth 5.1% more"],
-    [11390, "edge", "Fair, slight edge · Get side worth 13.9% more"], [11400, "edge", "Fair, slight edge · Get side worth 14% more"],
-    [11410, "favors", "Favors one side · Get side worth 14.1% more"],
-    [12790, "favors", "Favors one side · Get side worth 27.9% more"], [12800, "favors", "Favors one side · Get side worth 28% more"],
-    [12810, "lopsided", "Lopsided · Get side worth 28.1% more"],
+    [10510, "edge", "Fair, slight edge · Get side worth 6% more"],
+    [11390, "edge", "Fair, slight edge · Get side worth 14% more"], [11400, "edge", "Fair, slight edge · Get side worth 14% more"],
+    [11410, "favors", "Favors one side · Get side worth 15% more"],
+    [12790, "favors", "Favors one side · Get side worth 28% more"], [12800, "favors", "Favors one side · Get side worth 28% more"],
+    [12810, "lopsided", "Lopsided · Get side worth 29% more"],
   ];
   for (const [big, tier, line] of cases) {
     const up = verdictCopyFor(10000, big);
@@ -133,6 +134,33 @@ test("tier bands: just below and just above 5, 14 and 28 (shown % more), both di
   assert.equal(tierForMore(null), "lopsided");
   assert.match(TIER_EXPLAINER, /Within 5%.*up to 14% more.*up to 28% more.*more than 28%/);
   assert.doesNotMatch(TIER_EXPLAINER, /in favor of|\bwins?\b|overpay|leans|\byou\b|\bthem\b/i);
+});
+
+test("whole percents stay inside the tier at the band edges", () => {
+  const BANNED = /in favor of|\bwins?\b|overpay|leans|\byou\b|\bthem\b/i;
+  const cases = [
+    [4.9, "even", 5, "Fair trade · within 5%"],
+    [5.0, "even", 5, "Fair trade · within 5%"],
+    [5.4, "edge", 6, "Fair, slight edge · Get side worth 6% more"],
+    [13.9, "edge", 14, "Fair, slight edge · Get side worth 14% more"],
+    [14.2, "favors", 15, "Favors one side · Get side worth 15% more"],
+    [27.9, "favors", 28, "Favors one side · Get side worth 28% more"],
+    [28.0, "favors", 28, "Favors one side · Get side worth 28% more"],
+    [28.3, "lopsided", 29, "Lopsided · Get side worth 29% more"],
+    [28.6, "lopsided", 29, "Lopsided · Get side worth 29% more"],
+  ];
+  for (const [more, tier, shown, line] of cases) {
+    assert.equal(tierForMore(more), tier, `${more} tier`);
+    assert.equal(displayMore(more), shown, `${more} display`);
+    assert.equal(tierForMore(shown), tier, `${more} shown tier`);
+    const big = 10000 + Math.round(more * 100);
+    const copy = verdictCopyFor(10000, big);
+    assert.equal(copy.more, more, `${more} unrounded`);
+    assert.equal(copy.tier, tier, `${more} copy tier`);
+    assert.equal(copy.line, line, `${more} line`);
+    assert.doesNotMatch(copy.line, /\d+\.\d+%/);
+    assert.doesNotMatch(copy.line, BANNED);
+  }
 });
 
 test("parity: app, /t page, card, og:title, og:description and share text say the same verdict", () => {
@@ -161,7 +189,7 @@ test("parity: app, /t page, card, og:title, og:description and share text say th
     assert.ok(svgText(svg).includes(appCopy.label), code);
     assert.ok(svgText(svg).includes(appCopy.pctText), code);
     assert.ok(title.endsWith(`: ${appCopy.line}`), code);
-    assert.match(appCopy.line, /^(Fair trade · within 5%|(Fair, slight edge|Favors one side|Lopsided) · (Give|Get) side worth [\d.]+% more)$/, code);
+    assert.match(appCopy.line, /^(Fair trade · within 5%|(Fair, slight edge|Favors one side|Lopsided) · (Give|Get) side worth \d+% more)$/, code);
     assert.equal(shareMessage(s), `${appCopy.line}. Check it on Dynasty Ticker.`);
     for (const text of [card.text, s.label, title, description, shareMessage(s)]) {
       assert.doesNotMatch(text, BANNED, code);

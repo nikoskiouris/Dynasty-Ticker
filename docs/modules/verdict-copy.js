@@ -3,14 +3,16 @@
 // tags and the share text (client and functions). PM's final format describes
 // the value columns instead of naming a winner:
 //   Fair trade · within 5%
-//   Fair, slight edge · Get side worth 8.5% more        (amber)
+//   Fair, slight edge · Get side worth 9% more          (amber)
 //   Favors one side · Give side worth 15% more          (green/red on /trade only)
-//   Lopsided · Give side worth 89.3% more               (green/red on /trade only)
-// One metric, on the credited totals: shown = (bigger - smaller) / smaller,
-// one decimal, so "worth N% more" is true. The tiers are banded on that same
-// shown number (RECHECK3): <= 5 fair, <= 14 slight edge, <= 28 favors, else
-// lopsided. valueCalcVerdict's own pct (gap / larger, 5/12/22) still drives
-// the app's offer text, the even-up line and trade ideas.
+//   Lopsided · Give side worth 89% more                 (green/red on /trade only)
+// One metric, on the credited totals: (bigger - smaller) / smaller, kept to
+// one decimal. Tiers are banded on that unrounded percent (RECHECK3): <= 5
+// fair, <= 14 slight edge, <= 28 favors, else lopsided. The sentence prints a
+// whole number: Math.round, unless that integer sits in a lower tier, in which
+// case Math.ceil. A value just above 5, 14, or 28 never shows the boundary
+// number of the tier below (28.3 is Lopsided and reads "29% more", not "28%
+// more", which would read as Favors). "Fair trade · within 5%" is unchanged.
 // Colour: tone (good | fair | bad) is relative to the sharer and is used only
 // on private /trade. publicTone (fair | strong) colours only the tier on the
 // public card and cold /t; direction is shown by placement and a pointer.
@@ -20,7 +22,7 @@ import { DEFAULT_FAIRNESS_PCT } from "./constants.js";
 // Labels valueCalcVerdict gives when both sides are filled in.
 const BOTH_SIDES = new Set(["Dead even", "Fair, leans Get", "Fair, leans Give", "Favors Get", "Favors Give", "Lopsided for Get", "Lopsided for Give"]);
 
-// Upper bounds (inclusive) on the shown "% more".
+// Upper bounds (inclusive) on the unrounded "% more". The sentence may ceil past them.
 export const TIER_BANDS = Object.freeze({ even: 5, edge: 14, favors: 28 });
 const LABEL = Object.freeze({ even: "Fair trade", edge: "Fair, slight edge", favors: "Favors one side", lopsided: "Lopsided" });
 
@@ -38,11 +40,28 @@ export function tierForMore(more) {
 const round1 = (value) => Math.round(value * 10) / 10;
 
 // (bigger - smaller) / smaller, one decimal. null when the smaller side is 0.
+// Tiers use this unrounded percent. Sentences use displayMore.
 export function percentMore(left, right) {
   const big = Math.max(Number(left) || 0, Number(right) || 0);
   const small = Math.min(Number(left) || 0, Number(right) || 0);
   if (small <= 0) return big > 0 ? null : 0;
   return round1(((big - small) / small) * 100);
+}
+
+// Whole percent. Round to nearest. For a verdict ({ band: true }, the default),
+// step to ceil when that integer would belong to a lower tier, so the shown
+// number never contradicts the tier. A limit is not a verdict: pass
+// { band: false } for plain rounding. null stays null.
+export function displayMore(more, { band = true } = {}) {
+  if (more == null || !Number.isFinite(Number(more))) return null;
+  const value = Number(more);
+  const nearest = Math.round(value);
+  if (!band) return nearest;
+  const tier = tierForMore(value);
+  if (tierForMore(nearest) === tier) return nearest;
+  const up = Math.ceil(value);
+  if (tierForMore(up) === tier) return up;
+  return Math.floor(value);
 }
 
 // verdict: valueCalcVerdict(...) output ({ label, pct, gap, left, right }),
@@ -58,7 +77,8 @@ export function verdictCopy(verdict) {
   const hit = { tier: tierForMore(more) };
   hit.label = LABEL[hit.tier];
   const side = right > left ? "Get" : left > right ? "Give" : "";
-  const amount = more == null ? "" : `${more}% `;
+  const shown = displayMore(more);
+  const amount = shown == null ? "" : `${shown}% `;
   const detail = hit.tier === "even"
     ? `within ${TIER_BANDS.even}%`
     : `${side} side worth ${amount}more`;
@@ -88,7 +108,8 @@ export function verdictLineNamed(verdict, names = {}) {
   const copy = verdictCopy(verdict);
   if (!copy.tier || copy.tier === "even" || !copy.side) return copy.line;
   const name = String(names[copy.side] || `${copy.side} side`);
-  const amount = copy.more == null ? "" : `${copy.more}% `;
+  const shown = displayMore(copy.more);
+  const amount = shown == null ? "" : `${shown}% `;
   return `${copy.label} · ${name} worth ${amount}more`;
 }
 
@@ -145,8 +166,10 @@ export function ideaLimitMore(oldPct) {
   return more;
 }
 
-// The shown metric for two package values; 1000 when a side is empty.
+// The shown metric for two package values, as the whole number a chip prints.
+// 1000 when a side is empty. Filters compare this same number.
 export function ideaGapMore(a, b) {
   const more = percentMore(a, b);
-  return more == null || !(Number(a) > 0) || !(Number(b) > 0) ? 1000 : more;
+  if (more == null || !(Number(a) > 0) || !(Number(b) > 0)) return 1000;
+  return displayMore(more);
 }
