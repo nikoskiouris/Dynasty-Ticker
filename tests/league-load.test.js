@@ -141,18 +141,71 @@ test("drop abandons a league load that has not committed", async () => {
   assert.equal(committed, false);
 });
 
-test("roster sheet stops saying names are coming once player metadata fails", () => {
+test("roster sheet paints while player metadata is still missing", () => {
   const start = app.indexOf("function renderRosterSheet()");
   assert.ok(start >= 0);
   const body = app.slice(start, app.indexOf("\nfunction ", start + 10));
-  assert.match(body, /state\.playerMetadataFailed/);
-  assert.match(body, /Player metadata unavailable/);
-  assert.match(body, /Sleeper didn't return player names, positions, or ages\. Rosters and trade search still work with fallback values\./);
-  assert.match(body, /Syncing player metadata/);
-  assert.match(body, /Names, positions, and ages arrive in a moment\./);
+  assert.match(body, /rosterGradeReady\(roster\)/);
+  assert.match(body, /renderRosterDirectory\(roster\)/);
+  assert.doesNotMatch(body, /Syncing player metadata/);
+
+  const directory = app.slice(
+    app.indexOf("function renderRosterDirectory("),
+    app.indexOf("function renderPowerDashboard("),
+  );
+  assert.match(directory, /renderMetadataPlaceholder\(\)/);
+  assert.match(directory, /Player names couldn't load\. Values still work; try again later\./);
+  assert.match(directory, /data-action="retry-player-metadata"/);
+  assert.match(directory, /Details unavailable/);
+  assert.doesNotMatch(directory, /Unknown player/);
+  assert.doesNotMatch(directory, /Player metadata unavailable\. Rosters and trade search still work with fallback values\./);
+  assert.match(directory, /sr-only">Loading player/);
+  assert.match(directory, /sr-only">Player details unavailable/);
+  assert.match(app, /case "retry-player-metadata":/);
+  assert.match(app, /function retryPlayerMetadata\(/);
+  assert.match(directory, /directory-row loading-row/);
+  assert.match(directory, /sheet-row directory-row"/);
+  assert.match(directory, /aria-busy="true"/);
+  assert.match(directory, /renderPickVaultRow/);
+  assert.doesNotMatch(directory, /Syncing player metadata/);
+  assert.doesNotMatch(directory, /role="status"/);
+  const placeholder = app.slice(
+    app.indexOf("function renderMetadataPlaceholder("),
+    app.indexOf("function renderRosterDirectory("),
+  );
+  assert.match(placeholder, /aria-hidden="true"/);
+  assert.doesNotMatch(placeholder, /role="status"/);
+  assert.doesNotMatch(placeholder, /title=/);
 
   const loadStart = app.indexOf("const playersEpoch = playerLoadEpoch");
   const success = app.slice(loadStart, app.indexOf(".catch(", loadStart));
-  assert.match(success, /state\.playerMetadataLoaded = true/);
-  assert.match(success, /state\.playerMetadataFailed = false/);
+  assert.match(success, /commitPlayerDirectory/);
+  const failed = app.slice(app.indexOf(".catch(", loadStart), app.indexOf("} catch (err)", loadStart));
+  assert.match(failed, /const gaps = state\.normalizedRosters\.some/);
+  assert.match(failed, /if \(!gaps && Object\.keys\(state\.players\)\.length > 0\)/);
+  assert.match(failed, /state\.playerMetadataFailed = true/);
+  const commit = app.slice(
+    app.indexOf("function commitPlayerDirectory("),
+    app.indexOf("function loadSlimPlayersFile("),
+  );
+  assert.match(commit, /state\.playerMetadataLoaded = true/);
+  assert.match(commit, /state\.playerMetadataFailed = false/);
+  assert.match(app, /NFL_PLAYERS_SLIM_PATH/);
+  assert.match(app, /playersCacheIsFresh\(fromCache, now, \{ ttlMs: PLAYERS_CACHE_TTL_MS \}\)/);
+  assert.match(app, /if \(bootRoute\?\.leagueId\) void loadSlimPlayersFile\(\)/);
+  assert.doesNotMatch(app, /bootFromUrl\(\);\nvoid loadSlimPlayersFile\(\)/);
+  const fetchPlayers = app.slice(
+    app.indexOf("async function fetchPlayersForCache("),
+    app.indexOf("async function loadTrendingPlayers("),
+  );
+  assert.match(fetchPlayers, /if \(!state\.leagueId && !bootRoute\?\.leagueId\) return null/);
+  const plain = app.slice(
+    app.indexOf("function renderAssetValuePlain("),
+    app.indexOf("function formatAssetSecondaryLabel("),
+  );
+  assert.match(plain, /Object\.keys\(values\)\.length === 0\) return "…"/);
+  assert.match(plain, /Unavailable/);
+  assert.doesNotMatch(app, /Syncing player metadata/);
+  const index = readFileSync(join(root, "docs/index.html"), "utf8");
+  assert.match(index, /<select id="me-select" aria-label="Team"><\/select>/);
 });

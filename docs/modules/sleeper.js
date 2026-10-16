@@ -366,6 +366,46 @@ export function slimPlayerRecord(player, id = "") {
   return record;
 }
 
+export function mergePlayerRecords(base, overlay) {
+  const out = { ...(base && typeof base === "object" ? base : {}) };
+  Object.entries(overlay && typeof overlay === "object" ? overlay : {}).forEach(([id, row]) => {
+    if (!row || typeof row !== "object") return;
+    const prev = out[id] && typeof out[id] === "object" ? out[id] : {};
+    const next = { ...prev };
+    Object.entries(row).forEach(([key, value]) => {
+      if (value == null || value === "") return;
+      if (Array.isArray(value) && value.length === 0) return;
+      next[key] = value;
+    });
+    out[String(id)] = next;
+  });
+  return out;
+}
+
+const SLIM_FILE_FIELDS = ["full_name", "position", "team", "age", "injury_status", "status", "years_exp"];
+
+export function playersFromSlimFile(payload) {
+  const players = payload?.players;
+  if (!players || typeof players !== "object") return {};
+  const sample = Object.values(players).find((row) => row != null);
+  if (sample && !Array.isArray(sample)) return slimPlayersMap(players);
+  const fields = Array.isArray(payload?.fields) && payload.fields.length ? payload.fields : SLIM_FILE_FIELDS;
+  const out = {};
+  Object.entries(players).forEach(([id, row]) => {
+    if (!Array.isArray(row)) return;
+    const record = { player_id: String(id) };
+    fields.forEach((field, index) => {
+      const value = row[index];
+      if (value == null || value === "") return;
+      if (field === "age" && !(Number(value) > 0)) return;
+      record[field] = value;
+    });
+    if (record.position && !record.fantasy_positions) record.fantasy_positions = [String(record.position)];
+    if (record.full_name || record.position) out[String(id)] = record;
+  });
+  return out;
+}
+
 export function slimPlayersMap(players) {
   const out = {};
   if (!players || typeof players !== "object") return out;
