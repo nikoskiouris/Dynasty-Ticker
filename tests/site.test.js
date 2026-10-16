@@ -172,9 +172,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.equal(existsSync(join(docs, "modules/recap.js")), false);
   assert.equal(existsSync(join(docs, "modules/recap-card.js")), false);
   assert.doesNotMatch(index, /id="landing-rather"/);
-  assert.match(index, /Check this trade/);
-  assert.match(index, /Is your dynasty trade fair\? Find out in one tap\./);
-  assert.match(index, /Free values for Sleeper dynasty leagues\. No sign-up\./);
+  assert.match(index, /Build a trade/);
+  assert.match(index, /Your next dynasty move starts here\./);
+  assert.match(index, /Explore player values, build a trade, or connect your Sleeper league\. Free\. No sign-up\./);
   assert.doesNotMatch(index, /Find your league/);
   assert.match(index, /id="sample-league-chip"/);
   assert.match(index, />Sample league · Connect yours</);
