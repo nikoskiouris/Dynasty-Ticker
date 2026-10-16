@@ -193,6 +193,9 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(safeNext("/l/42/week"), urlPath("l", "42", "week"));
   assert.equal(safeNext("/l/42/activity"), urlPath("l", "42", "activity"));
   assert.equal(safeNext("/l/42/history"), urlPath("l", "42", "history"));
+  assert.equal(safeNext("/l/abc/week"), "");
+  assert.equal(safeNext("/l/1%2F..%2Fx/week"), "");
+  assert.equal(safeNext("//evil/l/1/week"), "");
   assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221", playerName: "Jahmyr Gibbs" }), "/player/9221/jahmyr-gibbs");
   assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221", playerName: "Jahmyr Gibbs", leagueId: "424242" }), "/player/9221/jahmyr-gibbs?league=424242");
   assert.equal(pathForPlace({ page: "players", room: "ranks", landing: false, leagueId: "424242" }), "/players?league=424242");
@@ -262,6 +265,14 @@ test("the desk pushes player routes and restores them on popstate", () => {
   assert.match(app, /updateUrlState\(\{ mode: "replace" \}\)/);
   assert.match(app, /history\.replaceState\(\{ \.\.\.historyPlaceNow\(\), pushed: false \}, "", urlPath\(\)\)/);
   assert.doesNotMatch(app, /history\.replaceState\(\{ \.\.\.historyPlaceNow\(\), pushed: false \}, "", "\/"\)/);
+  const writer = app.slice(app.indexOf("function updateUrlState"), app.indexOf("function closeHistoryOverlay"));
+  const guard = writer.slice(writer.indexOf("A league is open"));
+  assert.match(guard, /state\.leagueId && nextPath === "\/" && here\.startsWith\("\/l\/"\)/);
+  assert.match(guard, /history\.replaceState\(entry, "", here\)/);
+  assert.ok(guard.indexOf('history.replaceState(entry, "", here)') < guard.indexOf('history.replaceState(entry, "", path)'));
+  const picked = app.slice(app.indexOf("function rememberPickedLeague"), app.indexOf("async function loadLeagueById"));
+  assert.match(picked, /pathForPlace\(\{[\s\S]*\.\.\.place/);
+  assert.match(picked, /urlPath\("l", leagueId, "team"\)/);
   const leave = app.slice(app.indexOf("function leavePhoneMenu"), app.indexOf("function handlePhoneDeskClick"));
   assert.ok(leave.indexOf("setMobileRailOpen(false") < leave.indexOf("navigate(mode)"));
   const phone = app.slice(app.indexOf("function handlePhoneDeskClick"), app.indexOf("function sampleVoice"));

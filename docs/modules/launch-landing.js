@@ -98,7 +98,7 @@ export function launchExampleMarkup({ values = {}, names = {}, players = {}, glo
       <div class="launch-verdict ${tone}">
         <div class="vt"><b>${escapeHtml(copy.line)}</b></div>
         ${compareMetersMarkup(model)}
-        ${starsPremiumMarkup(model)}
+        ${starsPremiumMarkup(model, { detail: copy.detail })}
         <span class="meta">Tap to change any player</span>
       </div>
     </a>

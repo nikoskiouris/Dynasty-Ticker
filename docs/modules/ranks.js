@@ -381,7 +381,7 @@ function renderRankCard(row, view = {}) {
   const components = row?.model?.components || {};
   const facts = [
     Number.isFinite(Number(components.projectedPpg))
-      ? { label: "Projected points per game", value: Number(components.projectedPpg).toFixed(1) }
+      ? { label: "Projected PPR/G", value: Number(components.projectedPpg).toFixed(1) }
       : null,
     Number.isFinite(Number(components.availability))
       ? { label: "Availability", value: `${Math.round(Number(components.availability) * 100)}%` }

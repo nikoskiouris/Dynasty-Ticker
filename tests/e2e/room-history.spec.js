@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { waitForAppBoot } from "./boot.js";
 
 const LEAGUE = "1360686137898700800";
 
@@ -7,8 +8,17 @@ const viewports = [
   { width: 1280, height: 800 },
 ];
 
+const ROOM_NAME = {
+  board: "League",
+  scores: "This week",
+  activity: "Activity",
+  history: "History",
+  team: "My team",
+};
+
 async function loadLeague(page) {
   await page.goto("/");
+  await waitForAppBoot(page);
   await page.locator("#league-id").evaluate((el) => {
     el.value = "1360686137898700800";
   });
@@ -18,18 +28,17 @@ async function loadLeague(page) {
 }
 
 async function openRoom(page, room) {
-  await page.evaluate((roomId) => {
-    const phone = window.matchMedia("(max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse)").matches;
-    if (phone) {
-      const toggle = document.querySelector("#mobile-rail-toggle");
-      if (toggle && !document.body.classList.contains("rail-open")) toggle.click();
-      const section = document.querySelector("[data-phone-page='league']");
-      if (section && section.getAttribute("aria-expanded") !== "true") section.click();
-      document.querySelector(`[data-phone-room="${roomId}"]`)?.click();
-      return;
-    }
-    document.querySelector(`#room-nav [data-room="${roomId}"]`)?.click();
-  }, room);
+  const name = ROOM_NAME[room];
+  const phone = page.viewportSize().width <= 700;
+  if (phone) {
+    const open = await page.locator("body").evaluate((body) => body.classList.contains("rail-open"));
+    if (!open) await page.getByRole("button", { name: "Sections" }).click();
+    const section = page.locator("#phone-desk").getByRole("button", { name: "My League" });
+    if ((await section.getAttribute("aria-expanded")) !== "true") await section.click();
+    await page.locator("#phone-desk").getByRole("button", { name, exact: true }).click();
+    return;
+  }
+  await page.locator("#room-nav").getByRole("tab", { name, exact: true }).click();
 }
 
 function pathOf(url) {
@@ -92,22 +101,65 @@ for (const viewport of viewports) {
     const slashes = await page.evaluate(() => window.__slashReplaces);
     expect(slashes).toEqual([]);
   });
+
+  test(`back and forward restore the room and the player at ${viewport.width}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await loadLeague(page);
+    await expectRoom(page, `/l/${LEAGUE}/team`, "team");
+    const roomTitle = await page.title();
+    const player = page.locator("[data-room-panel='team'] [data-action='open-player']").first();
+    await expect(player).toBeVisible({ timeout: 30000 });
+    await player.click();
+    const sheet = page.locator(".player-week-sheet");
+    await expect(sheet).toBeVisible();
+    const playerName = (await sheet.locator("h2, h3").first().innerText()).trim();
+    await expect.poll(() => page.title()).toContain(playerName);
+    await page.goBack();
+    await expectRoom(page, `/l/${LEAGUE}/team`, "team");
+    await expect(page).toHaveTitle(roomTitle);
+    await expect(sheet).toBeHidden();
+    await page.goForward();
+    await expect(sheet).toBeVisible();
+    await expect.poll(() => page.title()).toContain(playerName);
+  });
 }
 
-test("cold room urls open that room", async ({ page }) => {
+for (const viewport of viewports) {
+  test(`cold room urls open that room at ${viewport.width}`, async ({ page }) => {
+    test.setTimeout(180000);
+    await page.setViewportSize(viewport);
+    const rooms = [
+      ["/league", "League", "board"],
+      ["/week", "This week", "scores"],
+      ["/activity", "Activity", "activity"],
+      ["/history", "History", "history"],
+    ];
+    for (const [suffix, title, room] of rooms) {
+      await page.goto("about:blank");
+      const before = await page.evaluate(() => history.length);
+      await page.goto(`/l/${LEAGUE}${suffix}`);
+      await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 30000 });
+      await expect.poll(() => pathOf(page.url())).toBe(`/l/${LEAGUE}${suffix}`);
+      await expect(page).toHaveTitle(new RegExp(`^${title} · Dynasty Ticker`));
+      await expect(page.locator(`[data-room-panel="${room}"]`)).toBeVisible();
+      await expect(page.locator(`[data-room-panel="${room}"] h2`).first()).toBeVisible();
+      const after = await page.evaluate(() => history.length);
+      expect(after).toBeGreaterThanOrEqual(before);
+      expect(after).toBeLessThanOrEqual(before + 1);
+      await page.goBack();
+      await expect(page).toHaveURL("about:blank");
+    }
+  });
+}
+
+test("an unknown numeric league room returns home", async ({ page }) => {
+  test.setTimeout(90000);
   await page.setViewportSize({ width: 1280, height: 800 });
-  const rooms = [
-    ["/league", "League", "board"],
-    ["/week", "This week", "scores"],
-    ["/activity", "Activity", "activity"],
-    ["/history", "History", "history"],
-  ];
-  for (const [suffix, title, room] of rooms) {
-    await page.goto(`/l/${LEAGUE}${suffix}`);
-    await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 30000 });
-    await expect.poll(() => pathOf(page.url())).toBe(`/l/${LEAGUE}${suffix}`);
-    await expect(page).toHaveTitle(new RegExp(`^${title} · Dynasty Ticker`));
-    await expect(page.locator(`#room-nav [data-room="${room}"].active`)).toBeVisible();
-    await expect(page.locator(`[data-room-panel="${room}"] h2`).first()).toBeVisible();
-  }
+  await page.goto("/l/1/activity");
+  await expect(page.locator("#landing")).toBeVisible();
+  await expect.poll(() => {
+    const url = new URL(page.url());
+    return `${url.pathname}${url.search}`;
+  }, { timeout: 45000 }).toBe("/");
+  await expect(page.locator("body")).not.toHaveClass(/league-loaded/);
 });

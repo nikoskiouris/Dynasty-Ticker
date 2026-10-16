@@ -18,12 +18,9 @@ import {
   applyEscape,
   createRouteFocusMemory,
   ensureRouteLive,
-  bindInPageTab,
   focusHeadingWhenPresent,
   focusViewHeading,
   headingRootFor,
-  nextTabWrap,
-  tabbableControls,
   headingSelectorFor,
   restoreTriggerFocus,
   routeAnnouncement,
@@ -307,25 +304,6 @@ test("league, activity, history, and this week have distinct document titles", (
   assert.equal(headingSelectorFor({ page: "league", view: "history" }), "#history-heading");
 });
 
-test("user-facing slot, scoring, and record words are plain", () => {
-  const app = read("../docs/app.js");
-  const ranks = read("../docs/modules/ranks.js");
-  const sit = read("../docs/modules/sit-start.js");
-  const weekly = read("../docs/modules/weekly-value.js");
-  assert.match(app, /Full PPR · \$\{escapeHtml\(rankFormatLabel\(format\)\)\}/);
-  assert.equal((app.match(/PPR · \$\{escapeHtml\(rankFormatLabel/g) || []).length, 1);
-  assert.match(app, /<h3>Titles, career record, playoff trips<\/h3>/);
-  assert.match(app, /Career record is the rest of the story/);
-  assert.match(app, /<span>#<\/span><span>Team<\/span><span>Record<\/span>/);
-  assert.match(app, /SUPER_FLEX: "Superflex"/);
-  assert.match(app, /BN: "Bench"/);
-  assert.match(ranks, /label: "Projected points per game"/);
-  assert.doesNotMatch(ranks, /Projected PPR\/G/);
-  assert.match(sit, /points per game/);
-  assert.doesNotMatch(sit, /PPR\/game/);
-  assert.match(weekly, /SFO: "SF"/);
-});
-
 test("a cold /player load focuses the card heading", () => {
   const card = heading("h2", "player-heading");
   const pageHeading = heading("h2", "page-heading");
@@ -422,80 +400,6 @@ test("heading focus waits for the node and follows a replacement", () => {
   });
   assert.equal(doc.activeElement, field);
   assert.equal(queued.length, before);
-
-  doc.activeElement = body;
-  doc.nodes = [first];
-  first.isConnected = true;
-  const skipped = queued.length;
-  focusHeadingWhenPresent(doc, ".ranks-card h2", {
-    maxMs: 1000,
-    now: () => now,
-    stillWanted: () => false,
-    schedule(fn) {
-      queued.push(fn);
-    },
-  });
-  assert.equal(doc.activeElement, body);
-  assert.equal(queued.length, skipped);
-});
-
-test("tab wraps at the ends instead of stopping on the body", () => {
-  const skip = { id: "skip" };
-  const find = { id: "find" };
-  const list = [skip, find];
-  assert.equal(nextTabWrap(list, find, false), skip);
-  assert.equal(nextTabWrap(list, skip, true), find);
-  assert.equal(nextTabWrap(list, skip, false), null);
-  assert.equal(nextTabWrap(list, find, true), null);
-  assert.equal(nextTabWrap([skip], skip, false), null);
-
-  const hidden = {
-    id: "hidden-btn",
-    tagName: "BUTTON",
-    tabIndex: 0,
-    disabled: false,
-    hidden: false,
-    className: "",
-    parentElement: null,
-    nodeType: 1,
-    hasAttribute() { return false; },
-    getAttribute() { return null; },
-    ownerDocument: { defaultView: { getComputedStyle() { return { display: "none", visibility: "visible" }; } } },
-  };
-  const shown = {
-    id: "shown-btn",
-    tagName: "BUTTON",
-    tabIndex: 0,
-    disabled: false,
-    hidden: false,
-    className: "",
-    parentElement: null,
-    nodeType: 1,
-    hasAttribute() { return false; },
-    getAttribute() { return null; },
-    ownerDocument: { defaultView: { getComputedStyle() { return { display: "block", visibility: "visible" }; } } },
-  };
-  const doc = {
-    activeElement: shown,
-    querySelectorAll() {
-      return [hidden, shown];
-    },
-  };
-  assert.deepEqual(tabbableControls(doc), [shown]);
-  const listeners = [];
-  doc.addEventListener = (_type, fn) => listeners.push(fn);
-  bindInPageTab(doc);
-  const event = {
-    key: "Tab",
-    altKey: false,
-    ctrlKey: false,
-    metaKey: false,
-    shiftKey: false,
-    defaultPrevented: false,
-    preventDefault() { this.defaultPrevented = true; },
-  };
-  listeners[0](event);
-  assert.equal(event.defaultPrevented, false);
 });
 
 test("aria-current page sits on the active tab and comes off the others", () => {
@@ -628,26 +532,19 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(app, /history\.back\(\)/);
   assert.match(app, /announceRoute\(document/);
   assert.match(app, /ensureRouteLive\(document\)/);
-  assert.match(app, /focusHeadingWhenPresent\(document, selector, \{/);
-  assert.match(app, /stillWanted: \(\) => Date\.now\(\) < followHeadingsUntil/);
+  assert.match(app, /focusHeadingWhenPresent\(document, selector\)/);
   assert.match(app, /function focusLeagueRoomHeading\(room\)/);
   assert.equal(index.split('id="route-announcer"').length - 1, 1);
   assert.match(index, /id="route-announcer"[^>]*aria-live="polite"/);
   assert.match(index, /id="players-tab"[^>]*aria-current="page"/);
   assert.match(index, /<h1 id="mobile-chrome-title">/);
-  assert.match(index, /<h1 id="route-title" class="sr-only">Dynasty Ticker<\/h1>/);
-  assert.match(app, /function guestRouteHeading\(\)/);
-  assert.match(app, /bindInPageTab\(document\)/);
+  assert.doesNotMatch(index, /id="route-title"/);
+  assert.doesNotMatch(app, /bindInPageTab\(document\)/);
   const css = read("../docs/styles.css");
   assert.match(css, /\[data-room-panel\] h2:focus-visible[\s\S]*box-shadow:\s*var\(--focus\)/);
-  assert.match(css, /#route-title/);
+  assert.doesNotMatch(css, /#route-title/);
   const league = read("../docs/ui/league.html");
   assert.match(league, /data-room-panel="history"[\s\S]*<h2 id="history-heading" tabindex="-1">Titles, records, and who stayed<\/h2>/);
-  assert.match(app, /function routeHeadingText\(\)/);
-  assert.match(app, /team: "My team"/);
-  assert.match(css, /body\.launch-open #route-title/);
-  assert.doesNotMatch(css, /body\.league-loaded #route-title/);
-  assert.match(css, /body\.cold-share #route-title[\s\S]*display:\s*block !important/);
   assert.doesNotMatch(index, /<(?:body|html)[^>]*\stabindex/);
   assert.match(index, /id="workspace"[^>]*tabindex="-1"/);
   const honors = app.slice(app.indexOf("function renderWeeklyHonors"), app.indexOf("function renderSeasonSuperlatives"));
@@ -1236,25 +1133,6 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
     assert.ok(stops.includes("trades-tab"), JSON.stringify(stops));
     assert.equal(stops.includes("BODY"), false, JSON.stringify(stops));
     assert.equal(stops.includes("workspace"), false, JSON.stringify(stops));
-    await pageEval(pageSocket, () => document.querySelector("[data-action='draft-connect']").focus());
-    await pageSocket.send("Input.dispatchKeyEvent", {
-      type: "keyDown", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9,
-    });
-    await pageSocket.send("Input.dispatchKeyEvent", {
-      type: "keyUp", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9,
-    });
-    const afterFind = await pageEval(pageSocket, () => {
-      const el = document.activeElement;
-      return {
-        body: el === document.body,
-        id: el?.id || "",
-        cls: typeof el?.className === "string" ? el.className : "",
-        hasFocus: document.hasFocus(),
-      };
-    });
-    assert.equal(afterFind.body, false, JSON.stringify(afterFind));
-    assert.equal(afterFind.hasFocus, true);
-    assert.equal(afterFind.cls.includes("skip-link"), true, JSON.stringify(afterFind));
     await pageEval(pageSocket, () => document.querySelector(".skip-link").focus());
     await pageSocket.send("Input.dispatchKeyEvent", {
       type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,

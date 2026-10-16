@@ -34,6 +34,14 @@ export const ROUTES = Object.freeze([
   { name: "sharedTrade", pattern: "/t/:shareCode", page: "trades", room: "calculator" },
 ]);
 
+const LEAGUE_ROOM_SEGMENT = Object.freeze({
+  scores: "week",
+  activity: "activity",
+  history: "history",
+  board: "league",
+  team: "team",
+});
+
 const ROUTE_ID = /^(?:\d{1,12}|player:\d+|pick:\d{4}:r\d+:(?:any|early|mid|late))$/;
 // "0" is not a Sleeper player. Faces already skip it.
 const SLEEPER_ID = /^(?!0$)\d{1,12}$/;
@@ -256,11 +264,7 @@ export function safeNext(value) {
   if (hit.name === "trade") return tradeHref(hit.give, hit.get);
   if (hit.name === "players") return urlPath("players");
   if (hit.name === "ideas") return urlPath("l", hit.leagueId, "ideas");
-  if (hit.name === "leagueBoard") return urlPath("l", hit.leagueId, "league");
-  if (hit.name === "leagueWeek") return urlPath("l", hit.leagueId, "week");
-  if (hit.name === "leagueActivity") return urlPath("l", hit.leagueId, "activity");
-  if (hit.name === "leagueHistory") return urlPath("l", hit.leagueId, "history");
-  if (hit.leagueId) return urlPath("l", hit.leagueId, "team");
+  if (hit.leagueId && LEAGUE_ROOM_SEGMENT[hit.room]) return urlPath("l", hit.leagueId, LEAGUE_ROOM_SEGMENT[hit.room]);
   return "";
 }
 
@@ -298,6 +302,8 @@ function rememberLeague(path, leagueId) {
 export function pathForPlace({
   page = "",
   room = "",
+  tab = "",
+  view = "",
   playerId = "",
   playerName = "",
   leagueId = "",
@@ -306,29 +312,24 @@ export function pathForPlace({
   shareCode = "",
   landing = false,
 } = {}) {
+  const placePage = page || tab;
+  const placeRoom = room || view;
   const sleeperId = sleeperIdFrom(playerId);
   let href = "";
   // An opened shared link keeps /t/<code> in the address bar while the trade is
   // unchanged, so copying the URL shares the same trade (and its date).
-  if (!sleeperId && page === "trades" && room === "calculator" && shareCode && decodeTradeShare(shareCode)) {
+  if (!sleeperId && placePage === "trades" && placeRoom === "calculator" && shareCode && decodeTradeShare(shareCode)) {
     return urlPath("t", shareCode);
   }
+  const leagueSegment = placePage === "league" ? LEAGUE_ROOM_SEGMENT[placeRoom] : "";
   if (sleeperId) href = playerPathname(sleeperId, playerName);
-  else if (page === "trades" && room === "calculator") href = tradeHref(give, get, leagueId);
-  else if (page === "trades" && room === "find" && LEAGUE_ID.test(String(leagueId || ""))) {
+  else if (placePage === "trades" && placeRoom === "calculator") href = tradeHref(give, get, leagueId);
+  else if (placePage === "trades" && placeRoom === "find" && LEAGUE_ID.test(String(leagueId || ""))) {
     href = urlPath("l", leagueId, "ideas");
-  } else if (page === "league" && room === "board" && LEAGUE_ID.test(String(leagueId || ""))) {
-    href = urlPath("l", leagueId, "league");
-  } else if (page === "league" && room === "scores" && LEAGUE_ID.test(String(leagueId || ""))) {
-    href = urlPath("l", leagueId, "week");
-  } else if (page === "league" && room === "activity" && LEAGUE_ID.test(String(leagueId || ""))) {
-    href = urlPath("l", leagueId, "activity");
-  } else if (page === "league" && room === "history" && LEAGUE_ID.test(String(leagueId || ""))) {
-    href = urlPath("l", leagueId, "history");
-  } else if (page === "league" && room === "team" && LEAGUE_ID.test(String(leagueId || ""))) {
-    href = urlPath("l", leagueId, "team");
-  } else if (page === "players" && room === "ranks" && !landing) href = urlPath("players");
-  else if (page === "players" && room === "ranks" && landing) href = urlPath();
+  } else if (leagueSegment && LEAGUE_ID.test(String(leagueId || ""))) {
+    href = urlPath("l", leagueId, leagueSegment);
+  } else if (placePage === "players" && placeRoom === "ranks" && !landing) href = urlPath("players");
+  else if (placePage === "players" && placeRoom === "ranks" && landing) href = urlPath();
   return rememberLeague(href, leagueId);
 }
 
