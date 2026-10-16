@@ -107,6 +107,7 @@ test("roster slots say Superflex and Bench", () => {
   assert.equal(formatSitStartSlot("SUPER_FLEX"), "Superflex");
   assert.equal(formatSitStartSlot("BN"), "Bench");
   assert.equal(formatSitStartSlot("BENCH"), "Bench");
+  assert.equal(formatSitStartSlot("IR"), "Injured reserve");
   assert.equal(formatSitStartSlot("FLEX"), "Flex");
 });
 
