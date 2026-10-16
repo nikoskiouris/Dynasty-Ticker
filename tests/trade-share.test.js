@@ -258,7 +258,9 @@ test("the archive has the live board's snapshot, and the writer is immutable and
   assert.equal(live.players, undefined);
   const workflow = readFileSync(join(root, "../.github/workflows/refresh-player-values.yml"), "utf8");
   assert.match(workflow, /python3 scripts\/archive_price_snapshot\.py/);
-  assert.match(workflow, /git add [^\n]*docs\/data\/price-history/);
+  assert.match(workflow, /git add [^\n]*docs\/data\/price-history[^\n]*docs\/data\/nfl_players_slim\.json/);
+  assert.match(workflow, /\[skip netlify\]/);
+  assert.doesNotMatch(workflow, /Commit slim NFL player file/);
 
   const dir = mkdtempSync(join(tmpdir(), "prices-"));
   const run = (asOf, sf) => {

@@ -60,7 +60,7 @@ jobs:
 
       - name: Commit refreshed snapshot
         run: |
-          git add docs/data/player_values.json player-values/validation.json docs/data/price-history
+          git add docs/data/player_values.json player-values/validation.json docs/data/price-history docs/data/nfl_players_slim.json
           if git diff --cached --quiet; then
             echo "No player-value changes."
             exit 0
@@ -68,20 +68,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "data: refresh independent player values [skip netlify]"
-          git -c rebase.autostash=true pull --rebase origin develop
-          git push origin HEAD:develop
-
-      - name: Commit slim NFL player file
-        run: |
-          # build.py writes this file. Identical input is identical bytes, so
-          # an unchanged dump stages nothing and this step does not commit.
-          git add docs/data/nfl_players_slim.json
-          if git diff --cached --quiet -- docs/data/nfl_players_slim.json; then
-            echo "Slim player file unchanged."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "data: refresh slim NFL players [skip netlify]"
-          git -c rebase.autostash=true pull --rebase origin develop
+          git pull --rebase origin develop
           git push origin HEAD:develop

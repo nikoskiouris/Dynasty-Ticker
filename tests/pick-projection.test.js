@@ -514,10 +514,23 @@ test("named 2028+ firsts say they are valued as a mid 1st", () => {
   }, "2026"), "");
   const markup = renderSleeperInsight({
     title: "Draft Ammo",
-    body: "1 first-round pick in the vault, led by 2029 1st from NikoSkiouris.",
-    hint: "valued as a mid 1st",
+    body: "1 first-round pick in the vault, led by 2029 1st from NikoSkiouris (valued as a mid 1st).",
     tone: "gold",
   });
-  assert.match(markup, /pick-value-hint/);
-  assert.match(markup, /valued as a mid 1st/);
+  assert.doesNotMatch(markup, /pick-value-hint/);
+  assert.match(markup, /led by 2029 1st from NikoSkiouris \(valued as a mid 1st\)\./);
+  const appSource = readFileSync(join(root, "docs/app.js"), "utf8");
+  const ammoFn = appSource.slice(
+    appSource.indexOf("function draftAmmoInsight("),
+    appSource.indexOf("function draftAmmoInsightForRoster("),
+  );
+  assert.match(ammoFn, /inlineMidFirstHint\(laterFirstHint\(lead, roster\)\)/);
+  assert.match(ammoFn, /led by \$\{lead\.name\}\$\{hint\}/);
+  assert.doesNotMatch(ammoFn, /hint: laterFirstHint/);
+  const cards = appSource.slice(
+    appSource.indexOf("function buildSleeperInsightCards("),
+    appSource.indexOf("function describeLeagueFormat("),
+  );
+  assert.match(cards, /inlineMidFirstHint\(laterFirstHint\(profile\.assetSummary\.leadFirst/);
+  assert.doesNotMatch(cards, /ammo\.hint/);
 });

@@ -186,6 +186,7 @@ export function bindTicker(root, track, {
       viewport.removeEventListener("pointerleave", onPointerLeave);
       viewport.classList.remove("is-dragging");
       root.classList.remove("is-bound", "is-paused");
+      root.setAttribute("aria-pressed", "false");
     },
   };
 }

@@ -869,7 +869,7 @@ function noteSearchedUser(leagueId) {
   void recordSearchedUser(pick);
 }
 bootFromUrl();
-void loadSlimPlayersFile();
+if (bootRoute?.leagueId) void loadSlimPlayersFile();
 window.addEventListener("resize", syncDeskRailOffset);
 if (!(bootRoute?.leagueId || parseShareParams(window.location.search).leagueId)) {
   const place = state.pendingPlace;
@@ -3544,9 +3544,12 @@ async function fetchPlayersForCache(epoch, signal) {
 
   // Warm: the 6h slim cache is enough to paint. Revalidate the week key after.
   if (playersCacheIsFresh(fromCache, now, { ttlMs: PLAYERS_CACHE_TTL_MS })) {
-    scheduleQuietPlayerRefresh(epoch, signal);
+    if (state.leagueId || bootRoute?.leagueId) scheduleQuietPlayerRefresh(epoch, signal);
     return slimPlayersMap(fromCache.players);
   }
+
+  // Home and shared trades paint from the values file. The slim dump is for a league.
+  if (!state.leagueId && !bootRoute?.leagueId) return null;
 
   const slim = await loadSlimPlayersFile();
   if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
@@ -4066,10 +4069,7 @@ function pricesReady() {
 }
 
 function renderMetadataPlaceholder() {
-  if (state.playerMetadataFailed) {
-    return `<span class="meta-pending" title="Player metadata unavailable">…</span>`;
-  }
-  return `<span class="meta-pending" role="status">…</span>`;
+  return `<span class="meta-pending" aria-hidden="true">…</span>`;
 }
 
 function renderRosterDirectory(roster) {
@@ -4081,14 +4081,24 @@ function renderRosterDirectory(roster) {
   const picks = roster.assets.filter((asset) => asset.assetType === "pick");
   const showPicks = leagueUsesFuturePicks(state.league) || picks.length > 0;
   if (el.rosterSheetHeading) el.rosterSheetHeading.textContent = roster.manager.displayName;
-  const failedNote = state.playerMetadataFailed && players.some((asset) => assetMetadataGap(asset).name)
+  const namingGap = players.some((asset) => {
+    const gap = assetMetadataGap(asset);
+    return gap.name || gap.position;
+  });
+  const loadingPlayers = namingGap && !state.playerMetadataFailed;
+  const failedPlayers = state.playerMetadataFailed && players.some((asset) => assetMetadataGap(asset).name);
+  const failedNote = failedPlayers
     ? `<p class="muted small">Player metadata unavailable. Rosters and trade search still work with fallback values.</p>`
     : "";
+  const loadingLabel = loadingPlayers ? `<span class="sr-only">Loading player</span>` : "";
+  const failedLabel = failedPlayers ? `<span class="sr-only">Player metadata unavailable</span>` : "";
   el.rosterSheet.innerHTML = `
     ${failedNote}
     <div class="sheet-grid">
-      <section class="sheet-column">
+      <section class="sheet-column"${loadingPlayers ? ` aria-busy="true"` : ""}>
         <h4>Roster</h4>
+        ${loadingLabel}
+        ${failedLabel}
         ${players.map((asset) => {
           const gap = assetMetadataGap(asset);
           const name = gap.name ? renderMetadataPlaceholder() : escapeHtml(asset.name || "…");
@@ -10538,6 +10548,11 @@ function laterFirstHint(lead, roster) {
   return later ? "Later 1sts are valued as a mid 1st." : "";
 }
 
+function inlineMidFirstHint(hint) {
+  const text = String(hint || "").trim().replace(/\.+$/, "");
+  return text ? ` (${text})` : "";
+}
+
 function draftAmmoInsight(firstRoundPickCount, lead, roster = null) {
   if (!(Number(firstRoundPickCount) > 0)) return null;
   const nextYear = Number(state.league?.season) + 1;
@@ -10554,10 +10569,10 @@ function draftAmmoInsight(firstRoundPickCount, lead, roster = null) {
     };
   }
   const count = Number(firstRoundPickCount);
+  const hint = inlineMidFirstHint(laterFirstHint(lead, roster));
   return {
     title: "Draft Ammo",
-    body: `${count} first-round pick${count === 1 ? "" : "s"} in the vault, led by ${lead.name}.`,
-    hint: laterFirstHint(lead, roster),
+    body: `${count} first-round pick${count === 1 ? "" : "s"} in the vault, led by ${lead.name}${hint}.`,
     tone: "gold",
   };
 }
@@ -10598,7 +10613,10 @@ function buildSleeperInsightCards(profile, context) {
 
   const ammo = draftAmmoInsight(profile.assetSummary.firstRoundPickCount, profile.assetSummary.leadFirst);
   if (ammo) {
-    ammo.hint = ammo.hint || laterFirstHint(profile.assetSummary.leadFirst, findNormalizedRoster(profile.rosterId));
+    if (ammo.body.includes("led by") && !ammo.body.includes("valued as a mid 1st")) {
+      const hint = inlineMidFirstHint(laterFirstHint(profile.assetSummary.leadFirst, findNormalizedRoster(profile.rosterId)));
+      if (hint) ammo.body = ammo.body.replace(/\.\s*$/, `${hint}.`);
+    }
     insights.push(ammo);
   }
 
@@ -16479,11 +16497,9 @@ function resolveLeagueBoardAsset(token) {
 }
 
 function renderAssetValueBadge(asset, values = state.values) {
-  const value = getAssetValue(asset, values);
-  const missing = isEstimatedAsset(asset, values);
   return `
     <span class="asset-value-badge">
-      <strong>${missing ? "Unavailable" : formatNumber(value)}</strong>
+      <strong>${renderAssetValuePlain(asset, values)}</strong>
     </span>
   `;
 }
@@ -16508,12 +16524,12 @@ function renderPickVaultRow(asset, values) {
 }
 
 function renderAssetValuePlain(asset, values = state.values) {
+  if (!values || Object.keys(values).length === 0) return "…";
   return isEstimatedAsset(asset, values) ? "Unavailable" : formatNumber(getAssetValue(asset, values));
 }
 
 function formatAssetSecondaryLabel(asset, values) {
-  const missing = isEstimatedAsset(asset, values);
-  const parts = [missing ? "Unavailable" : formatNumber(getAssetValue(asset, values))];
+  const parts = [renderAssetValuePlain(asset, values)];
   if (asset.assetType === "player") {
     const position = formatPlayerPositionLabel(asset);
     if (position) parts.push(position);
