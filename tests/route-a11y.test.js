@@ -616,6 +616,10 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(app, /focusHeadingWhenPresent\(document, selector, \{/);
   assert.match(app, /stillWanted: \(\) => Date\.now\(\) < followHeadingsUntil/);
   assert.match(app, /function focusLeagueRoomHeading\(room\)/);
+  assert.match(app, /function focusClickedRoute\(before\)/);
+  assert.match(app, /if \(pendingPopstateFocus\) return;/);
+  assert.match(app, /void focusAfterPopstate\(\{ focus, trigger: step\.trigger, before, token \}\)/);
+  assert.match(app, /await new Promise\(\(resolve\) => requestAnimationFrame\(resolve\)\)/);
   assert.match(app, /leagueRoomMove\(before, after\) \? "heading" : step\.focus/);
   assert.equal(index.split('id="route-announcer"').length - 1, 1);
   assert.match(index, /id="route-announcer"[^>]*aria-live="polite"/);
