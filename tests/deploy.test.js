@@ -1,9 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync, accessSync, constants, existsSync } from "node:fs";
+import { readFileSync, accessSync, constants, existsSync, mkdtempSync, writeFileSync, chmodSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -131,7 +132,8 @@ test("push to prod cuts a GitHub Release", () => {
   const script = read("scripts/cut_github_release.sh");
   assert.match(script, /gh release create/);
   assert.match(script, /CUT_RELEASE_DRY_RUN/);
-  assert.match(script, /targetCommitish/);
+  assert.match(script, /target_commitish/);
+  assert.doesNotMatch(script, /gh release list/);
   assert.doesNotMatch(script, /netlify deploy/);
 
   const missing = bash("scripts/cut_github_release.sh", {
@@ -262,4 +264,39 @@ test("a prod push deploys its published release without relying on a token-creat
   assert.ok(workflow.indexOf('assert_prod_release.sh') < workflow.indexOf('deploy_live_site.sh'));
   assert.match(workflow, /bash scripts\/deploy_live_site\.sh/);
   assert.doesNotMatch(workflow, /schedule:/);
+});
+
+
+test("release lookup reuses an existing published commit or creates a new release", () => {
+  const dir = mkdtempSync(join(tmpdir(), "dt-release-gh-"));
+  const fakeGh = join(dir, "gh");
+  writeFileSync(fakeGh, `#!/bin/bash
+if [[ "$1 $2" == "release view" ]]; then exit 1; fi
+if [[ "$1" == "api" && "$2" == "repos/nikoskiouris/Dynasty-Ticker/releases?per_page=100" ]]; then
+  printf '%s' "$EXISTING_RELEASE"
+  exit 0
+fi
+if [[ "$1 $2" == "release create" ]]; then echo "CREATED $3"; exit 0; fi
+echo "Unsupported gh command" >&2
+exit 2
+`);
+  chmodSync(fakeGh, 0o755);
+  try {
+    const env = {
+      PATH: `${dir}:${process.env.PATH}`,
+      GH_TOKEN: "fake",
+      GITHUB_REPOSITORY: "nikoskiouris/Dynasty-Ticker",
+      GITHUB_SHA: "abc1234deadbeef",
+      CUT_RELEASE_DRY_RUN: "",
+    };
+    const reused = bash("scripts/cut_github_release.sh", { ...env, EXISTING_RELEASE: "prod-existing" });
+    assert.equal(reused.status, 0, reused.stderr);
+    assert.match(reused.stdout, /Release already points at abc1234deadbeef/);
+    assert.doesNotMatch(reused.stdout, /CREATED/);
+    const created = bash("scripts/cut_github_release.sh", { ...env, EXISTING_RELEASE: "" });
+    assert.equal(created.status, 0, created.stderr);
+    assert.match(created.stdout, /CREATED prod-\d{8}-\d{6}-abc1234/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
