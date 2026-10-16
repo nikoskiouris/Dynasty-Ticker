@@ -337,7 +337,8 @@ test("card words stay plain after the heading split", () => {
   assert.match(app, /parts\.push\("TE bonus"\)/);
   assert.doesNotMatch(app, /TE bonus \(values stay full PPR\)/);
   assert.match(app, /text: "Values use 1 point per catch at every position, even with the TE bonus\."/);
-  assert.match(app, /title="Superflex" aria-label="Superflex">SF</);
+  assert.match(app, /class="sheet-slot-full">Superflex</);
+  assert.match(app, /class="sheet-slot-short" title="Superflex" aria-label="Superflex">SF</);
   assert.match(sit, /Sit — on injured reserve/);
   assert.match(weekly, /Players who are out or on injured reserve count as 0% until that changes\./);
   assert.match(weekly, /SFO: "SF"/);

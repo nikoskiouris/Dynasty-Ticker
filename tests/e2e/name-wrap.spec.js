@@ -77,6 +77,135 @@ test("a very long roster name stays whole inside the row at 390", async ({ page 
   expect(report.pageOverflow, JSON.stringify(report)).toBeLessThanOrEqual(1);
 });
 
+const FULL_NAMES = ["Nico Collins", "Marvin Harrison Jr."];
+
+async function paintRosterNames(page, names) {
+  return page.evaluate((wanted) => {
+    const rows = [...document.querySelectorAll("[data-room-panel='team'] button.sheet-row .sheet-player strong")];
+    const used = new Set();
+    return wanted.map((name) => {
+      let strong = rows.find((el) => (el.textContent || "").replace(/\s+/g, " ").trim().startsWith(name));
+      if (!strong) {
+        strong = rows.find((el) => !used.has(el));
+        if (strong) strong.textContent = name;
+      }
+      if (strong) used.add(strong);
+      if (!strong) return null;
+      const style = getComputedStyle(strong);
+      const box = strong.getBoundingClientRect();
+      const row = strong.closest(".sheet-row");
+      const textNode = [...strong.childNodes].find((node) => node.nodeType === Node.TEXT_NODE && (node.textContent || "").includes(name.slice(0, 4)));
+      const range = document.createRange();
+      let hidden = 0;
+      const source = textNode ? textNode.textContent || "" : "";
+      const start = source.indexOf(name);
+      if (textNode && start >= 0) {
+        for (let i = start; i < start + name.length; i += 1) {
+          range.setStart(textNode, i);
+          range.setEnd(textNode, i + 1);
+          const rect = range.getClientRects()[0];
+          const shown = Boolean(rect)
+            && rect.width > 0.2
+            && rect.height > 0.2
+            && rect.top >= box.top - 1
+            && rect.bottom <= box.bottom + 1
+            && rect.left >= box.left - 1
+            && rect.right <= box.right + 1;
+          if (!shown) hidden += 1;
+        }
+      } else {
+        hidden = name.length;
+      }
+      return {
+        name,
+        text: (strong.textContent || "").replace(/\s+/g, " ").trim(),
+        scrollWidth: strong.scrollWidth,
+        clientWidth: strong.clientWidth,
+        hidden,
+        textOverflow: style.textOverflow,
+        rowOverflow: row.scrollWidth - row.clientWidth,
+        pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+  }, names);
+}
+
+test("Nico Collins and Marvin Harrison Jr. fit on the phone roster", async ({ page }) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/l/${LEAGUE}/team`);
+  await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
+  const sheet = page.locator("#roster-sheet .sheet-player strong").first();
+  await expect(sheet).toBeVisible({ timeout: 20000 });
+
+  const reports = await paintRosterNames(page, FULL_NAMES);
+  for (const report of reports) {
+    expect(report, JSON.stringify(reports)).toBeTruthy();
+    expect(report.text.startsWith(report.name), JSON.stringify(report)).toBe(true);
+    expect(report.scrollWidth, JSON.stringify(report)).toBeLessThanOrEqual(report.clientWidth + 1);
+    expect(report.hidden, JSON.stringify(report)).toBe(0);
+    expect(report.textOverflow === "ellipsis" && report.scrollWidth > report.clientWidth + 1, JSON.stringify(report)).toBe(false);
+    expect(report.rowOverflow, JSON.stringify(report)).toBeLessThanOrEqual(1);
+    expect(report.pageOverflow, JSON.stringify(report)).toBeLessThanOrEqual(1);
+  }
+});
+
+test("the value stays beside the name at 1280", async ({ page }) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`/l/${LEAGUE}/team`);
+  await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
+  const row = page.locator("#roster-sheet button.sheet-row").first();
+  await expect(row).toBeVisible({ timeout: 20000 });
+  const layout = await row.evaluate((node) => {
+    const name = node.querySelector(".sheet-player");
+    const metrics = node.querySelector(".sheet-metrics");
+    const nameBox = name.getBoundingClientRect();
+    const metricsBox = metrics.getBoundingClientRect();
+    return {
+      columns: getComputedStyle(node).gridTemplateColumns.split(" ").filter(Boolean).length,
+      sideBySide: metricsBox.left >= nameBox.right - 2 && metricsBox.top < nameBox.bottom,
+    };
+  });
+  expect(layout.columns).toBe(3);
+  expect(layout.sideBySide).toBe(true);
+});
+
+for (const width of [1280, 390]) {
+  test(`superflex slot reads ${width > 700 ? "Superflex" : "SF"} at ${width}`, async ({ page }) => {
+    test.setTimeout(90000);
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 800 });
+    await page.goto(`/l/${LEAGUE}/team`);
+    await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
+    const slot = page.locator("#roster-sheet .sheet-slot-superflex").first();
+    await expect(slot).toBeVisible({ timeout: 20000 });
+    const label = await slot.evaluate((node) => {
+      const full = node.querySelector(".sheet-slot-full");
+      const short = node.querySelector(".sheet-slot-short");
+      const shown = (el) => Boolean(el) && getComputedStyle(el).display !== "none";
+      return {
+        fullShown: shown(full),
+        shortShown: shown(short),
+        fullText: full?.textContent || "",
+        shortText: short?.textContent || "",
+        title: short?.getAttribute("title") || "",
+        aria: short?.getAttribute("aria-label") || "",
+      };
+    });
+    expect(label.fullText).toBe("Superflex");
+    expect(label.shortText).toBe("SF");
+    expect(label.title).toBe("Superflex");
+    expect(label.aria).toBe("Superflex");
+    if (width > 700) {
+      expect(label.fullShown).toBe(true);
+      expect(label.shortShown).toBe(false);
+    } else {
+      expect(label.fullShown).toBe(false);
+      expect(label.shortShown).toBe(true);
+    }
+  });
+}
+
 function nameStartsWithVisible(name, visible) {
   let at = 0;
   for (const char of visible) {

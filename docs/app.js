@@ -13289,7 +13289,7 @@ function formatRosterSlotLabel(slot) {
 function sheetSlotMarkup(slot, slotLabel) {
   const key = String(slot || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
   if (key === "SUPER_FLEX" || key === "SUPERFLEX" || key === "SF") {
-    return `<span class="sheet-slot" title="Superflex" aria-label="Superflex">SF</span>`;
+    return `<span class="sheet-slot sheet-slot-superflex"><span class="sheet-slot-full">Superflex</span><span class="sheet-slot-short" title="Superflex" aria-label="Superflex">SF</span></span>`;
   }
   return `<span class="sheet-slot">${escapeHtml(slotLabel || "")}</span>`;
 }
