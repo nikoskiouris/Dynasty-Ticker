@@ -89,6 +89,7 @@ for (const viewport of viewports) {
   test(`back from a league restores the picker at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
+    await expect(page.locator("#launch-example .launch-row").first()).toBeVisible({ timeout: 30000 });
     await page.locator("#league-id").evaluate((el) => {
       el.value = "1360686137898700800";
     });
