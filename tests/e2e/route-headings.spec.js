@@ -169,7 +169,11 @@ async function expectRoomHeading(page, room, width) {
   await page.waitForTimeout(500);
   await expect.poll(read, { timeout: 5000 }).toEqual(wanted);
   await expect(page).toHaveTitle(new RegExp(`^${room.route} · Dynasty Ticker`));
-  await expect(page.locator("#route-announcer")).toHaveText(room.route);
+  const spoken = await page.evaluate(() => ({
+    heading: (document.activeElement?.textContent || "").replace(/\s+/g, " ").trim(),
+    live: (document.querySelector("#route-announcer")?.textContent || "").replace(/\s+/g, " ").trim(),
+  }));
+  await expect(page.locator("#route-announcer")).toHaveText(spoken.heading === room.route ? "" : room.route);
   if (width === 1280) await expect(page.locator("#route-title")).toHaveText(room.route);
 }
 
