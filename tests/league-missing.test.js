@@ -10,7 +10,9 @@ import {
   leagueLoadErrorMessage,
   leagueNotFoundError,
   sleeperLeagueMissing,
+  sleeperResponseFailed,
 } from "../docs/modules/league-load-error.js";
+import { holdDocumentTitle } from "../docs/modules/site.js";
 import { createSleeperClient } from "../docs/modules/sleeper.js";
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -150,7 +152,7 @@ test("the missing-league state has a heading, connect, and the sample league", (
   assert.match(panel, /class="sample-league-link" href="\/\?sample=1">See the sample league<\/a>/);
   const app = readDocs("app.js");
   assert.match(app, /getElementById\("league-missing-title"\)\?\.focus\(\)/);
-  assert.match(app, /title: "We couldn't find that league — Dynasty Ticker"/);
+  assert.match(app, /title: "We couldn't find that league · Dynasty Ticker"/);
   assert.match(app, /leagueMissing \|\| sleeperUnreachable/);
   assert.match(panel, /class="league-missing-primary"/);
   const css = readDocs("styles.css");
@@ -166,7 +168,7 @@ test("the missing-league state has a heading, connect, and the sample league", (
   assert.match(leave, /"", "\/"\)/);
   assert.match(leave, /connectAsked: true/);
   assert.match(leave, /getElementById\("landing-username"\)\?\.focus\(\)/);
-  assert.match(app, /if \(leagueMissing\) \{\s*openLandingFromMissingLeague\(\);\s*break;\s*\}/);
+  assert.match(app, /if \(leagueMissing \|\| sleeperUnreachable\) \{\s*openLandingFromMissingLeague\(\);\s*break;\s*\}/);
   assert.match(app, /connectAsked = route\.name === "connect" \|\| Boolean\(historyState\?\.connectAsked\)/);
 });
 
@@ -177,8 +179,47 @@ test("a Sleeper outage has a heading, an alert, and its own title", () => {
   assert.match(panel, /<h1 id="sleeper-down-title" tabindex="-1">Couldn't reach Sleeper<\/h1>/);
   assert.match(panel, /Check your connection\./);
   assert.match(panel, /id="sleeper-down-retry"/);
+  assert.match(panel, /data-action="find-my-leagues"/);
+  assert.match(panel, /data-idle-label="Find my leagues"/);
+  assert.match(panel, /class="sample-league-link" href="\/\?sample=1">See the sample league<\/a>/);
   const app = readDocs("app.js");
-  assert.match(app, /title: "Couldn't reach Sleeper — Dynasty Ticker"/);
+  assert.match(app, /title: "Couldn't reach Sleeper · Dynasty Ticker"/);
+  assert.match(app, /title: "Loading league · Dynasty Ticker"/);
   assert.match(app, /getElementById\("sleeper-down-title"\)\?\.focus\(\)/);
+  assert.match(app, /announceRoute\(document, "Couldn't reach Sleeper"\)/);
+  assert.match(app, /function dropFailedLeagueQuery\(/);
+  assert.match(app, /pageshow/);
   assert.match(app, /if \(text === SLEEPER_UNREACHABLE_MESSAGE && !loaded\) \{\s*showSleeperUnreachable\(\);\s*return;\s*\}/);
+});
+
+test("any non-OK Sleeper response is the outage sentence, not the landing fallback", () => {
+  const http = new Error("Sleeper API returned 500");
+  http.status = 500;
+  assert.equal(sleeperResponseFailed(http), true);
+  assert.equal(leagueLoadErrorMessage(http), SLEEPER_UNREACHABLE_MESSAGE);
+  assert.equal(
+    leagueLoadErrorMessage(new Error("Failed to load: league profile (Sleeper API returned 500)")),
+    SLEEPER_UNREACHABLE_MESSAGE,
+  );
+  assert.equal(sleeperResponseFailed({ status: 502, message: "Sleeper API returned 502" }), true);
+  assert.equal(leagueLoadErrorMessage(new Error("No Sleeper league found for 12.")), "Could not load league data. No Sleeper league found for 12.");
+  const app = readDocs("app.js");
+  const load = app.match(/async function runLeagueLoad\(leagueId, token[^)]*\) \{[\s\S]*?\n\}/)?.[0] || "";
+  const failed = load.slice(load.indexOf("} catch (err)"));
+  assert.ok(failed.indexOf("isLeagueNotFound(err)") < failed.indexOf("leagueLoadErrorMessage(err)"));
+  assert.match(failed, /showSleeperUnreachable\(\)|paintLeagueLoadError\(message\)/);
+});
+
+test("the document title follows the rendered page when history restores another title", async () => {
+  const doc = { title: "Loading" };
+  holdDocumentTitle(doc, "This week · Sample League — Dynasty Ticker");
+  doc.title = "Couldn't reach Sleeper · Dynasty Ticker";
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(doc.title, "This week · Sample League — Dynasty Ticker");
+  const app = readDocs("app.js");
+  const write = app.slice(app.indexOf("function updateUrlState"), app.indexOf("function closeHistoryOverlay"));
+  const titleAt = write.indexOf("syncDocumentMeta()");
+  assert.ok(titleAt >= 0);
+  assert.ok(titleAt < write.indexOf("history.pushState"));
+  assert.ok(titleAt < write.indexOf("history.replaceState"));
 });

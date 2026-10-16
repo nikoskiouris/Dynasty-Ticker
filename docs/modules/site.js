@@ -104,10 +104,30 @@ export function buildPageDescription({
   return pageMeta?.description || DEFAULT_DESCRIPTION;
 }
 
+let renderedTitleToken = 0;
+
+// Chrome stores document.title on the history entry and writes that copy back
+// after popstate and back-forward cache. The rendered page is the source of
+// truth, so put its title back on the next turn.
+export function holdDocumentTitle(doc, title) {
+  if (!doc || !title) return;
+  const token = ++renderedTitleToken;
+  doc.title = title;
+  const restore = () => {
+    if (token !== renderedTitleToken || !doc) return;
+    if (doc.title !== title) doc.title = title;
+  };
+  if (typeof queueMicrotask === "function") queueMicrotask(restore);
+  if (typeof setTimeout === "function") setTimeout(restore, 0);
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => setTimeout(restore, 0));
+  }
+}
+
 export function applyDocumentMeta(doc, { title, description } = {}) {
   if (!doc) return;
   if (title) {
-    doc.title = title;
+    holdDocumentTitle(doc, title);
     setMetaContent(doc, "property", "og:title", title);
     setMetaContent(doc, "name", "twitter:title", title);
   }

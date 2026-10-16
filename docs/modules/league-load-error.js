@@ -21,10 +21,20 @@ export function isLeagueNotFound(err) {
   return err?.code === LEAGUE_NOT_FOUND_CODE;
 }
 
+// A dropped connection and any non-OK Sleeper response are the same outage.
+// A league 404 is league-not-found before this runs.
+export function sleeperResponseFailed(err) {
+  const status = Number(err?.status);
+  if (Number.isInteger(status) && status >= 400) return true;
+  const raw = String(err?.message || "");
+  if (/Network\/CORS/.test(raw)) return true;
+  return /Sleeper API returned\s+\d{3}/.test(raw);
+}
+
 // Three core reads fail together and used to paste Network/CORS three times.
 export function leagueLoadErrorMessage(err) {
   const raw = String(err?.message || "");
-  if (/Network\/CORS/.test(raw)) return SLEEPER_UNREACHABLE_MESSAGE;
+  if (sleeperResponseFailed(err)) return SLEEPER_UNREACHABLE_MESSAGE;
   if (!raw) return "Could not load league data.";
   if (raw.startsWith("Could not load league data.")) return raw;
   return `Could not load league data. ${raw}`;

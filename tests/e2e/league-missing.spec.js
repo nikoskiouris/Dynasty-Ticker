@@ -19,14 +19,14 @@ test("a bad league link has one heading, and Find my leagues returns home", asyn
   const title = page.locator("#league-missing-title");
   await expect(title).toBeVisible({ timeout: 30000 });
   await expect(title).toBeFocused();
-  await expect(page).toHaveTitle("We couldn't find that league — Dynasty Ticker");
+  await expect(page).toHaveTitle("We couldn't find that league · Dynasty Ticker");
   await expect(page.locator("body")).toHaveClass(/launch-open/);
   expect(await visibleHeadings(page)).toEqual(["We couldn't find that league"]);
   await expect(page.locator("#mobile-chrome-title")).toBeHidden();
   await expect(page.locator("#workspace-header")).toBeHidden();
   await expect(page.locator("#hero-lede")).toBeHidden();
 
-  const find = page.locator(".league-missing-primary");
+  const find = page.locator("#league-missing .league-missing-primary");
   await expect(find).toHaveText("Find my leagues");
   const hit = await find.evaluate((el) => {
     const box = el.getBoundingClientRect();
@@ -49,7 +49,7 @@ test("a bad league link has one heading, and Find my leagues returns home", asyn
   await page.goBack();
   await expect(page).toHaveURL(/\/l\/x$/);
   await expect(page.locator("#league-missing-title")).toBeVisible();
-  await expect(page).toHaveTitle("We couldn't find that league — Dynasty Ticker");
+  await expect(page).toHaveTitle("We couldn't find that league · Dynasty Ticker");
   expect(await visibleHeadings(page)).toEqual(["We couldn't find that league"]);
 });
 
@@ -59,7 +59,7 @@ test("an empty /l id is the missing-league state, and /l/x.json stays a 404", as
     expect(res.status()).toBe(200);
     await expect(page.locator("#league-missing-title")).toBeVisible({ timeout: 30000 });
     await expect(page.locator("#league-missing-title")).toHaveText("We couldn't find that league");
-    await expect(page).toHaveTitle("We couldn't find that league — Dynasty Ticker");
+    await expect(page).toHaveTitle("We couldn't find that league · Dynasty Ticker");
   }
   const missing = await page.request.get("/l/x.json");
   expect(missing.status()).toBe(404);
@@ -74,9 +74,51 @@ test("a Sleeper outage has its own heading, alert, and title", async ({ page }) 
   await expect(title).toHaveText("Couldn't reach Sleeper");
   await expect(title).toBeFocused();
   await expect(page.locator("#sleeper-down")).toHaveAttribute("role", "alert");
-  await expect(page).toHaveTitle("Couldn't reach Sleeper — Dynasty Ticker");
+  await expect(page).toHaveTitle("Couldn't reach Sleeper · Dynasty Ticker");
   await expect(page.locator("#league-missing")).toBeHidden();
   await expect(page.locator("body")).toHaveClass(/launch-open/);
   expect(await visibleHeadings(page)).toEqual(["Couldn't reach Sleeper"]);
   await expect(page.locator("#sleeper-down-retry")).toBeVisible();
+  await expect(page.locator("#sleeper-down").getByRole("button", { name: "Find my leagues" })).toBeVisible();
+  await expect(page.locator("#sleeper-down").getByRole("link", { name: "See the sample league" })).toHaveAttribute("href", "/?sample=1");
+  await expect(page.locator("#route-announcer")).toHaveText("Couldn't reach Sleeper");
+  expect(new URL(page.url()).searchParams.has("league")).toBe(false);
+});
+
+test("an HTTP 500 shows the outage, and Back after a blocked reload keeps the rendered title", async ({ page }) => {
+  const leagueId = "1360686137898700800";
+  let block = true;
+  await page.route("**/api.sleeper.app/v1/league/**", async (route) => {
+    if (block) {
+      await route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
+      return;
+    }
+    await route.continue();
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/l/${leagueId}`);
+  await expect(page.locator("#sleeper-down-title")).toBeVisible({ timeout: 30000 });
+  await expect(page).toHaveTitle("Couldn't reach Sleeper · Dynasty Ticker");
+  await expect(page.locator("#landing")).toBeHidden();
+  expect(new URL(page.url()).searchParams.has("league")).toBe(false);
+
+  block = false;
+  await page.locator("#sleeper-down-retry").click();
+  await expect(page).toHaveURL(new RegExp(`/l/${leagueId}/team`), { timeout: 30000 });
+  await expect(page.locator("body")).toHaveClass(/league-loaded/);
+  await expect(page.locator("#sleeper-down")).toBeHidden();
+  await expect(page).not.toHaveTitle(/Couldn't reach Sleeper/);
+
+  block = true;
+  await page.reload();
+  await expect(page.locator("#sleeper-down-title")).toBeVisible({ timeout: 30000 });
+  await expect(page).toHaveTitle("Couldn't reach Sleeper · Dynasty Ticker");
+  expect(new URL(page.url()).searchParams.has("league")).toBe(false);
+
+  block = false;
+  await page.goBack();
+  await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 30000 });
+  await expect(page.locator("#sleeper-down")).toBeHidden();
+  await expect(page).toHaveURL(new RegExp(`/l/${leagueId}/team`));
+  await expect(page).not.toHaveTitle(/Couldn't reach Sleeper/);
 });

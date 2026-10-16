@@ -355,6 +355,7 @@ import {
 import {
   applyDocumentMeta,
   buildDocumentTitle,
+  holdDocumentTitle,
   buildPageDescription,
   clearSampleBannerDismissal,
   focusAfterSampleBannerDismiss,
@@ -961,6 +962,13 @@ window.addEventListener("popstate", (event) => {
   const step = routeFocus.pop(next);
   applyDeskPopState(event.state);
   syncRouteA11y({ focus: appBooted ? step.focus : "none", trigger: step.trigger });
+  const followTitle = () => syncDocumentMeta();
+  setTimeout(followTitle, 0);
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => setTimeout(followTitle, 0));
+});
+window.addEventListener("pageshow", (event) => {
+  if (!event.persisted) return;
+  syncDocumentMeta();
 });
 if (isPhoneLayout()) setMobileRailOpen(false);
 
@@ -1813,6 +1821,9 @@ function updateUrlState({ mode = "replace", force = false } = {}) {
   const write = force && mode === "push" && pathChanged ? "push" : placeWrite;
   const pushed = write === "push" ? true : (write === "replace" && sameHistoryPlace(history.state || {}, snapshot) && Boolean(history.state?.pushed));
   const entry = { ...snapshot, pushed };
+  // The history entry keeps whatever document.title is right now. Set the
+  // rendered title first so Back cannot restore an outage title onto a team.
+  syncDocumentMeta();
   if (write === "push" && typeof history.pushState === "function") {
     routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
     history.pushState(entry, "", path);
@@ -3170,6 +3181,15 @@ function rememberPickedLeague(leagueId) {
     history.pushState({ ...historyPlaceNow(), pushed: true }, "", `${window.location.pathname}${window.location.search}`);
   }
   history.replaceState(history.state, "", `${window.location.pathname}${nextSearch}`);
+}
+
+function dropFailedLeagueQuery() {
+  if (applyingHistory || typeof history?.replaceState !== "function") return;
+  const params = new URLSearchParams(String(window.location.search || "").replace(/^\?/, ""));
+  if (!params.has("league")) return;
+  params.delete("league");
+  const query = params.toString();
+  history.replaceState(history.state, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
 }
 
 async function loadLeagueById(leagueId, { fromHistory = false, sample = false } = {}) {
@@ -8132,7 +8152,7 @@ function handleWorkspaceClick(event) {
       openPublicRanks();
       break;
     case "find-my-leagues":
-      if (leagueMissing) {
+      if (leagueMissing || sleeperUnreachable) {
         openLandingFromMissingLeague();
         break;
       }
@@ -17639,18 +17659,28 @@ function showLeagueNotFound() {
     panel.classList.remove("hidden");
   }
   syncLaunchChrome();
-  document.getElementById("league-missing-title")?.focus();
   syncDocumentMeta();
+  dropFailedLeagueQuery();
+  document.getElementById("league-missing-title")?.focus();
 }
 
 function openLandingFromMissingLeague() {
+  // Keep the outage title on this history entry, then push / with the landing title.
+  prepareDeskPush();
+  hideSleeperUnreachable();
   hideLeagueNotFound();
   const landing = document.querySelector("#landing");
   if (landing) {
     landing.classList.remove("hidden");
     landing.hidden = false;
   }
-  prepareDeskPush();
+  setActivePage("players", { history: "silent", landing: "show", scroll: "top" });
+  const box = document.querySelector("#landing-connect");
+  if (box) box.hidden = false;
+  document.querySelector(".launch-connect")?.setAttribute("hidden", "");
+  connectAsked = true;
+  syncLaunchChrome();
+  syncDocumentMeta();
   if (typeof history?.pushState === "function") {
     history.pushState({
       ...historyPlaceNow(),
@@ -17660,13 +17690,6 @@ function openLandingFromMissingLeague() {
       connectAsked: true,
     }, "", "/");
   }
-  setActivePage("players", { history: "silent", landing: "show", scroll: "top" });
-  const box = document.querySelector("#landing-connect");
-  if (box) box.hidden = false;
-  document.querySelector(".launch-connect")?.setAttribute("hidden", "");
-  connectAsked = true;
-  syncLaunchChrome();
-  syncDocumentMeta();
   document.getElementById("landing-username")?.focus();
 }
 
@@ -17710,8 +17733,10 @@ function showSleeperUnreachable() {
     panel.classList.remove("hidden");
   }
   syncLaunchChrome();
-  document.getElementById("sleeper-down-title")?.focus();
   syncDocumentMeta();
+  dropFailedLeagueQuery();
+  document.getElementById("sleeper-down-title")?.focus();
+  announceRoute(document, "Couldn't reach Sleeper");
 }
 
 function hideSleeperUnreachable() {
@@ -17896,26 +17921,26 @@ function serverShareMeta() {
 function syncDocumentMeta() {
   if (leagueMissing) {
     applyDocumentMeta(document, {
-      title: "We couldn't find that league — Dynasty Ticker",
+      title: "We couldn't find that league · Dynasty Ticker",
       description: "The link may be wrong, or the league was deleted.",
     });
     return;
   }
   if (sleeperUnreachable) {
     applyDocumentMeta(document, {
-      title: "Couldn't reach Sleeper — Dynasty Ticker",
+      title: "Couldn't reach Sleeper · Dynasty Ticker",
       description: "Check your connection.",
     });
     return;
   }
   const shareMeta = serverShareMeta();
   if (shareMeta && window.location.pathname === shareMeta.path && !state.leagueId) {
-    document.title = shareMeta.title;
+    holdDocumentTitle(document, shareMeta.title);
     return;
   }
   if (state.leagueSwitching) {
     applyDocumentMeta(document, {
-      title: "Loading league — Dynasty Ticker",
+      title: "Loading league · Dynasty Ticker",
       description: "Opening a Sleeper league.",
     });
     return;
