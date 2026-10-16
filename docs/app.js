@@ -734,7 +734,10 @@ el.mobileRailToggle?.addEventListener("click", () => {
   const nextOpen = !document.body.classList.contains("rail-open");
   setMobileRailOpen(nextOpen);
   if (nextOpen) {
-    requestAnimationFrame(() => el.mobileRailClose?.focus());
+    requestAnimationFrame(() => {
+      if (!document.body.classList.contains("rail-open")) return;
+      el.mobileRailClose?.focus();
+    });
   }
 });
 el.phoneDesk?.addEventListener("click", handlePhoneDeskClick);
@@ -909,6 +912,9 @@ document.addEventListener("focusin", (event) => {
   if (target.id === "workspace") return;
   const tag = String(target.tagName || "");
   if (tag === "H1" || tag === "H2" || tag === "H3") return;
+  // Closing the menu can move focus onto the close control after the room
+  // heading. That is not the user staying in the menu.
+  if (target.id === "mobile-rail-close" && !document.body.classList.contains("rail-open")) return;
   const cls = typeof target.className === "string" ? target.className : "";
   if (/(?:^|\s)(?:room-tab|page-tab|phone-desk-room|phone-desk-page)(?:\s|$)/.test(cls)) return;
   followHeadingsUntil = 0;
@@ -1693,9 +1699,8 @@ function focusRouteHeading(selector) {
 
 function focusLeagueRoomHeading(room) {
   if (!appBooted || Date.now() >= followHeadingsUntil) return;
-  if (room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
   if (state.activePage !== "league" || getRoom() !== room) return;
-  focusRouteHeading(`[data-room-panel="${room}"] h2`);
+  focusRouteHeading(headingSelectorFor({ page: "league", view: room }));
 }
 
 function focusColdPlayerHeading() {
@@ -2559,6 +2564,20 @@ function guestRouteHeading() {
   return "Dynasty Ticker";
 }
 
+function routeHeadingText() {
+  if (state.leagueId && state.activePage === "league") {
+    const labels = {
+      team: "My team",
+      board: "League",
+      scores: "This week",
+      activity: "Activity",
+      history: "History",
+    };
+    if (labels[getRoom()]) return labels[getRoom()];
+  }
+  return guestRouteHeading();
+}
+
 function renderSessionSnapshot() {
   rebindUsernameInputs();
   const sampleOn = Boolean(state.viewingSample && state.leagueId);
@@ -2584,11 +2603,7 @@ function renderSessionSnapshot() {
           ? (you ? `${you} · ${state.leagueName}` : state.leagueName)
           : guestRouteHeading();
   }
-  if (el.routeTitle) {
-    el.routeTitle.textContent = state.leagueId
-      ? (state.leagueName || "My League")
-      : (el.mobileChromeTitle?.textContent || guestRouteHeading());
-  }
+  if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
   if (el.mobileChromeViewing) {
     el.mobileChromeViewing.hidden = !sampleOn;
     el.mobileChromeViewing.textContent = sampleOn ? sampleViewingLine(you) : "";
@@ -5132,7 +5147,7 @@ function renderStandingsPanel(model, sim) {
       </div>
       <div class="standings-table">
         <div class="standings-head">
-          <span>#</span><span>Team</span><span>W-L</span><span class="col-pf">Points</span><span class="col-pa">PA</span><span class="col-streak">Strk</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
+          <span>#</span><span>Team</span><span>Record</span><span class="col-pf">Points</span><span class="col-pa">PA</span><span class="col-streak">Strk</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
         </div>
         ${rowsHtml}
       </div>
@@ -7121,7 +7136,7 @@ function renderDraftBasis(view) {
   const { basis } = view;
   return `
     <div class="draft-basis-row" role="group" aria-label="Scoring format">
-      ${["sf", "oneQb"].map((format) => `<button type="button" class="ranks-chip${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}">PPR · ${escapeHtml(rankFormatLabel(format))}</button>`).join("")}
+      ${["sf", "oneQb"].map((format) => `<button type="button" class="ranks-chip${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}">Full PPR · ${escapeHtml(rankFormatLabel(format))}</button>`).join("")}
       ${infoTipMarkup({ id: "pop-values-trade", label: "How values work", text: valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10)) })}
     </div>
   `;
@@ -9678,13 +9693,13 @@ function renderHallBoard(history) {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">All-time hall</span>
-          <h3>Titles, career W-L, playoff trips</h3>
+          <h3>Titles, career record, playoff trips</h3>
         </div>
-        <p class="section-copy">Who has the rings. Career W-L is the rest of the story.</p>
+        <p class="section-copy">Who has the rings. Career record is the rest of the story.</p>
       </div>
       <div class="hall-table">
         <div class="hall-head">
-          <span>#</span><span>Mgr</span><span>Titles</span><span>W-L</span><span>PO</span>
+          <span>#</span><span>Mgr</span><span>Titles</span><span>Record</span><span>PO</span>
         </div>
         ${hall.map((row, index) => `
           <div class="hall-row ${row.managerKey === meKey ? "you" : ""}">
@@ -12825,14 +12840,19 @@ function assetCanFillRosterSlot(asset, slot) {
 
 function formatRosterSlotLabel(slot) {
   const labels = {
-    SUPER_FLEX: "SFlex",
+    SUPER_FLEX: "Superflex",
+    SUPERFLEX: "Superflex",
+    SF: "Superflex",
+    BN: "Bench",
+    BENCH: "Bench",
     REC_FLEX: "Rec Flex",
     WRRB_FLEX: "RB/WR",
     RBWR_FLEX: "RB/WR",
     WRTE_FLEX: "WR/TE",
     FLEX: "Flex",
   };
-  return labels[slot] || slot.replace(/_/g, " ");
+  const key = String(slot || "").trim().toUpperCase();
+  return labels[key] || String(slot || "").replace(/_/g, " ");
 }
 
 function findClosestValuationPick(targetValue, values, valueNameMap) {

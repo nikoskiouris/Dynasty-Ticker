@@ -208,8 +208,8 @@ h5 {
   border: 0 !important;
 }
 
-/* Home, Players, and Trade have no designed h1. Phone uses the chrome title. */
-body.league-loaded #route-title {
+/* The landing has its own h1. Phone uses the chrome title. */
+body.launch-open #route-title {
   display: none !important;
 }
 

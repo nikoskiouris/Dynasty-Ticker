@@ -304,7 +304,26 @@ test("league, activity, history, and this week have distinct document titles", (
   assert.equal(headingSelectorFor({ overlay: "player", playerId: "9221" }), ".ranks-card h2, .player-week-sheet h2");
   assert.equal(headingSelectorFor({ page: "league", view: "scores" }), '[data-room-panel="scores"] h2');
   assert.equal(headingSelectorFor({ tab: "league", view: "activity" }), '[data-room-panel="activity"] h2');
-  assert.equal(headingSelectorFor({ page: "league", view: "history" }), '[data-room-panel="history"] h2');
+  assert.equal(headingSelectorFor({ page: "league", view: "history" }), "#history-heading");
+});
+
+test("user-facing slot, scoring, and record words are plain", () => {
+  const app = read("../docs/app.js");
+  const ranks = read("../docs/modules/ranks.js");
+  const sit = read("../docs/modules/sit-start.js");
+  const weekly = read("../docs/modules/weekly-value.js");
+  assert.match(app, /Full PPR · \$\{escapeHtml\(rankFormatLabel\(format\)\)\}/);
+  assert.equal((app.match(/PPR · \$\{escapeHtml\(rankFormatLabel/g) || []).length, 1);
+  assert.match(app, /<h3>Titles, career record, playoff trips<\/h3>/);
+  assert.match(app, /Career record is the rest of the story/);
+  assert.match(app, /<span>#<\/span><span>Team<\/span><span>Record<\/span>/);
+  assert.match(app, /SUPER_FLEX: "Superflex"/);
+  assert.match(app, /BN: "Bench"/);
+  assert.match(ranks, /label: "Projected points per game"/);
+  assert.doesNotMatch(ranks, /Projected PPR\/G/);
+  assert.match(sit, /points per game/);
+  assert.doesNotMatch(sit, /PPR\/game/);
+  assert.match(weekly, /SFO: "SF"/);
 });
 
 test("a cold /player load focuses the card heading", () => {
@@ -623,7 +642,11 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(css, /\[data-room-panel\] h2:focus-visible[\s\S]*box-shadow:\s*var\(--focus\)/);
   assert.match(css, /#route-title/);
   const league = read("../docs/ui/league.html");
-  assert.match(league, /data-room-panel="history"[\s\S]*<h2 tabindex="-1">Titles, records, and who stayed<\/h2>/);
+  assert.match(league, /data-room-panel="history"[\s\S]*<h2 id="history-heading" tabindex="-1">Titles, records, and who stayed<\/h2>/);
+  assert.match(app, /function routeHeadingText\(\)/);
+  assert.match(app, /team: "My team"/);
+  assert.match(css, /body\.launch-open #route-title/);
+  assert.doesNotMatch(css, /body\.league-loaded #route-title/);
   assert.doesNotMatch(index, /<(?:body|html)[^>]*\stabindex/);
   assert.match(index, /id="workspace"[^>]*tabindex="-1"/);
   const honors = app.slice(app.indexOf("function renderWeeklyHonors"), app.indexOf("function renderSeasonSuperlatives"));

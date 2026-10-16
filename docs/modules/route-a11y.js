@@ -111,7 +111,8 @@ export function headingSelectorFor(place = {}) {
   if (overlay === "player" || place.playerId) return ".ranks-card h2, .player-week-sheet h2";
   const page = place.page || place.tab || "";
   const room = String(place.view || "");
-  if (page === "league" && (room === "board" || room === "scores" || room === "activity" || room === "history")) {
+  if (page === "league" && room === "history") return "#history-heading";
+  if (page === "league" && (room === "board" || room === "scores" || room === "activity")) {
     return `[data-room-panel="${room}"] h2`;
   }
   return "";
