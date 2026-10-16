@@ -13,19 +13,26 @@ import { pathToFileURL } from "node:url";
 
 export const BASE_FUNCTIONS = Object.freeze(["rather-vote", "searched-user"]);
 export const OPTIONAL = Object.freeze([
-  { pr: "#164", marker: "docs/modules/trade-share.js", functions: ["trade-page", "trade-card"], edge: [] },
+  { pr: "#164", marker: "docs/modules/trade-share.js", functions: ["trade-page", "trade-card"], edge: [], resvg: true },
   { pr: "#165", marker: "docs/modules/asset-path.js", functions: [], edge: ["asset-404"] },
 ]);
+
+// The PNG card needs resvg's JS (bundled into trade-card) and its wasm
+// (shipped via included_files). Without either, /og/t/<code>.png cannot render.
+export const RESVG_PACKAGE = "@resvg/resvg-wasm";
+export const RESVG_WASM = "node_modules/@resvg/resvg-wasm/index_bg.wasm";
 
 export function expectedBundle(root) {
   const functions = [...BASE_FUNCTIONS];
   const edge = [];
+  let resvg = false;
   for (const row of OPTIONAL) {
     if (!existsSync(join(root, row.marker))) continue;
     functions.push(...row.functions);
     edge.push(...row.edge);
+    resvg = resvg || Boolean(row.resvg);
   }
-  return { functions, edge };
+  return { functions, edge, resvg };
 }
 
 // Small reader for the few netlify.toml keys this needs. No toml dependency.
@@ -70,6 +77,14 @@ export function staticDeployProblems(root) {
   }
   for (const row of edgeDecls) {
     if (!entryExists(join(root, "netlify/edge-functions"), row.function)) problems.push(`[[edge_functions]] ${row.path} names missing ${row.function}`);
+  }
+  if (want.resvg) {
+    const pkgPath = join(root, "package.json");
+    const pkg = existsSync(pkgPath) ? JSON.parse(readFileSync(pkgPath, "utf8")) : {};
+    if (!pkg.dependencies?.[RESVG_PACKAGE]) problems.push(`${RESVG_PACKAGE} is not a dependency in package.json`);
+    if (!existsSync(join(root, "node_modules", RESVG_PACKAGE, "package.json"))) problems.push(`${RESVG_PACKAGE} is not installed (run npm ci)`);
+    if (!existsSync(join(root, RESVG_WASM))) problems.push(`${RESVG_WASM} missing`);
+    if (!includedFiles.includes(RESVG_WASM)) problems.push(`included_files lacks ${RESVG_WASM}`);
   }
   const files = [...listFiles(join(root, "docs"), root), ...listFiles(join(root, "netlify"), root), ...listFiles(join(root, "node_modules/@resvg"), root)];
   for (const glob of includedFiles) {

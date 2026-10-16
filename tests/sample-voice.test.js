@@ -80,9 +80,9 @@ test("sample labels are what the desk renders", () => {
   assert.match(app, /sampleVoice\(\)\?\.tradeFile/);
   assert.match(app, /sampleVoice\(\)\?\.teamOutlined/);
   assert.match(app, /sampleVoice\(\)\?\.strengthens/);
-  // The verdict heading is neutral now (verdict-copy.js); the offer text keeps the voice.
-  assert.match(app, /const copy = verdictCopy\(verdict\);/);
-  assert.match(app, /getFavor: sampleVoice\(\)\?\.favor/);
+  // The verdict heading is neutral (verdict-copy.js); the offer text keeps the
+  // sample voice for the sharer's side name and uses the same verdict line.
+  assert.match(app, /const mySide = sampleVoice\(\)\?\.sideLabel \|\| "my side";\s*const line = verdictLineNamed\(verdict,/);
   assert.match(app, /sampleRoomHint\(/);
   assert.match(app, /voice\?\.findIntro/);
   assert.match(app, /voice\?\.shopIntro/);

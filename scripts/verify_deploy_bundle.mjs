@@ -14,7 +14,7 @@ import { bundle } from "@netlify/edge-bundler";
 
 const root = process.argv[2];
 if (!root) throw new Error("usage: verify_deploy_bundle.mjs <repo root>");
-const { expectedBundle, readDeployConfig } = await import(join(root, "scripts/deploy_bundle_expect.mjs"));
+const { expectedBundle, readDeployConfig, RESVG_WASM } = await import(join(root, "scripts/deploy_bundle_expect.mjs"));
 const want = expectedBundle(root);
 const { includedFiles } = readDeployConfig(root);
 const { config } = await resolveConfig({ cwd: root, repositoryRoot: root, offline: true, mode: "cli", context: "production" });
@@ -39,6 +39,21 @@ for (const [name, path] of built) {
   globs.forEach((re, i) => {
     if (!listing.some((file) => re.test(file))) problems.push(`${name}.zip lacks included_files ${includedFiles[i]}`);
   });
+}
+
+// The card function must carry resvg: its JS in the bundle and the wasm file.
+if (want.resvg) {
+  const path = built.get("trade-card");
+  if (!path) {
+    problems.push("trade-card not bundled, so resvg cannot be checked");
+  } else {
+    const listing = execFileSync("unzip", ["-Z1", path], { encoding: "utf8" }).split("\n");
+    if (!listing.includes(RESVG_WASM)) problems.push(`trade-card.zip lacks ${RESVG_WASM}`);
+    const code = listing.filter((file) => /\.(m?js|cjs)$/.test(file))
+      .map((file) => execFileSync("unzip", ["-p", path, file], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }))
+      .join("\n");
+    if (!/initWasm/.test(code) || !/Resvg/.test(code)) problems.push("trade-card.zip lacks @resvg/resvg-wasm code");
+  }
 }
 
 const edgeDir = config.build?.edge_functions;
