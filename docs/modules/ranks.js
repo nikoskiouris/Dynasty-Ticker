@@ -44,10 +44,10 @@ export function marketTape({ confidence = "", kind = "player" } = {}) {
     return { tone: "model", line: "Historical rookie-outcome estimate." };
   }
   if (confidence === "established") {
-    return { tone: "model", line: "Football forecast with an established NFL sample." };
+    return { tone: "model", line: "Estimate based on several NFL seasons." };
   }
   if (confidence === "developing") {
-    return { tone: "model", line: "Football forecast with a developing NFL sample." };
+    return { tone: "model", line: "Estimate still settling: limited NFL games." };
   }
   if (confidence === "thin") {
     return { tone: "model", line: "Early estimate: few NFL games so far." };
@@ -79,7 +79,7 @@ export function ownerLine(owner, { leagueOpen = false, kind = "player" } = {}) {
 }
 
 export function rankBoardNote({ format = "sf", leagueFormat = "", caveat = "" } = {}) {
-  const base = "Model price, full PPR. Same number on Trade and My League. The pick line is the closest pick.";
+  const base = "Our estimate, full PPR. Same number on Trade and My League. The pick line is the closest pick.";
   const peek = leagueFormat && format && format !== leagueFormat
     ? ` Peeking at ${rankFormatLabel(format)}. Your league is ${rankFormatLabel(leagueFormat)}.`
     : "";
@@ -343,10 +343,14 @@ function rankTierTrend(row, view, { soon = false, spark = false } = {}) {
   return `${tier}${trendHtml}`;
 }
 
+function renderRankTrendSoon() {
+  return `<span class="value-trend soon"><span aria-hidden="true">—</span><span class="sr-only">No trend yet</span></span>`;
+}
+
 function renderRankValue(row, view) {
   const player = row?.kind === "player";
   const trend = player ? playerValueTrend(view?.history, row.assetId, view?.format || "sf") : null;
-  const trendHtml = trend ? renderValueTrend(trend) : (player ? renderTrendSoon() : "");
+  const trendHtml = trend ? renderValueTrend(trend) : (player ? renderRankTrendSoon() : "");
   const tier = player ? renderValueTierBadge(row.value) : "";
   return `<span class="ranks-value"><span class="ranks-value-num">${escapeHtml(formatNumber(row.value))}</span>${trendHtml}${tier}</span>`;
 }
