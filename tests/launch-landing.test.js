@@ -102,7 +102,7 @@ test("the example trade is the calculator verdict, and a new price changes it", 
   assert.equal(shown?.[1], copy.line);
   assert.match(html, new RegExp(`launch-verdict ${copy.publicTone}`));
   const landing = readFileSync(join(root, "../docs/modules/launch-landing.js"), "utf8");
-  assert.match(landing, /\$\{starsPremiumMarkup\(model\)\}/);
+  assert.match(landing, /\$\{starsPremiumMarkup\(model, \{ best: bestRowName\(/);
   assert.doesNotMatch(landing, /starsPremiumMarkup\(model,\s*\{[^}]*detail/);
   assert.doesNotMatch(html, /After that/);
   if (copy.detail) assert.equal(html.split(copy.detail).length - 1, 1);
@@ -122,7 +122,7 @@ test("the example trade is the calculator verdict, and a new price changes it", 
   if (model.adjustment) {
     assert.match(html, /meter-stars/);
     assert.match(html, /Fewer, better players/);
-    assert.match(html, /getting fewer, better players is worth extra/);
+    assert.match(html, /is the best player in this deal\. One great player is worth more than several smaller ones adding up to the same total, so we add [\d,]+ to what you (give|get)\./);
     assert.match(html, new RegExp(formatNumber(model.adjustment.amount)));
   }
   assert.doesNotMatch(html, /var\(--red\)|var\(--green\)|\.up|\.dn/);

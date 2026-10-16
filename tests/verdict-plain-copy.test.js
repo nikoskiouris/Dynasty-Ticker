@@ -41,8 +41,10 @@ const detail = creditedTotalsLine({ giveListed: 11811, getListed: 14457, stars: 
 const label = barLabel("Give", 12911, 8561);
 const paragraph = starsPremiumMarkup(
   { adjustment: { amount: 7413, side: "left" } },
-  { side: "You give", detail: "Give side worth 33% more" },
+  { best: "Bijan Robinson" },
 );
+const paragraphGet = starsPremiumMarkup({ adjustment: { amount: 1500, side: "right" } }, { best: "Ja'Marr Chase" });
+const paragraphNoName = starsPremiumMarkup({ adjustment: { amount: 1500, side: "right" } });
 const offer = fewerBetterOffer("7,413", "my side");
 const cardSummary = {
   give: [{ name: "Bijan Robinson", value: 11811, position: "RB" }],
@@ -67,7 +69,9 @@ const explanation = [
   PRICE_FACTORS_LINE,
   UNAVAILABLE_PRICE_LINE,
   TIER_EXPLAINER,
-  fewerBetterBody("7,413", "You give"),
+  fewerBetterBody("7,413", "give", "Bijan Robinson"),
+  paragraphGet,
+  paragraphNoName,
   offer,
   detail,
   label,
@@ -81,10 +85,10 @@ const explanation = [
 
 test("the verdict explanation is plain English and keeps the numbers", () => {
   for (const pattern of BANNED) assert.doesNotMatch(explanation, pattern, String(pattern));
-  assert.match(paragraph, /<strong>Fewer, better players:<\/strong> getting fewer, better players is worth extra\./);
-  assert.match(paragraph, /One great player is worth more than the same total split into smaller pieces\./);
-  assert.match(paragraph, /That adds 7,413 to You give\./);
-  assert.match(paragraph, /Listed prices stay the same\. After that: Give side worth 33% more\./);
+  assert.match(paragraph, /<strong>Fewer, better players:<\/strong> Bijan Robinson is the best player in this deal\. One great player is worth more than several smaller ones adding up to the same total, so we add 7,413 to what you give\. Player prices don&#39;t change\.<\/p>/);
+  assert.doesNotMatch(paragraph, /After that|getting fewer|adds 7,413 to You give/);
+  assert.match(paragraphGet, /Ja&#39;Marr Chase is the best player in this deal\. .*so we add 1,500 to what you get\./);
+  assert.match(paragraphNoName, /The best player in this deal is on this side\. .*so we add 1,500 to what you get\./);
   assert.equal(FEWER_BETTER_LINE, "Fewer, better players are worth extra compared with the same total split into smaller pieces. That extra changes the trade verdict, not any player's listed price.");
   assert.match(TIER_EXPLAINER, /including the extra for fewer, better players/);
   assert.match(TIER_EXPLAINER, /Within 5% is a fair trade, up to 14% more is a fair, slight edge, up to 28% more favors one side, and more than 28% is lopsided\./);
@@ -101,12 +105,10 @@ test("the verdict explanation is plain English and keeps the numbers", () => {
 
   const escaped = starsPremiumMarkup(
     { adjustment: { amount: 1000, side: "right" } },
-    { side: "A & B", detail: "Get <side>" },
+    { best: "A & <B>" },
   );
-  assert.match(escaped, /A &amp; B/);
-  assert.match(escaped, /Get &lt;side&gt;/);
-  assert.doesNotMatch(escaped, /A & B/);
-  assert.doesNotMatch(escaped, /Get <side>/);
+  assert.match(escaped, /A &amp; &lt;B&gt; is the best player/);
+  assert.doesNotMatch(escaped, /A & <B>/);
 });
 
 test("the verdict explanation source no longer says package credit or star premium", () => {
@@ -118,10 +120,18 @@ test("the verdict explanation source no longer says package credit or star premi
   const meta = readFileSync(new URL("../netlify/lib/trade-share.js", import.meta.url), "utf8");
   const source = [app, bars, copy, share, cardJs, meta].join("\n");
   assert.doesNotMatch(source, /Package credit|package credit|Package adjustment|package adjustment|Stars cost extra|star premium|stars cost extra/i);
-  assert.match(app, /starsPremiumMarkup\(model, \{ detail: copy\.detail \}\)/);
-  assert.match(app, /starsPremiumMarkup\(model, \{ side: credited, detail: copy\.detail \}\)/);
+  assert.equal((app.match(/starsPremiumMarkup\(model, \{ best \}\)/g) || []).length, 2);
+  assert.doesNotMatch(app, /starsPremiumMarkup\(model, \{[^}]*detail/);
   assert.match(app, /fewerBetterOffer\(formatNumber\(adjustment\.amount\), creditSide\)/);
   assert.match(app, /PRICE_FACTORS_LINE,/);
   assert.match(app, /lines\.push\(UNAVAILABLE_PRICE_LINE\)/);
   assert.match(app, /lines\.push\(FEWER_BETTER_LINE\)/);
+});
+
+test("the extra names the best player and lands on the side that has him", async () => {
+  const { bestRowName } = await import("../docs/modules/verdict-bars.js");
+  assert.equal(bestRowName([{ name: "Malik Nabers", value: 9000 }, { name: "2027 Early 1st", value: 5457 }]), "Malik Nabers");
+  assert.equal(bestRowName([]), "");
+  assert.match(fewerBetterBody("7,413", "give", "Bijan Robinson"), /^Bijan Robinson is the best player in this deal\..*to what you give\. Player prices don't change\.$/);
+  assert.match(fewerBetterBody("7,413", "get", "Bijan Robinson"), /to what you get\./);
 });

@@ -39,8 +39,12 @@ export const PRICE_FACTORS_LINE = "The price uses age, role, how well a player p
 export const UNAVAILABLE_PRICE_LINE = "Unavailable means we do not have a price for that player or pick right now. Dynasty Ticker does not guess one.";
 export const FEWER_BETTER_LINE = "Fewer, better players are worth extra compared with the same total split into smaller pieces. That extra changes the trade verdict, not any player's listed price.";
 
-export function fewerBetterBody(amountText, side) {
-  return `getting fewer, better players is worth extra. One great player is worth more than the same total split into smaller pieces. That adds ${amountText} to ${side}. Listed prices stay the same.`;
+// side: "give" or "get", the side that has the best player and gets the extra.
+export function fewerBetterBody(amountText, side, bestName = "") {
+  const name = String(bestName || "").trim();
+  const who = name ? `${name} is the best player in this deal.` : "The best player in this deal is on this side.";
+  const what = side === "get" ? "what you get" : "what you give";
+  return `${who} One great player is worth more than several smaller ones adding up to the same total, so we add ${amountText} to ${what}. Player prices don't change.`;
 }
 
 export function fewerBetterOffer(amountText, side) {

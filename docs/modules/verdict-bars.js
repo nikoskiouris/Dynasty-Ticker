@@ -27,12 +27,22 @@ export function calcPointer(arrow) {
 }
 
 // Why the verdict moved: fewer, better players are worth extra. Listed prices stay in the rows.
-export function starsPremiumMarkup(model, { side = "", detail = "" } = {}) {
+// best: the name of the most valuable player on the credited side, when known.
+export function starsPremiumMarkup(model, { best = "" } = {}) {
   const adj = model?.adjustment;
   if (!adj || !(adj.amount > 0)) return "";
-  const who = side || (adj.side === "left" ? "Give" : "Get");
-  const after = detail ? ` After that: ${escapeHtml(detail)}.` : "";
-  return `<p class="draft-package"><strong>${escapeHtml(FEWER_BETTER_LABEL)}:</strong> ${escapeHtml(fewerBetterBody(formatNumber(adj.amount), who))}${after}</p>`;
+  const side = adj.side === "left" ? "give" : "get";
+  return `<p class="draft-package"><strong>${escapeHtml(FEWER_BETTER_LABEL)}:</strong> ${escapeHtml(fewerBetterBody(formatNumber(adj.amount), side, best))}</p>`;
+}
+
+// The highest-valued row's name. rows: [{ name, value }].
+export function bestRowName(rows = []) {
+  let top = null;
+  for (const row of rows || []) {
+    const value = Number(row?.value) || 0;
+    if (!top || value > top.value) top = { value, name: String(row?.name || "").trim() };
+  }
+  return top?.name || "";
 }
 
 // One comparison bar. Each side's flex is its credited total, so the wider
