@@ -13267,6 +13267,8 @@ function formatRosterSlotLabel(slot) {
     SUPER_FLEX: "Superflex",
     SUPERFLEX: "Superflex",
     SF: "Superflex",
+    BN: "Bench",
+    BENCH: "Bench",
     IR: "Injured reserve",
     REC_FLEX: "Rec Flex",
     WRRB_FLEX: "RB/WR",
@@ -13274,7 +13276,8 @@ function formatRosterSlotLabel(slot) {
     WRTE_FLEX: "WR/TE",
     FLEX: "Flex",
   };
-  return labels[slot] || slot.replace(/_/g, " ");
+  const key = String(slot || "").trim().toUpperCase();
+  return labels[key] || String(slot || "").replace(/_/g, " ");
 }
 
 function sheetSlotMarkup(slot, slotLabel) {

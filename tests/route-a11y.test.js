@@ -320,6 +320,10 @@ test("card words stay plain after the heading split", () => {
   assert.match(app, /PPR · \$\{escapeHtml\(rankFormatLabel\(format\)\)\}/);
   assert.doesNotMatch(app, /Full PPR · /);
   assert.match(app, /SUPER_FLEX: "Superflex"/);
+  assert.match(app, /BN: "Bench"/);
+  assert.match(app, /IR: "Injured reserve"/);
+  assert.match(sit, /BN: "Bench"/);
+  assert.match(sit, /IR: "Injured reserve"/);
   assert.doesNotMatch(app, /SFlex/);
   assert.doesNotMatch(sit, /SFlex/);
   assert.match(app, /<span>Record<\/span>/);
