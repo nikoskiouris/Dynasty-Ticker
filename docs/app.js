@@ -1738,6 +1738,7 @@ function applyTradeRoute(route) {
 // An undated or unknown stamp has no shared verdict, only today's.
 async function loadSharedTrade(code, draft) {
   state.sharedTrade = null;
+  state.sharedEditing = false;
   const decoded = decodeTradeShare(code || "");
   if (!decoded) return;
   const entry = { code, decoded, key: draftAssetKey(draft), snapshot: null };
@@ -2058,7 +2059,11 @@ function renderSessionSnapshot() {
     syncSiteDock();
     return;
   }
-  if (el.mobileChromeTitle) {
+  // Cold /t/<code>: no "Your Sleeper league" subtitle under the wordmark.
+  const coldShare = !state.leagueId && /^\/t\//.test(window.location.pathname);
+  document.body.classList.toggle("cold-share", coldShare);
+  if (el.mobileChromeTitle) el.mobileChromeTitle.hidden = coldShare;
+  if (el.mobileChromeTitle && !coldShare) {
     el.mobileChromeTitle.textContent = publicRanksOpen && !state.leagueId
       ? "Player ranks"
       : sampleOn
@@ -6513,6 +6518,7 @@ function renderTradeDraft() {
   // trade" header, the full verdict, then the sides; the model notes fold away.
   const shared = Boolean(activeSharedTrade(view.draft));
   host.dataset.sharedView = shared ? "1" : "";
+  host.dataset.sharedEditing = shared && state.sharedEditing ? "1" : "";
   if (shared) {
     host.innerHTML = `
       <div class="shared-trade-head">
@@ -6525,9 +6531,9 @@ function renderTradeDraft() {
         ${renderDraftPane("left", view)}
         ${renderDraftPane("right", view)}
       </div>
-      <div class="shared-trade-cta">
-        <a class="primary-btn shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>
-      </div>
+      ${state.sharedEditing ? "" : `<div class="shared-trade-cta">
+        <button type="button" class="ghost-btn shared-edit-btn" data-action="shared-edit">Edit this trade</button>
+      </div>`}
       <details class="shared-trade-about">
         <summary>About these prices</summary>
         ${renderValueBoardBar({ marketHint: marketBoardHint() })}
@@ -6638,8 +6644,7 @@ function sharedTradeTitle(view) {
   const raw = (name) => !name || /^(player|pick):/i.test(String(name)) || /^\d+$/.test(String(name));
   const all = [...view.draft.left, ...view.draft.right];
   if (all.some((item) => raw(item.name))) {
-    const n = (items) => `${items.length} ${items.length === 1 ? "piece" : "pieces"}`;
-    return `${n(view.draft.left)} for ${n(view.draft.right)}`;
+    return `${pieceCount(view.draft.left.length)} for ${pieceCount(view.draft.right.length)}`;
   }
   const side = (items) => {
     const names = items.map((item) => item.name).filter(Boolean);
@@ -6681,6 +6686,8 @@ function renderDraftNotice() {
 
 function renderDraftPaneTitle(side, view) {
   const left = side === "left";
+  // Cold /t: neutral column names, never the sender's name.
+  if (activeSharedTrade(view.draft)) return `<span class="analytics-kicker">${left ? "Give side" : "Get side"}</span>`;
   const voice = sampleVoice();
   let name = "";
   if (view.basis.connected) {
@@ -6697,12 +6704,17 @@ function renderDraftPaneTitle(side, view) {
   `;
 }
 
+// "1 player or pick" / "N players & picks", the one count wording.
+function pieceCount(n) {
+  return `${n} ${n === 1 ? "player or pick" : "players & picks"}`;
+}
+
 function renderDraftTotal(side, view) {
   const items = view.draft[side] || [];
   const total = side === "left" ? view.give : view.get;
   return `
     <strong>${formatNumber(total)}</strong>
-    <small>${items.length ? `${items.length} ${items.length === 1 ? "player or pick" : "players & picks"}` : "Nothing added"}</small>
+    <small>${items.length ? pieceCount(items.length) : "Nothing added"}</small>
   `;
 }
 
@@ -7038,8 +7050,8 @@ function renderDraftVerdict(view) {
   // Same metric and bands as the headline (verdict-copy.js).
   const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpPick(view) : null;
   const evenSide = verdict.gap > 0 ? (voice ? voice.youGive : "You") : (view.partner ? them : "They");
-  const giveLabel = voice?.giveLabel || "You give";
-  const getLabel = voice?.getLabel || "You get";
+  const giveLabel = sharedView ? "Give side" : (voice?.giveLabel || "You give");
+  const getLabel = sharedView ? "Get side" : (voice?.getLabel || "You get");
   const credited = adjustment?.side === "left" ? giveLabel : getLabel;
   return `
     <section class="calc-summary ${bothSides ? (sharedView ? copy.publicTone : copy.tone) : ""}">
@@ -7073,8 +7085,9 @@ function renderDraftVerdict(view) {
         </div>
       </div>
       <div class="calc-actions">
+        ${sharedView ? `<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>` : ""}
         ${bothSides && draftShareCode(view) ? `<button type="button" class="ghost-btn btn-sm calc-share" data-action="trade-share">Share trade</button>` : ""}
-        <button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>
+        ${sharedView ? "" : `<button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>`}
         <p class="calc-share-status" role="status" aria-live="polite"></p>
       </div>
     </section>
@@ -7767,6 +7780,14 @@ function handleWorkspaceClick(event) {
     }
     case "verdict-info": {
       setVerdictInfoOpen(target, target.getAttribute("aria-expanded") !== "true");
+      break;
+    }
+    case "shared-edit": {
+      // Inputs stay hidden on a cold /t until the recipient asks to edit.
+      state.sharedEditing = true;
+      if (el.calculatorShell) el.calculatorShell.dataset.sharedEditing = "1";
+      target.closest(".shared-trade-cta")?.remove();
+      el.calculatorShell?.querySelector("[data-draft-side='left'] [data-input='value-search']")?.focus({ preventScroll: true });
       break;
     }
     case "shared-check-own": {

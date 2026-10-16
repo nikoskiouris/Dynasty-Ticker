@@ -331,8 +331,31 @@ test("cold /t at 390x844 shows the shared verdict in the first viewport, then a 
   const serverTitle = /<title>([^<]*)<\/title>/.exec(html)[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"');
   expect(serverTitle).toMatch(/\| Dynasty Ticker$/);
   await expect(page).toHaveTitle(serverTitle);
+  // Designer r3: primary CTA in the verdict card, above the fold; Share is
+  // secondary; no "Clear both sides"; neutral column names; no subtitle.
+  const cta = page.locator("#value-calc-verdict [data-action='shared-check-own']");
+  await expect(cta).toHaveText("Check your own trade");
+  const ctaBox = await cta.boundingBox();
+  expect(ctaBox.y + ctaBox.height).toBeLessThanOrEqual(844);
+  const shareBox = await page.locator("#value-calc-verdict [data-action='trade-share']").boundingBox();
+  expect(ctaBox.y).toBeLessThanOrEqual(shareBox.y);
+  await expect(page.locator("[data-action='value-clear']")).toHaveCount(0);
+  await expect(page.locator("[data-draft-side='left'] .draft-pane-title")).toHaveText("Give side");
+  await expect(page.locator("[data-draft-side='right'] .draft-pane-title")).toHaveText("Get side");
+  await expect(page.locator("#mobile-chrome-title")).toBeHidden();
+  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("2 players & picks");
+  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player or pick");
+  // Read-only until "Edit this trade".
+  await expect(page.locator("[data-input='value-search']")).toHaveCount(2);
+  await expect(page.locator("[data-input='value-search']").first()).toBeHidden();
+  await expect(page.locator(".selected-token-remove").first()).toBeHidden();
+  await page.locator("[data-action='shared-edit']").click();
+  await expect(page.locator("[data-action='shared-edit']")).toHaveCount(0);
+  await expect(page.locator("[data-draft-side='left'] [data-input='value-search']")).toBeVisible();
+  await expect(page.locator("[data-draft-side='right'] [data-input='value-search']")).toBeVisible();
+  await expect(page.locator(".selected-token-remove").first()).toBeVisible();
   // CTA: start a fresh trade on /trade.
-  await page.locator("[data-action='shared-check-own']").click();
+  await cta.click();
   await expect(page).toHaveURL(/\/trade$/);
   await expect(page.locator(".shared-trade-head")).toHaveCount(0);
   await expect(page.locator("[data-draft-side='left'] .calc-selected .selected-token")).toHaveCount(0);

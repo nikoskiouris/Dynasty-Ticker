@@ -9025,6 +9025,21 @@ html:not(.desk-shut) body.board-tools-live #landing {
   margin-bottom: var(--sp-4);
 }
 
+body.cold-share #mobile-chrome-title {
+  display: none;
+}
+
+/* Cold /t: read-only until "Edit this trade". */
+[data-shared-view="1"]:not([data-shared-editing="1"]) .calc-search-wrap,
+[data-shared-view="1"]:not([data-shared-editing="1"]) .selected-token-remove,
+[data-shared-view="1"]:not([data-shared-editing="1"]) .draft-partner-slot {
+  display: none;
+}
+
+[data-shared-view="1"] .calc-actions .shared-own-btn {
+  order: -1;
+}
+
 .shared-trade-cta {
   display: flex;
   margin: var(--sp-4) 0;
@@ -9066,7 +9081,7 @@ html:not(.desk-shut) body.board-tools-live #landing {
     margin-top: 0;
   }
 
-  .shared-own-btn {
-    width: 100%;
+  [data-shared-view="1"] .calc-actions .shared-own-btn {
+    flex: 1 1 100%;
   }
 }

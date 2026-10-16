@@ -103,7 +103,7 @@ test("trade ideas: an idea that passes a filter never shows a verdict outside th
   const { calculatePctDiff } = await import("../docs/modules/package-value.js");
   const RANK = { even: 0, edge: 1, favors: 2, lopsided: 3 };
   assert.equal(oldPctToMore(20), 25);
-  assert.equal(ideaLimitMore(20), 28); // balanced Trade Lab: up to Favors one side
+  assert.equal(ideaLimitMore(20), 25); // balanced default pinned at 25, not the 28 ceiling
   assert.equal(ideaLimitMore(4), 5);
   assert.equal(ideaLimitMore(12), 14);
   assert.equal(ideaLimitMore(24), 31.6); // past 28 the band is Lopsided, capped
@@ -161,4 +161,17 @@ test("cold /t: shared layout, CTA and kept server title are wired", () => {
   assert.ok(shared.indexOf('id="value-calc-verdict"') < shared.indexOf('class="calc-grid"'), "verdict before the sides");
   assert.match(app, /data-action="shared-check-own">Check your own trade<\/a>/);
   assert.match(app, /function serverShareMeta\(\)/);
+});
+
+test("default idea fairness is pinned at 25% more on the shown metric", async () => {
+  const { DEFAULT_FAIRNESS_PCT } = await import("../docs/modules/constants.js");
+  const { DEFAULT_IDEA_LIMIT_MORE, ideaLimitMore, oldPctToMore, tierForMore } = await import("../docs/modules/verdict-copy.js");
+  assert.equal(DEFAULT_IDEA_LIMIT_MORE, 25);
+  assert.equal(ideaLimitMore(DEFAULT_FAIRNESS_PCT), 25);
+  assert.equal(oldPctToMore(DEFAULT_FAIRNESS_PCT), 25); // same reach as before launch
+  assert.equal(tierForMore(25), "favors");
+  // Non-default settings unchanged.
+  assert.equal(ideaLimitMore(12), 14);
+  assert.equal(ideaLimitMore(24), 31.6);
+  assert.equal(ideaLimitMore(26), 35.1);
 });

@@ -15,6 +15,7 @@
 // on private /trade. publicTone (fair | strong) colours only the tier on the
 // public card and cold /t; direction is shown by placement and a pointer.
 import { valueCalcVerdict } from "./value-calc.js";
+import { DEFAULT_FAIRNESS_PCT } from "./constants.js";
 
 // Labels valueCalcVerdict gives when both sides are filled in.
 const BOTH_SIDES = new Set(["Dead even", "Fair, leans Get", "Fair, leans Give", "Favors Get", "Favors Give", "Lopsided for Get", "Lopsided for Give"]);
@@ -130,7 +131,13 @@ export function oldPctToMore(oldPct) {
   return round1((p / (100 - p)) * 100);
 }
 
+// Launch default: Trade Lab's balanced setting (DEFAULT_FAIRNESS_PCT 20) is
+// pinned at exactly 25% more, its old reach, not rounded up to 28. 25 is
+// inside the Favors band, so no default idea shows a tier above Favors.
+export const DEFAULT_IDEA_LIMIT_MORE = 25;
+
 export function ideaLimitMore(oldPct) {
+  if (Number(oldPct) === DEFAULT_FAIRNESS_PCT) return DEFAULT_IDEA_LIMIT_MORE;
   const more = oldPctToMore(oldPct);
   if (more <= TIER_BANDS.even) return TIER_BANDS.even;
   if (more <= TIER_BANDS.edge) return TIER_BANDS.edge;
