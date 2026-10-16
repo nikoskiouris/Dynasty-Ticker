@@ -64,6 +64,27 @@ export function stampLabel(stamp, { year = false } = {}) {
   return year ? `${text}, ${stamp.slice(0, 4)}` : text;
 }
 
+export const MISSING_BOARD_NOTE = "That day's prices are no longer saved. Showing today's.";
+
+// A shared link whose snapshot was pruned still opens today's board.
+export function missingBoardNote(dateLabel) {
+  const date = String(dateLabel || "").trim();
+  if (!date) return "";
+  return MISSING_BOARD_NOTE;
+}
+
+// Index first. A listed stamp is fetched. A stamp the index does not list
+// returns "" so the page does not request a missing file.
+export function snapshotRequestForStamp(index, stamp) {
+  if (!isPriceStamp(stamp)) return "";
+  if (index && typeof index === "object") {
+    if (index.schemaVersion != null && Number(index.schemaVersion) !== 1) return "";
+    const listed = Array.isArray(index.snapshots) ? index.snapshots : [];
+    if (!listed.some((row) => String(row?.stamp || "") === stamp)) return "";
+  }
+  return snapshotPath(stamp);
+}
+
 export function encodeTradeShare({ give = [], get = [], format = "sf", asOf = "" } = {}) {
   const side = (list) => (Array.isArray(list) ? list : []).map(encodeShareAsset);
   const left = side(give);

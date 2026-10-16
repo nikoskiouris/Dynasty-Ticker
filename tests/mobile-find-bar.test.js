@@ -76,7 +76,7 @@ function fixtureHtml() {
           <span class="brand-lockup brand-lockup--header">
             <img class="brand-wordmark" alt="Dynasty Ticker" width="364" height="57" />
           </span>
-          <div class="mobile-chrome-title-row"><strong>Your Sleeper league</strong></div>
+          <div class="mobile-chrome-title-row"><h1 id="mobile-chrome-title">Your Sleeper league</h1></div>
         </div>
       </header>
       <div class="rail-backdrop" id="rail-backdrop" hidden></div>

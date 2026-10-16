@@ -147,6 +147,22 @@ python3 player-values/build.py
 
 The builder validates a temporary snapshot before atomically replacing `docs/data/player_values.json`. A failed refresh leaves the prior file intact.
 
+The refresh workflow runs every day at 11:17 UTC. GitHub only starts that schedule from the default branch. After the build, `scripts/prices_unchanged.py` compares `docs/data/player_values.json` and `player-values/validation.json` to HEAD with `asOf` and `generatedAt` removed. When that is the only difference, the workflow restores those files and does not archive. Otherwise it runs `scripts/archive_price_snapshot.py`. The commit step then runs `git diff --cached --quiet` on those data files and skips the commit when the tree is clean.
+
+A data commit is `data: refresh independent player values [skip netlify]`. It pushes to `develop` only. Live publishes still come from promoting `develop` to `prod`. `netlify.toml` sets `ignore = "bash ./scripts/netlify-ignore.sh"`, and that script exits 0 for every git-connected build, so the daily commit does not deploy even if that ignore command is what Netlify runs.
+
+Shared trade links and the trend helpers read one archive, `docs/data/price-history/`. Each snapshot file is immutable:
+
+```json
+{
+  "asOf": "2026-10-14T19:17:17+00:00",
+  "sf": { "player:4984": 14620, "player:6794": 7803 },
+  "oneQb": { "player:4984": 8175, "player:6794": 7803 }
+}
+```
+
+The filename is the UTC stamp `YYYYMMDDHHmm` from `asOf`. `sf` and `oneQb` are the full price maps, the same keys as `player_values.json`. `index.json` (`schemaVersion` 1) lists `{ stamp, asOf }`. The page fetches that index and only the snapshots inside the trend window, plus the one snapshot just before it. A file more than 90 days older than the newest is dropped. The newest file is always kept. An existing stamp is never rewritten, so the same `asOf` writes nothing. To run the schedule on Tuesdays only, set the workflow cron back to `17 11 * * 2`.
+
 ## Output
 
 ```json
@@ -154,6 +170,7 @@ The builder validates a temporary snapshot before atomically replacing `docs/dat
   "schemaVersion": 1,
   "modelVersion": "football-forecast-v1",
   "asOf": "...",
+  "generatedAt": "...",
   "sf": {"player:...": 0, "pick:...": 0},
   "oneQb": {"player:...": 0, "pick:...": 0},
   "names": {"player:...": "..."},

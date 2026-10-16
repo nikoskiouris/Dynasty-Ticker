@@ -1495,10 +1495,12 @@ def build(cache, refresh=True):
     scale = float(CONFIG["displayScale"])
 
     validation = backtest(rows)
+    generated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     bundle = {
         "schemaVersion": int(CONFIG["schemaVersion"]),
         "modelVersion": CONFIG["modelVersion"],
-        "asOf": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "asOf": generated_at,
+        "generatedAt": generated_at,
         "season": current_season,
         "throughWeek": max(0, current_week - 1),
         "sf": {},

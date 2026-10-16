@@ -76,6 +76,7 @@ test("dismiss moves focus to the workspace, not the body", () => {
   assert.equal(target, workspace);
   assert.deepEqual(focused.map((row) => row.id), ["workspace"]);
   assert.equal(focused[0].options.preventScroll, true);
+  assert.equal(workspace.getAttribute("tabindex"), "-1");
 
   const usernameOnly = {
     body,

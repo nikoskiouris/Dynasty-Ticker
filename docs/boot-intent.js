@@ -67,4 +67,22 @@
     event.stopPropagation();
     remember(nameFrom(button));
   }, true);
+
+  // <base href="/"> would send href="#workspace" to /#workspace and leave /trade.
+  // Point Skip to content at this document, and make sure the target can take focus
+  // so the fragment does not land on the body.
+  function armSkipTarget(event) {
+    var node = event && event.target;
+    var link = node && node.closest ? node.closest("a.skip-link") : null;
+    if (!link || !link.setAttribute) return;
+    var loc = host.location;
+    var path = (loc && loc.pathname ? loc.pathname : "/") + (loc && loc.search ? loc.search : "") + "#workspace";
+    if (!link.getAttribute || link.getAttribute("href") !== path) link.setAttribute("href", path);
+    var main = document.getElementById && document.getElementById("workspace");
+    if (!main || !main.setAttribute || (main.getAttribute && main.getAttribute("tabindex") != null)) return;
+    main.setAttribute("tabindex", "-1");
+  }
+  document.addEventListener("keydown", armSkipTarget, true);
+  document.addEventListener("click", armSkipTarget, true);
+  document.addEventListener("focusin", armSkipTarget, true);
 })();

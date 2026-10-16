@@ -1,7 +1,10 @@
 import { ordinal } from "./season.js";
+import { normalizePriceHistory, stampsForWindow, TREND_WINDOW_DAYS } from "./value-scale.js";
 
 export const PLAYER_VALUES_PATH = "./data/player_values.json";
 export const NFL_PLAYERS_SLIM_PATH = "./data/nfl_players_slim.json";
+export const PRICE_HISTORY_INDEX_PATH = "./data/price-history/index.json";
+const PRICE_STAMP = /^20\d{10}$/;
 
 // Prefer meta.updatedAt when a bundle has it. Otherwise the file's asOf stamp.
 export function valuationUpdatedAt(bundle) {
@@ -667,7 +670,14 @@ async function readJsonIfOk(fetchImpl, path) {
 }
 
 export async function fetchValuationBundles(fetchImpl = globalThis.fetch) {
-  const payload = await readJsonIfOk(fetchImpl, PLAYER_VALUES_PATH);
+  let response = null;
+  let payload = null;
+  try {
+    response = await fetchImpl(PLAYER_VALUES_PATH);
+    if (response?.ok) payload = await response.json();
+  } catch {
+    payload = null;
+  }
   if (!payload || typeof payload !== "object") {
     throw new Error("Independent player values did not load.");
   }
@@ -679,6 +689,7 @@ export async function fetchValuationBundles(fetchImpl = globalThis.fetch) {
   const names = payload.names && typeof payload.names === "object"
     ? payload.names
     : { ...sf.nameMap, ...oneQb.nameMap };
+  const lastModified = response?.headers?.get?.("last-modified") || "";
   return {
     sf: { values: sf.values, nameMap: { ...names, ...sf.nameMap } },
     oneQb: { values: oneQb.values, nameMap: { ...names, ...oneQb.nameMap } },
@@ -687,5 +698,22 @@ export async function fetchValuationBundles(fetchImpl = globalThis.fetch) {
     meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {},
     modelVersion: payload.modelVersion,
     asOf: payload.asOf || "",
+    generatedAt: payload.generatedAt || "",
+    lastModified,
   };
+}
+
+export async function fetchPriceHistory(fetchImpl = globalThis.fetch, { now = new Date(), days = TREND_WINDOW_DAYS } = {}) {
+  const index = await readJsonIfOk(fetchImpl, PRICE_HISTORY_INDEX_PATH);
+  if (!index || typeof index !== "object") return null;
+  if (index.schemaVersion != null && index.schemaVersion !== 1) return null;
+  const listed = Array.isArray(index.snapshots) ? index.snapshots : [];
+  const needed = stampsForWindow(listed, { now, days });
+  const loaded = await Promise.all(needed.map(async (row) => {
+    const snap = await readJsonIfOk(fetchImpl, `./data/price-history/${row.stamp}.json`);
+    if (!snap || typeof snap !== "object") return null;
+    return { ...snap, stamp: row.stamp };
+  }));
+  const history = normalizePriceHistory(loaded.filter(Boolean));
+  return history.snapshots.length ? history : null;
 }
