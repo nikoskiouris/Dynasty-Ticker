@@ -8581,6 +8581,20 @@ button.rather-skip {
   gap: 0.75rem 1rem;
 }
 
+#sleeper-down-retry {
+  background: var(--gradient);
+  color: var(--on-accent);
+  border-color: transparent;
+}
+
+#sleeper-down-find,
+#sleeper-down-find:hover {
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+}
+
 .empty-cta {
   display: grid;
   gap: 0.4rem;

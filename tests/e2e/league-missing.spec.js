@@ -91,8 +91,30 @@ test("a Sleeper outage has its own heading, alert, and title", async ({ page }) 
   await expect(page.locator("#league-missing")).toBeHidden();
   await expect(page.locator("body")).toHaveClass(/launch-open/);
   expect(await visibleHeadings(page)).toEqual(["Couldn't reach Sleeper"]);
-  await expect(page.locator("#sleeper-down-retry")).toBeVisible();
-  await expect(page.locator("#sleeper-down").getByRole("button", { name: "Find my leagues" })).toBeVisible();
+  await expect(page.locator("#sleeper-down p")).toHaveText("Sleeper didn't answer. Your league is safe, so try again in a moment.");
+  const retry = page.locator("#sleeper-down-retry");
+  const find = page.locator("#sleeper-down-find");
+  await expect(retry).toBeVisible();
+  await expect(retry).toHaveText("Retry");
+  await expect(page.locator("#sleeper-down .league-missing-primary")).toHaveCount(1);
+  await expect(find).toHaveText("Find my leagues");
+  await expect(find).toHaveClass(/ghost-btn/);
+  const paint = await page.evaluate(() => {
+    const primary = getComputedStyle(document.getElementById("sleeper-down-retry"));
+    const secondary = getComputedStyle(document.getElementById("sleeper-down-find"));
+    return {
+      retryBg: primary.backgroundColor,
+      retryColor: primary.color,
+      findBg: secondary.backgroundColor,
+      findBorder: secondary.borderTopWidth,
+      findBorderStyle: secondary.borderTopStyle,
+    };
+  });
+  expect(paint.retryBg).toBe("rgb(244, 241, 236)");
+  expect(paint.retryColor).toBe("rgb(20, 18, 16)");
+  expect(paint.findBg).toBe("rgba(0, 0, 0, 0)");
+  expect(paint.findBorderStyle).toBe("solid");
+  expect(Number.parseFloat(paint.findBorder)).toBeGreaterThan(0);
   await expect(page.locator("#sleeper-down").getByRole("link", { name: "See the sample league" })).toHaveAttribute("href", "/?sample=1");
   await expect(page.locator("#route-announcer")).toHaveText("Couldn't reach Sleeper");
   expect(new URL(page.url()).searchParams.has("league")).toBe(false);

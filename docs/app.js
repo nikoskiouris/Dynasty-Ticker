@@ -18505,7 +18505,7 @@ function syncDocumentMeta() {
   if (sleeperUnreachable) {
     applyDocumentMeta(document, {
       title: "Couldn't reach Sleeper · Dynasty Ticker",
-      description: "Check your connection.",
+      description: "Sleeper didn't answer. Your league is safe, so try again in a moment.",
     });
     return;
   }
