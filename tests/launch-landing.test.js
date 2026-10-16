@@ -28,7 +28,7 @@ import {
   launchTrendMarkup,
 } from "../docs/modules/launch-landing.js";
 import { draftVerdictModel } from "../docs/modules/trade-draft.js";
-import { TIER_BANDS, percentMore, verdictCopy } from "../docs/modules/verdict-copy.js";
+import { TIER_BANDS, displayMore, percentMore, verdictCopy } from "../docs/modules/verdict-copy.js";
 import { sharedBarSegments } from "../docs/modules/verdict-bars.js";
 import { formatNumber } from "../docs/modules/html.js";
 
@@ -106,7 +106,7 @@ test("the example trade is the calculator verdict, and a new price changes it", 
   if (bigger === "Give") assert.match(html, /calc-pointer-wide">◀[\s\S]*You give/);
   if (bigger === "Get") assert.match(html, /You get[\s\S]{0,240}calc-pointer-wide">▶/);
   assert.equal(percentMore(bars.give.total, bars.get.total), copy.more);
-  if (copy.more != null && copy.tier !== "even") assert.match(copy.line, new RegExp(`${copy.more}% more`));
+  if (copy.more != null && copy.tier !== "even") assert.match(copy.line, new RegExp(`${displayMore(copy.more)}% more`));
   assert.match(html, new RegExp(`>${formatNumber(bars.give.total)}<`));
   assert.match(html, new RegExp(`>${formatNumber(bars.get.total)}<`));
   const meters = html.match(/data-give="(\d+)" data-get="(\d+)"/);
