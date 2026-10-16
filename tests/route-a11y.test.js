@@ -501,6 +501,29 @@ test("heading focus waits for the node and follows a replacement", () => {
   });
   assert.equal(doc.activeElement, playerHeading);
   assert.equal(queued.length, held);
+
+  const leagueButton = { id: "load-league-btn", className: "", tagName: "BUTTON" };
+  doc.activeElement = leagueButton;
+  doc.nodes = [roomHeading];
+  const blocked = queued.length;
+  focusHeadingWhenPresent(doc, "#league-heading", {
+    maxMs: 1000,
+    now: () => now,
+    schedule(fn) {
+      queued.push(fn);
+    },
+  });
+  assert.equal(doc.activeElement, leagueButton);
+  assert.equal(queued.length, blocked);
+  focusHeadingWhenPresent(doc, "#league-heading", {
+    maxMs: 1000,
+    now: () => now,
+    takeover: true,
+    schedule(fn) {
+      queued.push(fn);
+    },
+  });
+  assert.equal(doc.activeElement, roomHeading);
 });
 
 test("aria-current page sits on the active tab and comes off the others", () => {
@@ -639,7 +662,9 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(app, /function focusClickedRoute\(before\)/);
   assert.match(app, /if \(pendingPopstateFocus\) return;/);
   assert.match(app, /void focusAfterPopstate\(\{ focus, trigger: step\.trigger, before, token \}\)/);
+  assert.match(app, /location\.hash === "#workspace" && !event\.state\?\.tab\) return/);
   assert.match(app, /await new Promise\(\(resolve\) => requestAnimationFrame\(resolve\)\)/);
+  assert.match(app, /while \(token === routeFocusToken && state\.leagueSwitching && Date\.now\(\) < deadline\)/);
   assert.match(app, /leagueRoomMove\(before, after\) \? "heading" : step\.focus/);
   assert.equal(index.split('id="route-announcer"').length - 1, 1);
   assert.match(index, /id="route-announcer"[^>]*aria-live="polite"/);
@@ -655,15 +680,19 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.doesNotMatch(css, /body\.league-loaded #route-title/);
   assert.match(css, /body\.cold-share #route-title[\s\S]*display:\s*block !important/);
   assert.match(css, /\[data-room-panel\] h2:focus-visible[\s\S]*box-shadow:\s*var\(--focus\)/);
-  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus\s*\{[^}]*outline:\s*none/s);
-  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus\s*\{[^}]*box-shadow:\s*none/s);
+  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus:not\(:focus-visible\)\s*\{[^}]*outline:\s*0 none/s);
+  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus:not\(:focus-visible\)\s*\{[^}]*box-shadow:\s*none/s);
+  assert.match(app, /message !== headingText/);
+  assert.match(app, /focusVisible: roomFocusVisible\(\)/);
   const meta = app.slice(app.indexOf("function syncDocumentMeta"), app.indexOf("async function bootLandingRather"));
   assert.match(meta, /el\.routeTitle\.textContent = routeHeadingText\(\)/);
   const league = read("../docs/ui/league.html");
   assert.match(league, /<h2 id="power-heading" tabindex="-1">/);
   assert.match(league, /<h2 id="league-heading" tabindex="-1">How the league ranks<\/h2>/);
-  assert.match(league, /<h2 id="scores-heading" class="sr-only" tabindex="-1">This week<\/h2>/);
-  assert.match(league, /<h2 id="activity-heading" class="sr-only" tabindex="-1">Activity<\/h2>/);
+  assert.match(league, /<h2 id="scores-heading" tabindex="-1">This week<\/h2>/);
+  assert.doesNotMatch(league, /id="scores-heading"[^>]*\bsr-only\b/);
+  assert.match(league, /<h2 id="activity-heading" tabindex="-1">Activity<\/h2>/);
+  assert.doesNotMatch(league, /id="activity-heading"[^>]*\bsr-only\b/);
   assert.match(league, /data-room-panel="history"[\s\S]*<h2 id="history-heading" tabindex="-1">Titles, records, and who stayed<\/h2>/);
   assert.doesNotMatch(index, /<(?:body|html)[^>]*\stabindex/);
   assert.match(index, /id="workspace"[^>]*tabindex="-1"/);
@@ -1230,9 +1259,26 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
     } catch {
       // Older Chrome still reports sequential focus without this.
     }
-    await waitForPage(pageSocket, `() => ({
-      ok: Boolean(document.querySelector("#trades-tab")),
-    })`, 15000, "trade shell");
+    // #trades-tab is in the static shell. The desk is ready once boot has
+    // released, the trade history entry is written, and focus has stopped moving.
+    await waitForStable(pageSocket, `() => {
+      const el = document.activeElement;
+      const id = el === document.body ? "BODY" : (el?.id || el?.tagName || "");
+      const boot = window.__dynastyBootFind?.pending === false;
+      const title = document.querySelector("#route-title")?.textContent || "";
+      return {
+        ok: Boolean(document.querySelector("#trades-tab"))
+          && boot
+          && history.state?.tab === "trades"
+          && title === "Trade"
+          && location.pathname === "/trade"
+          && (id === "BODY" || id === "route-title"),
+        id,
+        boot,
+        title,
+        path: location.pathname,
+      };
+    }`, 20000, 400, "trade ready");
     await pageEval(pageSocket, () => {
       window.__stops = [];
       document.addEventListener("focusin", (event) => {
@@ -1260,7 +1306,7 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
     await pageSocket.send("Input.dispatchKeyEvent", {
       type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
     });
-    const skipped = await waitForPage(pageSocket, `() => {
+    const skipped = await waitForStable(pageSocket, `() => {
       const el = document.activeElement;
       return {
         ok: el?.id === "workspace" && location.pathname === "/trade",
@@ -1268,7 +1314,7 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
         tab: el?.getAttribute?.("tabindex") || "",
         path: location.pathname,
       };
-    }`, 3000, "skip link");
+    }`, 5000, 400, "skip link");
     assert.equal(skipped.id, "workspace");
     assert.equal(skipped.path, "/trade");
   } finally {

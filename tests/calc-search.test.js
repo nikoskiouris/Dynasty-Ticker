@@ -293,8 +293,8 @@ test("shared keyboard focus ring is one outline and trade rows are not outline n
   assert.match(rule[0], /outline:\s*2px solid var\(--text\);/);
   assert.match(rule[0], /outline-offset:\s*2px;/);
   assert.doesNotMatch(css, /\.trade-row:focus-visible\s*\{[^}]*outline:\s*none/);
-  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus\s*\{[^}]*outline:\s*none/s);
-  const besidesRoomHeading = css.replace(/\[data-room-panel\] h2\[tabindex="-1"\]:focus\s*\{[^}]*\}/, "");
+  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus:not\(:focus-visible\)\s*\{[^}]*outline:\s*0 none/s);
+  const besidesRoomHeading = css.replace(/\[data-room-panel\] h2\[tabindex="-1"\]:focus:not\(:focus-visible\)\s*\{[^}]*\}/, "");
   assert.doesNotMatch(besidesRoomHeading, /outline:\s*none/);
 });
 
