@@ -1,4 +1,4 @@
-import { draftVerdictModel } from "./trade-draft.js";
+import { draftMarketPrice, draftVerdictModel } from "./trade-draft.js";
 import { FEWER_BETTER_LABEL, verdictCopy } from "./verdict-copy.js";
 import { formatGenericPickAssetLabel, getGlobalMaxPlayerValue, pickValueBundle } from "./values.js";
 
@@ -149,7 +149,12 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     const name = isPick
       ? (bundle.nameMap?.[assetId] || formatGenericPickAssetLabel(assetId))
       : (String(playerNames?.[id] || payload?.names?.[assetId] || directory?.names?.[assetId] || "").trim() || `Player ${id}`);
-    const value = Math.max(0, Math.round(Number(values[assetId]) || 0));
+    // Picks price through the app's own lookup (every round; r2:early falls back to
+    // r2:any, then the pick catalog), so a shared link never reads a 2nd as 0.
+    const raw = isPick
+      ? draftMarketPrice({ assetType: "pick", assetId }, { values, nameMap: bundle.nameMap || {} }).value
+      : values[assetId];
+    const value = Math.max(0, Math.round(Number(raw) || 0));
     const position = isPick ? "PICK" : String((payload?.players || directory?.players)?.[assetId]?.position || "").toUpperCase().slice(0, 4);
     return { assetId, name: name.slice(0, 40), value, position };
   };
