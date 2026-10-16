@@ -119,3 +119,27 @@ export function barLabel(name, listed = 0, stars = 0) {
 }
 
 export const STAR_PREMIUM_KEY = "Star premium";
+
+// Trade-idea limits. Fairness settings are written on the old metric (gap /
+// larger side, e.g. 20 or 24). An idea is filtered on the shown "% more" with
+// that setting converted and snapped up to a band ceiling (5 / 14 / 28), so an
+// idea never shows a verdict outside the band it was picked for. Past 28 the
+// band is Lopsided and the converted number is the cap.
+export function oldPctToMore(oldPct) {
+  const p = Math.min(99, Math.max(0, Number(oldPct) || 0));
+  return round1((p / (100 - p)) * 100);
+}
+
+export function ideaLimitMore(oldPct) {
+  const more = oldPctToMore(oldPct);
+  if (more <= TIER_BANDS.even) return TIER_BANDS.even;
+  if (more <= TIER_BANDS.edge) return TIER_BANDS.edge;
+  if (more <= TIER_BANDS.favors) return TIER_BANDS.favors;
+  return more;
+}
+
+// The shown metric for two package values; 1000 when a side is empty.
+export function ideaGapMore(a, b) {
+  const more = percentMore(a, b);
+  return more == null || !(Number(a) > 0) || !(Number(b) > 0) ? 1000 : more;
+}

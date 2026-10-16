@@ -202,7 +202,7 @@ export async function renderCardPng(svg) {
 }
 
 // /og/t/<code>.png renders PNG (what X, iMessage, Slack, and Facebook need).
-// /og/t/<code>.svg is the same card as SVG, and the fallback if PNG fails.
+// /og/t/<code>.svg is the same card as SVG. A .png that cannot render is a 503, never SVG.
 export function createTradeCardHandler(deps = {}) {
   return async (req) => {
     const url = new URL(req.url);
@@ -217,11 +217,13 @@ export function createTradeCardHandler(deps = {}) {
     const art = await loadCardArt().catch(() => ({}));
     const svg = renderCardSvg(hit.summary, art);
     if (!wantsSvg) {
+      // A .png URL only ever serves PNG. X, iMessage and Facebook do not render
+      // an SVG og:image, so a missing resvg/wasm must fail loudly, uncached.
       try {
         const png = await (deps.renderPng || renderCardPng)(svg);
         return new Response(png, { status: 200, headers: { ...SAFE_HEADERS, "content-type": "image/png", "cache-control": CARD_CACHE } });
       } catch {
-        // fall back to SVG below, briefly cached so a retry can render PNG
+        return new Response("Card renderer unavailable", { status: 503, headers: { ...SAFE_HEADERS, "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
       }
     }
     return new Response(svg, {
@@ -230,7 +232,7 @@ export function createTradeCardHandler(deps = {}) {
         ...SAFE_HEADERS,
         "content-type": "image/svg+xml",
         "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'",
-        "cache-control": wantsSvg ? CARD_CACHE : "public, max-age=300",
+        "cache-control": CARD_CACHE,
       },
     });
   };

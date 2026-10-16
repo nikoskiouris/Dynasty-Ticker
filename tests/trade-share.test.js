@@ -173,8 +173,11 @@ test("card function renders an immutable PNG, an SVG, and 404s bad codes", { ski
   const fallback = await createTradeCardHandler({ ...deps, renderPng: async () => { throw new Error("no wasm"); } })(
     new Request("https://dynastyticker.com/og/t/1s4984~9221.png"),
   );
-  assert.equal(fallback.headers.get("content-type"), "image/svg+xml");
-  assert.doesNotMatch(fallback.headers.get("cache-control"), /immutable/);
+  // A .png never serves SVG: no renderer is a loud, uncached 503.
+  assert.equal(fallback.status, 503);
+  assert.match(fallback.headers.get("content-type"), /^text\/plain/);
+  assert.equal(fallback.headers.get("cache-control"), "no-store");
+  assert.doesNotMatch(await fallback.text(), /<svg/);
 
   for (const bad of ["/og/t/nope.png", "/og/t/1s4984~9221.gif", "/og/t/1s4984~9221"]) {
     assert.equal((await handler(new Request(`https://dynastyticker.com${bad}`))).status, 404, bad);

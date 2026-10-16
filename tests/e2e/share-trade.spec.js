@@ -305,3 +305,48 @@ test("after sharing from /trade the sender's address bar shows /t/<code>", async
   await page.waitForTimeout(300);
   expect(new URL(page.url()).pathname).toBe("/trade");
 });
+
+// M1: a cold /t on a phone leads with "Shared trade" and the full verdict, no scroll.
+test("cold /t at 390x844 shows the shared verdict in the first viewport, then a CTA to check your own", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const code = `2s${STAMP}9509~11632.p27r1e`;
+  await page.goto(`/t/${code}`);
+  const summary = page.locator("#value-calc-verdict .calc-summary");
+  await expect(summary).toBeVisible({ timeout: 30000 });
+  await page.waitForLoadState("networkidle");
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  const head = page.locator(".shared-trade-head");
+  await expect(head.locator(".eyebrow")).toHaveText("Shared trade");
+  const headBox = await head.boundingBox();
+  const box = await summary.boundingBox();
+  expect(headBox.y).toBeLessThan(box.y);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(844);
+  // The sides follow the verdict; model notes are folded away below.
+  const grid = await page.locator(".calc-grid").boundingBox();
+  expect(grid.y).toBeGreaterThan(box.y + box.height - 1);
+  await expect(page.locator(".shared-trade-about")).not.toHaveAttribute("open", /.*/);
+  // L1: the server's trade-specific title survives boot.
+  const html = await (await request.get(`/t/${code}`)).text();
+  const serverTitle = /<title>([^<]*)<\/title>/.exec(html)[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+  expect(serverTitle).toMatch(/\| Dynasty Ticker$/);
+  await expect(page).toHaveTitle(serverTitle);
+  // CTA: start a fresh trade on /trade.
+  await page.locator("[data-action='shared-check-own']").click();
+  await expect(page).toHaveURL(/\/trade$/);
+  await expect(page.locator(".shared-trade-head")).toHaveCount(0);
+  await expect(page.locator("[data-draft-side='left'] .calc-selected .selected-token")).toHaveCount(0);
+});
+
+test("cold /t at 1280 keeps the server title and the shared layout", async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const code = `2s${STAMP}9221~p27r1e.p28r1a`;
+  await page.goto(`/t/${code}`);
+  await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
+  await page.waitForLoadState("networkidle");
+  const html = await (await request.get(`/t/${code}`)).text();
+  const serverTitle = /<title>([^<]*)<\/title>/.exec(html)[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+  await expect(page).toHaveTitle(serverTitle);
+  const box = await page.locator("#value-calc-verdict .calc-summary").boundingBox();
+  expect(box.y + box.height).toBeLessThanOrEqual(800);
+});

@@ -291,7 +291,7 @@ import {
   topOverlay,
   urlPath,
 } from "./modules/history-route.js";
-import { EVEN_UP_OFFER_ABOVE, STAR_PREMIUM_KEY, TIER_EXPLAINER, barLabel, creditedTotalsLine, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
+import { EVEN_UP_OFFER_ABOVE, ideaLimitMore, oldPctToMore, STAR_PREMIUM_KEY, TIER_EXPLAINER, barLabel, creditedTotalsLine, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
 import { decodeTradeShare, encodeTradeShare, sameVerdict, shareMessage, sharePath, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
 import {
   analyzeWindowCall,
@@ -897,6 +897,7 @@ void hydrateCrowdVotes().then((ok) => {
 if (typeof history.scrollRestoration === "string") history.scrollRestoration = "manual";
 window.addEventListener("popstate", (event) => applyDeskPopState(event.state));
 if (isPhoneLayout()) setMobileRailOpen(false);
+
 syncDocumentMeta();
 appBooted = true;
 syncSiteDock();
@@ -6508,6 +6509,35 @@ function renderTradeDraft() {
     return;
   }
   const view = buildDraftView();
+  // Cold /t/<code>: the recipient sees what was sent first (M1). A "Shared
+  // trade" header, the full verdict, then the sides; the model notes fold away.
+  const shared = Boolean(activeSharedTrade(view.draft));
+  host.dataset.sharedView = shared ? "1" : "";
+  if (shared) {
+    host.innerHTML = `
+      <div class="shared-trade-head">
+        <span class="eyebrow">Shared trade</span>
+        <h2 id="shared-trade-title">${escapeHtml(sharedTradeTitle(view))}</h2>
+      </div>
+      <div id="draft-notice">${renderBadShareNotice()}${renderDraftNotice()}</div>
+      <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
+      <div class="calc-grid">
+        ${renderDraftPane("left", view)}
+        ${renderDraftPane("right", view)}
+      </div>
+      <div class="shared-trade-cta">
+        <a class="primary-btn shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>
+      </div>
+      <details class="shared-trade-about">
+        <summary>About these prices</summary>
+        ${renderValueBoardBar({ marketHint: marketBoardHint() })}
+        ${renderPriceLegend(["model", "package"])}
+        <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
+      </details>
+      <div id="draft-team" class="draft-team">${renderDraftTeam(view)}</div>
+    `;
+    return;
+  }
   host.innerHTML = `
     ${renderValueBoardBar({ marketHint: marketBoardHint() })}
     ${renderPriceLegend(["model", "package"])}
@@ -6537,6 +6567,11 @@ function patchTradeDraft(listSides = []) {
     return;
   }
   const view = buildDraftView();
+  // Editing a shared trade (or landing on one) switches layout: full render.
+  if ((host.dataset.sharedView === "1") !== Boolean(activeSharedTrade(view.draft))) {
+    renderTradeDraft();
+    return;
+  }
   ["left", "right"].forEach((side) => {
     const pane = host.querySelector(`[data-draft-side="${side}"]`);
     if (!pane) return;
@@ -6552,6 +6587,8 @@ function patchTradeDraft(listSides = []) {
     if (notes) notes.innerHTML = renderDraftNotes(side, view);
     if (listSides.includes(side)) patchDraftSuggestions(side, view);
   });
+  const sharedTitle = host.querySelector("#shared-trade-title");
+  if (sharedTitle) sharedTitle.textContent = sharedTradeTitle(view);
   const basisEl = host.querySelector("#draft-basis");
   if (basisEl) basisEl.innerHTML = renderDraftBasis(view);
   const notice = host.querySelector("#draft-notice");
@@ -6595,6 +6632,23 @@ function renderDraftBasis(view) {
 }
 
 // /t/<code> that does not decode. The calculator stays usable underneath.
+// "Bijan Robinson for Malik Nabers + 1 more"
+// Before Sleeper names load an item's name is its raw id; never show that.
+function sharedTradeTitle(view) {
+  const raw = (name) => !name || /^(player|pick):/i.test(String(name)) || /^\d+$/.test(String(name));
+  const all = [...view.draft.left, ...view.draft.right];
+  if (all.some((item) => raw(item.name))) {
+    const n = (items) => `${items.length} ${items.length === 1 ? "piece" : "pieces"}`;
+    return `${n(view.draft.left)} for ${n(view.draft.right)}`;
+  }
+  const side = (items) => {
+    const names = items.map((item) => item.name).filter(Boolean);
+    if (!names.length) return "nothing";
+    return names.length > 1 ? `${names[0]} + ${names.length - 1} more` : names[0];
+  };
+  return `${side(view.draft.left)} for ${side(view.draft.right)}`;
+}
+
 function renderBadShareNotice() {
   if (!state.badShareLink) return "";
   return `
@@ -7713,6 +7767,15 @@ function handleWorkspaceClick(event) {
     }
     case "verdict-info": {
       setVerdictInfoOpen(target, target.getAttribute("aria-expanded") !== "true");
+      break;
+    }
+    case "shared-check-own": {
+      event?.preventDefault?.();
+      replaceDraft(clearValueCalcSides(state.valueCalc), "");
+      state.sharedTrade = null;
+      renderTradeDraft();
+      updateUrlState({ mode: "push" });
+      el.calculatorShell?.querySelector("[data-input='value-search']")?.focus({ preventScroll: true });
       break;
     }
     case "value-clear": {
@@ -11017,7 +11080,7 @@ async function generateTradeMatches({ userRequested = false } = {}) {
           ),
         });
         const pctDiff = Number(calculatePctDiff(packageResult.myAdjustedValue, packageResult.theirAdjustedValue).toFixed(2));
-        if (pctDiff > Math.max(fairnessPct, 26)) return;
+        if (pctDiff > ideaLimitMore(Math.max(fairnessPct, 26))) return;
         cheapIdeas.push({ deal, packageResult, pctDiff });
       });
       cheapIdeas.sort((a, b) => {
@@ -11484,7 +11547,7 @@ function renderMultiTeamCard(idea, index, values) {
       <div class="multi-team-card-header">
         <div>
           <h3>Idea ${index + 1}</h3>
-          <p class="muted small">${idea.teamCount} teams • max ${idea.maxPctDiff}% diff • added value ${formatNumber(idea.extraMovedValueTotal || 0)} • common value ${formatNumber(idea.commonValue)}</p>
+          <p class="muted small">${idea.teamCount} teams • one side worth up to ${idea.maxPctDiff}% more • added value ${formatNumber(idea.extraMovedValueTotal || 0)} • common value ${formatNumber(idea.commonValue)}</p>
         </div>
         <div class="participant-pill-row">
           ${(idea.tags || []).map((tag) => `<span class="participant-pill">${escapeHtml(tag)}</span>`).join("")}
@@ -12711,7 +12774,7 @@ function suggestShopDealsWithRoster({
           globalMaxValue: getGlobalMaxPlayerValue(values, Math.max(shopValue, theirPackage.totalValue || theirPackage.total || 0)),
         });
         const pctDiff = calculatePctDiff(packageResult.myAdjustedValue, packageResult.theirAdjustedValue);
-        if (pctDiff > effectiveFairnessPct) return false;
+        if (pctDiff > ideaLimitMore(effectiveFairnessPct)) return false;
 
         const idea = buildShopTradeIdea({
           myPackage,
@@ -13898,7 +13961,7 @@ function finalizeMultiTeamTradeIdea({
       tradeShape,
     });
     const pctDiff = fairnessMetrics.pctDiff;
-    if (pctDiff > fairnessLimit) return null;
+    if (pctDiff > ideaLimitMore(fairnessLimit)) return null;
 
     const sendToNames = [...new Set(
       participantState.outgoingTransfers
@@ -14039,7 +14102,7 @@ function finalizeMultiTeamTradeIdea({
       structureTag,
       laneTag,
       extraMovedValueTotal <= Math.max(1400, requestedAnchorValueTotal * 0.18) ? "Lean Structure" : extraMovedValueTotal <= Math.max(2600, requestedAnchorValueTotal * 0.34) ? "Controlled Structure" : "Heavy Structure",
-      maxPctDiff <= fairnessLimit * 0.55 ? "Tight Value" : "Flexible Value",
+      maxPctDiff <= oldPctToMore(fairnessLimit * 0.55) ? "Tight Value" : "Flexible Value",
     ],
     summary: buildMultiTeamSummary(participants, focusLabel),
   };
@@ -15419,7 +15482,7 @@ function buildMultiTeamIdeasFromCycle({
       };
     });
 
-    if (participants.some((participant) => participant.pctDiff > effectiveFairnessPct)) continue;
+    if (participants.some((participant) => participant.pctDiff > ideaLimitMore(effectiveFairnessPct))) continue;
 
     const maxPctDiff = Number(Math.max(...participants.map((participant) => participant.pctDiff)).toFixed(2));
     const avgPctDiff = Number((participants.reduce((sum, participant) => sum + participant.pctDiff, 0) / participants.length).toFixed(2));
@@ -15434,7 +15497,7 @@ function buildMultiTeamIdeasFromCycle({
       labScore,
       meRosterId: meRoster.rosterId,
       participants,
-      tags: [`${participantRosters.length} Team`, maxPctDiff <= 6 ? "Tight Value" : "Fair Value"],
+      tags: [`${participantRosters.length} Team`, maxPctDiff <= oldPctToMore(6) ? "Tight Value" : "Fair Value"],
       summary: buildMultiTeamSummary(participants, focusLabel),
     });
   }
@@ -15612,7 +15675,7 @@ function suggestTrades({
         globalMaxValue,
       });
       const pctDiff = calculatePctDiff(packageResult.myAdjustedValue, packageResult.theirAdjustedValue);
-      if (pctDiff > effectiveFairnessPct) return false;
+      if (pctDiff > ideaLimitMore(effectiveFairnessPct)) return false;
       const labDetails = scoreTradeIdea({
         myRoster,
         theirRoster,
@@ -16141,7 +16204,7 @@ function buildFallbackTradeTags(idea) {
   if (idea.theirAssets?.length < idea.myAssets?.length) tags.push("Consolidation");
   if (idea.theirAssets?.length > idea.myAssets?.length) tags.push("Depth Return");
   if (idea.theirAssets?.some(isFirstRoundPick) || idea.myAssets?.some(isFirstRoundPick)) tags.push("Pick Leverage");
-  if (idea.pctDiff <= 6) tags.push("Tight Value");
+  if (idea.pctDiff <= oldPctToMore(6)) tags.push("Tight Value");
   if (tags.length === 0) tags.push("Fair Market");
   return [...new Set(tags)].slice(0, 4);
 }
@@ -16150,7 +16213,7 @@ function buildFallbackTradeSummary(idea) {
   if (idea.powerUpgrade?.summary) return idea.powerUpgrade.summary;
   const incoming = formatAssetNameList(idea.theirAssets || []);
   const outgoing = formatAssetNameList(idea.myAssets || []);
-  return `You turn ${outgoing} into ${incoming} while keeping the adjusted-value gap at ${idea.pctDiff}%.`;
+  return `${outgoing} turns into ${incoming}; after adjustments one side is worth ${idea.pctDiff}% more.`;
 }
 
 function buildFallbackTradePitch(idea) {
@@ -17120,7 +17183,24 @@ function focusUsernameSearch() {
   target?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
+// A cold /t/<code> arrives with a trade-specific <title> and meta from the
+// server (trade-page). Read once, on the first sync (before anything rewrites
+// the title), and keep it while the page still shows that link (L1).
+function serverShareMeta() {
+  if (serverShareMeta.value === undefined) {
+    serverShareMeta.value = /^\/t\/[^/]+\/?$/.test(window.location.pathname) && /\| Dynasty Ticker$/.test(document.title)
+      ? { path: window.location.pathname, title: document.title }
+      : null;
+  }
+  return serverShareMeta.value;
+}
+
 function syncDocumentMeta() {
+  const shareMeta = serverShareMeta();
+  if (shareMeta && window.location.pathname === shareMeta.path && !state.leagueId) {
+    document.title = shareMeta.title;
+    return;
+  }
   if (state.leagueSwitching) {
     applyDocumentMeta(document, {
       title: "Loading league — Dynasty Ticker",

@@ -97,3 +97,68 @@ test("stars legend: visible hatch key and a text label on the bar", () => {
   const css = readFileSync(new URL("../docs/styles.css", import.meta.url), "utf8");
   assert.match(css, /\.calc-legend-swatch \{[\s\S]*repeating-linear-gradient/);
 });
+
+test("trade ideas: an idea that passes a filter never shows a verdict outside that filter's band", async () => {
+  const { ideaLimitMore, ideaGapMore, oldPctToMore, tierForMore, percentMore } = await import("../docs/modules/verdict-copy.js");
+  const { calculatePctDiff } = await import("../docs/modules/package-value.js");
+  const RANK = { even: 0, edge: 1, favors: 2, lopsided: 3 };
+  assert.equal(oldPctToMore(20), 25);
+  assert.equal(ideaLimitMore(20), 28); // balanced Trade Lab: up to Favors one side
+  assert.equal(ideaLimitMore(4), 5);
+  assert.equal(ideaLimitMore(12), 14);
+  assert.equal(ideaLimitMore(24), 31.6); // past 28 the band is Lopsided, capped
+  // Every setting the app uses: defaults, match, the 26 floor, vibes, multi-team buffers.
+  const settings = [4, 6, 12, 20, 24, 26, 28, 30, 34];
+  let seed = 7;
+  const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  for (let i = 0; i < 4000; i += 1) {
+    const a = Math.round(500 + rand() * 20000);
+    const b = Math.round(500 + rand() * 20000);
+    const shown = percentMore(a, b);
+    assert.equal(calculatePctDiff(a, b), shown);
+    assert.equal(ideaGapMore(a, b), shown);
+    for (const setting of settings) {
+      const limit = ideaLimitMore(setting);
+      if (calculatePctDiff(a, b) > limit) continue;
+      assert.ok(RANK[tierForMore(shown)] <= RANK[tierForMore(limit)], `${a}/${b} at ${setting}`);
+    }
+  }
+  assert.equal(calculatePctDiff(0, 5000), 1000);
+  // Each filter site compares against ideaLimitMore, never a raw setting.
+  assert.match(app, /pctDiff > ideaLimitMore\(Math\.max\(fairnessPct, 26\)\)/);
+  assert.equal((app.match(/pctDiff > ideaLimitMore\(effectiveFairnessPct\)/g) || []).length, 3);
+  assert.match(app, /pctDiff > ideaLimitMore\(fairnessLimit\)/);
+  const match = readFileSync(new URL("../docs/modules/trade-match.js", import.meta.url), "utf8");
+  assert.match(match, /percentDiff\(mine, theirs\) <= ideaLimitMore\(fairnessPct\)/);
+  // Wording: "% more", not "diff" / "gap at".
+  assert.match(app, /one side worth up to \$\{idea\.maxPctDiff\}% more/);
+  assert.match(app, /after adjustments one side is worth \$\{idea\.pctDiff\}% more\./);
+  assert.doesNotMatch(app, /% diff •|adjusted-value gap at/);
+  for (const text of ["one side worth up to 9% more", "after adjustments one side is worth 9% more."]) assert.doesNotMatch(text, BANNED);
+});
+
+test("Get-pane chip price meets 4.5:1 on its chip, and the legend swatch is 10–12px tall", () => {
+  const css = readFileSync(new URL("../docs/styles.css", import.meta.url), "utf8");
+  const rule = /\.calc-pane\.team-b \.selected-token-price \{([^}]*)\}/.exec(css)?.[1] || "";
+  assert.match(rule, /opacity: 1;/);
+  const hex = /color: #([0-9a-f]{6});/i.exec(rule)?.[1];
+  assert.ok(hex, "explicit chip price color");
+  const lum = (h) => [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+    .reduce((sum, c, i) => sum + c * [0.2126, 0.7152, 0.0722][i], 0);
+  // #333e52: the chip background as rendered (team-b-soft over the Get pane), sampled at 390.
+  const ratio = (lum(hex) + 0.05) / (lum("333e52") + 0.05);
+  assert.ok(ratio >= 4.5, `chip price contrast ${ratio.toFixed(2)}`);
+  const swatch = /\.calc-legend-swatch \{([^}]*)\}/.exec(css)?.[1] || "";
+  const height = Number(/height: (\d+)px/.exec(swatch)?.[1]);
+  assert.ok(height >= 10 && height <= 12, `swatch ${height}px`);
+});
+
+test("cold /t: shared layout, CTA and kept server title are wired", () => {
+  assert.match(app, /const shared = Boolean\(activeSharedTrade\(view\.draft\)\);/);
+  assert.match(app, /<span class="eyebrow">Shared trade<\/span>/);
+  const shared = app.slice(app.indexOf('<div class="shared-trade-head">'), app.indexOf("<details class=\"shared-trade-about\">"));
+  assert.ok(shared.indexOf('id="value-calc-verdict"') < shared.indexOf('class="calc-grid"'), "verdict before the sides");
+  assert.match(app, /data-action="shared-check-own">Check your own trade<\/a>/);
+  assert.match(app, /function serverShareMeta\(\)/);
+});
