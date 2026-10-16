@@ -299,6 +299,7 @@ test("league, activity, history, and this week have distinct document titles", (
   assert.equal(routeDocumentTitle({ tab: "league", room: "team" }), "My League · Dynasty Ticker");
   assert.equal(routeDocumentTitle({ playerName: "Jahmyr Gibbs", tab: "league", room: "activity" }), "Jahmyr Gibbs · Dynasty Ticker");
   assert.equal(headingSelectorFor({ overlay: "player", playerId: "9221" }), ".ranks-card h2, .player-week-sheet h2");
+  assert.equal(headingSelectorFor({ page: "league", view: "team" }), '[data-room-panel="team"] h2');
   assert.equal(headingSelectorFor({ page: "league", view: "scores" }), '[data-room-panel="scores"] h2');
   assert.equal(headingSelectorFor({ tab: "league", view: "activity" }), '[data-room-panel="activity"] h2');
   assert.equal(headingSelectorFor({ page: "league", view: "history" }), "#history-heading");
@@ -432,6 +433,21 @@ test("heading focus waits for the node and follows a replacement", () => {
   });
   assert.equal(doc.activeElement, field);
   assert.equal(queued.length, before);
+
+  doc.activeElement = body;
+  doc.nodes = [first];
+  first.isConnected = true;
+  const skipped = queued.length;
+  focusHeadingWhenPresent(doc, ".ranks-card h2", {
+    maxMs: 1000,
+    now: () => now,
+    stillWanted: () => false,
+    schedule(fn) {
+      queued.push(fn);
+    },
+  });
+  assert.equal(doc.activeElement, body);
+  assert.equal(queued.length, skipped);
 });
 
 test("aria-current page sits on the active tab and comes off the others", () => {
@@ -564,17 +580,24 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(app, /history\.back\(\)/);
   assert.match(app, /announceRoute\(document/);
   assert.match(app, /ensureRouteLive\(document\)/);
-  assert.match(app, /focusHeadingWhenPresent\(document, selector\)/);
+  assert.match(app, /focusHeadingWhenPresent\(document, selector, \{/);
+  assert.match(app, /stillWanted: \(\) => Date\.now\(\) < followHeadingsUntil/);
   assert.match(app, /function focusLeagueRoomHeading\(room\)/);
+  assert.match(app, /leagueRoomMove\(before, after\) \? "heading" : step\.focus/);
   assert.equal(index.split('id="route-announcer"').length - 1, 1);
   assert.match(index, /id="route-announcer"[^>]*aria-live="polite"/);
   assert.match(index, /id="players-tab"[^>]*aria-current="page"/);
   assert.match(index, /<h1 id="mobile-chrome-title">/);
-  assert.doesNotMatch(index, /id="route-title"/);
+  assert.match(index, /<h1 id="route-title" class="sr-only">Dynasty Ticker<\/h1>/);
+  assert.match(app, /function guestRouteHeading\(\)/);
+  assert.match(app, /function routeHeadingText\(\)/);
+  assert.match(app, /team: "My team"/);
   assert.doesNotMatch(app, /bindInPageTab\(document\)/);
   const css = read("../docs/styles.css");
+  assert.match(css, /body\.launch-open #route-title/);
+  assert.doesNotMatch(css, /body\.league-loaded #route-title/);
+  assert.match(css, /body\.cold-share #route-title[\s\S]*display:\s*block !important/);
   assert.match(css, /\[data-room-panel\] h2:focus-visible[\s\S]*box-shadow:\s*var\(--focus\)/);
-  assert.doesNotMatch(css, /#route-title/);
   const league = read("../docs/ui/league.html");
   assert.match(league, /data-room-panel="history"[\s\S]*<h2 id="history-heading" tabindex="-1">Titles, records, and who stayed<\/h2>/);
   assert.doesNotMatch(index, /<(?:body|html)[^>]*\stabindex/);

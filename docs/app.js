@@ -576,6 +576,7 @@ const el = {
   stickyMobileCta: document.querySelector("#sticky-mobile-cta"),
   stickyFindBtn: document.querySelector("#sticky-find-btn"),
   mobileChromeTitle: document.querySelector("#mobile-chrome-title"),
+  routeTitle: document.querySelector("#route-title"),
   mobileRailToggle: document.querySelector("#mobile-rail-toggle"),
   mobileRailClose: document.querySelector("#mobile-rail-close"),
   deskBoardClose: document.querySelector("#desk-board-close"),
@@ -735,7 +736,10 @@ el.mobileRailToggle?.addEventListener("click", () => {
   const nextOpen = !document.body.classList.contains("rail-open");
   setMobileRailOpen(nextOpen);
   if (nextOpen) {
-    requestAnimationFrame(() => el.mobileRailClose?.focus());
+    requestAnimationFrame(() => {
+      if (!document.body.classList.contains("rail-open")) return;
+      el.mobileRailClose?.focus();
+    });
   }
 });
 el.phoneDesk?.addEventListener("click", handlePhoneDeskClick);
@@ -913,6 +917,9 @@ document.addEventListener("focusin", (event) => {
   if (target.id === "workspace") return;
   const tag = String(target.tagName || "");
   if (tag === "H1" || tag === "H2" || tag === "H3") return;
+  // Closing the menu can move focus onto the close control after the room
+  // heading. That is not the user staying in the menu.
+  if (target.id === "mobile-rail-close" && !document.body.classList.contains("rail-open")) return;
   const cls = typeof target.className === "string" ? target.className : "";
   if (/(?:^|\s)(?:room-tab|page-tab|phone-desk-room|phone-desk-page)(?:\s|$)/.test(cls)) return;
   followHeadingsUntil = 0;
@@ -958,9 +965,12 @@ ensureRouteLive(document);
 window.addEventListener("popstate", (event) => {
   const raw = event.state?.idx;
   const next = Number.isFinite(Number(raw)) ? Number(raw) : Math.max(0, routeFocus.index() - 1);
+  const before = routePlaceNow();
   const step = routeFocus.pop(next);
   applyDeskPopState(event.state);
-  syncRouteA11y({ focus: appBooted ? step.focus : "none", trigger: step.trigger });
+  const after = routePlaceNow();
+  const focus = !appBooted ? "none" : (leagueRoomMove(before, after) ? "heading" : step.focus);
+  syncRouteA11y({ focus, trigger: step.trigger, before });
 });
 if (isPhoneLayout()) setMobileRailOpen(false);
 
@@ -1688,11 +1698,27 @@ function armHeadingFollow() {
   followHeadingsUntil = Date.now() + 45000;
 }
 
+function focusRouteHeading(selector) {
+  if (!selector || Date.now() >= followHeadingsUntil) return;
+  focusHeadingWhenPresent(document, selector, {
+    stillWanted: () => Date.now() < followHeadingsUntil,
+  });
+}
+
+function leagueRoomMove(before, after) {
+  if (!before || !after) return false;
+  if (before.overlay || after.overlay || before.playerId || after.playerId) return false;
+  if ((before.page || before.tab) !== "league" || (after.page || after.tab) !== "league") return false;
+  return String(before.view || "") !== String(after.view || "");
+}
+
 function focusLeagueRoomHeading(room) {
   if (!appBooted || Date.now() >= followHeadingsUntil) return;
-  if (room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
+  if (room !== "team" && room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
   if (state.activePage !== "league" || getRoom() !== room) return;
-  focusHeadingWhenPresent(document, headingSelectorFor({ page: "league", view: room }));
+  focusHeadingWhenPresent(document, headingSelectorFor({ page: "league", view: room }), {
+    stillWanted: () => Date.now() < followHeadingsUntil,
+  });
 }
 
 function focusColdPlayerHeading() {
@@ -1719,7 +1745,7 @@ function syncRouteA11y({ focus = "none", trigger = null, before = null } = {}) {
     armHeadingFollow();
     const selector = headingSelectorFor(place);
     if (selector) {
-      focusHeadingWhenPresent(document, selector);
+      focusRouteHeading(selector);
       return;
     }
     const root = headingRootFor(document, place, before || {});
@@ -2557,6 +2583,28 @@ function syncDeskRailOffset() {
   if (height > 0) document.documentElement.style.setProperty("--desk-rail-height", `${height}px`);
 }
 
+function guestRouteHeading() {
+  const path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+  if (publicRanksOpen && !state.leagueId) return "Player ranks";
+  if (path === "/trade" || state.activePage === "trades") return "Trade";
+  if (path === "/players" || (state.activePage === "players" && !landingVisible())) return "Players";
+  return "Dynasty Ticker";
+}
+
+function routeHeadingText() {
+  if (state.leagueId && state.activePage === "league") {
+    const labels = {
+      team: "My team",
+      board: "League",
+      scores: "This week",
+      activity: "Activity",
+      history: "History",
+    };
+    if (labels[getRoom()]) return labels[getRoom()];
+  }
+  return guestRouteHeading();
+}
+
 function renderSessionSnapshot() {
   rebindUsernameInputs();
   const sampleOn = Boolean(state.viewingSample && state.leagueId);
@@ -2584,8 +2632,9 @@ function renderSessionSnapshot() {
         ? (state.leagueName || "Sample league")
         : state.leagueName
           ? (you ? `${you} · ${state.leagueName}` : state.leagueName)
-          : "Your Sleeper league";
+          : guestRouteHeading();
   }
+  if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
   if (el.mobileChromeViewing) {
     el.mobileChromeViewing.hidden = !sampleOn;
     el.mobileChromeViewing.textContent = sampleOn ? sampleViewingLine(you) : "";

@@ -208,6 +208,22 @@ h5 {
   border: 0 !important;
 }
 
+/* The landing has its own h1. Phone uses the chrome title. */
+body.launch-open #route-title {
+  display: none !important;
+}
+
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  #route-title {
+    display: none !important;
+  }
+
+  /* A cold share hides the chrome title. This clipped h1 is the page heading. */
+  body.cold-share #route-title {
+    display: block !important;
+  }
+}
+
 @media (min-width: 701px) {
   [data-room-panel] h2:focus-visible {
     outline-color: transparent;
