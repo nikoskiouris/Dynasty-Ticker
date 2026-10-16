@@ -1,4 +1,12 @@
 import { escapeHtml, formatNumber } from "./html.js";
+import {
+  playerValueTrend,
+  renderTrendSoon,
+  renderValueScaleExplainer,
+  renderValueTierBadge,
+  renderValueTrend,
+  renderValuesFreshness,
+} from "./value-scale.js";
 import { sleeperAvatarUrl } from "./sleeper.js";
 import { renderPlayerFace } from "./player-face.js";
 import { ordinal } from "./season.js";
@@ -36,15 +44,15 @@ export function marketTape({ confidence = "", kind = "player" } = {}) {
     return { tone: "model", line: "Historical rookie-outcome estimate." };
   }
   if (confidence === "established") {
-    return { tone: "model", line: "Football forecast with an established NFL sample." };
+    return { tone: "model", line: "Estimate based on several NFL seasons." };
   }
   if (confidence === "developing") {
-    return { tone: "model", line: "Football forecast with a developing NFL sample." };
+    return { tone: "model", line: "Estimate still settling: limited NFL games." };
   }
   if (confidence === "thin") {
-    return { tone: "model", line: "Football forecast with a thin NFL sample; the young-player prior matters more." };
+    return { tone: "model", line: "Early estimate: few NFL games so far." };
   }
-  return { tone: "model", line: "Independent full-PPR football forecast." };
+  return { tone: "model", line: "" };
 }
 
 export function pickEqualLine(value, pick, best) {
@@ -71,7 +79,7 @@ export function ownerLine(owner, { leagueOpen = false, kind = "player" } = {}) {
 }
 
 export function rankBoardNote({ format = "sf", leagueFormat = "", caveat = "" } = {}) {
-  const base = "Model price, full PPR. Same number on Trade and My League. The pick line is the closest pick.";
+  const base = "Our estimate, full PPR. Same number on Trade and My League. The pick line is the closest pick.";
   const peek = leagueFormat && format && format !== leagueFormat
     ? ` Peeking at ${rankFormatLabel(format)}. Your league is ${rankFormatLabel(leagueFormat)}.`
     : "";
@@ -147,7 +155,7 @@ export function buildRankBoard({
       owner: null,
       note: "",
       photoUrl: "",
-      initials: "PK",
+      initials: "Pick",
       spread: firstRoundSpread(pick, pickById),
       season: pick.season,
       round: pick.round,
@@ -205,6 +213,8 @@ export function rankView({
   loading = false,
   leagueValueFor = null,
   shown = RANK_PAGE_SIZE,
+  history = null,
+  updated = null,
 } = {}) {
   const visible = filterRankRows(rows, { query, position });
   const pageCount = Math.max(RANK_PAGE_SIZE, Number(shown) || RANK_PAGE_SIZE);
@@ -235,13 +245,15 @@ export function rankView({
     card,
     emptyLabel,
     leagueOpen: Boolean(leagueOpen),
+    history,
+    updated: updated || null,
   };
 }
 
 export function renderPlayerConnect() {
   return `<form class="player-connect" data-player-connect>
       <input class="player-connect-user" name="username" aria-label="Sleeper username" placeholder="Sleeper username" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
-      <button type="submit">Find my leagues</button>
+      <button type="submit">Connect my league</button>
     </form>
     <div class="player-league-list league-picker" data-player-league-list hidden></div>`;
 }
@@ -257,6 +269,7 @@ export function renderRanksToolbar(view) {
         ${RANK_FORMATS.map((format) => renderRankChip("rank-format", "format", format, rankFormatLabel(format), view?.format)).join("")}
       </div>
       <p class="ranks-note muted">${escapeHtml(view?.note || "")}</p>
+      ${renderValueScaleExplainer()}
     </div>
   `;
 }
@@ -276,15 +289,16 @@ export function renderRanksMarkup(view) {
 }
 
 export function renderRanksBody(view) {
-  const card = view?.card ? renderRankCard(view.card, { leagueOpen: view.leagueOpen }) : "";
+  const card = view?.card ? renderRankCard(view.card, view) : "";
   const rows = Array.isArray(view?.rows) ? view.rows : [];
   const list = rows.length
-    ? `<div class="ranks-list">${rows.map((row) => renderRankRow(row, row.assetId === view?.card?.assetId)).join("")}</div>`
+    ? `<div class="ranks-list">${rows.map((row) => renderRankRow(row, row.assetId === view?.card?.assetId, view)).join("")}</div>`
     : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
   const more = Number(view?.hidden) > 0
     ? `<button type="button" class="ghost-btn ranks-more" data-action="ranks-more">Show more</button>`
     : "";
-  return `${renderRanksShelf(rows)}${card}${list}${more}`;
+  const freshness = renderValuesFreshness(view?.updated, { align: "end" });
+  return `${renderRanksShelf(rows)}${card}${freshness}${list}${more}`;
 }
 
 function renderRanksShelf(rows) {
@@ -321,22 +335,45 @@ function shownRankNumber(row) {
   return row?.listRank || "";
 }
 
-function renderRankRow(row, active) {
+function rankTierTrend(row, view, { soon = false, spark = false } = {}) {
+  if (row?.kind !== "player") return "";
+  const tier = renderValueTierBadge(row.value);
+  const trend = playerValueTrend(view?.history, row.assetId, view?.format || "sf");
+  const trendHtml = trend ? renderValueTrend(trend, { spark }) : (soon ? renderTrendSoon() : "");
+  return `${tier}${trendHtml}`;
+}
+
+function renderRankTrendSoon() {
+  return `<span class="value-trend soon"><span aria-hidden="true">—</span><span class="sr-only">No trend yet</span></span>`;
+}
+
+function renderRankValue(row, view) {
+  const player = row?.kind === "player";
+  const trend = player ? playerValueTrend(view?.history, row.assetId, view?.format || "sf") : null;
+  const trendHtml = trend ? renderValueTrend(trend) : (player ? renderRankTrendSoon() : "");
+  const tier = player ? renderValueTierBadge(row.value) : "";
+  return `<span class="ranks-value"><span class="ranks-value-num">${escapeHtml(formatNumber(row.value))}</span>${trendHtml}${tier}</span>`;
+}
+
+function renderRankRow(row, active, view) {
   const you = row.owner?.mine ? " you" : "";
   const meta = rankMeta(row);
+  const tag = row.kind !== "pick" && row.tape?.line ? `<small class="ranks-tag">${escapeHtml(row.tape.line)}</small>` : "";
   return `
     <button type="button" class="ranks-row${active ? " active" : ""}${you}" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}" aria-pressed="${active ? "true" : "false"}">
       <span class="ranks-num">${escapeHtml(String(shownRankNumber(row)))}</span>
       <span class="ranks-who">
         ${renderRankName(row)}
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
+        ${tag}
       </span>
-      <span class="ranks-value">${escapeHtml(formatNumber(row.value))}</span>
+      ${renderRankValue(row, view)}
     </button>
   `;
 }
 
-function renderRankCard(row, { leagueOpen = false } = {}) {
+function renderRankCard(row, view = {}) {
+  const leagueOpen = Boolean(view?.leagueOpen);
   const held = ownerLine(row.owner, { leagueOpen, kind: row.kind });
   const league = Number.isFinite(row.leagueValue)
     ? `Your league: ${formatNumber(row.leagueValue)}.`
@@ -380,16 +417,17 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
         </div>
         <div class="ranks-card-price">
           <strong>${escapeHtml(formatNumber(row.value))}</strong>
-          <span>Model</span>
+          <span class="ranks-estimate">Our estimate</span>
+          ${rankTierTrend(row, view, { soon: true, spark: true })}
         </div>
       </div>
-      <p class="ranks-tape ranks-tape-${escapeHtml(row.tape?.tone || "crowd")}">${escapeHtml(row.tape?.line || "")}</p>
+      ${row.tape?.line ? `<p class="ranks-tape ranks-tape-${escapeHtml(row.tape?.tone || "crowd")}">${escapeHtml(row.tape.line)}</p>` : ""}
       ${facts.length ? `<dl class="ranks-facts">${facts.map((fact) => `<div><dt>${escapeHtml(fact.label)}</dt><dd>${escapeHtml(fact.value)}</dd></div>`).join("")}</dl>` : ""}
       ${held || league ? `<p class="ranks-held">${escapeHtml([held, league].filter(Boolean).join(" "))}</p>` : ""}
       ${neighbors.length ? `
         <h3>Similar value</h3>
         <div class="ranks-neighbors">
-          ${neighbors.map((neighbor) => renderRankNeighbor(neighbor)).join("")}
+          ${neighbors.map((neighbor) => renderRankNeighbor(neighbor, view)).join("")}
         </div>
       ` : ""}
       <div class="ranks-card-actions">
@@ -400,7 +438,7 @@ function renderRankCard(row, { leagueOpen = false } = {}) {
   `;
 }
 
-function renderRankNeighbor(row) {
+function renderRankNeighbor(row, view) {
   const meta = rankMeta(row);
   return `
     <button type="button" class="ranks-row ranks-neighbor" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}">
@@ -408,7 +446,7 @@ function renderRankNeighbor(row) {
         ${renderRankName(row)}
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
       </span>
-      <span class="ranks-value">${escapeHtml(formatNumber(row.value))}</span>
+      ${renderRankValue(row, view)}
     </button>
   `;
 }
@@ -416,7 +454,7 @@ function renderRankNeighbor(row) {
 function rankMeta(row) {
   if (row?.kind === "pick") return "Pick";
   const age = Number.isFinite(Number(row?.age)) && Number(row.age) > 0 ? `${Math.round(Number(row.age))}y` : "";
-  return [row?.boardRank, row?.team, age, pickScan(row?.pickLine)].filter(Boolean).join(" · ");
+  return [row?.boardRank, row?.team, age].filter(Boolean).join(" · ");
 }
 
 function pickScan(line) {

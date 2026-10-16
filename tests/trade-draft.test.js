@@ -12,6 +12,7 @@ import {
   swapValueCalcSides,
   valueCalcVerdict,
 } from "../docs/modules/value-calc.js";
+import { verdictCopy } from "../docs/modules/verdict-copy.js";
 import {
   TRADE_DRAFT_STORAGE_KEY,
   describeDraftItem,
@@ -244,12 +245,13 @@ test("one verdict: market totals stay visible, an uneven package gets a labeled 
   assert.equal(starForTwo.compareGive, 10321 + starForTwo.adjustment.amount);
   assert.deepEqual(draftMeterValues(starForTwo), { give: 10321, get: 15000 });
   assert.equal(starForTwo.compareGet, 15000);
-  assert.equal(valueCalcVerdict(10321, 15000).label, "Lopsided for Get", "raw sums alone would call this a steal");
-  assert.notEqual(starForTwo.verdict.label, "Lopsided for Get");
+  const rawSteal = valueCalcVerdict(10321, 15000).label;
+  assert.equal(rawSteal, "Lopsided for Get", "raw sums alone would call this a steal");
+  assert.notEqual(starForTwo.verdict.label, rawSteal);
 
   const oneSided = draftVerdictModel([10321], []);
   assert.equal(oneSided.adjustment, null);
-  assert.equal(oneSided.verdict.label, "Add the other side");
+  assert.equal(oneSided.verdict.label, "Now add what you get back");
   assert.deepEqual(draftVerdictModel([10321], [7700, 7300], { globalMaxValue: 10321 }), starForTwo, "same prices, same answer");
 });
 
@@ -340,6 +342,25 @@ test("even-up rescores the pick after stud credit, and bad numbers stay finite",
   assert.match(app, /evenUpTradePick\(/);
 });
 
+test("the trade heading is verdictCopy output for both sides", () => {
+  const at = (give, get) => verdictCopy(valueCalcVerdict(give, get));
+  const copies = [
+    at(10000, 10200),
+    at(10000, 11000),
+    at(11000, 10000),
+    at(10000, 12000),
+    at(12000, 10000),
+    at(10000, 14000),
+    at(14000, 10000),
+  ];
+  const lines = copies.map((copy) => copy.line);
+  assert.equal(new Set(lines).size, lines.length);
+  assert.ok(copies.every((copy) => copy.line));
+  const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/app.js"), "utf8");
+  assert.match(app, /const copy = verdictCopy\(verdict\);/);
+  assert.match(app, /bothSides \? copy\.line : copy\.label/);
+});
+
 test("the verdict reads from the manager's seat", () => {
   assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 11100), { them: "Chris" }), "Favors you");
   assert.equal(draftVerdictLabel(valueCalcVerdict(11100, 9000), { them: "Chris" }), "Favors Chris");
@@ -358,9 +379,9 @@ test("a zero-value piece does not mint stud credit or hide a real side", () => {
   const missing = draftVerdictModel([0], [9000], { globalMaxValue: 9000 });
   assert.equal(missing.give, 0);
   assert.equal(missing.verdict.label, "Lopsided for Get");
-  assert.equal(valueCalcVerdict(0, 9000).label, "Add the other side");
+  assert.equal(valueCalcVerdict(0, 9000).label, "Now add what you get back");
   const empty = draftVerdictModel([], [], { globalMaxValue: 1 });
-  assert.equal(empty.verdict.label, "Add both sides");
+  assert.equal(empty.verdict.label, "Add players to both sides");
   const tiny = draftVerdictModel([1], [1], { globalMaxValue: 1 });
   assert.equal(tiny.verdict.label, "Dead even");
 });
@@ -368,7 +389,7 @@ test("a zero-value piece does not mint stud credit or hide a real side", () => {
 test("verdict bands stay on the rounded tenth, both directions", () => {
   const band = (pct) => {
     if (pct <= 5) return /Dead even/;
-    if (pct <= 12) return /Fair/;
+    if (pct <= 12) return /Fair, leans/;
     if (pct <= 22) return /Favors/;
     return /Lopsided/;
   };

@@ -12,7 +12,7 @@ test("a cold player card puts Find at the top and one submit opens the league li
   const connectFn = ranks.slice(ranks.indexOf("export function renderPlayerConnect"), ranks.indexOf("export function renderRanksToolbar"));
   assert.match(connectFn, /data-player-connect/);
   assert.match(connectFn, /data-player-league-list/);
-  assert.match(connectFn, /Find my leagues/);
+  assert.match(connectFn, /Connect my league/);
   const card = ranks.slice(ranks.indexOf("function renderRankCard"), ranks.indexOf("function renderRankNeighbor"));
   assert.doesNotMatch(card, /data-player-connect|find-my-leagues/);
 

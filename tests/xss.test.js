@@ -41,7 +41,7 @@ test("malicious Sleeper display names stay text in power, insight, and multi-tea
   });
   const insight = renderSleeperInsight({
     title: "Draft Ammo",
-    body: `1 first-round pick in the vault, led by ${EVIL}.`,
+    body: `1 first-round pick owned, led by ${EVIL}.`,
     tone: "gold",
   });
   const stat = renderPowerStat("Pick owner", EVIL);

@@ -27,7 +27,7 @@ const DRAFT_ASSET_ID = /^(?:player:[A-Za-z0-9_.-]+|pick:\d{4}:r\d+:[A-Za-z0-9_-]
 // number of pieces. A straight one-for-one stays at the listed prices.
 export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxValue = 9999 } = {}) {
   // Keep a 0 in the list so a missing player still counts as a side. Infinity
-  // and NaN become 0 here; package credit drops them before the stud curve.
+  // and NaN become 0 here; stud credit drops them before the stud curve.
   const clean = (list) => (Array.isArray(list) ? list : []).map(finiteAssetValue);
   const giveList = clean(giveValues);
   const getList = clean(getValues);
@@ -199,7 +199,7 @@ export function reviewPayloadFor(idea) {
   };
 }
 
-// Bars and pane totals stay on the listed prices. Package credit changes the
+// Bars and pane totals stay on the listed prices. Stud credit changes the
 // verdict only, so the same side never shows two different numbers.
 export function draftMeterValues(model) {
   return {
@@ -213,7 +213,7 @@ export function draftMeterValues(model) {
 const EVEN_UP_FAIR_PCT = 12;
 
 // A pick evens the gap only when its price actually covers it. Pass scoreAdded
-// when adding the pick changes the package credit; the raw 0.8–1.25 band does
+// when adding the pick changes the stud credit; the raw 0.8–1.25 band does
 // not know about that credit.
 export function evenUpPickChoice(gap, picks = [], { scoreAdded = null } = {}) {
   const need = Math.abs(Number(gap) || 0);

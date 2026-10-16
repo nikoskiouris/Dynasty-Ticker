@@ -81,6 +81,7 @@ test("sample labels are what the desk renders", () => {
   assert.match(app, /sampleVoice\(\)\?\.teamOutlined/);
   assert.match(app, /sampleVoice\(\)\?\.strengthens/);
   // The verdict heading is neutral now (verdict-copy.js); the offer text keeps the voice.
+  assert.match(app, /const copy = verdictCopy\(verdict\);/);
   assert.match(app, /getFavor: sampleVoice\(\)\?\.favor/);
   assert.match(app, /sampleRoomHint\(/);
   assert.match(app, /voice\?\.findIntro/);
@@ -95,11 +96,11 @@ function paintSampleDesk(voice) {
     ["Start from a partner, one of yours, or one of theirs. Review trade fills the calculator.", voice.findIntro],
     ["One of yours, or one of theirs. Then search the name.", voice.shopIntro],
     [">Mine<", `>${voice.mineLabel}<`],
+    ["Sell one of mine", voice.shopOption],
     ["One of mine", voice.oneOfMine],
     ["Pick one of your players or picks.", voice.shopPick],
     ['placeholder="Search player or pick"', `placeholder="${voice.shopSearch}"`],
     ["Your team is outlined. Tap a team to view it.", voice.teamOutlined],
-    ["This is a public sample league. Connect your Sleeper username anytime.", voice.banner],
     ["Your team, this week, the league", voice.pageHintLeague],
   ];
   let html = [
