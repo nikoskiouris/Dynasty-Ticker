@@ -86,7 +86,7 @@ test("bye and missing opponent sit instead of silently starting", () => {
 
 test("out sits, questionable can still start", () => {
   assert.equal(injurySitReason("Out"), "Sit — Out");
-  assert.equal(injurySitReason("IR"), "Sit — IR");
+  assert.equal(injurySitReason("IR"), "Sit — on injured reserve");
   assert.equal(injurySitReason("Doubtful"), "Sit — Doubtful");
   assert.equal(injurySitReason("Questionable"), "");
   const board = buildSitStart({
@@ -107,6 +107,7 @@ test("roster slots say Superflex and Bench", () => {
   assert.equal(formatSitStartSlot("SUPER_FLEX"), "Superflex");
   assert.equal(formatSitStartSlot("BN"), "Bench");
   assert.equal(formatSitStartSlot("BENCH"), "Bench");
+  assert.equal(formatSitStartSlot("IR"), "Injured reserve");
   assert.equal(formatSitStartSlot("FLEX"), "Flex");
 });
 

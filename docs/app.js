@@ -2911,7 +2911,10 @@ function renderLeagueHero() {
             ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
             : "Matchups are syncing.";
   const sampleNote = state.viewingSample ? (sampleVoice()?.accountNote || "Public sample — not this account. ") : "";
-  el.heroLede.textContent = `${sampleNote}${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`;
+  const formatTip = tepLevel(league) > 0
+    ? ` ${infoTipMarkup({ id: "pop-hero-format", label: "Scoring", text: "Values use 1 point per catch at every position, even with the TE bonus." })}`
+    : "";
+  el.heroLede.innerHTML = `${escapeHtml(`${sampleNote}${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`)}${formatTip}`;
   if (el.leagueAvatar) {
     const leagueAvatarSrc = sleeperAvatarUrl(league.avatar);
     el.leagueAvatar.innerHTML = leagueAvatarSrc
@@ -7106,7 +7109,7 @@ function renderRosterSheet() {
   const renderPlayerRow = (asset, slotLabel, extra = {}) => {
     const playerId = playerIdFromAssetId(asset.assetId);
     const nickname = roster.nicknames?.[playerId];
-    const injury = String(asset.raw?.injury_status || "").trim();
+    const injury = plainRosterStatus(asset.raw?.injury_status);
     const team = String(asset.raw?.team || "").trim();
     const weekly = weeklyFor(asset);
     const weeklyLabel = state.weeklyValue?.loading && !state.weeklyValue?.context
@@ -7127,7 +7130,7 @@ function renderRosterSheet() {
     ].filter(Boolean).join(" · ");
     return `
       <button type="button" class="${rowClass}" data-action="open-player" data-player-id="${escapeHtml(playerId)}" aria-pressed="${open ? "true" : "false"}"${note ? ` title="${escapeHtml(note)}"` : ""}>
-        <span class="sheet-slot">${escapeHtml(slotLabel)}</span>
+        ${sheetSlotMarkup(extra.slot, slotLabel)}
         <div class="sheet-player">
           ${renderPlayerFace(playerId, asset.name, { size: "sm" })}
           <strong>${escapeHtml(asset.name)}${nickname ? ` <em class="nickname">“${escapeHtml(nickname)}”</em>` : ""}</strong>
@@ -7195,10 +7198,11 @@ function renderRosterSheet() {
         <h4>Start</h4>
         ${startRows.map((entry) => entry.asset
           ? renderPlayerRow(entry.asset, entry.slotLabel || formatRosterSlotLabel(entry.slot), {
+              slot: entry.slot,
               note: entry.rowNote,
               closeCall: String(entry.rowNote || "").startsWith("Close vs"),
             })
-          : `<div class="sheet-row empty"><span class="sheet-slot">${escapeHtml(entry.slotLabel || formatRosterSlotLabel(entry.slot))}</span><div class="sheet-player"><strong>${escapeHtml(entry.rowNote || "Open")}</strong></div></div>`).join("")}
+          : `<div class="sheet-row empty">${sheetSlotMarkup(entry.slot, entry.slotLabel || formatRosterSlotLabel(entry.slot))}<div class="sheet-player"><strong>${escapeHtml(entry.rowNote || "Open")}</strong></div></div>`).join("")}
       </section>
       <section class="sheet-column">
         <h4>Sit</h4>
@@ -7618,7 +7622,7 @@ function renderDraftBasis(view) {
   const { basis } = view;
   return `
     <div class="draft-basis-row" role="group" aria-label="Scoring format">
-      ${["sf", "oneQb"].map((format) => `<button type="button" class="ranks-chip${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}">Full PPR · ${escapeHtml(rankFormatLabel(format))}</button>`).join("")}
+      ${["sf", "oneQb"].map((format) => `<button type="button" class="ranks-chip${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}">PPR · ${escapeHtml(rankFormatLabel(format))}</button>`).join("")}
       ${infoTipMarkup({ id: "pop-values-trade", label: "How values work", text: valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10)) })}
     </div>
   `;
@@ -11553,6 +11557,9 @@ function buildSleeperInsightCards(profile, context) {
     title: "League Format",
     body: formatInsight,
     tone: "blue",
+    tipHtml: tepLevel(context.league) > 0
+      ? infoTipMarkup({ id: "pop-league-format", label: "Scoring", text: "Values use 1 point per catch at every position, even with the TE bonus." })
+      : "",
   });
 
   if (profile.strongestPosition) {
@@ -11616,7 +11623,13 @@ function describeLeagueFormat(league) {
   const scoring = league?.scoring_settings || {};
   const receptionValue = Number(scoring.rec);
   const pprLabel = Number.isFinite(receptionValue)
-    ? receptionValue >= 1 ? "PPR" : receptionValue > 0 ? `${receptionValue} PPR` : "standard"
+    ? receptionValue >= 1
+      ? "1 point per catch"
+      : receptionValue === 0.5
+        ? "0.5 points per catch"
+        : receptionValue > 0
+          ? `${receptionValue} PPR`
+          : "standard"
     : "custom scoring";
   const taxiSlots = Number(league?.settings?.taxi_slots || 0);
   const draftRounds = Number(league?.settings?.draft_rounds || 0);
@@ -11626,8 +11639,8 @@ function describeLeagueFormat(league) {
     pprLabel,
     `${slots.length} starters`,
   ];
-  if (tepLevel(league) > 0) parts.push("TE bonus (values stay full PPR)");
-  if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi`);
+  if (tepLevel(league) > 0) parts.push("TE bonus");
+  if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi spots`);
   if (leagueUsesFuturePicks(league) && draftRounds > 0) parts.push(`${draftRounds}-round rookie draft`);
   return parts.join(" • ");
 }
@@ -13443,6 +13456,12 @@ function assetCanFillRosterSlot(asset, slot) {
   return playerPositions.some((position) => allowedPositions.has(position));
 }
 
+function plainRosterStatus(status) {
+  const key = String(status || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (key === "ir" || key === "injured_reserve") return "Injured reserve";
+  return String(status || "").trim();
+}
+
 function formatRosterSlotLabel(slot) {
   const labels = {
     SUPER_FLEX: "Superflex",
@@ -13450,6 +13469,7 @@ function formatRosterSlotLabel(slot) {
     SF: "Superflex",
     BN: "Bench",
     BENCH: "Bench",
+    IR: "Injured reserve",
     REC_FLEX: "Rec Flex",
     WRRB_FLEX: "RB/WR",
     RBWR_FLEX: "RB/WR",
@@ -13458,6 +13478,14 @@ function formatRosterSlotLabel(slot) {
   };
   const key = String(slot || "").trim().toUpperCase();
   return labels[key] || String(slot || "").replace(/_/g, " ");
+}
+
+function sheetSlotMarkup(slot, slotLabel) {
+  const key = String(slot || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (key === "SUPER_FLEX" || key === "SUPERFLEX" || key === "SF") {
+    return `<span class="sheet-slot sheet-slot-superflex"><span class="sheet-slot-full">Superflex</span><span class="sheet-slot-short" title="Superflex" aria-label="Superflex">SF</span></span>`;
+  }
+  return `<span class="sheet-slot">${escapeHtml(slotLabel || "")}</span>`;
 }
 
 function findClosestValuationPick(targetValue, values, valueNameMap) {

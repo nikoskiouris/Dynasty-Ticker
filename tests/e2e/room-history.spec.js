@@ -72,6 +72,7 @@ for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await loadLeague(page);
     await expectRoom(page, `/l/${LEAGUE}/team`, "team");
+    await expect(page).toHaveTitle(/^My team · Dynasty Ticker/);
 
     await openRoom(page, "board");
     await expectRoom(page, `/l/${LEAGUE}/league`, "board");
