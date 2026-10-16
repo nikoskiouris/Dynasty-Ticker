@@ -1233,7 +1233,8 @@ button.ranks-chip,
 .week-chips button,
 .segmented button,
 details.workspace-panel > summary,
-.league-id-fallback summary {
+.league-id-fallback summary,
+.league-missing-primary {
   position: relative;
 }
 
@@ -1281,7 +1282,8 @@ button.ranks-chip::before,
 button.inline-link::before,
 a.inline-link::before,
 details.workspace-panel > summary::before,
-.league-id-fallback summary::before {
+.league-id-fallback summary::before,
+.league-missing-primary::before {
   content: "";
   position: absolute;
   left: 0;

@@ -81,6 +81,25 @@
   </div>
 </section>
 
+<section id="league-missing" class="league-missing hidden" hidden>
+  <h1 id="league-missing-title" tabindex="-1">We couldn't find that league</h1>
+  <p>The link may be wrong, or the league was deleted.</p>
+  <div class="league-missing-actions">
+    <button type="button" class="league-missing-primary" data-action="find-my-leagues" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+    <a class="sample-league-link" href="/?sample=1">See the sample league</a>
+  </div>
+</section>
+
+<section id="sleeper-down" class="league-missing sleeper-down hidden" hidden>
+  <h1 id="sleeper-down-title" tabindex="-1">Couldn't reach Sleeper</h1>
+  <p>Sleeper didn't answer. Your league is safe, so try again in a moment.</p>
+  <div class="league-missing-actions">
+    <button type="button" id="sleeper-down-retry" class="league-missing-primary">Retry</button>
+    <button type="button" id="sleeper-down-find" class="ghost-btn" data-action="find-my-leagues" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+    <a class="sample-league-link" href="/?sample=1">See the sample league</a>
+  </div>
+</section>
+
 <section id="public-ranks" class="public-ranks hidden" hidden>
   <div class="workspace-panel">
     <div class="panel-heading">
