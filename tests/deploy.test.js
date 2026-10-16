@@ -250,3 +250,16 @@ test("agents land work on develop and release from prod", () => {
   assert.match(tests, /"develop"/);
   assert.match(tests, /"prod"/);
 });
+
+
+test("a prod push deploys its published release without relying on a token-created release event", () => {
+  const workflow = read(".github/workflows/cut-release.yml");
+  assert.match(workflow, /needs: cut-release/);
+  assert.match(workflow, /tag: \$\{\{ steps\.release\.outputs\.tag \}\}/);
+  assert.match(workflow, /ref: \$\{\{ needs\.cut-release\.outputs\.tag \}\}/);
+  assert.match(workflow, /group: deploy-live/);
+  assert.match(workflow, /assert_prod_release\.sh "\$RELEASE_TAG"/);
+  assert.ok(workflow.indexOf('assert_prod_release.sh') < workflow.indexOf('deploy_live_site.sh'));
+  assert.match(workflow, /bash scripts\/deploy_live_site\.sh/);
+  assert.doesNotMatch(workflow, /schedule:/);
+});
