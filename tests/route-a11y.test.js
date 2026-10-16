@@ -644,8 +644,10 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   const league = read("../docs/ui/league.html");
   assert.match(league, /<h2 id="power-heading" tabindex="-1">/);
   assert.match(league, /<h2 id="league-heading" tabindex="-1">How the league ranks<\/h2>/);
-  assert.match(league, /<h2 id="scores-heading" class="sr-only" tabindex="-1">This week<\/h2>/);
-  assert.match(league, /<h2 id="activity-heading" class="sr-only" tabindex="-1">Activity<\/h2>/);
+  assert.match(league, /<h2 id="scores-heading" tabindex="-1">This week<\/h2>/);
+  assert.doesNotMatch(league, /id="scores-heading"[^>]*\bsr-only\b/);
+  assert.match(league, /<h2 id="activity-heading" tabindex="-1">Activity<\/h2>/);
+  assert.doesNotMatch(league, /id="activity-heading"[^>]*\bsr-only\b/);
   assert.match(league, /data-room-panel="history"[\s\S]*<h2 id="history-heading" tabindex="-1">Titles, records, and who stayed<\/h2>/);
   assert.doesNotMatch(index, /<(?:body|html)[^>]*\stabindex/);
   assert.match(index, /id="workspace"[^>]*tabindex="-1"/);
@@ -1215,6 +1217,9 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
     await waitForPage(pageSocket, `() => ({
       ok: Boolean(document.querySelector("#trades-tab")),
     })`, 15000, "trade shell");
+    await waitForPage(pageSocket, `() => ({
+      ok: window.__dynastyBootFind?.pending === false,
+    })`, 20000, "app boot");
     await pageEval(pageSocket, () => {
       window.__stops = [];
       document.addEventListener("focusin", (event) => {

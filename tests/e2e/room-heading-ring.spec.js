@@ -66,6 +66,38 @@ async function expectRoom(page, room) {
   return snap;
 }
 
+function readFocusBox(page) {
+  return page.evaluate(() => {
+    const el = document.activeElement;
+    const rect = el?.getBoundingClientRect?.() || { width: 0, height: 0, top: 0, right: 0, bottom: 0, left: 0 };
+    const style = el ? getComputedStyle(el) : null;
+    const clip = style?.clip || "";
+    const zeroClip = /^rect\(\s*0px?\s*,\s*0px?\s*,\s*0px?\s*,\s*0px?\s*\)$/.test(clip);
+    let ancestorClips = false;
+    let node = el?.parentElement || null;
+    while (node && node !== document.documentElement) {
+      const parentStyle = getComputedStyle(node);
+      const overflow = `${parentStyle.overflow} ${parentStyle.overflowX} ${parentStyle.overflowY}`;
+      if (/\b(hidden|clip)\b/.test(overflow)) {
+        const parent = node.getBoundingClientRect();
+        const width = Math.min(rect.right, parent.right) - Math.max(rect.left, parent.left);
+        const height = Math.min(rect.bottom, parent.bottom) - Math.max(rect.top, parent.top);
+        if (width <= 0 || height <= 0) ancestorClips = true;
+      }
+      node = node.parentElement;
+    }
+    return {
+      width: rect.width,
+      height: rect.height,
+      srOnly: Boolean(el?.classList?.contains("sr-only")),
+      clip,
+      zeroClip,
+      ancestorClips,
+      outlineWidth: style ? Number.parseFloat(style.outlineWidth) || 0 : 0,
+    };
+  });
+}
+
 function expectOneAnnouncement(snap) {
   expect(snap.live === snap.heading && snap.heading !== "", JSON.stringify(snap)).toBe(false);
   if (snap.heading === "This week" || snap.heading === "Activity") {
@@ -82,6 +114,25 @@ for (const width of [1280, 390]) {
     await keyboardOpenRoom(page, "League");
     const snap = await expectRoom(page, roomBySlug.league);
     expect(snap.outlineWidth, JSON.stringify(snap)).toBeGreaterThan(0);
+  });
+
+  test(`This week and Activity show a visible ring at ${width}`, async ({ page }) => {
+    test.setTimeout(90000);
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 800 });
+    await page.goto(`/l/${LEAGUE}/team`);
+    await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
+    for (const slug of ["week", "activity"]) {
+      const room = roomBySlug[slug];
+      await keyboardOpenRoom(page, room.name);
+      await expectRoom(page, room);
+      const box = await readFocusBox(page);
+      expect(box.width, JSON.stringify(box)).toBeGreaterThan(0);
+      expect(box.height, JSON.stringify(box)).toBeGreaterThan(0);
+      expect(box.srOnly, JSON.stringify(box)).toBe(false);
+      expect(box.zeroClip, JSON.stringify(box)).toBe(false);
+      expect(box.ancestorClips, JSON.stringify(box)).toBe(false);
+      expect(box.outlineWidth, JSON.stringify(box)).toBeGreaterThan(0);
+    }
   });
 
   test(`a mouse room change shows no ring at ${width}`, async ({ page }) => {
