@@ -33,8 +33,11 @@ export const NOOP_ADAPTER = Object.freeze({
 
 const TEST_ADAPTER_KEY = "__dtAnalyticsTestAdapter";
 
+const FORCE_BEACON_KEY = "__dtAnalyticsForceBeacon";
+
 let adapter = NOOP_ADAPTER;
 let lastRoute = "";
+let firstSent = false;
 const lastOccurrence = new Map();
 
 function isAdapter(value) {
@@ -48,6 +51,7 @@ export function setAnalyticsAdapter(next) {
 export function resetAnalytics() {
   adapter = NOOP_ADAPTER;
   lastRoute = "";
+  firstSent = false;
   lastOccurrence.clear();
 }
 
@@ -99,8 +103,12 @@ function activeAdapter(env = {}) {
   const location = env.location ?? globalThis.location;
   const injected = testAdapter(win, location);
   if (injected) return injected;
-  if (optOutReason({ ...env, win, location })) return null;
-  return adapter;
+  const reason = optOutReason({ ...env, win, location });
+  // e2e can force the real adapter on a local host. DNT / GPC still win.
+  const forced = win?.[FORCE_BEACON_KEY] === true && isLocalHost(location?.hostname)
+    && (reason === "localhost" || reason === "automation");
+  if (reason && !forced) return null;
+  return adapter === NOOP_ADAPTER ? null : adapter;
 }
 
 const ROUTE_TEMPLATES = [
@@ -176,8 +184,10 @@ export function track(name, props = {}, { once = "", env = {} } = {}) {
   }
   const sink = activeAdapter(env);
   if (!sink) return false;
+  const location = env.location ?? globalThis.location;
   try {
-    sink.event(name, clean);
+    // Every event is tagged with the route template it happened on.
+    sink.event(name, clean, { route: placeholderRoute(location?.pathname || "/") });
   } catch {
     // Analytics never breaks the desk.
   }
@@ -185,21 +195,30 @@ export function track(name, props = {}, { once = "", env = {} } = {}) {
 }
 
 // One pageview per route change. Replays of the same route are dropped.
-// Returns true when the route changed (even if opted out, nothing is sent).
+// Returns true when a pageview went to an adapter. With no live adapter
+// (opted out, or none set yet) nothing is recorded, so the route still counts
+// as unreported and the next call can send it.
+// The first pageview sent in a page load carries the UTM tags and referrer
+// host (from the page itself unless passed in); later ones carry neither.
 export function pageview(route = globalThis.location?.pathname || "/", {
-  search = "",
-  referrer = "",
+  search,
+  referrer,
   env = {},
 } = {}) {
   const template = placeholderRoute(route);
   if (template === lastRoute) return false;
-  lastRoute = template;
   const sink = activeAdapter(env);
-  if (!sink) return true;
+  if (!sink) return false;
+  lastRoute = template;
   const location = env.location ?? globalThis.location;
-  const context = { ...campaignFrom(search) };
-  const host = referrerHost(referrer, location?.hostname);
-  if (host) context.referrer = host;
+  const doc = env.doc ?? globalThis.document;
+  const context = {};
+  if (!firstSent) {
+    Object.assign(context, campaignFrom(search ?? location?.search ?? ""));
+    const host = referrerHost(referrer ?? doc?.referrer ?? "", location?.hostname);
+    if (host) context.referrer = host;
+  }
+  firstSent = true;
   try {
     sink.pageview(template, context);
   } catch {
@@ -245,8 +264,8 @@ export function createBeaconAdapter({
       if (context.utm_source) payload.u = context.utm_source;
       send(payload);
     },
-    event(name, props = {}) {
-      const payload = { e: name, p: currentRoute() };
+    event(name, props = {}, context = {}) {
+      const payload = { e: name, p: context.route || currentRoute() };
       if (props && Object.keys(props).length) payload.props = props;
       send(payload);
     },

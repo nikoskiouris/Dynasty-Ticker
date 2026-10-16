@@ -208,9 +208,10 @@ test("beacon adapter: one same-origin beacon per call, templates only, no ids", 
   pageview("/l/1180000000000000/week", { env: LIVE });
   trackShareTapped("copy");
   trackTradeLinkOpened({ drift: true });
-  track("trade_checked", { mode: "league" }, { env: LIVE });
-  track("league_connected", { sample: "no" }, { env: LIVE });
-  track("made_up", {}, { env: LIVE });
+  const ON_TRADE = { ...LIVE, location: { hostname: "dynastyticker.com", pathname: "/t/Secret99" } };
+  track("trade_checked", { mode: "league" }, { env: ON_TRADE });
+  track("league_connected", { sample: "no" }, { env: ON_TRADE });
+  track("made_up", {}, { env: ON_TRADE });
   const got = await bodies(sent);
   for (const row of got) {
     assert.equal(row.url, "/api/collect");
@@ -254,6 +255,62 @@ test("beacon adapter never sends under DNT or GPC", () => {
 test("app.js switches in the beacon adapter at boot", () => {
   const app = readFileSync(new URL("../docs/app.js", import.meta.url), "utf8");
   const set = app.indexOf("setAnalyticsAdapter(createBeaconAdapter());");
-  const first = app.indexOf("reportRoute({ first: true });");
-  assert.ok(set > 0 && first > set, "adapter is set before the first pageview");
+  // bootFromUrl can write the URL (updateUrlState -> reportRoute), so the
+  // adapter must be live before it, not just before the boot-end reportRoute.
+  const boot = app.indexOf("\nbootFromUrl();");
+  const firstReport = app.indexOf("\nreportRoute();");
+  assert.ok(set > 0 && boot > set && firstReport > set, "adapter is set before boot and the first pageview");
+  assert.equal(app.includes("reportRoute({ first: true })"), false);
+  // trade_checked waits for the URL write that follows the render.
+  assert.match(app, /queueMicrotask\(\(\) => analyticsTrack\("trade_checked"/);
+  // A league load does not write the landing URL before showAppPages.
+  assert.match(app, /hydrateManagerSelector\(\{ syncUrl: false \}\);/);
+});
+
+test("no live adapter: the route is not marked reported, so the first real send still happens", () => {
+  resetAnalytics();
+  // Boot order bug (#178 r2): a pageview before the adapter was set used to
+  // mark the route, and the real first pageview was then deduped away.
+  assert.equal(pageview("/players", { env: LIVE }), false);
+  assert.equal(pageview("/players", { env: { ...LIVE, nav: { doNotTrack: "1" } } }), false);
+  const rec = recorder();
+  setAnalyticsAdapter(rec);
+  assert.equal(pageview("/players", { referrer: "https://t.co/x", env: LIVE }), true);
+  assert.deepEqual(rec.calls, [["pageview", "/players", { referrer: "t.co" }]]);
+  resetAnalytics();
+});
+
+test("the first pageview sent carries the page's own referrer and UTM, later ones carry none", () => {
+  const rec = withAdapter();
+  const env = { ...LIVE, location: { hostname: "dynastyticker.com", search: "?utm_source=reddit" }, doc: { referrer: "https://old.reddit.com/r/x" } };
+  pageview("/players", { env });
+  pageview("/trade", { env });
+  assert.deepEqual(rec.calls, [
+    ["pageview", "/players", { utm_source: "reddit", referrer: "old.reddit.com" }],
+    ["pageview", "/trade", {}],
+  ]);
+  resetAnalytics();
+});
+
+test("events carry the route template they happened on", () => {
+  const rec = withAdapter();
+  const calls = [];
+  setAnalyticsAdapter({ pageview() {}, event(name, props, context) { calls.push([name, props, context]); } });
+  track("trade_checked", { mode: "public" }, { env: { ...LIVE, location: { hostname: "dynastyticker.com", pathname: "/t/AbC" } } });
+  assert.deepEqual(calls, [["trade_checked", { mode: "public" }, { route: "/t/:code" }]]);
+  assert.equal(rec.calls.length, 0);
+  resetAnalytics();
+});
+
+test("the force-beacon flag works on a local host only and never beats DNT/GPC", () => {
+  const rec = recorder();
+  resetAnalytics();
+  setAnalyticsAdapter(rec);
+  const local = { location: { hostname: "127.0.0.1", pathname: "/" }, nav: { webdriver: true }, win: { __dtAnalyticsForceBeacon: true } };
+  assert.equal(track("trade_checked", { mode: "public" }, { env: local }), true);
+  assert.equal(track("league_connected", { sample: "no" }, { env: { ...local, nav: { webdriver: true, globalPrivacyControl: true } } }), false);
+  assert.equal(track("share_tapped", { method: "copy" }, { env: { ...local, location: { hostname: "x--y.netlify.app" } } }), false);
+  assert.equal(track("share_tapped", { method: "copy" }, { env: { ...local, win: {} } }), false);
+  assert.equal(rec.calls.length, 1);
+  resetAnalytics();
 });

@@ -925,6 +925,11 @@ function noteSearchedUser(leagueId) {
   searchedUserNoted = true;
   void recordSearchedUser(pick);
 }
+// First-party cookieless beacon to /api/collect. Set before bootFromUrl: boot
+// rewrites the URL (updateUrlState -> reportRoute), and that can be the cold
+// load's first pageview. Opt-outs (DNT, GPC, localhost, previews, automation)
+// are enforced in modules/analytics.js before any send.
+setAnalyticsAdapter(createBeaconAdapter());
 bootFromUrl();
 if (bootRoute?.leagueId) void loadSlimPlayersFile();
 coldPlayerHeading = bootRoute?.name === "player";
@@ -1020,10 +1025,7 @@ window.addEventListener("pageshow", (event) => {
 if (isPhoneLayout()) setMobileRailOpen(false);
 
 syncDocumentMeta();
-// First-party cookieless beacon to /api/collect. Opt-outs (DNT, GPC, localhost,
-// previews, automation) are enforced in modules/analytics.js before any send.
-setAnalyticsAdapter(createBeaconAdapter());
-reportRoute({ first: true });
+reportRoute();
 appBooted = true;
 focusColdPlayerHeading();
 syncSiteDock();
@@ -2120,10 +2122,10 @@ function updateUrlState({ mode = "replace", force = false } = {}) {
 // One pageview per route change (templated, no ids), plus landing_view when
 // the route lands on the home landing. The adapter is the first-party beacon
 // set at boot (createBeaconAdapter).
-function reportRoute({ first = false } = {}) {
-  const fresh = analyticsPageview(window.location.pathname, first
-    ? { search: window.location.search, referrer: document.referrer }
-    : {});
+// The first pageview that actually reaches an adapter carries the referrer
+// and UTM (modules/analytics.js), whichever call it comes from.
+function reportRoute() {
+  const fresh = analyticsPageview(window.location.pathname);
   if (!fresh) return;
   routeReports += 1;
   if (window.location.pathname === urlPath() && landingVisible()) {
@@ -3688,7 +3690,10 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     setLeagueSwitchStale(false);
 
     setFieldError(el.leagueId, el.leagueIdError, "");
-    hydrateManagerSelector();
+    // No URL write yet: the landing is still showing, so it would replace the
+    // route with "/" for a moment (an extra "/" pageview and landing_view).
+    // showAppPages below writes the real route.
+    hydrateManagerSelector({ syncUrl: false });
     syncTradeModeUi();
     renderSessionSnapshot();
     el.identitySection?.classList.remove("hidden");
@@ -4860,7 +4865,7 @@ function applyMeSelectValue(rosterId) {
   }
 }
 
-function hydrateManagerSelector() {
+function hydrateManagerSelector({ syncUrl = true } = {}) {
   if (!el.meSelect) return;
   const epoch = ++managerSelectorHydrateEpoch;
   managerSelectorHydrating = true;
@@ -4889,7 +4894,7 @@ function hydrateManagerSelector() {
   renderPlayerSearch();
   renderSessionSnapshot();
   requestActivePageRender();
-  updateUrlState({ mode: "replace" });
+  if (syncUrl) updateUrlState({ mode: "replace" });
   requestAnimationFrame(() => {
     if (epoch !== managerSelectorHydrateEpoch) return;
     if (chosen) applyMeSelectValue(chosen.rosterId);
@@ -8141,9 +8146,12 @@ function renderDraftMethod(view) {
 // The key stays in memory; only { mode } is sent.
 function noteTradeChecked(draft) {
   const side = (rows) => rows.map((row) => String(row.assetId || row.uid || "")).sort().join(",");
-  analyticsTrack("trade_checked", { mode: state.leagueId ? "league" : "public" }, {
-    once: `${side(draft.left)}|${side(draft.right)}`,
-  });
+  const mode = state.leagueId ? "league" : "public";
+  const once = `${side(draft.left)}|${side(draft.right)}`;
+  // setActivePage renders the verdict before it writes the URL. Send after the
+  // current task's URL write so the event carries the route it was checked on
+  // (/trade or /t/:code), not the page the user came from.
+  queueMicrotask(() => analyticsTrack("trade_checked", { mode }, { once }));
 }
 
 function renderDraftVerdict(view) {
