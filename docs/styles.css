@@ -8659,6 +8659,7 @@ button.ranks-row.you:hover {
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
+  overflow: hidden;
 }
 
 .ranks-who strong,
@@ -8670,15 +8671,19 @@ button.ranks-row.you:hover {
 
 .ranks-who strong.player-name {
   display: flex;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   align-items: center;
   gap: 0.45rem;
+  max-width: 100%;
   min-width: 0;
   white-space: nowrap;
 }
 
 .ranks-who .player-name > .player-name-text {
   display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   -webkit-line-clamp: unset;
   -webkit-box-orient: unset;
   overflow-wrap: normal;
@@ -8825,12 +8830,19 @@ button.ranks-row.you:hover {
   text-transform: uppercase;
 }
 
+.ranks-card-price .ranks-estimate {
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .ranks-value {
   display: flex;
   flex-flow: row nowrap;
   align-items: baseline;
   justify-content: flex-end;
   gap: 0.35rem;
+  min-width: max-content;
   white-space: nowrap;
 }
 

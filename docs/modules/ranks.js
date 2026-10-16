@@ -50,7 +50,7 @@ export function marketTape({ confidence = "", kind = "player" } = {}) {
     return { tone: "model", line: "Football forecast with a developing NFL sample." };
   }
   if (confidence === "thin") {
-    return { tone: "model", line: "Football forecast with a thin NFL sample; the young-player prior matters more." };
+    return { tone: "model", line: "Early estimate: few NFL games so far." };
   }
   return { tone: "model", line: "Independent full-PPR football forecast." };
 }
@@ -344,9 +344,11 @@ function rankTierTrend(row, view, { soon = false, spark = false } = {}) {
 }
 
 function renderRankValue(row, view) {
-  const trend = row?.kind === "player" ? playerValueTrend(view?.history, row.assetId, view?.format || "sf") : null;
-  const trendHtml = trend ? renderValueTrend(trend) : "";
-  return `<span class="ranks-value"><span class="ranks-value-num">${escapeHtml(formatNumber(row.value))}</span>${trendHtml}</span>`;
+  const player = row?.kind === "player";
+  const trend = player ? playerValueTrend(view?.history, row.assetId, view?.format || "sf") : null;
+  const trendHtml = trend ? renderValueTrend(trend) : (player ? renderTrendSoon() : "");
+  const tier = player ? renderValueTierBadge(row.value) : "";
+  return `<span class="ranks-value"><span class="ranks-value-num">${escapeHtml(formatNumber(row.value))}</span>${trendHtml}${tier}</span>`;
 }
 
 function renderRankRow(row, active, view) {
@@ -409,7 +411,7 @@ function renderRankCard(row, view = {}) {
         </div>
         <div class="ranks-card-price">
           <strong>${escapeHtml(formatNumber(row.value))}</strong>
-          <span>Model</span>
+          <span class="ranks-estimate">Our estimate</span>
           ${rankTierTrend(row, view, { soon: true, spark: true })}
         </div>
       </div>
@@ -419,7 +421,7 @@ function renderRankCard(row, view = {}) {
       ${neighbors.length ? `
         <h3>Similar value</h3>
         <div class="ranks-neighbors">
-          ${neighbors.map((neighbor) => renderRankNeighbor(neighbor)).join("")}
+          ${neighbors.map((neighbor) => renderRankNeighbor(neighbor, view)).join("")}
         </div>
       ` : ""}
       <div class="ranks-card-actions">
@@ -430,7 +432,7 @@ function renderRankCard(row, view = {}) {
   `;
 }
 
-function renderRankNeighbor(row) {
+function renderRankNeighbor(row, view) {
   const meta = rankMeta(row);
   return `
     <button type="button" class="ranks-row ranks-neighbor" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}">
@@ -438,7 +440,7 @@ function renderRankNeighbor(row) {
         ${renderRankName(row)}
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
       </span>
-      ${renderRankValue(row, null)}
+      ${renderRankValue(row, view)}
     </button>
   `;
 }

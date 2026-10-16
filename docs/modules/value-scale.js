@@ -10,11 +10,11 @@ export const VALUE_TIERS = Object.freeze([
   { id: "elite", label: "Elite", min: 8000, blurb: "Top ~25 players" },
   { id: "starter", label: "Starter", min: 3000, blurb: "Weekly starter" },
   { id: "solid", label: "Solid", min: 1000, blurb: "Startable some weeks" },
-  { id: "depth", label: "Depth", min: 250, blurb: "Depth" },
+  { id: "depth", label: "Depth", min: 250, blurb: "Bye-week or injury fill-in." },
   { id: "deep", label: "Deep stash", min: 1, blurb: "Roster filler" },
 ]);
 
-export const TEN_THOUSAND_NOTE = "Values aren't capped at 10,000. Elite players start around 8,000; the very best are higher. Superflex QBs are worth less in 1QB.";
+export const TEN_THOUSAND_NOTE = "Values aren't capped at 10,000. Elite players start around 8,000; the very best are higher. Superflex leagues can start two QBs, so QBs are worth more there than in 1QB leagues.";
 
 export const TREND_WINDOW_DAYS = 30;
 export const STALE_AFTER_DAYS = 7;

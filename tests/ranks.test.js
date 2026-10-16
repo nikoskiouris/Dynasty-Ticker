@@ -112,7 +112,7 @@ test("pick line and tape stay one sentence", () => {
   assert.equal(pickEqualLine(800, { phrase: "2027 1st", value: 1000 }), "A step under a 2027 1st.");
   assert.equal(pickEqualLine(4000, { phrase: "2028 3rd", value: 1000 }), "Closest pick is a 2028 3rd.");
   assert.match(marketTape({ confidence: "established" }).line, /established NFL sample/);
-  assert.match(marketTape({ confidence: "thin" }).line, /thin NFL sample/);
+  assert.equal(marketTape({ confidence: "thin" }).line, "Early estimate: few NFL games so far.");
   assert.match(marketTape({ kind: "pick" }).line, /Historical rookie-outcome/);
   assert.equal(ownerLine({ mine: true }, { leagueOpen: true }), "You have him.");
   assert.equal(ownerLine({ name: "Demetri" }, { leagueOpen: true }), "Demetri has him.");
@@ -171,6 +171,13 @@ test("markup escapes names and opens the selected card", () => {
   assert.match(html, /Similar value/);
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /&lt;script&gt;/);
+  assert.match(html, /class="ranks-estimate">Our estimate</);
+  assert.doesNotMatch(html, />Model</);
+  const row = html.slice(html.indexOf('class="ranks-row'), html.indexOf('class="ranks-row', html.indexOf('class="ranks-row') + 1) || html.length);
+  assert.match(html, /class="value-tier"/);
+  assert.match(html, /class="sr-only">Value tier: /);
+  assert.match(html, /No trend yet/);
+  assert.match(row, /class="ranks-value-num"/);
   assert.equal(isRankAssetId("player:12"), true);
   assert.equal(isRankAssetId("pick:2027:r1:any"), true);
   assert.equal(isRankAssetId("pick:2027:r1:nope"), false);

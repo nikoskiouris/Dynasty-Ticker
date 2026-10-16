@@ -29,7 +29,7 @@ test("tier bands follow the published cuts, including both edges", () => {
     ["elite", "Elite", 8000, "Top ~25 players"],
     ["starter", "Starter", 3000, "Weekly starter"],
     ["solid", "Solid", 1000, "Startable some weeks"],
-    ["depth", "Depth", 250, "Depth"],
+    ["depth", "Depth", 250, "Bye-week or injury fill-in."],
     ["deep", "Deep stash", 1, "Roster filler"],
   ]);
   assert.equal(DISPLAY_SCALE, 20);
@@ -59,7 +59,8 @@ test("how values work names every band and does not call 10000 the ceiling", () 
     assert.match(html, new RegExp(tier.blurb.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
   assert.match(html, /How values work/);
-  assert.equal(TEN_THOUSAND_NOTE, "Values aren't capped at 10,000. Elite players start around 8,000; the very best are higher. Superflex QBs are worth less in 1QB.");
+  assert.equal(TEN_THOUSAND_NOTE, "Values aren't capped at 10,000. Elite players start around 8,000; the very best are higher. Superflex leagues can start two QBs, so QBs are worth more there than in 1QB leagues.");
+  assert.match(html, /Superflex leagues can start two QBs, so QBs are worth more there than in 1QB leagues/);
   assert.match(html, /Values aren&#39;t capped at 10,000/);
 });
 
