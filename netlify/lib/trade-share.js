@@ -11,6 +11,7 @@ import {
   snapshotPath,
   stampLabel,
 } from "../../docs/modules/trade-share.js";
+import { FEWER_BETTER_ADDEND } from "../../docs/modules/verdict-copy.js";
 
 export const SHARE_NAMES_STORE = "share-names";
 export const SHARE_NAMES_KEY = "sleeper-player-names-v1";
@@ -56,7 +57,7 @@ export function shareText(summary, { today = null } = {}) {
     const credited = summary.credit?.side === key;
     const listed = key === "give" ? summary.giveTotal : summary.getTotal;
     const total = key === "give" ? summary.giveCredited : summary.getCredited;
-    return credited ? `${label} ${n(listed)} + ${n(summary.credit.amount)} stars cost extra = ${n(total)}` : `${label} ${n(total)}`;
+    return credited ? `${label} ${n(listed)} + ${n(summary.credit.amount)} ${FEWER_BETTER_ADDEND} = ${n(total)}` : `${label} ${n(total)}`;
   };
   const verdictText = verdict.line;
   return {
