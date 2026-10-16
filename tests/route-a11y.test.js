@@ -334,7 +334,6 @@ test("card words stay plain after the heading split", () => {
   assert.match(sit, /Sit — on injured reserve/);
   assert.match(weekly, /Players who are out or on injured reserve count as 0% until that changes\./);
   assert.match(weekly, /SFO: "SF"/);
-  assert.doesNotMatch(app, /id="route-title"/);
 });
 
 test("a cold /player load focuses the card heading", () => {

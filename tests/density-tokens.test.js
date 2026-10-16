@@ -354,9 +354,13 @@ const MEASURE = `(() => {
   const faceBox = (id) => box(document.querySelector("#" + id));
   const clippedNames = [];
   for (const el of document.querySelectorAll(".sheet-player strong, .player-name-text")) {
+    const style = getComputedStyle(el);
+    const ellipsis = style.textOverflow === "ellipsis" && style.whiteSpace === "nowrap" && style.overflowX === "hidden";
     const wide = el.scrollWidth > el.clientWidth + 1;
     const tall = el.scrollHeight > el.clientHeight + 1;
-    if (wide || tall) clippedNames.push((el.textContent || "").trim().slice(0, 48));
+    const row = el.closest(".sheet-row");
+    const rowWide = row && row.scrollWidth > row.clientWidth + 1;
+    if (((wide || tall) && !ellipsis) || rowWide) clippedNames.push((el.textContent || "").trim().slice(0, 48));
   }
   let maxFont = 0;
   for (const el of document.querySelectorAll("*")) {
