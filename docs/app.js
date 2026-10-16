@@ -88,6 +88,8 @@ import {
   pickValueBundle,
   selectValueFormat,
   fetchValuationBundles,
+  fetchPriceHistory,
+  PRICE_HISTORY_INDEX_PATH,
   coerceValueMap,
   getAssetValue as marketAssetValue,
   isEstimatedAsset as marketIsEstimated,
@@ -116,6 +118,16 @@ import {
   crowdShiftsFromVotes,
   getGlobalMaxPlayerValue,
 } from "./modules/values.js";
+import {
+  playerValueTrend,
+  renderTrendSoon,
+  renderValueScaleExplainer,
+  renderValueTierBadge,
+  renderValueTrend,
+  renderValuesFreshness,
+  valuationStamp,
+  valuesUpdatedStatus,
+} from "./modules/value-scale.js";
 import {
   ageBucketForAsset,
   buildLeagueBoard,
@@ -292,7 +304,7 @@ import {
   urlPath,
 } from "./modules/history-route.js";
 import { EVEN_UP_OFFER_ABOVE, ideaLimitMore, oldPctToMore, STAR_PREMIUM_KEY, TIER_EXPLAINER, barLabel, creditedTotalsLine, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
-import { decodeTradeShare, encodeTradeShare, sameVerdict, shareMessage, sharePath, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
+import { decodeTradeShare, encodeTradeShare, missingBoardNote, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
 import {
   analyzeWindowCall,
   groupWindowCalls,
@@ -1300,6 +1312,8 @@ function rankViewModel() {
     selectedId: state.ranks?.selectedId || "",
     caveat: state.league ? marketCaveat(state.league) : "",
     leagueOpen: Boolean(state.leagueId),
+    history: state.valueHistory,
+    updated: valuesFreshness(),
   });
 }
 
@@ -1959,23 +1973,41 @@ function applyTradeRoute(route) {
 // Any /t/<code> link marks the draft as shared while it still matches the code:
 // the address bar keeps /t/<code>, and the verdict speaks neutrally.
 // A dated link also shows what the sharer saw, priced from the archived board.
-// An undated or unknown stamp has no shared verdict, only today's.
+// An undated stamp has no shared verdict, only today's.
+// A dated stamp whose file was pruned still opens today's board, with a note.
 async function loadSharedTrade(code, draft) {
   state.sharedTrade = null;
   state.sharedEditing = false;
   const decoded = decodeTradeShare(code || "");
   if (!decoded) return;
-  const entry = { code, decoded, key: draftAssetKey(draft), snapshot: null };
+  const entry = { code, decoded, key: draftAssetKey(draft), snapshot: null, snapshotState: decoded.stamp ? "loading" : "none" };
   state.sharedTrade = entry;
   if (!decoded.stamp) return;
   try {
-    const res = await fetch(snapshotPath(decoded.stamp));
-    if (!res.ok) return;
-    const snapshot = await res.json();
-    if (!snapshot?.sf || !snapshot?.oneQb) return;
-    entry.snapshot = snapshot;
+    // Index first. A stamp that is not listed is not fetched, so a pruned
+    // board does not log a console 404.
+    let index = null;
+    const indexRes = await fetch(PRICE_HISTORY_INDEX_PATH);
+    if (indexRes?.ok) index = await indexRes.json();
+    const path = snapshotRequestForStamp(index, decoded.stamp);
+    if (!path) {
+      entry.snapshotState = "missing";
+    } else {
+      const res = await fetch(path);
+      if (!res.ok) {
+        entry.snapshotState = "missing";
+      } else {
+        const snapshot = await res.json();
+        if (snapshot?.sf && snapshot?.oneQb) {
+          entry.snapshot = snapshot;
+          entry.snapshotState = "ready";
+        } else {
+          entry.snapshotState = "missing";
+        }
+      }
+    }
   } catch {
-    return;
+    entry.snapshotState = "missing";
   }
   if (state.sharedTrade === entry && el.calculatorShell?.querySelector("#value-calc-verdict")) patchTradeDraft();
 }
@@ -2007,7 +2039,12 @@ function sharedVerdictFor(view) {
   const today = shareSummary(entry.decoded, state.valueBundles);
   const shared = entry.snapshot ? shareSummary(entry.decoded, entry.snapshot, {}, state.valueBundles) : null;
   const moved = Boolean(shared) && !sameVerdict(shared, today);
-  return { today, shared: moved ? shared : null, date: stampLabel(entry.decoded.stamp) };
+  return {
+    today,
+    shared: moved ? shared : null,
+    date: stampLabel(entry.decoded.stamp),
+    missing: entry.snapshotState === "missing",
+  };
 }
 
 function canonicalizePlayerUrl(playerId, name) {
@@ -6383,6 +6420,7 @@ function renderRosterSheet() {
           <span class="dynasty-chip" title="Model price. Same number as Players and Trade.">
             <small>${escapeHtml(DYNASTY_SCORE_LABEL)}</small>
             <strong class="mono">${formatNumber(getAssetValue(asset, values))}</strong>
+            ${renderPlayerValueMarks(asset, values)}
           </span>
         </span>
       </button>
@@ -6410,6 +6448,8 @@ function renderRosterSheet() {
       ${renderPowerStat("Avg age", summary.averageAgeLabel)}
     </div>
     ${renderPriceLegend(["week", "model", "lineup"])}
+    ${renderValuesFreshness(valuesFreshness())}
+    ${renderValueScaleExplainer()}
     ${selectedWeekly
       ? renderWeeklyPlayerSheet(selectedWeekly, { helpOpen: Boolean(state.weeklyValue?.helpOpen) })
       : selectedAsset
@@ -6774,6 +6814,8 @@ function renderTradeDraft() {
   }
   host.innerHTML = `
     ${renderValueBoardBar({ marketHint: marketBoardHint() })}
+    ${renderValuesFreshness(valuesFreshness())}
+    ${renderValueScaleExplainer()}
     ${renderPriceLegend(["model", "package"])}
     <div class="panel-heading calc-heading">
       <div>
@@ -7368,7 +7410,10 @@ function verdictLineHtml(line) {
 // Shared link: the verdict line. When prices moved since it was shared, a
 // compact two-row compare (sharer's date, then today in bold) and one line.
 function renderSharedVerdictHead(shared) {
-  if (!shared.shared) return `<h3>${verdictLineHtml(shared.today.label)}</h3>`;
+  if (!shared.shared) {
+    const note = shared.missing ? missingBoardNote(shared.date) : "";
+    return `<h3>${verdictLineHtml(shared.today.label)}</h3>${note ? `<p class="calc-shared-note">${escapeHtml(note)}</p>` : ""}`;
+  }
   return `
     <h3 class="sr-only">Shared on ${escapeHtml(shared.date)}: ${escapeHtml(shared.shared.label)}. Today: ${escapeHtml(shared.today.label)}.</h3>
     <dl class="calc-shared">
@@ -16590,8 +16635,7 @@ function marketBoardHint() {
   const caveat = marketCaveat(state.league);
   const meta = state.valueBundles?.meta || {};
   const model = state.valueBundles?.modelVersion || "football model";
-  const asOf = state.valueBundles?.asOf ? ` Updated ${String(state.valueBundles.asOf).slice(0, 10)}.` : "";
-  const hint = `Independent full-PPR football forecast (${model}). League settings and local trades do not reprice players.${asOf}`;
+  const hint = `Independent full-PPR football forecast (${model}). League settings and local trades do not reprice players.`;
   return caveat ? `${caveat} ${hint}` : hint;
 }
 
@@ -16640,6 +16684,18 @@ function resolveLeagueBoardAsset(token) {
     ageBucket: "pick",
     boomBust: false,
   };
+}
+
+function valuesFreshness(now = new Date()) {
+  return valuesUpdatedStatus(valuationStamp(state.valueBundles), now);
+}
+
+function renderPlayerValueMarks(asset, values = state.values, { soon = false, spark = false } = {}) {
+  if (asset?.assetType === "pick" || isEstimatedAsset(asset, values)) return "";
+  const value = getAssetValue(asset, values);
+  const trend = playerValueTrend(state.valueHistory, asset.assetId, state.valueFormat || "sf");
+  const trendHtml = trend ? renderValueTrend(trend, { spark }) : (soon ? renderTrendSoon() : "");
+  return `${renderValueTierBadge(value)}${trendHtml}`;
 }
 
 function renderAssetValueBadge(asset, values = state.values) {
@@ -17192,6 +17248,7 @@ function formatPickName(pick, {
 
 async function loadValues() {
   state.valueBundles = await fetchValuationBundles();
+  state.valueHistory = await fetchPriceHistory();
   return pickValueBundle(state.valueBundles, selectValueFormat(state.league));
 }
 

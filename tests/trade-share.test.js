@@ -223,7 +223,7 @@ test("local serve and netlify.toml send shared trades to the functions", () => {
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { isPriceStamp, priceStamp, sameVerdict, snapshotPath, stampLabel } from "../docs/modules/trade-share.js";
+import { isPriceStamp, missingBoardNote, priceStamp, sameVerdict, snapshotPath, snapshotRequestForStamp, stampLabel } from "../docs/modules/trade-share.js";
 import { loadSnapshot, summaryForCode } from "../netlify/lib/trade-share.js";
 
 const STAMP = priceStamp(values.asOf);
@@ -238,11 +238,23 @@ test("price stamps come from asOf in UTC and gate every lookup", () => {
   assert.equal(priceStamp("nope"), "");
   assert.equal(stampLabel("202610141917"), "Oct 14");
   assert.equal(stampLabel("202610141917", { year: true }), "Oct 14, 2026");
+  assert.equal(missingBoardNote("Jan 1"), "That day's prices are no longer saved. Showing today's.");
+  assert.equal(missingBoardNote(""), "");
+  const index = { schemaVersion: 1, snapshots: [{ stamp: "202610141917" }] };
+  assert.equal(snapshotRequestForStamp(index, "202501011200"), "");
+  assert.equal(snapshotRequestForStamp(index, "202610141917"), "/data/price-history/202610141917.json");
+  assert.equal(snapshotRequestForStamp(null, "202610141917"), "/data/price-history/202610141917.json");
   for (const bad of ["20261014191", "202613141917", "202610321917", "202610142417", "../../../x", ""]) {
     assert.equal(isPriceStamp(bad), false, bad);
     assert.equal(snapshotPath(bad), "");
   }
   assert.equal(snapshotPath("202610141917"), "/data/price-history/202610141917.json");
+  const app = readFileSync(join(root, "../docs/app.js"), "utf8");
+  const fn = app.slice(app.indexOf("async function loadSharedTrade"), app.indexOf("function activeSharedTrade"));
+  assert.ok(fn.includes("PRICE_HISTORY_INDEX_PATH"));
+  assert.ok(fn.indexOf("PRICE_HISTORY_INDEX_PATH") < fn.indexOf("snapshotRequestForStamp"));
+  assert.match(fn, /if \(!path\)/);
+  assert.doesNotMatch(fn, /fetch\(snapshotPath/);
 });
 
 test("a dated code round trips and an undated code stays v1", () => {

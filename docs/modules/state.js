@@ -123,6 +123,7 @@ export function createState() {
     livePolling: false,
     value: "sf",
     valueBundles: { sf: { values: {}, nameMap: {} }, oneQb: { values: {}, nameMap: {} }, names: {} },
+    valueHistory: null,
     leagueBoard: {
       ready: false,
       tradeCount: 0,
