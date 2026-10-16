@@ -25,8 +25,8 @@ test("named-side lines use the shown % and the same tiers as the headline", () =
   assert.equal(verdictLineNamed(valueCalcVerdict(10000, 12500), names), "Favors one side · Ben's side worth 25% more");
   assert.equal(verdictLineNamed(valueCalcVerdict(12500, 10000), names), "Favors one side · My side worth 25% more");
   assert.equal(verdictLineNamed(valueCalcVerdict(10000, 10400), names), "Fair trade · within 5%");
-  // 12,820 vs 10,000 is 28.2% more: Lopsided on the shown metric (old metric said Favors at 22.0%).
-  assert.equal(verdictLineNamed(valueCalcVerdict(10000, 12820), names), "Lopsided · Ben's side worth 28.2% more");
+  // 12,820 vs 10,000 is 28.2% more: Lopsided on the unrounded metric, so the sentence ceils to 29.
+  assert.equal(verdictLineNamed(valueCalcVerdict(10000, 12820), names), "Lopsided · Ben's side worth 29% more");
   for (const [a, b] of [[10000, 10499], [10000, 11400], [10000, 12800], [10000, 12810]]) {
     const named = verdictLineNamed(valueCalcVerdict(a, b), names);
     const plain = verdictCopyFor(a, b).line;
@@ -34,7 +34,7 @@ test("named-side lines use the shown % and the same tiers as the headline", () =
     assert.doesNotMatch(named, BANNED);
   }
   // Default names fall back to the plain line.
-  assert.equal(verdictLineNamed(valueCalcVerdict(21031, 11112)), "Lopsided · Give side worth 89.3% more");
+  assert.equal(verdictLineNamed(valueCalcVerdict(21031, 11112)), "Lopsided · Give side worth 89% more");
 });
 
 test("even-up uses the shown % and the bands: offered above 5% more, closes at <= 14% more", () => {
@@ -99,7 +99,7 @@ test("stars legend: visible hatch key and a text label on the bar", () => {
 });
 
 test("trade ideas: an idea that passes a filter never shows a verdict outside that filter's band", async () => {
-  const { ideaLimitMore, ideaGapMore, oldPctToMore, tierForMore, percentMore } = await import("../docs/modules/verdict-copy.js");
+  const { ideaLimitMore, ideaGapMore, oldPctToMore, tierForMore, percentMore, displayMore } = await import("../docs/modules/verdict-copy.js");
   const { calculatePctDiff } = await import("../docs/modules/package-value.js");
   const RANK = { even: 0, edge: 1, favors: 2, lopsided: 3 };
   assert.equal(oldPctToMore(20), 25);
@@ -114,13 +114,14 @@ test("trade ideas: an idea that passes a filter never shows a verdict outside th
   for (let i = 0; i < 4000; i += 1) {
     const a = Math.round(500 + rand() * 20000);
     const b = Math.round(500 + rand() * 20000);
-    const shown = percentMore(a, b);
+    const exact = percentMore(a, b);
+    const shown = displayMore(exact);
     assert.equal(calculatePctDiff(a, b), shown);
     assert.equal(ideaGapMore(a, b), shown);
     for (const setting of settings) {
       const limit = ideaLimitMore(setting);
-      if (calculatePctDiff(a, b) > limit) continue;
-      assert.ok(RANK[tierForMore(shown)] <= RANK[tierForMore(limit)], `${a}/${b} at ${setting}`);
+      if (shown > limit) continue;
+      assert.ok(RANK[tierForMore(exact)] <= RANK[tierForMore(limit)], `${a}/${b} at ${setting}`);
     }
   }
   assert.equal(calculatePctDiff(0, 5000), 1000);
