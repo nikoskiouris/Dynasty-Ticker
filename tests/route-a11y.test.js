@@ -283,6 +283,7 @@ test("back and escape restore the player row, or the same player id when that no
 });
 
 test("league, activity, history, and this week have distinct document titles", () => {
+  assert.equal(ROUTE_ROOM_TITLES.team, ROOM_LABELS.league.team);
   assert.equal(ROUTE_ROOM_TITLES.board, ROOM_LABELS.league.board);
   assert.equal(ROUTE_ROOM_TITLES.scores, ROOM_LABELS.league.scores);
   assert.equal(ROUTE_ROOM_TITLES.activity, ROOM_LABELS.league.activity);
@@ -296,7 +297,7 @@ test("league, activity, history, and this week have distinct document titles", (
   assert.equal(activity, "Activity · Dynasty Ticker");
   assert.equal(history, "History · Dynasty Ticker");
   assert.equal(new Set([league, week, activity, history]).size, 4);
-  assert.equal(routeDocumentTitle({ tab: "league", room: "team" }), "My League · Dynasty Ticker");
+  assert.equal(routeDocumentTitle({ tab: "league", room: "team" }), "My team · Dynasty Ticker");
   assert.equal(routeDocumentTitle({ playerName: "Jahmyr Gibbs", tab: "league", room: "activity" }), "Jahmyr Gibbs · Dynasty Ticker");
   assert.equal(headingSelectorFor({ overlay: "player", playerId: "9221" }), ".ranks-card h2, .player-week-sheet h2");
   assert.equal(headingSelectorFor({ page: "league", view: "team" }), "#power-heading");
@@ -608,7 +609,7 @@ test("one polite live region announces the route", () => {
   assert.equal(routeAnnouncement({ tab: "league", view: "scores" }, { tab: "league", view: "board" }), "This week");
   assert.equal(routeAnnouncement({ tab: "league", view: "activity" }, { tab: "league", view: "scores" }), "Activity");
   assert.equal(routeAnnouncement({ tab: "league", view: "history" }, { tab: "league", view: "activity" }), "History");
-  assert.equal(routeAnnouncement({ tab: "league", view: "team" }, { tab: "league", view: "history" }), "My League");
+  assert.equal(routeAnnouncement({ tab: "league", view: "team" }, { tab: "league", view: "history" }), "My team");
   assert.equal(routeAnnouncement(
     { tab: "league", view: "scores", overlay: "player", playerName: "Jahmyr Gibbs" },
     { tab: "league", view: "board" },
