@@ -6303,13 +6303,17 @@ button.weekly-help-close:hover {
     display: none;
   }
 
-  .mobile-chrome-copy strong {
+  .mobile-chrome-copy #mobile-chrome-title {
     display: block;
     overflow: hidden;
+    margin: 0;
     font-family: var(--font-display);
-  font-synthesis: none;
+    font-synthesis: none;
     font-size: var(--fs-body);
+    font-weight: 700;
     line-height: 1.15;
+    letter-spacing: 0;
+    text-transform: none;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -8372,7 +8376,7 @@ button.rather-skip {
   margin-bottom: 0.75rem;
 }
 
-.mobile-chrome-title-row strong,
+.mobile-chrome-title-row #mobile-chrome-title,
 .sample-chrome-title-row strong {
   min-width: 0;
 }
