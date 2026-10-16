@@ -223,6 +223,7 @@ test("any non-OK Sleeper response is the outage sentence, not the landing fallba
   const failed = load.slice(load.indexOf("} catch (err)"));
   assert.ok(failed.indexOf("isLeagueNotFound(err)") < failed.indexOf("leagueLoadErrorMessage(err)"));
   assert.match(failed, /showSleeperUnreachable\(\)|paintLeagueLoadError\(message\)/);
+  assert.match(failed, /if \(!unreachable && !state\.leagueId && String\(window\.location\.pathname \|\| ""\)\.startsWith\("\/l\/"\)/);
 });
 
 test("the document title follows the rendered page when history restores another title", async () => {

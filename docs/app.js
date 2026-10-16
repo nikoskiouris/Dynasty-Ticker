@@ -3753,7 +3753,9 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       startLivePolling();
     }
     setLeagueSwitchStale(failedSwitch);
-    if (!state.leagueId && String(window.location.pathname || "").startsWith("/l/") && typeof history?.replaceState === "function") {
+    // An outage stays on /l/… Back can return to the league that already loaded.
+    // Any other dead league url still goes home.
+    if (!unreachable && !state.leagueId && String(window.location.pathname || "").startsWith("/l/") && typeof history?.replaceState === "function") {
       history.replaceState({ ...historyPlaceNow(), pushed: false }, "", urlPath());
       syncDocumentMeta();
     }
