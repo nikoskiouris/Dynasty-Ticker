@@ -78,6 +78,13 @@ test("ticker aria-pressed matches pause and clears when unbound", () => {
   const again = fakeTickerNode();
   const paused = bindTicker(again, fakeTickerNode(), { paused: true });
   assert.equal(again.getAttribute("aria-pressed"), "true");
+  again.emit("keydown", { key: "Enter", preventDefault() {} });
+  assert.equal(paused.paused, false);
+  assert.equal(again.getAttribute("aria-pressed"), "false");
+  again.emit("keydown", { key: " ", preventDefault() {} });
+  assert.equal(paused.paused, true);
+  assert.equal(again.getAttribute("aria-pressed"), "true");
   paused.destroy();
   assert.equal(again.getAttribute("aria-pressed"), "false");
+  assert.equal((again.listeners.get("keydown") || []).length, 0);
 });

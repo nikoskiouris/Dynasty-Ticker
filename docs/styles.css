@@ -1084,11 +1084,16 @@ select.is-invalid {
   z-index: 1;
   display: flex;
   align-items: stretch;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
   overflow: hidden;
   border: 0;
   border-radius: 0;
   background: #0c0c0e;
   color: #f6f1e8;
+  font-weight: 700;
+  text-align: left;
   backdrop-filter: none;
 }
 
@@ -1098,7 +1103,7 @@ select.is-invalid {
   flex: 0 0 auto;
   padding: 0.45rem 0.85rem;
   background: var(--field);
-  color: #f6f1e8;
+  color: #0c0c0e;
   font-family: var(--font-display);
   font-synthesis: none;
   font-size: var(--fs-sm);
@@ -2615,6 +2620,14 @@ body:not(.league-loaded) .workspace-header {
   background: var(--panel-soft);
 }
 
+.sheet-row.directory-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.sheet-row.directory-row.loading-row {
+  grid-template-columns: 2.8rem minmax(0, 1fr) auto;
+}
+
 button.sheet-row {
   width: 100%;
   min-height: auto;
@@ -2855,6 +2868,14 @@ a.inline-link:hover {
     grid-template-columns: 2.3rem minmax(0, 1fr) auto;
     gap: 0.5rem;
     padding: 0.5rem 0.55rem;
+  }
+
+  .sheet-row.directory-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .sheet-row.directory-row.loading-row {
+    grid-template-columns: 2.3rem minmax(0, 1fr) auto;
   }
 
   .sheet-row.mock-pick {

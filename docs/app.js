@@ -3130,7 +3130,13 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       })
       .catch((err) => {
         if (playersLoadStale(playersEpoch, token, leagueId) || err?.name === "AbortError") return;
-        if (Object.keys(state.players).length > 0) {
+        // Value names are not the Sleeper directory. A roster that still has
+        // a missing name or position stays failed when both player files are blocked.
+        const gaps = state.normalizedRosters.some((roster) => (roster.assets || []).some((asset) => {
+          const gap = assetMetadataGap(asset);
+          return gap.name || gap.position;
+        }));
+        if (!gaps && Object.keys(state.players).length > 0) {
           console.warn("Could not refresh NFL player metadata", err);
           return;
         }
@@ -4356,7 +4362,8 @@ function renderRosterDirectory(roster) {
     ? `<p class="muted small">Player metadata unavailable. Rosters and trade search still work with fallback values.</p>`
     : "";
   const loadingLabel = loadingPlayers ? `<span class="sr-only">Loading player</span>` : "";
-  const failedLabel = failedPlayers ? `<span class="sr-only">Player metadata unavailable</span>` : "";
+  const failedLabel = failedPlayers ? `<span class="sr-only">Player details unavailable</span>` : "";
+  const rowClass = loadingPlayers ? "sheet-row directory-row loading-row" : "sheet-row directory-row";
   el.rosterSheet.innerHTML = `
     ${failedNote}
     <div class="sheet-grid">
@@ -4370,7 +4377,7 @@ function renderRosterDirectory(roster) {
           const position = gap.position ? renderMetadataPlaceholder() : escapeHtml(formatPlayerPositionLabel(asset));
           const team = gap.team ? renderMetadataPlaceholder() : escapeHtml(String(asset.raw?.team || ""));
           return `
-            <div class="sheet-row">
+            <div class="${rowClass}">
               <div class="sheet-player">
                 <strong>${name}</strong>
                 <span>${position}${team ? ` · ${team}` : ""}</span>
@@ -7119,13 +7126,18 @@ function draftItemDisplayName(item, names) {
 
 let draftNamesRequested = false;
 function requestDraftPlayerNames() {
-  if (draftNamesRequested || (state.players && Object.keys(state.players).length)) return;
+  if (draftNamesRequested) return;
   draftNamesRequested = true;
   const epoch = playerLoadEpoch;
-  void loadPlayersWithCache()
+  // A league uses the slim file. A shared trade has no league, so a missing
+  // name still comes from Sleeper without downloading the slim dump.
+  const job = (state.leagueId || bootRoute?.leagueId)
+    ? loadPlayersWithCache()
+    : apiGetWithRetry(`/players/nfl`, { timeoutMs: 30000, retries: 1, cache: "default" }).then((raw) => slimPlayersMap(raw));
+  void job
     .then((players) => {
       if (epoch !== playerLoadEpoch || !players || !Object.keys(players).length) return;
-      if (!state.players || !Object.keys(state.players).length) state.players = players;
+      state.players = mergePlayerRecords(state.players, players);
       if (el.calculatorShell?.querySelector(".calc-grid")) patchTradeDraft();
     })
     .catch(() => {});

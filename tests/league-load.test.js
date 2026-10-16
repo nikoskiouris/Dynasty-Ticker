@@ -156,7 +156,9 @@ test("roster sheet paints while player metadata is still missing", () => {
   assert.match(directory, /renderMetadataPlaceholder\(\)/);
   assert.match(directory, /Player metadata unavailable\. Rosters and trade search still work with fallback values\./);
   assert.match(directory, /sr-only">Loading player/);
-  assert.match(directory, /sr-only">Player metadata unavailable/);
+  assert.match(directory, /sr-only">Player details unavailable/);
+  assert.match(directory, /directory-row loading-row/);
+  assert.match(directory, /sheet-row directory-row"/);
   assert.match(directory, /aria-busy="true"/);
   assert.match(directory, /renderPickVaultRow/);
   assert.doesNotMatch(directory, /Syncing player metadata/);
@@ -172,6 +174,10 @@ test("roster sheet paints while player metadata is still missing", () => {
   const loadStart = app.indexOf("const playersEpoch = playerLoadEpoch");
   const success = app.slice(loadStart, app.indexOf(".catch(", loadStart));
   assert.match(success, /commitPlayerDirectory/);
+  const failed = app.slice(app.indexOf(".catch(", loadStart), app.indexOf("} catch (err)", loadStart));
+  assert.match(failed, /const gaps = state\.normalizedRosters\.some/);
+  assert.match(failed, /if \(!gaps && Object\.keys\(state\.players\)\.length > 0\)/);
+  assert.match(failed, /state\.playerMetadataFailed = true/);
   const commit = app.slice(
     app.indexOf("function commitPlayerDirectory("),
     app.indexOf("function loadSlimPlayersFile("),
