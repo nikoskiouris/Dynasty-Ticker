@@ -38,7 +38,11 @@ const SIT_ROSTER = new Set([
 ]);
 
 const SLOT_LABELS = {
-  SUPER_FLEX: "SFlex",
+  SUPER_FLEX: "Superflex",
+  SUPERFLEX: "Superflex",
+  SF: "Superflex",
+  BN: "Bench",
+  BENCH: "Bench",
   REC_FLEX: "Rec Flex",
   WRRB_FLEX: "RB/WR",
   RBWR_FLEX: "RB/WR",
@@ -139,7 +143,7 @@ function usageBit(weekly) {
     if (weekly?.targetShare != null) return `${formatShare(weekly.targetShare)} targets`;
   }
   if (pos === "QB" && Number.isFinite(Number(weekly?.recentPoints))) {
-    return `${formatWeeklyPoints(weekly.recentPoints)} PPR/game`;
+    return `${formatWeeklyPoints(weekly.recentPoints)} points per game`;
   }
   return "";
 }
