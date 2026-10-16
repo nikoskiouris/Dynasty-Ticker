@@ -2788,6 +2788,15 @@ a.inline-link:hover {
   text-transform: uppercase;
 }
 
+.sheet-slot-full,
+.sheet-slot-short {
+  white-space: nowrap;
+}
+
+.sheet-slot-short {
+  display: none;
+}
+
 .sheet-player {
   display: grid;
   gap: 0.05rem;
@@ -2827,13 +2836,23 @@ a.inline-link:hover {
   font-weight: 600;
 }
 
+.sheet-player strong:has(.nickname) {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 .nickname {
+  display: block;
+  overflow: visible;
   color: var(--violet);
   font-family: var(--font-body);
   font-size: 0.62em;
   font-style: normal;
   font-weight: 650;
   letter-spacing: 0;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .injury {
@@ -2903,11 +2922,41 @@ a.inline-link:hover {
   display: none;
 }
 
+@media (min-width: 701px) {
+  .sheet-row:has(.sheet-slot-superflex) {
+    grid-template-columns: max-content minmax(0, 1fr) auto;
+  }
+}
+
 @media (max-width: 700px) {
   .sheet-row {
     grid-template-columns: 2.3rem minmax(0, 1fr) auto;
     gap: 0.5rem;
     padding: 0.5rem 0.55rem;
+  }
+
+  .sheet-slot-full {
+    display: none;
+  }
+
+  .sheet-slot-short {
+    display: inline;
+  }
+
+  /* The value sits under the name so the name can use the row. */
+  .sheet-row:not(.directory-row):has(.sheet-metrics) {
+    grid-template-columns: 2.3rem minmax(0, 1fr);
+  }
+
+  .sheet-row:not(.directory-row):has(.sheet-metrics) > .sheet-slot {
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .sheet-row:not(.directory-row):has(.sheet-metrics) > .sheet-metrics {
+    grid-column: 2;
+    justify-items: end;
+    min-width: 0;
   }
 
   .sheet-row.directory-row {
@@ -8819,6 +8868,32 @@ button.ranks-row.you:hover {
   font-size: var(--fs-xs);
   font-weight: 600;
   line-height: 1.15;
+}
+
+/* Phone names wrap at spaces and hyphens. League lines do the same. */
+@media (max-width: 700px) {
+  .ranks-who {
+    overflow: visible;
+  }
+
+  .ranks-who strong.player-name,
+  .ranks-who .player-name > .player-name-text {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .ranks-who strong.player-name {
+    align-items: flex-start;
+  }
+
+  .power-board-row .team-identity-copy > span {
+    overflow: visible;
+    overflow-wrap: normal;
+    text-overflow: clip;
+    white-space: normal;
+    word-break: normal;
+  }
 }
 
 .ranks-value {

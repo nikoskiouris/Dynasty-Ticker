@@ -101,6 +101,11 @@ test("the example trade is the calculator verdict, and a new price changes it", 
   const shown = html.match(/class="vt"><b>([^<]*)<\/b>/);
   assert.equal(shown?.[1], copy.line);
   assert.match(html, new RegExp(`launch-verdict ${copy.publicTone}`));
+  const landing = readFileSync(join(root, "../docs/modules/launch-landing.js"), "utf8");
+  assert.match(landing, /\$\{starsPremiumMarkup\(model\)\}/);
+  assert.doesNotMatch(landing, /starsPremiumMarkup\(model,\s*\{[^}]*detail/);
+  assert.doesNotMatch(html, /After that/);
+  if (copy.detail) assert.equal(html.split(copy.detail).length - 1, 1);
   const bigger = bars.give.total === bars.get.total ? "" : (bars.give.total > bars.get.total ? "Give" : "Get");
   assert.equal(copy.side, bigger);
   if (bigger === "Give") assert.match(html, /calc-pointer-wide">◀[\s\S]*You give/);
@@ -119,9 +124,6 @@ test("the example trade is the calculator verdict, and a new price changes it", 
     assert.match(html, /Stars cost extra/);
     assert.match(html, new RegExp(formatNumber(model.adjustment.amount)));
   }
-  if (copy.detail) assert.match(html, /After that/);
-  const landingSrc = readFileSync(join(root, "../docs/modules/launch-landing.js"), "utf8");
-  assert.match(landingSrc, /starsPremiumMarkup\(model, \{ detail: copy\.detail \}\)/);
   assert.doesNotMatch(html, /var\(--red\)|var\(--green\)|\.up|\.dn/);
   assert.match(html, /10,000/);
   const moved = exampleTradeFromValues({ ...values, "player:9509": 8200 }, { globalMaxValue: 10000 });

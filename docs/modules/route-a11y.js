@@ -8,6 +8,7 @@ export const ROUTE_TAB_LABELS = Object.freeze({
   league: "My League",
 });
 export const ROUTE_ROOM_TITLES = Object.freeze({
+  team: "My team",
   board: "League",
   scores: "This week",
   activity: "Activity",

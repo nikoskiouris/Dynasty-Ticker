@@ -283,6 +283,7 @@ test("back and escape restore the player row, or the same player id when that no
 });
 
 test("league, activity, history, and this week have distinct document titles", () => {
+  assert.equal(ROUTE_ROOM_TITLES.team, ROOM_LABELS.league.team);
   assert.equal(ROUTE_ROOM_TITLES.board, ROOM_LABELS.league.board);
   assert.equal(ROUTE_ROOM_TITLES.scores, ROOM_LABELS.league.scores);
   assert.equal(ROUTE_ROOM_TITLES.activity, ROOM_LABELS.league.activity);
@@ -296,7 +297,7 @@ test("league, activity, history, and this week have distinct document titles", (
   assert.equal(activity, "Activity · Dynasty Ticker");
   assert.equal(history, "History · Dynasty Ticker");
   assert.equal(new Set([league, week, activity, history]).size, 4);
-  assert.equal(routeDocumentTitle({ tab: "league", room: "team" }), "My League · Dynasty Ticker");
+  assert.equal(routeDocumentTitle({ tab: "league", room: "team" }), "My team · Dynasty Ticker");
   assert.equal(routeDocumentTitle({ playerName: "Jahmyr Gibbs", tab: "league", room: "activity" }), "Jahmyr Gibbs · Dynasty Ticker");
   assert.equal(headingSelectorFor({ overlay: "player", playerId: "9221" }), ".ranks-card h2, .player-week-sheet h2");
   assert.equal(headingSelectorFor({ page: "league", view: "team" }), "#power-heading");
@@ -306,22 +307,41 @@ test("league, activity, history, and this week have distinct document titles", (
   assert.equal(headingSelectorFor({ page: "league", view: "history" }), "#history-heading");
 });
 
-test("user-facing slot, scoring, and record words are plain", () => {
+test("card words stay plain after the heading split", () => {
   const app = read("../docs/app.js");
   const ranks = read("../docs/modules/ranks.js");
-  const sit = read("../docs/modules/sit-start.js");
   const weekly = read("../docs/modules/weekly-value.js");
-  assert.match(app, /Full PPR · \$\{escapeHtml\(rankFormatLabel\(format\)\)\}/);
-  assert.equal((app.match(/PPR · \$\{escapeHtml\(rankFormatLabel/g) || []).length, 1);
-  assert.match(app, /<h3>Titles, career record, playoff trips<\/h3>/);
-  assert.match(app, /Career record is the rest of the story/);
-  assert.match(app, /<span>#<\/span><span>Team<\/span><span>Record<\/span>/);
-  assert.match(app, /SUPER_FLEX: "Superflex"/);
-  assert.match(app, /BN: "Bench"/);
+  const sit = read("../docs/modules/sit-start.js");
+  assert.match(ranks, /label: "Touches \+ targets per game"/);
+  assert.doesNotMatch(ranks, /Opportunities per game/);
   assert.match(ranks, /label: "Projected points per game"/);
   assert.doesNotMatch(ranks, /Projected PPR\/G/);
   assert.match(sit, /points per game/);
   assert.doesNotMatch(sit, /PPR\/game/);
+  assert.match(ranks, /Our estimate, scored with a point per catch\. Same number on Trade and My League\. The pick line is the closest pick\./);
+  assert.match(app, /PPR · \$\{escapeHtml\(rankFormatLabel\(format\)\)\}/);
+  assert.doesNotMatch(app, /Full PPR · /);
+  assert.match(app, /SUPER_FLEX: "Superflex"/);
+  assert.match(app, /BN: "Bench"/);
+  assert.match(app, /IR: "Injured reserve"/);
+  assert.match(sit, /BN: "Bench"/);
+  assert.match(sit, /IR: "Injured reserve"/);
+  assert.doesNotMatch(app, /SFlex/);
+  assert.doesNotMatch(sit, /SFlex/);
+  assert.match(app, /<span>Record<\/span>/);
+  assert.doesNotMatch(app, /<span>W-L<\/span>/);
+  assert.match(app, /\$\{slots\.length\} starters/);
+  assert.match(app, /1 point per catch/);
+  assert.match(app, /0\.5 points per catch/);
+  assert.doesNotMatch(app, /0\.5 PPR/);
+  assert.match(app, /\$\{taxiSlots\} taxi spots/);
+  assert.match(app, /parts\.push\("TE bonus"\)/);
+  assert.doesNotMatch(app, /TE bonus \(values stay full PPR\)/);
+  assert.match(app, /text: "Values use 1 point per catch at every position, even with the TE bonus\."/);
+  assert.match(app, /class="sheet-slot-full">Superflex</);
+  assert.match(app, /class="sheet-slot-short" title="Superflex" aria-label="Superflex">SF</);
+  assert.match(sit, /Sit — on injured reserve/);
+  assert.match(weekly, /Players who are out or on injured reserve count as 0% until that changes\./);
   assert.match(weekly, /SFO: "SF"/);
 });
 
@@ -589,7 +609,7 @@ test("one polite live region announces the route", () => {
   assert.equal(routeAnnouncement({ tab: "league", view: "scores" }, { tab: "league", view: "board" }), "This week");
   assert.equal(routeAnnouncement({ tab: "league", view: "activity" }, { tab: "league", view: "scores" }), "Activity");
   assert.equal(routeAnnouncement({ tab: "league", view: "history" }, { tab: "league", view: "activity" }), "History");
-  assert.equal(routeAnnouncement({ tab: "league", view: "team" }, { tab: "league", view: "history" }), "My League");
+  assert.equal(routeAnnouncement({ tab: "league", view: "team" }, { tab: "league", view: "history" }), "My team");
   assert.equal(routeAnnouncement(
     { tab: "league", view: "scores", overlay: "player", playerName: "Jahmyr Gibbs" },
     { tab: "league", view: "board" },
