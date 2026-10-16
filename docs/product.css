@@ -831,7 +831,7 @@ details.workspace-panel > summary,
     background: var(--panel);
   }
 
-  .mobile-chrome-copy strong {
+  .mobile-chrome-copy #mobile-chrome-title {
     font-size: var(--fs-h2);
     font-weight: 400;
   }
@@ -985,7 +985,7 @@ details.workspace-panel > summary,
     overflow: visible;
   }
 
-  body.viewing-sample .mobile-chrome-title-row strong {
+  body.viewing-sample .mobile-chrome-title-row #mobile-chrome-title {
     flex: 1 1 auto;
     min-width: 0;
   }

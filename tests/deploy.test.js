@@ -98,6 +98,13 @@ test("GitHub Actions publish only from a GitHub Release", () => {
   assert.match(valueRefresh, /player-values\/build\.py/);
   assert.match(valueRefresh, /HEAD:develop/);
   assert.match(valueRefresh, /git fetch --no-tags origin develop/);
+  assert.match(valueRefresh, /cron: "17 11 \* \* \*"/);
+  assert.match(valueRefresh, /prices_unchanged\.py/);
+  assert.match(valueRefresh, /archive_price_snapshot\.py/);
+  assert.match(valueRefresh, /git diff --cached --quiet -- docs\/data\/player_values\.json player-values\/validation\.json docs\/data\/price-history/);
+  assert.match(valueRefresh, /\[skip netlify\]/);
+  assert.match(valueRefresh, /docs\/data\/price-history/);
+  assert.doesNotMatch(valueRefresh, /player_value_history\.json/);
   assert.doesNotMatch(valueRefresh, /abbrev-ref/);
   assert.doesNotMatch(valueRefresh, /deploy_live_site/);
   assert.doesNotMatch(valueRefresh, /--prod/);

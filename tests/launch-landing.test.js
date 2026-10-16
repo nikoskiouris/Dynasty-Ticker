@@ -142,7 +142,7 @@ test("the example deep link round-trips and Back can restore the saved scroll", 
   assert.match(app, /scrollTopFromHistory\(historyState\)/);
   assert.match(app, /prepareDeskPush\(\)/);
   assert.match(app, /restoreHistoryScroll\(historyState\)/);
-  assert.match(app, /addEventListener\("popstate", \(event\) => applyDeskPopState\(event\.state\)\)/);
+  assert.match(app, /addEventListener\("popstate", \(event\) => \{[\s\S]*?applyDeskPopState\(event\.state\)/);
 });
 
 test("the info icon is 44px, one opens at a time, and Esc returns focus", () => {
@@ -211,7 +211,10 @@ test("a pre-league landing has one heading and two calls to action", () => {
   const index = readFileSync(join(root, "../docs/index.html"), "utf8");
   const css = readFileSync(join(root, "../docs/product.css"), "utf8");
   assert.match(index, /<body class="launch-open">/);
-  assert.equal((index.match(/<h1\b/g) || []).length, 1);
+  assert.deepEqual(index.match(/<h1\b[^>]*>/g), [
+    '<h1 id="mobile-chrome-title">',
+    '<h1 id="landing-job-hint">',
+  ]);
   assert.match(index, /<h1 id="landing-job-hint">Is your dynasty trade fair\?/);
   assert.match(index, /<p id="hero-title">/);
   assert.doesNotMatch(index, /<h1 id="hero-title"/);

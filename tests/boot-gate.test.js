@@ -234,7 +234,7 @@ test("boot-intent queues Enter and a click before app.js loads", () => {
       return selector === "#sleeper-username" ? inputNode : null;
     },
   };
-  const sandbox = { document: documentStub };
+  const sandbox = { document: documentStub, location: { pathname: "/trade", search: "" } };
   vm.createContext(sandbox);
   vm.runInContext(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/boot-intent.js"), "utf8"), sandbox);
   let prevented = 0;
@@ -253,6 +253,31 @@ test("boot-intent queues Enter and a click before app.js loads", () => {
   });
   assert.equal(prevented, 2);
   assert.equal(sandbox.__dynastyBootFind.username, "early");
+  const attrs = new Map();
+  const main = {
+    getAttribute(name) { return attrs.has(name) ? attrs.get(name) : null; },
+    setAttribute(name, value) { attrs.set(name, String(value)); },
+  };
+  documentStub.getElementById = (id) => (id === "workspace" ? main : null);
+  const skip = {
+    href: "#workspace",
+    getAttribute(name) { return name === "href" ? this.href : null; },
+    setAttribute(name, value) { if (name === "href") this.href = value; },
+    closest(selector) { return selector === "a.skip-link" ? this : null; },
+  };
+  listeners.filter((row) => row.type === "keydown").forEach((row) => row.fn({ key: "Enter", target: skip }));
+  assert.equal(main.getAttribute("tabindex"), "-1");
+  attrs.delete("tabindex");
+  listeners.filter((row) => row.type === "focusin").forEach((row) => row.fn({ target: skip }));
+  assert.equal(main.getAttribute("tabindex"), "-1");
+  assert.equal(skip.href, "/trade#workspace");
+  attrs.delete("tabindex");
+  listeners.filter((row) => row.type === "click").forEach((row) => row.fn({
+    target: skip,
+    preventDefault() {},
+    stopPropagation() {},
+  }));
+  assert.equal(main.getAttribute("tabindex"), "-1");
   const index = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/index.html"), "utf8");
   const intentAt = index.indexOf('src="./boot-intent.js"');
   const bootAt = index.indexOf('src="./boot.js"');
