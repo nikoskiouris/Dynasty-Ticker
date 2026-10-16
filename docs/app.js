@@ -965,9 +965,12 @@ ensureRouteLive(document);
 window.addEventListener("popstate", (event) => {
   const raw = event.state?.idx;
   const next = Number.isFinite(Number(raw)) ? Number(raw) : Math.max(0, routeFocus.index() - 1);
+  const before = routePlaceNow();
   const step = routeFocus.pop(next);
   applyDeskPopState(event.state);
-  syncRouteA11y({ focus: appBooted ? step.focus : "none", trigger: step.trigger });
+  const after = routePlaceNow();
+  const focus = !appBooted ? "none" : (leagueRoomMove(before, after) ? "heading" : step.focus);
+  syncRouteA11y({ focus, trigger: step.trigger, before });
 });
 if (isPhoneLayout()) setMobileRailOpen(false);
 
@@ -1702,9 +1705,16 @@ function focusRouteHeading(selector) {
   });
 }
 
+function leagueRoomMove(before, after) {
+  if (!before || !after) return false;
+  if (before.overlay || after.overlay || before.playerId || after.playerId) return false;
+  if ((before.page || before.tab) !== "league" || (after.page || after.tab) !== "league") return false;
+  return String(before.view || "") !== String(after.view || "");
+}
+
 function focusLeagueRoomHeading(room) {
   if (!appBooted || Date.now() >= followHeadingsUntil) return;
-  if (room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
+  if (room !== "team" && room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
   if (state.activePage !== "league" || getRoom() !== room) return;
   focusHeadingWhenPresent(document, headingSelectorFor({ page: "league", view: room }), {
     stillWanted: () => Date.now() < followHeadingsUntil,

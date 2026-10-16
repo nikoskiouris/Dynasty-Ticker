@@ -80,6 +80,72 @@ for (const width of [1280, 390]) {
   });
 }
 
+async function openLeagueRoom(page, name) {
+  if (page.viewportSize().width <= 700) {
+    const open = await page.locator("body").evaluate((body) => body.classList.contains("rail-open"));
+    if (!open) await page.locator("#mobile-rail-toggle").click();
+    const section = page.locator("#phone-desk").getByRole("button", { name: "My League" });
+    if ((await section.getAttribute("aria-expanded")) !== "true") await section.click();
+    await page.locator("#phone-desk").getByRole("button", { name, exact: true }).click();
+    return;
+  }
+  await page.locator("#room-nav").getByRole("tab", { name, exact: true }).click();
+}
+
+async function headingFocus(page) {
+  let snap = { tag: "", id: "", text: "" };
+  await expect.poll(async () => {
+    snap = await page.evaluate(() => {
+      const el = document.activeElement;
+      return {
+        tag: el?.tagName || "",
+        id: el?.id || "",
+        text: (el?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
+      };
+    });
+    return snap.tag;
+  }, { timeout: 15000 }).toMatch(/^H[12]$/);
+  return snap;
+}
+
+for (const width of [1280, 390]) {
+  test(`back and forward focus the room heading at ${width}`, async ({ page }) => {
+    test.setTimeout(120000);
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 800 });
+    await page.goto(`/l/${LEAGUE}/team`);
+    await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
+
+    await openLeagueRoom(page, "League");
+    await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/league`));
+    const leagueHeading = await headingFocus(page);
+
+    await openLeagueRoom(page, "This week");
+    await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/week`));
+    await expect.poll(async () => {
+      const text = await page.locator("[data-room-panel='scores'] h2").first().innerText();
+      return text.replace(/\s+/g, " ").trim();
+    }, { timeout: 20000 }).toMatch(/Week /);
+    const weekHeading = await headingFocus(page);
+    expect(weekHeading).not.toEqual(leagueHeading);
+
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/league`));
+    await expect.poll(async () => page.evaluate(() => ({
+      tag: document.activeElement?.tagName || "",
+      id: document.activeElement?.id || "",
+      text: (document.activeElement?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
+    })), { timeout: 15000 }).toEqual(leagueHeading);
+
+    await page.goForward();
+    await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/week`));
+    await expect.poll(async () => page.evaluate(() => ({
+      tag: document.activeElement?.tagName || "",
+      id: document.activeElement?.id || "",
+      text: (document.activeElement?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
+    })), { timeout: 15000 }).toEqual(weekHeading);
+  });
+}
+
 test("slow History focuses its heading at 390", async ({ page }) => {
   test.setTimeout(90000);
   let release = () => {};

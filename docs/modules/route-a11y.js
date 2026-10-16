@@ -112,7 +112,7 @@ export function headingSelectorFor(place = {}) {
   const page = place.page || place.tab || "";
   const room = String(place.view || "");
   if (page === "league" && room === "history") return "#history-heading";
-  if (page === "league" && (room === "board" || room === "scores" || room === "activity")) {
+  if (page === "league" && (room === "team" || room === "board" || room === "scores" || room === "activity")) {
     return `[data-room-panel="${room}"] h2`;
   }
   return "";
