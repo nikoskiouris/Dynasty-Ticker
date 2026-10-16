@@ -36,35 +36,61 @@ function pathOf(url) {
   return new URL(url).pathname;
 }
 
+async function watchSlashReplace(page) {
+  await page.addInitScript(() => {
+    window.__slashReplaces = [];
+    const orig = history.replaceState.bind(history);
+    history.replaceState = function (state, title, url) {
+      const path = new URL(String(url ?? ""), location.origin).pathname;
+      if (path === "/") window.__slashReplaces.push(String(url));
+      return orig(state, title, url);
+    };
+  });
+}
+
+async function expectRoom(page, pathname, room) {
+  await expect.poll(() => pathOf(page.url())).toBe(pathname);
+  await expect(page.locator(`[data-room-panel="${room}"]`)).toBeVisible();
+  for (const other of ["team", "board", "scores", "activity", "history"]) {
+    if (other === room) continue;
+    await expect(page.locator(`[data-room-panel="${other}"]`)).toBeHidden();
+  }
+}
+
 for (const viewport of viewports) {
   test(`league rooms keep their own history at ${viewport.width}`, async ({ page }) => {
+    await watchSlashReplace(page);
     await page.setViewportSize(viewport);
     await loadLeague(page);
+    await expectRoom(page, `/l/${LEAGUE}/team`, "team");
+
     await openRoom(page, "board");
-    await expect.poll(() => pathOf(page.url())).toBe(`/l/${LEAGUE}/league`);
+    await expectRoom(page, `/l/${LEAGUE}/league`, "board");
     await expect(page).toHaveTitle(/^League · Dynasty Ticker/);
 
     await openRoom(page, "scores");
-    await expect.poll(() => pathOf(page.url())).toBe(`/l/${LEAGUE}/week`);
+    await expectRoom(page, `/l/${LEAGUE}/week`, "scores");
     await expect(page).toHaveTitle(/^This week · Dynasty Ticker/);
 
     await openRoom(page, "activity");
-    await expect.poll(() => pathOf(page.url())).toBe(`/l/${LEAGUE}/activity`);
+    await expectRoom(page, `/l/${LEAGUE}/activity`, "activity");
     await expect(page).toHaveTitle(/^Activity · Dynasty Ticker/);
 
     await page.goBack();
-    await expect.poll(() => pathOf(page.url())).toBe(`/l/${LEAGUE}/week`);
+    await expectRoom(page, `/l/${LEAGUE}/week`, "scores");
     await expect(page).toHaveTitle(/^This week · Dynasty Ticker/);
-    await expect(page.locator("[data-room-panel='scores'] h2").first()).toBeVisible();
 
     await page.goBack();
-    await expect.poll(() => pathOf(page.url())).toBe(`/l/${LEAGUE}/league`);
+    await expectRoom(page, `/l/${LEAGUE}/league`, "board");
     await expect(page).toHaveTitle(/^League · Dynasty Ticker/);
 
     await page.goForward();
-    await expect.poll(() => pathOf(page.url())).toBe(`/l/${LEAGUE}/week`);
+    await expectRoom(page, `/l/${LEAGUE}/week`, "scores");
     await expect(page).toHaveTitle(/^This week · Dynasty Ticker/);
     await expect(page).not.toHaveTitle("Dynasty Ticker — Your Sleeper dynasty league");
+
+    const slashes = await page.evaluate(() => window.__slashReplaces);
+    expect(slashes).toEqual([]);
   });
 }
 

@@ -1783,6 +1783,8 @@ function updateUrlState({ mode = "replace" } = {}) {
   const path = deskUrlPath();
   const snapshot = historyPlaceNow();
   const currentPath = `${window.location.pathname}${window.location.search}`;
+  const nextPath = String(path || "").split("?")[0] || "/";
+  const here = window.location.pathname || "/";
   const write = decideHistoryWrite({
     current: history.state || {},
     next: snapshot,
@@ -1797,6 +1799,11 @@ function updateUrlState({ mode = "replace" } = {}) {
     return;
   }
   if (write === "silent") {
+    routeFocus.forget();
+    return;
+  }
+  // A league is open. Do not replace its /l/ URL with home.
+  if (state.leagueId && nextPath === "/" && here.startsWith("/l/")) {
     routeFocus.forget();
     return;
   }
@@ -2926,6 +2933,13 @@ function rememberPickedLeague(leagueId) {
   if (applyingHistory || typeof history?.replaceState !== "function") return;
   const nextSearch = stampPickedLeagueSearch(window.location.search, leagueId);
   if (!nextSearch) return;
+  const here = window.location.pathname || "/";
+  // Home has no league path. Push the team URL. Do not replaceState onto "/".
+  if ((here === "/" || here === "") && leagueOpenedInApp && typeof history.pushState === "function") {
+    routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
+    history.pushState({ ...historyPlaceNow(), pushed: true }, "", urlPath("l", leagueId, "team"));
+    return;
+  }
   if (leagueOpenedInApp && typeof history.pushState === "function") {
     routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
     history.pushState({ ...historyPlaceNow(), pushed: true }, "", `${window.location.pathname}${window.location.search}`);
