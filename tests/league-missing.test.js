@@ -156,6 +156,7 @@ test("the missing-league state has a heading, connect, and the sample league", (
   const css = readDocs("styles.css");
   const product = readDocs("product.css");
   assert.match(css, /#league-missing-title:focus:not\(:focus-visible\)\s*\{\s*outline:\s*none;\s*\}/);
+  assert.match(css, /#league-missing-title:focus,\s*#sleeper-down-title:focus\s*\{\s*outline:\s*none;\s*\}/);
   assert.match(product, /\.league-missing-primary::before/);
 
   const leave = app.slice(app.indexOf("function openLandingFromMissingLeague("), app.indexOf("function hideLeagueNotFound("));

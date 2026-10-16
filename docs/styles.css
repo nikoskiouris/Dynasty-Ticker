@@ -8437,6 +8437,8 @@ button.rather-skip {
   outline: none;
 }
 
+#league-missing-title:focus, #sleeper-down-title:focus { outline: none; }
+
 .league-missing p {
   margin: 0;
   max-width: 36rem;
