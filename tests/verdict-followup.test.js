@@ -131,8 +131,14 @@ test("trade ideas: an idea that passes a filter never shows a verdict outside th
   assert.match(app, /pctDiff > ideaLimitMore\(fairnessLimit\)/);
   const match = readFileSync(new URL("../docs/modules/trade-match.js", import.meta.url), "utf8");
   assert.match(match, /percentDiff\(mine, theirs\) <= ideaLimitMore\(fairnessPct\)/);
-  // Wording: "% more", not "diff" / "gap at".
-  assert.match(app, /one side worth up to \$\{idea\.maxPctDiff\}% more/);
+  // Wording: "% more", not "diff" / "gap at". The multi-team cap is a limit, so it
+  // plain-rounds; a verdict still ceils across a band edge.
+  assert.equal(displayMore(28.34, { band: false }), 28);
+  assert.equal(displayMore(28.34), 29);
+  assert.equal(displayMore(14.2, { band: false }), 14);
+  assert.equal(displayMore(5.6, { band: false }), 6);
+  assert.match(app, /one side worth up to \$\{displayMore\(idea\.maxPctDiff, \{ band: false \}\)\}% more/);
+  assert.match(app, /Lopsided · Give side worth 89% more/);
   assert.match(app, /after adjustments one side is worth \$\{idea\.pctDiff\}% more\./);
   assert.doesNotMatch(app, /% diff •|adjusted-value gap at/);
   for (const text of ["one side worth up to 9% more", "after adjustments one side is worth 9% more."]) assert.doesNotMatch(text, BANNED);

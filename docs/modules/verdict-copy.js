@@ -48,14 +48,16 @@ export function percentMore(left, right) {
   return round1(((big - small) / small) * 100);
 }
 
-// Whole percent for a sentence. Round to nearest, then step to ceil when that
-// integer would belong to a lower tier, so the shown number never contradicts
-// the tier. null stays null.
-export function displayMore(more) {
+// Whole percent. Round to nearest. For a verdict ({ band: true }, the default),
+// step to ceil when that integer would belong to a lower tier, so the shown
+// number never contradicts the tier. A limit is not a verdict: pass
+// { band: false } for plain rounding. null stays null.
+export function displayMore(more, { band = true } = {}) {
   if (more == null || !Number.isFinite(Number(more))) return null;
   const value = Number(more);
-  const tier = tierForMore(value);
   const nearest = Math.round(value);
+  if (!band) return nearest;
+  const tier = tierForMore(value);
   if (tierForMore(nearest) === tier) return nearest;
   const up = Math.ceil(value);
   if (tierForMore(up) === tier) return up;
