@@ -15,6 +15,7 @@
 // on private /trade. publicTone (fair | strong) colours only the tier on the
 // public card and cold /t; direction is shown by placement and a pointer.
 import { valueCalcVerdict } from "./value-calc.js";
+import { DEFAULT_FAIRNESS_PCT } from "./constants.js";
 
 // Labels valueCalcVerdict gives when both sides are filled in.
 const BOTH_SIDES = new Set(["Dead even", "Fair, leans Get", "Fair, leans Give", "Favors Get", "Favors Give", "Lopsided for Get", "Lopsided for Give"]);
@@ -78,4 +79,74 @@ export function verdictCopy(verdict) {
 
 export function verdictCopyFor(giveTotal, getTotal, counts = {}) {
   return verdictCopy(valueCalcVerdict(giveTotal, getTotal, counts));
+}
+
+// Same verdict for surfaces that name the sides differently (the offer text,
+// trade ideas, the even-up line): "Favors one side · My side worth 25% more".
+// names: { Give, Get } display names for the two columns.
+export function verdictLineNamed(verdict, names = {}) {
+  const copy = verdictCopy(verdict);
+  if (!copy.tier || copy.tier === "even" || !copy.side) return copy.line;
+  const name = String(names[copy.side] || `${copy.side} side`);
+  const amount = copy.more == null ? "" : `${copy.more}% `;
+  return `${copy.label} · ${name} worth ${amount}more`;
+}
+
+// The even-up suggestion "closes" a trade when the shown % lands inside the
+// two fair tiers (fair trade or fair, slight edge), and is offered only when
+// the trade is outside "Fair trade".
+export const EVEN_UP_OFFER_ABOVE = TIER_BANDS.even;
+export const EVEN_UP_CLOSES_AT = TIER_BANDS.edge;
+
+const countText = (value) => Math.round(Math.abs(Number(value) || 0)).toLocaleString("en-US");
+
+// Cold /t detail line: credited totals first, the star premium in brackets.
+// "Give 19,224 (11,811 + 7,413 star premium). Get 14,457."
+export function creditedTotalsLine({ giveListed = 0, getListed = 0, stars = 0, starSide = "" } = {}) {
+  const part = (name, listed, key) => {
+    const extra = starSide === key && stars > 0 ? Math.round(stars) : 0;
+    return extra
+      ? `${name} ${countText(listed + extra)} (${countText(listed)} + ${countText(extra)} star premium).`
+      : `${name} ${countText(listed)}.`;
+  };
+  return `${part("Give", Number(giveListed) || 0, "give")} ${part("Get", Number(getListed) || 0, "get")}`;
+}
+
+// Screen-reader label for a verdict bar: "Give 21,472 including 8,561 star premium".
+export function barLabel(name, listed = 0, stars = 0) {
+  const extra = Math.round(Number(stars) || 0);
+  const total = (Number(listed) || 0) + extra;
+  return extra > 0 ? `${name} ${countText(total)} including ${countText(extra)} star premium` : `${name} ${countText(total)}`;
+}
+
+export const STAR_PREMIUM_KEY = "Star premium";
+
+// Trade-idea limits. Fairness settings are written on the old metric (gap /
+// larger side, e.g. 20 or 24). An idea is filtered on the shown "% more" with
+// that setting converted and snapped up to a band ceiling (5 / 14 / 28), so an
+// idea never shows a verdict outside the band it was picked for. Past 28 the
+// band is Lopsided and the converted number is the cap.
+export function oldPctToMore(oldPct) {
+  const p = Math.min(99, Math.max(0, Number(oldPct) || 0));
+  return round1((p / (100 - p)) * 100);
+}
+
+// Launch default: Trade Lab's balanced setting (DEFAULT_FAIRNESS_PCT 20) is
+// pinned at exactly 25% more, its old reach, not rounded up to 28. 25 is
+// inside the Favors band, so no default idea shows a tier above Favors.
+export const DEFAULT_IDEA_LIMIT_MORE = 25;
+
+export function ideaLimitMore(oldPct) {
+  if (Number(oldPct) === DEFAULT_FAIRNESS_PCT) return DEFAULT_IDEA_LIMIT_MORE;
+  const more = oldPctToMore(oldPct);
+  if (more <= TIER_BANDS.even) return TIER_BANDS.even;
+  if (more <= TIER_BANDS.edge) return TIER_BANDS.edge;
+  if (more <= TIER_BANDS.favors) return TIER_BANDS.favors;
+  return more;
+}
+
+// The shown metric for two package values; 1000 when a side is empty.
+export function ideaGapMore(a, b) {
+  const more = percentMore(a, b);
+  return more == null || !(Number(a) > 0) || !(Number(b) > 0) ? 1000 : more;
 }

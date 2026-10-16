@@ -1,3 +1,4 @@
+import { ideaGapMore, oldPctToMore } from "./verdict-copy.js";
 export const MAX_PACKAGE_CANDIDATES = 280;
 export const MAX_PACKAGES_PER_SIZE = 80;
 export const MAX_TARGET_EXTRAS_POOL = 8;
@@ -141,7 +142,8 @@ export function walkPackagePairs(myPackages, theirPackages, {
 } = {}) {
   const mine = decoratePackageTotals(myPackages);
   const theirs = decoratePackageTotals(theirPackages);
-  const slack = Math.max(PAIR_VALUE_SLACK_PCT, Number(fairnessPct) + 8);
+  // Coarse prefilter on the shown metric (% more); same reach as before.
+  const slack = oldPctToMore(Math.max(PAIR_VALUE_SLACK_PCT, Number(fairnessPct) + 8));
   let evals = 0;
   let hits = 0;
 
@@ -149,8 +151,7 @@ export function walkPackagePairs(myPackages, theirPackages, {
     if (hits >= maxHits || evals >= maxEvals) break;
     for (const theirPackage of theirs) {
       if (hits >= maxHits || evals >= maxEvals) break;
-      const denom = Math.max(myPackage.total, theirPackage.total, 1);
-      if ((Math.abs(myPackage.total - theirPackage.total) / denom) * 100 > slack) continue;
+      if (ideaGapMore(myPackage.total, theirPackage.total) > slack) continue;
       evals += 1;
       if (visit(myPackage, theirPackage)) hits += 1;
     }
