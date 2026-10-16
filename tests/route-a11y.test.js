@@ -331,6 +331,8 @@ test("card words stay plain after the heading split", () => {
   assert.doesNotMatch(app, /<span>W-L<\/span>/);
   assert.match(app, /\$\{slots\.length\} starters/);
   assert.match(app, /1 point per catch/);
+  assert.match(app, /0\.5 points per catch/);
+  assert.doesNotMatch(app, /0\.5 PPR/);
   assert.match(app, /\$\{taxiSlots\} taxi spots/);
   assert.match(app, /parts\.push\("TE bonus"\)/);
   assert.doesNotMatch(app, /TE bonus \(values stay full PPR\)/);

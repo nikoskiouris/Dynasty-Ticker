@@ -11429,7 +11429,13 @@ function describeLeagueFormat(league) {
   const scoring = league?.scoring_settings || {};
   const receptionValue = Number(scoring.rec);
   const pprLabel = Number.isFinite(receptionValue)
-    ? receptionValue >= 1 ? "1 point per catch" : receptionValue > 0 ? `${receptionValue} PPR` : "standard"
+    ? receptionValue >= 1
+      ? "1 point per catch"
+      : receptionValue === 0.5
+        ? "0.5 points per catch"
+        : receptionValue > 0
+          ? `${receptionValue} PPR`
+          : "standard"
     : "custom scoring";
   const taxiSlots = Number(league?.settings?.taxi_slots || 0);
   const draftRounds = Number(league?.settings?.draft_rounds || 0);
