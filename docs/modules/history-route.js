@@ -172,6 +172,8 @@ function blankRoute(extra = {}) {
     format: "",
     shareCode: "",
     badShare: false,
+    badLeague: false,
+    badLeagueId: "",
     unknown: false,
     legacy: "",
     ...extra,
@@ -192,7 +194,16 @@ export function matchRoute(pathname, search = "") {
     const leagueId = found.leagueId ? decodePart(found.leagueId) : "";
     const playerId = found.sleeperId ? decodePart(found.sleeperId) : "";
     const slug = found.slug ? decodePart(found.slug) : "";
-    if (found.leagueId && !LEAGUE_ID.test(leagueId)) return null;
+    if (found.leagueId && !LEAGUE_ID.test(leagueId)) {
+      // Stay on /l/… A bad id is a missing league, not an unknown page.
+      return blankRoute({
+        name: "league",
+        page: "league",
+        room: "team",
+        badLeague: true,
+        badLeagueId: leagueId,
+      });
+    }
     if (found.sleeperId && !SLEEPER_ID.test(playerId)) return null;
     if (row.name === "sharedTrade") {
       const shareCode = decodePart(found.shareCode);
@@ -332,9 +343,9 @@ export function playerIdFromPathname(pathname) {
 
 // Documented Netlify rewrites: a fixed path or one :placeholder per segment.
 // A placeholder matches any single segment, including "x.js". The route
-// table still rejects a non-numeric player id and a league id that contains
-// a dot, and the desk replaceState's those to BASE. Trailing-slash forms
-// are their own rules so /players/ is not left to the 404 catch-all.
+// table still rejects a non-numeric player id, and the desk sends that home.
+// A league id that is not numeric stays on /l/… and says the league was not found.
+// Trailing-slash forms are their own rules so /players/ is not left to the 404 catch-all.
 export const SPA_REWRITES = Object.freeze([
   "/player/:id",
   "/player/:id/:slug",
