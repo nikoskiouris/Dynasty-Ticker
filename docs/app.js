@@ -12807,7 +12807,7 @@ function renderMultiTeamPartyCard(participant, values, meRosterId) {
           ${bridgeGapLabel}
         </div>
         <div class="trade-metric">
-          <strong>Package adjustment</strong>
+          <strong>Extra for fewer, better players</strong>
           ${packageAdjustmentLabel}
         </div>
       </div>

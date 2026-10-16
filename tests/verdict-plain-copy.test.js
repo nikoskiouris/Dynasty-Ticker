@@ -117,7 +117,7 @@ test("the verdict explanation source no longer says package credit or star premi
   const cardJs = readFileSync(new URL("../netlify/lib/trade-card.js", import.meta.url), "utf8");
   const meta = readFileSync(new URL("../netlify/lib/trade-share.js", import.meta.url), "utf8");
   const source = [app, bars, copy, share, cardJs, meta].join("\n");
-  assert.doesNotMatch(source, /Package credit|package credit|Stars cost extra|star premium|stars cost extra/);
+  assert.doesNotMatch(source, /Package credit|package credit|Package adjustment|package adjustment|Stars cost extra|star premium|stars cost extra/i);
   assert.match(app, /starsPremiumMarkup\(model, \{ detail: copy\.detail \}\)/);
   assert.match(app, /starsPremiumMarkup\(model, \{ side: credited, detail: copy\.detail \}\)/);
   assert.match(app, /fewerBetterOffer\(formatNumber\(adjustment\.amount\), creditSide\)/);
