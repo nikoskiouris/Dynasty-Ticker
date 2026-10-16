@@ -107,6 +107,16 @@ for (const viewport of viewports) {
 
   test(`a dated link whose prices moved shows shared and today at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     // An older archived board where Gibbs cost twice as much.
+    // #166 only fetches a stamp the price-history index lists, so the mocked
+    // board has to be listed or the app treats it as pruned.
+    await page.route("**/data/price-history/index.json", async (route) => {
+      const index = await (await route.fetch()).json();
+      const snapshots = Array.isArray(index.snapshots) ? index.snapshots.slice() : [];
+      if (!snapshots.some((row) => row?.stamp === OLD)) {
+        snapshots.push({ asOf: "2026-10-07T11:17:00+00:00", stamp: OLD });
+      }
+      await route.fulfill({ json: { ...index, snapshots } });
+    });
     await page.route(`**/data/price-history/${OLD}.json`, (route) => route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({ asOf: "2026-10-07T11:17:00+00:00", sf: { ...VALUES.sf, "player:9221": VALUES.sf["player:9221"] * 2 }, oneQb: VALUES.oneQb }),
@@ -281,8 +291,8 @@ test("Esc closes the info panel and returns focus to its button", async ({ page 
 test("pane totals say players & picks, not assets", async ({ page }) => {
   await page.goto(`/t/2s${STAMP}9509~11632.p27r1e`);
   await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
-  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("2 players & picks");
-  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player or pick");
+  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("1 player & 1 pick");
+  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player");
 });
 
 test("after sharing from /trade the sender's address bar shows /t/<code>", async ({ page, context }) => {
@@ -343,9 +353,13 @@ test("cold /t at 390x844 shows the shared verdict in the first viewport, then a 
   await expect(page.locator("[data-draft-side='left'] .draft-pane-title")).toHaveText("Give side");
   await expect(page.locator("[data-draft-side='right'] .draft-pane-title")).toHaveText("Get side");
   await expect(page.locator("#mobile-chrome-title")).toBeHidden();
-  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("2 players & picks");
-  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player or pick");
-  // Read-only until "Edit this trade".
+  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("1 player & 1 pick");
+  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player");
+  // Read-only until "Edit this trade". The button sits fully in the first viewport.
+  const edit = page.locator("[data-action='shared-edit']");
+  const editBox = await edit.boundingBox();
+  expect(editBox.y).toBeGreaterThanOrEqual(0);
+  expect(editBox.y + editBox.height).toBeLessThanOrEqual(844);
   await expect(page.locator("[data-input='value-search']")).toHaveCount(2);
   await expect(page.locator("[data-input='value-search']").first()).toBeHidden();
   await expect(page.locator(".selected-token-remove").first()).toBeHidden();
@@ -359,6 +373,31 @@ test("cold /t at 390x844 shows the shared verdict in the first viewport, then a 
   await expect(page).toHaveURL(/\/trade$/);
   await expect(page.locator(".shared-trade-head")).toHaveCount(0);
   await expect(page.locator("[data-draft-side='left'] .calc-selected .selected-token")).toHaveCount(0);
+});
+
+test("leaving a cold /t restores the app title, including back and forward", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const code = "2s2026101419179221~p27r1e.p28r1e";
+  await page.goto(`/t/${code}`);
+  await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
+  const html = await (await request.get(`/t/${code}`)).text();
+  const serverTitle = /<title>([^<]*)<\/title>/.exec(html)[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+  await expect(page).toHaveTitle(serverTitle);
+  const edit = page.locator("[data-action='shared-edit']");
+  const editBox = await edit.boundingBox();
+  expect(editBox.y).toBeGreaterThanOrEqual(0);
+  expect(editBox.y + editBox.height).toBeLessThanOrEqual(844);
+  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player");
+  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("2 picks");
+  await page.locator("[data-action='shared-check-own']").click();
+  await expect(page).toHaveURL(/\/trade$/);
+  await expect(page).toHaveTitle("Trade · Dynasty Ticker");
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`/t/${code}/?$`));
+  await expect(page).toHaveTitle(serverTitle);
+  await page.goForward();
+  await expect(page).toHaveURL(/\/trade$/);
+  await expect(page).toHaveTitle("Trade · Dynasty Ticker");
 });
 
 test("cold /t at 1280 keeps the server title and the shared layout", async ({ page, request }) => {

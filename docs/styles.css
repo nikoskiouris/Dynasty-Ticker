@@ -9243,6 +9243,18 @@ body.cold-share #mobile-chrome-title {
 }
 
 @media (max-width: 620px) {
+  /* Shell gap already separates the blocks. Extra margins pushed
+     "Edit this trade" 1px under the 844px fold. */
+  .calculator-shell[data-shared-view="1"] {
+    gap: 0.75rem;
+  }
+
+  .calculator-shell[data-shared-view="1"] .shared-trade-head,
+  .calculator-shell[data-shared-view="1"] .calc-verdict,
+  .calculator-shell[data-shared-view="1"] .shared-trade-cta {
+    margin: 0;
+  }
+
   [data-shared-view="1"] .calc-summary {
     gap: 0.6rem;
     padding: 0.8rem;

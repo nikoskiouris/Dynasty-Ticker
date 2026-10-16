@@ -1760,7 +1760,7 @@ function escapeRouteOverlay(event) {
   return true;
 }
 
-function updateUrlState({ mode = "replace" } = {}) {
+function updateUrlState({ mode = "replace", force = false } = {}) {
   if (applyingHistory) {
     routeFocus.forget();
     return;
@@ -1773,11 +1773,16 @@ function updateUrlState({ mode = "replace" } = {}) {
   const path = deskUrlPath();
   const snapshot = historyPlaceNow();
   const currentPath = `${window.location.pathname}${window.location.search}`;
-  const write = decideHistoryWrite({
+  const pathChanged = currentPath !== path;
+  const placeWrite = decideHistoryWrite({
     current: history.state || {},
     next: snapshot,
     mode: sameHistoryPlace(history.state || {}, snapshot) && currentPath === path && mode === "push" ? "push" : mode,
   });
+  // Leaving a cold /t stays on the trade calculator, so the place key does not
+  // change and a normal push is downgraded to replace. Force one history entry
+  // so Back and Forward can restore the shared title and the app title.
+  const write = force && mode === "push" && pathChanged ? "push" : placeWrite;
   const pushed = write === "push" ? true : (write === "replace" && sameHistoryPlace(history.state || {}, snapshot) && Boolean(history.state?.pushed));
   const entry = { ...snapshot, pushed };
   if (write === "push" && typeof history.pushState === "function") {
@@ -1792,6 +1797,8 @@ function updateUrlState({ mode = "replace" } = {}) {
   }
   routeFocus.forget();
   history.replaceState(entry, "", path);
+  // A same-place replace (cold /t -> /trade) still has to drop the shared title.
+  syncDocumentMeta();
   if (!appBooted) return;
   const after = historySnap(entry);
   const changed = before.overlay !== after.overlay
@@ -6914,7 +6921,7 @@ function sharedTradeTitle(view) {
   const raw = (name) => !name || /^(player|pick):/i.test(String(name)) || /^\d+$/.test(String(name));
   const all = [...view.draft.left, ...view.draft.right];
   if (all.some((item) => raw(item.name))) {
-    return `${pieceCount(view.draft.left.length)} for ${pieceCount(view.draft.right.length)}`;
+    return `${pieceCount(view.draft.left)} for ${pieceCount(view.draft.right)}`;
   }
   const side = (items) => {
     const names = items.map((item) => item.name).filter(Boolean);
@@ -6974,9 +6981,20 @@ function renderDraftPaneTitle(side, view) {
   `;
 }
 
-// "1 player or pick" / "N players & picks", the one count wording.
-function pieceCount(n) {
-  return `${n} ${n === 1 ? "player or pick" : "players & picks"}`;
+// "1 player", "2 picks", "1 player & 1 pick". Players first, then picks.
+function pieceCount(items) {
+  const list = Array.isArray(items) ? items : [];
+  const players = list.filter((item) => {
+    if (item?.assetType === "pick") return false;
+    if (item?.assetType === "player") return true;
+    return String(item?.assetId || "").startsWith("player:");
+  }).length;
+  const picks = list.length - players;
+  const bit = (n, one, many) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
+  const parts = [];
+  if (players) parts.push(bit(players, "player", "players"));
+  if (picks) parts.push(bit(picks, "pick", "picks"));
+  return parts.join(" & ");
 }
 
 function renderDraftTotal(side, view) {
@@ -6984,7 +7002,7 @@ function renderDraftTotal(side, view) {
   const total = side === "left" ? view.give : view.get;
   return `
     <strong>${formatNumber(total)}</strong>
-    <small>${items.length ? pieceCount(items.length) : "Nothing added"}</small>
+    <small>${items.length ? pieceCount(items) : "Nothing added"}</small>
   `;
 }
 
@@ -8068,10 +8086,15 @@ function handleWorkspaceClick(event) {
     }
     case "shared-check-own": {
       event?.preventDefault?.();
-      replaceDraft(clearValueCalcSides(state.valueCalc), "");
+      // Drop the share before the draft write. setDraft would otherwise
+      // replace /t with /trade, and Back would leave the app.
       state.sharedTrade = null;
+      state.sentShare = null;
+      draftReplaced = null;
+      state.valueCalc = clearValueCalcSides(state.valueCalc);
+      writeStoredDraft(state.valueCalc);
       renderTradeDraft();
-      updateUrlState({ mode: "push" });
+      updateUrlState({ mode: "push", force: true });
       el.calculatorShell?.querySelector("[data-input='value-search']")?.focus({ preventScroll: true });
       break;
     }
