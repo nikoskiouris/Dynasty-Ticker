@@ -304,11 +304,11 @@ export function renderPriceLegend(ids = ["model"]) {
     .map((id) => PRICE_LEGEND[id])
     .filter(Boolean);
   if (!rows.length) return "";
-  return rows.map(([label, text], index) => infoTipMarkup({
+  return `<ul class="price-legend">${rows.map(([label, text], index) => `<li><span>${escapeHtml(label)}</span>${infoTipMarkup({
     id: `pop-legend-${String(label).toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${index}`,
     label,
     text,
-  })).join("");
+  })}</li>`).join("")}</ul>`;
 }
 
 export function renderValueBoardBar() {

@@ -132,6 +132,21 @@ for (const width of [1280, 390]) {
       expect(box.zeroClip, JSON.stringify(box)).toBe(false);
       expect(box.ancestorClips, JSON.stringify(box)).toBe(false);
       expect(box.outlineWidth, JSON.stringify(box)).toBeGreaterThan(0);
+      if (width === 390) {
+        const look = await page.locator(`#${room.id}`).evaluate((el) => {
+          const style = getComputedStyle(el);
+          const panel = el.closest(".panel-heading");
+          const panelStyle = panel ? getComputedStyle(panel) : null;
+          return {
+            transform: style.textTransform,
+            size: Number.parseFloat(style.fontSize) || 0,
+            marginTop: Number.parseFloat(panelStyle?.marginTop || "0") || 0,
+          };
+        });
+        expect(look.transform).toBe("uppercase");
+        expect(look.size).toBeLessThanOrEqual(12);
+        expect(look.marginTop).toBeGreaterThanOrEqual(8);
+      }
     }
   });
 

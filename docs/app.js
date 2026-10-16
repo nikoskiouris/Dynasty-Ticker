@@ -983,10 +983,18 @@ void hydrateCrowdVotes().then((ok) => {
 });
 if (typeof history.scrollRestoration === "string") history.scrollRestoration = "manual";
 ensureRouteLive(document);
+function pathnameOnly(value) {
+  const raw = String(value || "").split(/[?#]/)[0];
+  if (raw.length > 1 && raw.endsWith("/")) return raw.slice(0, -1);
+  return raw || "/";
+}
+
 window.addEventListener("popstate", (event) => {
-  // Skip to content only adds #workspace. That is not a desk move, and the
-  // page-heading focus would take the workspace the link just targeted.
-  if (window.location.hash === "#workspace" && !event.state?.tab) return;
+  // Skip to content only adds #workspace on the page you are already on.
+  // That is not a desk move, and the page-heading focus would take the
+  // workspace the link just targeted. A real navigation that changes the
+  // path still runs, even when the hash is #workspace.
+  if (window.location.hash === "#workspace" && !event.state?.tab && pathnameOnly(window.location.pathname) === pathnameOnly(deskUrlPath())) return;
   const raw = event.state?.idx;
   const next = Number.isFinite(Number(raw)) ? Number(raw) : Math.max(0, routeFocus.index() - 1);
   const before = routePlaceNow();
@@ -1908,15 +1916,29 @@ function focusClickedRoute(before) {
   if (!focusViewHeading(root, { focusVisible })) focusViewHeading(document.querySelector("main"), { focusVisible });
 }
 
+let leagueLoadJob = null;
+
 async function waitForHistoryLeague(token) {
   const deadline = Date.now() + 20000;
+  let waited = null;
   while (token === routeFocusToken && state.leagueSwitching && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 40));
+    const job = leagueLoadJob;
+    if (!job || job === waited) return;
+    waited = job;
+    const remaining = Math.max(0, deadline - Date.now());
+    await Promise.race([
+      job.then(() => {}, () => {}),
+      new Promise((resolve) => setTimeout(resolve, remaining)),
+    ]);
   }
 }
 
 async function focusAfterPopstate({ focus, trigger, before, token }) {
-  const focusVisible = roomFocusVisible();
+  // Back onto a room heading has to show the ring, including when the
+  // browser Back control did not count as a key press. Otherwise focus can
+  // sit on the heading with no ring, or look like it fell through to the
+  // clipped page h1.
+  const focusVisible = roomFocusVisible() || focus === "heading";
   if (focus === "none") {
     if (pendingPopstateFocus === token) pendingPopstateFocus = 0;
     syncRouteA11y({ focus: "none", trigger, before, settled: token, focusVisible });
@@ -3457,7 +3479,9 @@ async function loadLeagueById(leagueId, { fromHistory = false, sample = false } 
   if (!fromHistory) rememberPickedLeague(leagueId);
   state.viewingSample = Boolean(sample);
   if (shouldBlankDeskForLeagueSwitch(state.leagueId, leagueId)) blankDeskForLeagueSwitch();
-  return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
+  const job = leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
+  leagueLoadJob = job;
+  return job;
 }
 
 function unloadLeague() {
@@ -5633,7 +5657,7 @@ function renderStandingsPanel(model, sim) {
       </div>
       <div class="standings-table">
         <div class="standings-head">
-          <span>#</span><span>Team</span><span>Record</span><span class="col-pf">Points</span><span class="col-pa">PA</span><span class="col-streak">Strk</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
+          <span>#</span><span>Team</span><span>Record</span><span class="col-pf">Points</span><span class="col-pa">Pts against</span><span class="col-streak">Streak</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
         </div>
         ${rowsHtml}
       </div>
@@ -7535,7 +7559,7 @@ function renderTradeDraft() {
     host.innerHTML = `
       <div class="shared-trade-head">
         <span class="eyebrow">Shared trade</span>
-        <h2 id="shared-trade-title">${escapeHtml(sharedTradeTitle(view))}</h2>
+        <h1 id="shared-trade-title">${escapeHtml(sharedTradeTitle(view))}</h1>
       </div>
       <div id="draft-notice">${renderBadShareNotice()}${renderDraftNotice()}</div>
       <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
@@ -8042,9 +8066,8 @@ function evenUpCopy(choice, side) {
 }
 
 function renderDraftMethod(view) {
-  const { basis } = view;
   const lines = [
-    `Every listed price comes from Dynasty Ticker's independent football forecast: full PPR, ${rankFormatLabel(basis.format)}.`,
+    "Prices are our estimate, scored with a point per catch, Superflex.",
     "Age, role, efficiency, availability, team environment, draft investment, and position-specific career retention feed the forecast. Connecting a league never changes a player's price.",
   ];
   if ([...view.priced.values()].some((row) => row.estimated)) {
@@ -11642,13 +11665,9 @@ function describeLeagueFormat(league) {
   const scoring = league?.scoring_settings || {};
   const receptionValue = Number(scoring.rec);
   const pprLabel = Number.isFinite(receptionValue)
-    ? receptionValue >= 1
-      ? "1 point per catch"
-      : receptionValue === 0.5
-        ? "0.5 points per catch"
-        : receptionValue > 0
-          ? `${receptionValue} PPR`
-          : "standard"
+    ? receptionValue > 0
+      ? `${receptionValue} ${receptionValue === 1 ? "point" : "points"} per catch`
+      : "standard"
     : "custom scoring";
   const taxiSlots = Number(league?.settings?.taxi_slots || 0);
   const draftRounds = Number(league?.settings?.draft_rounds || 0);
@@ -13502,7 +13521,7 @@ function formatRosterSlotLabel(slot) {
 function sheetSlotMarkup(slot, slotLabel) {
   const key = String(slot || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
   if (key === "SUPER_FLEX" || key === "SUPERFLEX" || key === "SF") {
-    return `<span class="sheet-slot sheet-slot-superflex"><span class="sheet-slot-full">Superflex</span><span class="sheet-slot-short" title="Superflex" aria-label="Superflex">SF</span></span>`;
+    return `<span class="sheet-slot sheet-slot-superflex"><span class="sheet-slot-full">Superflex</span><abbr class="sheet-slot-short" title="Superflex">SF</abbr></span>`;
   }
   return `<span class="sheet-slot">${escapeHtml(slotLabel || "")}</span>`;
 }
@@ -18402,6 +18421,7 @@ async function bootLandingRather({ playersTab = false } = {}) {
 }
 
 function writeRatherSlot(html, { failed = false } = {}) {
+  if (!el.landingRather) return 0;
   const frames = ratherBootPaints({ matchupHtml: failed ? "" : html, failed });
   for (const frame of frames) el.landingRather.innerHTML = frame;
   return frames.length;

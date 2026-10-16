@@ -75,18 +75,26 @@ for (const width of [390, 1280]) {
     const snap = await page.evaluate(() => {
       const el = document.activeElement;
       const rect = el?.getBoundingClientRect?.() || { width: 0, height: 0 };
+      const style = el ? getComputedStyle(el) : null;
+      const clip = style?.clip || "";
       return {
         id: el?.id || "",
         tag: el?.tagName || "",
         width: rect.width,
         height: rect.height,
         srOnly: Boolean(el?.classList?.contains("sr-only")),
+        zeroClip: /^rect\(\s*0px?\s*,\s*0px?\s*,\s*0px?\s*,\s*0px?\s*\)$/.test(clip),
+        outlineWidth: style ? Number.parseFloat(style.outlineWidth) || 0 : 0,
+        boxShadow: style?.boxShadow || "",
       };
     });
     expect(snap.id).toBe("scores-heading");
+    expect(snap.id).not.toBe("route-title");
     expect(snap.tag).toBe("H2");
     expect(snap.srOnly).toBe(false);
+    expect(snap.zeroClip).toBe(false);
     expect(snap.width).toBeGreaterThan(0);
     expect(snap.height).toBeGreaterThan(0);
+    expect(snap.outlineWidth > 0 || (snap.boxShadow && snap.boxShadow !== "none"), JSON.stringify(snap)).toBe(true);
   });
 }
