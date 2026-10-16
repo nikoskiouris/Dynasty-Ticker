@@ -407,6 +407,7 @@ import {
   ensureRouteLive,
   focusHeadingWhenPresent,
   focusViewHeading,
+  focusWithoutScroll,
   headingRootFor,
   headingSelectorFor,
   restoreTriggerFocus,
@@ -898,6 +899,10 @@ let appBooted = false;
 let coldPlayerHeading = false;
 let rankExtrasSettled = true;
 let followHeadingsUntil = 0;
+let routeFocusToken = 0;
+let pendingPopstateFocus = 0;
+let routeFocusHold = null;
+const routeSettleJobs = new Set();
 let leagueOpenedInApp = false;
 let slimDirectory = null;
 let slimDirectoryPromise = null;
@@ -925,6 +930,13 @@ document.addEventListener("focusin", (event) => {
   followHeadingsUntil = 0;
   coldPlayerHeading = false;
 });
+document.addEventListener("pointerdown", releaseRouteFocusHold, true);
+document.addEventListener("keydown", releaseRouteFocusHold, true);
+document.addEventListener("focusin", () => {
+  const hold = routeFocusHold;
+  if (!hold || hold.token !== routeFocusToken) return;
+  requestAnimationFrame(() => restoreHeldFocus());
+}, true);
 window.addEventListener("resize", syncDeskRailOffset);
 if (!(bootRoute?.leagueId || parseShareParams(window.location.search).leagueId)) {
   const place = state.pendingPlace;
@@ -967,10 +979,12 @@ window.addEventListener("popstate", (event) => {
   const next = Number.isFinite(Number(raw)) ? Number(raw) : Math.max(0, routeFocus.index() - 1);
   const before = routePlaceNow();
   const step = routeFocus.pop(next);
+  const token = claimRouteFocus();
+  pendingPopstateFocus = token;
   applyDeskPopState(event.state);
   const after = routePlaceNow();
   const focus = !appBooted ? "none" : (leagueRoomMove(before, after) ? "heading" : step.focus);
-  syncRouteA11y({ focus, trigger: step.trigger, before });
+  void focusAfterPopstate({ focus, trigger: step.trigger, before, token });
 });
 if (isPhoneLayout()) setMobileRailOpen(false);
 
@@ -1699,6 +1713,7 @@ function armHeadingFollow() {
 }
 
 function focusRouteHeading(selector) {
+  if (pendingPopstateFocus) return;
   if (!selector || Date.now() >= followHeadingsUntil) return;
   focusHeadingWhenPresent(document, selector, {
     stillWanted: () => Date.now() < followHeadingsUntil,
@@ -1713,12 +1728,22 @@ function leagueRoomMove(before, after) {
 }
 
 function focusLeagueRoomHeading(room) {
+  if (pendingPopstateFocus) return;
   if (!appBooted || Date.now() >= followHeadingsUntil) return;
   if (room !== "team" && room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
   if (state.activePage !== "league" || getRoom() !== room) return;
-  focusHeadingWhenPresent(document, headingSelectorFor({ page: "league", view: room }), {
-    stillWanted: () => Date.now() < followHeadingsUntil,
-  });
+  const run = () => {
+    if (pendingPopstateFocus || !appBooted || Date.now() >= followHeadingsUntil) return;
+    if (state.activePage !== "league" || getRoom() !== room) return;
+    focusHeadingWhenPresent(document, headingSelectorFor({ page: "league", view: room }), {
+      stillWanted: () => Date.now() < followHeadingsUntil,
+    });
+  };
+  if (routeFocusHold && routeFocusHold.token === routeFocusToken) {
+    requestAnimationFrame(run);
+    return;
+  }
+  run();
 }
 
 function focusColdPlayerHeading() {
@@ -1734,22 +1759,161 @@ function focusColdPlayerHeading() {
   });
 }
 
-function syncRouteA11y({ focus = "none", trigger = null, before = null } = {}) {
+function claimRouteFocus() {
+  routeFocusToken += 1;
+  pendingPopstateFocus = 0;
+  routeFocusHold = null;
+  followHeadingsUntil = 0;
+  return routeFocusToken;
+}
+
+function releaseRouteFocusHold() {
+  routeFocusHold = null;
+}
+
+function focusHoldExempt(node) {
+  if (!node) return false;
+  const id = node.id || "";
+  if (id === "mobile-rail-toggle" || id === "mobile-rail-close" || id === "desk-board-open" || id === "desk-board-close") return true;
+  const cls = typeof node.className === "string" ? node.className : "";
+  return cls.split(/\s+/).some((name) => (
+    name === "room-tab" || name === "page-tab" || name === "phone-desk-room" || name === "phone-desk-page"
+  ));
+}
+
+function shownElement(node) {
+  let el = node;
+  while (el && el.nodeType === 1) {
+    if (el.hidden) return false;
+    if (typeof el.classList?.contains === "function" && el.classList.contains("hidden")) return false;
+    if (typeof getComputedStyle === "function") {
+      const style = getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+    }
+    el = el.parentElement;
+  }
+  return Boolean(node);
+}
+
+function shownQuery(selector) {
+  const nodes = document.querySelectorAll(selector);
+  for (const node of nodes) {
+    if (shownElement(node)) return node;
+  }
+  return null;
+}
+
+function visiblePageHeading() {
+  const nodes = [
+    document.querySelector("#landing-job-hint"),
+    document.querySelector("#mobile-chrome-title"),
+    document.querySelector("#route-title"),
+  ];
+  return nodes.find((node) => shownElement(node)) || null;
+}
+
+function focusPageHeading() {
+  const heading = visiblePageHeading();
+  if (!heading) return null;
+  if (heading.getAttribute("tabindex") == null) heading.setAttribute("tabindex", "-1");
+  focusWithoutScroll(heading, { focusVisible: true });
+  return heading;
+}
+
+function holdRouteFocus(token, getTarget) {
+  routeFocusHold = { token, getTarget, fails: 0 };
+  requestAnimationFrame(() => restoreHeldFocus());
+}
+
+function restoreHeldFocus() {
+  const hold = routeFocusHold;
+  if (!hold || hold.token !== routeFocusToken) return;
+  const target = hold.getTarget();
+  if (!target || target.isConnected === false) return;
+  if (document.activeElement === target) {
+    hold.fails = 0;
+    return;
+  }
+  if (focusHoldExempt(document.activeElement)) return;
+  if (hold.fails > 4) return;
+  if (target.getAttribute("tabindex") == null) target.setAttribute("tabindex", "-1");
+  focusWithoutScroll(target, { focusVisible: true });
+  if (document.activeElement === target) hold.fails = 0;
+  else hold.fails += 1;
+}
+
+function trackRouteSettle(promise) {
+  const job = Promise.resolve(promise).finally(() => routeSettleJobs.delete(job));
+  routeSettleJobs.add(job);
+  return job;
+}
+
+async function waitForRouteToSettle(token) {
+  const deadline = Date.now() + 5000;
+  while (token === routeFocusToken && Date.now() < deadline) {
+    if (!pageRenderQueue.isPending() && routeSettleJobs.size === 0) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      if (token !== routeFocusToken) return;
+      if (!pageRenderQueue.isPending() && routeSettleJobs.size === 0) return;
+      continue;
+    }
+    await Promise.race([
+      routeSettleJobs.size ? Promise.all([...routeSettleJobs]) : Promise.resolve(),
+      new Promise((resolve) => requestAnimationFrame(resolve)),
+    ]);
+  }
+}
+
+function focusClickedRoute(before) {
+  armHeadingFollow();
+  const place = routePlaceNow();
+  const selector = headingSelectorFor(place);
+  if (selector) {
+    focusRouteHeading(selector);
+    return;
+  }
+  const root = headingRootFor(document, place, before || {});
+  if (!focusViewHeading(root)) focusViewHeading(document.querySelector("main"));
+}
+
+async function focusAfterPopstate({ focus, trigger, before, token }) {
+  if (focus === "none") {
+    if (pendingPopstateFocus === token) pendingPopstateFocus = 0;
+    syncRouteA11y({ focus: "none", trigger, before, settled: token });
+    return;
+  }
+  await waitForRouteToSettle(token);
+  if (token !== routeFocusToken) return;
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  if (token !== routeFocusToken) return;
+  if (pendingPopstateFocus === token) pendingPopstateFocus = 0;
+  const place = routePlaceNow();
+  const selector = headingSelectorFor(place);
+  const mode = selector ? "heading" : ((!place.overlay && !place.playerId) ? "page" : focus);
+  if (mode === "heading") holdRouteFocus(token, () => shownQuery(selector));
+  else if (mode === "page") holdRouteFocus(token, () => visiblePageHeading());
+  syncRouteA11y({ focus: mode, trigger, before, settled: token });
+}
+
+function syncRouteA11y({ focus = "none", trigger = null, before = null, settled = 0 } = {}) {
   syncDocumentMeta();
   syncRouteAriaCurrent();
   if (!appBooted || focus === "none") return;
+  if (settled) {
+    if (settled !== routeFocusToken) return;
+  } else {
+    claimRouteFocus();
+  }
   const place = routePlaceNow();
   const message = routeAnnouncement(place, before || {});
   if (message) announceRoute(document, message);
   if (focus === "heading") {
+    focusClickedRoute(before);
+    return;
+  }
+  if (focus === "page") {
     armHeadingFollow();
-    const selector = headingSelectorFor(place);
-    if (selector) {
-      focusRouteHeading(selector);
-      return;
-    }
-    const root = headingRootFor(document, place, before || {});
-    if (!focusViewHeading(root)) focusViewHeading(document.querySelector("main"));
+    focusPageHeading();
     return;
   }
   if (focus === "restore") restoreTriggerFocus(document, trigger || routeFocus.opener());
@@ -5584,7 +5748,7 @@ function renderTeamsPage() {
   if (!peekLeaguePowerBoard()) {
     // Cold board solves every roster. Let the Teams tab paint before that work.
     if (el.teamsGrid) el.teamsGrid.innerHTML = `<p class="muted">Ranking rosters…</p>`;
-    void finishTeamsPagePaint(generation);
+    void trackRouteSettle(finishTeamsPagePaint(generation));
     return;
   }
   renderTeamsGrid();
@@ -18053,7 +18217,7 @@ function rebindUsernameInputs() {
     if (cached?.isConnected === false && String(cached.value || "").length && !String(live.value || "").length) {
       live.value = cached.value;
       const active = document.activeElement;
-      const shouldFocus = !active || active === cached || active === document.body || active === document.documentElement;
+      const shouldFocus = !routeFocusHold && (!active || active === cached || active === document.body || active === document.documentElement);
       if (shouldFocus) {
         live.focus();
         try {
