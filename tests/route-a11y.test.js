@@ -301,7 +301,7 @@ test("league, activity, history, and this week have distinct document titles", (
   assert.equal(headingSelectorFor({ overlay: "player", playerId: "9221" }), ".ranks-card h2, .player-week-sheet h2");
   assert.equal(headingSelectorFor({ page: "league", view: "scores" }), '[data-room-panel="scores"] h2');
   assert.equal(headingSelectorFor({ tab: "league", view: "activity" }), '[data-room-panel="activity"] h2');
-  assert.equal(headingSelectorFor({ page: "league", view: "history" }), '[data-room-panel="history"] h2');
+  assert.equal(headingSelectorFor({ page: "league", view: "history" }), "#history-heading");
 });
 
 test("card words stay plain after the heading split", () => {
@@ -570,6 +570,13 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(index, /id="route-announcer"[^>]*aria-live="polite"/);
   assert.match(index, /id="players-tab"[^>]*aria-current="page"/);
   assert.match(index, /<h1 id="mobile-chrome-title">/);
+  assert.doesNotMatch(index, /id="route-title"/);
+  assert.doesNotMatch(app, /bindInPageTab\(document\)/);
+  const css = read("../docs/styles.css");
+  assert.match(css, /\[data-room-panel\] h2:focus-visible[\s\S]*box-shadow:\s*var\(--focus\)/);
+  assert.doesNotMatch(css, /#route-title/);
+  const league = read("../docs/ui/league.html");
+  assert.match(league, /data-room-panel="history"[\s\S]*<h2 id="history-heading" tabindex="-1">Titles, records, and who stayed<\/h2>/);
   assert.doesNotMatch(index, /<(?:body|html)[^>]*\stabindex/);
   assert.match(index, /id="workspace"[^>]*tabindex="-1"/);
   const honors = app.slice(app.indexOf("function renderWeeklyHonors"), app.indexOf("function renderSeasonSuperlatives"));
