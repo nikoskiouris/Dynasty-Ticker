@@ -6,6 +6,8 @@
 //   Fair, slight edge · Get side worth 9% more          (amber)
 //   Favors one side · Give side worth 15% more          (green/red on /trade only)
 //   Lopsided · Give side worth 89% more                 (green/red on /trade only)
+// Above 10× (more than 900% more) the sentence stops counting: "worth over 10× as much".
+// Exactly 10× stays "900% more". A zero smaller side (null) uses the same cap.
 // One metric, on the credited totals: (bigger - smaller) / smaller, kept to
 // one decimal. Tiers are banded on that unrounded percent (RECHECK3): <= 5
 // fair, <= 14 slight edge, <= 28 favors, else lopsided. The sentence prints a
@@ -64,6 +66,16 @@ export function displayMore(more, { band = true } = {}) {
   return Math.floor(value);
 }
 
+// 10× the smaller side is 900% more. Anything past that, or a zero side, caps.
+const TEN_X_MORE = 900;
+
+function worthMorePhrase(name, more) {
+  if (more == null || more > TEN_X_MORE) return `${name} worth over 10× as much`;
+  const shown = displayMore(more);
+  const amount = shown == null ? "" : `${shown}% `;
+  return `${name} worth ${amount}more`;
+}
+
 // verdict: valueCalcVerdict(...) output ({ label, pct, gap, left, right }),
 // where left/right are the credited Give/Get totals.
 export function verdictCopy(verdict) {
@@ -77,11 +89,9 @@ export function verdictCopy(verdict) {
   const hit = { tier: tierForMore(more) };
   hit.label = LABEL[hit.tier];
   const side = right > left ? "Get" : left > right ? "Give" : "";
-  const shown = displayMore(more);
-  const amount = shown == null ? "" : `${shown}% `;
   const detail = hit.tier === "even"
     ? `within ${TIER_BANDS.even}%`
-    : `${side} side worth ${amount}more`;
+    : worthMorePhrase(`${side} side`, more);
   const tone = hit.tier === "even" || hit.tier === "edge" ? "fair" : side === "Get" ? "good" : "bad";
   return {
     tier: hit.tier,
@@ -108,9 +118,7 @@ export function verdictLineNamed(verdict, names = {}) {
   const copy = verdictCopy(verdict);
   if (!copy.tier || copy.tier === "even" || !copy.side) return copy.line;
   const name = String(names[copy.side] || `${copy.side} side`);
-  const shown = displayMore(copy.more);
-  const amount = shown == null ? "" : `${shown}% `;
-  return `${copy.label} · ${name} worth ${amount}more`;
+  return `${copy.label} · ${worthMorePhrase(name, copy.more)}`;
 }
 
 // The even-up suggestion "closes" a trade when the shown % lands inside the

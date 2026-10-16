@@ -171,7 +171,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /class="empty-cta"/);
   assert.equal(existsSync(join(docs, "modules/recap.js")), false);
   assert.equal(existsSync(join(docs, "modules/recap-card.js")), false);
-  assert.match(index, /id="landing-rather"/);
+  assert.doesNotMatch(index, /id="landing-rather"/);
   assert.match(index, /Check this trade/);
   assert.match(index, /Is your dynasty trade fair\? Find out in one tap\./);
   assert.match(index, /Free values for Sleeper dynasty leagues\. No sign-up\./);
@@ -210,8 +210,8 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /id="footer-visits"/);
   assert.doesNotMatch(index, /anonymous visit ping/);
   assert.doesNotMatch(index, /secret-numbers/);
-  assert.match(index, /Who would you rather have\?/);
-  assert.match(index, /PPR 12-man Superflex/);
+  assert.doesNotMatch(index, /Who would you rather have\?/);
+  assert.doesNotMatch(index, /PPR 12-man Superflex/);
   assert.match(index, /id="username-error"/);
   assert.match(index, /data-theme="dark"/);
   assert.match(index, /theme-color" content="#0c0c0e"/);
@@ -568,7 +568,9 @@ test("each desk page is its own file and boot mounts them before the app", () =>
   assert.doesNotMatch(index, /id="sleeper-username"[^>]*disabled/);
   assert.doesNotMatch(readDocs("ui/landing.html"), /id="landing-username"[^>]*disabled/);
   assert.match(index, /class="skip-link"/);
-  assert.match(siteMarkup(), /id="landing-rather"/);
+  assert.doesNotMatch(siteMarkup(), /id="landing-rather"/);
+  assert.doesNotMatch(readDocs("ui/players.html"), /id="landing-rather"/);
+  assert.doesNotMatch(readDocs("ui/players.html"), /Who would you rather have\?/);
   assert.match(siteMarkup(), /id="calculator-shell"/);
   assert.match(siteMarkup(), /id="weekly-help-btn"/);
 });

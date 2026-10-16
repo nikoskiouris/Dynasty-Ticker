@@ -58,12 +58,23 @@ for (const width of [1280, 390]) {
 
     await page.goto("/trade");
     await expectH1(page, "Trade");
+    const legend = page.locator("#calculator-shell .price-legend");
+    await expect(legend).toBeVisible({ timeout: 20000 });
+    await expect(legend.locator("li").nth(0)).toContainText("Value");
+    await expect(legend.locator("li").nth(1)).toContainText("Stars");
+    await expect(legend.getByRole("button", { name: "Value" })).toBeVisible();
+    await expect(legend.getByRole("button", { name: "Stars" })).toBeVisible();
 
     await page.goto("/player/9221");
     await expectH1(page, "Players");
 
     await page.goto("/t/1s4984~9221");
-    await expectH1(page, "Trade");
+    await expect.poll(async () => {
+      const shown = await h1s(page);
+      if (shown.length !== 1 || shown[0].id !== "shared-trade-title") return "";
+      return shown[0].text;
+    }, { timeout: 20000 }).toBe("Josh Allen for Jahmyr Gibbs");
+    await expect(page.locator("#route-title")).toBeHidden();
 
     const rooms = [
       [`/l/${LEAGUE}`, "My team"],
@@ -76,6 +87,17 @@ for (const width of [1280, 390]) {
       await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
       const heading = await expectOneH1(page);
       if (width === 1280) expect(heading.text, path).toBe(label);
+      if (path.endsWith("/league") && width === 1280) {
+        const head = page.locator(".standings-head");
+        await expect(head).toBeVisible({ timeout: 20000 });
+        await expect(head.locator(".col-streak")).toHaveText("Streak");
+        await expect(head.locator(".col-pa")).toHaveText("Pts against");
+        const fit = await head.evaluate((el) => [...el.querySelectorAll(".col-streak, .col-pa")].map((cell) => ({
+          text: cell.textContent,
+          overflow: cell.scrollWidth - cell.clientWidth,
+        })));
+        for (const cell of fit) expect(cell.overflow, cell.text).toBeLessThanOrEqual(1);
+      }
     }
   });
 }
