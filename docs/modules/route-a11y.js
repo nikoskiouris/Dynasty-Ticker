@@ -105,8 +105,7 @@ export function headingSelectorFor(place = {}) {
   if (overlay === "player" || place.playerId) return ".ranks-card h2, .player-week-sheet h2";
   const page = place.page || place.tab || "";
   const room = String(place.view || "");
-  if (page === "league" && room === "history") return "#history-heading";
-  if (page === "league" && (room === "board" || room === "scores" || room === "activity")) {
+  if (page === "league" && (room === "board" || room === "scores" || room === "activity" || room === "history")) {
     return `[data-room-panel="${room}"] h2`;
   }
   return "";
@@ -142,11 +141,10 @@ let headingWatch = 0;
 
 // Retry until the heading is in the document and still focused on a later frame.
 // A render that replaces the node drops focus to the body, so the watch continues.
-export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000, settleMs = 400, now, onStuck, stillWanted } = {}) {
+export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000, settleMs = 400, now, onStuck } = {}) {
   if (!doc || !selector) return 0;
   const watch = ++headingWatch;
   const clock = now || (() => Date.now());
-  const wanted = () => (typeof stillWanted === "function" ? stillWanted() !== false : true);
   const queue = schedule || ((fn) => {
     if (typeof requestAnimationFrame === "function") return requestAnimationFrame(fn);
     return setTimeout(fn, 16);
@@ -154,7 +152,6 @@ export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000
   const started = clock();
   const tick = () => {
     if (watch !== headingWatch) return;
-    if (!wanted()) return;
     const active = doc.activeElement;
     const heading = firstVisible(doc, selector);
     const already = Boolean(heading) && active === heading;
@@ -168,7 +165,6 @@ export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000
         const stableAt = clock();
         const confirm = () => {
           if (watch !== headingWatch) return;
-          if (!wanted()) return;
           if (heading.isConnected === false || doc.activeElement !== heading) {
             if (clock() - started < maxMs) queue(tick);
             return;

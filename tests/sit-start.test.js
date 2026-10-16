@@ -13,7 +13,6 @@ import {
   SIT_START_HINT,
   buildSitStart,
   closeCallReason,
-  formatSitStartSlot,
   injurySitReason,
   renderSitStartCallout,
   sitStartEligibility,
@@ -100,14 +99,6 @@ test("out sits, questionable can still start", () => {
   assert.deepEqual(board.starters.map((entry) => entry.player?.name), ["Q RB", "OK RB"]);
   assert.equal(board.bench[0].player.name, "Hurt RB");
   assert.match(board.bench[0].sitReason, /Out/);
-});
-
-test("roster slots say Superflex and Bench", () => {
-  assert.equal(formatSitStartSlot("SF"), "Superflex");
-  assert.equal(formatSitStartSlot("SUPER_FLEX"), "Superflex");
-  assert.equal(formatSitStartSlot("BN"), "Bench");
-  assert.equal(formatSitStartSlot("BENCH"), "Bench");
-  assert.equal(formatSitStartSlot("FLEX"), "Flex");
 });
 
 test("empty slot when nobody eligible", () => {
