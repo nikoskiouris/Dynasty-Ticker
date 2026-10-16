@@ -1398,14 +1398,15 @@ a.inline-link {
 
 .sheet-player strong,
 .player-name > .player-name-text {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   min-width: 0;
   overflow: hidden;
   overflow-wrap: normal;
   word-break: normal;
   hyphens: none;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  white-space: normal;
   line-height: 1.2;
 }
 
