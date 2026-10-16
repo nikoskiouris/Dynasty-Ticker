@@ -2492,7 +2492,7 @@ function openExampleTrade() {
 }
 
 function openEmptyTrade() {
-  replaceDraft(emptyValueCalcState());
+  // Enter the calculator with the current draft; a first visit is already empty.
   openRoom("trades", "calculator", { history: "push", scroll: "top" });
   syncLaunchChrome();
   requestAnimationFrame(() => {

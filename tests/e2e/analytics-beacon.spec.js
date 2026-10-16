@@ -46,11 +46,11 @@ for (const [path, template] of COLD) {
   });
 }
 
-test("a trade checked from the landing example is tagged /trade, not /", async ({ page }) => {
+test("a shared trade is tagged /trade, not /", async ({ page }) => {
   const sent = await collect(page);
   await page.goto("/");
   await expect.poll(() => visits(sent).length, { timeout: 15000 }).toBe(1);
-  await page.locator('[data-launch="example"]').first().evaluate((el) => el.click());
+  await page.goto("/trade?give=player:9509&get=player:11632,pick:2027:1:early");
   await expect(page).toHaveURL(/\/trade\?/);
   await expect.poll(() => sent.filter((row) => row.e === "trade_checked"), { timeout: 15000 })
     .toEqual([{ e: "trade_checked", p: "/trade", props: { mode: "public" } }]);

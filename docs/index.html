@@ -247,33 +247,28 @@
         <div id="ui-pages">
           <section class="launch" id="landing">
   <div class="launch-wrap">
-    <h1 id="landing-job-hint">Is your dynasty trade fair? Find out in one tap.</h1>
-    <p class="sub">Free values for Sleeper dynasty leagues. No sign-up.</p>
+    <nav class="launch-nav" aria-label="Main navigation">
+      <a href="/players" data-launch="players">Players</a>
+      <a href="/trade" data-launch="empty">Trade</a>
+      <a href="/connect?next=/" data-launch="connect">My League</a>
+    </nav>
+    <h1 id="landing-job-hint">Your next dynasty move starts here.</h1>
+    <p class="sub">Explore player values, build a trade, or connect your Sleeper league. Free. No sign-up.</p>
     <div class="launch-main">
-      <div class="launch-example-col">
-        <div class="launch-lab">
-          <span>Example trade</span>
-          <a href="/trade" data-launch="empty">Try your own ›</a>
-        </div>
-        <div id="launch-example" class="launch-box launch-example" aria-busy="true">
-          <div class="launch-side">
-            <div class="sh"><span>You give</span></div>
-            <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
-          </div>
-          <div class="launch-side">
-            <div class="sh"><span>You get</span></div>
-            <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
-            <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
-          </div>
-          <div class="launch-verdict launch-verdict-skel" aria-hidden="true">
-            <div class="vt"><span class="sk"></span><span class="sk"></span></div>
-            <div class="bar"></div>
-            <span class="meta">Tap to change any player</span>
-          </div>
-        </div>
-        <button type="button" class="launch-check" data-launch="example">Check this trade</button>
-        <div class="launch-cta">
-          <button type="button" class="ghost-btn launch-connect" data-launch="connect">Connect my league</button>
+      <div class="launch-start-col">
+        <div class="launch-start" aria-label="Get started">
+          <a class="launch-action" href="/players" data-launch="players">
+            <strong>Explore players <span aria-hidden="true">›</span></strong>
+            <span>Find a player, check his value, and see how he compares.</span>
+          </a>
+          <a class="launch-action" href="/trade" data-launch="empty">
+            <strong>Build a trade <span aria-hidden="true">›</span></strong>
+            <span>Add your players and picks to compare both sides.</span>
+          </a>
+          <a class="launch-action launch-connect" href="/connect?next=/" data-launch="connect">
+            <strong>Connect my league <span aria-hidden="true">›</span></strong>
+            <span>Bring in your Sleeper rosters for moves that fit your team.</span>
+          </a>
         </div>
         <p class="launch-sample">No league yet? <a class="sample-league-link" href="./?sample=1">See the sample league</a></p>
         <div id="landing-connect" hidden>
@@ -348,7 +343,6 @@
       </div>
     </div>
 
-    <script type="module" src="./launch-early.js"></script>
     <script type="module" src="./boot.js"></script>
   </body>
 </html>

@@ -1742,3 +1742,38 @@ button.info {
     margin-top: 0;
   }
 }
+
+/* The home page is a starting point for every public task. */
+.launch-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-4);
+  border-bottom: 1px solid var(--line);
+}
+.launch-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--sp-2);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+.launch-start { display: grid; gap: var(--sp-2); }
+.launch-action {
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--card-pad);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  color: var(--text);
+  text-decoration: none;
+}
+.launch-action strong { display: flex; justify-content: space-between; gap: var(--sp-2); }
+.launch-action > span { color: var(--muted-strong); font-size: var(--fs-sm2); }
+.launch-action.launch-connect { height: auto; margin-top: 0; }
+.launch-action[hidden] { display: none; }
+.launch-action:hover, .launch-nav a:hover { background: var(--panel-soft); }
+.launch-action:focus-visible, .launch-nav a:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }

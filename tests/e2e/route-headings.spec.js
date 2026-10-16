@@ -48,10 +48,10 @@ for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 800 });
 
     await page.goto("/");
-    await expectH1(page, "Is your dynasty trade fair? Find out in one tap.");
+    await expectH1(page, "Your next dynasty move starts here.");
 
     await page.goto("/connect");
-    await expectH1(page, "Is your dynasty trade fair? Find out in one tap.");
+    await expectH1(page, "Your next dynasty move starts here.");
 
     await page.goto("/players");
     await expectH1(page, "Players");
