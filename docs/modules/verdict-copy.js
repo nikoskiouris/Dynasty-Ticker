@@ -29,7 +29,23 @@ export const TIER_BANDS = Object.freeze({ even: 5, edge: 14, favors: 28 });
 const LABEL = Object.freeze({ even: "Fair trade", edge: "Fair, slight edge", favors: "Favors one side", lopsided: "Lopsided" });
 
 // The ⓘ explainer line for the tiers.
-export const TIER_EXPLAINER = `How the verdict reads: one side's total (stars included) is compared with the other's. Within ${TIER_BANDS.even}% is a fair trade, up to ${TIER_BANDS.edge}% more is a fair, slight edge, up to ${TIER_BANDS.favors}% more favors one side, and more than ${TIER_BANDS.favors}% is lopsided.`;
+export const TIER_EXPLAINER = `How the verdict reads: one side's total, including the extra for fewer, better players, is compared with the other's. Within ${TIER_BANDS.even}% is a fair trade, up to ${TIER_BANDS.edge}% more is a fair, slight edge, up to ${TIER_BANDS.favors}% more favors one side, and more than ${TIER_BANDS.favors}% is lopsided.`;
+
+// Plain words for the extra on the side that has fewer, better players.
+// Pending Designer. The numbers stay in the callers.
+export const FEWER_BETTER_LABEL = "Fewer, better players";
+export const FEWER_BETTER_ADDEND = "for fewer, better players";
+export const PRICE_FACTORS_LINE = "The price uses age, role, how well a player plays, how often they play, their team, where they were drafted, and how long players at that position usually stay good. Connecting a league never changes a player's price.";
+export const UNAVAILABLE_PRICE_LINE = "Unavailable means we do not have a price for that player or pick right now. Dynasty Ticker does not guess one.";
+export const FEWER_BETTER_LINE = "Fewer, better players are worth extra compared with the same total split into smaller pieces. That extra changes the trade verdict, not any player's listed price.";
+
+export function fewerBetterBody(amountText, side) {
+  return `getting fewer, better players is worth extra. One great player is worth more than the same total split into smaller pieces. That adds ${amountText} to ${side}. Listed prices stay the same.`;
+}
+
+export function fewerBetterOffer(amountText, side) {
+  return `Extra for fewer, better players +${amountText} to ${side}.`;
+}
 
 export function tierForMore(more) {
   if (more == null) return "lopsided";
@@ -129,26 +145,26 @@ export const EVEN_UP_CLOSES_AT = TIER_BANDS.edge;
 
 const countText = (value) => Math.round(Math.abs(Number(value) || 0)).toLocaleString("en-US");
 
-// Cold /t detail line: credited totals first, the star premium in brackets.
-// "Give 19,224 (11,811 + 7,413 star premium). Get 14,457."
+// Cold /t detail line: listed total, then the extra for fewer, better players.
+// "Give 19,224 (11,811 + 7,413 for fewer, better players). Get 14,457."
 export function creditedTotalsLine({ giveListed = 0, getListed = 0, stars = 0, starSide = "" } = {}) {
   const part = (name, listed, key) => {
     const extra = starSide === key && stars > 0 ? Math.round(stars) : 0;
     return extra
-      ? `${name} ${countText(listed + extra)} (${countText(listed)} + ${countText(extra)} star premium).`
+      ? `${name} ${countText(listed + extra)} (${countText(listed)} + ${countText(extra)} ${FEWER_BETTER_ADDEND}).`
       : `${name} ${countText(listed)}.`;
   };
   return `${part("Give", Number(giveListed) || 0, "give")} ${part("Get", Number(getListed) || 0, "get")}`;
 }
 
-// Screen-reader label for a verdict bar: "Give 21,472 including 8,561 star premium".
+// Screen-reader label for a verdict bar: "Give 21,472 including 8,561 for fewer, better players".
 export function barLabel(name, listed = 0, stars = 0) {
   const extra = Math.round(Number(stars) || 0);
   const total = (Number(listed) || 0) + extra;
-  return extra > 0 ? `${name} ${countText(total)} including ${countText(extra)} star premium` : `${name} ${countText(total)}`;
+  return extra > 0 ? `${name} ${countText(total)} including ${countText(extra)} ${FEWER_BETTER_ADDEND}` : `${name} ${countText(total)}`;
 }
 
-export const STAR_PREMIUM_KEY = "Star premium";
+export const STAR_PREMIUM_KEY = FEWER_BETTER_LABEL;
 
 // Trade-idea limits. Fairness settings are written on the old metric (gap /
 // larger side, e.g. 20 or 24). An idea is filtered on the shown "% more" with
