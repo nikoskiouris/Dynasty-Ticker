@@ -248,7 +248,7 @@ export function describePartnerMatch(match, myProfile, options = {}) {
   }
 
   if (match.timelinePairing === "contend-rebuild") {
-    parts.push("You're contending; they're tanking. Buy a starter, send future.");
+    parts.push("You're contending; they're rebuilding. Buy a starter, send future.");
   } else if (match.timelinePairing === "rebuild-contend") {
     parts.push("You're rebuilding; they're win-now. Cash a vet, take youth or picks.");
   }
@@ -690,7 +690,7 @@ function scoreDealHelp(myHelp, theirHelp, pctDiff, myValue, theirValue, myCount 
 function buildMatchDealTags(match, myHelp, kind) {
   const tags = ["Match"];
   if (match.twoWay) tags.push("Two-Way Fit");
-  if (kind === "contend-rebuild" || kind === "rebuild-contend") tags.push("Contend / Tank");
+  if (kind === "contend-rebuild" || kind === "rebuild-contend") tags.push("Contend / Rebuild");
   if (myHelp.patchedNeeds[0]) tags.push(`${myHelp.patchedNeeds[0].position} Hole`);
   return [...new Set(tags)].slice(0, 4);
 }

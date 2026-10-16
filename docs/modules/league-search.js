@@ -8,7 +8,7 @@ export function isMissingSleeperUser(err) {
   const status = Number(err.status);
   if (status === 404) return true;
   if (Number.isFinite(status) && status !== 200) return false;
-  return /No Sleeper user named/i.test(String(err.message || ""));
+  return /No Sleeper user named|can't find .+ on Sleeper/i.test(String(err.message || ""));
 }
 
 export function isSleeperUnreachable(err) {
@@ -32,13 +32,13 @@ function isSleeperServerFailure(err) {
 export function describeUserSearchFailure(err, username) {
   const name = String(username || "").trim();
   if (isMissingSleeperUser(err)) {
-    return { message: `No Sleeper user named ${name}.`, retry: false };
+    return { message: `We can't find "${name}" on Sleeper. Check the spelling.`, retry: false };
   }
   if (isSleeperUnreachable(err)) {
-    return { message: "Couldn't reach Sleeper.", retry: true };
+    return { message: "Sleeper isn't answering. Try again.", retry: true };
   }
   if (isSleeperServerFailure(err)) {
-    return { message: `Sleeper failed for ${name}.`, retry: true };
+    return { message: "Sleeper had a hiccup. Try again.", retry: true };
   }
   return { message: "Sleeper is busy. Try again.", retry: true };
 }
@@ -129,7 +129,7 @@ export function renderMeSelectOptions(rosters, selectedRosterId = "", viewer = n
       const id = String(roster?.rosterId ?? "");
       const selectedAttr = id && id === selected ? " selected" : "";
       const name = roster?.manager?.displayName || `Roster ${id}`;
-      const label = viewerId && id === viewerId ? `Viewing ${name} · sample` : name;
+      const label = viewerId && id === viewerId ? "Sample league" : name;
       return `<option value="${escapeHtml(id)}"${selectedAttr}>${escapeHtml(label)}</option>`;
     })
     .join("");

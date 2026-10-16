@@ -279,7 +279,8 @@ test("card split bar is sized on the credited totals, same basis as /t bars (REC
     assert.equal(Number(giveW) + Number(getW), 1200, code);
   }
   const app = readFileSync(join(root, "../docs/app.js"), "utf8");
+  const bars = readFileSync(join(root, "../docs/modules/verdict-bars.js"), "utf8");
   // /t bars: credited totals with a separate stars segment; private /trade keeps listed meters.
   assert.match(app, /const bars = sharedBarSegments\(model, sharedView \? null : meters\);/);
-  assert.match(app, /class="meter-stars"/);
+  assert.match(bars, /class="meter-stars"/);
 });

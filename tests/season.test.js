@@ -437,7 +437,7 @@ test("upcoming week dark horses use scoring distributions, not a value check", (
   const bravoCard = angles.cards.find((card) => card.teamName === "Bravo");
   assert.ok(bravoCard);
   assert.ok(!angles.cards.some((card) => card.kind === "trap" && String(card.matchupId) === String(bravoCard.matchupId)));
-  assert.match(angles.darkHorses[0].detail, /scoring-profile|boom tail/i);
+  assert.match(angles.darkHorses[0].detail, /how these teams score|boom tail/i);
   assert.doesNotMatch(angles.darkHorses[0].detail, /KTC roster rank|raw KTC/i);
 });
 

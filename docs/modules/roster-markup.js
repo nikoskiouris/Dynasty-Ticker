@@ -14,10 +14,10 @@ export function hashHue(text) {
   return hash % 360;
 }
 
-export function renderPowerStat(label, value) {
+export function renderPowerStat(label, value, noteHtml = "") {
   return `
     <section class="power-stat">
-      <span>${escapeHtml(label)}</span>
+      <span>${escapeHtml(label)}${noteHtml || ""}</span>
       <strong>${escapeHtml(value)}</strong>
     </section>
   `;
