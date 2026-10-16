@@ -6378,26 +6378,6 @@ button.weekly-help-close:hover {
   }
 }
 
-@media (max-width: 700px) {
-  /* This week and Activity repeat the tab. Quiet them and give the ticker room.
-     Pending Designer. */
-  [data-room-panel="scores"] > .panel-heading,
-  [data-room-panel="activity"] > .panel-heading {
-    margin-top: 0.85rem;
-  }
-
-  #scores-heading,
-  #activity-heading {
-    margin-bottom: 0.25rem;
-    color: var(--muted);
-    font-size: var(--fs-xs);
-    font-weight: var(--fw-semi);
-    letter-spacing: var(--ls-label);
-    line-height: 1.2;
-    text-transform: uppercase;
-  }
-}
-
 @media (max-width: 620px) {
   h1 {
     font-size: var(--fs-h1);

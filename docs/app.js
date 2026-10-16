@@ -983,18 +983,10 @@ void hydrateCrowdVotes().then((ok) => {
 });
 if (typeof history.scrollRestoration === "string") history.scrollRestoration = "manual";
 ensureRouteLive(document);
-function pathnameOnly(value) {
-  const raw = String(value || "").split(/[?#]/)[0];
-  if (raw.length > 1 && raw.endsWith("/")) return raw.slice(0, -1);
-  return raw || "/";
-}
-
 window.addEventListener("popstate", (event) => {
-  // Skip to content only adds #workspace on the page you are already on.
-  // That is not a desk move, and the page-heading focus would take the
-  // workspace the link just targeted. A real navigation that changes the
-  // path still runs, even when the hash is #workspace.
-  if (window.location.hash === "#workspace" && !event.state?.tab && pathnameOnly(window.location.pathname) === pathnameOnly(deskUrlPath())) return;
+  // Skip to content only adds #workspace. That is not a desk move, and the
+  // page-heading focus would take the workspace the link just targeted.
+  if (window.location.hash === "#workspace" && !event.state?.tab) return;
   const raw = event.state?.idx;
   const next = Number.isFinite(Number(raw)) ? Number(raw) : Math.max(0, routeFocus.index() - 1);
   const before = routePlaceNow();
@@ -1916,29 +1908,15 @@ function focusClickedRoute(before) {
   if (!focusViewHeading(root, { focusVisible })) focusViewHeading(document.querySelector("main"), { focusVisible });
 }
 
-let leagueLoadJob = null;
-
 async function waitForHistoryLeague(token) {
   const deadline = Date.now() + 20000;
-  let waited = null;
   while (token === routeFocusToken && state.leagueSwitching && Date.now() < deadline) {
-    const job = leagueLoadJob;
-    if (!job || job === waited) return;
-    waited = job;
-    const remaining = Math.max(0, deadline - Date.now());
-    await Promise.race([
-      job.then(() => {}, () => {}),
-      new Promise((resolve) => setTimeout(resolve, remaining)),
-    ]);
+    await new Promise((resolve) => setTimeout(resolve, 40));
   }
 }
 
 async function focusAfterPopstate({ focus, trigger, before, token }) {
-  // Back onto a room heading has to show the ring, including when the
-  // browser Back control did not count as a key press. Otherwise focus can
-  // sit on the heading with no ring, or look like it fell through to the
-  // clipped page h1.
-  const focusVisible = roomFocusVisible() || focus === "heading";
+  const focusVisible = roomFocusVisible();
   if (focus === "none") {
     if (pendingPopstateFocus === token) pendingPopstateFocus = 0;
     syncRouteA11y({ focus: "none", trigger, before, settled: token, focusVisible });
@@ -3479,9 +3457,7 @@ async function loadLeagueById(leagueId, { fromHistory = false, sample = false } 
   if (!fromHistory) rememberPickedLeague(leagueId);
   state.viewingSample = Boolean(sample);
   if (shouldBlankDeskForLeagueSwitch(state.leagueId, leagueId)) blankDeskForLeagueSwitch();
-  const job = leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
-  leagueLoadJob = job;
-  return job;
+  return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
 }
 
 function unloadLeague() {

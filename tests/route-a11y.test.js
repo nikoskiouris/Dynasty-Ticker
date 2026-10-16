@@ -664,17 +664,9 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(app, /function focusClickedRoute\(before\)/);
   assert.match(app, /if \(pendingPopstateFocus\) return;/);
   assert.match(app, /void focusAfterPopstate\(\{ focus, trigger: step\.trigger, before, token \}\)/);
-  assert.match(app, /location\.hash === "#workspace" && !event\.state\?\.tab && pathnameOnly\(window\.location\.pathname\) === pathnameOnly\(deskUrlPath\(\)\)\) return/);
-  assert.match(app, /function pathnameOnly\(value\)/);
+  assert.match(app, /location\.hash === "#workspace" && !event\.state\?\.tab\) return/);
   assert.match(app, /await new Promise\(\(resolve\) => requestAnimationFrame\(resolve\)\)/);
   assert.match(app, /while \(token === routeFocusToken && state\.leagueSwitching && Date\.now\(\) < deadline\)/);
-  const leagueWait = app.slice(app.indexOf("async function waitForHistoryLeague"), app.indexOf("async function focusAfterPopstate"));
-  assert.match(leagueWait, /leagueLoadJob/);
-  assert.match(leagueWait, /Promise\.race/);
-  assert.doesNotMatch(leagueWait, /setTimeout\(resolve, 40\)/);
-  assert.match(app, /leagueLoadJob = job/);
-  const afterPop = app.slice(app.indexOf("async function focusAfterPopstate"), app.indexOf("function syncRouteA11y"));
-  assert.match(afterPop, /roomFocusVisible\(\) \|\| focus === "heading"/);
   assert.match(app, /leagueRoomMove\(before, after\) \? "heading" : step\.focus/);
   assert.equal(index.split('id="route-announcer"').length - 1, 1);
   assert.match(index, /id="route-announcer"[^>]*aria-live="polite"/);
@@ -691,7 +683,6 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(css, /body\.cold-share #route-title\s*\{[^}]*display:\s*none !important/s);
   assert.doesNotMatch(css, /body\.cold-share #route-title\s*\{[^}]*display:\s*block !important/s);
   assert.match(css, /\.sheet-slot-short\s*\{[^}]*text-decoration:\s*none/s);
-  assert.match(css, /#scores-heading,\s*#activity-heading\s*\{[^}]*text-transform:\s*uppercase/s);
   assert.match(app, /Prices are our estimate, scored with a point per catch, Superflex\./);
   assert.doesNotMatch(app, /independent football forecast: full PPR/);
   assert.match(app, /<span class="col-pa">Pts against<\/span>/);
