@@ -25,6 +25,9 @@ export const ROUTES = Object.freeze([
   { name: "team", pattern: "/l/:leagueId/team", page: "league", room: "team" },
   { name: "ideas", pattern: "/l/:leagueId/ideas", page: "trades", room: "find" },
   { name: "leagueBoard", pattern: "/l/:leagueId/league", page: "league", room: "board" },
+  { name: "leagueWeek", pattern: "/l/:leagueId/week", page: "league", room: "scores" },
+  { name: "leagueActivity", pattern: "/l/:leagueId/activity", page: "league", room: "activity" },
+  { name: "leagueHistory", pattern: "/l/:leagueId/history", page: "league", room: "history" },
   { name: "player", pattern: "/player/:sleeperId/:slug?", page: "players", room: "ranks" },
   // A shared trade. The code is the trade (see trade-share.js). It opens the
   // calculator and stays /t/<code> until the trade is edited.
@@ -243,6 +246,9 @@ export function safeNext(value) {
   if (hit.name === "players") return urlPath("players");
   if (hit.name === "ideas") return urlPath("l", hit.leagueId, "ideas");
   if (hit.name === "leagueBoard") return urlPath("l", hit.leagueId, "league");
+  if (hit.name === "leagueWeek") return urlPath("l", hit.leagueId, "week");
+  if (hit.name === "leagueActivity") return urlPath("l", hit.leagueId, "activity");
+  if (hit.name === "leagueHistory") return urlPath("l", hit.leagueId, "history");
   if (hit.leagueId) return urlPath("l", hit.leagueId, "team");
   return "";
 }
@@ -302,6 +308,12 @@ export function pathForPlace({
     href = urlPath("l", leagueId, "ideas");
   } else if (page === "league" && room === "board" && LEAGUE_ID.test(String(leagueId || ""))) {
     href = urlPath("l", leagueId, "league");
+  } else if (page === "league" && room === "scores" && LEAGUE_ID.test(String(leagueId || ""))) {
+    href = urlPath("l", leagueId, "week");
+  } else if (page === "league" && room === "activity" && LEAGUE_ID.test(String(leagueId || ""))) {
+    href = urlPath("l", leagueId, "activity");
+  } else if (page === "league" && room === "history" && LEAGUE_ID.test(String(leagueId || ""))) {
+    href = urlPath("l", leagueId, "history");
   } else if (page === "league" && room === "team" && LEAGUE_ID.test(String(leagueId || ""))) {
     href = urlPath("l", leagueId, "team");
   } else if (page === "players" && room === "ranks" && !landing) href = urlPath("players");

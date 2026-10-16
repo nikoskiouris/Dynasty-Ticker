@@ -390,6 +390,7 @@ import { fetchRatherCrowdVotes, submitRatherCrowdVote } from "./modules/rather-c
 import {
   announceRoute,
   applyEscape,
+  bindInPageTab,
   createRouteFocusMemory,
   ensureRouteLive,
   focusHeadingWhenPresent,
@@ -563,6 +564,7 @@ const el = {
   stickyMobileCta: document.querySelector("#sticky-mobile-cta"),
   stickyFindBtn: document.querySelector("#sticky-find-btn"),
   mobileChromeTitle: document.querySelector("#mobile-chrome-title"),
+  routeTitle: document.querySelector("#route-title"),
   mobileRailToggle: document.querySelector("#mobile-rail-toggle"),
   mobileRailClose: document.querySelector("#mobile-rail-close"),
   deskBoardClose: document.querySelector("#desk-board-close"),
@@ -935,6 +937,7 @@ void hydrateCrowdVotes().then((ok) => {
 });
 if (typeof history.scrollRestoration === "string") history.scrollRestoration = "manual";
 ensureRouteLive(document);
+bindInPageTab(document);
 window.addEventListener("popstate", (event) => {
   const raw = event.state?.idx;
   const next = Number.isFinite(Number(raw)) ? Number(raw) : Math.max(0, routeFocus.index() - 1);
@@ -1663,11 +1666,18 @@ function armHeadingFollow() {
   followHeadingsUntil = Date.now() + 45000;
 }
 
+function focusRouteHeading(selector) {
+  if (!selector || Date.now() >= followHeadingsUntil) return;
+  focusHeadingWhenPresent(document, selector, {
+    stillWanted: () => Date.now() < followHeadingsUntil,
+  });
+}
+
 function focusLeagueRoomHeading(room) {
   if (!appBooted || Date.now() >= followHeadingsUntil) return;
   if (room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
   if (state.activePage !== "league" || getRoom() !== room) return;
-  focusHeadingWhenPresent(document, `[data-room-panel="${room}"] h2`);
+  focusRouteHeading(`[data-room-panel="${room}"] h2`);
 }
 
 function focusColdPlayerHeading() {
@@ -1694,7 +1704,7 @@ function syncRouteA11y({ focus = "none", trigger = null, before = null } = {}) {
     armHeadingFollow();
     const selector = headingSelectorFor(place);
     if (selector) {
-      focusHeadingWhenPresent(document, selector);
+      focusRouteHeading(selector);
       return;
     }
     const root = headingRootFor(document, place, before || {});
@@ -2303,6 +2313,14 @@ function syncDeskRailOffset() {
   if (height > 0) document.documentElement.style.setProperty("--desk-rail-height", `${height}px`);
 }
 
+function guestRouteHeading() {
+  const path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+  if (publicRanksOpen && !state.leagueId) return "Player ranks";
+  if (path === "/trade" || state.activePage === "trades") return "Trade";
+  if (path === "/players" || (state.activePage === "players" && !landingVisible())) return "Players";
+  return "Dynasty Ticker";
+}
+
 function renderSessionSnapshot() {
   rebindUsernameInputs();
   const sampleOn = Boolean(state.viewingSample && state.leagueId);
@@ -2326,7 +2344,12 @@ function renderSessionSnapshot() {
         ? (state.leagueName || "Sample league")
         : state.leagueName
           ? (you ? `${you} · ${state.leagueName}` : state.leagueName)
-          : "Your Sleeper league";
+          : guestRouteHeading();
+  }
+  if (el.routeTitle) {
+    el.routeTitle.textContent = state.leagueId
+      ? (state.leagueName || "My League")
+      : (el.mobileChromeTitle?.textContent || guestRouteHeading());
   }
   if (el.mobileChromeViewing) {
     el.mobileChromeViewing.hidden = !sampleOn;

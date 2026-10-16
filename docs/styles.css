@@ -208,6 +208,24 @@ h5 {
   border: 0 !important;
 }
 
+/* Home, Players, and Trade have no designed h1. Phone uses the chrome title. */
+body.league-loaded #route-title {
+  display: none !important;
+}
+
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  #route-title {
+    display: none !important;
+  }
+}
+
+@media (min-width: 701px) {
+  [data-room-panel] h2:focus-visible {
+    outline-color: transparent;
+    box-shadow: var(--focus);
+  }
+}
+
 /* ==========================================================================
    Frame, rail, workspace
    ========================================================================== */

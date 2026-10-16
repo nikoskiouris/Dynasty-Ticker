@@ -121,6 +121,9 @@ test("route table maps the approved paths and unknown routes go home", () => {
     "/l/:leagueId/team",
     "/l/:leagueId/ideas",
     "/l/:leagueId/league",
+    "/l/:leagueId/week",
+    "/l/:leagueId/activity",
+    "/l/:leagueId/history",
     "/player/:sleeperId/:slug?",
     "/t/:shareCode",
   ]);
@@ -146,6 +149,13 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(matchRoute("/l/1360686137898700800/ideas").room, "find");
   assert.equal(matchRoute("/l/1360686137898700800/ideas").page, "trades");
   assert.equal(matchRoute("/l/1360686137898700800/league").room, "board");
+  assert.equal(matchRoute("/l/1360686137898700800/week").room, "scores");
+  assert.equal(matchRoute("/l/1360686137898700800/week").page, "league");
+  assert.equal(matchRoute("/l/1360686137898700800/activity").room, "activity");
+  assert.equal(matchRoute("/l/1360686137898700800/history").room, "history");
+  assert.equal(resolveLocation("/l/42/week").unknown, false);
+  assert.equal(resolveLocation("/l/42/activity").unknown, false);
+  assert.equal(resolveLocation("/l/42/history").unknown, false);
   const player = matchRoute("/player/9221/jahmyr-gibbs");
   assert.equal(player.name, "player");
   assert.equal(player.playerId, "9221");
@@ -176,7 +186,12 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(pathForPlace({ page: "trades", room: "find", leagueId: "42" }), urlPath("l", "42", "ideas"));
   assert.equal(pathForPlace({ page: "league", room: "team", leagueId: "42" }), urlPath("l", "42", "team"));
   assert.equal(pathForPlace({ page: "league", room: "board", leagueId: "42" }), urlPath("l", "42", "league"));
-  assert.equal(pathForPlace({ page: "league", room: "history", leagueId: "42" }), "");
+  assert.equal(pathForPlace({ page: "league", room: "scores", leagueId: "42" }), urlPath("l", "42", "week"));
+  assert.equal(pathForPlace({ page: "league", room: "activity", leagueId: "42" }), urlPath("l", "42", "activity"));
+  assert.equal(pathForPlace({ page: "league", room: "history", leagueId: "42" }), urlPath("l", "42", "history"));
+  assert.equal(safeNext("/l/42/week"), urlPath("l", "42", "week"));
+  assert.equal(safeNext("/l/42/activity"), urlPath("l", "42", "activity"));
+  assert.equal(safeNext("/l/42/history"), urlPath("l", "42", "history"));
   assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221", playerName: "Jahmyr Gibbs" }), "/player/9221/jahmyr-gibbs");
   assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221", playerName: "Jahmyr Gibbs", leagueId: "424242" }), "/player/9221/jahmyr-gibbs?league=424242");
   assert.equal(pathForPlace({ page: "players", room: "ranks", landing: false, leagueId: "424242" }), "/players?league=424242");

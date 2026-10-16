@@ -51,12 +51,18 @@ export function routeAnnouncement(place = {}, before = {}) {
   return ROUTE_TAB_LABELS[place.tab] || "";
 }
 
-export function focusWithoutScroll(el) {
+export function focusWithoutScroll(el, { focusVisible = false } = {}) {
   if (!el || typeof el.focus !== "function") return false;
+  const opts = { preventScroll: true };
+  if (focusVisible) opts.focusVisible = true;
   try {
-    el.focus({ preventScroll: true });
+    el.focus(opts);
   } catch {
-    el.focus();
+    try {
+      el.focus({ preventScroll: true });
+    } catch {
+      el.focus();
+    }
   }
   return true;
 }
@@ -96,7 +102,7 @@ export function focusViewHeading(root) {
   const heading = visibleHeading(root, "h1, h2") || visibleHeading(root, "h3");
   if (!heading) return null;
   if (typeof heading.setAttribute === "function") heading.setAttribute("tabindex", "-1");
-  focusWithoutScroll(heading);
+  focusWithoutScroll(heading, { focusVisible: true });
   return heading;
 }
 
@@ -141,10 +147,11 @@ let headingWatch = 0;
 
 // Retry until the heading is in the document and still focused on a later frame.
 // A render that replaces the node drops focus to the body, so the watch continues.
-export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000, settleMs = 400, now, onStuck } = {}) {
+export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000, settleMs = 400, now, onStuck, stillWanted } = {}) {
   if (!doc || !selector) return 0;
   const watch = ++headingWatch;
   const clock = now || (() => Date.now());
+  const wanted = () => (typeof stillWanted === "function" ? stillWanted() !== false : true);
   const queue = schedule || ((fn) => {
     if (typeof requestAnimationFrame === "function") return requestAnimationFrame(fn);
     return setTimeout(fn, 16);
@@ -152,6 +159,7 @@ export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000
   const started = clock();
   const tick = () => {
     if (watch !== headingWatch) return;
+    if (!wanted()) return;
     const active = doc.activeElement;
     const heading = firstVisible(doc, selector);
     const already = Boolean(heading) && active === heading;
@@ -160,11 +168,12 @@ export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000
       if (heading.getAttribute?.("tabindex") == null && typeof heading.setAttribute === "function") {
         heading.setAttribute("tabindex", "-1");
       }
-      if (!already) focusWithoutScroll(heading);
+      if (!already) focusWithoutScroll(heading, { focusVisible: true });
       if (doc.activeElement === heading) {
         const stableAt = clock();
         const confirm = () => {
           if (watch !== headingWatch) return;
+          if (!wanted()) return;
           if (heading.isConnected === false || doc.activeElement !== heading) {
             if (clock() - started < maxMs) queue(tick);
             return;
@@ -398,4 +407,55 @@ export function createRouteFocusMemory() {
       return { index, focus: goingBack ? "restore" : "heading", trigger };
     },
   };
+}
+
+function unshown(el) {
+  let node = el;
+  while (node && node.nodeType === 1) {
+    if (node.hidden) return true;
+    if (typeof node.hasAttribute === "function" && node.hasAttribute("inert")) return true;
+    const view = node.ownerDocument?.defaultView;
+    const style = view?.getComputedStyle?.(node);
+    if (style && (style.display === "none" || style.visibility === "hidden")) return true;
+    const cls = typeof node.className === "string" ? node.className : "";
+    if (cls.split(/\s+/).includes("hidden")) return true;
+    node = node.parentElement || null;
+  }
+  return false;
+}
+
+const TABBABLE = "a[href], button, input, select, textarea, summary, [tabindex]";
+
+export function tabbableControls(doc) {
+  const nodes = doc?.querySelectorAll?.(TABBABLE) || [];
+  const list = [];
+  for (const el of nodes) {
+    if (!el || el.tabIndex < 0 || el.disabled) continue;
+    const type = String(el.getAttribute?.("type") || el.type || "").toLowerCase();
+    if (type === "hidden") continue;
+    if (unshown(el)) continue;
+    list.push(el);
+  }
+  return list;
+}
+
+// Null when Tab should stay with the browser. The ends wrap so the document
+// itself is not an extra stop after the last control.
+export function nextTabWrap(list, current, shift) {
+  const index = list.indexOf(current);
+  if (index < 0 || list.length < 2) return null;
+  if (!shift && index === list.length - 1) return list[0];
+  if (shift && index === 0) return list[list.length - 1];
+  return null;
+}
+
+export function bindInPageTab(doc) {
+  if (!doc?.addEventListener) return;
+  doc.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab" || event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
+    const next = nextTabWrap(tabbableControls(doc), doc.activeElement, event.shiftKey);
+    if (!next || typeof next.focus !== "function") return;
+    event.preventDefault();
+    focusWithoutScroll(next, { focusVisible: true });
+  });
 }
