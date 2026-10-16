@@ -1,0 +1,88 @@
+name: Refresh independent player values
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily UTC check. GitHub runs this only from the default branch.
+    # The job still refuses to write anything but develop.
+    # docs/data/price-history keeps about 90 days and always the newest file.
+    # A run whose only diff is asOf/generatedAt restores the files first, so
+    # the archive step sees the same asOf and writes nothing.
+    # The commit message includes [skip netlify].
+    # netlify.toml ignore (scripts/netlify-ignore.sh) exits 0 for every
+    # git-connected build, so this commit does not publish the live site.
+    # Tuesday-only: change the cron back to "17 11 * * 2".
+    - cron: "17 11 * * *"
+
+concurrency:
+  group: refresh-player-values
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 50
+
+      - name: Publish only on develop
+        run: |
+          # actions/checkout leaves a detached HEAD, so the branch name is HEAD.
+          tip="$(git rev-parse HEAD)"
+          git fetch --no-tags origin develop
+          if ! git merge-base --is-ancestor "$tip" FETCH_HEAD; then
+            echo "Player-value refresh only writes develop. Refusing ${tip}."
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build independent values
+        run: python3 player-values/build.py
+
+      - name: Fail if the refreshed snapshot is still stale
+        run: python3 scripts/check_market_files.py --fail-on-age
+
+      - name: Archive the dated price snapshot for shared trade links
+        run: |
+          # prices_unchanged.py exits 0 when asOf/generatedAt are the only diff.
+          # Restore those files so the stamp matches the published board and
+          # archive_price_snapshot.py writes nothing.
+          if python3 scripts/prices_unchanged.py; then
+            git checkout -- docs/data/player_values.json player-values/validation.json
+            echo "No price change. Leaving generatedAt alone."
+          fi
+          python3 scripts/archive_price_snapshot.py
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.12.0"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Validate repository
+        run: npm test
+
+      - name: Commit refreshed snapshot
+        run: |
+          git add docs/data/player_values.json player-values/validation.json docs/data/price-history docs/data/nfl_players_slim.json
+          if git diff --cached --quiet -- docs/data/player_values.json player-values/validation.json docs/data/price-history docs/data/nfl_players_slim.json; then
+            echo "No player-value changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "data: refresh independent player values [skip netlify]"
+          git pull --rebase origin develop
+          git push origin HEAD:develop

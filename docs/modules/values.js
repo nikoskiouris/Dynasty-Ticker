@@ -1,19 +1,24 @@
 import { ordinal } from "./season.js";
+import { normalizePriceHistory, stampsForWindow, TREND_WINDOW_DAYS } from "./value-scale.js";
 
-export const ELITE_VALUE_PREMIUM_TIERS = [
-  { floor: 9000, multiplier: 1.32 },
-  { floor: 8000, multiplier: 1.27 },
-  { floor: 7000, multiplier: 1.21 },
-  { floor: 6000, multiplier: 1.15 },
-  { floor: 5000, multiplier: 1.09 },
-];
+export const PLAYER_VALUES_PATH = "./data/player_values.json";
+export const NFL_PLAYERS_SLIM_PATH = "./data/nfl_players_slim.json";
+export const PRICE_HISTORY_INDEX_PATH = "./data/price-history/index.json";
+const PRICE_STAMP = /^20\d{10}$/;
 
-export const KTC_GLOBAL_MAX_FALLBACK = 9999;
-export const SAMPLE_VALUES_PATH = "./data/ktc_values_sample.csv";
-export const VALUES_JSON_PATH = "./data/ktc_values.json";
-export const VALUES_SF_PATH = "./data/ktc_values_sf.csv";
-export const VALUES_ONE_QB_PATH = "./data/ktc_values_1qb.csv";
-export const PICK_YEAR_DISCOUNT = 0.88;
+// Prefer meta.updatedAt when a bundle has it. Otherwise the file's asOf stamp.
+export function valuationUpdatedAt(bundle) {
+  const meta = bundle?.meta;
+  const raw = (meta && typeof meta === "object" && meta.updatedAt) || bundle?.asOf || "";
+  const text = String(raw || "").trim();
+  if (!text) return "";
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return text;
+  return date.toISOString().slice(0, 10);
+}
+export const PLAYER_VALUE_MODEL_VERSION = "football-forecast-v1";
+// Same annual discount as player-values/config.json. A missing pick year uses this ruler.
+export const PICK_YEAR_DISCOUNT = 0.85;
 
 // The NFL draft ends in late April. After that, this year's picks are players.
 export function upcomingDraftSeason(now = new Date()) {
@@ -38,20 +43,20 @@ export function tradablePickSeason(nflState = null, now = new Date()) {
 // Shared default so calls without a name map reuse one lookup cache entry.
 const NO_NAMES = Object.freeze({});
 
-const TEP_MULTIPLIERS = {
-  0: 1,
-  1: 1.06,
-  2: 1.12,
-  3: 1.18,
-};
-
 // Sleeper "Reception Bonus - TE" stacks on top of `rec`. Missing/zero is not TEP.
 const TE_REC_BONUS_KEYS = ["bonus_rec_te", "rec_te", "bonus_te_rec"];
 
+function normalizeRosterSlotToken(slot) {
+  return String(slot || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+}
+
 export function leagueHasSuperflex(league) {
   const slots = Array.isArray(league?.roster_positions) ? league.roster_positions : [];
-  const normalized = slots.map((slot) => String(slot || "").toUpperCase());
-  if (normalized.some((slot) => slot === "SUPER_FLEX" || slot === "OP")) return true;
+  const normalized = slots.map(normalizeRosterSlotToken);
+  if (normalized.some((slot) => slot === "SUPER_FLEX" || slot === "SUPERFLEX" || slot === "OP")) return true;
   return normalized.filter((slot) => slot === "QB").length >= 2;
 }
 
@@ -70,11 +75,6 @@ export function tepLevelFromScoring(scoring = {}) {
 
 export function tepLevel(league) {
   return tepLevelFromScoring(league?.scoring_settings || {});
-}
-
-export function tepMultiplier(level) {
-  const key = Number(level) || 0;
-  return TEP_MULTIPLIERS[key] ?? 1;
 }
 
 export function selectValueFormat(league) {
@@ -140,6 +140,33 @@ export function pickValueBundle(payload, format) {
   return coerceValueMap(payload);
 }
 
+export function playersFromValueSnapshot(playerMeta = {}, names = {}) {
+  const out = {};
+  const meta = playerMeta && typeof playerMeta === "object" ? playerMeta : {};
+  const nameMap = names && typeof names === "object" ? names : {};
+  Object.entries(meta).forEach(([assetId, row]) => {
+    if (!String(assetId).startsWith("player:") || !row || typeof row !== "object") return;
+    const id = assetId.slice("player:".length);
+    if (!id) return;
+    const record = { player_id: id };
+    const name = String(nameMap[assetId] || "").trim();
+    if (name) record.full_name = name;
+    const position = String(row.position || "").trim().toUpperCase();
+    if (position) {
+      record.position = position;
+      record.fantasy_positions = [position];
+    }
+    const team = String(row.team || "").trim();
+    if (team) record.team = team;
+    const age = Number(row.age);
+    if (Number.isFinite(age) && age > 0) record.age = age;
+    const years = Number(row.experience);
+    if (Number.isFinite(years) && years >= 0) record.years_exp = years;
+    out[id] = record;
+  });
+  return out;
+}
+
 export function playerPositionForRaw(raw) {
   return (raw?.position || raw?.fantasy_positions?.[0] || "").toUpperCase();
 }
@@ -168,45 +195,43 @@ export function isInactivePlayerAsset(asset) {
   return false;
 }
 
-export function estimatedValue(asset) {
-  if (asset?.assetType === "pick") return 2200;
-  if (isInactivePlayerAsset(asset)) return 0;
-  const position = playerPositionForAsset(asset);
-  const age = Number(asset?.raw?.age || 26);
-  const baseByPos = {
-    QB: 1600,
-    RB: 1200,
-    WR: 1200,
-    TE: 1000,
-    K: 100,
-    DEF: 400,
-  };
-  const base = baseByPos[position] || 800;
-  const ageModifier = Math.max(-500, (26 - age) * 35);
-  return Math.max(300, Math.round(base + ageModifier));
+// Published firsts are three thirds of the round: slots 1-4 early, 5-8 mid,
+// 9-12 late in a 12-team draft. Slot 1 is the earliest pick. No slot stays "any".
+export function bucketForProjectedSlot(slot, teamCount) {
+  const n = Number(slot);
+  const total = Number(teamCount);
+  if (!Number.isFinite(n) || !Number.isFinite(total) || n < 1 || total < 1 || n > total) return "any";
+  const tierSize = Math.max(1, Math.floor(total / 3));
+  if (n <= tierSize) return "early";
+  if (n > total - tierSize) return "late";
+  return "mid";
 }
 
-function interpolateMultiplier(baseValue) {
-  const ascending = [
-    { floor: 4500, multiplier: 1 },
-    ...[...ELITE_VALUE_PREMIUM_TIERS].reverse(),
-    { floor: 10000, multiplier: 1.34 },
-  ];
-  if (baseValue <= ascending[0].floor) return 1;
-  for (let index = 1; index < ascending.length; index += 1) {
-    const low = ascending[index - 1];
-    const high = ascending[index];
-    if (baseValue > high.floor) continue;
-    const span = high.floor - low.floor;
-    const progress = span > 0 ? (baseValue - low.floor) / span : 1;
-    return low.multiplier + progress * (high.multiplier - low.multiplier);
-  }
-  return ascending[ascending.length - 1].multiplier;
+function ownedPickSlot(asset) {
+  const slot = Number(asset?.raw?.projectedDraftSlot ?? asset?.raw?.assignedDraftSlot);
+  return Number.isFinite(slot) && slot > 0 ? slot : Number.POSITIVE_INFINITY;
 }
 
-export function applyElitePlayerValuePremium(asset, baseValue) {
-  if (asset?.assetType !== "player" || !Number.isFinite(baseValue)) return baseValue;
-  return Math.round(baseValue * interpolateMultiplier(baseValue));
+// Highest getAssetValue first. A tie keeps the earlier projected slot, then
+// the earlier round, then the nearer season. Name is only the last tiebreak.
+export function compareOwnedPickValue(a, b) {
+  const valueDiff = Number(b?.value) - Number(a?.value);
+  if (valueDiff) return valueDiff;
+  const slotDiff = ownedPickSlot(a?.asset) - ownedPickSlot(b?.asset);
+  if (slotDiff) return slotDiff;
+  const roundDiff = (Number(a?.asset?.raw?.round) || 99) - (Number(b?.asset?.raw?.round) || 99);
+  if (roundDiff) return roundDiff;
+  const seasonDiff = (Number(a?.asset?.raw?.season) || 9999) - (Number(b?.asset?.raw?.season) || 9999);
+  if (seasonDiff) return seasonDiff;
+  return String(a?.asset?.name || "").localeCompare(String(b?.asset?.name || ""));
+}
+
+export function chooseLeadPick(entries) {
+  const rows = (Array.isArray(entries) ? entries : []).filter((entry) => (
+    entry?.asset && Number.isFinite(Number(entry.value))
+  ));
+  rows.sort(compareOwnedPickValue);
+  return rows[0]?.asset || null;
 }
 
 export function normalizePickBucket(bucket) {
@@ -348,9 +373,10 @@ function adjustPickAcrossYears(value, sourceSeason, targetSeason) {
   const target = Number(targetSeason);
   if (!Number.isFinite(value) || !Number.isFinite(source) || !Number.isFinite(target)) return value;
   const yearDelta = target - source;
+  // A later catalog row is not marked up onto an earlier year. Forward years use 0.85^n.
   if (yearDelta <= 0) return Math.max(1, Math.round(value));
   const factor = PICK_YEAR_DISCOUNT ** yearDelta;
-  return Math.max(1, Math.round(value * Math.max(0.5, factor)));
+  return Math.max(1, Math.round(value * factor));
 }
 
 const pickCatalogs = new WeakMap();
@@ -391,7 +417,13 @@ export function findPickCatalogValue(meta, values, valueNameMap = NO_NAMES, cata
   if (!Number.isFinite(numericSeason)) return null;
   const nearest = list
     .filter((pick) => pick.round === meta.round && desiredBuckets.includes(pick.bucket))
-    .sort((a, b) => Math.abs(Number(a.season) - numericSeason) - Math.abs(Number(b.season) - numericSeason))[0];
+    .sort((a, b) => {
+      const distance = Math.abs(Number(a.season) - numericSeason) - Math.abs(Number(b.season) - numericSeason);
+      if (distance) return distance;
+      const bucketOrder = desiredBuckets.indexOf(a.bucket) - desiredBuckets.indexOf(b.bucket);
+      if (bucketOrder) return bucketOrder;
+      return Number(a.season) - Number(b.season);
+    })[0];
   return nearest ? adjustPickAcrossYears(nearest.value, nearest.season, meta.season) : null;
 }
 
@@ -454,24 +486,30 @@ export function findMarketValueByPlayerName(name, values, valueNameMap = NO_NAME
   return match;
 }
 
+const NON_OFFENSIVE_POSITIONS = new Set([
+  "K", "PK", "P", "DEF", "DST", "D/ST",
+  "DL", "DE", "DT", "NT", "LB", "ILB", "OLB", "MLB",
+  "DB", "CB", "S", "FS", "SS", "EDGE", "IDP",
+]);
+
+function assetSkipsOffensiveNameMatch(asset) {
+  const fantasy = Array.isArray(asset?.raw?.fantasy_positions) ? asset.raw.fantasy_positions : [];
+  const positions = fantasy.length > 0 ? fantasy : [asset?.raw?.position].filter(Boolean);
+  return positions.some((position) => NON_OFFENSIVE_POSITIONS.has(String(position || "").trim().toUpperCase()));
+}
+
 export function lookupMarketValue(asset, values, valueNameMap = NO_NAMES, catalog = null) {
   const exact = values?.[asset?.assetId];
   if (Number.isFinite(exact)) return { value: exact, estimated: false };
-  const named = findMarketValueByPlayerName(playerNameForAsset(asset), values, valueNameMap);
-  if (Number.isFinite(named)) return { value: named, estimated: false };
+  if (!assetSkipsOffensiveNameMatch(asset)) {
+    const named = findMarketValueByPlayerName(playerNameForAsset(asset), values, valueNameMap);
+    if (Number.isFinite(named)) return { value: named, estimated: false };
+  }
   if (asset?.assetType === "pick") {
     const resolvedPickValue = resolvePickAssetValue(asset, values, valueNameMap, catalog);
     if (Number.isFinite(resolvedPickValue)) return { value: resolvedPickValue, estimated: false };
   }
-  return { value: estimatedValue(asset), estimated: true };
-}
-
-export function adjustLeagueValue(asset, baseValue, league) {
-  let value = applyElitePlayerValuePremium(asset, baseValue);
-  if (asset?.assetType === "player" && playerPositionForAsset(asset) === "TE") {
-    value = Math.round(value * tepMultiplier(tepLevel(league)));
-  }
-  return value;
+  return { value: 0, estimated: true };
 }
 
 export const CROWD_LEARNING_RATE = 0.028;
@@ -571,40 +609,12 @@ export function applyCrowdShift(assetId, value, shifts, { scale = 1 } = {}) {
   return Math.max(1, Math.round(value * (1 + capped)));
 }
 
-export function applyLeagueShift(assetId, value, shifts, { scale = 1 } = {}) {
-  if (!Number.isFinite(value) || value <= 0) return value;
-  const shift = Number(shifts?.[assetId]);
-  if (!Number.isFinite(shift) || shift === 0) return value;
-  const weight = Number.isFinite(scale) ? Math.max(0, Math.min(1, scale)) : 1;
-  const capped = clampLeagueShift(shift * weight);
-  return Math.max(1, Math.round(value * (1 + capped)));
-}
-
 export function getAssetValue(asset, values, options = {}) {
   const {
     valueNameMap = NO_NAMES,
     pickCatalog = null,
-    league = null,
-    crowdShifts = null,
-    leagueShifts = null,
-    applyLeagueBoard = false,
   } = options;
-  const lookup = lookupMarketValue(asset, values, valueNameMap, pickCatalog);
-  let value = adjustLeagueValue(asset, lookup.value, league);
-  const assetId = String(asset?.assetId || "");
-  const isPlayer = asset?.assetType === "player" || assetId.startsWith("player:");
-  const isPick = asset?.assetType === "pick" || assetId.startsWith("pick:");
-  if (isPlayer && crowdShifts) {
-    value = applyCrowdShift(assetId, value, crowdShifts, {
-      scale: lookup.estimated ? CROWD_ESTIMATED_SCALE : 1,
-    });
-  }
-  if (applyLeagueBoard && leagueShifts && (isPlayer || isPick)) {
-    value = applyLeagueShift(assetId, value, leagueShifts, {
-      scale: lookup.estimated ? LEAGUE_BOARD_ESTIMATED_SCALE : 1,
-    });
-  }
-  return value;
+  return lookupMarketValue(asset, values, valueNameMap, pickCatalog).value;
 }
 
 function clampLogGap(value) {
@@ -631,8 +641,7 @@ export function isEstimatedAsset(asset, values, options = {}) {
 }
 
 export function getGlobalMaxPlayerValue(values, tradeMaxValue = 0) {
-  const floor = Number.isFinite(tradeMaxValue) ? tradeMaxValue : 0;
-  let maxValue = Math.max(KTC_GLOBAL_MAX_FALLBACK, floor);
+  let maxValue = Math.max(1, Number.isFinite(tradeMaxValue) ? tradeMaxValue : 0);
   for (const [assetId, value] of Object.entries(values || {})) {
     if (!String(assetId).startsWith("player:")) continue;
     if (Number.isFinite(value) && value > maxValue) maxValue = value;
@@ -660,31 +669,64 @@ async function readJsonIfOk(fetchImpl, path) {
   }
 }
 
-export async function fetchValuationBundles(fetchImpl = globalThis.fetch) {
-  const jsonBundle = await readJsonIfOk(fetchImpl, VALUES_JSON_PATH);
-  if (jsonBundle && (jsonBundle.sf || jsonBundle.oneQb || jsonBundle.values)) {
-    if (jsonBundle.sf || jsonBundle.oneQb) {
-      const sf = coerceValueMap(jsonBundle.sf || {});
-      const oneQb = coerceValueMap(jsonBundle.oneQb || {});
-      const names = jsonBundle.names && typeof jsonBundle.names === "object"
-        ? jsonBundle.names
-        : { ...sf.nameMap, ...oneQb.nameMap };
-      return {
-        sf: { values: sf.values, nameMap: { ...names, ...sf.nameMap } },
-        oneQb: { values: oneQb.values, nameMap: { ...names, ...oneQb.nameMap } },
-        names,
-      };
-    }
-    const coerced = coerceValueMap(jsonBundle);
-    return { sf: coerced, oneQb: coerced, names: coerced.nameMap };
-  }
+let valuationInflight = null;
 
-  const [sfCsv, oneQbCsv, sampleCsv] = await Promise.all([
-    readTextIfOk(fetchImpl, VALUES_SF_PATH),
-    readTextIfOk(fetchImpl, VALUES_ONE_QB_PATH),
-    readTextIfOk(fetchImpl, SAMPLE_VALUES_PATH),
-  ]);
-  const sf = parseCsvValues(sfCsv || sampleCsv);
-  const oneQb = oneQbCsv ? parseCsvValues(oneQbCsv) : { values: {}, nameMap: {} };
-  return { sf, oneQb, names: { ...sf.nameMap, ...oneQb.nameMap } };
+export async function fetchValuationBundles(fetchImpl = globalThis.fetch) {
+  if (fetchImpl === globalThis.fetch && valuationInflight) return valuationInflight;
+  const job = loadValuationBundles(fetchImpl);
+  if (fetchImpl !== globalThis.fetch) return job;
+  valuationInflight = job.catch((err) => {
+    valuationInflight = null;
+    throw err;
+  });
+  return valuationInflight;
+}
+
+async function loadValuationBundles(fetchImpl) {
+  let response = null;
+  let payload = null;
+  try {
+    response = await fetchImpl(PLAYER_VALUES_PATH);
+    if (response?.ok) payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  if (!payload || typeof payload !== "object") {
+    throw new Error("Independent player values did not load.");
+  }
+  if (payload.modelVersion !== PLAYER_VALUE_MODEL_VERSION) {
+    throw new Error(`Unsupported player-value model: ${payload.modelVersion || "missing"}`);
+  }
+  const sf = coerceValueMap(payload.sf || {});
+  const oneQb = coerceValueMap(payload.oneQb || {});
+  const names = payload.names && typeof payload.names === "object"
+    ? payload.names
+    : { ...sf.nameMap, ...oneQb.nameMap };
+  const lastModified = response?.headers?.get?.("last-modified") || "";
+  return {
+    sf: { values: sf.values, nameMap: { ...names, ...sf.nameMap } },
+    oneQb: { values: oneQb.values, nameMap: { ...names, ...oneQb.nameMap } },
+    names,
+    players: payload.players && typeof payload.players === "object" ? payload.players : {},
+    meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {},
+    modelVersion: payload.modelVersion,
+    asOf: payload.asOf || "",
+    generatedAt: payload.generatedAt || "",
+    lastModified,
+  };
+}
+
+export async function fetchPriceHistory(fetchImpl = globalThis.fetch, { now = new Date(), days = TREND_WINDOW_DAYS } = {}) {
+  const index = await readJsonIfOk(fetchImpl, PRICE_HISTORY_INDEX_PATH);
+  if (!index || typeof index !== "object") return null;
+  if (index.schemaVersion != null && index.schemaVersion !== 1) return null;
+  const listed = Array.isArray(index.snapshots) ? index.snapshots : [];
+  const needed = stampsForWindow(listed, { now, days });
+  const loaded = await Promise.all(needed.map(async (row) => {
+    const snap = await readJsonIfOk(fetchImpl, `./data/price-history/${row.stamp}.json`);
+    if (!snap || typeof snap !== "object") return null;
+    return { ...snap, stamp: row.stamp };
+  }));
+  const history = normalizePriceHistory(loaded.filter(Boolean));
+  return history.snapshots.length ? history : null;
 }

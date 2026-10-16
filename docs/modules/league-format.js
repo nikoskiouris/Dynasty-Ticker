@@ -77,7 +77,8 @@ export function hiddenRoomsForLeague(league) {
 
 export function roomsForPage(page, league) {
   const rooms = PAGE_ROOMS[page] || [];
-  if (!league) return rooms;
+  // My League rooms other than the team need a loaded league. Guests stay on team.
+  if (page === "league" && !league) return rooms.filter((room) => room === HOME_ROOM);
   const hidden = new Set(
     hiddenRoomsForLeague(league)
       .filter((entry) => entry.page === page)

@@ -19,6 +19,8 @@ import {
   tickerDurationSeconds,
   writeStorageNoticeDismissed,
 } from "../docs/modules/site.js";
+import { SAMPLE_LEAGUE_ID } from "../docs/modules/constants.js";
+import { siteMarkup } from "./site-markup.js";
 
 const docs = join(dirname(fileURLToPath(import.meta.url)), "../docs");
 
@@ -148,7 +150,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
     assert.equal(existsSync(join(docs, name)), true, name);
   }
 
-  const index = readDocs("index.html");
+  const index = siteMarkup();
   assert.match(index, /property="og:image"/);
   assert.match(index, /og-image\.jpg/);
   assert.match(index, /rel="canonical"/);
@@ -162,20 +164,38 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /id="copy-league-id-btn"/);
   assert.doesNotMatch(index, /Use demo league/);
   assert.doesNotMatch(index, /Open demo/);
+  assert.match(index, /id="sample-league-link"/);
+  assert.match(index, /href="\.\/\?sample=1"/);
+  assert.match(index, /See the sample league/);
+  assert.match(index, /Connect my league/);
+  assert.match(index, /class="empty-cta"/);
   assert.equal(existsSync(join(docs, "modules/recap.js")), false);
   assert.equal(existsSync(join(docs, "modules/recap-card.js")), false);
-  assert.match(index, /id="landing-rather"/);
-  assert.match(index, /id="open-public-ranks"/);
-  assert.match(index, /Look up a player/);
+  assert.doesNotMatch(index, /id="landing-rather"/);
+  assert.match(index, /Build a trade/);
+  assert.match(index, /Your next dynasty move starts here\./);
+  assert.match(index, /Explore player values, build a trade, or connect your Sleeper league\. Free\. No sign-up\./);
+  assert.doesNotMatch(index, /Find your league/);
+  assert.match(index, /id="sample-league-chip"/);
+  assert.match(index, />Sample league · Connect yours</);
+  assert.match(index, /id="sample-banner"/);
+  assert.doesNotMatch(index, /This is a public sample league\. Connect your Sleeper username anytime\./);
+  assert.doesNotMatch(readDocs("ui/league.html"), /Connect Sleeper|Find leagues</);
+  assert.match(readDocs("app.js"), /Sample league — not this account\./);
+  assert.match(readDocs("app.js"), /Viewing as \$\{me\.manager\?\.displayName \|\| "a roster"\}/);
+  assert.match(readDocs("app.js"), /return "Sample league"/);
+  assert.match(readDocs("app.js"), /Example roster/);
   assert.match(index, /id="public-ranks"/);
   assert.match(index, /id="ranks-dashboard"/);
   assert.match(index, /id="landing-username"/);
-  assert.match(index, />See a value\. Check a trade\. Then your team\.</);
+  assert.doesNotMatch(index, /See a value\. Check a trade\. Then your team\./);
+  assert.doesNotMatch(index, /See the league\./);
+  assert.doesNotMatch(index, /Then the next move/);
   assert.match(index, /Type your Sleeper username/);
   assert.doesNotMatch(index, /id="landing-jobs"/);
-  assert.match(index, /brand\/wordmark\.svg/);
+  assert.match(index, /brand\/wordmark-on-dark\.svg/);
   assert.match(index, /class="brand-wordmark/);
-  assert.match(index, /class="brand-lockup brand-lockup--landing"/);
+  assert.match(index, /class="brand-lockup brand-lockup--header"/);
   assert.match(index, /id="league-avatar"[\s\S]*brand\/mark\.svg/);
   assert.match(index, /class="league-mark"/);
   assert.doesNotMatch(index, /class="brand-mark"/);
@@ -190,16 +210,20 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /id="footer-visits"/);
   assert.doesNotMatch(index, /anonymous visit ping/);
   assert.doesNotMatch(index, /secret-numbers/);
-  assert.match(index, /Who would you rather have\?/);
-  assert.match(index, /PPR 12-man Superflex/);
+  assert.doesNotMatch(index, /Who would you rather have\?/);
+  assert.doesNotMatch(index, /PPR 12-man Superflex/);
   assert.match(index, /id="username-error"/);
-  assert.match(index, /data-theme="light"/);
-  assert.match(index, /theme-color" content="#eef3f2"/);
-  assert.match(index, /dynasty_ticker_theme/);
-  assert.match(index, />Dark mode</);
-  assert.match(index, /id="theme-toggle-btn"[^>]*aria-pressed="true"/);
-  assert.doesNotMatch(index, /data-theme="dark"/);
-  assert.match(index, /family=Inter:/);
+  assert.match(index, /data-theme="dark"/);
+  assert.match(index, /theme-color" content="#0c0c0e"/);
+  assert.doesNotMatch(index, /dynasty_ticker_theme/);
+  assert.doesNotMatch(index, /id="theme-toggle-btn"/);
+  assert.doesNotMatch(index, /id="mobile-theme-btn"/);
+  assert.doesNotMatch(index, />Light mode</);
+  assert.doesNotMatch(index, />Dark mode</);
+  assert.doesNotMatch(index, /data-theme="light"/);
+  assert.match(index, /href="\.\/tokens\.css"/);
+  assert.doesNotMatch(index, /fonts\.googleapis\.com/);
+  assert.doesNotMatch(index, /fonts\.gstatic\.com/);
   for (const page of ["players", "trades", "league"]) {
     assert.match(index, new RegExp(`data-page="${page}"`));
     assert.match(index, new RegExp(`id="${page}-page"`));
@@ -225,7 +249,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="find-more-btn"/);
   assert.match(index, />Find more</);
   assert.match(index, />Find partners</);
-  assert.match(index, /Check an offer or find a deal/);
+  assert.match(index, /Check a trade or find a deal/);
   assert.match(index, /Review trade fills the calculator/);
   assert.doesNotMatch(index, /Got an offer\?/);
   const tradesPage = index.slice(index.indexOf('id="trades-page"'), index.indexOf('id="league-page"'));
@@ -236,6 +260,10 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="history-dashboard"/);
   assert.match(index, /id="mobile-home-btn"/);
   assert.match(index, /data-action="league-home"/);
+  assert.doesNotMatch(index, /id="mobile-chrome-title"[^>]*data-action/);
+  assert.doesNotMatch(index, /id="hero-title"[^>]*data-action/);
+  assert.doesNotMatch(index, /id="league-avatar"[^>]*data-action/);
+  assert.doesNotMatch(index, /brand-lockup[^>]*data-action/);
   assert.match(index, /class="home-glyph"/);
   assert.doesNotMatch(index, /id="records-dashboard"/);
   assert.doesNotMatch(index, /id="mobile-share-btn"/);
@@ -297,20 +325,20 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   const notFound = readDocs("404.html");
   assert.match(notFound, /Page not found/);
   assert.match(notFound, /<h1>/);
-  assert.match(notFound, /theme-color" content="#eef3f2"/);
-  assert.match(notFound, /data-theme="light"/);
-  assert.match(notFound, /brand\/wordmark\.svg/);
+  assert.match(notFound, /theme-color" content="#0c0c0e"/);
+  assert.match(notFound, /data-theme="dark"/);
+  assert.match(notFound, /brand\/wordmark-on-dark\.svg/);
   assert.doesNotMatch(notFound, /class="brand-mark"/);
   assert.doesNotMatch(notFound, /League Command Center/);
   assert.doesNotMatch(notFound, /demo league/i);
-  assert.doesNotMatch(notFound, /1315165104303513600/);
+  assert.doesNotMatch(notFound, new RegExp(SAMPLE_LEAGUE_ID));
   assert.doesNotMatch(notFound, /privacy\.html/);
   assert.doesNotMatch(notFound, /terms\.html/);
   assert.doesNotMatch(notFound, /Contact/);
 
   const privacy = readDocs("privacy.html");
-  assert.match(privacy, /theme-color" content="#eef3f2"/);
-  assert.match(privacy, /brand\/wordmark\.svg/);
+  assert.match(privacy, /theme-color" content="#0c0c0e"/);
+  assert.match(privacy, /brand\/wordmark-on-dark\.svg/);
   assert.doesNotMatch(privacy, /class="brand-mark"/);
   assert.doesNotMatch(privacy, /League Command Center/);
   assert.match(privacy, /localStorage/);
@@ -318,6 +346,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(privacy, /GitHub issues/);
   assert.match(privacy, /who would you rather have/);
   assert.match(privacy, /Public rather votes/);
+  assert.match(privacy, /salted hash/);
+  assert.match(privacy, /two days/);
+  assert.match(privacy, /not sent to a third-party counter/);
   assert.doesNotMatch(privacy, /GitHub Pages/);
   assert.doesNotMatch(privacy, /visit count/i);
   assert.doesNotMatch(privacy, /page-views-api/);
@@ -325,6 +356,10 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(privacy, /Last league ID/);
 
   const app = readDocs("app.js");
+  assert.doesNotMatch(app, /class="pulse-tile \$\{tile\.tone\}" data-action/);
+  assert.doesNotMatch(app, /class="window-call-banner \$\{call\.tone\}" data-action/);
+  assert.doesNotMatch(app, />This team</);
+  assert.doesNotMatch(app, /data-room="standings">Standings/);
   assert.doesNotMatch(app, /Last league remembered/);
   assert.match(app, /tickerDurationSeconds\(items\.length\)/);
   assert.match(app, /bindTicker\(/);
@@ -339,13 +374,13 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(app, /from "\.\/modules\/recap/);
   assert.match(readDocs("styles.css"), /--ticker-duration: 60s/);
   assert.match(readDocs("styles.css"), /\.ticker\.is-bound \.ticker-track/);
-  assert.match(readDocs("styles.css"), /body:not\(\.league-loaded\) #mobile-rail-toggle/);
-  assert.match(readDocs("styles.css"), /body:not\(\.league-loaded\) \.rail-backdrop\.open/);
-  assert.match(app, /shouldOpen = Boolean\(open\) && isPhoneLayout\(\) && Boolean\(state\.leagueId\)/);
+  assert.match(app, /shouldOpen = Boolean\(open\) && isPhoneLayout\(\)/);
+  assert.doesNotMatch(app, /shouldOpen = Boolean\(open\) && isPhoneLayout\(\) && Boolean\(state\.leagueId\)/);
+  assert.match(readDocs("index.html"), /id="phone-desk"/);
 
   const terms = readDocs("terms.html");
-  assert.match(terms, /theme-color" content="#eef3f2"/);
-  assert.match(terms, /brand\/wordmark\.svg/);
+  assert.match(terms, /theme-color" content="#0c0c0e"/);
+  assert.match(terms, /brand\/wordmark-on-dark\.svg/);
   assert.doesNotMatch(terms, /class="brand-mark"/);
   assert.doesNotMatch(terms, /League Command Center/);
   assert.match(terms, /not affiliated/i);
@@ -359,12 +394,15 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(readDocs("favicon.svg"), /\brx="/);
   assert.match(readDocs("favicon.svg"), /fill="#4b4b51"/);
 
-  assert.match(readDocs("modules/state.js"), /export const DEFAULT_THEME = "light"/);
-  assert.match(readDocs("app.js"), /return DEFAULT_THEME/);
-  assert.match(readDocs("site.webmanifest"), /"theme_color": "#eef3f2"/);
-  assert.match(readDocs("styles.css"), /Daylight mint desk/);
+  assert.match(readDocs("modules/state.js"), /export const DEFAULT_THEME = "dark"/);
+  assert.match(readDocs("modules/state.js"), /export const THEME_COLOR = "#0c0c0e"/);
+  assert.doesNotMatch(readDocs("modules/state.js"), /THEME_STORAGE_KEY|light:\s*"#f6f1e8"/);
+  assert.doesNotMatch(readDocs("app.js"), /applyTheme|readStoredTheme|THEME_STORAGE_KEY/);
+  assert.doesNotMatch(readDocs("styles.css"), /data-theme="light"|:root\[data-theme="dark"\]/);
+  assert.match(readDocs("site.webmanifest"), /"theme_color": "#0c0c0e"/);
+  assert.match(readDocs("styles.css"), /burgundy ink/);
   assert.match(readDocs("styles.css"), /Phone landing: search first/);
-  assert.match(readDocs("styles.css"), /Phone desk nav: page tabs stick under the header/);
+  assert.match(readDocs("styles.css"), /Phone desk nav: sections live in the side board/);
 
   assert.ok(statSync(join(docs, "og-image.jpg")).size < 120_000);
   assert.match(OG_IMAGE_URL, /og-image\.jpg$/);
@@ -401,10 +439,11 @@ test("Got it hides the storage notice and remembers the choice", () => {
   assert.equal(classes.has("hidden"), true);
 });
 
-test("storage notice CSS does not override the hidden attribute", () => {
-  const css = readDocs("styles.css");
-  assert.match(css, /\.storage-notice:not\(\[hidden\]\)\s*\{[^}]*display:\s*flex/s);
-  assert.doesNotMatch(css, /\.storage-notice\s*\{[^}]*display:\s*flex/s);
+test("dead storage notice CSS and the sticky cta id rules are gone", () => {
+  const css = `${readDocs("styles.css")}\n${readDocs("product.css")}`;
+  assert.doesNotMatch(css, /\.storage-notice/);
+  assert.doesNotMatch(css, /#sticky-mobile-cta/);
+  assert.match(readDocs("styles.css"), /\.sticky-mobile-cta\s*\{[^}]*display:\s*none/s);
 });
 
 test("side rail is fixed so the page cannot scroll a blank screen past the last card", () => {
@@ -416,7 +455,7 @@ test("side rail is fixed so the page cannot scroll a blank screen past the last 
 });
 
 test("weekly honors, season superlatives, and the rookie mock sit on the matching tabs", () => {
-  const index = readDocs("index.html");
+  const index = siteMarkup();
   const team = index.match(/data-room-panel="team"[\s\S]*?data-room-panel="scores"/)[0];
   const scores = index.match(/data-room-panel="scores"[\s\S]*?data-room-panel="board"/)[0];
   const board = index.match(/data-room-panel="board"[\s\S]*?data-room-panel="activity"/)[0];
@@ -430,14 +469,30 @@ test("weekly honors, season superlatives, and the rookie mock sit on the matchin
   assert.doesNotMatch(history, /awards-dashboard|weekly-honors|superlatives|mock-dashboard/);
 });
 
-test("phone desk nav keeps pages on top and rooms with the page", () => {
+test("phone scrolling stays put while the URL bar moves", () => {
   const css = readDocs("styles.css");
-  assert.match(css, /Phone desk nav: page tabs stick under the header/);
-  assert.match(css, /Room controls stay with the page/);
+  const phone = css.slice(css.indexOf("Phone only."));
+  assert.match(phone, /scroll-behavior:\s*auto/);
+  assert.match(phone, /\.app-frame \{[^}]*min-height:\s*100svh/s);
+  assert.doesNotMatch(phone, /100dvh/);
+  assert.match(phone, /\.control-rail \{[^}]*height:\s*0/s);
+  assert.match(phone, /\.control-rail \{[^}]*backdrop-filter:\s*none/s);
+  assert.match(phone, /\.mobile-chrome \{[^}]*backdrop-filter:\s*none/s);
+  assert.match(phone, /\.workspace-tabs,\s*\.room-nav \{[^}]*display:\s*none/s);
+  assert.match(css, /\.room-nav-scroll \{[^}]*overflow-x:\s*auto/s);
+  assert.match(readDocs("app.js"), /room-nav-scroll/);
+  assert.doesNotMatch(readDocs("app.js"), /scrollIntoView\(\{ inline: "center"/);
+});
+
+test("phone sections sit in the side board and drop open", () => {
+  const css = readDocs("styles.css");
+  assert.match(css, /Phone desk nav: sections live in the side board/);
+  assert.match(css, /Tap a section and its rooms drop open/);
   assert.doesNotMatch(css, /page tabs pin to the bottom edge/);
-  assert.match(css, /\.workspace-tabs \{[^}]*position:\s*sticky/s);
-  assert.match(css, /\.workspace-tabs \{[^}]*order:\s*-1/s);
-  assert.match(css, /\.room-nav \{[^}]*position:\s*sticky/s);
+  assert.doesNotMatch(css, /Phone desk nav: page tabs sit in a fixed ink dock/);
+  assert.doesNotMatch(css, /\.workspace-tabs \{[^}]*position:\s*fixed/s);
+  assert.match(css, /\.phone-desk-group\.is-open \.phone-desk-rooms \{[^}]*display:\s*grid/s);
+  assert.match(readDocs("app.js"), /data-phone-page/);
   assert.doesNotMatch(css, /\.room-nav \{[^}]*position:\s*fixed/s);
   assert.doesNotMatch(
     css,
@@ -454,6 +509,70 @@ test("ticker loops slower so names stay readable", () => {
   assert.equal(tickerDurationSeconds(4), 50);
   assert.equal(tickerDurationSeconds(8), 72);
   assert.equal(tickerDurationSeconds(12), 108);
+});
+
+test("wide board can shut so the page fills the screen", () => {
+  const css = readDocs("styles.css");
+  const app = readDocs("app.js");
+  const index = readDocs("index.html");
+  assert.match(index, /id="desk-board-close"/);
+  assert.match(index, /id="desk-board-open"/);
+  assert.match(index, /id="board-tools"/);
+  assert.match(readDocs("desk-shut.js"), /dynasty_ticker_board/);
+  assert.match(index, /src="\.\/desk-shut\.js"/);
+  assert.doesNotMatch(index, /<script>\s*try/);
+  assert.match(app, /dynasty_ticker_board/);
+  assert.match(app, /renderRanksToolbar/);
+  assert.match(css, /html\.desk-shut \.workspace \{[^}]*grid-column:\s*1/s);
+  assert.match(css, /html\.desk-shut \.control-rail \{[^}]*display:\s*none !important/s);
+  assert.match(css, /Wide board shuts so the page fills the screen/);
+  assert.match(index, /id="mobile-rail-close"[^>]*tabindex="-1"/);
+  const deskShut = app.slice(app.indexOf("function setDeskBoardShut"), app.indexOf("function setMobileRailOpen"));
+  assert.match(deskShut, /deskBoardClose\?\.setAttribute\("tabindex", "-1"\)/);
+  assert.match(deskShut, /deskBoardClose\?\.removeAttribute\("tabindex"\)/);
+  const rail = app.slice(app.indexOf("function setMobileRailOpen"), app.indexOf("function scrollChildIntoStrip"));
+  assert.match(rail, /mobileRailClose\?\.setAttribute\("tabindex", "-1"\)/);
+  assert.match(rail, /mobileRailClose\?\.removeAttribute\("tabindex"\)/);
+});
+
+test("each desk page is its own file and boot mounts them before the app", () => {
+  const index = readDocs("index.html");
+  const boot = readDocs("boot.js");
+  assert.match(index, /id="ui-pages"/);
+  assert.match(index, /src="\.\/boot\.js"/);
+  assert.doesNotMatch(index, /id="players-page"/);
+  assert.doesNotMatch(index, /id="trades-page"/);
+  assert.doesNotMatch(index, /id="league-page"/);
+  for (const file of ["landing.html", "players.html", "trades.html", "league.html"]) {
+    assert.match(boot, new RegExp(`\\./ui/${file.replace(".", "\\.")}`));
+    assert.equal(existsSync(join(docs, "ui", file)), true);
+  }
+  assert.match(boot, /await import\("\.\/app\.js"\)/);
+  assert.match(boot, /showBootError/);
+  assert.match(boot, /role="alert"/);
+  assert.match(boot, /paintFindLeagueButtons\(document, "loading"\)/);
+  assert.doesNotMatch(boot, /player_values/);
+  assert.match(readDocs("app.js"), /releaseBootGate\(document\)/);
+  assert.match(readDocs("app.js"), /scheduleBootFind\(\(\) => requestFindLeagues\(\)\)/);
+  assert.match(readDocs("app.js"), /applyBootFieldValue/);
+  assert.match(index, /src="\.\/boot-intent\.js"/);
+  assert.ok(index.indexOf('src="./boot-intent.js"') < index.indexOf('src="./boot.js"'));
+  assert.match(index, /id="find-leagues-btn"[^>]*aria-disabled="true"[^>]*aria-busy="true"/);
+  assert.match(index, /id="sticky-find-btn"[^>]*aria-disabled="true"[^>]*aria-busy="true"/);
+  assert.doesNotMatch(index, /id="find-leagues-btn"[^>]*\sdisabled[\s=]/);
+  assert.doesNotMatch(index, /id="sticky-find-btn"[^>]*\sdisabled[\s=]/);
+  assert.match(readDocs("ui/landing.html"), /id="landing-find-btn"[^>]*aria-disabled="true"[^>]*aria-busy="true"/);
+  assert.doesNotMatch(readDocs("ui/landing.html"), /id="landing-find-btn"[^>]*\sdisabled[\s=]/);
+  assert.match(readDocs("ui/league.html"), /data-action="find-my-leagues"[^>]*aria-busy="true"/);
+  assert.doesNotMatch(readDocs("ui/league.html"), /data-action="find-my-leagues"[^>]*\sdisabled[\s=]/);
+  assert.doesNotMatch(index, /id="sleeper-username"[^>]*disabled/);
+  assert.doesNotMatch(readDocs("ui/landing.html"), /id="landing-username"[^>]*disabled/);
+  assert.match(index, /class="skip-link"/);
+  assert.doesNotMatch(siteMarkup(), /id="landing-rather"/);
+  assert.doesNotMatch(readDocs("ui/players.html"), /id="landing-rather"/);
+  assert.doesNotMatch(readDocs("ui/players.html"), /Who would you rather have\?/);
+  assert.match(siteMarkup(), /id="calculator-shell"/);
+  assert.match(siteMarkup(), /id="weekly-help-btn"/);
 });
 
 test("the site never names KeepTradeCut", () => {
@@ -501,4 +620,24 @@ test("product name Dynasty Ticker never shares the repo with the old brand", () 
 
   walk(root);
   assert.deepEqual(hits, []);
+});
+
+test("user-facing copy says players and picks, not assets", () => {
+  const app = readDocs("app.js");
+  const voice = readDocs("modules/sample-voice.js");
+  assert.match(app, /tap players & picks on both sides/);
+  assert.match(app, /No traded players & picks to rank yet/);
+  assert.match(app, /\$\{playersAndPicksLabel\(movements\.length\)\} moved/);
+  assert.match(readDocs("modules/html.js"), /1 player or pick/);
+  assert.match(readDocs("modules/html.js"), /players & picks/);
+  assert.match(app, /No matching players & picks found on your roster/);
+  assert.match(app, /Select one of your own players & picks to shop first/);
+  assert.match(app, /fewer included players & picks/);
+  assert.match(app, /exclude fewer players & picks/);
+  assert.match(app, /headline players & picks/);
+  assert.match(app, /high-value players & picks/);
+  assert.match(voice, /No matching players & picks found on \$\{poss\} roster/);
+  assert.match(voice, /Select one of \$\{poss\} players & picks to shop first/);
+  assert.doesNotMatch(app, /tap assets|traded assets|assets moved|matching assets|own assets|included assets|fewer assets|headline assets|high-value assets/);
+  assert.doesNotMatch(voice, /assets/);
 });

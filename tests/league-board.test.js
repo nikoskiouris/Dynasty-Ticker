@@ -9,11 +9,12 @@ import {
   packagesFromTransaction,
   readApplyLeagueBoard,
   renderLeagueBoardMarkup,
+  renderPriceLegend,
   selectNotableBiases,
   shouldShowLeagueAlt,
   writeApplyLeagueBoard,
 } from "../docs/modules/league-board.js";
-import { getAssetValue, LEAGUE_BOARD_MAX_ABS_SHIFT } from "../docs/modules/values.js";
+import { getAssetValue } from "../docs/modules/values.js";
 
 const NOW = 1_700_000_000_000;
 
@@ -89,19 +90,17 @@ test("league board pays up for boom-bust guys this room keeps buying", () => {
   assert.ok(board.shifts["player:pw"] > 0);
   assert.ok(board.shifts["player:vet"] < 0);
   const market = getAssetValue(parker(), { "player:pw": 4200 });
-  const league = getAssetValue(parker(), { "player:pw": 4200 }, {
+  const canonical = getAssetValue(parker(), { "player:pw": 4200 }, {
     leagueShifts: board.shifts,
     applyLeagueBoard: true,
   });
   assert.equal(market, 4200);
-  assert.ok(league > market);
-  assert.ok(league >= 5000);
-  assert.ok(league <= Math.round(4200 * (1 + LEAGUE_BOARD_MAX_ABS_SHIFT)));
-  assert.equal(shouldShowLeagueAlt(market, league), true);
+  assert.equal(canonical, 4200);
+  assert.equal(shouldShowLeagueAlt(market, Math.round(market * (1 + board.shifts["player:pw"]))), true);
   assert.ok(board.biases.some((bias) => bias.id === "boom" && bias.shift > 0));
 });
 
-test("league overlay stays off until apply, and too few trades stay empty", () => {
+test("league evidence stays informational, and too few trades stay empty", () => {
   const catalog = {
     "player:pw": { asset: parker(), marketValue: 5000 },
     "player:vet": { asset: vetBack(), marketValue: 6200 },
@@ -124,7 +123,7 @@ test("league overlay stays off until apply, and too few trades stay empty", () =
   const off = getAssetValue(asset, values, { leagueShifts: board.shifts, applyLeagueBoard: false });
   const on = getAssetValue(asset, values, { leagueShifts: board.shifts, applyLeagueBoard: true });
   assert.equal(off, 4200);
-  assert.ok(on > off);
+  assert.equal(on, 4200);
 });
 
 test("league taste only calls out a real premium, not the whole roster", () => {
@@ -178,7 +177,7 @@ test("packagesFromTransaction ignores waivers and one-sided junk", () => {
   assert.equal(parsed.packages["1"][0].assetId, "player:11");
 });
 
-test("apply flag persists in localStorage and markup has the toggle", () => {
+test("legacy apply flag can still be read, but league markup has no price toggle", () => {
   const memory = new Map();
   const storage = {
     getItem(key) { return memory.has(key) ? memory.get(key) : null; },
@@ -194,7 +193,25 @@ test("apply flag persists in localStorage and markup has the toggle", () => {
     biases: [{ sentence: "This league pays up for boom-or-bust skill players (+12%)." }],
     examples: [{ name: "Parker Washington", marketValue: 5000, leagueValue: 6200 }],
   }, { applied: false, formatNumber: String });
-  assert.match(html, /Apply league board/);
+  assert.doesNotMatch(html, /Apply league board/);
   assert.match(html, /Parker Washington/);
-  assert.match(html, /your league 6200/);
+  assert.doesNotMatch(html, /your league 6200/);
+  assert.match(html, /model 5000/);
+  assert.match(html, /pop-league-values/);
+});
+
+test("the price legend names model, this week, and starter value as different measures", () => {
+  const html = renderPriceLegend(["week", "model", "lineup", "package"]);
+  assert.match(html, /<ul class="price-legend">/);
+  assert.match(html, /<span>Value<\/span>/);
+  assert.match(html, /<span>This week<\/span>/);
+  assert.match(html, /<span>Starters<\/span>/);
+  assert.match(html, /<span>Stars<\/span>/);
+  assert.match(html, /aria-label="Value"/);
+  assert.match(html, /Same number on Players, Trade, and My League\./);
+  assert.match(html, /aria-label="This week"/);
+  assert.match(html, /aria-label="Starters"/);
+  assert.match(html, /Value of your best lineup\./);
+  assert.match(html, /Player prices stay the same/);
+  assert.equal(renderPriceLegend([]), "");
 });

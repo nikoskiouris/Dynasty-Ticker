@@ -26,11 +26,11 @@ Explicit current instructions from the owner win. If one conflicts with an older
 
 What follows from that:
 
-- **One price.** The Players page market price (Sleeper trades across many dynasty leagues, in the active format) is the number the calculator uses, with or without a league. Format (Superflex / 1QB), TE premium, the league board, and the uneven-package credit are shown as labeled adjustments. League screens outside the calculator still use the star-premium value; see ticket 016 before changing either side.
+- **One price.** Dynasty Ticker's generated full-PPR football forecast is the single published player price. Players, Trade, My League, trade matching, and the CLI read the same snapshot. Superflex vs 1QB may change QB value; RB/WR/TE stay shared at launch. TE/RB scoring premiums, star multipliers, crowd votes, and league-specific overlays never create a second player price. Package consolidation can change a trade verdict without changing listed player prices.
 - **Three questions stay separate:** the market price, whether it fits my team, and why the other manager would say yes.
 - **Never erase work.** League loads, team switches, Review trade, and Clear keep or restore the trade draft (`state.valueCalc`). An ownership mismatch is explained, not "fixed" by swapping players.
 - **Label uncertainty.** Estimates, stale data, and heuristic scores say what they are. A score is not a probability. An honest empty state beats a filler deal.
-- **Evidence is not proof.** The bundled prior, completed Sleeper trades, and crowd votes have different strengths. Do not claim they beat a baseline without a holdout test.
+- **Evidence is not proof.** Football forecasts, league trade history, and crowd votes answer different questions. Do not claim predictive superiority without chronological holdout tests, and do not feed contextual trade/vote evidence into the canonical player price unless a future owner decision explicitly adds a validated calibration layer.
 - **Keep capabilities, give each a clear home.** Consolidate duplicate implementations. Explain any removal in the PR. Old links keep working.
 - **Feedback names a problem, not a fix.** "I don't understand this page" is a comprehension problem. Moving a button is one guess; check that it solved the problem.
 
@@ -43,8 +43,11 @@ What follows from that:
 
 ## Cursor Cloud specific instructions
 
-- Test changes yourself.
-- Record a short screen video of the working change and show it to the user.
+Follow `.cursor/skills/ship-without-demos/SKILL.md`.
+
+- Test changes yourself. Do not record demo videos or walkthrough artifacts.
+- Do not upload videos for the user to watch.
+- One screenshot is enough, and only if a visual result is hard to describe.
 - After tests pass, commit, push, update the PR, and keep moving.
 
 ## Git branches
@@ -69,8 +72,11 @@ If an old ticket's product guidance conflicts with Product purpose, add a `Super
 ## Live site releases
 
 - Merging to `develop` (or leftover `main`) must **not** publish [dynastyticker.com](https://dynastyticker.com/). Netlify git builds are **stopped** at the site (`stop_builds`). Ignore scripts are only a safety net if someone turns builds back on.
-- GitHub Pages publishes `develop` to `https://nikoskiouris.github.io/Dynasty-Ticker/` as a preview of unreleased work. Do not set a Pages custom domain. That URL is not dynastyticker.com.
+- The public app is [dynastyticker.com](https://dynastyticker.com/) on Netlify. `develop` is the integration branch. github.io is not the app. Do not publish the desk to GitHub Pages. After the live site matches this build, turn Pages off or 301 the leftover github.io URL to dynastyticker.com. Do not set a Pages custom domain.
 - Pushing or merging `develop` into `prod` cuts a GitHub Release. That runs `.github/workflows/deploy-release.yml`, which calls `scripts/deploy_live_site.sh`.
 - Do not trigger a production deploy unless the user explicitly asks to cut a release / promote to prod.
 - Do not run a scheduled Netlify production deploy. Market files refresh when a release is cut. The weekly Dynasty Nerds mock scrape may commit JSON to `develop`; that must not publish the live site.
+- GitHub runs scheduled workflows only from the repository default branch. That branch must be `develop`, or the player-value and rookie-mock refreshes never start.
+- `scripts/stage_pages_preview.sh` refuses. An old Pages workflow must not publish the desk.
 - Local check: `npm run serve` (or `npm test`). Do not burn Netlify credits for preview deploys.
+- Netlify functions need site environment variables `VISIT_SALT` and `RATHER_SALT` (Functions and Runtime scope). `scripts/deploy_live_site.sh` runs `scripts/ensure_netlify_salts.py` and will not publish until both are real secrets. Do not commit the values. The old public defaults `dynasty-ticker-traffic-v1` and `dynasty-ticker-rather-v1` are rejected.

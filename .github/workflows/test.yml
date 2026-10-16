@@ -5,6 +5,9 @@ on:
   push:
     branches: ["develop", "prod", "main", "master", "work"]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -25,5 +28,6 @@ jobs:
       - name: Install
         run: npm install
 
+      # Pin the committed snapshot. A live rebuild would hide a bad player_values.json.
       - name: Run tests
         run: npm test

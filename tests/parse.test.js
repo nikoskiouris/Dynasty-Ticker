@@ -15,11 +15,12 @@ import {
   defaultRoomFor,
   isRoomOf,
 } from "../docs/modules/parse.js";
+import { SAMPLE_LEAGUE_ID } from "../docs/modules/constants.js";
 
 test("parseLeagueId reads snowflake, path, and embedded URL", () => {
-  assert.equal(parseLeagueId("1315165104303513600"), "1315165104303513600");
-  assert.equal(parseLeagueId("https://sleeper.app/leagues/1315165104303513600"), "1315165104303513600");
-  assert.equal(parseLeagueId("  https://sleeper.app/leagues/1315165104303513600/matchup  "), "1315165104303513600");
+  assert.equal(parseLeagueId(SAMPLE_LEAGUE_ID), SAMPLE_LEAGUE_ID);
+  assert.equal(parseLeagueId(`https://sleeper.app/leagues/${SAMPLE_LEAGUE_ID}`), SAMPLE_LEAGUE_ID);
+  assert.equal(parseLeagueId(`  https://sleeper.app/leagues/${SAMPLE_LEAGUE_ID}/matchup  `), SAMPLE_LEAGUE_ID);
   assert.equal(parseLeagueId(""), "");
   assert.equal(parseLeagueId("nikoskiouris"), "");
 });
@@ -29,8 +30,8 @@ test("classifyLeagueInput prefers username unless the text is clearly a league",
   assert.equal(classifyLeagueInput("NikoSkiouris").kind, "username");
   assert.equal(classifyLeagueInput("@niko").username, "niko");
   assert.equal(classifyLeagueInput("https://sleeper.app/u/NikoSkiouris").username, "NikoSkiouris");
-  assert.equal(classifyLeagueInput("1315165104303513600").kind, "league");
-  assert.equal(classifyLeagueInput("https://sleeper.app/leagues/1315165104303513600").kind, "league");
+  assert.equal(classifyLeagueInput(SAMPLE_LEAGUE_ID).kind, "league");
+  assert.equal(classifyLeagueInput(`https://sleeper.app/leagues/${SAMPLE_LEAGUE_ID}`).kind, "league");
 });
 
 test("uniqueSeasons walks backward from the NFL season", () => {
@@ -51,9 +52,9 @@ test("sortUserLeagues puts the current in-season league first", () => {
 test("boot search fields stay blank unless the URL has a league", () => {
   assert.deepEqual(bootSearchFieldValues(), { username: "", leagueId: "" });
   assert.deepEqual(bootSearchFieldValues({ leagueFromUrl: "" }), { username: "", leagueId: "" });
-  assert.deepEqual(bootSearchFieldValues({ leagueFromUrl: "  1315165104303513600  " }), {
+  assert.deepEqual(bootSearchFieldValues({ leagueFromUrl: `  ${SAMPLE_LEAGUE_ID}  ` }), {
     username: "",
-    leagueId: "1315165104303513600",
+    leagueId: SAMPLE_LEAGUE_ID,
   });
 });
 
@@ -61,7 +62,7 @@ test("share params map old recap/home tabs onto league", () => {
   const url = buildShareUrl({
     origin: "https://dynastyticker.com",
     pathname: "/",
-    leagueId: "1315165104303513600",
+    leagueId: SAMPLE_LEAGUE_ID,
     meRosterId: 3,
     tab: "recap",
     week: 2,
@@ -77,6 +78,22 @@ test("share params map old recap/home tabs onto league", () => {
   assert.equal(parsed.week, 2);
   assert.equal(parsed.tone, "roast");
   assert.equal(parsed.meRosterId, 3);
+  const sampleUrl = buildShareUrl({
+    origin: "https://dynastyticker.com",
+    pathname: "/",
+    leagueId: "99",
+    sample: true,
+    tab: "league",
+  });
+  assert.match(sampleUrl, /sample=1/);
+  assert.equal(parseShareParams(sampleUrl.split("?")[1]).sample, true);
+  assert.equal(parseShareParams(sampleUrl.split("?")[1]).leagueId, "99");
+  assert.equal(parseShareParams("sample=1").sample, true);
+  assert.equal(parseShareParams("sample=1").leagueId, SAMPLE_LEAGUE_ID);
+  assert.equal(parseShareParams("sample=yes").leagueId, SAMPLE_LEAGUE_ID);
+  assert.equal(parseShareParams("sample=1&league=99").leagueId, "99");
+  assert.equal(parseShareParams("sample=1&league=99").sample, true);
+  assert.equal(parseShareParams("league=1").sample, false);
   assert.equal(parseShareParams("league=1").tab, "");
   assert.equal(parseShareParams("league=1").view, "ranks");
   assert.equal(parseShareParams("league=1&tab=recap").tab, "league");
@@ -95,7 +112,7 @@ test("share params move old trade rooms to their new pages", () => {
   const passportUrl = buildShareUrl({
     origin: "https://dynastyticker.com",
     pathname: "/",
-    leagueId: "1315165104303513600",
+    leagueId: SAMPLE_LEAGUE_ID,
     tab: "trader",
     view: "passport",
   });

@@ -3,7 +3,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PAGE_IDS, PAGE_ROOMS } from "../docs/modules/constants.js";
+import { PAGE_IDS, PAGE_ROOMS, SAMPLE_LEAGUE_ID } from "../docs/modules/constants.js";
 import { DESK_JOBS, DESK_MORE_JOBS } from "../docs/modules/jobs.js";
 import { chooseBestLineup } from "../docs/modules/lineup.js";
 import { weekRowsFingerprint } from "../docs/modules/live.js";
@@ -31,7 +31,6 @@ import {
 import { buildSitStart } from "../docs/modules/sit-start.js";
 import { utcIsoWeek } from "../netlify/lib/traffic.js";
 import {
-  applyElitePlayerValuePremium,
   CROWD_MAX_ABS_SHIFT,
   crowdShiftsFromVotes,
   findPickCatalogValue,
@@ -77,10 +76,10 @@ check("regex capture groups", () => {
 });
 
 check("embedded league ids", () => {
-  const prose = parseLeagueId("notes 1315165104303513600 please");
-  if (prose !== "1315165104303513600") return `prose id came back ${prose}`;
-  const draft = classifyLeagueInput("https://sleeper.app/draft/1315165104303513600");
-  if (draft.kind !== "league" || draft.leagueId !== "1315165104303513600") {
+  const prose = parseLeagueId(`notes ${SAMPLE_LEAGUE_ID} please`);
+  if (prose !== SAMPLE_LEAGUE_ID) return `prose id came back ${prose}`;
+  const draft = classifyLeagueInput(`https://sleeper.app/draft/${SAMPLE_LEAGUE_ID}`);
+  if (draft.kind !== "league" || draft.leagueId !== SAMPLE_LEAGUE_ID) {
     return `draft url classified as ${JSON.stringify(draft)}`;
   }
   const user = classifyLeagueInput("https://sleeper.app/u/NikoSkiouris");
@@ -96,7 +95,7 @@ check("share links round-trip every room", () => {
       const url = buildShareUrl({
         origin: "https://dynastyticker.com",
         pathname: "/",
-        leagueId: "1315165104303513600",
+        leagueId: SAMPLE_LEAGUE_ID,
         tab: page,
         view: room,
       });
@@ -297,16 +296,6 @@ check("weekly lookback does not repeat a slate", () => {
   if (weeks[0].season !== "2026" || weeks[0].week !== 2) return `starts at ${weeks[0].season} week ${weeks[0].week}`;
   const keys = weeks.map((row) => `${row.season}-${row.week}`);
   if (new Set(keys).size !== keys.length) return `duplicate ${keys.join(",")}`;
-  return "";
-});
-
-check("elite premium never drops as the raw price rises", () => {
-  let previous = 0;
-  for (let value = 0; value <= 12000; value += 25) {
-    const premium = applyElitePlayerValuePremium({ assetType: "player" }, value);
-    if (premium + 0.001 < previous) return `${value} -> ${premium} after ${previous}`;
-    previous = premium;
-  }
   return "";
 });
 

@@ -15,7 +15,7 @@ from src.domain.models import Asset, LeagueContext, Manager, Roster
 from src.domain.valuation import ValuationService
 from src.engine.trade_generator import TradeGenerator
 from src.engine.validation import ValidationError, find_asset_by_name, find_manager_roster
-from src.integrations.ktc_provider import KeepTradeCutProvider, _coerce_value
+from src.integrations.player_value_provider import PlayerValueProvider
 from src.integrations.sleeper_client import sleeper_points
 
 
@@ -70,26 +70,20 @@ def check_manager_names() -> str:
     return "partial manager niko silently picked one roster"
 
 
-def check_value_coercion() -> str:
-    samples = {
-        0: 0,
-        "0": 0,
-        True: None,
-        9000.5: 9001,
-        "1,234": 1234,
-        "nope": None,
-        None: None,
-    }
-    for raw, expected in samples.items():
-        got = _coerce_value(raw)
-        if got != expected:
-            return f"{raw!r} -> {got!r}, wanted {expected!r}"
+def check_value_provider() -> str:
     with tempfile.TemporaryDirectory() as tmp:
-        path = Path(tmp) / "values.csv"
-        path.write_text("asset_id,value,name\nplayer:a,9000.5,Ace\nplayer:b,0,Zero\n", encoding="utf-8")
-        loaded = KeepTradeCutProvider(cache_file=str(Path(tmp) / "missing.json"), ttl_seconds=0)._load_from_csv(str(path))
-    if loaded.get("player:a") != 9001 or loaded.get("player:b") != 0:
-        return f"csv load {loaded}"
+        path = Path(tmp) / "player_values.json"
+        path.write_text(
+            '{"modelVersion":"football-forecast-v1","sf":{"player:a":8000,"player:wr":5000},"oneQb":{"player:a":4000,"player:wr":5000}}',
+            encoding="utf-8",
+        )
+        provider = PlayerValueProvider(path)
+        sf = provider.load_values("sf")
+        one_qb = provider.load_values("oneQb")
+    if sf.get("player:a") != 8000 or one_qb.get("player:a") != 4000:
+        return f"format values {sf} / {one_qb}"
+    if sf.get("player:wr") != one_qb.get("player:wr"):
+        return "non-QB value drifted by format"
     return ""
 
 
@@ -118,24 +112,11 @@ def check_player_max_and_even_packages() -> str:
     service = ValuationService({"player:star": 8000, "pick:2027:r1:early": 14000})
     if service.max_value == 14000:
         return "pick price became the global max"
-    if service.max_value != 10160:
+    if service.max_value != 8000:
         return f"player max {service.max_value}"
     even = service.calculate_package_adjustment([8000], [7900])
     if even.package_adjustment != 0 or even.my_adjusted_value != 8000:
         return f"1-for-1 adjustment {even.package_adjustment}"
-    return ""
-
-
-def check_cache_strings() -> str:
-    with tempfile.TemporaryDirectory() as tmp:
-        path = Path(tmp) / "cache.json"
-        path.write_text('{"player:a": "8000", "player:b": true, "player:c": "nope"}', encoding="utf-8")
-        loaded = KeepTradeCutProvider(cache_file=str(path), ttl_seconds=10**9).load_values()
-    if loaded.get("player:a") != 8000:
-        return f"cache {loaded}"
-    if "player:b" in loaded or "player:c" in loaded:
-        return f"bad cache rows kept {loaded}"
-    ValuationService(loaded)
     return ""
 
 
@@ -171,11 +152,10 @@ def check_fair_trades() -> str:
 def main() -> int:
     check("asset names", check_asset_names)
     check("manager names", check_manager_names)
-    check("value coercion", check_value_coercion)
+    check("value provider", check_value_provider)
     check("sleeper points", check_sleeper_points)
     check("even value", check_even_value)
     check("player max and even packages", check_player_max_and_even_packages)
-    check("cache strings", check_cache_strings)
     check("fair trades", check_fair_trades)
     if FAILURES:
         print(f"debug invariants found {len(FAILURES)} bug{'s' if len(FAILURES) != 1 else ''} in {CHECKS} checks", file=sys.stderr)

@@ -1,4 +1,0 @@
-# Public Sleeper dynasty leagues used as crawl seeds for the trade market.
-# One league ID per line. The updater snowballs into other dynasty leagues
-# via shared managers and previous-season IDs.
-1315165104303513600

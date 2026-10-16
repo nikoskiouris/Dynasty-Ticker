@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "modelVersion": "football-forecast-v1",
+  "annualDiscount": 0.85,
+  "horizonYears": 8,
+  "displayScale": 20,
+  "referenceTeams": 12,
+  "referenceLineup": {
+    "QB": 1,
+    "RB": 2,
+    "WR": 3,
+    "TE": 1,
+    "FLEX": 2,
+    "SUPER_FLEX": 1
+  },
+  "referenceBenchSlots": 12,
+  "qbRosterCapPerTeam": {
+    "oneQb": 2,
+    "sf": 3
+  },
+  "rookieBoard": {
+    "agePickPenalty": 4,
+    "pickShift": {
+      "oneQb": {"QB": -32, "RB": 0, "WR": 0, "TE": 0},
+      "sf": {"QB": -8, "RB": 0, "WR": 0, "TE": 0}
+    }
+  },
+  "fantasyWeeks": 17,
+  "opportunityHalfLifeGames": 17,
+  "opportunityWindowGames": 34,
+  "efficiencyHalfLifeGames": 32,
+  "efficiencyWindowGames": 48,
+  "teamContextHalfLifeGames": 17,
+  "roleTrendRecentGames": 8,
+  "roleTrendPriorGames": 17,
+  "roleTrendWeight": 0.15,
+  "resume": {
+    "minFinishGames": 8,
+    "minDraftGames": 4,
+    "finishDecay": 0.82,
+    "top5Weight": 1.0,
+    "top12Weight": 0.22,
+    "top24Weight": 0.08,
+    "finishCloutDivisor": 2.2,
+    "maxFinishBlend": 0.5,
+    "finishAgeFull": 28,
+    "ageFadePerYear": 0.1,
+    "ageFadeReliefPerTop5": 0.008,
+    "ageFadeTop5Cap": 8,
+    "peakMixStart": 2,
+    "peakMixSpan": 6,
+    "peakMixMax": 0.75,
+    "youngAvailabilityAge": 26,
+    "youngAvailabilityPull": 0.45,
+    "roleSecurityExperience": 3,
+    "roleSecurityOneFinish": 0.78,
+    "roleSecurityNone": 0.82,
+    "roleSecurityRookie": 0.91,
+    "draftPercentile": 0.75,
+    "draftEarlySeasons": 4,
+    "draftYouthAge": 22,
+    "draftGoneAge": 29,
+    "maxDraftBlend": 0.38,
+    "draftEvidenceSeasons": 5,
+    "draftEvidenceFloor": 0.4,
+    "capital": {
+      "top10": 1.0,
+      "round1": 0.7,
+      "round2": 0.22,
+      "earlyDay3": 0.15,
+      "day3": 0.05,
+      "late": 0
+    }
+  },
+  "historyStartSeason": 2012,
+  "pickHistoryStartSeason": 2018,
+  "validationTrainingThrough": 2020,
+  "validationSeasons": [2021, 2022, 2023, 2024, 2025],
+  "scoring": {
+    "passingYard": 0.04,
+    "passingTd": 4,
+    "interception": -2,
+    "rushingYard": 0.1,
+    "rushingTd": 6,
+    "reception": 1,
+    "receivingYard": 0.1,
+    "receivingTd": 6,
+    "twoPoint": 2,
+    "fumbleLost": -2
+  }
+}

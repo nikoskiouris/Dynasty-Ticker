@@ -2,10 +2,16 @@ Title
 One price for a player on every screen
 
 Status
-Open
+Done
 
 Priority
-P0 — trust; needs an owner decision
+P0 — trust
+
+Shipped
+#111
+
+Superseded
+The old two-option decision below is historical. The owner subsequently chose a stricter contract: one independent full-PPR player value everywhere, with no star, TE-premium, crowd-vote, or league-board price overlay. League context remains context, not a second player price.
 
 Area
 Values (`docs/modules/values.js` `getAssetValue`), roster sheet, Find a trade cards, power, team impact
@@ -29,4 +35,4 @@ Calculator: market price, labeled adjustments. Everywhere else: premium values w
 Acceptance
 - The same player shows the same headline number on Players, Trade, and My League, or the second number is labeled as a different measure.
 - Recommendation fairness filters and the calculator verdict agree on a Reviewed trade within the stated adjustment.
-- No change in published market files.
+- The old published market files are retired and replaced by the single independent `docs/data/player_values.json` snapshot.

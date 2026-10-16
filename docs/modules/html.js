@@ -15,6 +15,11 @@ export function formatNumber(value) {
   return numeric.toLocaleString();
 }
 
+export function playersAndPicksLabel(count) {
+  const n = Math.max(0, Math.round(Number(count) || 0));
+  return n === 1 ? "1 player or pick" : `${formatNumber(n)} players & picks`;
+}
+
 export function formatSignedNumber(value) {
   const numericValue = Number(value) || 0;
   return `${numericValue > 0 ? "+" : ""}${formatNumber(numericValue)}`;
@@ -94,6 +99,19 @@ export function renderTradeMoveSide(items, formatValue = formatNumber) {
 
 export function renderTradeMove(row, formatValue = formatNumber) {
   return `<span class="trade-row-move"><span class="trade-move-side">${renderTradeMoveSide(row?.received, formatValue)}</span><span class="trade-arrow" aria-hidden="true">←</span><span class="trade-move-side">${renderTradeMoveSide(row?.sent, formatValue)}</span></span>`;
+}
+
+export function renderConnectGate({
+  copy = "Connect my league to open this.",
+  label = "Connect my league",
+  action = "draft-connect",
+} = {}) {
+  return `
+    <section class="connect-gate">
+      <p>${escapeHtml(copy)}</p>
+      <button type="button" data-action="${escapeHtml(action)}">${escapeHtml(label)}</button>
+    </section>
+  `;
 }
 
 export async function copyTextToClipboard(text, clipboard = globalThis.navigator?.clipboard, doc = globalThis.document) {

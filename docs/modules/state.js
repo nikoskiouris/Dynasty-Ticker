@@ -4,13 +4,9 @@ import { emptyWeeklyValueState } from "./weekly-value.js";
 import { emptyMockDrafts } from "./mock-drafts.js";
 import { emptyValueCalcState } from "./value-calc.js";
 
-export const THEME_STORAGE_KEY = "dynasty_ticker_theme";
 export const PLAYERS_CACHE_KEY = "fda_players_nfl_cache_v1";
-export const DEFAULT_THEME = "light";
-export const THEME_COLORS = {
-  light: "#eef3f2",
-  dark: "#071018",
-};
+export const DEFAULT_THEME = "dark";
+export const THEME_COLOR = "#0c0c0e";
 
 export function emptyDealBoard() {
   return {
@@ -24,6 +20,7 @@ export function emptyDealBoard() {
 export function createState() {
   return {
     leagueId: "",
+    viewingSample: false,
     leagueName: "",
     league: null,
     users: [],
@@ -90,6 +87,8 @@ export function createState() {
     seasonWeekRows: new Map(),
     seasonLoaded: false,
     seasonLoadError: "",
+    // Draft slots wait until the current season's matchup rows have all arrived.
+    pickProjectionReady: false,
     seasonModelCache: { key: "", model: null },
     simCache: { key: "", result: null },
     lensRosterId: null,
@@ -119,15 +118,12 @@ export function createState() {
     pendingPlace: null,
     pendingWeek: null,
     pendingTone: "",
-    theme: DEFAULT_THEME,
     sleeperUser: null,
     userLeagues: [],
     livePolling: false,
     value: "sf",
     valueBundles: { sf: { values: {}, nameMap: {} }, oneQb: { values: {}, nameMap: {} }, names: {} },
-    ktcBundles: { sf: { values: {}, nameMap: {} }, oneQb: { values: {}, nameMap: {} }, names: {} },
-    tradeMarketBundle: { sf: { values: {}, counts: {} }, oneQb: { values: {}, counts: {} }, names: {}, meta: null },
-    applyLeagueBoard: false,
+    valueHistory: null,
     leagueBoard: {
       ready: false,
       tradeCount: 0,

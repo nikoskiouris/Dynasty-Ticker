@@ -1,4 +1,5 @@
 import { escapeHtml } from "./html.js";
+import { infoTipMarkup, valuesWorkText } from "./info-tip.js";
 import { playerIdFromAssetId, renderPlayerFace } from "./player-face.js";
 import {
   LEAGUE_BOARD_MAX_ABS_SHIFT,
@@ -264,11 +265,10 @@ function exampleName(row) {
   return `<span class="player-name">${face}<span class="player-name-text">${name}</span></span>`;
 }
 
-export function renderLeagueBoardMarkup(board, { applied = false, formatNumber = String } = {}) {
+export function renderLeagueBoardMarkup(board, { formatNumber = String } = {}) {
   const ready = Boolean(board?.ready);
   const biases = Array.isArray(board?.biases) ? board.biases : [];
   const examples = Array.isArray(board?.examples) ? board.examples : [];
-  const applyLabel = applied ? "Using league board" : "Apply league board";
   const status = ready
     ? `${board.tradeCount} local trade${board.tradeCount === 1 ? "" : "s"} read`
     : `${board?.tradeCount || 0} local trade${(board?.tradeCount || 0) === 1 ? "" : "s"} so far`;
@@ -276,48 +276,43 @@ export function renderLeagueBoardMarkup(board, { applied = false, formatNumber =
     <section class="workspace-panel league-board-panel">
       <div class="panel-heading">
         <div>
-          <span class="eyebrow">League board</span>
-          <h2>League estimate</h2>
+          <span class="eyebrow">League tendencies</span>
+          <h2>What this room trades for</h2>
         </div>
-        <button
-          type="button"
-          class="ghost-btn league-board-apply${applied ? " is-on" : ""}"
-          data-action="toggle-league-board"
-          aria-pressed="${applied ? "true" : "false"}"
-          ${ready ? "" : "disabled"}
-        >${escapeHtml(applyLabel)}</button>
       </div>
       <p class="section-copy">${escapeHtml(board?.summary || emptyLeagueBoard().summary)}</p>
-      <p class="muted small">Market stays Sleeper trades from many dynasty leagues. This overlay is just your room.${status ? ` ${escapeHtml(status)}.` : ""}</p>
+      <p class="muted small">${escapeHtml(status)} ${infoTipMarkup({ id: "pop-league-values", label: "How values work", text: valuesWorkText("") })}</p>
       ${biases.length > 1 ? `<ul class="league-bias-list">${biases.slice(1).map((bias) => `<li>${escapeHtml(bias.sentence)}</li>`).join("")}</ul>` : ""}
       ${examples.length ? `<div class="league-board-examples">${examples.slice(0, 4).map((row) => `
         <article class="league-board-example">
           <strong>${exampleName(row)}</strong>
-          <span>market ${escapeHtml(formatNumber(row.marketValue))}</span>
-          <span>your league ${escapeHtml(formatNumber(row.leagueValue))}</span>
+          <span>model ${escapeHtml(formatNumber(row.marketValue))}</span>
         </article>`).join("")}</div>` : ""}
     </section>
   `;
 }
 
-export function renderValueBoardBar({ applied = false, ready = false, formatNumber = String, marketHint = "" } = {}) {
-  return `
-    <div class="value-board-bar">
-      <div>
-        <span class="analytics-kicker">${applied ? "League board on" : "Open market"}</span>
-        <p>${escapeHtml(marketHint || (applied
-          ? "Calculator, find-deals, and power now use this room's prices."
-          : "Numbers are the Sleeper trade market. League prices stay on the side until you apply them."))}</p>
-      </div>
-      <button
-        type="button"
-        class="ghost-btn league-board-apply${applied ? " is-on" : ""}"
-        data-action="toggle-league-board"
-        aria-pressed="${applied ? "true" : "false"}"
-        ${ready ? "" : "disabled"}
-      >${applied ? "Using league board" : "Apply league board"}</button>
-    </div>
-  `;
+const PRICE_LEGEND = {
+  model: ["Value", "Same number on Players, Trade, and My League."],
+  week: ["This week", "Start chance. Not a trade price."],
+  lineup: ["Starters", "Value of your best lineup."],
+  package: ["Stars", "One great player beats a pile of good ones. Player prices stay the same."],
+};
+
+export function renderPriceLegend(ids = ["model"]) {
+  const rows = (Array.isArray(ids) ? ids : ["model"])
+    .map((id) => PRICE_LEGEND[id])
+    .filter(Boolean);
+  if (!rows.length) return "";
+  return `<ul class="price-legend">${rows.map(([label, text], index) => `<li><span>${escapeHtml(label)}</span>${infoTipMarkup({
+    id: `pop-legend-${String(label).toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${index}`,
+    label,
+    text,
+  })}</li>`).join("")}</ul>`;
+}
+
+export function renderValueBoardBar() {
+  return "";
 }
 
 function makeBucket() {
