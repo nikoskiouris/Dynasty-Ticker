@@ -22,3 +22,8 @@ export function deskPlaceKey(snapshot = {}) {
 export function isSameDeskPlace(left, right) {
   return deskPlaceKey(left) === deskPlaceKey(right);
 }
+
+export function scrollTopFromHistory(historyState) {
+  const scrollY = Number(historyState?.scrollY);
+  return Number.isFinite(scrollY) ? scrollY : null;
+}

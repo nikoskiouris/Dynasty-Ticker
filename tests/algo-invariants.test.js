@@ -38,7 +38,10 @@ function pickTable(values) {
 }
 
 function mirrorLabel(label) {
-  return String(label).replaceAll("Get", "§").replaceAll("Give", "Get").replaceAll("§", "Give");
+  return String(label)
+    .replaceAll("Get", "\u0001")
+    .replaceAll("Give", "Get")
+    .replaceAll("\u0001", "Give");
 }
 
 test("published picks stay in slot, tier, round, and year order", () => {
@@ -179,7 +182,7 @@ test("trade verdicts mirror, and empty or odd packages stay finite", () => {
   assert.equal(empty.packageAdjustment, 0);
   const odd = draftVerdictModel([100], [10, 10, 10, 10, 10, 10, 10], { globalMaxValue: 1000 });
   assert.equal(Number.isFinite(odd.verdict.pct), true);
-  assert.equal(valueCalcVerdict(0, 0).label, "Add both sides");
+  assert.equal(valueCalcVerdict(0, 0).label, "Add players to both sides");
 });
 
 test("TE premium, half-PPR, and a missing IDP price do not invent a number", () => {

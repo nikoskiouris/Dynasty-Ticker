@@ -52,7 +52,7 @@ export function marketTape({ confidence = "", kind = "player" } = {}) {
   if (confidence === "thin") {
     return { tone: "model", line: "Early estimate: few NFL games so far." };
   }
-  return { tone: "model", line: "Independent full-PPR football forecast." };
+  return { tone: "model", line: "" };
 }
 
 export function pickEqualLine(value, pick, best) {
@@ -155,7 +155,7 @@ export function buildRankBoard({
       owner: null,
       note: "",
       photoUrl: "",
-      initials: "PK",
+      initials: "Pick",
       spread: firstRoundSpread(pick, pickById),
       season: pick.season,
       round: pick.round,
@@ -253,7 +253,7 @@ export function rankView({
 export function renderPlayerConnect() {
   return `<form class="player-connect" data-player-connect>
       <input class="player-connect-user" name="username" aria-label="Sleeper username" placeholder="Sleeper username" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
-      <button type="submit">Find my leagues</button>
+      <button type="submit">Connect my league</button>
     </form>
     <div class="player-league-list league-picker" data-player-league-list hidden></div>`;
 }
@@ -358,12 +358,14 @@ function renderRankValue(row, view) {
 function renderRankRow(row, active, view) {
   const you = row.owner?.mine ? " you" : "";
   const meta = rankMeta(row);
+  const tag = row.kind !== "pick" && row.tape?.line ? `<small class="ranks-tag">${escapeHtml(row.tape.line)}</small>` : "";
   return `
     <button type="button" class="ranks-row${active ? " active" : ""}${you}" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}" aria-pressed="${active ? "true" : "false"}">
       <span class="ranks-num">${escapeHtml(String(shownRankNumber(row)))}</span>
       <span class="ranks-who">
         ${renderRankName(row)}
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
+        ${tag}
       </span>
       ${renderRankValue(row, view)}
     </button>
@@ -419,7 +421,7 @@ function renderRankCard(row, view = {}) {
           ${rankTierTrend(row, view, { soon: true, spark: true })}
         </div>
       </div>
-      <p class="ranks-tape ranks-tape-${escapeHtml(row.tape?.tone || "crowd")}">${escapeHtml(row.tape?.line || "")}</p>
+      ${row.tape?.line ? `<p class="ranks-tape ranks-tape-${escapeHtml(row.tape?.tone || "crowd")}">${escapeHtml(row.tape.line)}</p>` : ""}
       ${facts.length ? `<dl class="ranks-facts">${facts.map((fact) => `<div><dt>${escapeHtml(fact.label)}</dt><dd>${escapeHtml(fact.value)}</dd></div>`).join("")}</dl>` : ""}
       ${held || league ? `<p class="ranks-held">${escapeHtml([held, league].filter(Boolean).join(" "))}</p>` : ""}
       ${neighbors.length ? `
@@ -452,7 +454,7 @@ function renderRankNeighbor(row, view) {
 function rankMeta(row) {
   if (row?.kind === "pick") return "Pick";
   const age = Number.isFinite(Number(row?.age)) && Number(row.age) > 0 ? `${Math.round(Number(row.age))}y` : "";
-  return [row?.boardRank, row?.team, age, pickScan(row?.pickLine)].filter(Boolean).join(" · ");
+  return [row?.boardRank, row?.team, age].filter(Boolean).join(" · ");
 }
 
 function pickScan(line) {

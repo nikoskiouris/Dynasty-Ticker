@@ -4450,7 +4450,7 @@ button.weekly-help-close:hover {
 .selected-token-price {
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
-  opacity: 0.8;
+  color: inherit;
 }
 
 .selected-token.is-mismatch,
@@ -6304,6 +6304,12 @@ button.weekly-help-close:hover {
     min-height: 100svh;
     align-content: start;
     padding-top: var(--mobile-chrome-space, 2.8rem);
+  }
+
+  /* Launch hides the title row, so the bar is only the wordmark. Reserve that
+     height before JS measures it, or the page jumps up by about 17px. */
+  body.launch-open {
+    --mobile-chrome-space: 28px;
   }
 
   html {

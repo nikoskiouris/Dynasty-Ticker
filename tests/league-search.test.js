@@ -107,7 +107,8 @@ test("me select markup marks the searched roster selected even when it is not fi
     { rosterId: 1, manager: { displayName: "Alpha" } },
     { rosterId: 7, manager: { displayName: "chrisalberts" } },
   ], 7, { sample: true, rosterId: 7 });
-  assert.match(sample, /Viewing chrisalberts · sample/);
+  assert.match(sample, /Sample league/);
+  assert.doesNotMatch(sample, /Viewing chrisalberts/);
   assert.doesNotMatch(sample, /\(you\)/);
 });
 
@@ -160,11 +161,11 @@ test("only a missing Sleeper user is 'no user'; everything else can retry", () =
   assert.equal(isMissingSleeperUser(new Error("Network/CORS error while contacting Sleeper API")), false);
 
   assert.deepEqual(describeUserSearchFailure({ status: 404 }, "Niko"), {
-    message: "No Sleeper user named Niko.",
+    message: "We can't find \"Niko\" on Sleeper. Check the spelling.",
     retry: false,
   });
   assert.deepEqual(describeUserSearchFailure(new Error('No Sleeper user named "Niko".'), "Niko"), {
-    message: "No Sleeper user named Niko.",
+    message: "We can't find \"Niko\" on Sleeper. Check the spelling.",
     retry: false,
   });
   for (const err of [
@@ -173,17 +174,17 @@ test("only a missing Sleeper user is 'no user'; everything else can retry", () =
   ]) {
     const failure = describeUserSearchFailure(err, "Niko");
     assert.equal(failure.retry, true);
-    assert.equal(failure.message, "Sleeper failed for Niko.");
+    assert.equal(failure.message, "Sleeper had a hiccup. Try again.");
     assert.doesNotMatch(failure.message, /No Sleeper user/);
   }
 
   const offline = describeUserSearchFailure(new Error("Network/CORS error while contacting Sleeper API"), "Niko");
   assert.equal(offline.retry, true);
-  assert.equal(offline.message, "Couldn't reach Sleeper.");
+  assert.equal(offline.message, "Sleeper isn't answering. Try again.");
   assert.doesNotMatch(offline.message, /Sleeper failed/);
 
   const dropped = describeUserSearchFailure(new Error("Sleeper API timed out after 10s"), "Niko");
-  assert.equal(dropped.message, "Couldn't reach Sleeper.");
+  assert.equal(dropped.message, "Sleeper isn't answering. Try again.");
   assert.equal(isSleeperUnreachable(new TypeError("Failed to fetch")), true);
   assert.equal(isSleeperUnreachable(new Error("Sleeper API timed out after 10s")), true);
   assert.equal(isSleeperUnreachable(new Error("Network/CORS error while contacting Sleeper API")), true);
@@ -213,17 +214,17 @@ test("live Sleeper failures keep status and SyntaxError for the search copy", as
 
   const missing = await failureFrom(async () => jsonResponse(null, 200));
   assert.equal(missing.retry, false);
-  assert.equal(missing.message, "No Sleeper user named Niko.");
+  assert.equal(missing.message, "We can't find \"Niko\" on Sleeper. Check the spelling.");
 
   const noId = await failureFrom(async () => jsonResponse({ display_name: "Niko" }, 200));
   assert.equal(noId.retry, false);
 
   const missingUser = await failureFrom(async () => jsonResponse({}, 404));
   assert.equal(missingUser.retry, false);
-  assert.equal(missingUser.message, "No Sleeper user named Niko.");
+  assert.equal(missingUser.message, "We can't find \"Niko\" on Sleeper. Check the spelling.");
 
   const down = await failureFrom(async () => jsonResponse({}, 500));
-  assert.equal(down.message, "Sleeper failed for Niko.");
+  assert.equal(down.message, "Sleeper had a hiccup. Try again.");
   assert.equal(down.retry, true);
 
   const limited = await failureFrom(async () => jsonResponse({}, 429));
@@ -240,19 +241,19 @@ test("live Sleeper failures keep status and SyntaxError for the search copy", as
     },
   }));
   assert.equal(badJson.retry, true);
-  assert.equal(badJson.message, "Sleeper failed for Niko.");
+  assert.equal(badJson.message, "Sleeper had a hiccup. Try again.");
 
   const offline = await failureFrom(async () => {
     throw new TypeError("Failed to fetch");
   });
   assert.equal(offline.retry, true);
-  assert.equal(offline.message, "Couldn't reach Sleeper.");
+  assert.equal(offline.message, "Sleeper isn't answering. Try again.");
   assert.doesNotMatch(offline.message, /Sleeper failed/);
 
   const timeout = await failureFrom(async () => {
     throw new Error("Sleeper API timed out after 8s");
   });
-  assert.equal(timeout.message, "Couldn't reach Sleeper.");
+  assert.equal(timeout.message, "Sleeper isn't answering. Try again.");
   assert.equal(timeout.retry, true);
 });
 

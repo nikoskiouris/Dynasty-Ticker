@@ -19,7 +19,7 @@ export const PAGE_LABELS = {
 };
 export const PAGE_HINTS = {
   players: "What is this player worth?",
-  trades: "Check an offer or find a deal",
+  trades: "Check a trade or find a deal",
   league: "Your team, this week, and the league",
 };
 export const PAGE_ROOMS = {
@@ -37,7 +37,7 @@ export const ROOM_LABELS = {
     ranks: "Players",
   },
   trades: {
-    calculator: "Check an offer",
+    calculator: "Check a trade",
     find: "Find a trade",
   },
   league: {

@@ -460,7 +460,7 @@ test("Draft Ammo calculating line is busy and has no lead", () => {
   assert.doesNotMatch(busy, /led by|1\.\d\d|Cam Coleman|Ahmad Hardy|vault/);
   const ready = renderSleeperInsight({
     title: "Draft Ammo",
-    body: "5 first-round picks in the vault, led by 2027 1st (1.04), projected to finish 9th of 12 from YianGhan.",
+    body: "5 first-round picks owned, led by 2027 1st (1.04), projected to finish 9th of 12 from YianGhan.",
     tone: "gold",
   });
   assert.doesNotMatch(ready, /aria-busy/);

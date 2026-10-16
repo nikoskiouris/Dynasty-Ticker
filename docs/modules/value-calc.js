@@ -260,7 +260,7 @@ export function valueCalcVerdict(leftTotal, rightTotal, { leftCount = null, righ
   const pct = Math.round((Math.abs(gap) / maxSide) * 1000) / 10;
   const leftHas = leftCount == null ? left > 0 : Number(leftCount) > 0;
   const rightHas = rightCount == null ? right > 0 : Number(rightCount) > 0;
-  let label = "Add both sides";
+  let label = "Add players to both sides";
   let tone = "";
   if (leftHas && rightHas) {
     if (pct <= 5) {
@@ -277,12 +277,12 @@ export function valueCalcVerdict(leftTotal, rightTotal, { leftCount = null, righ
       tone = gap > 0 ? "good" : "bad";
     }
   } else if (leftHas || rightHas) {
-    label = "Add the other side";
+    label = "Now add what you get back";
   }
   return { left, right, gap, pct, label, tone };
 }
 
-// Same verdict, read from the manager's seat: "Get" is what you receive.
+// Seat wording for a sample league. The published line is verdictCopy, which stays Give/Get.
 export function draftVerdictLabel(verdict, { them = "them", getFavor = "your", favorName = "" } = {}) {
   const label = String(verdict?.label || "");
   const other = String(them || "them");
