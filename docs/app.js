@@ -387,6 +387,22 @@ import {
   renderRanksToolbar,
 } from "./modules/ranks.js";
 import { fetchRatherCrowdVotes, submitRatherCrowdVote } from "./modules/rather-crowd.js";
+import {
+  announceRoute,
+  applyEscape,
+  createRouteFocusMemory,
+  ensureRouteLive,
+  focusHeadingWhenPresent,
+  focusViewHeading,
+  headingRootFor,
+  headingSelectorFor,
+  restoreTriggerFocus,
+  routeAnnouncement,
+  routeDocumentTitle,
+  syncAriaCurrent,
+} from "./modules/route-a11y.js";
+
+const routeFocus = createRouteFocusMemory();
 
 const BOARD_STORAGE_KEY = "dynasty_ticker_board";
 const OUTGOING_POOL_LIMIT = 14;
@@ -720,8 +736,12 @@ el.deskBoardOpen?.addEventListener("click", () => {
   setDeskBoardShut(false);
   requestAnimationFrame(() => el.deskBoardClose?.focus());
 });
+document.addEventListener("click", (event) => {
+  const trigger = event.target?.closest?.("button, a, [role='button']");
+  if (trigger) routeFocus.arm(trigger);
+}, true);
 document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape") return;
+  if (event.key !== "Escape" || event.defaultPrevented) return;
   const verdictInfo = state.verdictInfoOpen ? document.querySelector("[data-action='verdict-info'][aria-expanded='true']") : null;
   if (verdictInfo) {
     // Esc closes the ⓘ notes and puts focus back on the button.
@@ -730,16 +750,7 @@ document.addEventListener("keydown", (event) => {
     verdictInfo.focus();
     return;
   }
-  if (state.weeklyValue?.helpOpen) {
-    event.preventDefault();
-    setWeeklyScoreHelpOpen(false);
-    return;
-  }
-  if (document.body.classList.contains("rail-open")) {
-    setMobileRailOpen(false);
-    el.mobileRailToggle?.focus();
-    return;
-  }
+  if (escapeRouteOverlay(event)) return;
   const field = event.target?.closest?.("input, textarea, select");
   if (field) return;
   if (!isPhoneLayout() && !document.documentElement.classList.contains("desk-shut")) {
@@ -865,6 +876,9 @@ renderSessionSnapshot();
 syncTradeModeUi();
 let searchedUserNoted = false;
 let appBooted = false;
+let coldPlayerHeading = false;
+let rankExtrasSettled = true;
+let followHeadingsUntil = 0;
 let leagueOpenedInApp = false;
 function noteSearchedUser(leagueId) {
   if (searchedUserNoted) return;
@@ -874,6 +888,18 @@ function noteSearchedUser(leagueId) {
   void recordSearchedUser(pick);
 }
 bootFromUrl();
+coldPlayerHeading = bootRoute?.name === "player";
+document.addEventListener("focusin", (event) => {
+  const target = event.target;
+  if (!target || target === document.body || target === document.documentElement) return;
+  if (target.id === "workspace") return;
+  const tag = String(target.tagName || "");
+  if (tag === "H1" || tag === "H2" || tag === "H3") return;
+  const cls = typeof target.className === "string" ? target.className : "";
+  if (/(?:^|\s)(?:room-tab|page-tab|phone-desk-room|phone-desk-page)(?:\s|$)/.test(cls)) return;
+  followHeadingsUntil = 0;
+  coldPlayerHeading = false;
+});
 window.addEventListener("resize", syncDeskRailOffset);
 if (!(bootRoute?.leagueId || parseShareParams(window.location.search).leagueId)) {
   const place = state.pendingPlace;
@@ -908,10 +934,18 @@ void hydrateCrowdVotes().then((ok) => {
   }
 });
 if (typeof history.scrollRestoration === "string") history.scrollRestoration = "manual";
-window.addEventListener("popstate", (event) => applyDeskPopState(event.state));
+ensureRouteLive(document);
+window.addEventListener("popstate", (event) => {
+  const raw = event.state?.idx;
+  const next = Number.isFinite(Number(raw)) ? Number(raw) : Math.max(0, routeFocus.index() - 1);
+  const step = routeFocus.pop(next);
+  applyDeskPopState(event.state);
+  syncRouteA11y({ focus: appBooted ? step.focus : "none", trigger: step.trigger });
+});
 if (isPhoneLayout()) setMobileRailOpen(false);
 syncDocumentMeta();
 appBooted = true;
+focusColdPlayerHeading();
 syncSiteDock();
 bindMobileChromeScroll(window, {
   chrome: document.querySelector("#mobile-chrome"),
@@ -1059,6 +1093,7 @@ function setActivePage(page, { history = "replace", scroll = "preserve", prepare
   if (scroll === "top") window.scrollTo(0, 0);
   if (history !== "silent") updateUrlState({ mode: history });
   syncDocumentMeta();
+  syncRouteAriaCurrent();
 }
 
 function stepTabIndex(event, count, currentIndex) {
@@ -1158,6 +1193,7 @@ function renderLeagueRoom(room) {
     default:
       renderTeamsPage();
   }
+  focusLeagueRoomHeading(room);
 }
 
 function renderTeamsRoom(room) {
@@ -1350,6 +1386,8 @@ function renderRankHost(host) {
   bindRatherPhotos(host);
   if (view.card?.kind === "player" && view.card?.name) {
     canonicalizePlayerUrl(view.card.playerId || view.card.assetId, view.card.name);
+    syncDocumentMeta();
+    focusColdPlayerHeading();
   }
 }
 
@@ -1373,6 +1411,7 @@ function syncRankUrl() {
 }
 
 async function ensureRankExtras() {
+  rankExtrasSettled = false;
   try {
     if (!rankValuesReady()) {
       await ensureValuesLoaded("");
@@ -1395,6 +1434,7 @@ async function ensureRankExtras() {
   } catch (err) {
     console.warn("Could not load player ranks", err);
   }
+  rankExtrasSettled = true;
   rankBoardCache = { key: "", rows: [] };
   if (publicRanksOpen || state.activePage === "players") {
     renderRankSurfaces();
@@ -1562,9 +1602,174 @@ function prepareDeskPush() {
   }, "", currentPath);
 }
 
+function activeRouteElement() {
+  const active = document.activeElement;
+  if (!active || active === document.body || active === document.documentElement) return null;
+  return active;
+}
+
+function historySnap(entry = {}) {
+  return {
+    overlay: String(entry.overlay || ""),
+    tab: String(entry.tab || ""),
+    view: String(entry.view || ""),
+    playerId: String(entry.playerId || ""),
+  };
+}
+
+function routePlayerName() {
+  const fromRanks = routedPlayerName();
+  if (fromRanks) return fromRanks;
+  const sheetId = String(state.weeklyValue?.selectedPlayerId || "");
+  if (!sheetId) return "";
+  const roster = getLensRoster();
+  const asset = roster?.assets?.find((item) => item.assetType === "player" && playerIdFromAssetId(item.assetId) === sheetId);
+  if (asset?.name) return asset.name;
+  return String(document.querySelector(".player-week-sheet h2, .player-week-sheet h3")?.textContent || "").trim();
+}
+
+function routePlaceNow() {
+  const overlay = activeOverlay();
+  const playerId = activePlayerRouteId();
+  const playerName = routePlayerName();
+  const showPlayer = Boolean(playerName) && (Boolean(playerId) || overlay === "player");
+  const onLanding = landingVisible()
+    && !state.leagueId
+    && !showPlayer
+    && state.activePage === "players"
+    && overlay !== "public-ranks";
+  return {
+    playerName: showPlayer ? playerName : "",
+    playerId,
+    tab: state.activePage,
+    titleTab: onLanding ? "" : state.activePage,
+    view: getRoom(),
+    overlay,
+    page: state.activePage,
+  };
+}
+
+function syncRouteAriaCurrent() {
+  const room = getRoom();
+  syncAriaCurrent(el.pageTabButtons, (button) => button.dataset.page === state.activePage);
+  syncAriaCurrent(el.roomNav?.querySelectorAll("[data-room]") || [], (button) => button.dataset.room === room);
+  syncAriaCurrent(document.querySelectorAll("[data-phone-page]"), (button) => button.dataset.phonePage === state.activePage);
+  syncAriaCurrent(document.querySelectorAll("[data-phone-room]"), (button) => {
+    return button.dataset.page === state.activePage && button.dataset.phoneRoom === room;
+  });
+}
+
+function armHeadingFollow() {
+  followHeadingsUntil = Date.now() + 45000;
+}
+
+function focusLeagueRoomHeading(room) {
+  if (!appBooted || Date.now() >= followHeadingsUntil) return;
+  if (room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
+  if (state.activePage !== "league" || getRoom() !== room) return;
+  focusHeadingWhenPresent(document, `[data-room-panel="${room}"] h2`);
+}
+
+function focusColdPlayerHeading() {
+  if (!coldPlayerHeading || !appBooted) return;
+  armHeadingFollow();
+  focusHeadingWhenPresent(document, ".ranks-card h2, .player-week-sheet h2", {
+    onStuck() {
+      if (!rankExtrasSettled) return;
+      coldPlayerHeading = false;
+      const message = routeAnnouncement(routePlaceNow(), {});
+      if (message) announceRoute(document, message);
+    },
+  });
+}
+
+function syncRouteA11y({ focus = "none", trigger = null, before = null } = {}) {
+  syncDocumentMeta();
+  syncRouteAriaCurrent();
+  if (!appBooted || focus === "none") return;
+  const place = routePlaceNow();
+  const message = routeAnnouncement(place, before || {});
+  if (message) announceRoute(document, message);
+  if (focus === "heading") {
+    armHeadingFollow();
+    const selector = headingSelectorFor(place);
+    if (selector) {
+      focusHeadingWhenPresent(document, selector);
+      return;
+    }
+    const root = headingRootFor(document, place, before || {});
+    if (!focusViewHeading(root)) focusViewHeading(document.querySelector("main"));
+    return;
+  }
+  if (focus === "restore") restoreTriggerFocus(document, trigger || routeFocus.opener());
+}
+
+function overlayPushed(overlay) {
+  const entry = history.state || {};
+  if (!entry.pushed || !overlay) return false;
+  if (overlay === "trade") return Boolean(entry.selectedTradeId);
+  return entry.overlay === overlay;
+}
+
+function dismissRouteOverlay(overlay) {
+  if (overlay === "help") {
+    setWeeklyScoreHelpOpen(false);
+    return;
+  }
+  if (overlay === "rail") {
+    setMobileRailOpen(false);
+    return;
+  }
+  if (overlay === "public-ranks") {
+    closePublicRanks();
+    return;
+  }
+  if (overlay === "trade") {
+    state.selectedTradeId = "";
+    state.selectedTradeManagerKey = "";
+    renderTradeLogDesk();
+    updateUrlState({ mode: "replace" });
+    return;
+  }
+  if (overlay === "player") {
+    if (state.weeklyValue) {
+      state.weeklyValue.selectedPlayerId = "";
+      state.weeklyValue.helpOpen = false;
+    }
+    state.ranks.selectedId = "";
+    if (state.activePage === "league" && getRoom() === "team") renderRosterSheet();
+    renderRankSurfaces();
+    updateUrlState({ mode: "replace" });
+  }
+}
+
+function escapeRouteOverlay(event) {
+  const overlay = activeOverlay();
+  const action = applyEscape({
+    overlay,
+    pushed: overlayPushed(overlay),
+    back() {
+      if (typeof history.back === "function") history.back();
+    },
+    close() {
+      dismissRouteOverlay(overlay);
+    },
+  });
+  if (action === "none") return false;
+  event.preventDefault();
+  return true;
+}
+
 function updateUrlState({ mode = "replace" } = {}) {
-  if (applyingHistory) return;
-  if (typeof history?.replaceState !== "function") return;
+  if (applyingHistory) {
+    routeFocus.forget();
+    return;
+  }
+  if (typeof history?.replaceState !== "function") {
+    routeFocus.forget();
+    return;
+  }
+  const before = historySnap(history.state || {});
   const path = deskUrlPath();
   const snapshot = historyPlaceNow();
   const currentPath = `${window.location.pathname}${window.location.search}`;
@@ -1576,11 +1781,30 @@ function updateUrlState({ mode = "replace" } = {}) {
   const pushed = write === "push" ? true : (write === "replace" && sameHistoryPlace(history.state || {}, snapshot) && Boolean(history.state?.pushed));
   const entry = { ...snapshot, pushed };
   if (write === "push" && typeof history.pushState === "function") {
+    routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
     history.pushState(entry, "", path);
+    syncRouteA11y({ focus: appBooted ? "heading" : "none", before });
     return;
   }
-  if (write === "silent") return;
+  if (write === "silent") {
+    routeFocus.forget();
+    return;
+  }
+  routeFocus.forget();
   history.replaceState(entry, "", path);
+  if (!appBooted) return;
+  const after = historySnap(entry);
+  const changed = before.overlay !== after.overlay
+    || before.tab !== after.tab
+    || before.view !== after.view
+    || before.playerId !== after.playerId;
+  if (!changed) return;
+  const moved = before.tab !== after.tab || before.view !== after.view;
+  if (before.overlay && !after.overlay && !(before.overlay === "rail" && moved)) {
+    syncRouteA11y({ focus: "restore", trigger: routeFocus.opener(), before });
+    return;
+  }
+  syncRouteA11y({ focus: "heading", before });
 }
 
 function closeHistoryOverlay(kind) {
@@ -2236,6 +2460,7 @@ function renderRoomNav(page, room) {
     if (isActive) activeButton = button;
   });
   scrollChildIntoStrip(el.roomNav.querySelector(".room-nav-scroll") || el.roomNav, activeButton);
+  syncRouteAriaCurrent();
 }
 
 function phoneDeskRoomLabel(page, room) {
@@ -2268,6 +2493,7 @@ function renderPhoneDesk() {
       </div>
     `;
   }).join("");
+  syncRouteAriaCurrent();
 }
 
 function leavePhoneMenu(navigate) {
@@ -2678,6 +2904,7 @@ function rememberPickedLeague(leagueId) {
   const nextSearch = stampPickedLeagueSearch(window.location.search, leagueId);
   if (!nextSearch) return;
   if (leagueOpenedInApp && typeof history.pushState === "function") {
+    routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
     history.pushState({ ...historyPlaceNow(), pushed: true }, "", `${window.location.pathname}${window.location.search}`);
   }
   history.replaceState(history.state, "", `${window.location.pathname}${nextSearch}`);
@@ -2770,6 +2997,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     });
     if (switchingLeagues && typeof history?.pushState === "function" && !leagueOpenedInApp) {
       prepareDeskPush();
+      routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
       history.pushState(history.state, "", `${window.location.pathname}${window.location.search}`);
     }
     state.targetAsset = null;
@@ -6293,7 +6521,7 @@ function renderWeeklyHonors() {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">Weekly Honors</span>
-          <h2>${weekEntry ? `${escapeHtml(weekEntry.label)} ${weekStatusChip(weekEntry)}` : "Weekly honors"}</h2>
+          <h2>Weekly honors</h2>
         </div>
         <p class="section-copy">${weekly?.provisional ? "Games are still in progress, so these are provisional." : "Final-week honors from Sleeper box scores."}</p>
       </div>
@@ -7588,6 +7816,7 @@ function handleWorkspaceClick(event) {
         }
         return;
       }
+      routeFocus.remember(target);
       prepareDeskPush();
       state.ranks.selectedId = id;
       if (state.weeklyValue) {
@@ -7685,6 +7914,7 @@ function handleWorkspaceClick(event) {
         }
         return;
       }
+      routeFocus.remember(target);
       prepareDeskPush();
       state.weeklyValue.selectedPlayerId = playerId;
       state.weeklyValue.helpOpen = false;
@@ -7719,6 +7949,7 @@ function handleWorkspaceClick(event) {
     }
     case "open-trade": {
       if (!String(target.dataset.tradeId || "")) return;
+      routeFocus.remember(target);
       openTradeFile(target.dataset.tradeId, target.dataset.managerKey);
       break;
     }
@@ -17175,31 +17406,33 @@ function syncDocumentMeta() {
     });
     return;
   }
-  if (publicRanksOpen && !state.leagueId) {
-    applyDocumentMeta(document, {
-      title: "Ranks — Dynasty Ticker",
-      description: "Independent full-PPR dynasty player and pick values from football production, role, age, availability, and team context.",
-    });
-    return;
-  }
+  const place = routePlaceNow();
+  const routedTitle = routeDocumentTitle({
+    playerName: place.playerName,
+    tab: place.titleTab,
+    room: place.view,
+  });
   const room = state.leagueId ? getRoom() : "";
-  applyDocumentMeta(document, {
-    title: buildDocumentTitle({
-      page: state.leagueId ? state.activePage : "",
-      leagueName: state.leagueName,
-      loaded: Boolean(state.leagueId),
-      room,
-      league: state.league,
-    }),
-    description: buildPageDescription({
-      page: state.leagueId ? state.activePage : "",
+  const description = publicRanksOpen && !state.leagueId
+    ? "Independent full-PPR dynasty player and pick values from football production, role, age, availability, and team context."
+    : buildPageDescription({
+      page: state.leagueId ? state.activePage : (place.titleTab || ""),
       leagueName: state.leagueName,
       loaded: Boolean(state.leagueId),
       room,
       league: state.league,
       viewingSample: Boolean(state.viewingSample),
       ownerName: getMyRoster()?.manager?.displayName || "",
+    });
+  applyDocumentMeta(document, {
+    title: routedTitle || buildDocumentTitle({
+      page: state.leagueId ? state.activePage : "",
+      leagueName: state.leagueName,
+      loaded: Boolean(state.leagueId),
+      room,
+      league: state.league,
     }),
+    description,
   });
 }
 
