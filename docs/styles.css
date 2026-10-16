@@ -217,6 +217,11 @@ body.launch-open #route-title {
   #route-title {
     display: none !important;
   }
+
+  /* A cold share hides the chrome title. This clipped h1 is the page heading. */
+  body.cold-share #route-title {
+    display: block !important;
+  }
 }
 
 @media (min-width: 701px) {

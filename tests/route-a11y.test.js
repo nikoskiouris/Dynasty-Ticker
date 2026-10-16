@@ -647,6 +647,7 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(app, /team: "My team"/);
   assert.match(css, /body\.launch-open #route-title/);
   assert.doesNotMatch(css, /body\.league-loaded #route-title/);
+  assert.match(css, /body\.cold-share #route-title[\s\S]*display:\s*block !important/);
   assert.doesNotMatch(index, /<(?:body|html)[^>]*\stabindex/);
   assert.match(index, /id="workspace"[^>]*tabindex="-1"/);
   const honors = app.slice(app.indexOf("function renderWeeklyHonors"), app.indexOf("function renderSeasonSuperlatives"));
