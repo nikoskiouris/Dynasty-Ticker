@@ -1084,11 +1084,16 @@ select.is-invalid {
   z-index: 1;
   display: flex;
   align-items: stretch;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
   overflow: hidden;
   border: 0;
   border-radius: 0;
   background: #0c0c0e;
   color: #f6f1e8;
+  font-weight: 700;
+  text-align: left;
   backdrop-filter: none;
 }
 
@@ -1098,7 +1103,7 @@ select.is-invalid {
   flex: 0 0 auto;
   padding: 0.45rem 0.85rem;
   background: var(--field);
-  color: #f6f1e8;
+  color: #0c0c0e;
   font-family: var(--font-display);
   font-synthesis: none;
   font-size: var(--fs-sm);
@@ -1903,6 +1908,18 @@ body:not(.league-loaded) .workspace-header {
   margin: 0.3rem 0 0;
 }
 
+.meta-pending {
+  color: var(--muted);
+}
+
+.pick-value-hint {
+  display: block;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
 .up {
   color: var(--green);
 }
@@ -2509,6 +2526,18 @@ body:not(.league-loaded) .workspace-header {
   gap: 1rem;
 }
 
+.roster-names-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  margin: 0;
+}
+
+.roster-names-retry {
+  flex: 0 0 auto;
+}
+
 .sheet-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2601,6 +2630,14 @@ body:not(.league-loaded) .workspace-header {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--panel-soft);
+}
+
+.sheet-row.directory-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.sheet-row.directory-row.loading-row {
+  grid-template-columns: 2.8rem minmax(0, 1fr) auto;
 }
 
 button.sheet-row {
@@ -2843,6 +2880,14 @@ a.inline-link:hover {
     grid-template-columns: 2.3rem minmax(0, 1fr) auto;
     gap: 0.5rem;
     padding: 0.5rem 0.55rem;
+  }
+
+  .sheet-row.directory-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .sheet-row.directory-row.loading-row {
+    grid-template-columns: 2.3rem minmax(0, 1fr) auto;
   }
 
   .sheet-row.mock-pick {
@@ -3988,6 +4033,12 @@ button.weekly-help-close:hover {
   box-shadow: inset 0 0 0 1px var(--team-b-border);
 }
 
+/* Chip price on the Get pane: full-opacity tint at >= 4.5:1 on the chip (WCAG AA). */
+.calc-pane.team-b .selected-token-price {
+  opacity: 1;
+  color: #a9c6ff;
+}
+
 .calc-pane.team-b .selected-token-remove {
   color: var(--team-b);
 }
@@ -4361,6 +4412,38 @@ button.weekly-help-close:hover {
 .verdict-info-toggle:hover,
 .verdict-info-toggle[aria-expanded="true"] {
   color: var(--text);
+}
+
+/* The ⓘ sits inline at the end of the subline; the 44px hit area overlaps
+   the line box with negative margins instead of pushing a new row. */
+.calc-subline .verdict-info-toggle {
+  margin: calc((var(--tap-min) - 1.4em) / -2) 0;
+  vertical-align: middle;
+}
+
+/* Spaces around the verdict dot: the face's word space reads as none. */
+.verdict-dot {
+  display: inline-block;
+  margin: 0 0.12em;
+}
+
+/* Visible key for the hatched star premium segment. */
+.calc-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+.calc-legend-swatch {
+  display: inline-block;
+  flex: none;
+  width: 1.6rem;
+  height: 11px; /* 10–12px so the hatch reads as a key */
+  border-radius: var(--r-pill);
+  background: repeating-linear-gradient(135deg, var(--muted-strong) 0 3px, rgba(244, 241, 236, 0.35) 3px 6px);
 }
 
 .verdict-fine-print {
@@ -9144,5 +9227,95 @@ html:not(.desk-shut) body.board-tools-live #landing {
 
   body.board-tools-live #ranks-section > .panel-heading {
     display: none;
+  }
+}
+
+/* Cold /t/<code> (M1): "Shared trade", the verdict, the sides, then a CTA.
+   Model notes and price chips fold into "About these prices". */
+.shared-trade-head {
+  display: grid;
+  gap: 0.2rem;
+  margin-bottom: var(--sp-3);
+}
+
+.shared-trade-head h2 {
+  font-size: var(--fs-h3);
+  overflow-wrap: anywhere;
+}
+
+[data-shared-view="1"] .calc-verdict {
+  margin-bottom: var(--sp-4);
+}
+
+body.cold-share #mobile-chrome-title {
+  display: none;
+}
+
+/* Cold /t: read-only until "Edit this trade". */
+[data-shared-view="1"]:not([data-shared-editing="1"]) .calc-search-wrap,
+[data-shared-view="1"]:not([data-shared-editing="1"]) .selected-token-remove,
+[data-shared-view="1"]:not([data-shared-editing="1"]) .draft-partner-slot {
+  display: none;
+}
+
+[data-shared-view="1"] .calc-actions .shared-own-btn {
+  order: -1;
+}
+
+.shared-trade-cta {
+  display: flex;
+  margin: var(--sp-4) 0;
+}
+
+.shared-own-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap-min);
+  padding: 0 1.1rem;
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.shared-trade-about {
+  margin-bottom: var(--sp-4);
+  color: var(--muted);
+}
+
+.shared-trade-about > summary {
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+@media (max-width: 620px) {
+  /* Shell gap already separates the blocks. Extra margins pushed
+     "Edit this trade" 1px under the 844px fold. */
+  .calculator-shell[data-shared-view="1"] {
+    gap: 0.75rem;
+  }
+
+  .calculator-shell[data-shared-view="1"] .shared-trade-head,
+  .calculator-shell[data-shared-view="1"] .calc-verdict,
+  .calculator-shell[data-shared-view="1"] .shared-trade-cta {
+    margin: 0;
+  }
+
+  [data-shared-view="1"] .calc-summary {
+    gap: 0.6rem;
+    padding: 0.8rem;
+  }
+
+  [data-shared-view="1"] .calc-actions {
+    margin-top: 0;
+  }
+
+  [data-shared-view="1"] .calc-actions .shared-own-btn {
+    flex: 1 1 100%;
   }
 }

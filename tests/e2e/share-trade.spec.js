@@ -107,15 +107,17 @@ for (const viewport of viewports) {
 
   test(`a dated link whose prices moved shows shared and today at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     // An older archived board where Gibbs cost twice as much.
+    // The desk fetches a stamp only when the index lists it.
     // #166 only fetches a stamp the price-history index lists, so the mocked
     // board has to be listed or the app treats it as pruned.
     await page.route("**/data/price-history/index.json", async (route) => {
-      const index = await (await route.fetch()).json();
+      const res = await route.fetch();
+      const index = await res.json();
       const snapshots = Array.isArray(index.snapshots) ? index.snapshots.slice() : [];
       if (!snapshots.some((row) => row?.stamp === OLD)) {
         snapshots.push({ asOf: "2026-10-07T11:17:00+00:00", stamp: OLD });
       }
-      await route.fulfill({ json: { ...index, snapshots } });
+      await route.fulfill({ response: res, json: { ...index, snapshots } });
     });
     await page.route(`**/data/price-history/${OLD}.json`, (route) => route.fulfill({
       contentType: "application/json",
@@ -150,7 +152,35 @@ for (const viewport of viewports) {
     await expect(page.locator("#value-calc-verdict")).not.toContainText("Package credit");
     // RECHECK3: the detail line leads with the credited totals, and a public
     // link colours only the tier (no green/red by side).
-    await expect(page.locator(".calc-summary-main > p").first()).toHaveText(/^Give [\d,]+( incl\. stars)?\. Get [\d,]+( incl\. stars)?\. Listed: (Give|Get) [\d,]+ \+ [\d,]+ stars\.$/);
+    // Follow-up: "Give 19,224 (11,811 + 7,413 star premium). Get 14,457." with the ⓘ inline at its end.
+    const subline = page.locator(".calc-summary-main > p.calc-subline");
+    await expect(subline).toHaveText(/^Give [\d,]+ \([\d,]+ \+ [\d,]+ star premium\)\. Get [\d,]+\.\s*ⓘ\s*How this verdict works\s*$/);
+    await expect(subline.locator("[data-action='verdict-info']")).toHaveCount(1);
+    const lineBox = await subline.boundingBox();
+    const infoBox = await subline.locator("[data-action='verdict-info']").boundingBox();
+    expect(infoBox.y + infoBox.height / 2).toBeGreaterThan(lineBox.y);
+    expect(infoBox.y + infoBox.height / 2).toBeLessThan(lineBox.y + lineBox.height);
+    // Stars legend: a visible hatch key, and the bar names the premium for screen readers.
+    await expect(page.locator(".calc-legend")).toBeVisible();
+    await expect(page.locator(".calc-legend")).toHaveText("Star premium");
+    await expect(page.locator(".calc-bar.team-a .meter-track")).toHaveAttribute("aria-label", /^Give [\d,]+ including [\d,]+ star premium$/);
+    // The verdict dot has visible space on both sides.
+    const gaps = await page.evaluate(() => {
+      const dot = document.querySelector("#value-calc-verdict h3 .verdict-dot");
+      const range = document.createRange();
+      range.selectNodeContents(dot);
+      const d = range.getBoundingClientRect();
+      const h3 = dot.parentElement;
+      const before = document.createRange();
+      before.setStart(h3.firstChild, 0); before.setEnd(h3.firstChild, h3.firstChild.textContent.trimEnd().length);
+      const after = document.createRange();
+      const next = dot.nextSibling;
+      const start = next.textContent.length - next.textContent.trimStart().length;
+      after.setStart(next, start); after.setEnd(next, start + 1);
+      return { left: d.left - before.getBoundingClientRect().right, right: after.getBoundingClientRect().left - d.right };
+    });
+    expect(gaps.left).toBeGreaterThanOrEqual(4);
+    expect(gaps.right).toBeGreaterThanOrEqual(4);
     await expect(page.locator("#value-calc-verdict .calc-summary")).not.toHaveClass(/\b(good|bad)\b/);
     await expect(page.locator(".calc-bar.is-bigger .calc-pointer")).toHaveCount(1);
     // RECHECK4: bars sized on the credited totals, stars as their own segment.
@@ -163,7 +193,7 @@ for (const viewport of viewports) {
       };
       return { give: bar("team-a"), get: bar("team-b") };
     });
-    const credited = (await page.locator(".calc-summary-main > p").first().textContent()).match(/Give ([\d,]+).*Get ([\d,]+)/).slice(1).map((n) => Number(n.replace(/,/g, "")));
+    const credited = (await page.locator(".calc-summary-main > p.calc-subline").textContent()).match(/Give ([\d,]+).*Get ([\d,]+)/).slice(1).map((n) => Number(n.replace(/,/g, "")));
     expect([widths.give.total, widths.get.total]).toEqual(credited);
     expect(widths.give.fill / widths.get.fill).toBeCloseTo(credited[0] / credited[1], 1);
     expect(widths.give.fill).toBeGreaterThan(widths.get.fill); // Give side is worth more
@@ -263,8 +293,8 @@ test("Esc closes the info panel and returns focus to its button", async ({ page 
 test("pane totals say players & picks, not assets", async ({ page }) => {
   await page.goto(`/t/2s${STAMP}9509~11632.p27r1e`);
   await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
-  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("2 players & picks");
-  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player or pick");
+  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("1 player & 1 pick");
+  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player");
 });
 
 test("after sharing from /trade the sender's address bar shows /t/<code>", async ({ page, context }) => {
@@ -286,4 +316,101 @@ test("after sharing from /trade the sender's address bar shows /t/<code>", async
   await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible();
   await page.waitForTimeout(300);
   expect(new URL(page.url()).pathname).toBe("/trade");
+});
+
+// M1: a cold /t on a phone leads with "Shared trade" and the full verdict, no scroll.
+test("cold /t at 390x844 shows the shared verdict in the first viewport, then a CTA to check your own", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const code = `2s${STAMP}9509~11632.p27r1e`;
+  await page.goto(`/t/${code}`);
+  const summary = page.locator("#value-calc-verdict .calc-summary");
+  await expect(summary).toBeVisible({ timeout: 30000 });
+  await page.waitForLoadState("networkidle");
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  const head = page.locator(".shared-trade-head");
+  await expect(head.locator(".eyebrow")).toHaveText("Shared trade");
+  const headBox = await head.boundingBox();
+  const box = await summary.boundingBox();
+  expect(headBox.y).toBeLessThan(box.y);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(844);
+  // The sides follow the verdict; model notes are folded away below.
+  const grid = await page.locator(".calc-grid").boundingBox();
+  expect(grid.y).toBeGreaterThan(box.y + box.height - 1);
+  await expect(page.locator(".shared-trade-about")).not.toHaveAttribute("open", /.*/);
+  // L1: the server's trade-specific title survives boot.
+  const html = await (await request.get(`/t/${code}`)).text();
+  const serverTitle = /<title>([^<]*)<\/title>/.exec(html)[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+  expect(serverTitle).toMatch(/\| Dynasty Ticker$/);
+  await expect(page).toHaveTitle(serverTitle);
+  // Designer r3: primary CTA in the verdict card, above the fold; Share is
+  // secondary; no "Clear both sides"; neutral column names; no subtitle.
+  const cta = page.locator("#value-calc-verdict [data-action='shared-check-own']");
+  await expect(cta).toHaveText("Check your own trade");
+  const ctaBox = await cta.boundingBox();
+  expect(ctaBox.y + ctaBox.height).toBeLessThanOrEqual(844);
+  const shareBox = await page.locator("#value-calc-verdict [data-action='trade-share']").boundingBox();
+  expect(ctaBox.y).toBeLessThanOrEqual(shareBox.y);
+  await expect(page.locator("[data-action='value-clear']")).toHaveCount(0);
+  await expect(page.locator("[data-draft-side='left'] .draft-pane-title")).toHaveText("Give side");
+  await expect(page.locator("[data-draft-side='right'] .draft-pane-title")).toHaveText("Get side");
+  await expect(page.locator("#mobile-chrome-title")).toBeHidden();
+  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("1 player & 1 pick");
+  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player");
+  // Read-only until "Edit this trade". The button sits fully in the first viewport.
+  const edit = page.locator("[data-action='shared-edit']");
+  const editBox = await edit.boundingBox();
+  expect(editBox.y).toBeGreaterThanOrEqual(0);
+  expect(editBox.y + editBox.height).toBeLessThanOrEqual(844);
+  await expect(page.locator("[data-input='value-search']")).toHaveCount(2);
+  await expect(page.locator("[data-input='value-search']").first()).toBeHidden();
+  await expect(page.locator(".selected-token-remove").first()).toBeHidden();
+  await page.locator("[data-action='shared-edit']").click();
+  await expect(page.locator("[data-action='shared-edit']")).toHaveCount(0);
+  await expect(page.locator("[data-draft-side='left'] [data-input='value-search']")).toBeVisible();
+  await expect(page.locator("[data-draft-side='right'] [data-input='value-search']")).toBeVisible();
+  await expect(page.locator(".selected-token-remove").first()).toBeVisible();
+  // CTA: start a fresh trade on /trade.
+  await cta.click();
+  await expect(page).toHaveURL(/\/trade$/);
+  await expect(page.locator(".shared-trade-head")).toHaveCount(0);
+  await expect(page.locator("[data-draft-side='left'] .calc-selected .selected-token")).toHaveCount(0);
+});
+
+test("leaving a cold /t restores the app title, including back and forward", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const code = "2s2026101419179221~p27r1e.p28r1e";
+  await page.goto(`/t/${code}`);
+  await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
+  const html = await (await request.get(`/t/${code}`)).text();
+  const serverTitle = /<title>([^<]*)<\/title>/.exec(html)[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+  await expect(page).toHaveTitle(serverTitle);
+  const edit = page.locator("[data-action='shared-edit']");
+  const editBox = await edit.boundingBox();
+  expect(editBox.y).toBeGreaterThanOrEqual(0);
+  expect(editBox.y + editBox.height).toBeLessThanOrEqual(844);
+  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player");
+  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("2 picks");
+  await page.locator("[data-action='shared-check-own']").click();
+  await expect(page).toHaveURL(/\/trade$/);
+  await expect(page).toHaveTitle("Trade · Dynasty Ticker");
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`/t/${code}/?$`));
+  await expect(page).toHaveTitle(serverTitle);
+  await page.goForward();
+  await expect(page).toHaveURL(/\/trade$/);
+  await expect(page).toHaveTitle("Trade · Dynasty Ticker");
+});
+
+test("cold /t at 1280 keeps the server title and the shared layout", async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const code = `2s${STAMP}9221~p27r1e.p28r1a`;
+  await page.goto(`/t/${code}`);
+  await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
+  await page.waitForLoadState("networkidle");
+  const html = await (await request.get(`/t/${code}`)).text();
+  const serverTitle = /<title>([^<]*)<\/title>/.exec(html)[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+  await expect(page).toHaveTitle(serverTitle);
+  const box = await page.locator("#value-calc-verdict .calc-summary").boundingBox();
+  expect(box.y + box.height).toBeLessThanOrEqual(800);
 });

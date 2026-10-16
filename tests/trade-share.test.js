@@ -167,14 +167,22 @@ test("card function renders an immutable PNG, an SVG, and 404s bad codes", { ski
   assert.equal(bytes.readUInt32BE(20), 630);
 
   const svg = await handler(new Request("https://dynastyticker.com/og/t/1s4984~9221.svg"));
-  assert.equal(svg.headers.get("content-type"), "image/svg+xml");
-  assert.match(await svg.text(), /Jahmyr Gibbs/);
+  assert.equal(svg.status, 301);
+  assert.equal(svg.headers.get("location"), "/og/t/1s4984~9221.png");
+  assert.notEqual(svg.headers.get("content-type"), "image/svg+xml");
+  assert.doesNotMatch(await svg.text(), /<svg/);
+  const viaFile = await handler(new Request("https://dynastyticker.com/.netlify/functions/trade-card?file=1s4984~9221.svg"));
+  assert.equal(viaFile.status, 301);
+  assert.equal(viaFile.headers.get("location"), "/og/t/1s4984~9221.png");
 
   const fallback = await createTradeCardHandler({ ...deps, renderPng: async () => { throw new Error("no wasm"); } })(
     new Request("https://dynastyticker.com/og/t/1s4984~9221.png"),
   );
-  assert.equal(fallback.headers.get("content-type"), "image/svg+xml");
-  assert.doesNotMatch(fallback.headers.get("cache-control"), /immutable/);
+  // A .png never serves SVG: no renderer is a loud, uncached 503.
+  assert.equal(fallback.status, 503);
+  assert.match(fallback.headers.get("content-type"), /^text\/plain/);
+  assert.equal(fallback.headers.get("cache-control"), "no-store");
+  assert.doesNotMatch(await fallback.text(), /<svg/);
 
   for (const bad of ["/og/t/nope.png", "/og/t/1s4984~9221.gif", "/og/t/1s4984~9221"]) {
     assert.equal((await handler(new Request(`https://dynastyticker.com${bad}`))).status, 404, bad);
@@ -270,7 +278,9 @@ test("the archive has the live board's snapshot, and the writer is immutable and
   assert.equal(live.players, undefined);
   const workflow = readFileSync(join(root, "../.github/workflows/refresh-player-values.yml"), "utf8");
   assert.match(workflow, /python3 scripts\/archive_price_snapshot\.py/);
-  assert.match(workflow, /git add [^\n]*docs\/data\/price-history/);
+  assert.match(workflow, /git add [^\n]*docs\/data\/price-history[^\n]*docs\/data\/nfl_players_slim\.json/);
+  assert.match(workflow, /\[skip netlify\]/);
+  assert.doesNotMatch(workflow, /Commit slim NFL player file/);
 
   const dir = mkdtempSync(join(tmpdir(), "prices-"));
   const run = (asOf, sf) => {
@@ -319,8 +329,12 @@ test("meta and card say as of the snapshot date", async () => {
   const html = await page.text();
   assert.match(html, /og:description" content="[^"]*as of Oct 7, 2026/);
   assert.match(html, /og\/t\/2s2026100711174984~9221\.png\?v=202610071117/);
-  const svg = await createTradeCardHandler(dated)(new Request("https://dynastyticker.com/og/t/2s2026100711174984~9221.svg"));
-  const text = await svg.text();
+  const hit = await summaryForCode("2s2026100711174984~9221", dated);
+  const text = renderCardSvg(hit.summary);
   assert.match(text, /as of Oct 7, 2026/);
   assert.match(text, new RegExp((values.sf["player:9221"] * 2).toLocaleString("en-US")));
+  const svg = await createTradeCardHandler(dated)(new Request("https://dynastyticker.com/og/t/2s2026100711174984~9221.svg"));
+  assert.equal(svg.status, 301);
+  assert.equal(svg.headers.get("location"), "/og/t/2s2026100711174984~9221.png");
+  assert.doesNotMatch(await svg.text(), /<svg/);
 });

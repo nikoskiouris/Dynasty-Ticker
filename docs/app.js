@@ -62,6 +62,8 @@ import {
   loadPlayersCacheEntry,
   savePlayersCacheEntry,
   playersCacheIsFresh,
+  mergePlayerRecords,
+  playersFromSlimFile,
   slimPlayersMap,
   sleeperAvatarUrl,
   previousLeagueId,
@@ -88,6 +90,8 @@ import {
   pickValueBundle,
   selectValueFormat,
   fetchValuationBundles,
+  NFL_PLAYERS_SLIM_PATH,
+  playersFromValueSnapshot,
   fetchPriceHistory,
   PRICE_HISTORY_INDEX_PATH,
   coerceValueMap,
@@ -144,7 +148,6 @@ import { facePlayerId, renderPlayerFace, renderPlayerLabel } from "./modules/pla
 import {
   addValueCalcItem,
   clearValueCalcSides,
-  draftVerdictLabel,
   emptyValueCalcState,
   isGenericPickAssetId,
   isLeaguePickAssetId,
@@ -158,8 +161,6 @@ import {
   tradeRowName,
   withPlayerDirectoryNames,
 } from "./modules/value-calc.js";
-import { TIER_EXPLAINER, verdictCopy } from "./modules/verdict-copy.js";
-import { calcPointer, meterTrack, sharedBarSegments, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import {
   describeDraftItem,
   draftFromReview,
@@ -306,6 +307,7 @@ import {
   topOverlay,
   urlPath,
 } from "./modules/history-route.js";
+import { EVEN_UP_OFFER_ABOVE, ideaLimitMore, oldPctToMore, STAR_PREMIUM_KEY, TIER_EXPLAINER, barLabel, creditedTotalsLine, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
 import { bindInfoTips, infoTipMarkup, valuesWorkText } from "./modules/info-tip.js";
 import {
   EXAMPLE_GET,
@@ -350,6 +352,7 @@ import {
   projectPickSlots,
   resolvePickProjection,
   rosterRecordsReady,
+  valuedAsMidFirstHint,
 } from "./modules/pick-projection.js";
 import {
   applyDocumentMeta,
@@ -894,6 +897,8 @@ let coldPlayerHeading = false;
 let rankExtrasSettled = true;
 let followHeadingsUntil = 0;
 let leagueOpenedInApp = false;
+let slimDirectory = null;
+let slimDirectoryPromise = null;
 function noteSearchedUser(leagueId) {
   if (searchedUserNoted) return;
   const pick = searchedUserPick({ sleeperUser: state.sleeperUser, userLeagues: state.userLeagues, leagueId });
@@ -902,6 +907,7 @@ function noteSearchedUser(leagueId) {
   void recordSearchedUser(pick);
 }
 bootFromUrl();
+if (bootRoute?.leagueId) void loadSlimPlayersFile();
 coldPlayerHeading = bootRoute?.name === "player";
 document.addEventListener("focusin", (event) => {
   const target = event.target;
@@ -960,6 +966,7 @@ window.addEventListener("popstate", (event) => {
   reportRoute();
 });
 if (isPhoneLayout()) setMobileRailOpen(false);
+
 syncDocumentMeta();
 reportRoute({ first: true });
 appBooted = true;
@@ -1782,7 +1789,7 @@ function escapeRouteOverlay(event) {
   return true;
 }
 
-function updateUrlState({ mode = "replace" } = {}) {
+function updateUrlState({ mode = "replace", force = false } = {}) {
   if (applyingHistory) {
     routeFocus.forget();
     return;
@@ -1795,11 +1802,16 @@ function updateUrlState({ mode = "replace" } = {}) {
   const path = deskUrlPath();
   const snapshot = historyPlaceNow();
   const currentPath = `${window.location.pathname}${window.location.search}`;
-  const write = decideHistoryWrite({
+  const pathChanged = currentPath !== path;
+  const placeWrite = decideHistoryWrite({
     current: history.state || {},
     next: snapshot,
     mode: sameHistoryPlace(history.state || {}, snapshot) && currentPath === path && mode === "push" ? "push" : mode,
   });
+  // Leaving a cold /t stays on the trade calculator, so the place key does not
+  // change and a normal push is downgraded to replace. Force one history entry
+  // so Back and Forward can restore the shared title and the app title.
+  const write = force && mode === "push" && pathChanged ? "push" : placeWrite;
   const pushed = write === "push" ? true : (write === "replace" && sameHistoryPlace(history.state || {}, snapshot) && Boolean(history.state?.pushed));
   const entry = { ...snapshot, pushed };
   if (write === "push" && typeof history.pushState === "function") {
@@ -1816,6 +1828,8 @@ function updateUrlState({ mode = "replace" } = {}) {
   routeFocus.forget();
   history.replaceState(entry, "", path);
   reportRoute();
+  // A same-place replace (cold /t -> /trade) still has to drop the shared title.
+  syncDocumentMeta();
   if (!appBooted) return;
   const after = historySnap(entry);
   const changed = before.overlay !== after.overlay
@@ -2020,6 +2034,7 @@ function applyTradeRoute(route) {
 // A dated stamp whose file was pruned still opens today's board, with a note.
 async function loadSharedTrade(code, draft) {
   state.sharedTrade = null;
+  state.sharedEditing = false;
   const decoded = decodeTradeShare(code || "");
   if (!decoded) return;
   const entry = { code, decoded, key: draftAssetKey(draft), snapshot: null, snapshotState: decoded.stamp ? "loading" : "none" };
@@ -2580,7 +2595,11 @@ function renderSessionSnapshot() {
     syncSiteDock();
     return;
   }
-  if (el.mobileChromeTitle) {
+  // Cold /t/<code>: no "Your Sleeper league" subtitle under the wordmark.
+  const coldShare = !state.leagueId && /^\/t\//.test(window.location.pathname);
+  document.body.classList.toggle("cold-share", coldShare);
+  if (el.mobileChromeTitle) el.mobileChromeTitle.hidden = coldShare;
+  if (el.mobileChromeTitle && !coldShare) {
     el.mobileChromeTitle.textContent = publicRanksOpen && !state.leagueId
       ? "Player ranks"
       : sampleOn
@@ -3272,7 +3291,6 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.trendingAdds = [];
     state.trendingDrops = [];
     state.trendingLoaded = false;
-    state.playerMetadataLoaded = false;
     state.playerMetadataFailed = false;
     if (!sameLeague) {
       state.activePage = DEFAULT_PAGE;
@@ -3321,7 +3339,8 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.rosters = rosters;
     state.tradedPicks = tradedPicks;
     state.currentDraftContext = draftLoad?.context || null;
-    state.players = {};
+    state.players = seedPlayerDirectory();
+    state.playerMetadataLoaded = Object.keys(state.players).length > 0;
     state.previousLeague = previousContext.league;
     state.previousUsers = previousContext.users;
     state.previousRosters = previousContext.rosters;
@@ -3353,7 +3372,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     setStatus(
       missingTeam || (state.viewingSample
         ? (sampleVoice()?.statusSample || "Sample league — not this account.")
-        : `Loaded ${state.leagueName}. Player names are still syncing...`),
+        : `Loaded ${state.leagueName}.`),
       missingTeam ? { error: true } : { loading: true },
     );
     loadTrendingPlayers();
@@ -3367,21 +3386,8 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     loadPlayersWithCache()
       .then((players) => {
         if (playersLoadStale(playersEpoch, token, leagueId)) return;
-        state.players = players;
-        state.playerMetadataLoaded = true;
-        state.playerMetadataFailed = false;
-        refreshPlayerPositionRanks();
-        rebuildWeeklyValueContext();
+        commitPlayerDirectory(players, { epoch: playersEpoch, leagueId, hydrate: true });
         void ensureWeeklyValueContext();
-        state.normalizedRosters = normalizeRosters(state.league, state.rosters, state.users, players, {
-          league: state.previousLeague,
-          users: state.previousUsers,
-          rosters: state.previousRosters,
-        }, state.tradedPicks, state.currentDraftContext);
-        invalidateSeasonCaches();
-        hydrateManagerSelector();
-        syncTradeModeUi();
-        requestActivePageRender();
         const me = getMyRoster();
         const missingTeam = me ? "" : noTeamInLeagueCopy(state.sleeperUser);
         setStatus(
@@ -3397,6 +3403,16 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       })
       .catch((err) => {
         if (playersLoadStale(playersEpoch, token, leagueId) || err?.name === "AbortError") return;
+        // Value names are not the Sleeper directory. A roster that still has
+        // a missing name or position stays failed when both player files are blocked.
+        const gaps = state.normalizedRosters.some((roster) => (roster.assets || []).some((asset) => {
+          const gap = assetMetadataGap(asset);
+          return gap.name || gap.position;
+        }));
+        if (!gaps && Object.keys(state.players).length > 0) {
+          console.warn("Could not refresh NFL player metadata", err);
+          return;
+        }
         state.playerMetadataLoaded = false;
         state.playerMetadataFailed = true;
         syncTradeModeUi();
@@ -3959,6 +3975,112 @@ async function loadPlayersWithCache() {
   }
 }
 
+function seedPlayerDirectory() {
+  const names = {
+    ...(state.valueBundles?.names || {}),
+    ...(state.valueNameMap || {}),
+  };
+  const fromValues = playersFromValueSnapshot(state.valueBundles?.players, names);
+  const fromSlim = slimDirectory || {};
+  return mergePlayerRecords(mergePlayerRecords(fromValues, fromSlim), state.players);
+}
+
+function commitPlayerDirectory(players, { failed = false, epoch = playerLoadEpoch, leagueId = state.leagueId, hydrate = false } = {}) {
+  if (epoch !== playerLoadEpoch) return;
+  if (leagueId && state.leagueId && String(leagueId) !== String(state.leagueId)) return;
+  state.players = mergePlayerRecords(state.players, players);
+  if (Object.keys(state.players).length > 0) {
+    state.playerMetadataLoaded = true;
+    state.playerMetadataFailed = false;
+  } else if (failed) {
+    state.playerMetadataLoaded = false;
+    state.playerMetadataFailed = true;
+  }
+  if (!state.league || !state.rosters?.length) return;
+  refreshPlayerPositionRanks();
+  rebuildWeeklyValueContext();
+  state.normalizedRosters = normalizeRosters(state.league, state.rosters, state.users, state.players, {
+    league: state.previousLeague,
+    users: state.previousUsers,
+    rosters: state.previousRosters,
+  }, state.tradedPicks, state.currentDraftContext);
+  invalidateSeasonCaches();
+  if (hydrate) hydrateManagerSelector();
+  syncTradeModeUi();
+  requestActivePageRender();
+}
+
+function loadSlimPlayersFile() {
+  if (slimDirectory && Object.keys(slimDirectory).length) return Promise.resolve(slimDirectory);
+  if (!slimDirectoryPromise) {
+    slimDirectoryPromise = fetch(NFL_PLAYERS_SLIM_PATH, { cache: "default" })
+      .then((response) => (response?.ok ? response.json() : null))
+      .then((payload) => {
+        const players = playersFromSlimFile(payload);
+        if (!Object.keys(players).length) {
+          // An empty or blocked file must not stick, so Retry can fetch it again.
+          slimDirectoryPromise = null;
+          return players;
+        }
+        slimDirectory = players;
+        if (state.leagueId) commitPlayerDirectory(players, { hydrate: false });
+        return players;
+      })
+      .catch((err) => {
+        console.warn("Could not load slim player file", err);
+        slimDirectoryPromise = null;
+        return null;
+      });
+  }
+  return slimDirectoryPromise;
+}
+
+function scheduleQuietPlayerRefresh(epoch, signal) {
+  const timer = setTimeout(() => {
+    if (signal.aborted || epoch !== playerLoadEpoch) return;
+    void refreshPlayersQuietly(epoch, signal);
+  }, 4000);
+  signal.addEventListener?.("abort", () => clearTimeout(timer), { once: true });
+}
+
+async function refreshPlayersQuietly(epoch, signal) {
+  let stateKey = null;
+  let stateFailed = false;
+  try {
+    const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1, signal });
+    stateKey = `${nflState?.season || "na"}-${nflState?.league_season || "na"}-${nflState?.week || "na"}`;
+  } catch (err) {
+    if (err?.name === "AbortError" || signal.aborted || epoch !== playerLoadEpoch) return;
+    stateFailed = true;
+  }
+  if (signal.aborted || epoch !== playerLoadEpoch) return;
+  const fromCache = await loadPlayersCacheEntry(playersCacheAdapters()).catch(() => null);
+  const now = Date.now();
+  const fresh = stateFailed
+    ? playersCacheIsFresh(fromCache, now, { ttlMs: PLAYERS_CACHE_TTL_MS })
+    : playersCacheIsFresh(fromCache, now, { stateKey, ttlMs: PLAYERS_CACHE_TTL_MS });
+  if (fresh) return;
+  try {
+    const raw = await apiGetWithRetry(`/players/nfl`, {
+      timeoutMs: 30000,
+      retries: 1,
+      cache: "default",
+      signal,
+    });
+    if (signal.aborted || epoch !== playerLoadEpoch) return;
+    const slim = slimPlayersMap(raw);
+    try {
+      await savePlayersCacheEntry({ players: slim, savedAt: Date.now(), stateKey }, playersCacheAdapters());
+    } catch (err) {
+      console.warn("Could not save players cache", err);
+    }
+    commitPlayerDirectory(slim, { epoch, hydrate: false });
+  } catch (err) {
+    if (signal.aborted || epoch !== playerLoadEpoch || err?.name === "AbortError") return;
+    console.warn("Could not refresh NFL player metadata", err);
+  }
+}
+
 async function fetchPlayersForCache(epoch, signal) {
   const now = Date.now();
   const fromCache = await loadPlayersCacheEntry(playersCacheAdapters()).catch((err) => {
@@ -3967,21 +4089,21 @@ async function fetchPlayersForCache(epoch, signal) {
   });
   if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
 
-  let stateKey = null;
-  let stateFailed = false;
-  try {
-    const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1, signal });
-    stateKey = `${nflState?.season || "na"}-${nflState?.league_season || "na"}-${nflState?.week || "na"}`;
-  } catch (err) {
-    if (err?.name === "AbortError" || signal.aborted || epoch !== playerLoadEpoch) throw cancelledPlayerLoad();
-    stateFailed = true;
+  // Warm: the 6h slim cache is enough to paint. Revalidate the week key after.
+  if (playersCacheIsFresh(fromCache, now, { ttlMs: PLAYERS_CACHE_TTL_MS })) {
+    if (state.leagueId || bootRoute?.leagueId) scheduleQuietPlayerRefresh(epoch, signal);
+    return slimPlayersMap(fromCache.players);
   }
-  if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
 
-  const fresh = stateFailed
-    ? playersCacheIsFresh(fromCache, now, { ttlMs: PLAYERS_CACHE_TTL_MS })
-    : playersCacheIsFresh(fromCache, now, { stateKey, ttlMs: PLAYERS_CACHE_TTL_MS });
-  if (fresh) return slimPlayersMap(fromCache.players);
+  // Home and shared trades paint from the values file. The slim dump is for a league.
+  if (!state.leagueId && !bootRoute?.leagueId) return null;
+
+  const slim = await loadSlimPlayersFile();
+  if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
+  if (slim && Object.keys(slim).length) {
+    scheduleQuietPlayerRefresh(epoch, signal);
+    return slim;
+  }
 
   const raw = await apiGetWithRetry(`/players/nfl`, {
     timeoutMs: 30000,
@@ -3990,13 +4112,13 @@ async function fetchPlayersForCache(epoch, signal) {
     signal,
   });
   if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
-  const slim = slimPlayersMap(raw);
+  const downloaded = slimPlayersMap(raw);
   try {
-    await savePlayersCacheEntry({ players: slim, savedAt: now, stateKey }, playersCacheAdapters());
+    await savePlayersCacheEntry({ players: downloaded, savedAt: now, stateKey: null }, playersCacheAdapters());
   } catch (err) {
     console.warn("Could not save players cache", err);
   }
-  return slim;
+  return downloaded;
 }
 
 async function loadTrendingPlayers() {
@@ -4468,6 +4590,136 @@ function findNormalizedRoster(rosterId) {
   return state.normalizedRosters.find((roster) => String(roster.rosterId) === String(rosterId)) || null;
 }
 
+function assetMetadataGap(asset) {
+  if (!asset || asset.assetType !== "player") return { name: false, position: false, team: false };
+  const playerId = playerIdFromAssetId(asset.assetId);
+  const named = playerDisplayName(playerId, asset.raw, state.valueNameMap) || String(asset.name || "").trim();
+  const bare = !named || /^Player\s+\d+$/i.test(named);
+  return {
+    name: bare,
+    position: !playerPositionForAsset(asset),
+    team: !String(asset.raw?.team || "").trim(),
+  };
+}
+
+function rosterGradeReady(roster) {
+  const players = (roster?.assets || []).filter((asset) => asset.assetType === "player");
+  if (!players.length) return false;
+  return players.every((asset) => {
+    const gap = assetMetadataGap(asset);
+    return !gap.name && !gap.position;
+  });
+}
+
+function pricesReady() {
+  return Boolean(state.values && Object.keys(state.values).length > 0);
+}
+
+function renderMetadataPlaceholder() {
+  return `<span class="meta-pending" aria-hidden="true">…</span>`;
+}
+
+function retryPlayerMetadata(event) {
+  event?.preventDefault?.();
+  if (!state.leagueId || !state.playerMetadataFailed) return;
+  const leagueId = state.leagueId;
+  const epoch = playerLoadEpoch;
+  state.playerMetadataFailed = false;
+  syncTradeModeUi();
+  requestActivePageRender();
+  loadPlayersWithCache()
+    .then((players) => {
+      if (epoch !== playerLoadEpoch || String(state.leagueId) !== String(leagueId)) return;
+      if (players && Object.keys(players).length) {
+        commitPlayerDirectory(players, { epoch, leagueId, hydrate: true });
+      }
+      if (epoch !== playerLoadEpoch || String(state.leagueId) !== String(leagueId)) return;
+      const gaps = state.normalizedRosters.some((roster) => (roster.assets || []).some((asset) => {
+        const gap = assetMetadataGap(asset);
+        return gap.name || gap.position;
+      }));
+      if (!gaps) return;
+      state.playerMetadataLoaded = false;
+      state.playerMetadataFailed = true;
+      syncTradeModeUi();
+      requestActivePageRender();
+    })
+    .catch((err) => {
+      if (epoch !== playerLoadEpoch || String(state.leagueId) !== String(leagueId) || err?.name === "AbortError") return;
+      const gaps = state.normalizedRosters.some((roster) => (roster.assets || []).some((asset) => {
+        const gap = assetMetadataGap(asset);
+        return gap.name || gap.position;
+      }));
+      if (!gaps && Object.keys(state.players).length > 0) return;
+      state.playerMetadataLoaded = false;
+      state.playerMetadataFailed = true;
+      syncTradeModeUi();
+      requestActivePageRender();
+    });
+}
+
+function renderRosterDirectory(roster) {
+  const values = state.values;
+  const players = roster.assets
+    .filter((asset) => asset.assetType === "player")
+    .slice()
+    .sort((a, b) => getAssetValue(b, values) - getAssetValue(a, values) || String(a.name).localeCompare(String(b.name)));
+  const picks = roster.assets.filter((asset) => asset.assetType === "pick");
+  const showPicks = leagueUsesFuturePicks(state.league) || picks.length > 0;
+  if (el.rosterSheetHeading) el.rosterSheetHeading.textContent = roster.manager.displayName;
+  const namingGap = players.some((asset) => {
+    const gap = assetMetadataGap(asset);
+    return gap.name || gap.position;
+  });
+  const loadingPlayers = namingGap && !state.playerMetadataFailed;
+  const failedPlayers = state.playerMetadataFailed && players.some((asset) => assetMetadataGap(asset).name);
+  const failedNote = failedPlayers
+    ? `<p class="muted small roster-names-note">Player names couldn't load. Values still work; try again later. <button type="button" class="ghost-btn roster-names-retry" data-action="retry-player-metadata">Retry</button></p>`
+    : "";
+  const loadingLabel = loadingPlayers ? `<span class="sr-only">Loading player</span>` : "";
+  const failedLabel = failedPlayers ? `<span class="sr-only">Player details unavailable</span>` : "";
+  const rowClass = loadingPlayers ? "sheet-row directory-row loading-row" : "sheet-row directory-row";
+  el.rosterSheet.innerHTML = `
+    ${failedNote}
+    <div class="sheet-grid">
+      <section class="sheet-column"${loadingPlayers ? ` aria-busy="true"` : ""}>
+        <h4>Roster</h4>
+        ${loadingLabel}
+        ${failedLabel}
+        ${players.map((asset) => {
+          const gap = assetMetadataGap(asset);
+          const name = gap.name
+            ? (failedPlayers ? "Details unavailable" : renderMetadataPlaceholder())
+            : escapeHtml(asset.name || "…");
+          const position = gap.position
+            ? (failedPlayers ? "" : renderMetadataPlaceholder())
+            : escapeHtml(formatPlayerPositionLabel(asset));
+          const team = gap.team
+            ? (failedPlayers ? "" : renderMetadataPlaceholder())
+            : escapeHtml(String(asset.raw?.team || ""));
+          const meta = failedPlayers
+            ? [position, team].filter(Boolean).join(" · ")
+            : `${position}${team ? ` · ${team}` : ""}`;
+          return `
+            <div class="${rowClass}">
+              <div class="sheet-player">
+                <strong>${name}</strong>
+                ${meta ? `<span>${meta}</span>` : ""}
+              </div>
+              <span class="sheet-value mono">${renderAssetValuePlain(asset, values)}</span>
+            </div>
+          `;
+        }).join("") || `<p class="muted small">No players on this roster.</p>`}
+        ${showPicks ? `
+          <h4>Pick vault</h4>
+          ${renderPickVaultIntro()}
+          ${picks.map((asset) => renderPickVaultRow(asset, values)).join("") || `<p class="muted small">No draft picks owned.</p>`}
+        ` : ""}
+      </section>
+    </div>
+  `;
+}
+
 function renderPowerDashboard() {
   if (!el.powerDashboard) return;
   const meRoster = getLensRoster();
@@ -4478,25 +4730,16 @@ function renderPowerDashboard() {
     el.powerDashboard.innerHTML = `<p class="muted">Choose your team to generate a power score.</p>`;
     return;
   }
-  if (!state.playerMetadataLoaded) {
+  if (!rosterGradeReady(meRoster) || !pricesReady()) {
     const ammo = draftAmmoInsightForRoster(meRoster);
     const ammoHtml = ammo ? `<div class="insight-list">${renderSleeperInsight(ammo)}</div>` : "";
-    // A final lead is the whole card. The player-metadata status stays on the
-    // power score, and it does not sit on a card whose value is already final.
-    if (ammo && ammo.busy !== true) {
-      el.powerDashboard.innerHTML = ammoHtml;
-      return;
-    }
+    // Draft Ammo does not need player metadata. The score does. A missing
+    // position stays on the score, not on a card whose picks are already final.
     el.powerDashboard.innerHTML = `
-      <div class="power-sync" role="status">
-        <strong>${state.playerMetadataFailed ? "Player metadata unavailable" : "Syncing player metadata"}</strong>
-        <p class="muted">${
-          state.playerMetadataFailed
-            ? "Sleeper league data loaded, but positions and ages are missing. Trade search still works with fallback values."
-            : "Power Score needs Sleeper positions, ages, injury flags, and team metadata before it can grade the roster."
-        }</p>
-      </div>
       ${ammoHtml}
+      <div class="power-stat-grid">
+        ${renderPowerStat("Power", state.playerMetadataFailed ? "Unavailable" : "…")}
+      </div>
     `;
     return;
   }
@@ -5898,21 +6141,10 @@ function renderWindowCallDashboard() {
       : "Pick a manager. Desk says rebuild, win now, or hold."}</p>`;
     return;
   }
-  if (!state.playerMetadataLoaded) {
+  if (!rosterGradeReady(roster) || !pricesReady()) {
     host.innerHTML = `
       ${renderLensPicker(roster)}
-      <div class="power-sync">
-        <strong>${state.playerMetadataFailed ? "Player metadata unavailable" : "Syncing player metadata"}</strong>
-        <p class="muted">${
-          state.playerMetadataFailed
-            ? (seasonCall
-              ? "Need positions before the ticker can make an in-it / bubble / out call."
-              : "Need positions and ages before the ticker can make a rebuild / win-now / hold call.")
-            : (seasonCall
-              ? "Waiting on Sleeper positions so the call is not a coin flip."
-              : "Waiting on Sleeper positions, ages, and pick data so the call is not a coin flip.")
-        }</p>
-      </div>
+      <p class="muted small meta-pending">${state.playerMetadataFailed ? "Player metadata unavailable" : "…"}</p>
     `;
     return;
   }
@@ -6552,16 +6784,8 @@ function renderRosterSheet() {
     syncWeeklyScoreHelp();
     return;
   }
-  if (!state.playerMetadataLoaded) {
-    const failed = state.playerMetadataFailed;
-    el.rosterSheet.innerHTML = `
-      <div class="power-sync">
-        <strong>${failed ? "Player metadata unavailable" : "Syncing player metadata"}</strong>
-        <p class="muted">${failed
-          ? "Sleeper didn't return player names, positions, or ages. Rosters and trade search still work with fallback values."
-          : "Names, positions, and ages arrive in a moment."}</p>
-      </div>
-    `;
+  if (!rosterGradeReady(roster) || !pricesReady()) {
+    renderRosterDirectory(roster);
     syncWeeklyScoreHelp();
     return;
   }
@@ -7037,6 +7261,36 @@ function renderTradeDraft() {
     return;
   }
   const view = buildDraftView();
+  // Cold /t/<code>: the recipient sees what was sent first (M1). A "Shared
+  // trade" header, the full verdict, then the sides; the model notes fold away.
+  const shared = Boolean(activeSharedTrade(view.draft));
+  host.dataset.sharedView = shared ? "1" : "";
+  host.dataset.sharedEditing = shared && state.sharedEditing ? "1" : "";
+  if (shared) {
+    host.innerHTML = `
+      <div class="shared-trade-head">
+        <span class="eyebrow">Shared trade</span>
+        <h2 id="shared-trade-title">${escapeHtml(sharedTradeTitle(view))}</h2>
+      </div>
+      <div id="draft-notice">${renderBadShareNotice()}${renderDraftNotice()}</div>
+      <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
+      <div class="calc-grid">
+        ${renderDraftPane("left", view)}
+        ${renderDraftPane("right", view)}
+      </div>
+      ${state.sharedEditing ? "" : `<div class="shared-trade-cta">
+        <button type="button" class="ghost-btn shared-edit-btn" data-action="shared-edit">Edit this trade</button>
+      </div>`}
+      <details class="shared-trade-about">
+        <summary>About these prices</summary>
+        ${renderValueBoardBar({ marketHint: marketBoardHint() })}
+        ${renderPriceLegend(["model", "package"])}
+        <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
+      </details>
+      <div id="draft-team" class="draft-team">${renderDraftTeam(view)}</div>
+    `;
+    return;
+  }
   host.innerHTML = `
     ${renderValueBoardBar({ marketHint: marketBoardHint() })}
     ${renderValuesFreshness(valuesFreshness())}
@@ -7068,6 +7322,11 @@ function patchTradeDraft(listSides = []) {
     return;
   }
   const view = buildDraftView();
+  // Editing a shared trade (or landing on one) switches layout: full render.
+  if ((host.dataset.sharedView === "1") !== Boolean(activeSharedTrade(view.draft))) {
+    renderTradeDraft();
+    return;
+  }
   ["left", "right"].forEach((side) => {
     const pane = host.querySelector(`[data-draft-side="${side}"]`);
     if (!pane) return;
@@ -7083,6 +7342,8 @@ function patchTradeDraft(listSides = []) {
     if (notes) notes.innerHTML = renderDraftNotes(side, view);
     if (listSides.includes(side)) patchDraftSuggestions(side, view);
   });
+  const sharedTitle = host.querySelector("#shared-trade-title");
+  if (sharedTitle) sharedTitle.textContent = sharedTradeTitle(view);
   const basisEl = host.querySelector("#draft-basis");
   if (basisEl) basisEl.innerHTML = renderDraftBasis(view);
   const notice = host.querySelector("#draft-notice");
@@ -7122,6 +7383,22 @@ function renderDraftBasis(view) {
 }
 
 // /t/<code> that does not decode. The calculator stays usable underneath.
+// "Bijan Robinson for Malik Nabers + 1 more"
+// Before Sleeper names load an item's name is its raw id; never show that.
+function sharedTradeTitle(view) {
+  const raw = (name) => !name || /^(player|pick):/i.test(String(name)) || /^\d+$/.test(String(name));
+  const all = [...view.draft.left, ...view.draft.right];
+  if (all.some((item) => raw(item.name))) {
+    return `${pieceCount(view.draft.left)} for ${pieceCount(view.draft.right)}`;
+  }
+  const side = (items) => {
+    const names = items.map((item) => item.name).filter(Boolean);
+    if (!names.length) return "nothing";
+    return names.length > 1 ? `${names[0]} + ${names.length - 1} more` : names[0];
+  };
+  return `${side(view.draft.left)} for ${side(view.draft.right)}`;
+}
+
 function renderBadShareNotice() {
   if (!state.badShareLink) return "";
   return `
@@ -7154,6 +7431,8 @@ function renderDraftNotice() {
 
 function renderDraftPaneTitle(side, view) {
   const left = side === "left";
+  // Cold /t: neutral column names, never the sender's name.
+  if (activeSharedTrade(view.draft)) return `<span class="analytics-kicker">${left ? "Give side" : "Get side"}</span>`;
   const voice = sampleVoice();
   let name = "";
   if (view.basis.connected) {
@@ -7170,12 +7449,28 @@ function renderDraftPaneTitle(side, view) {
   `;
 }
 
+// "1 player", "2 picks", "1 player & 1 pick". Players first, then picks.
+function pieceCount(items) {
+  const list = Array.isArray(items) ? items : [];
+  const players = list.filter((item) => {
+    if (item?.assetType === "pick") return false;
+    if (item?.assetType === "player") return true;
+    return String(item?.assetId || "").startsWith("player:");
+  }).length;
+  const picks = list.length - players;
+  const bit = (n, one, many) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
+  const parts = [];
+  if (players) parts.push(bit(players, "player", "players"));
+  if (picks) parts.push(bit(picks, "pick", "picks"));
+  return parts.join(" & ");
+}
+
 function renderDraftTotal(side, view) {
   const items = view.draft[side] || [];
   const total = side === "left" ? view.give : view.get;
   return `
     <strong>${formatNumber(total)}</strong>
-    <small>${items.length ? playersAndPicksLabel(items.length) : "Nothing added"}</small>
+    <small>${items.length ? pieceCount(items) : "Nothing added"}</small>
   `;
 }
 
@@ -7220,13 +7515,18 @@ function draftItemDisplayName(item, names) {
 
 let draftNamesRequested = false;
 function requestDraftPlayerNames() {
-  if (draftNamesRequested || (state.players && Object.keys(state.players).length)) return;
+  if (draftNamesRequested) return;
   draftNamesRequested = true;
   const epoch = playerLoadEpoch;
-  void loadPlayersWithCache()
+  // A league uses the slim file. A shared trade has no league, so a missing
+  // name still comes from Sleeper without downloading the slim dump.
+  const job = (state.leagueId || bootRoute?.leagueId)
+    ? loadPlayersWithCache()
+    : apiGetWithRetry(`/players/nfl`, { timeoutMs: 30000, retries: 1, cache: "default" }).then((raw) => slimPlayersMap(raw));
+  void job
     .then((players) => {
       if (epoch !== playerLoadEpoch || !players || !Object.keys(players).length) return;
-      if (!state.players || !Object.keys(state.players).length) state.players = players;
+      state.players = mergePlayerRecords(state.players, players);
       if (el.calculatorShell?.querySelector(".calc-grid")) patchTradeDraft();
     })
     .catch(() => {});
@@ -7367,6 +7667,7 @@ function draftSuggestionRows(side, view) {
         round: Number(asset.raw?.round) || 0,
         context: mine ? (sampleVoice()?.roster || "Your roster") : roster.manager.displayName,
         leagueId: isLeaguePickAssetId(asset.assetId) ? String(state.leagueId) : "",
+        hint: valuedAsMidFirstHint(asset, state.league?.season),
         group: side === "left" ? (mine ? 0 : 2) : (rosterId === partnerId ? 0 : 1),
       });
     }
@@ -7432,6 +7733,7 @@ function renderDraftSuggestions(side, view) {
           <div class="asset-meta">
             <span class="asset-pill ${row.assetType === "pick" ? "gold" : ""}">${row.assetType === "pick" ? "Pick" : escapeHtml(row.position || "Player")}</span>
             ${row.context ? `<span class="asset-context">${escapeHtml(row.context)}</span>` : ""}
+            ${row.hint ? `<span class="pick-value-hint">${escapeHtml(row.hint)}</span>` : ""}
           </div>
         </div>
         <span class="asset-value-badge" title="Value">${formatNumber(row.value)}${row.estimated ? " est" : ""}</span>
@@ -7464,7 +7766,8 @@ function evenUpCopy(choice, side) {
     return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
   }
   if (Number.isFinite(Number(choice.pct))) {
-    return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}). After that pick the sides are still ${choice.pct}% apart.`;
+    const after = choice.verdict ? verdictLineNamed(choice.verdict) : "";
+    return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}).${after ? ` After that pick: ${after}.` : ""}`;
   }
   const short = choice.value < choice.gap;
   const why = short
@@ -7517,23 +7820,23 @@ function renderDraftVerdict(view) {
   // verdict compares, with the stars credit as its own segment.
   const bars = sharedBarSegments(model, sharedView ? null : meters);
   const maxSide = Math.max(bars.give.total, bars.get.total, 1);
-  const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(view) : null;
+  // Same metric and bands as the headline (verdict-copy.js).
+  const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpPick(view) : null;
   const evenSide = verdict.gap > 0 ? (voice ? voice.youGive : "You") : (view.partner ? them : "They");
-  const giveLabel = voice?.giveLabel || "You give";
-  const getLabel = voice?.getLabel || "You get";
+  const giveLabel = sharedView ? "Give side" : (voice?.giveLabel || "You give");
+  const getLabel = sharedView ? "Get side" : (voice?.getLabel || "You get");
   const credited = adjustment?.side === "left" ? giveLabel : getLabel;
   return `
     <section class="calc-summary ${bothSides ? (sharedView ? copy.publicTone : copy.tone) : ""}">
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
-        ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${escapeHtml(label)}</h3>`}
-        ${/* TODO(follow-up): spell a bare percent ("96% apart") as a plain outcome. Out of scope for this push. */ ""}
-        <p>${sharedView ? sharedTotalsLine(model) : `${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}`}</p>
-        ${sharedView ? renderVerdictFinePrint(`
-          ${starsPremiumMarkup(model, { detail: copy.detail })}
+        ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${verdictLineHtml(label)}</h3>`}
+        ${sharedView ? renderVerdictFinePrint(escapeHtml(sharedTotalsLine(model)), `
+          ${adjustment ? `<p class="draft-package"><strong>Stars cost extra:</strong> one great player beats a pile of good ones. That adds ${formatNumber(adjustment.amount)} to ${adjustment.side === "left" ? "Give" : "Get"}. Listed prices stay put. After that: ${escapeHtml(copy.detail)}.</p>` : ""}
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
+        <p>${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}</p>
         ${adjustment ? `<p class="draft-package"><strong>Package credit:</strong> the best player is worth more than the same total split into smaller pieces. That adds ${formatNumber(adjustment.amount)} to ${escapeHtml(credited)}. Listed prices stay put. After that credit: ${escapeHtml(copy.detail)}.</p>` : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method">
@@ -7541,38 +7844,70 @@ function renderDraftVerdict(view) {
           ${renderDraftMethod(view)}
         </details>`}
       </div>
-      <div class="calc-bars">
+      <div class="calc-bars">${bars.give.stars || bars.get.stars ? `
+        <p class="calc-legend"><span class="calc-legend-swatch" aria-hidden="true"></span>${escapeHtml(STAR_PREMIUM_KEY)}</p>` : ""}
         <div class="calc-bar team-a${sharedView && copy.side === "Give" ? " is-bigger" : ""}">
           <span>${sharedView && copy.side === "Give" ? `${calcPointer("◀")} ` : ""}${escapeHtml(giveLabel)}</span>
-          ${meterTrack(bars.give, maxSide)}
+          ${meterTrack(bars.give, maxSide, barLabel("Give", bars.give.listed, bars.give.stars))}
           <strong>${formatNumber(bars.give.total)}</strong>
         </div>
         <div class="calc-bar team-b${sharedView && copy.side === "Get" ? " is-bigger" : ""}">
           <span>${escapeHtml(getLabel)}${sharedView && copy.side === "Get" ? ` ${calcPointer("▶")}` : ""}</span>
-          ${meterTrack(bars.get, maxSide)}
+          ${meterTrack(bars.get, maxSide, barLabel("Get", bars.get.listed, bars.get.stars))}
           <strong>${formatNumber(bars.get.total)}</strong>
         </div>
       </div>
       <div class="calc-actions">
+        ${sharedView ? `<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>` : ""}
         ${bothSides && draftShareCode(view) ? `<button type="button" class="ghost-btn btn-sm calc-share" data-action="trade-share">Share trade</button>` : ""}
-        <button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>
+        ${sharedView ? "" : `<button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>`}
         <p class="calc-share-status" role="status" aria-live="polite"></p>
       </div>
     </section>
   `;
 }
 
-// Cold /t detail line (RECHECK3): lead with the credited totals the verdict
-// compares, then how the stars credit got there, so the numbers never
-// contradict the headline. "Give 19,224 incl. stars. Get 14,457. Listed: Give 11,811 + 7,413 stars."
+// Bar segments: listed price plus a separate stars segment. Private /trade
+// passes its meters (listed totals) and gets no stars segment.
+function sharedBarSegments(model, meters = null) {
+  const adj = model?.adjustment;
+  const side = (key, listed) => {
+    const stars = !meters && adj && (adj.side === "left") === (key === "give") ? Math.round(Number(adj.amount) || 0) : 0;
+    const base = Math.round(Number(meters ? meters[key] : listed) || 0);
+    return { listed: base, stars, total: base + stars };
+  };
+  return { give: side("give", model?.give), get: side("get", model?.get) };
+}
+
+// A bar with a star premium segment carries a text label for screen readers
+// ("Give 21,472 including 8,561 star premium"); the hatch has a visible key.
+function meterTrack(seg, maxSide, label = "") {
+  const pct = (value) => Math.round((value / maxSide) * 1000) / 10;
+  if (!seg.stars) return `<div class="meter-track"><span style="width:${pct(seg.listed)}%"></span></div>`;
+  return `<div class="meter-track meter-split" role="img" aria-label="${escapeHtml(label)}"><span style="width:${pct(seg.listed)}%"></span><span class="meter-stars" style="width:${pct(seg.stars)}%"></span></div>`;
+}
+
+// ◀/▶ beside the bigger side's bar on wide layouts; a plain dot on phones,
+// where the stacked bars leave nothing to point at (RECHECK4).
+function calcPointer(arrow) {
+  return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
+}
+
+// Cold /t detail line: "Give 19,224 (11,811 + 7,413 star premium). Get 14,457."
 function sharedTotalsLine(model) {
   const adj = model.adjustment;
-  const giveStars = adj?.side === "left" ? " incl. stars" : "";
-  const getStars = adj?.side === "right" ? " incl. stars" : "";
-  const listed = adj
-    ? ` Listed: ${adj.side === "left" ? "Give" : "Get"} ${formatNumber(adj.side === "left" ? model.give : model.get)} + ${formatNumber(adj.amount)} stars.`
-    : "";
-  return `Give ${formatNumber(model.compareGive)}${giveStars}. Get ${formatNumber(model.compareGet)}${getStars}.${listed}`;
+  return creditedTotalsLine({
+    giveListed: model.give,
+    getListed: model.get,
+    stars: adj ? adj.amount : 0,
+    starSide: adj ? (adj.side === "left" ? "give" : "get") : "",
+  });
+}
+
+// "Lopsided · Give side…": the dot gets real space on screen (the face's
+// word space is narrow), while the text stays the plain " · " line.
+function verdictLineHtml(line) {
+  return String(line || "").split(" · ").map(escapeHtml).join(` <span class="verdict-dot">·</span> `);
 }
 
 // Shared link: the verdict line. When prices moved since it was shared, a
@@ -7580,13 +7915,13 @@ function sharedTotalsLine(model) {
 function renderSharedVerdictHead(shared) {
   if (!shared.shared) {
     const note = shared.missing ? missingBoardNote(shared.date) : "";
-    return `<h3>${escapeHtml(shared.today.label)}</h3>${note ? `<p class="calc-shared-note">${escapeHtml(note)}</p>` : ""}`;
+    return `<h3>${verdictLineHtml(shared.today.label)}</h3>${note ? `<p class="calc-shared-note">${escapeHtml(note)}</p>` : ""}`;
   }
   return `
     <h3 class="sr-only">Shared on ${escapeHtml(shared.date)}: ${escapeHtml(shared.shared.label)}. Today: ${escapeHtml(shared.today.label)}.</h3>
     <dl class="calc-shared">
-      <div><dt>${escapeHtml(shared.date)}</dt><dd>${escapeHtml(shared.shared.label)}</dd></div>
-      <div class="is-today"><dt>Today</dt><dd><strong>${escapeHtml(shared.today.label)}</strong></dd></div>
+      <div><dt>${escapeHtml(shared.date)}</dt><dd>${verdictLineHtml(shared.shared.label)}</dd></div>
+      <div class="is-today"><dt>Today</dt><dd><strong>${verdictLineHtml(shared.today.label)}</strong></dd></div>
     </dl>
     <p class="calc-shared-note">Prices moved since this was shared.</p>
   `;
@@ -7600,15 +7935,16 @@ function setVerdictInfoOpen(button, open) {
 }
 
 let verdictInfoSeq = 0;
-// The method, credit and even-up notes sit behind one ⓘ button on a shared link.
-function renderVerdictFinePrint(inner) {
+// The method, credit and even-up notes sit behind one ⓘ button on a shared
+// link. The button sits inline at the end of the subline (leadHtml).
+function renderVerdictFinePrint(leadHtml, inner) {
   verdictInfoSeq += 1;
   const id = `verdict-info-${verdictInfoSeq}`;
   const open = Boolean(state.verdictInfoOpen);
   return `
-    <button type="button" class="info-toggle verdict-info-toggle" data-action="verdict-info" aria-expanded="${open}" aria-controls="${id}">
+    <p class="calc-subline">${leadHtml} <button type="button" class="info-toggle verdict-info-toggle" data-action="verdict-info" aria-expanded="${open}" aria-controls="${id}">
       <span aria-hidden="true">ⓘ</span><span class="sr-only">How this verdict works</span>
-    </button>
+    </button></p>
     <div class="verdict-fine-print" id="${id}"${open ? "" : " hidden"}>${inner}</div>
   `;
 }
@@ -7695,11 +8031,12 @@ function buildDraftOfferText(view) {
   const list = (items) => items.map((item) => `${item.name} (${formatNumber(view.priceOf(item))})`).join(", ") || "nothing";
   const partnerName = view.partner?.manager?.displayName || "them";
   const { verdict, adjustment } = view.model;
-  const copy = verdictCopy(verdict);
-  const label = draftVerdictLabel(verdict, { them: partnerName, getFavor: sampleVoice()?.favor || "your", favorName: sampleVoice()?.youGive || "" }) || copy.line;
+  // Same metric and bands as the headline: "Favors one side · My side worth 25% more".
+  const mySide = sampleVoice()?.sideLabel || "my side";
+  const line = verdictLineNamed(verdict, { Give: `${mySide.charAt(0).toUpperCase()}${mySide.slice(1)}`, Get: view.partner?.manager?.displayName ? `${partnerName}'s side` : "The other side" });
   const creditSide = adjustment?.side === "left" ? (sampleVoice()?.sideLabel || "my side") : "their side";
   const credit = adjustment ? ` Package adjustment +${formatNumber(adjustment.amount)} to ${creditSide}.` : "";
-  return `Trade idea: ${view.me?.manager?.displayName || "I"} sends ${list(view.draft.left)} to ${partnerName} for ${list(view.draft.right)}. Market ${formatNumber(view.give)} vs ${formatNumber(view.get)}.${credit} ${verdict.pct}% apart (${label}). Dynasty Ticker prices, ${rankFormatLabel(view.basis.format)}.`;
+  return `Trade idea: ${view.me?.manager?.displayName || "I"} sends ${list(view.draft.left)} to ${partnerName} for ${list(view.draft.right)}. Market ${formatNumber(view.give)} vs ${formatNumber(view.get)}.${credit} ${line}. Dynasty Ticker prices, ${rankFormatLabel(view.basis.format)}.`;
 }
 
 function renderDraftTeam(view) {
@@ -8034,6 +8371,9 @@ function handleWorkspaceClick(event) {
     case "open-public-ranks":
       openPublicRanks();
       break;
+    case "retry-player-metadata":
+      retryPlayerMetadata(event);
+      break;
     case "find-my-leagues":
       if (!state.leagueId) document.querySelector("#landing")?.classList.remove("hidden");
       if (bootIsPending()) {
@@ -8228,6 +8568,28 @@ function handleWorkspaceClick(event) {
     }
     case "verdict-info": {
       setVerdictInfoOpen(target, target.getAttribute("aria-expanded") !== "true");
+      break;
+    }
+    case "shared-edit": {
+      // Inputs stay hidden on a cold /t until the recipient asks to edit.
+      state.sharedEditing = true;
+      if (el.calculatorShell) el.calculatorShell.dataset.sharedEditing = "1";
+      target.closest(".shared-trade-cta")?.remove();
+      el.calculatorShell?.querySelector("[data-draft-side='left'] [data-input='value-search']")?.focus({ preventScroll: true });
+      break;
+    }
+    case "shared-check-own": {
+      event?.preventDefault?.();
+      // Drop the share before the draft write. setDraft would otherwise
+      // replace /t with /trade, and Back would leave the app.
+      state.sharedTrade = null;
+      state.sentShare = null;
+      draftReplaced = null;
+      state.valueCalc = clearValueCalcSides(state.valueCalc);
+      writeStoredDraft(state.valueCalc);
+      renderTradeDraft();
+      updateUrlState({ mode: "push", force: true });
+      el.calculatorShell?.querySelector("[data-input='value-search']")?.focus({ preventScroll: true });
       break;
     }
     case "value-clear": {
@@ -10908,13 +11270,26 @@ function buildPowerBadges({ score, lane, assetSummary, strongestPosition, weakes
   return [...new Set(badges)].slice(0, 5);
 }
 
-function draftAmmoInsight(firstRoundPickCount, lead) {
+function laterFirstHint(lead, roster) {
+  const season = state.league?.season;
+  const onLead = valuedAsMidFirstHint(lead, season);
+  if (onLead) return onLead;
+  const later = (roster?.assets || []).some((asset) => valuedAsMidFirstHint(asset, season));
+  return later ? "Later 1sts are valued as a mid 1st." : "";
+}
+
+function inlineMidFirstHint(hint) {
+  const text = String(hint || "").trim().replace(/\.+$/, "");
+  return text ? ` (${text})` : "";
+}
+
+function draftAmmoInsight(firstRoundPickCount, lead, roster = null) {
   if (!(Number(firstRoundPickCount) > 0)) return null;
   const nextYear = Number(state.league?.season) + 1;
   const leadSeason = Number(lead?.raw?.season);
   const leadSlot = Number(lead?.raw?.projectedDraftSlot);
   const waitingOnSlot = leadSeason === nextYear && !(leadSlot > 0);
-  const leadReady = state.pickProjectionReady && Boolean(lead?.name) && !waitingOnSlot;
+  const leadReady = state.pickProjectionReady && pricesReady() && Boolean(lead?.name) && !waitingOnSlot;
   if (!leadReady) {
     return {
       title: "Your picks",
@@ -10924,9 +11299,10 @@ function draftAmmoInsight(firstRoundPickCount, lead) {
     };
   }
   const count = Number(firstRoundPickCount);
+  const hint = inlineMidFirstHint(laterFirstHint(lead, roster));
   return {
     title: "Your picks",
-    body: `${count} first-round pick${count === 1 ? "" : "s"} owned, led by ${lead.name}.`,
+    body: `${count} first-round pick${count === 1 ? "" : "s"} owned, led by ${lead.name}${hint}.`,
     tone: "gold",
   };
 }
@@ -10937,7 +11313,7 @@ function draftAmmoInsightForRoster(roster) {
     asset,
     value: getAssetValue(asset, state.values),
   })));
-  return draftAmmoInsight(firsts.length, lead);
+  return draftAmmoInsight(firsts.length, lead, roster);
 }
 
 function buildSleeperInsightCards(profile, context) {
@@ -10966,7 +11342,13 @@ function buildSleeperInsightCards(profile, context) {
   }
 
   const ammo = draftAmmoInsight(profile.assetSummary.firstRoundPickCount, profile.assetSummary.leadFirst);
-  if (ammo) insights.push(ammo);
+  if (ammo) {
+    if (ammo.body.includes("led by") && !ammo.body.includes("valued as a mid 1st")) {
+      const hint = inlineMidFirstHint(laterFirstHint(profile.assetSummary.leadFirst, findNormalizedRoster(profile.rosterId)));
+      if (hint) ammo.body = ammo.body.replace(/\.\s*$/, `${hint}.`);
+    }
+    insights.push(ammo);
+  }
 
   if (state.tradedPicks.length > 0) {
     insights.push({
@@ -11253,6 +11635,7 @@ function buildAssetPickerMarkup(asset, { values, contextLabel } = {}) {
     if (asset.raw?.season) pills.push(`<span class="asset-pill">${escapeHtml(asset.raw.season)}</span>`);
     if (asset.raw?.round) pills.push(`<span class="asset-pill">R${escapeHtml(asset.raw.round)}</span>`);
   }
+  const pickHint = asset.assetType === "pick" ? valuedAsMidFirstHint(asset, state.league?.season) : "";
 
   return `
     <div class="asset-row-top">
@@ -11262,6 +11645,7 @@ function buildAssetPickerMarkup(asset, { values, contextLabel } = {}) {
         <div class="asset-meta">
           ${pills.join("")}
           ${contextLabel ? `<span class="asset-context">${escapeHtml(contextLabel)}</span>` : ""}
+          ${pickHint ? `<span class="pick-value-hint">${escapeHtml(pickHint)}</span>` : ""}
         </div>
       </div>
       <span class="asset-value-badge-slot">${renderAssetValueBadge(asset, values)}</span>
@@ -11532,7 +11916,7 @@ async function generateTradeMatches({ userRequested = false } = {}) {
           ),
         });
         const pctDiff = Number(calculatePctDiff(packageResult.myAdjustedValue, packageResult.theirAdjustedValue).toFixed(2));
-        if (pctDiff > Math.max(fairnessPct, 26)) return;
+        if (pctDiff > ideaLimitMore(Math.max(fairnessPct, 26))) return;
         cheapIdeas.push({ deal, packageResult, pctDiff });
       });
       cheapIdeas.sort((a, b) => {
@@ -11999,7 +12383,7 @@ function renderMultiTeamCard(idea, index, values) {
       <div class="multi-team-card-header">
         <div>
           <h3>Idea ${index + 1}</h3>
-          <p class="muted small">${idea.teamCount} teams • max ${idea.maxPctDiff}% diff • added value ${formatNumber(idea.extraMovedValueTotal || 0)} • common value ${formatNumber(idea.commonValue)}</p>
+          <p class="muted small">${idea.teamCount} teams • one side worth up to ${idea.maxPctDiff}% more • added value ${formatNumber(idea.extraMovedValueTotal || 0)} • common value ${formatNumber(idea.commonValue)}</p>
         </div>
         <div class="participant-pill-row">
           ${(idea.tags || []).map((tag) => `<span class="participant-pill">${escapeHtml(tag)}</span>`).join("")}
@@ -12052,7 +12436,7 @@ function renderMultiTeamPartyCard(participant, values, meRosterId) {
       <div class="trade-metrics">
         <div class="trade-metric">
           <strong>Raw balance</strong>
-          send ${formatNumber(participant.outgoingAdjustedValue)} vs receive ${formatNumber(participant.incomingAdjustedValue)} (${participant.pctDiff}% diff)
+          send ${formatNumber(participant.outgoingAdjustedValue)} vs receive ${formatNumber(participant.incomingAdjustedValue)} (${escapeHtml(verdictLineNamed(valueCalcVerdict(participant.outgoingAdjustedValue, participant.incomingAdjustedValue), { Give: "Send side", Get: "Receive side" }))})
         </div>
         <div class="trade-metric">
           <strong>Bridge gap</strong>
@@ -12145,7 +12529,7 @@ function renderTradeCard(idea, index, values) {
         <div class="trade-metrics">
           <div class="trade-metric">
             <strong>Adjusted value</strong>
-            you ${formatNumber(idea.myAdjustedValue)} vs them ${formatNumber(idea.theirAdjustedValue)} (${idea.pctDiff}% apart)
+            you ${formatNumber(idea.myAdjustedValue)} vs them ${formatNumber(idea.theirAdjustedValue)} (${escapeHtml(verdictLineNamed(valueCalcVerdict(idea.myAdjustedValue, idea.theirAdjustedValue), { Give: "Send side", Get: "Receive side" }))})
           </div>
           <div class="trade-metric">
             <strong>Elite premium</strong>
@@ -13226,7 +13610,7 @@ function suggestShopDealsWithRoster({
           globalMaxValue: getGlobalMaxPlayerValue(values, Math.max(shopValue, theirPackage.totalValue || theirPackage.total || 0)),
         });
         const pctDiff = calculatePctDiff(packageResult.myAdjustedValue, packageResult.theirAdjustedValue);
-        if (pctDiff > effectiveFairnessPct) return false;
+        if (pctDiff > ideaLimitMore(effectiveFairnessPct)) return false;
 
         const idea = buildShopTradeIdea({
           myPackage,
@@ -14413,7 +14797,7 @@ function finalizeMultiTeamTradeIdea({
       tradeShape,
     });
     const pctDiff = fairnessMetrics.pctDiff;
-    if (pctDiff > fairnessLimit) return null;
+    if (pctDiff > ideaLimitMore(fairnessLimit)) return null;
 
     const sendToNames = [...new Set(
       participantState.outgoingTransfers
@@ -14554,7 +14938,7 @@ function finalizeMultiTeamTradeIdea({
       structureTag,
       laneTag,
       extraMovedValueTotal <= Math.max(1400, requestedAnchorValueTotal * 0.18) ? "Lean Structure" : extraMovedValueTotal <= Math.max(2600, requestedAnchorValueTotal * 0.34) ? "Controlled Structure" : "Heavy Structure",
-      maxPctDiff <= fairnessLimit * 0.55 ? "Tight Value" : "Flexible Value",
+      maxPctDiff <= oldPctToMore(fairnessLimit * 0.55) ? "Tight Value" : "Flexible Value",
     ],
     summary: buildMultiTeamSummary(participants, focusLabel),
   };
@@ -15934,7 +16318,7 @@ function buildMultiTeamIdeasFromCycle({
       };
     });
 
-    if (participants.some((participant) => participant.pctDiff > effectiveFairnessPct)) continue;
+    if (participants.some((participant) => participant.pctDiff > ideaLimitMore(effectiveFairnessPct))) continue;
 
     const maxPctDiff = Number(Math.max(...participants.map((participant) => participant.pctDiff)).toFixed(2));
     const avgPctDiff = Number((participants.reduce((sum, participant) => sum + participant.pctDiff, 0) / participants.length).toFixed(2));
@@ -15949,7 +16333,7 @@ function buildMultiTeamIdeasFromCycle({
       labScore,
       meRosterId: meRoster.rosterId,
       participants,
-      tags: [`${participantRosters.length} Team`, maxPctDiff <= 6 ? "Tight Value" : "Fair Value"],
+      tags: [`${participantRosters.length} Team`, maxPctDiff <= oldPctToMore(6) ? "Tight Value" : "Fair Value"],
       summary: buildMultiTeamSummary(participants, focusLabel),
     });
   }
@@ -16127,7 +16511,7 @@ function suggestTrades({
         globalMaxValue,
       });
       const pctDiff = calculatePctDiff(packageResult.myAdjustedValue, packageResult.theirAdjustedValue);
-      if (pctDiff > effectiveFairnessPct) return false;
+      if (pctDiff > ideaLimitMore(effectiveFairnessPct)) return false;
       const labDetails = scoreTradeIdea({
         myRoster,
         theirRoster,
@@ -16656,7 +17040,7 @@ function buildFallbackTradeTags(idea) {
   if (idea.theirAssets?.length < idea.myAssets?.length) tags.push("Consolidation");
   if (idea.theirAssets?.length > idea.myAssets?.length) tags.push("Depth Return");
   if (idea.theirAssets?.some(isFirstRoundPick) || idea.myAssets?.some(isFirstRoundPick)) tags.push("Pick Leverage");
-  if (idea.pctDiff <= 6) tags.push("Tight Value");
+  if (idea.pctDiff <= oldPctToMore(6)) tags.push("Tight Value");
   if (tags.length === 0) tags.push("Fair Market");
   return [...new Set(tags)].slice(0, 4);
 }
@@ -16665,7 +17049,7 @@ function buildFallbackTradeSummary(idea) {
   if (idea.powerUpgrade?.summary) return idea.powerUpgrade.summary;
   const incoming = formatAssetNameList(idea.theirAssets || []);
   const outgoing = formatAssetNameList(idea.myAssets || []);
-  return `You turn ${outgoing} into ${incoming} while keeping the adjusted-value gap at ${idea.pctDiff}%.`;
+  return `${outgoing} turns into ${incoming}; after adjustments one side is worth ${idea.pctDiff}% more.`;
 }
 
 function buildFallbackTradePitch(idea) {
@@ -16854,11 +17238,9 @@ function renderPlayerValueMarks(asset, values = state.values, { soon = false, sp
 }
 
 function renderAssetValueBadge(asset, values = state.values) {
-  const value = getAssetValue(asset, values);
-  const missing = isEstimatedAsset(asset, values);
   return `
     <span class="asset-value-badge">
-      <strong>${missing ? "Unavailable" : formatNumber(value)}</strong>
+      <strong>${renderAssetValuePlain(asset, values)}</strong>
     </span>
   `;
 }
@@ -16869,9 +17251,10 @@ function renderPickVaultIntro() {
 }
 
 function renderPickVaultRow(asset, values) {
+  const hint = valuedAsMidFirstHint(asset, state.league?.season);
   const body = `
               <span class="sheet-slot">${escapeHtml(String(asset?.raw?.season || ""))}</span>
-              <div class="sheet-player"><strong>${escapeHtml(asset?.name || "Pick")}</strong></div>
+              <div class="sheet-player"><strong>${escapeHtml(asset?.name || "Pick")}</strong>${hint ? `<span class="pick-value-hint">${escapeHtml(hint)}</span>` : ""}</div>
               <span class="sheet-value mono">${renderAssetValuePlain(asset, values)}</span>
           `;
   return `
@@ -16882,12 +17265,12 @@ function renderPickVaultRow(asset, values) {
 }
 
 function renderAssetValuePlain(asset, values = state.values) {
+  if (!values || Object.keys(values).length === 0) return "…";
   return isEstimatedAsset(asset, values) ? "Unavailable" : formatNumber(getAssetValue(asset, values));
 }
 
 function formatAssetSecondaryLabel(asset, values) {
-  const missing = isEstimatedAsset(asset, values);
-  const parts = [missing ? "Unavailable" : formatNumber(getAssetValue(asset, values))];
+  const parts = [renderAssetValuePlain(asset, values)];
   if (asset.assetType === "player") {
     const position = formatPlayerPositionLabel(asset);
     if (position) parts.push(position);
@@ -17464,6 +17847,11 @@ function applyValuationBundle(bundle, { rerender = true } = {}) {
   state.valuationRevision = Number(state.valuationRevision || 0) + 1;
   state.values = bundle?.values && typeof bundle.values === "object" ? bundle.values : {};
   state.valueNameMap = bundle?.nameMap && typeof bundle.nameMap === "object" ? bundle.nameMap : {};
+  state.players = seedPlayerDirectory();
+  if (Object.keys(state.players).length > 0) {
+    state.playerMetadataLoaded = true;
+    state.playerMetadataFailed = false;
+  }
   refreshCrowdShifts();
   refreshPlayerPositionRanks();
   state.pickValueCatalog = buildPickValuationCatalog(state.values, state.valueNameMap);
@@ -17649,7 +18037,24 @@ function focusUsernameSearch() {
   target?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
+// A cold /t/<code> arrives with a trade-specific <title> and meta from the
+// server (trade-page). Read once, on the first sync (before anything rewrites
+// the title), and keep it while the page still shows that link (L1).
+function serverShareMeta() {
+  if (serverShareMeta.value === undefined) {
+    serverShareMeta.value = /^\/t\/[^/]+\/?$/.test(window.location.pathname) && /\| Dynasty Ticker$/.test(document.title)
+      ? { path: window.location.pathname, title: document.title }
+      : null;
+  }
+  return serverShareMeta.value;
+}
+
 function syncDocumentMeta() {
+  const shareMeta = serverShareMeta();
+  if (shareMeta && window.location.pathname === shareMeta.path && !state.leagueId) {
+    document.title = shareMeta.title;
+    return;
+  }
   if (state.leagueSwitching) {
     applyDocumentMeta(document, {
       title: "Loading league — Dynasty Ticker",
