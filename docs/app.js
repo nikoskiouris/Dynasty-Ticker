@@ -310,7 +310,8 @@ import {
   topOverlay,
   urlPath,
 } from "./modules/history-route.js";
-import { EVEN_UP_OFFER_ABOVE, displayMore, ideaLimitMore, oldPctToMore, STAR_PREMIUM_KEY, TIER_EXPLAINER, barLabel, creditedTotalsLine, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
+import { EVEN_UP_OFFER_ABOVE, displayMore, ideaLimitMore, oldPctToMore, STAR_PREMIUM_KEY, TIER_EXPLAINER, FEWER_BETTER_LINE, PRICE_FACTORS_LINE, UNAVAILABLE_PRICE_LINE, barLabel, creditedTotalsLine, fewerBetterOffer, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
+import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import { bindInfoTips, infoTipMarkup, valuesWorkText } from "./modules/info-tip.js";
 import {
   EXAMPLE_GET,
@@ -8131,12 +8132,12 @@ function evenUpCopy(choice, side) {
 function renderDraftMethod(view) {
   const lines = [
     `Prices are our estimate, scored with a point per catch, ${rankFormatLabel(view.basis.format)}.`,
-    "Age, role, efficiency, availability, team environment, draft investment, and position-specific career retention feed the forecast. Connecting a league never changes a player's price.",
+    PRICE_FACTORS_LINE,
   ];
   if ([...view.priced.values()].some((row) => row.estimated)) {
-    lines.push("Unavailable means the current model snapshot has no supported price for that asset; Dynasty Ticker does not invent a fallback.");
+    lines.push(UNAVAILABLE_PRICE_LINE);
   }
-  lines.push("The best piece counts for more than the same total split into lesser pieces. That package credit changes the trade verdict, not any player's listed price.");
+  lines.push(FEWER_BETTER_LINE);
   lines.push(TIER_EXPLAINER);
   lines.push(sampleVoice()?.methodLineup || "Team impact is separate from price: it asks whether the move helps your starting lineup.");
   return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
@@ -8179,19 +8180,24 @@ function renderDraftVerdict(view) {
   const evenSide = verdict.gap > 0 ? (voice ? voice.youGive : "You") : (view.partner ? them : "They");
   const giveLabel = sharedView ? "Give side" : (voice?.giveLabel || "You give");
   const getLabel = sharedView ? "Get side" : (voice?.getLabel || "You get");
-  const credited = adjustment?.side === "left" ? giveLabel : getLabel;
+  const creditedRows = (adjustment?.side === "left" ? draft.left : draft.right).map((item) => {
+    const hit = view.priced?.get(String(item.uid));
+    return { name: hit?.asset?.name || item.name || "", value: hit?.value || 0, uid: String(item.uid || "") };
+  });
+  const best = bestRowName(creditedRows);
+  const bestPick = bestRowIsPick(creditedRows);
   return `
     <section class="calc-summary ${bothSides ? (sharedView ? copy.publicTone : copy.tone) : ""}">
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
         ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${verdictLineHtml(label)}</h3>`}
         ${sharedView ? renderVerdictFinePrint(escapeHtml(sharedTotalsLine(model)), `
-          ${adjustment ? `<p class="draft-package"><strong>Stars cost extra:</strong> one great player beats a pile of good ones. That adds ${formatNumber(adjustment.amount)} to ${adjustment.side === "left" ? "Give" : "Get"}. Listed prices stay put. After that: ${escapeHtml(copy.detail)}.</p>` : ""}
+          ${starsPremiumMarkup(model, { best, pick: bestPick, shared: true })}
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
         <p>${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}</p>
-        ${adjustment ? `<p class="draft-package"><strong>Package credit:</strong> the best player is worth more than the same total split into smaller pieces. That adds ${formatNumber(adjustment.amount)} to ${escapeHtml(credited)}. Listed prices stay put. After that credit: ${escapeHtml(copy.detail)}.</p>` : ""}
+        ${starsPremiumMarkup(model, { best, pick: bestPick })}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method">
           <summary>How this number works</summary>
@@ -8233,8 +8239,8 @@ function sharedBarSegments(model, meters = null) {
   return { give: side("give", model?.give), get: side("get", model?.get) };
 }
 
-// A bar with a star premium segment carries a text label for screen readers
-// ("Give 21,472 including 8,561 star premium"); the hatch has a visible key.
+// A bar with an extra segment carries a text label for screen readers
+// ("Give 21,472 including 8,561 for fewer, better players"); the hatch has a visible key.
 function meterTrack(seg, maxSide, label = "") {
   const pct = (value) => Math.round((value / maxSide) * 1000) / 10;
   if (!seg.stars) return `<div class="meter-track"><span style="width:${pct(seg.listed)}%"></span></div>`;
@@ -8247,7 +8253,7 @@ function calcPointer(arrow) {
   return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
 }
 
-// Cold /t detail line: "Give 19,224 (11,811 + 7,413 star premium). Get 14,457."
+// Cold /t detail line: "Give 19,224 (11,811 + 7,413 for fewer, better players). Get 14,457."
 function sharedTotalsLine(model) {
   const adj = model.adjustment;
   return creditedTotalsLine({
@@ -8389,7 +8395,7 @@ function buildDraftOfferText(view) {
   const mySide = sampleVoice()?.sideLabel || "my side";
   const line = verdictLineNamed(verdict, { Give: `${mySide.charAt(0).toUpperCase()}${mySide.slice(1)}`, Get: view.partner?.manager?.displayName ? `${partnerName}'s side` : "The other side" });
   const creditSide = adjustment?.side === "left" ? (sampleVoice()?.sideLabel || "my side") : "their side";
-  const credit = adjustment ? ` Package adjustment +${formatNumber(adjustment.amount)} to ${creditSide}.` : "";
+  const credit = adjustment ? ` ${fewerBetterOffer(formatNumber(adjustment.amount), creditSide)}` : "";
   return `Trade idea: ${view.me?.manager?.displayName || "I"} sends ${list(view.draft.left)} to ${partnerName} for ${list(view.draft.right)}. Market ${formatNumber(view.give)} vs ${formatNumber(view.get)}.${credit} ${line}. Dynasty Ticker prices, ${rankFormatLabel(view.basis.format)}.`;
 }
 
@@ -12806,7 +12812,7 @@ function renderMultiTeamPartyCard(participant, values, meRosterId) {
           ${bridgeGapLabel}
         </div>
         <div class="trade-metric">
-          <strong>Package adjustment</strong>
+          <strong>Extra for fewer, better players</strong>
           ${packageAdjustmentLabel}
         </div>
       </div>

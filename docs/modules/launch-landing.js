@@ -3,7 +3,7 @@ import { draftVerdictModel } from "./trade-draft.js";
 import { getGlobalMaxPlayerValue } from "./values.js";
 import { sumValueCalcSide, valueCalcVerdict } from "./value-calc.js";
 import { verdictCopy } from "./verdict-copy.js";
-import { calcPointer, compareMetersMarkup, sharedBarSegments, starsPremiumMarkup } from "./verdict-bars.js";
+import { calcPointer, compareMetersMarkup, sharedBarSegments, starsPremiumMarkup, bestRowName } from "./verdict-bars.js";
 import { tradeHref } from "./history-route.js";
 import { playerSlug } from "./history-route.js";
 
@@ -98,7 +98,7 @@ export function launchExampleMarkup({ values = {}, names = {}, players = {}, glo
       <div class="launch-verdict ${tone}">
         <div class="vt"><b>${escapeHtml(copy.line)}</b></div>
         ${compareMetersMarkup(model)}
-        ${starsPremiumMarkup(model)}
+        ${starsPremiumMarkup(model, { best: bestRowName(model.adjustment?.side === "left" ? give : get) })}
         <span class="meta">Tap to change any player</span>
       </div>
     </a>
