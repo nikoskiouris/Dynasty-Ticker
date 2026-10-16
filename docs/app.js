@@ -365,6 +365,7 @@ import {
   tickerDurationSeconds,
 } from "./modules/site.js";
 import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
+import { pageview as analyticsPageview, track as analyticsTrack, trackShareTapped, trackTradeLinkOpened } from "./modules/analytics.js";
 import {
   DEFAULT_RATHER_FORMAT,
   buildRatherBoard,
@@ -891,6 +892,7 @@ renderSessionSnapshot();
 syncTradeModeUi();
 let searchedUserNoted = false;
 let appBooted = false;
+let routeReports = 0;
 let coldPlayerHeading = false;
 let rankExtrasSettled = true;
 let followHeadingsUntil = 0;
@@ -961,10 +963,12 @@ window.addEventListener("popstate", (event) => {
   const step = routeFocus.pop(next);
   applyDeskPopState(event.state);
   syncRouteA11y({ focus: appBooted ? step.focus : "none", trigger: step.trigger });
+  reportRoute();
 });
 if (isPhoneLayout()) setMobileRailOpen(false);
 
 syncDocumentMeta();
+reportRoute({ first: true });
 appBooted = true;
 focusColdPlayerHeading();
 syncSiteDock();
@@ -1813,6 +1817,7 @@ function updateUrlState({ mode = "replace", force = false } = {}) {
   if (write === "push" && typeof history.pushState === "function") {
     routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
     history.pushState(entry, "", path);
+    reportRoute();
     syncRouteA11y({ focus: appBooted ? "heading" : "none", before });
     return;
   }
@@ -1822,6 +1827,7 @@ function updateUrlState({ mode = "replace", force = false } = {}) {
   }
   routeFocus.forget();
   history.replaceState(entry, "", path);
+  reportRoute();
   // A same-place replace (cold /t -> /trade) still has to drop the shared title.
   syncDocumentMeta();
   if (!appBooted) return;
@@ -1837,6 +1843,20 @@ function updateUrlState({ mode = "replace", force = false } = {}) {
     return;
   }
   syncRouteA11y({ focus: "heading", before });
+}
+
+// One pageview per route change (templated, no ids), plus landing_view when
+// the route lands on the home landing. Analytics is a no-op until a provider
+// adapter is set in modules/analytics.js.
+function reportRoute({ first = false } = {}) {
+  const fresh = analyticsPageview(window.location.pathname, first
+    ? { search: window.location.search, referrer: document.referrer }
+    : {});
+  if (!fresh) return;
+  routeReports += 1;
+  if (window.location.pathname === urlPath() && landingVisible()) {
+    analyticsTrack("landing_view", {}, { once: `route:${routeReports}` });
+  }
 }
 
 function closeHistoryOverlay(kind) {
@@ -2019,7 +2039,13 @@ async function loadSharedTrade(code, draft) {
   if (!decoded) return;
   const entry = { code, decoded, key: draftAssetKey(draft), snapshot: null, snapshotState: decoded.stamp ? "loading" : "none" };
   state.sharedTrade = entry;
-  if (!decoded.stamp) return;
+  // #167: t_opened is sent once per open from the first verdict render after
+  // the archive lookup settles, so drift matches what the page shows.
+  const settle = () => {
+    entry.settled = true;
+    if (state.sharedTrade === entry && el.calculatorShell?.querySelector("#value-calc-verdict")) patchTradeDraft();
+  };
+  if (!decoded.stamp) return settle();
   try {
     // Index first. A stamp that is not listed is not fetched, so a pruned
     // board does not log a console 404.
@@ -2046,7 +2072,7 @@ async function loadSharedTrade(code, draft) {
   } catch {
     entry.snapshotState = "missing";
   }
-  if (state.sharedTrade === entry && el.calculatorShell?.querySelector("#value-calc-verdict")) patchTradeDraft();
+  settle();
 }
 
 function activeSharedTrade(draft = state.valueCalc) {
@@ -2076,6 +2102,10 @@ function sharedVerdictFor(view) {
   const today = shareSummary(entry.decoded, state.valueBundles);
   const shared = entry.snapshot ? shareSummary(entry.decoded, entry.snapshot, {}, state.valueBundles) : null;
   const moved = Boolean(shared) && !sameVerdict(shared, today);
+  if (entry.settled && !entry.reported) {
+    entry.reported = true;
+    trackTradeLinkOpened({ drift: moved });
+  }
   return {
     today,
     shared: moved ? shared : null,
@@ -3336,6 +3366,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     setMobileRailOpen(false, { history: "silent" });
     showAppPages();
     noteSearchedUser(leagueId);
+    analyticsTrack("league_connected", { sample: state.viewingSample ? "yes" : "no" });
     scrollLoadedWorkspaceIntoView();
     const missingTeam = state.meRosterId ? "" : noTeamInLeagueCopy(state.sleeperUser);
     setStatus(
@@ -7760,12 +7791,22 @@ function renderDraftMethod(view) {
   return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
 }
 
+// trade_checked fires once per distinct give/get pair that reaches a verdict.
+// The key stays in memory; only { mode } is sent.
+function noteTradeChecked(draft) {
+  const side = (rows) => rows.map((row) => String(row.assetId || row.uid || "")).sort().join(",");
+  analyticsTrack("trade_checked", { mode: state.leagueId ? "league" : "public" }, {
+    once: `${side(draft.left)}|${side(draft.right)}`,
+  });
+}
+
 function renderDraftVerdict(view) {
   const { draft, model } = view;
   if (!draft.left.length && !draft.right.length) {
     return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. The verdict uses the same prices as Players.</p>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
+  if (bothSides) noteTradeChecked(draft);
   const them = view.partner?.manager?.displayName || "them";
   const voice = sampleVoice();
   const { verdict, adjustment } = model;
@@ -7947,6 +7988,7 @@ async function shareDraftTrade(button) {
   if (typeof navigator.share === "function") {
     try {
       await navigator.share({ title: "Dynasty Ticker trade check", text, url });
+      trackShareTapped("webshare");
       say("Shared.");
       return;
     } catch (error) {
@@ -7958,6 +8000,7 @@ async function shareDraftTrade(button) {
   }
   try {
     await navigator.clipboard.writeText(url);
+    trackShareTapped("copy");
     say("Link copied.");
   } catch {
     say(`Copy this link: ${url}`);
