@@ -2526,6 +2526,18 @@ body:not(.league-loaded) .workspace-header {
   gap: 1rem;
 }
 
+.roster-names-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  margin: 0;
+}
+
+.roster-names-retry {
+  flex: 0 0 auto;
+}
+
 .sheet-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

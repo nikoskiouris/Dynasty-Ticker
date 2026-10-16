@@ -3744,10 +3744,13 @@ function loadSlimPlayersFile() {
       .then((response) => (response?.ok ? response.json() : null))
       .then((payload) => {
         const players = playersFromSlimFile(payload);
-        slimDirectory = players;
-        if (Object.keys(players).length && state.leagueId) {
-          commitPlayerDirectory(players, { hydrate: false });
+        if (!Object.keys(players).length) {
+          // An empty or blocked file must not stick, so Retry can fetch it again.
+          slimDirectoryPromise = null;
+          return players;
         }
+        slimDirectory = players;
+        if (state.leagueId) commitPlayerDirectory(players, { hydrate: false });
         return players;
       })
       .catch((err) => {
@@ -4343,6 +4346,45 @@ function renderMetadataPlaceholder() {
   return `<span class="meta-pending" aria-hidden="true">…</span>`;
 }
 
+function retryPlayerMetadata(event) {
+  event?.preventDefault?.();
+  if (!state.leagueId || !state.playerMetadataFailed) return;
+  const leagueId = state.leagueId;
+  const epoch = playerLoadEpoch;
+  state.playerMetadataFailed = false;
+  syncTradeModeUi();
+  requestActivePageRender();
+  loadPlayersWithCache()
+    .then((players) => {
+      if (epoch !== playerLoadEpoch || String(state.leagueId) !== String(leagueId)) return;
+      if (players && Object.keys(players).length) {
+        commitPlayerDirectory(players, { epoch, leagueId, hydrate: true });
+      }
+      if (epoch !== playerLoadEpoch || String(state.leagueId) !== String(leagueId)) return;
+      const gaps = state.normalizedRosters.some((roster) => (roster.assets || []).some((asset) => {
+        const gap = assetMetadataGap(asset);
+        return gap.name || gap.position;
+      }));
+      if (!gaps) return;
+      state.playerMetadataLoaded = false;
+      state.playerMetadataFailed = true;
+      syncTradeModeUi();
+      requestActivePageRender();
+    })
+    .catch((err) => {
+      if (epoch !== playerLoadEpoch || String(state.leagueId) !== String(leagueId) || err?.name === "AbortError") return;
+      const gaps = state.normalizedRosters.some((roster) => (roster.assets || []).some((asset) => {
+        const gap = assetMetadataGap(asset);
+        return gap.name || gap.position;
+      }));
+      if (!gaps && Object.keys(state.players).length > 0) return;
+      state.playerMetadataLoaded = false;
+      state.playerMetadataFailed = true;
+      syncTradeModeUi();
+      requestActivePageRender();
+    });
+}
+
 function renderRosterDirectory(roster) {
   const values = state.values;
   const players = roster.assets
@@ -4359,7 +4401,7 @@ function renderRosterDirectory(roster) {
   const loadingPlayers = namingGap && !state.playerMetadataFailed;
   const failedPlayers = state.playerMetadataFailed && players.some((asset) => assetMetadataGap(asset).name);
   const failedNote = failedPlayers
-    ? `<p class="muted small">Player metadata unavailable. Rosters and trade search still work with fallback values.</p>`
+    ? `<p class="muted small roster-names-note">Player names couldn't load. Values still work; try again later. <button type="button" class="ghost-btn roster-names-retry" data-action="retry-player-metadata">Retry</button></p>`
     : "";
   const loadingLabel = loadingPlayers ? `<span class="sr-only">Loading player</span>` : "";
   const failedLabel = failedPlayers ? `<span class="sr-only">Player details unavailable</span>` : "";
@@ -4373,14 +4415,23 @@ function renderRosterDirectory(roster) {
         ${failedLabel}
         ${players.map((asset) => {
           const gap = assetMetadataGap(asset);
-          const name = gap.name ? renderMetadataPlaceholder() : escapeHtml(asset.name || "…");
-          const position = gap.position ? renderMetadataPlaceholder() : escapeHtml(formatPlayerPositionLabel(asset));
-          const team = gap.team ? renderMetadataPlaceholder() : escapeHtml(String(asset.raw?.team || ""));
+          const name = gap.name
+            ? (failedPlayers ? "Unknown player" : renderMetadataPlaceholder())
+            : escapeHtml(asset.name || "…");
+          const position = gap.position
+            ? (failedPlayers ? "" : renderMetadataPlaceholder())
+            : escapeHtml(formatPlayerPositionLabel(asset));
+          const team = gap.team
+            ? (failedPlayers ? "" : renderMetadataPlaceholder())
+            : escapeHtml(String(asset.raw?.team || ""));
+          const meta = failedPlayers
+            ? [position, team].filter(Boolean).join(" · ")
+            : `${position}${team ? ` · ${team}` : ""}`;
           return `
             <div class="${rowClass}">
               <div class="sheet-player">
                 <strong>${name}</strong>
-                <span>${position}${team ? ` · ${team}` : ""}</span>
+                ${meta ? `<span>${meta}</span>` : ""}
               </div>
               <span class="sheet-value mono">${renderAssetValuePlain(asset, values)}</span>
             </div>
@@ -7957,6 +8008,9 @@ function handleWorkspaceClick(event) {
     }
     case "open-public-ranks":
       openPublicRanks();
+      break;
+    case "retry-player-metadata":
+      retryPlayerMetadata(event);
       break;
     case "find-my-leagues":
       if (!state.leagueId) document.querySelector("#landing")?.classList.remove("hidden");
