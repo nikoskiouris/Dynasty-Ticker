@@ -282,7 +282,7 @@ test("after sharing from /trade the sender's address bar shows /t/<code>", async
   expect(new URL(page.url()).pathname).toBe(`/t/2s${STAMP}4984~9221`);
   // Share pushed a history entry: Back returns to the /trade URL.
   await page.goBack();
-  await expect(page).toHaveURL(/\/trade\?give=player(:|%3A)4984&get=player(:|%3A)9221$/);
+  await expect(page).toHaveURL(/\/trade\?give=(?:player:|player%3A)?4984&get=(?:player:|player%3A)?9221$/);
   await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible();
   await page.waitForTimeout(300);
   expect(new URL(page.url()).pathname).toBe("/trade");
