@@ -134,6 +134,14 @@ test("a /t link sends one t_opened with drift no, and Share copy sends share_tap
 
 test("a dated /t link whose prices moved sends t_opened drift yes; the share sheet sends webshare", async ({ page }) => {
   const OLD = "202610071117";
+  await page.route("**/data/price-history/index.json", async (route) => {
+    const index = await (await route.fetch()).json();
+    const snapshots = Array.isArray(index.snapshots) ? index.snapshots.slice() : [];
+    if (!snapshots.some((row) => row?.stamp === OLD)) {
+      snapshots.push({ asOf: "2026-10-07T11:17:00+00:00", stamp: OLD });
+    }
+    await route.fulfill({ json: { ...index, snapshots } });
+  });
   await page.route(`**/data/price-history/${OLD}.json`, (route) => route.fulfill({
     contentType: "application/json",
     body: JSON.stringify({ asOf: "2026-10-07T11:17:00+00:00", sf: { ...VALUES_167.sf, "player:9221": VALUES_167.sf["player:9221"] * 2 }, oneQb: VALUES_167.oneQb }),

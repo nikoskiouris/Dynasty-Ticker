@@ -107,6 +107,16 @@ for (const viewport of viewports) {
 
   test(`a dated link whose prices moved shows shared and today at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     // An older archived board where Gibbs cost twice as much.
+    // #166 only fetches a stamp the price-history index lists, so the mocked
+    // board has to be listed or the app treats it as pruned.
+    await page.route("**/data/price-history/index.json", async (route) => {
+      const index = await (await route.fetch()).json();
+      const snapshots = Array.isArray(index.snapshots) ? index.snapshots.slice() : [];
+      if (!snapshots.some((row) => row?.stamp === OLD)) {
+        snapshots.push({ asOf: "2026-10-07T11:17:00+00:00", stamp: OLD });
+      }
+      await route.fulfill({ json: { ...index, snapshots } });
+    });
     await page.route(`**/data/price-history/${OLD}.json`, (route) => route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({ asOf: "2026-10-07T11:17:00+00:00", sf: { ...VALUES.sf, "player:9221": VALUES.sf["player:9221"] * 2 }, oneQb: VALUES.oneQb }),
