@@ -2661,7 +2661,7 @@ function renderLeagueHero() {
             : "Matchups are syncing.";
   const sampleNote = state.viewingSample ? (sampleVoice()?.accountNote || "Public sample — not this account. ") : "";
   const formatTip = tepLevel(league) > 0
-    ? ` ${infoTipMarkup({ id: "pop-hero-format", label: "Scoring", text: "(values stay full PPR)" })}`
+    ? ` ${infoTipMarkup({ id: "pop-hero-format", label: "Scoring", text: "Values use 1 point per catch at every position, even with the TE bonus." })}`
     : "";
   el.heroLede.innerHTML = `${escapeHtml(`${sampleNote}${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`)}${formatTip}`;
   if (el.leagueAvatar) {
@@ -5341,7 +5341,7 @@ function renderStandingsPanel(model, sim) {
       </div>
       <div class="standings-table">
         <div class="standings-head">
-          <span>#</span><span>Team</span><span>W-L</span><span class="col-pf">Points</span><span class="col-pa">PA</span><span class="col-streak">Strk</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
+          <span>#</span><span>Team</span><span>Record</span><span class="col-pf">Points</span><span class="col-pa">PA</span><span class="col-streak">Strk</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
         </div>
         ${rowsHtml}
       </div>
@@ -10007,13 +10007,13 @@ function renderHallBoard(history) {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">All-time hall</span>
-          <h3>Titles, career W-L, playoff trips</h3>
+          <h3>Titles, career record, playoff trips</h3>
         </div>
-        <p class="section-copy">Who has the rings. Career W-L is the rest of the story.</p>
+        <p class="section-copy">Who has the rings. Career record is the rest of the story.</p>
       </div>
       <div class="hall-table">
         <div class="hall-head">
-          <span>#</span><span>Mgr</span><span>Titles</span><span>W-L</span><span>PO</span>
+          <span>#</span><span>Mgr</span><span>Titles</span><span>Record</span><span>PO</span>
         </div>
         ${hall.map((row, index) => `
           <div class="hall-row ${row.managerKey === meKey ? "you" : ""}">
@@ -11285,7 +11285,7 @@ function buildSleeperInsightCards(profile, context) {
     body: formatInsight,
     tone: "blue",
     tipHtml: tepLevel(context.league) > 0
-      ? infoTipMarkup({ id: "pop-league-format", label: "Scoring", text: "(values stay full PPR)" })
+      ? infoTipMarkup({ id: "pop-league-format", label: "Scoring", text: "Values use 1 point per catch at every position, even with the TE bonus." })
       : "",
   });
 
@@ -11350,7 +11350,7 @@ function describeLeagueFormat(league) {
   const scoring = league?.scoring_settings || {};
   const receptionValue = Number(scoring.rec);
   const pprLabel = Number.isFinite(receptionValue)
-    ? receptionValue >= 1 ? "PPR" : receptionValue > 0 ? `${receptionValue} PPR` : "standard"
+    ? receptionValue >= 1 ? "1 point per catch" : receptionValue > 0 ? `${receptionValue} PPR` : "standard"
     : "custom scoring";
   const taxiSlots = Number(league?.settings?.taxi_slots || 0);
   const draftRounds = Number(league?.settings?.draft_rounds || 0);
@@ -11361,7 +11361,7 @@ function describeLeagueFormat(league) {
     `${slots.length} starters`,
   ];
   if (tepLevel(league) > 0) parts.push("TE bonus");
-  if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi`);
+  if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi spots`);
   if (leagueUsesFuturePicks(league) && draftRounds > 0) parts.push(`${draftRounds}-round rookie draft`);
   return parts.join(" • ");
 }
@@ -13185,7 +13185,9 @@ function plainRosterStatus(status) {
 
 function formatRosterSlotLabel(slot) {
   const labels = {
-    SUPER_FLEX: "SFlex",
+    SUPER_FLEX: "Superflex",
+    SUPERFLEX: "Superflex",
+    SF: "Superflex",
     IR: "Injured reserve",
     REC_FLEX: "Rec Flex",
     WRRB_FLEX: "RB/WR",
