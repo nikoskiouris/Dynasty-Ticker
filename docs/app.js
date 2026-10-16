@@ -1692,7 +1692,7 @@ function focusLeagueRoomHeading(room) {
   if (!appBooted || Date.now() >= followHeadingsUntil) return;
   if (room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
   if (state.activePage !== "league" || getRoom() !== room) return;
-  focusHeadingWhenPresent(document, `[data-room-panel="${room}"] h2`);
+  focusHeadingWhenPresent(document, headingSelectorFor({ page: "league", view: room }));
 }
 
 function focusColdPlayerHeading() {
@@ -1798,6 +1798,8 @@ function updateUrlState({ mode = "replace", force = false } = {}) {
   const path = deskUrlPath();
   const snapshot = historyPlaceNow();
   const currentPath = `${window.location.pathname}${window.location.search}`;
+  const nextPath = String(path || "").split("?")[0] || "/";
+  const here = window.location.pathname || "/";
   const pathChanged = currentPath !== path;
   const placeWrite = decideHistoryWrite({
     current: history.state || {},
@@ -1818,6 +1820,12 @@ function updateUrlState({ mode = "replace", force = false } = {}) {
   }
   if (write === "silent") {
     routeFocus.forget();
+    return;
+  }
+  // A league is open. Keep the /l/ path, and still store the new history state.
+  if (state.leagueId && nextPath === "/" && here.startsWith("/l/")) {
+    routeFocus.forget();
+    history.replaceState(entry, "", here);
     return;
   }
   routeFocus.forget();
@@ -3153,6 +3161,24 @@ function rememberPickedLeague(leagueId) {
   if (applyingHistory || typeof history?.replaceState !== "function") return;
   const nextSearch = stampPickedLeagueSearch(window.location.search, leagueId);
   if (!nextSearch) return;
+  const here = window.location.pathname || "/";
+  // Home has no league path. Push the place the manager is already on, or the team.
+  // Do not replaceState onto "/".
+  if ((here === "/" || here === "") && leagueOpenedInApp && typeof history.pushState === "function") {
+    const place = historyPlaceNow();
+    const picked = pathForPlace({
+      ...place,
+      leagueId,
+      playerName: routePlayerName(),
+      give: draftSideIds("left"),
+      get: draftSideIds("right"),
+      shareCode: activeShareCode(),
+    });
+    const next = picked && picked !== urlPath() ? picked : urlPath("l", leagueId, "team");
+    routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
+    history.pushState({ ...place, pushed: true }, "", next);
+    return;
+  }
   if (leagueOpenedInApp && typeof history.pushState === "function") {
     routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
     history.pushState({ ...historyPlaceNow(), pushed: true }, "", `${window.location.pathname}${window.location.search}`);
@@ -3417,6 +3443,10 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       startLivePolling();
     }
     setLeagueSwitchStale(failedSwitch);
+    if (!state.leagueId && String(window.location.pathname || "").startsWith("/l/") && typeof history?.replaceState === "function") {
+      history.replaceState({ ...historyPlaceNow(), pushed: false }, "", urlPath());
+      syncDocumentMeta();
+    }
   } finally {
     if (leagueLoader.isCurrent(token)) stopLeagueLoadingUi();
   }
