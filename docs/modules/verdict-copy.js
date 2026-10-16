@@ -40,11 +40,19 @@ export const UNAVAILABLE_PRICE_LINE = "Unavailable means we do not have a price 
 export const FEWER_BETTER_LINE = "Fewer, better players are worth extra compared with the same total split into smaller pieces. That extra changes the trade verdict, not any player's listed price.";
 
 // side: "give" or "get", the side that has the best player and gets the extra.
-export function fewerBetterBody(amountText, side, bestName = "") {
+// opts.pick: the best asset is a draft pick, so say "piece" instead of "player".
+// opts.shared: a shared /t link, which talks about the Give side / Get side, not "you".
+export function fewerBetterBody(amountText, side, bestName = "", { pick = false, shared = false } = {}) {
   const name = String(bestName || "").trim();
-  const who = name ? `${name} is the best player in this deal.` : "The best player in this deal is on this side.";
-  const what = side === "get" ? "what you get" : "what you give";
-  return `${who} One great player is worth more than several smaller ones adding up to the same total, so we add ${amountText} to ${what}. Player prices don't change.`;
+  const noun = pick ? "piece" : "player";
+  const sideWord = side === "get" ? "get" : "give";
+  const sideLabel = sideWord === "get" ? "Get side" : "Give side";
+  let who;
+  if (name && pick) who = `${/^the\s/i.test(name) ? name : `The ${name}`} is the best piece in this deal.`;
+  else if (name) who = `${name} is the best player in this deal.`;
+  else who = shared ? `The best ${noun} in this deal is on the ${sideLabel}.` : `The best ${noun} in this deal is on the ${sideWord} side.`;
+  const what = shared ? `the ${sideLabel}` : `what you ${sideWord}`;
+  return `${who} One great ${noun} is worth more than several smaller ones adding up to the same total, so we add ${amountText} to ${what}. Player prices don't change.`;
 }
 
 export function fewerBetterOffer(amountText, side) {

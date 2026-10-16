@@ -88,7 +88,7 @@ test("the verdict explanation is plain English and keeps the numbers", () => {
   assert.match(paragraph, /<strong>Fewer, better players:<\/strong> Bijan Robinson is the best player in this deal\. One great player is worth more than several smaller ones adding up to the same total, so we add 7,413 to what you give\. Player prices don&#39;t change\.<\/p>/);
   assert.doesNotMatch(paragraph, /After that|getting fewer|adds 7,413 to You give/);
   assert.match(paragraphGet, /Ja&#39;Marr Chase is the best player in this deal\. .*so we add 1,500 to what you get\./);
-  assert.match(paragraphNoName, /The best player in this deal is on this side\. .*so we add 1,500 to what you get\./);
+  assert.match(paragraphNoName, /The best player in this deal is on the get side\. .*so we add 1,500 to what you get\./);
   assert.equal(FEWER_BETTER_LINE, "Fewer, better players are worth extra compared with the same total split into smaller pieces. That extra changes the trade verdict, not any player's listed price.");
   assert.match(TIER_EXPLAINER, /including the extra for fewer, better players/);
   assert.match(TIER_EXPLAINER, /Within 5% is a fair trade, up to 14% more is a fair, slight edge, up to 28% more favors one side, and more than 28% is lopsided\./);
@@ -120,7 +120,7 @@ test("the verdict explanation source no longer says package credit or star premi
   const meta = readFileSync(new URL("../netlify/lib/trade-share.js", import.meta.url), "utf8");
   const source = [app, bars, copy, share, cardJs, meta].join("\n");
   assert.doesNotMatch(source, /Package credit|package credit|Package adjustment|package adjustment|Stars cost extra|star premium|stars cost extra/i);
-  assert.equal((app.match(/starsPremiumMarkup\(model, \{ best \}\)/g) || []).length, 2);
+  assert.equal((app.match(/starsPremiumMarkup\(model, \{ best, pick: bestPick(, shared: true)? \}\)/g) || []).length, 2);
   assert.doesNotMatch(app, /starsPremiumMarkup\(model, \{[^}]*detail/);
   assert.match(app, /fewerBetterOffer\(formatNumber\(adjustment\.amount\), creditSide\)/);
   assert.match(app, /PRICE_FACTORS_LINE,/);
@@ -134,4 +134,21 @@ test("the extra names the best player and lands on the side that has him", async
   assert.equal(bestRowName([]), "");
   assert.match(fewerBetterBody("7,413", "give", "Bijan Robinson"), /^Bijan Robinson is the best player in this deal\..*to what you give\. Player prices don't change\.$/);
   assert.match(fewerBetterBody("7,413", "get", "Bijan Robinson"), /to what you get\./);
+});
+
+test("a draft pick as the best asset reads as a piece, not a player", async () => {
+  const { bestRowIsPick, starsPremiumMarkup: markup } = await import("../docs/modules/verdict-bars.js");
+  assert.equal(fewerBetterBody("7,413", "get", "2027 Early 1st", { pick: true }),
+    "The 2027 Early 1st is the best piece in this deal. One great piece is worth more than several smaller ones adding up to the same total, so we add 7,413 to what you get. Player prices don't change.");
+  assert.doesNotMatch(fewerBetterBody("7,413", "give", "2027 Early 1st", { pick: true }), /best player|great player/);
+  assert.match(fewerBetterBody("7,413", "give", "Bijan Robinson"), /^Bijan Robinson is the best player in this deal\. One great player/);
+  assert.equal(bestRowIsPick([{ name: "2027 Early 1st", value: 9000, uid: "pick:2027:r1:early" }, { name: "Malik Nabers", value: 5000 }]), true);
+  assert.equal(bestRowIsPick([{ name: "Malik Nabers", value: 9000, uid: "11632" }, { name: "2027 Early 1st", value: 5000 }]), false);
+  assert.equal(bestRowIsPick([{ name: "2027 Early 1st", value: 9000 }]), true);
+  // Shared /t fine print uses Give side / Get side wording.
+  const shared = markup({ adjustment: { amount: 1500, side: "right" } }, { best: "2027 Early 1st", pick: true, shared: true });
+  assert.match(shared, /The 2027 Early 1st is the best piece in this deal\. One great piece .*so we add 1,500 to the Get side\./);
+  assert.equal(fewerBetterBody("1,500", "give", "", { shared: true }),
+    "The best player in this deal is on the Give side. One great player is worth more than several smaller ones adding up to the same total, so we add 1,500 to the Give side. Player prices don't change.");
+  assert.match(fewerBetterBody("1,500", "give", ""), /^The best player in this deal is on the give side\./);
 });

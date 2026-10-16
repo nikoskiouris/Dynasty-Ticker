@@ -28,11 +28,11 @@ export function calcPointer(arrow) {
 
 // Why the verdict moved: fewer, better players are worth extra. Listed prices stay in the rows.
 // best: the name of the most valuable player on the credited side, when known.
-export function starsPremiumMarkup(model, { best = "" } = {}) {
+export function starsPremiumMarkup(model, { best = "", pick = false, shared = false } = {}) {
   const adj = model?.adjustment;
   if (!adj || !(adj.amount > 0)) return "";
   const side = adj.side === "left" ? "give" : "get";
-  return `<p class="draft-package"><strong>${escapeHtml(FEWER_BETTER_LABEL)}:</strong> ${escapeHtml(fewerBetterBody(formatNumber(adj.amount), side, best))}</p>`;
+  return `<p class="draft-package"><strong>${escapeHtml(FEWER_BETTER_LABEL)}:</strong> ${escapeHtml(fewerBetterBody(formatNumber(adj.amount), side, best, { pick, shared }))}</p>`;
 }
 
 // The highest-valued row's name. rows: [{ name, value }].
@@ -40,9 +40,25 @@ export function bestRowName(rows = []) {
   let top = null;
   for (const row of rows || []) {
     const value = Number(row?.value) || 0;
-    if (!top || value > top.value) top = { value, name: String(row?.name || "").trim() };
+    if (!top || value > top.value) top = { value, name: String(row?.name || "").trim(), pick: isPickRow(row) };
   }
   return top?.name || "";
+}
+
+function isPickRow(row) {
+  if (row?.pick != null) return Boolean(row.pick);
+  if (/^pick:/i.test(String(row?.uid || ""))) return true;
+  return /^\d{4}\s.*\b(1st|2nd|3rd|\d+th|round)\b/i.test(String(row?.name || ""));
+}
+
+// Whether the highest-valued row is a draft pick. rows: [{ name, value, uid? }].
+export function bestRowIsPick(rows = []) {
+  let top = null;
+  for (const row of rows || []) {
+    const value = Number(row?.value) || 0;
+    if (!top || value > top.value) top = { value, row };
+  }
+  return top ? isPickRow(top.row) : false;
 }
 
 // One comparison bar. Each side's flex is its credited total, so the wider

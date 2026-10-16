@@ -311,7 +311,7 @@ import {
   urlPath,
 } from "./modules/history-route.js";
 import { EVEN_UP_OFFER_ABOVE, displayMore, ideaLimitMore, oldPctToMore, STAR_PREMIUM_KEY, TIER_EXPLAINER, FEWER_BETTER_LINE, PRICE_FACTORS_LINE, UNAVAILABLE_PRICE_LINE, barLabel, creditedTotalsLine, fewerBetterOffer, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
-import { bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
+import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import { bindInfoTips, infoTipMarkup, valuesWorkText } from "./modules/info-tip.js";
 import {
   EXAMPLE_GET,
@@ -8182,21 +8182,22 @@ function renderDraftVerdict(view) {
   const getLabel = sharedView ? "Get side" : (voice?.getLabel || "You get");
   const creditedRows = (adjustment?.side === "left" ? draft.left : draft.right).map((item) => {
     const hit = view.priced?.get(String(item.uid));
-    return { name: hit?.asset?.name || item.name || "", value: hit?.value || 0 };
+    return { name: hit?.asset?.name || item.name || "", value: hit?.value || 0, uid: String(item.uid || "") };
   });
   const best = bestRowName(creditedRows);
+  const bestPick = bestRowIsPick(creditedRows);
   return `
     <section class="calc-summary ${bothSides ? (sharedView ? copy.publicTone : copy.tone) : ""}">
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
         ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${verdictLineHtml(label)}</h3>`}
         ${sharedView ? renderVerdictFinePrint(escapeHtml(sharedTotalsLine(model)), `
-          ${starsPremiumMarkup(model, { best })}
+          ${starsPremiumMarkup(model, { best, pick: bestPick, shared: true })}
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
         <p>${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}</p>
-        ${starsPremiumMarkup(model, { best })}
+        ${starsPremiumMarkup(model, { best, pick: bestPick })}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method">
           <summary>How this number works</summary>
