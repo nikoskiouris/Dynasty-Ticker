@@ -49,8 +49,11 @@ import {
   SLEEPER_UNREACHABLE_MESSAGE,
   createLeagueLoadRecovery,
   failedLeagueSwitch,
+  isLeagueNotFound,
   leagueLoadErrorMessage,
   leagueLoadErrorVisibility,
+  leagueNotFoundError,
+  sleeperLeagueMissing,
   leagueNameForId,
   leagueSwitchFailureCopy,
 } from "./modules/league-load-error.js";
@@ -357,6 +360,7 @@ import {
 import {
   applyDocumentMeta,
   buildDocumentTitle,
+  holdDocumentTitle,
   buildPageDescription,
   clearSampleBannerDismissal,
   focusAfterSampleBannerDismiss,
@@ -680,6 +684,7 @@ el.leagueStatusRetry?.addEventListener("click", retryUserLeagueSearch);
 el.landingSearchRetry?.addEventListener("click", retryUserLeagueSearch);
 document.getElementById("landing-league-retry")?.addEventListener("click", retryFailedLeagueLoad);
 document.getElementById("desk-load-retry")?.addEventListener("click", retryFailedLeagueLoad);
+document.getElementById("sleeper-down-retry")?.addEventListener("click", retryFailedLeagueLoad);
 document.getElementById("desk-load-dismiss")?.addEventListener("click", dismissFailedLeagueLoad);
 el.leaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingLeaguePicker?.addEventListener("click", handleLeaguePickClick);
@@ -889,6 +894,8 @@ el.seasonsDashboard?.addEventListener("click", handleHistoryCompareClick);
 el.seasonsDashboard?.addEventListener("change", handleHistoryCompareChange);
 
 let sampleBannerOff = false;
+let leagueMissing = false;
+let sleeperUnreachable = false;
 let connectAsked = false;
 const ratherBootGate = createRatherBootGate();
 setDeskBoardShut(readDeskBoardShut());
@@ -949,7 +956,9 @@ document.addEventListener("focusin", () => {
   requestAnimationFrame(() => restoreHeldFocus());
 }, true);
 window.addEventListener("resize", syncDeskRailOffset);
-if (!(bootRoute?.leagueId || parseShareParams(window.location.search).leagueId)) {
+if (bootRoute?.badLeague) {
+  showLeagueNotFound();
+} else if (!(bootRoute?.leagueId || parseShareParams(window.location.search).leagueId)) {
   const place = state.pendingPlace;
   const waitingOnLeague = place?.page === "league";
   if (!waitingOnLeague) state.pendingPlace = null;
@@ -999,7 +1008,14 @@ window.addEventListener("popstate", (event) => {
   const after = routePlaceNow();
   const focus = !appBooted ? "none" : (leagueRoomMove(before, after) ? "heading" : step.focus);
   void focusAfterPopstate({ focus, trigger: step.trigger, before, token });
+  const followTitle = () => syncDocumentMeta();
+  setTimeout(followTitle, 0);
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => setTimeout(followTitle, 0));
   reportRoute();
+});
+window.addEventListener("pageshow", (event) => {
+  if (!event.persisted) return;
+  syncDocumentMeta();
 });
 if (isPhoneLayout()) setMobileRailOpen(false);
 
@@ -1092,6 +1108,7 @@ function invalidateResults() {
 }
 
 function showAppPages() {
+  hideLeagueNotFound();
   publicRanksOpen = false;
   publicRanksHistory = false;
   if (el.publicRanks) {
@@ -1575,8 +1592,10 @@ function bootFromUrl() {
   if (parsed.invalidLeague) showInvalidLeagueLink();
   if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
   const hashToken = String(window.location.hash || "").replace(/^#/, "");
-  const routeDrivesPlace = route.name !== "home" && !route.unknown;
-  if (route.name === "connect" && route.next) {
+  const routeDrivesPlace = route.name !== "home" && !route.unknown && !route.badLeague;
+  if (route.badLeague) {
+    // Stay on /l/… The not-found state is painted after boot.
+  } else if (route.name === "connect" && route.next) {
     const next = matchRoute(route.next);
     if (next) connectNextPlace = { page: next.page, room: next.room };
   } else if (routeDrivesPlace) {
@@ -2058,6 +2077,9 @@ function updateUrlState({ mode = "replace", force = false } = {}) {
   const write = force && mode === "push" && pathChanged ? "push" : placeWrite;
   const pushed = write === "push" ? true : (write === "replace" && sameHistoryPlace(history.state || {}, snapshot) && Boolean(history.state?.pushed));
   const entry = { ...snapshot, pushed };
+  // The history entry keeps whatever document.title is right now. Set the
+  // rendered title first so Back cannot restore an outage title onto a team.
+  syncDocumentMeta();
   if (write === "push" && typeof history.pushState === "function") {
     routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
     history.pushState(entry, "", path);
@@ -2142,6 +2164,12 @@ function applyDeskPopState(historyState) {
     state.leagueSwitching = false;
     stopLeagueLoadingUi();
   }
+  if (route.badLeague) {
+    if (state.leagueId) unloadLeague();
+    showLeagueNotFound();
+    return;
+  }
+  hideLeagueNotFound();
   if (route.unknown) {
     if (state.leagueId) unloadLeague();
     document.querySelector("#landing")?.classList.remove("hidden");
@@ -2189,7 +2217,7 @@ function applyDeskPopState(historyState) {
     document.querySelector("#landing")?.classList.remove("hidden");
     state.ranks.selectedId = "";
   }
-  connectAsked = route.name === "connect";
+  connectAsked = route.name === "connect" || Boolean(historyState?.connectAsked);
   const connectBox = document.querySelector("#landing-connect");
   if (connectBox) connectBox.hidden = !connectAsked;
   applyDeskPlaceFromHistory(parsed, historyState);
@@ -2384,7 +2412,10 @@ function syncLaunchChrome() {
   const trades = document.querySelector("#trades-page");
   const league = document.querySelector("#league-page");
   const onOther = (trades && !trades.classList.contains("hidden")) || (league && !league.classList.contains("hidden"));
-  const open = landingVisible() && !onOther && !state.leagueId;
+  // A missing league and a Sleeper outage are still the no-league screen:
+  // one h1, and no "Your Sleeper league" subtitle.
+  const bare = (landingVisible() || leagueMissing || sleeperUnreachable) && !state.leagueId;
+  const open = bare && !onOther;
   document.body.classList.toggle("launch-open", open);
 }
 
@@ -3459,6 +3490,9 @@ function rememberPickedLeague(leagueId) {
   if (applyingHistory || typeof history?.replaceState !== "function") return;
   const nextSearch = stampPickedLeagueSearch(window.location.search, leagueId);
   if (!nextSearch) return;
+  // An in-app switch pushes only after the new league loads. Pushing the
+  // current league first leaves a duplicate, so the first Back does nothing.
+  if (Boolean(state.leagueId) && String(state.leagueId) !== String(leagueId)) return;
   const here = window.location.pathname || "/";
   // Home has no league path. Push the place the manager is already on, or the team.
   // Do not replaceState onto "/".
@@ -3482,6 +3516,15 @@ function rememberPickedLeague(leagueId) {
     history.pushState({ ...historyPlaceNow(), pushed: true }, "", `${window.location.pathname}${window.location.search}`);
   }
   history.replaceState(history.state, "", `${window.location.pathname}${nextSearch}`);
+}
+
+function dropFailedLeagueQuery() {
+  if (applyingHistory || typeof history?.replaceState !== "function") return;
+  const params = new URLSearchParams(String(window.location.search || "").replace(/^\?/, ""));
+  if (!params.has("league")) return;
+  params.delete("league");
+  const query = params.toString();
+  history.replaceState(history.state, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
 }
 
 async function loadLeagueById(leagueId, { fromHistory = false, sample = false } = {}) {
@@ -3569,7 +3612,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       selectedAssetId: state.ranks?.selectedId || "",
       pendingPlace: state.pendingPlace,
     });
-    if (switchingLeagues && typeof history?.pushState === "function" && !leagueOpenedInApp) {
+    if (switchingLeagues && typeof history?.pushState === "function") {
       prepareDeskPush();
       routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
       history.pushState(history.state, "", `${window.location.pathname}${window.location.search}`);
@@ -3726,6 +3769,11 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       currentLeagueId: state.leagueId,
       nextLeagueId: leagueId,
     });
+    if (isLeagueNotFound(err) && !failedSwitch) {
+      showLeagueNotFound();
+      return;
+    }
+    hideLeagueNotFound();
     const message = failedSwitch
       ? leagueSwitchFailureCopy({
           leagueId,
@@ -3742,7 +3790,9 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       startLivePolling();
     }
     setLeagueSwitchStale(failedSwitch);
-    if (!state.leagueId && String(window.location.pathname || "").startsWith("/l/") && typeof history?.replaceState === "function") {
+    // An outage stays on /l/… Back can return to the league that already loaded.
+    // Any other dead league url still goes home.
+    if (!unreachable && !state.leagueId && String(window.location.pathname || "").startsWith("/l/") && typeof history?.replaceState === "function") {
       history.replaceState({ ...historyPlaceNow(), pushed: false }, "", urlPath());
       syncDocumentMeta();
     }
@@ -3892,11 +3942,9 @@ async function loadLeagueCoreData(leagueId) {
     }
   });
 
+  if (sleeperLeagueMissing(settled[0])) throw leagueNotFoundError(leagueId);
+
   if (failures.length > 0) {
-    const missingLeague = failures.every((failure) => /returned 404/.test(failure));
-    if (missingLeague) {
-      throw new Error(`No Sleeper league found for ${leagueId}. Check the ID, or paste the league URL.`);
-    }
     throw new Error(`Failed to load: ${failures.join("; ")}`);
   }
 
@@ -8674,6 +8722,10 @@ function handleWorkspaceClick(event) {
       retryPlayerMetadata(event);
       break;
     case "find-my-leagues":
+      if (leagueMissing || sleeperUnreachable) {
+        openLandingFromMissingLeague();
+        break;
+      }
       if (!state.leagueId) document.querySelector("#landing")?.classList.remove("hidden");
       if (bootIsPending()) {
         queueFindForBoot(String(el.sleeperUsername?.value || el.landingUsername?.value || ""));
@@ -18218,6 +18270,68 @@ function applyValuationBundle(bundle, { rerender = true } = {}) {
   };
 }
 
+function showLeagueNotFound() {
+  leagueMissing = true;
+  hideSleeperUnreachable();
+  hideAppPages();
+  stopLeagueLoadingUi();
+  document.querySelector("#landing")?.classList.add("hidden");
+  paintLeagueLoadError("");
+  setStatus("");
+  const panel = document.getElementById("league-missing");
+  if (panel) {
+    panel.hidden = false;
+    panel.classList.remove("hidden");
+  }
+  syncLaunchChrome();
+  syncDocumentMeta();
+  dropFailedLeagueQuery();
+  document.getElementById("league-missing-title")?.focus();
+}
+
+function openLandingFromMissingLeague() {
+  // Keep the outage title on this history entry, then push / with the landing title.
+  prepareDeskPush();
+  hideSleeperUnreachable();
+  hideLeagueNotFound();
+  const landing = document.querySelector("#landing");
+  if (landing) {
+    landing.classList.remove("hidden");
+    landing.hidden = false;
+  }
+  setActivePage("players", { history: "silent", landing: "show", scroll: "top" });
+  const box = document.querySelector("#landing-connect");
+  if (box) box.hidden = false;
+  document.querySelector(".launch-connect")?.setAttribute("hidden", "");
+  connectAsked = true;
+  syncLaunchChrome();
+  syncDocumentMeta();
+  if (typeof history?.pushState === "function") {
+    history.pushState({
+      ...historyPlaceNow(),
+      tab: "players",
+      landing: true,
+      pushed: true,
+      connectAsked: true,
+    }, "", "/");
+  }
+  document.getElementById("landing-username")?.focus();
+}
+
+function hideLeagueNotFound() {
+  const was = leagueMissing;
+  leagueMissing = false;
+  const panel = document.getElementById("league-missing");
+  if (panel) {
+    panel.hidden = true;
+    panel.classList.add("hidden");
+  }
+  if (was) {
+    syncLaunchChrome();
+    syncDocumentMeta();
+  }
+}
+
 function showInvalidLeagueLink() {
   const message = INVALID_LEAGUE_LINK_MESSAGE;
   setFieldError(el.leagueId, el.leagueIdError, message);
@@ -18230,11 +18344,62 @@ function showInvalidLeagueLink() {
   if (retry) retry.classList.add("hidden");
 }
 
+function showSleeperUnreachable() {
+  sleeperUnreachable = true;
+  const missing = document.getElementById("league-missing");
+  if (missing) {
+    missing.hidden = true;
+    missing.classList.add("hidden");
+  }
+  document.querySelector("#landing")?.classList.add("hidden");
+  const panel = document.getElementById("sleeper-down");
+  if (panel) {
+    panel.hidden = false;
+    panel.classList.remove("hidden");
+  }
+  syncLaunchChrome();
+  syncDocumentMeta();
+  dropFailedLeagueQuery();
+  document.getElementById("sleeper-down-title")?.focus();
+}
+
+function hideSleeperUnreachable() {
+  if (!sleeperUnreachable) {
+    const panel = document.getElementById("sleeper-down");
+    if (panel) {
+      panel.hidden = true;
+      panel.classList.add("hidden");
+    }
+    return;
+  }
+  sleeperUnreachable = false;
+  const panel = document.getElementById("sleeper-down");
+  if (panel) {
+    panel.hidden = true;
+    panel.classList.add("hidden");
+  }
+  if (!leagueMissing) {
+    const landing = document.querySelector("#landing");
+    if (landing) {
+      landing.classList.remove("hidden");
+      landing.hidden = false;
+    }
+  }
+  syncLaunchChrome();
+  syncDocumentMeta();
+}
+
 function paintLeagueLoadError(message = "") {
   const text = String(message || "");
+  const loaded = document.body.classList.contains("league-loaded");
+  if (text === SLEEPER_UNREACHABLE_MESSAGE && !loaded) {
+    showSleeperUnreachable();
+    return;
+  }
+  hideSleeperUnreachable();
   const where = leagueLoadErrorVisibility({
     message: text,
-    leagueLoaded: document.body.classList.contains("league-loaded"),
+    leagueLoaded: loaded,
   });
   const landing = document.getElementById("landing-league-error");
   const landingText = document.getElementById("landing-league-error-text");
@@ -18378,14 +18543,28 @@ function serverShareMeta() {
 }
 
 function syncDocumentMeta() {
+  if (leagueMissing) {
+    applyDocumentMeta(document, {
+      title: "We couldn't find that league · Dynasty Ticker",
+      description: "The link may be wrong, or the league was deleted.",
+    });
+    return;
+  }
+  if (sleeperUnreachable) {
+    applyDocumentMeta(document, {
+      title: "Couldn't reach Sleeper · Dynasty Ticker",
+      description: "Sleeper didn't answer. Your league is safe, so try again in a moment.",
+    });
+    return;
+  }
   const shareMeta = serverShareMeta();
   if (shareMeta && window.location.pathname === shareMeta.path && !state.leagueId) {
-    document.title = shareMeta.title;
+    holdDocumentTitle(document, shareMeta.title);
     return;
   }
   if (state.leagueSwitching) {
     applyDocumentMeta(document, {
-      title: "Loading league — Dynasty Ticker",
+      title: "Loading league · Dynasty Ticker",
       description: "Opening a Sleeper league.",
     });
     return;

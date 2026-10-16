@@ -1,9 +1,40 @@
 export const SLEEPER_UNREACHABLE_MESSAGE = "Couldn't reach Sleeper. Check your connection.";
+export const LEAGUE_NOT_FOUND_CODE = "league-not-found";
+
+// Sleeper answers a bad league id with null or 404. A dropped connection has
+// neither, so it stays a network failure.
+export function sleeperLeagueMissing(result) {
+  if (!result || typeof result !== "object") return false;
+  if (result.status === "rejected") return result.reason?.status === 404;
+  if (result.status === "fulfilled") return result.value?.payload == null;
+  return false;
+}
+
+export function leagueNotFoundError(leagueId = "") {
+  const error = new Error("We couldn't find that league");
+  error.code = LEAGUE_NOT_FOUND_CODE;
+  error.leagueId = String(leagueId || "");
+  return error;
+}
+
+export function isLeagueNotFound(err) {
+  return err?.code === LEAGUE_NOT_FOUND_CODE;
+}
+
+// A dropped connection and any non-OK Sleeper response are the same outage.
+// A league 404 is league-not-found before this runs.
+export function sleeperResponseFailed(err) {
+  const status = Number(err?.status);
+  if (Number.isInteger(status) && status >= 400) return true;
+  const raw = String(err?.message || "");
+  if (/Network\/CORS/.test(raw)) return true;
+  return /Sleeper API returned\s+\d{3}/.test(raw);
+}
 
 // Three core reads fail together and used to paste Network/CORS three times.
 export function leagueLoadErrorMessage(err) {
   const raw = String(err?.message || "");
-  if (/Network\/CORS/.test(raw)) return SLEEPER_UNREACHABLE_MESSAGE;
+  if (sleeperResponseFailed(err)) return SLEEPER_UNREACHABLE_MESSAGE;
   if (!raw) return "Could not load league data.";
   if (raw.startsWith("Could not load league data.")) return raw;
   return `Could not load league data. ${raw}`;

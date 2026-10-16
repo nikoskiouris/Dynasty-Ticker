@@ -177,7 +177,9 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(safeNext("//evil.example/players"), "");
   assert.equal(resolveLocation("/nope").unknown, true);
   assert.equal(resolveLocation("/nope").name, "home");
-  assert.equal(resolveLocation("/l/not-a-league").unknown, true);
+  assert.equal(resolveLocation("/l/not-a-league").unknown, false);
+  assert.equal(resolveLocation("/l/not-a-league").badLeague, true);
+  assert.equal(resolveLocation("/l/not-a-league").name, "league");
   assert.equal(resolveLocation("/?ranks=1").name, "players");
   assert.equal(resolveLocation("/?ranks=1").legacy, "ranks");
   assert.equal(resolveLocation("/", "?asset=player:9221").name, "player");
@@ -218,14 +220,24 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(backTarget({ pushed: false }), "home");
   assert.equal(backTarget({ pushed: true }), "history");
   assert.equal(urlPath(), "/");
-  for (const skipped of ["/api/rather-vote", "/styles.css", "/data/player_values.json", "/ui/landing.html", "/l", "/player", "/nope"]) {
+  for (const skipped of ["/api/rather-vote", "/styles.css", "/data/player_values.json", "/ui/landing.html", "/player", "/nope"]) {
     assert.equal(isSpaPath(skipped), false, skipped);
     assert.equal(resolveLocation(skipped).unknown, true, skipped);
   }
-  // A placeholder serves these, then the desk sends a bad id home.
-  for (const dotted of ["/player/abc", "/player/0", "/l/4.2/team"]) {
+  // A placeholder serves these. A bad player id goes home. A bad league id stays.
+  for (const dotted of ["/player/abc", "/player/0"]) {
     assert.equal(isSpaPath(dotted), true, dotted);
     assert.equal(resolveLocation(dotted).unknown, true, dotted);
+  }
+  assert.equal(isSpaPath("/l/4.2/team"), true);
+  assert.equal(resolveLocation("/l/4.2/team").unknown, false);
+  assert.equal(resolveLocation("/l/4.2/team").badLeague, true);
+  for (const room of ["/l/x/week", "/l/x/team", "/l/x/ideas", "/l/x/league", "/l/x/activity", "/l/x/history", "/l/4.2/week"]) {
+    const badRoom = resolveLocation(room);
+    assert.equal(isSpaPath(room), true, room);
+    assert.equal(badRoom.badLeague, true, room);
+    assert.equal(badRoom.unknown, false, room);
+    assert.equal(badRoom.name, "league", room);
   }
   // A file extension in the last segment is a file request, so it 404s.
   for (const asset of ["/player/missing.js", "/player/9221.png", "/player/9221/jahmyr-gibbs.png", "/l/x.json", "/l/12.3", "/l/42/team.js", "/l/42/team.js/"]) {
@@ -250,7 +262,8 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(isSpaPath("/player/9221/"), true);
   assert.equal(isSpaPath("/player/9221/jahmyr-gibbs/"), true);
   assert.equal(isSpaPath("/player/"), false);
-  assert.equal(isSpaPath("/l/"), false);
+  assert.equal(isSpaPath("/l"), true);
+  assert.equal(isSpaPath("/l/"), true);
   assert.equal(isSpaPath("/nope"), false);
   assert.equal(resolveLocation("/player/9221").unknown, false);
   assert.equal(resolveLocation("/l/42").unknown, false);

@@ -293,9 +293,16 @@ test("shared keyboard focus ring is one outline and trade rows are not outline n
   assert.match(rule[0], /outline:\s*2px solid var\(--text\);/);
   assert.match(rule[0], /outline-offset:\s*2px;/);
   assert.doesNotMatch(css, /\.trade-row:focus-visible\s*\{[^}]*outline:\s*none/);
+  // Missing-league and Sleeper-outage headings drop their ring. Room headings
+  // drop the mouse ring. Every other control keeps the shared outline.
+  const focusRings = css
+    .replace(/#league-missing-title:focus:not\(:focus-visible\)\s*\{[^}]*\}/g, "")
+    .replace(/#league-missing-title:focus,\s*#sleeper-down-title:focus\s*\{[^}]*\}/g, "")
+    .replace(/\[data-room-panel\] h2\[tabindex="-1"\]:focus:not\(:focus-visible\)\s*\{[^}]*\}/g, "");
+  assert.match(css, /#league-missing-title:focus:not\(:focus-visible\)\s*\{[^}]*outline:\s*none/);
+  assert.match(css, /#league-missing-title:focus,\s*#sleeper-down-title:focus\s*\{\s*outline:\s*none;\s*\}/);
   assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus:not\(:focus-visible\)\s*\{[^}]*outline:\s*0 none/s);
-  const besidesRoomHeading = css.replace(/\[data-room-panel\] h2\[tabindex="-1"\]:focus:not\(:focus-visible\)\s*\{[^}]*\}/, "");
-  assert.doesNotMatch(besidesRoomHeading, /outline:\s*none/);
+  assert.doesNotMatch(focusRings, /outline:\s*none/);
 });
 
 function mockOption(active, id = "") {
