@@ -206,6 +206,201 @@ for (const width of [1280, 390]) {
   });
 }
 
+async function textFit(locator) {
+  return locator.evaluate((el) => {
+    const style = getComputedStyle(el);
+    const box = el.getBoundingClientRect();
+    const range = document.createRange();
+    const nodes = [];
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let current;
+    while ((current = walker.nextNode())) nodes.push(current);
+    const flat = nodes.map((node) => node.textContent || "").join("");
+    let hidden = 0;
+    let lines = 1;
+    let lastTop = null;
+    let lastIndex = -1;
+    let midWord = false;
+    let index = -1;
+    for (const node of nodes) {
+      const value = node.textContent || "";
+      for (let i = 0; i < value.length; i += 1) {
+        index += 1;
+        const ch = value[i];
+        range.setStart(node, i);
+        range.setEnd(node, i + 1);
+        const rect = range.getClientRects()[0];
+        const shown = Boolean(rect)
+          && rect.width > 0.2
+          && rect.height > 0.2
+          && rect.top >= box.top - 1
+          && rect.bottom <= box.bottom + 1
+          && rect.left >= box.left - 1
+          && rect.right <= box.right + 1;
+        if (!shown) {
+          if (!/\s/.test(ch)) hidden += 1;
+          continue;
+        }
+        if (lastTop != null && Math.abs(rect.top - lastTop) > 1) {
+          lines += 1;
+          const prev = flat[lastIndex];
+          const gap = flat.slice(lastIndex + 1, index);
+          if (prev && !/[\s-]/.test(prev) && !/[\s-]/.test(ch) && !/[\s-]/.test(gap)) midWord = true;
+        }
+        lastIndex = index;
+        lastTop = rect.top;
+      }
+    }
+    const row = el.closest(".sheet-row, button.ranks-row, .power-board-row");
+    return {
+      text: (el.textContent || "").replace(/\s+/g, " ").trim(),
+      hidden,
+      lines,
+      midWord,
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
+      textOverflow: style.textOverflow,
+      whiteSpace: style.whiteSpace,
+      rowOverflow: row ? row.scrollWidth - row.clientWidth : 0,
+      pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+}
+
+function expectWhole(report) {
+  expect(report, JSON.stringify(report)).toBeTruthy();
+  expect(report.hidden, JSON.stringify(report)).toBe(0);
+  expect(report.midWord, JSON.stringify(report)).toBe(false);
+  expect(report.scrollWidth, JSON.stringify(report)).toBeLessThanOrEqual(report.clientWidth + 1);
+  expect(report.textOverflow, JSON.stringify(report)).not.toBe("ellipsis");
+  expect(report.rowOverflow, JSON.stringify(report)).toBeLessThanOrEqual(1);
+  expect(report.pageOverflow, JSON.stringify(report)).toBeLessThanOrEqual(1);
+}
+
+test("Jacory Croskey-Merritt is whole on the phone players list", async ({ page }) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/players");
+  await expect(page.locator("button.ranks-row").first()).toBeVisible({ timeout: 30000 });
+  await page.locator("[data-input='ranks-search']").fill("Croskey");
+  const name = page.locator(".ranks-list .player-name-text", { hasText: "Jacory Croskey-Merritt" });
+  await expect(name).toBeVisible({ timeout: 20000 });
+  const report = await textFit(name);
+  expect(report.text, JSON.stringify(report)).toBe("Jacory Croskey-Merritt");
+  expect(report.lines, JSON.stringify(report)).toBeGreaterThan(1);
+  expectWhole(report);
+});
+
+test("Christian McCaffrey stays whole behind his open card at 390", async ({ page }) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/player/12533");
+  await expect(page.locator(".ranks-card h2")).toBeVisible({ timeout: 30000 });
+  const name = page.locator(".ranks-list .player-name-text", { hasText: "Christian McCaffrey" });
+  await expect(name).toBeVisible({ timeout: 20000 });
+  const report = await textFit(name);
+  expect(report.text, JSON.stringify(report)).toBe("Christian McCaffrey");
+  expectWhole(report);
+});
+
+for (const width of [390, 1280]) {
+  test(`Quentin Johnston and his nickname fit at ${width}`, async ({ page }) => {
+    test.setTimeout(90000);
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 800 });
+    await page.goto(`/l/${LEAGUE}/team`);
+    await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
+    const strong = page.locator("#roster-sheet .sheet-player strong", { hasText: "Quentin Johnston" }).first();
+    await expect(strong).toBeVisible({ timeout: 20000 });
+    const report = await strong.evaluate((el) => {
+      const nickname = "Coming for that one";
+      let em = el.querySelector(".nickname");
+      if (!em) {
+        em = document.createElement("em");
+        em.className = "nickname";
+        el.appendChild(document.createTextNode(" "));
+        el.appendChild(em);
+      }
+      em.textContent = `“${nickname}”`;
+      const style = getComputedStyle(el);
+      const box = el.getBoundingClientRect();
+      const range = document.createRange();
+      const nodes = [];
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      let current;
+      while ((current = walker.nextNode())) nodes.push(current);
+      const flat = nodes.map((node) => node.textContent || "").join("");
+      let hidden = 0;
+      let lines = 1;
+      let lastTop = null;
+      let lastIndex = -1;
+      let midWord = false;
+      let index = -1;
+      for (const node of nodes) {
+        const value = node.textContent || "";
+        for (let i = 0; i < value.length; i += 1) {
+          index += 1;
+          const ch = value[i];
+          range.setStart(node, i);
+          range.setEnd(node, i + 1);
+          const rect = range.getClientRects()[0];
+          const shown = Boolean(rect)
+            && rect.width > 0.2
+            && rect.height > 0.2
+            && rect.top >= box.top - 1
+            && rect.bottom <= box.bottom + 1
+            && rect.left >= box.left - 1
+            && rect.right <= box.right + 1;
+          if (!shown) {
+            if (!/\s/.test(ch)) hidden += 1;
+            continue;
+          }
+          if (lastTop != null && Math.abs(rect.top - lastTop) > 1) {
+            lines += 1;
+            const prev = flat[lastIndex];
+            const gap = flat.slice(lastIndex + 1, index);
+            if (prev && !/[\s-]/.test(prev) && !/[\s-]/.test(ch) && !/[\s-]/.test(gap)) midWord = true;
+          }
+          lastIndex = index;
+          lastTop = rect.top;
+        }
+      }
+      const row = el.closest(".sheet-row");
+      const nick = el.querySelector(".nickname");
+      return {
+        text: (el.textContent || "").replace(/\s+/g, " ").trim(),
+        hidden,
+        lines,
+        midWord,
+        scrollWidth: el.scrollWidth,
+        clientWidth: el.clientWidth,
+        textOverflow: style.textOverflow,
+        nickDisplay: nick ? getComputedStyle(nick).display : "",
+        rowOverflow: row.scrollWidth - row.clientWidth,
+        pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    expect(report.text, JSON.stringify(report)).toContain("Quentin Johnston");
+    expect(report.text, JSON.stringify(report)).toContain("Coming for that one");
+    expect(report.lines, JSON.stringify(report)).toBeGreaterThan(1);
+    expect(report.nickDisplay, JSON.stringify(report)).toBe("block");
+    expectWhole(report);
+  });
+}
+
+test("a league team line wraps at 390", async ({ page }) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/l/${LEAGUE}/league`);
+  await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
+  const line = page.locator(".power-board-row .team-identity-copy > span", { hasText: "Rebuilding well" }).first();
+  await expect(line).toBeVisible({ timeout: 20000 });
+  const report = await textFit(line);
+  expect(report.text, JSON.stringify(report)).toContain("Rebuilding well");
+  expect(report.whiteSpace, JSON.stringify(report)).toBe("normal");
+  expect(report.lines, JSON.stringify(report)).toBeGreaterThan(1);
+  expectWhole(report);
+});
+
 function nameStartsWithVisible(name, visible) {
   let at = 0;
   for (const char of visible) {
