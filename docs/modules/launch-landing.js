@@ -3,6 +3,7 @@ import { draftVerdictModel } from "./trade-draft.js";
 import { getGlobalMaxPlayerValue } from "./values.js";
 import { sumValueCalcSide, valueCalcVerdict } from "./value-calc.js";
 import { verdictCopy } from "./verdict-copy.js";
+import { calcPointer, compareMetersMarkup, sharedBarSegments, starsPremiumMarkup } from "./verdict-bars.js";
 import { tradeHref } from "./history-route.js";
 import { playerSlug } from "./history-route.js";
 
@@ -10,7 +11,7 @@ export const EXAMPLE_GIVE = Object.freeze(["player:9509"]);
 export const EXAMPLE_GET = Object.freeze(["player:11632", "pick:2027:r1:early"]);
 export const LAUNCH_ROW_HEIGHT = 40;
 export const LAUNCH_TREND_COUNT = 5;
-export const LAUNCH_EXAMPLE_MIN_HEIGHT = 292;
+export const LAUNCH_EXAMPLE_MIN_HEIGHT = 360;
 export const LAUNCH_TREND_MIN_HEIGHT = LAUNCH_ROW_HEIGHT * LAUNCH_TREND_COUNT;
 
 export function exampleTradeHref() {
@@ -56,14 +57,10 @@ function assetMeta(assetId, { names = {}, players = {} } = {}) {
   return {
     assetId: id,
     name: name || (pick ? id : ""),
-    pos: pick ? "PK" : String(raw.position || "").toUpperCase(),
+    pos: pick ? "Pick" : String(raw.position || "").toUpperCase(),
     team: pick ? "" : String(raw.team || ""),
     age: Number.isFinite(age) && age > 0 ? Math.round(age) : 0,
   };
-}
-
-function launchPointer(arrow) {
-  return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
 }
 
 function rowMarkup(row, { href = "" } = {}) {
@@ -83,24 +80,25 @@ export function launchExampleMarkup({ values = {}, names = {}, players = {}, glo
   const get = EXAMPLE_GET.map((id) => ({ ...assetMeta(id, { names, players }), value: Math.round(Number(values?.[id]) || 0) }));
   const model = priced.model;
   const copy = verdictCopy(model.verdict);
+  const bars = sharedBarSegments(model, null);
   const tone = copy.publicTone === "fair" || copy.publicTone === "strong" ? copy.publicTone : "";
-  const giveMark = copy.side === "Give" ? `${launchPointer("◀")} ` : "";
-  const getMark = copy.side === "Get" ? ` ${launchPointer("▶")}` : "";
-  const giveWidth = Math.round((priced.giveSum / Math.max(priced.giveSum + priced.getSum, 1)) * 100);
+  const giveMark = copy.side === "Give" ? `${calcPointer("◀")} ` : "";
+  const getMark = copy.side === "Get" ? ` ${calcPointer("▶")}` : "";
   const href = exampleTradeHref();
   return `
     <a class="launch-card-hit" href="${escapeHtml(href)}" data-launch="example">
       <div class="launch-side">
-        <div class="sh"><span>${giveMark}You give</span><span>${escapeHtml(formatNumber(priced.giveSum))}</span></div>
+        <div class="sh"><span>${giveMark}You give</span><span>${escapeHtml(formatNumber(bars.give.total))}</span></div>
         ${give.map((row) => rowMarkup(row)).join("")}
       </div>
       <div class="launch-side">
-        <div class="sh"><span>You get${getMark}</span><span>${escapeHtml(formatNumber(priced.getSum))}</span></div>
+        <div class="sh"><span>You get${getMark}</span><span>${escapeHtml(formatNumber(bars.get.total))}</span></div>
         ${get.map((row) => rowMarkup(row)).join("")}
       </div>
       <div class="launch-verdict ${tone}">
         <div class="vt"><b>${escapeHtml(copy.line)}</b></div>
-        <div class="bar" aria-hidden="true"><i style="width:${giveWidth}%;background:var(--team-a)"></i><i style="width:${100 - giveWidth}%;background:var(--team-b)"></i></div>
+        ${compareMetersMarkup(model)}
+        ${starsPremiumMarkup(model, { detail: copy.detail })}
         <span class="meta">Tap to change any player</span>
       </div>
     </a>

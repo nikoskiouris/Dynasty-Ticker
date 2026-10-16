@@ -1468,7 +1468,7 @@ a.inline-link {
   border-radius: var(--r-md);
 }
 .launch-example {
-  min-height: 292px;
+  min-height: 360px;
 }
 .launch-trend {
   min-height: 200px;
@@ -1558,7 +1558,8 @@ a.inline-link {
 }
 .launch-verdict.fair .vt { color: var(--amber); }
 .launch-verdict.strong .vt { color: var(--text); }
-.launch .bar {
+.launch .bar,
+.launch-meters {
   height: 6px;
   border-radius: 3px;
   background: var(--panel-soft);
@@ -1567,6 +1568,30 @@ a.inline-link {
   margin: var(--sp-2) 0;
 }
 .launch .bar i { display: block; }
+.launch-meter { min-width: 0; }
+.launch-meter .meter-track {
+  height: 6px;
+  border-radius: 0;
+  background: transparent;
+}
+.launch-meter.meter-give .meter-track span { background: var(--team-a); }
+.launch-meter.meter-get .meter-track span { background: var(--team-b); }
+.launch-meter .meter-track.meter-split span.meter-stars {
+  background: repeating-linear-gradient(135deg, var(--muted-strong) 0 3px, rgba(244, 241, 236, 0.35) 3px 6px);
+}
+.launch .draft-package {
+  margin: 0 0 var(--sp-2);
+  color: var(--muted-strong);
+  font-size: var(--fs-sm);
+}
+.launch-sample {
+  margin: var(--sp-2) 0 0;
+  text-align: center;
+}
+.launch-sample a {
+  color: var(--muted-strong);
+  font-size: var(--fs-sm);
+}
 .launch-card-hit {
   display: block;
   color: inherit;
@@ -1639,6 +1664,7 @@ body.launch-open .mobile-chrome-title-row,
 body.launch-open .mobile-chrome-viewing,
 body.launch-open #desk-board-open,
 body.launch-open .desk-board-close,
+body.launch-open #mobile-rail-close,
 body.launch-open .sample-chrome,
 body.launch-open #ticker,
 body.launch-open .state-grid,

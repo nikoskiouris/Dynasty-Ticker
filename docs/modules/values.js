@@ -638,7 +638,20 @@ async function readJsonIfOk(fetchImpl, path) {
   }
 }
 
+let valuationInflight = null;
+
 export async function fetchValuationBundles(fetchImpl = globalThis.fetch) {
+  if (fetchImpl === globalThis.fetch && valuationInflight) return valuationInflight;
+  const job = loadValuationBundles(fetchImpl);
+  if (fetchImpl !== globalThis.fetch) return job;
+  valuationInflight = job.catch((err) => {
+    valuationInflight = null;
+    throw err;
+  });
+  return valuationInflight;
+}
+
+async function loadValuationBundles(fetchImpl) {
   const payload = await readJsonIfOk(fetchImpl, PLAYER_VALUES_PATH);
   if (!payload || typeof payload !== "object") {
     throw new Error("Independent player values did not load.");

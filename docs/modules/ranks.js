@@ -144,7 +144,7 @@ export function buildRankBoard({
       owner: null,
       note: "",
       photoUrl: "",
-      initials: "PK",
+      initials: "Pick",
       spread: firstRoundSpread(pick, pickById),
       season: pick.season,
       round: pick.round,

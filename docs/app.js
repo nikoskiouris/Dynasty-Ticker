@@ -146,6 +146,7 @@ import {
   withPlayerDirectoryNames,
 } from "./modules/value-calc.js";
 import { TIER_EXPLAINER, verdictCopy } from "./modules/verdict-copy.js";
+import { calcPointer, meterTrack, sharedBarSegments, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import {
   describeDraftItem,
   draftFromReview,
@@ -983,6 +984,7 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
   if (scroll === "top") window.scrollTo(0, 0);
   if (history !== "silent") updateUrlState({ mode: history });
   syncDocumentMeta();
+  syncLaunchChrome();
 }
 
 function invalidateResults() {
@@ -1403,11 +1405,11 @@ async function ensureRankExtras() {
 }
 
 function openPublicRanks({ history = "push" } = {}) {
-  document.querySelector("#landing")?.classList.add("hidden");
   if (state.leagueId || document.querySelector("#players-page")) {
     openRoom("players", "ranks", { history });
     return;
   }
+  document.querySelector("#landing")?.classList.add("hidden");
   const already = publicRanksOpen;
   publicRanksOpen = true;
   document.querySelector("#landing")?.classList.add("hidden");
@@ -1868,6 +1870,7 @@ function paintLaunchTrend(failed = false) {
 function revealLaunchConnect() {
   const box = document.querySelector("#landing-connect");
   if (box) box.hidden = false;
+  document.querySelector(".launch-connect")?.setAttribute("hidden", "");
   connectAsked = true;
   document.querySelector("#landing-username")?.focus();
 }
@@ -1908,12 +1911,23 @@ function openEmptyTrade() {
 }
 
 function openLaunchPlayer(href) {
-  const route = matchRoute(String(href || "").split("?")[0], String(href || "").includes("?") ? href.slice(href.indexOf("?")) : "");
+  const raw = String(href || "");
+  const route = matchRoute(raw.split("?")[0], raw.includes("?") ? raw.slice(raw.indexOf("?")) : "");
   if (route?.name === "player" && route.playerId) {
+    // Save the landing entry before the player is selected, so Back returns here.
+    prepareDeskPush();
     state.ranks.selectedId = `player:${route.playerId}`;
+    if (state.weeklyValue) {
+      state.weeklyValue.selectedPlayerId = "";
+      state.weeklyValue.helpOpen = false;
+    }
     document.querySelector("#landing")?.classList.add("hidden");
-    openRoom("players", "ranks", { history: "push", scroll: "top" });
+    renderRankSurfaces();
+    if (!rankValuesReady() || !ratherPromptContext?.previousSeason) void ensureRankExtras();
+    updateUrlState({ mode: "push" });
     syncLaunchChrome();
+    syncDocumentMeta();
+    window.scrollTo(0, 0);
     return;
   }
   if (route?.name === "trade") {
@@ -1940,9 +1954,33 @@ function handleLaunchClick(event) {
   else if (row) openLaunchPlayer(row.getAttribute("href"));
 }
 
+function afterFirstPaint(fn) {
+  const run = () => {
+    try {
+      fn();
+    } catch (err) {
+      console.warn(err);
+    }
+  };
+  if (typeof requestAnimationFrame !== "function") {
+    run();
+    return;
+  }
+  requestAnimationFrame(() => {
+    if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 1200 });
+    else requestAnimationFrame(run);
+  });
+}
+
 async function bootLaunchSurface() {
   syncLaunchChrome();
   if (connectAsked) revealLaunchConnect();
+  afterFirstPaint(() => {
+    void loadLaunchSurface();
+  });
+}
+
+async function loadLaunchSurface() {
   try {
     await ensureValuesLoaded("");
     if (!state.leagueId) {
@@ -4565,7 +4603,7 @@ function renderPulseStrip(model, sim, profiles) {
       page: "league",
       room: "standings",
       value: hasGames ? leader?.name || "TBD" : favorite?.name || topPower?.managerName || "TBD",
-      detail: hasGames ? `${leader?.recordLabel || ""} · ${formatPoints(leader?.pf || 0)} PF` : favorite ? `${percentLabel(favorite.titlePct)} title odds` : "value model",
+      detail: hasGames ? `${leader?.recordLabel || ""} · ${formatPoints(leader?.pf || 0)} points` : favorite ? `${percentLabel(favorite.titlePct)} title odds` : "value model",
       tone: "gold",
     },
     {
@@ -4703,7 +4741,7 @@ function renderWeekAnglesPanel(model, sim) {
           <span class="eyebrow">Upcoming week</span>
           <h2>${escapeHtml(angles.label || "This week")} · dark horses</h2>
         </div>
-        <p class="section-copy">Playoff odds from this season's scores. Open details if you want the model.</p>
+        <p class="section-copy">Playoff odds from this season's scores. Open details to see how they are built.</p>
       </div>
       <div class="award-grid week-angles-grid">
         ${angles.cards.map(renderAwardCard).join("")}
@@ -4791,7 +4829,7 @@ function renderStandingsPanel(model, sim) {
       </div>
       <div class="standings-table">
         <div class="standings-head">
-          <span>#</span><span>Team</span><span>W-L</span><span class="col-pf">PF</span><span class="col-pa">PA</span><span class="col-streak">Strk</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
+          <span>#</span><span>Team</span><span>W-L</span><span class="col-pf">Points</span><span class="col-pa">PA</span><span class="col-streak">Strk</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
         </div>
         ${rowsHtml}
       </div>
@@ -5048,7 +5086,7 @@ function paintMockBoard() {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">Rookie mock</span>
-          <h2>${escapeHtml(String(board.season || "Next"))} SF board</h2>
+          <h2>${escapeHtml(String(board.season || "Next"))} Superflex board</h2>
         </div>
         <p class="section-copy">${escapeHtml(byline)}${sourceLink ? ` · ${sourceLink}` : ""}</p>
       </div>
@@ -5968,7 +6006,7 @@ function renderLeagueWirePanel() {
     <div class="analytics-two-col">
       <section class="analytics-panel">
         <div class="analytics-panel-heading">
-          <h3>League wire</h3>
+          <h3>Recent trades</h3>
           <span>${archive.recentTrades.length} recent · ${escapeHtml(buildArchiveSyncLabel())}</span>
         </div>
         <div class="recent-trade-list">
@@ -6074,7 +6112,7 @@ function renderTeamsGrid() {
           <span class="team-card-copy">
             <strong>${escapeHtml(manager.displayName)}</strong>
             <span>${escapeHtml(manager.teamName || profile.laneLabel)}</span>
-            <small>${team?.gamesPlayed ? `${escapeHtml(team.recordLabel)} · ${formatPoints(team.pf)} PF` : escapeHtml(profile.laneLabel)}${call ? ` · ${escapeHtml(call.shortLabel)}` : ""}</small>
+            <small>${team?.gamesPlayed ? `${escapeHtml(team.recordLabel)} · ${formatPoints(team.pf)} points` : escapeHtml(profile.laneLabel)}${call ? ` · ${escapeHtml(call.shortLabel)}` : ""}</small>
           </span>
           <span class="team-card-score">
             <strong>${profile.score}</strong>
@@ -6398,7 +6436,7 @@ function renderRosterSheet() {
       </section>
       <section class="sheet-column">
         <h4>Sit</h4>
-        ${benchRows.map((row) => renderPlayerRow(row.asset, row.sitReason ? "SIT" : (isTradeEligibleAsset(row.asset) ? "BN" : formatPlayerPositionLabel(row.asset)), {
+        ${benchRows.map((row) => renderPlayerRow(row.asset, row.sitReason ? "SIT" : (isTradeEligibleAsset(row.asset) ? "Bench" : formatPlayerPositionLabel(row.asset)), {
           note: row.rowNote,
           sitCause: Boolean(row.sitReason),
           closeCall: String(row.rowNote || "").startsWith("Close vs"),
@@ -7178,7 +7216,7 @@ function renderDraftVerdict(view) {
         ${/* TODO(follow-up): spell a bare percent ("96% apart") as a plain outcome. Out of scope for this push. */ ""}
         <p>${sharedView ? sharedTotalsLine(model) : `${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}`}</p>
         ${sharedView ? renderVerdictFinePrint(`
-          ${adjustment ? `<p class="draft-package"><strong>Stars cost extra:</strong> one great player beats a pile of good ones. That adds ${formatNumber(adjustment.amount)} to ${adjustment.side === "left" ? "Give" : "Get"}. Listed prices stay put. After that: ${escapeHtml(copy.detail)}.</p>` : ""}
+          ${starsPremiumMarkup(model, { detail: copy.detail })}
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
@@ -7208,30 +7246,6 @@ function renderDraftVerdict(view) {
       </div>
     </section>
   `;
-}
-
-// Bar segments: listed price plus a separate stars segment. Private /trade
-// passes its meters (listed totals) and gets no stars segment.
-function sharedBarSegments(model, meters = null) {
-  const adj = model?.adjustment;
-  const side = (key, listed) => {
-    const stars = !meters && adj && (adj.side === "left") === (key === "give") ? Math.round(Number(adj.amount) || 0) : 0;
-    const base = Math.round(Number(meters ? meters[key] : listed) || 0);
-    return { listed: base, stars, total: base + stars };
-  };
-  return { give: side("give", model?.give), get: side("get", model?.get) };
-}
-
-function meterTrack(seg, maxSide) {
-  const pct = (value) => Math.round((value / maxSide) * 1000) / 10;
-  if (!seg.stars) return `<div class="meter-track"><span style="width:${pct(seg.listed)}%"></span></div>`;
-  return `<div class="meter-track meter-split"><span style="width:${pct(seg.listed)}%"></span><span class="meter-stars" style="width:${pct(seg.stars)}%" title="Stars cost extra"></span></div>`;
-}
-
-// ◀/▶ beside the bigger side's bar on wide layouts; a plain dot on phones,
-// where the stacked bars leave nothing to point at (RECHECK4).
-function calcPointer(arrow) {
-  return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
 }
 
 // Cold /t detail line (RECHECK3): lead with the credited totals the verdict
@@ -7734,8 +7748,12 @@ function handleWorkspaceClick(event) {
         state.weeklyValue.selectedPlayerId = "";
         state.weeklyValue.helpOpen = false;
       }
+      // Hide the landing after the history entry is saved, then drop launch chrome
+      // so the player card is on screen. Back still returns to the landing.
+      document.querySelector("#landing")?.classList.add("hidden");
       renderRankSurfaces();
       updateUrlState({ mode: "push" });
+      syncLaunchChrome();
       document.querySelector(".ranks-card")?.scrollIntoView({ block: "nearest" });
       break;
     }
@@ -8787,8 +8805,8 @@ function buildSeasonComparison(leftSnapshot, rightSnapshot, dynastyRows, manager
       },
       {
         label: "Points king",
-        left: `${leftSnapshot.pointsLeader?.managerName || "TBD"} (${formatNumber(leftSnapshot.pointsLeader?.points || 0)} PF)`,
-        right: `${rightSnapshot.pointsLeader?.managerName || "TBD"} (${formatNumber(rightSnapshot.pointsLeader?.points || 0)} PF)`,
+        left: `${leftSnapshot.pointsLeader?.managerName || "TBD"} (${formatNumber(leftSnapshot.pointsLeader?.points || 0)} points)`,
+        right: `${rightSnapshot.pointsLeader?.managerName || "TBD"} (${formatNumber(rightSnapshot.pointsLeader?.points || 0)} points)`,
       },
       {
         label: "Scoring average",
@@ -9269,7 +9287,7 @@ function renderHeadToHeadPanel(left, right, h2h, tradePair) {
       </div>
       <div class="h2h-meta">
         <span>${h2h.gameCount} game${h2h.gameCount === 1 ? "" : "s"}</span>
-        <span>${formatNumber(h2h.leftPoints)}-${formatNumber(h2h.rightPoints)} combined PF</span>
+        <span>${formatNumber(h2h.leftPoints)}-${formatNumber(h2h.rightPoints)} combined points</span>
         <span>Playoffs ${escapeHtml(h2h.playoffRecordLabel)}</span>
         ${h2h.latest ? `<span>Last: ${escapeHtml(h2h.latest.label)} ${escapeHtml(h2h.latest.score)} (${escapeHtml(h2h.latest.winner)})</span>` : ""}
         ${tradePair ? `<span>${tradePair.count} archive trade${tradePair.count === 1 ? "" : "s"}</span>` : ""}
@@ -9316,7 +9334,7 @@ function renderSeasonLedgerCard(snapshot) {
         <span>${escapeHtml(snapshot.statusLabel)}</span>
       </div>
       ${renderSeasonStat(crownLabel, crown?.managerName || "TBD", snapshot.runnerUp ? `beat ${snapshot.runnerUp.managerName}` : `${recordLeader} top record`)}
-      ${renderSeasonStat("Points King", pointsLeader, `${formatNumber(snapshot.pointsLeader?.points || 0)} PF`)}
+      ${renderSeasonStat("Points King", pointsLeader, `${formatNumber(snapshot.pointsLeader?.points || 0)} points`)}
       ${renderSeasonStat("Scoring Gap", formatNumber(snapshot.scoringSpread), `${snapshot.parityScore || "N/A"} parity score`)}
       ${renderSeasonStat("Trade Ledger", formatNumber(snapshot.tradeCount), `${playersAndPicksLabel(snapshot.movedAssetCount)} traded`)}
       ${renderSeasonStat("Pick Drift", formatNumber(snapshot.tradedPickCount), "traded pick records")}
@@ -9386,14 +9404,14 @@ function renderTradeWireBoard() {
     <section class="workspace-panel trade-wire" id="league-wire">
       <div class="panel-heading">
         <div>
-          <span class="eyebrow">Trade wire</span>
-          <h3>Hottest since and biggest fleece</h3>
+          <span class="eyebrow">Recent trades</span>
+          <h3>Hottest since and biggest steal</h3>
         </div>
-        <p class="section-copy">Hottest since is the Bayesian-shrunk record after the deal, with a Wilson floor so 2-0 cannot beat a real sample. Fleece is log-ratio plus the package gap plus the star that moved — not a raw price dump.</p>
+        <p class="section-copy">Hottest since is the record after the deal, pulled back so a 2-0 cannot beat a longer run. Biggest steal is the price gap plus the star that moved, not a raw price dump.</p>
       </div>
       <div class="trade-wire-grid">
-        ${renderTradeAwardCard("Hottest since", "Best shrunk record after the deal. Wilson sample required.", awards.heater, "won")}
-        ${renderTradeAwardCard("Biggest fleece", "Log-ratio steal on today's board, even if games have not posted yet.", awards.fleece, "won")}
+        ${renderTradeAwardCard("Hottest since", "Best record after the deal. Needs a real sample.", awards.heater, "won")}
+        ${renderTradeAwardCard("Biggest steal", "Best price gap on today's board, even if the games have not been played yet.", awards.fleece, "won")}
       </div>
     </section>
   `;
@@ -9741,7 +9759,7 @@ function renderAssetMarketPanel(market) {
   return `
     <section class="analytics-panel">
       <div class="analytics-panel-heading">
-        <h3>Asset Market</h3>
+        <h3>Most moved</h3>
         <span>${formatNumber(market.totalMovedValue)} value moved</span>
       </div>
       <div class="analytics-list">
@@ -10586,7 +10604,7 @@ function draftAmmoInsight(firstRoundPickCount, lead) {
   const count = Number(firstRoundPickCount);
   return {
     title: "Your picks",
-    body: `${count} first-round pick${count === 1 ? "" : "s"} in the vault, led by ${lead.name}.`,
+    body: `${count} first-round pick${count === 1 ? "" : "s"} owned, led by ${lead.name}.`,
     tone: "gold",
   };
 }

@@ -471,7 +471,7 @@ function buildSeasonWindowCallCopy(input, axes, id) {
     return {
       headline: "This year is dead. You are out of the race.",
       summary: input.eliminated || (Number(input.playoffPct) <= 8 && axes.seasonProgress >= 0.35)
-        ? "Playoff math is cooked. Stream the wire. Do not trade a league-winner for a rental."
+        ? "Playoff math is cooked. Pick up free agents. Do not trade a league-winner for a rental."
         : `The weekly team is not a title threat${hole ? `, even at ${hole}` : ""}. Stop chasing the playoffs.`,
       moves: [
         "Start the upside, sit the duds. This is a lineup week, not a dynasty teardown.",
@@ -485,7 +485,7 @@ function buildSeasonWindowCallCopy(input, axes, id) {
     headline: Number(input.playoffPct) >= 28 && Number(input.playoffPct) <= 58
       ? "Bubble team. One hot week changes the math."
       : "Still alive. Don't blow up the roster.",
-    summary: `Keep the core, fill ${hole || "the weakest starter spot"} on the wire, and play the matchups.`,
+    summary: `Keep the core, fill ${hole || "the weakest starter spot"} from free agents, and play the matchups.`,
     moves: [
       hole ? `Upgrade ${hole} with a streamer or a one-week add.` : "Make one start/sit upgrade. Stop after that.",
       input.sampleVoice ? `Do not trade ${input.sampleVoice.favor} RB1 because last week looked ugly.` : "Do not trade your RB1 because last week looked ugly.",

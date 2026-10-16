@@ -28,7 +28,9 @@ import {
   launchTrendMarkup,
 } from "../docs/modules/launch-landing.js";
 import { draftVerdictModel } from "../docs/modules/trade-draft.js";
-import { TIER_BANDS, verdictCopy } from "../docs/modules/verdict-copy.js";
+import { TIER_BANDS, percentMore, verdictCopy } from "../docs/modules/verdict-copy.js";
+import { sharedBarSegments } from "../docs/modules/verdict-bars.js";
+import { formatNumber } from "../docs/modules/html.js";
 
 const root = dirname(fileURLToPath(import.meta.url));
 
@@ -90,6 +92,7 @@ test("the example trade is the calculator verdict, and a new price changes it", 
     globalMaxValue: 10000,
   });
   const copy = verdictCopy(model.verdict);
+  const bars = sharedBarSegments(model, null);
   assert.deepEqual(
     { even: TIER_BANDS.even, edge: TIER_BANDS.edge, favors: TIER_BANDS.favors },
     { even: 5, edge: 14, favors: 28 },
@@ -98,11 +101,25 @@ test("the example trade is the calculator verdict, and a new price changes it", 
   const shown = html.match(/class="vt"><b>([^<]*)<\/b>/);
   assert.equal(shown?.[1], copy.line);
   assert.match(html, new RegExp(`launch-verdict ${copy.publicTone}`));
-  if (copy.side === "Give") assert.match(html, /calc-pointer-wide">◀/);
-  if (copy.side === "Get") assert.match(html, /calc-pointer-wide">▶/);
+  const bigger = bars.give.total === bars.get.total ? "" : (bars.give.total > bars.get.total ? "Give" : "Get");
+  assert.equal(copy.side, bigger);
+  if (bigger === "Give") assert.match(html, /calc-pointer-wide">◀[\s\S]*You give/);
+  if (bigger === "Get") assert.match(html, /You get[\s\S]{0,240}calc-pointer-wide">▶/);
+  assert.equal(percentMore(bars.give.total, bars.get.total), copy.more);
+  if (copy.more != null && copy.tier !== "even") assert.match(copy.line, new RegExp(`${copy.more}% more`));
+  assert.match(html, new RegExp(`>${formatNumber(bars.give.total)}<`));
+  assert.match(html, new RegExp(`>${formatNumber(bars.get.total)}<`));
+  const meters = html.match(/data-give="(\d+)" data-get="(\d+)"/);
+  assert.equal(Number(meters?.[1]), bars.give.total);
+  assert.equal(Number(meters?.[2]), bars.get.total);
+  assert.match(html, new RegExp(`meter-give" style="flex:${bars.give.total} 1 0"`));
+  assert.match(html, new RegExp(`meter-get" style="flex:${bars.get.total} 1 0"`));
+  if (model.adjustment) {
+    assert.match(html, /meter-stars/);
+    assert.match(html, /Stars cost extra/);
+    assert.match(html, new RegExp(formatNumber(model.adjustment.amount)));
+  }
   assert.doesNotMatch(html, /var\(--red\)|var\(--green\)|\.up|\.dn/);
-  assert.match(html, /var\(--team-a\)/);
-  assert.match(html, /var\(--team-b\)/);
   assert.match(html, /10,000/);
   const moved = exampleTradeFromValues({ ...values, "player:9509": 8200 }, { globalMaxValue: 10000 });
   assert.equal(moved.giveSum, 8200);
@@ -175,11 +192,11 @@ test("the info icon is 44px, one opens at a time, and Esc returns focus", () => 
 test("launch skeletons reserve the loaded row height", () => {
   assert.equal(LAUNCH_ROW_HEIGHT, 40);
   assert.equal(LAUNCH_TREND_MIN_HEIGHT, 200);
-  assert.equal(LAUNCH_EXAMPLE_MIN_HEIGHT, 292);
+  assert.equal(LAUNCH_EXAMPLE_MIN_HEIGHT, 360);
   const rows = launchSkeletonRows(5);
   assert.equal((rows.match(/launch-row-skel/g) || []).length, 5);
   const css = readFileSync(join(root, "../docs/product.css"), "utf8");
-  assert.match(css, /\.launch-example\s*\{[^}]*min-height:\s*292px/);
+  assert.match(css, /\.launch-example\s*\{[^}]*min-height:\s*360px/);
   assert.match(css, /\.launch-trend\s*\{[^}]*min-height:\s*200px/);
   assert.match(css, /\.launch-row\s*\{[^}]*min-height:\s*var\(--row-h-compact\)/);
   const landing = readFileSync(join(root, "../docs/ui/landing.html"), "utf8");
@@ -200,6 +217,9 @@ test("a pre-league landing has one heading and two calls to action", () => {
   assert.doesNotMatch(index, /<h1 id="hero-title"/);
   assert.match(index, /Check this trade/);
   assert.match(index, /class="ghost-btn launch-connect"/);
+  assert.match(index, /See the sample league/);
+  assert.equal((index.match(/class="ghost-btn launch-connect"/g) || []).length, 1);
+  assert.equal((index.match(/class="launch-check"/g) || []).length, 1);
   assert.match(css, /body\.launch-open \.launch-header-link,/);
   assert.match(css, /body\.launch-open \.mobile-chrome-title-row,/);
   assert.match(css, /body\.launch-open #workspace-header,/);
