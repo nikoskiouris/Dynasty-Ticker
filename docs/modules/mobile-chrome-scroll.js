@@ -1,5 +1,5 @@
 // Phone top bar only. Scroll down hides it, scroll up shows it, and it stays
-// put near the top. Find my leagues is not part of this.
+// put near the top. Connect my league is not part of this.
 
 export const MOBILE_CHROME_SCROLL_DELTA = 10;
 export const MOBILE_CHROME_NEAR_TOP = 48;

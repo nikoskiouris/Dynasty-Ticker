@@ -98,7 +98,7 @@ for (const viewport of viewports) {
     await page.goBack();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("#landing")).toBeVisible();
-    await expect(page.locator("#landing-username")).toBeVisible();
+    await expect(page.locator(".launch-connect")).toBeVisible();
     await expect(page.locator("body")).not.toHaveClass(/league-loaded/);
     await expect(page.locator("#league-page")).toBeHidden();
     await page.goForward();

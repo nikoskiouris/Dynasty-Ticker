@@ -24,7 +24,7 @@ function button(id, extra = {}) {
   const node = {
     id,
     tagName: "BUTTON",
-    textContent: extra.text || "Find my leagues",
+    textContent: extra.text || "Connect my league",
     disabled: false,
     dataset: { ...(extra.dataset || {}) },
     style: {},
@@ -85,10 +85,10 @@ test("boot leaves a typed username alone and only fills an empty field", () => {
 
 test("find buttons stay loading and username boxes stay editable until boot ends", () => {
   resetBootGate();
-  const find = button("find-leagues-btn", { dataset: { idleLabel: "Find my leagues" } });
+  const find = button("find-leagues-btn", { dataset: { idleLabel: "Connect my league" } });
   const landing = button("landing-find-btn");
   const sticky = button("sticky-find-btn");
-  const banner = button("sample-find", { dataset: { action: "find-my-leagues" }, text: "Find my leagues" });
+  const banner = button("sample-find", { dataset: { action: "find-my-leagues" }, text: "Connect my league" });
   const name = input("sleeper-username", "kept");
   const landingName = input("landing-username", "");
   const root = rootOf([find, landing, sticky, banner, name, landingName]);
@@ -121,7 +121,7 @@ test("find buttons stay loading and username boxes stay editable until boot ends
     assert.equal(node.disabled, false);
     assert.equal(node.getAttribute("aria-disabled"), "false");
     assert.equal(node.getAttribute("aria-busy"), null);
-    assert.equal(node.textContent, "Find my leagues");
+    assert.equal(node.textContent, "Connect my league");
   }
   assert.equal(name.value, "typed-during-load");
   assert.equal(landingName.value, "typed-during-load");
@@ -130,7 +130,7 @@ test("find buttons stay loading and username boxes stay editable until boot ends
 
 test("a find click or form submit during boot is queued once", () => {
   resetBootGate();
-  const find = button("find-leagues-btn", { dataset: { idleLabel: "Find my leagues", bootLoading: "1" } });
+  const find = button("find-leagues-btn", { dataset: { idleLabel: "Connect my league", bootLoading: "1" } });
   find.setAttribute("data-boot-loading", "1");
   find.getBoundingClientRect = () => ({ left: 0, top: 0, right: 40, bottom: 20 });
   const form = {
@@ -181,7 +181,7 @@ test("a press during boot keeps the typed name even if the field is cleared", ()
 test("a search queued during boot runs after init without a TDZ throw", async () => {
   resetBootGate();
   const name = input("sleeper-username", "queued");
-  const root = rootOf([name, button("find-leagues-btn", { dataset: { idleLabel: "Find my leagues" } })]);
+  const root = rootOf([name, button("find-leagues-btn", { dataset: { idleLabel: "Connect my league" } })]);
   assert.equal(handleBootIntent({
     type: "submit",
     target: {
@@ -223,7 +223,7 @@ test("boot-intent queues Enter and a click before app.js loads", () => {
     id: "find-leagues-btn",
     tagName: "BUTTON",
     getAttribute(attr) {
-      return attr === "data-idle-label" ? "Find my leagues" : null;
+      return attr === "data-idle-label" ? "Connect my league" : null;
     },
     closest() { return this; },
   };

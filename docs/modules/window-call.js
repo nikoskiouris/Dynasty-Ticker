@@ -4,22 +4,22 @@ import { formatOddsPct } from "./season.js";
 export const WINDOW_CALLS = {
   "all-in": {
     id: "all-in",
-    label: "Go all in",
-    shortLabel: "All in",
+    label: "Go win it now",
+    shortLabel: "Win now",
     teamState: "contending",
     tone: "green",
   },
   middle: {
     id: "middle",
-    label: "Stay in the middle",
-    shortLabel: "Middle",
+    label: "Hold steady",
+    shortLabel: "Hold",
     teamState: "middle",
     tone: "gold",
   },
   tank: {
     id: "tank",
-    label: "Tank",
-    shortLabel: "Tank",
+    label: "Rebuild",
+    shortLabel: "Rebuild",
     teamState: "rebuilding",
     tone: "rose",
   },
@@ -27,8 +27,8 @@ export const WINDOW_CALLS = {
 
 export const SEASON_WINDOW_CALLS = {
   "all-in": {
-    label: "Push for it",
-    shortLabel: "In it",
+    label: "Buy for a playoff push",
+    shortLabel: "Push",
   },
   middle: {
     label: "On the bubble",
@@ -298,7 +298,7 @@ function scoreWindowPressure(input, axes) {
   if (!season && nowScore >= 70 && young && !pickPoor) middle += 6;
   // Neither a title core nor a rebuild. This is the lane that was getting emptied.
   if (!season && nowScore >= 33 && nowScore <= 76 && futureScore >= 28 && futureScore <= 78) middle += 18;
-  // Winning a little, with no pick vault, in September. Stay put.
+  // Winning a little, with no draft picks, in September. Stay put.
   if (!season && !oddsMature && nowScore >= 55 && nowScore <= 78 && futureScore <= 45) middle += 12;
 
   const gap = Math.abs(allIn - tank);
@@ -326,15 +326,15 @@ function buildWindowCallSignals(input, axes) {
     {
       id: "playoffs",
       label: "Playoff odds",
-      value: playoffPct == null ? "Pending" : percentText(playoffPct),
-      detail: playoffPct == null ? "Sim still warming" : input.eliminated ? "Eliminated" : input.clinched ? "Clinched" : "Monte Carlo",
+      value: playoffPct == null ? "—" : percentText(playoffPct),
+      detail: playoffPct == null ? "Odds start once enough games are played." : input.eliminated ? "Eliminated" : input.clinched ? "Clinched" : "Monte Carlo",
       lean: leanFromNow(playoffPct == null ? axes.nowScore : playoffPct),
     },
     {
       id: "title",
       label: "Title odds",
-      value: titlePct == null ? "Pending" : percentText(titlePct),
-      detail: "Championship share",
+      value: titlePct == null ? "—" : percentText(titlePct),
+      detail: titlePct == null ? "Odds start once enough games are played." : "Championship share",
       lean: titlePct == null ? "middle" : titlePct >= 12 ? "all-in" : titlePct <= 3 ? "tank" : "middle",
     },
     {
@@ -364,7 +364,7 @@ function buildWindowCallSignals(input, axes) {
       },
       {
         id: "picks",
-        label: "Pick vault",
+        label: "Draft picks",
         value: `${firsts} first${firsts === 1 ? "" : "s"}`,
         detail: axes.pickRich ? "Future ammo" : axes.pickPoor ? "Thin capital" : "Balanced capital",
         lean: axes.pickRich ? "tank" : axes.pickPoor ? "all-in" : "middle",
@@ -427,7 +427,7 @@ function buildWindowCallCopy(input, axes, id) {
         "Do not buy a 28-year-old to patch a hole this year.",
         axes.pickRich
           ? "Keep the firsts. The draft is the plan, not a 7-7 finish."
-          : "Collect extra firsts until the pick vault is actually scary.",
+          : "Collect extra firsts until the draft pile is actually scary.",
         "Protect the youth core. Those names are the next contention window.",
       ],
     };
@@ -435,7 +435,7 @@ function buildWindowCallCopy(input, axes, id) {
   const headline = Number(input.playoffPct) >= 28 && Number(input.playoffPct) <= 58
     ? "Bubble team. One starter upgrade, not a fire sale."
     : "Do not blow it up, and do not sell the farm.";
-  const summary = `This roster is not a tank and not a finished title team. Stay in the middle: keep the core, fill ${hole || "the weakest starter spot"} without mortgaging two firsts.`;
+  const summary = `This roster is not a rebuild and not a finished title team. Hold steady: keep the core, fill ${hole || "the weakest starter spot"} without mortgaging two firsts.`;
   return {
     headline,
     summary,
@@ -471,7 +471,7 @@ function buildSeasonWindowCallCopy(input, axes, id) {
     return {
       headline: "This year is dead. You are out of the race.",
       summary: input.eliminated || (Number(input.playoffPct) <= 8 && axes.seasonProgress >= 0.35)
-        ? "Playoff math is cooked. Stream the wire. Do not trade a league-winner for a rental."
+        ? "Playoff math is cooked. Pick up free agents. Do not trade a league-winner for a rental."
         : `The weekly team is not a title threat${hole ? `, even at ${hole}` : ""}. Stop chasing the playoffs.`,
       moves: [
         "Start the upside, sit the duds. This is a lineup week, not a dynasty teardown.",
@@ -485,7 +485,7 @@ function buildSeasonWindowCallCopy(input, axes, id) {
     headline: Number(input.playoffPct) >= 28 && Number(input.playoffPct) <= 58
       ? "Bubble team. One hot week changes the math."
       : "Still alive. Don't blow up the roster.",
-    summary: `Keep the core, fill ${hole || "the weakest starter spot"} on the wire, and play the matchups.`,
+    summary: `Keep the core, fill ${hole || "the weakest starter spot"} from free agents, and play the matchups.`,
     moves: [
       hole ? `Upgrade ${hole} with a streamer or a one-week add.` : "Make one start/sit upgrade. Stop after that.",
       input.sampleVoice ? `Do not trade ${input.sampleVoice.favor} RB1 because last week looked ugly.` : "Do not trade your RB1 because last week looked ugly.",

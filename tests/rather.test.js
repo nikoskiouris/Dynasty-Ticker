@@ -232,7 +232,7 @@ test("desk board ranks two NFL RB1s as RB1 and RB2 from our values", () => {
   assert.equal(boarded[1].boardRank, "RB2");
   assert.equal(boarded[2].boardRank, "WR1");
   assert.equal(formatRatherBoardRank(boarded[1]), "RB2");
-  assert.equal(formatRatherMatchup(boarded[0], boarded[1]), "RB1 vs RB2 on the ticker board");
+  assert.equal(formatRatherMatchup(boarded[0], boarded[1]), "RB1 vs RB2 in the rankings");
   assert.equal(
     decorateRatherPlayer(boarded[0], { bijan: { position: "RB", team: "ATL", age: 23, depth_chart_order: 1 } }).meta,
     "RB1 · ATL · 23y"
@@ -415,7 +415,7 @@ test("renderRatherMarkup shows headline, format detail, and two players", () => 
   assert.match(html, /Sleeper trades from many dynasty leagues/);
   assert.doesNotMatch(html, /KeepTradeCut|keeptradecut|\bKTC\b/i);
   assert.match(html, /not NFL depth charts/);
-  assert.match(html, /public ticker board for everyone/);
+  assert.match(html, /public rankings for everyone/);
   assert.doesNotMatch(html, /Desk Crowd/);
   assert.doesNotMatch(html, /8510/);
 });
