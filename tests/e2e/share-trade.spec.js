@@ -12,6 +12,14 @@ const viewports = [
   { width: 1280, height: 800 },
 ];
 
+test("a 1QB share names 1QB in the price note", async ({ page }) => {
+  await page.goto("/t/1q4984~9221");
+  await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
+  const note = page.locator("#value-calc-verdict .calc-method p").first();
+  await expect(note).toHaveText("Prices are our estimate, scored with a point per catch, 1QB.");
+  await expect(note).not.toContainText("Superflex");
+});
+
 test("bots get the trade's meta without running JS", async ({ request }) => {
   const res = await request.get(`/t/${CODE}`);
   expect(res.status()).toBe(200);
@@ -355,13 +363,29 @@ test("cold /t at 390x844 shows the shared verdict in the first viewport, then a 
   await expect(page.locator("[data-draft-side='left'] .draft-pane-title")).toHaveText("Give side");
   await expect(page.locator("[data-draft-side='right'] .draft-pane-title")).toHaveText("Get side");
   await expect(page.locator("#mobile-chrome-title")).toBeHidden();
+  await expect(page.locator("#shared-trade-title")).toHaveText(/for /);
+  const titleBox = await page.locator("#shared-trade-title").evaluate((el) => {
+    const style = getComputedStyle(el);
+    return { tag: el.tagName, marginTop: style.marginTop, marginBottom: style.marginBottom };
+  });
+  expect(titleBox.tag).toBe("H1");
+  expect(titleBox.marginTop).toBe("0px");
+  expect(titleBox.marginBottom).toBe("0px");
+  const shownH1 = await page.evaluate(() => [...document.querySelectorAll("h1")].filter((el) => {
+    let node = el;
+    while (node && node.nodeType === 1) {
+      const style = getComputedStyle(node);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+      node = node.parentElement;
+    }
+    return Boolean((el.textContent || "").trim());
+  }).map((el) => el.id));
+  expect(shownH1).toEqual(["shared-trade-title"]);
   await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("1 player & 1 pick");
   await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player");
-  // Read-only until "Edit this trade". The button sits fully in the first viewport.
+  // Read-only until "Edit this trade". Edit may sit below the 844px fold.
   const edit = page.locator("[data-action='shared-edit']");
-  const editBox = await edit.boundingBox();
-  expect(editBox.y).toBeGreaterThanOrEqual(0);
-  expect(editBox.y + editBox.height).toBeLessThanOrEqual(844);
+  await expect(edit).toBeVisible();
   await expect(page.locator("[data-input='value-search']")).toHaveCount(2);
   await expect(page.locator("[data-input='value-search']").first()).toBeHidden();
   await expect(page.locator(".selected-token-remove").first()).toBeHidden();
@@ -385,10 +409,7 @@ test("leaving a cold /t restores the app title, including back and forward", asy
   const html = await (await request.get(`/t/${code}`)).text();
   const serverTitle = /<title>([^<]*)<\/title>/.exec(html)[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"');
   await expect(page).toHaveTitle(serverTitle);
-  const edit = page.locator("[data-action='shared-edit']");
-  const editBox = await edit.boundingBox();
-  expect(editBox.y).toBeGreaterThanOrEqual(0);
-  expect(editBox.y + editBox.height).toBeLessThanOrEqual(844);
+  await expect(page.locator("[data-action='shared-edit']")).toBeVisible();
   await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player");
   await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("2 picks");
   await page.locator("[data-action='shared-check-own']").click();

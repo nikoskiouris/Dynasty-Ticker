@@ -459,14 +459,14 @@ test("applyRatherOverlayHidden toggles the hidden attribute", () => {
   assert.equal(classes.has("hidden"), true);
 });
 
-test("index puts rather on the landing page and never auto-opens a league overlay", () => {
+test("the players page no longer shows rather, and the vote module stays", () => {
   const index = siteMarkup();
   const css = readFileSync(join(docs, "styles.css"), "utf8");
   const app = readFileSync(join(docs, "app.js"), "utf8");
-  assert.match(index, /id="landing-rather"/);
+  assert.doesNotMatch(index, /id="landing-rather"/);
+  assert.doesNotMatch(index, /Who would you rather have\?/);
   assert.match(index, /id="landing-username"/);
   assert.match(index, /id="landing-find-btn"/);
-  assert.match(index, /Who would you rather have\?/);
   assert.doesNotMatch(index, /id="rather-overlay"/);
   assert.doesNotMatch(index, /id="landing-focus-btn"/);
   assert.match(css, /\.landing-rather\s*\{/);

@@ -170,6 +170,8 @@ test("the league format line uses the same superflex and TE premium checks as th
   assert.match(body, /leagueHasSuperflex\(league\)/);
   assert.match(body, /tepLevel\(league\) > 0/);
   assert.doesNotMatch(body, /bonus_rec_te \|\| scoring\.rec_te/);
+  assert.match(body, /\$\{receptionValue\} \$\{receptionValue === 1 \? "point" : "points"\} per catch/);
+  assert.doesNotMatch(body, /PPR/);
 });
 
 test("missing sleeper id still uses the market name", () => {

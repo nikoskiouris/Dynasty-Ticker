@@ -190,12 +190,14 @@ for (const width of [1280, 701, 700, 390]) {
         shortText: short?.textContent || "",
         title: short?.getAttribute("title") || "",
         aria: short?.getAttribute("aria-label") || "",
+        tag: short?.tagName || "",
       };
     });
     expect(label.fullText).toBe("Superflex");
     expect(label.shortText).toBe("SF");
     expect(label.title).toBe("Superflex");
-    expect(label.aria).toBe("Superflex");
+    expect(label.aria).toBe("");
+    expect(label.tag).toBe("ABBR");
     if (width > 700) {
       expect(label.fullShown).toBe(true);
       expect(label.shortShown).toBe(false);

@@ -217,11 +217,12 @@ body.launch-open #route-title {
   #route-title {
     display: none !important;
   }
+}
 
-  /* A cold share hides the chrome title. This clipped h1 is the page heading. */
-  body.cold-share #route-title {
-    display: block !important;
-  }
+/* Cold /t uses the shared-trade title as its only h1. Keep the route title
+   hidden at every width so it adds no height. */
+body.cold-share #route-title {
+  display: none !important;
 }
 
 [data-room-panel] h2:focus-visible {
@@ -2178,7 +2179,7 @@ body:not(.league-loaded) .workspace-header {
 .standings-head,
 .standings-row {
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1.7fr) 3.6rem 4.4rem 4.4rem 2.8rem 4.4rem 3.2rem;
+  grid-template-columns: 2rem minmax(0, 1.7fr) 3.6rem 4.4rem 7.6rem 5.2rem 4.4rem 3.2rem;
   gap: 0.55rem;
   align-items: center;
 }
@@ -2800,6 +2801,7 @@ a.inline-link:hover {
 
 .sheet-slot-short {
   display: none;
+  text-decoration: none;
 }
 
 .sheet-player {
@@ -4215,6 +4217,12 @@ button.weekly-help-close:hover {
   list-style: none;
   color: var(--muted);
   font-size: var(--fs-sm2);
+}
+
+.price-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
 }
 
 .price-legend strong {
@@ -6259,7 +6267,7 @@ button.weekly-help-close:hover {
 
   .standings-head,
   .standings-row {
-    grid-template-columns: 2rem minmax(0, 1.7fr) 3.6rem 4.4rem 2.8rem 3.2rem;
+    grid-template-columns: 2rem minmax(0, 1.7fr) 3.6rem 4.4rem 5.2rem 3.2rem;
   }
 
   .col-pa,
@@ -9403,8 +9411,11 @@ html:not(.desk-shut) body.board-tools-live #landing {
   margin-bottom: var(--sp-3);
 }
 
-.shared-trade-head h2 {
+.shared-trade-head h1 {
+  margin: 0;
   font-size: var(--fs-h3);
+  line-height: var(--lh-snug);
+  font-weight: var(--fw-semi);
   overflow-wrap: anywhere;
 }
 
