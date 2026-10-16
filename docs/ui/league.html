@@ -3,7 +3,7 @@
     <div id="start-dashboard" class="dashboard start-dashboard hidden"></div>
     <section class="workspace-panel" id="power-section">
       <div class="panel-heading">
-        <h2 id="power-heading">Outlook</h2>
+        <h2 id="power-heading" tabindex="-1">Outlook</h2>
       </div>
       <div id="power-dashboard" class="power-dashboard">
         <div class="empty-cta">
@@ -27,6 +27,9 @@
     </section>
   </div>
   <div class="room hidden" data-room-panel="scores">
+    <div class="panel-heading">
+      <h2 id="scores-heading" tabindex="-1">This week</h2>
+    </div>
     <div id="scores-dashboard" class="dashboard"></div>
     <div id="weekly-honors-dashboard" class="dashboard"></div>
   </div>
@@ -35,7 +38,7 @@
       <div class="panel-heading">
         <div>
           <span class="eyebrow">League</span>
-          <h2>How the league ranks</h2>
+          <h2 id="league-heading" tabindex="-1">How the league ranks</h2>
         </div>
         <p class="section-copy" id="teams-grid-copy">Your team is outlined. Tap a team to view it.</p>
       </div>
@@ -50,9 +53,20 @@
     </details>
   </div>
   <div class="room hidden" data-room-panel="activity">
+    <div class="panel-heading">
+      <h2 id="activity-heading" tabindex="-1">Activity</h2>
+    </div>
     <div id="trade-log-dashboard" class="dashboard"></div>
   </div>
   <div class="room hidden" data-room-panel="history">
+    <section class="workspace-panel">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">History</span>
+          <h2 id="history-heading" tabindex="-1">Titles, records, and who stayed</h2>
+        </div>
+      </div>
+    </section>
     <div id="history-dashboard" class="dashboard analytics-dashboard">
       <div class="empty-cta">
         <h2 class="empty-cta-title">No league yet</h2>

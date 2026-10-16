@@ -1,17 +1,10 @@
 import { test, expect } from "@playwright/test";
+import { waitForAppBoot } from "./boot.js";
 
 const viewports = [
   { width: 390, height: 844 },
   { width: 1280, height: 800 },
 ];
-
-// app.js is a deferred module. Until it has attached its listeners and
-// released the boot gate, a Load League click is dropped (boot-intent.js
-// queues only Find presses), and the URL never leaves "/". The gate flag
-// flips after the listeners exist, so wait on it instead of on time.
-async function waitForAppBoot(page) {
-  await page.waitForFunction(() => window.__dynastyBootFind?.pending === false);
-}
 
 async function loadLeagueFromLanding(page, leagueId) {
   await waitForAppBoot(page);
@@ -103,6 +96,7 @@ for (const viewport of viewports) {
   test(`back from a league restores the picker at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
+    await expect(page.locator("#launch-example .launch-row").first()).toBeVisible({ timeout: 30000 });
     await loadLeagueFromLanding(page, "1360686137898700800");
     await expect(page).toHaveURL(/\/l\/1360686137898700800\/team/, { timeout: 30000 });
     await expect(page.locator("body")).toHaveClass(/league-loaded/);

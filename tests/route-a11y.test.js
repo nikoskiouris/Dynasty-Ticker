@@ -283,6 +283,7 @@ test("back and escape restore the player row, or the same player id when that no
 });
 
 test("league, activity, history, and this week have distinct document titles", () => {
+  assert.equal(ROUTE_ROOM_TITLES.team, ROOM_LABELS.league.team);
   assert.equal(ROUTE_ROOM_TITLES.board, ROOM_LABELS.league.board);
   assert.equal(ROUTE_ROOM_TITLES.scores, ROOM_LABELS.league.scores);
   assert.equal(ROUTE_ROOM_TITLES.activity, ROOM_LABELS.league.activity);
@@ -296,12 +297,52 @@ test("league, activity, history, and this week have distinct document titles", (
   assert.equal(activity, "Activity · Dynasty Ticker");
   assert.equal(history, "History · Dynasty Ticker");
   assert.equal(new Set([league, week, activity, history]).size, 4);
-  assert.equal(routeDocumentTitle({ tab: "league", room: "team" }), "My League · Dynasty Ticker");
+  assert.equal(routeDocumentTitle({ tab: "league", room: "team" }), "My team · Dynasty Ticker");
   assert.equal(routeDocumentTitle({ playerName: "Jahmyr Gibbs", tab: "league", room: "activity" }), "Jahmyr Gibbs · Dynasty Ticker");
   assert.equal(headingSelectorFor({ overlay: "player", playerId: "9221" }), ".ranks-card h2, .player-week-sheet h2");
-  assert.equal(headingSelectorFor({ page: "league", view: "scores" }), '[data-room-panel="scores"] h2');
-  assert.equal(headingSelectorFor({ tab: "league", view: "activity" }), '[data-room-panel="activity"] h2');
-  assert.equal(headingSelectorFor({ page: "league", view: "history" }), '[data-room-panel="history"] h2');
+  assert.equal(headingSelectorFor({ page: "league", view: "team" }), "#power-heading");
+  assert.equal(headingSelectorFor({ page: "league", view: "board" }), "#league-heading");
+  assert.equal(headingSelectorFor({ page: "league", view: "scores" }), "#scores-heading");
+  assert.equal(headingSelectorFor({ tab: "league", view: "activity" }), "#activity-heading");
+  assert.equal(headingSelectorFor({ page: "league", view: "history" }), "#history-heading");
+});
+
+test("card words stay plain after the heading split", () => {
+  const app = read("../docs/app.js");
+  const ranks = read("../docs/modules/ranks.js");
+  const weekly = read("../docs/modules/weekly-value.js");
+  const sit = read("../docs/modules/sit-start.js");
+  assert.match(ranks, /label: "Touches \+ targets per game"/);
+  assert.doesNotMatch(ranks, /Opportunities per game/);
+  assert.match(ranks, /label: "Projected points per game"/);
+  assert.doesNotMatch(ranks, /Projected PPR\/G/);
+  assert.match(sit, /points per game/);
+  assert.doesNotMatch(sit, /PPR\/game/);
+  assert.match(ranks, /Our estimate, scored with a point per catch\. Same number on Trade and My League\. The pick line is the closest pick\./);
+  assert.match(app, /PPR · \$\{escapeHtml\(rankFormatLabel\(format\)\)\}/);
+  assert.doesNotMatch(app, /Full PPR · /);
+  assert.match(app, /SUPER_FLEX: "Superflex"/);
+  assert.match(app, /BN: "Bench"/);
+  assert.match(app, /IR: "Injured reserve"/);
+  assert.match(sit, /BN: "Bench"/);
+  assert.match(sit, /IR: "Injured reserve"/);
+  assert.doesNotMatch(app, /SFlex/);
+  assert.doesNotMatch(sit, /SFlex/);
+  assert.match(app, /<span>Record<\/span>/);
+  assert.doesNotMatch(app, /<span>W-L<\/span>/);
+  assert.match(app, /\$\{slots\.length\} starters/);
+  assert.match(app, /1 point per catch/);
+  assert.match(app, /0\.5 points per catch/);
+  assert.doesNotMatch(app, /0\.5 PPR/);
+  assert.match(app, /\$\{taxiSlots\} taxi spots/);
+  assert.match(app, /parts\.push\("TE bonus"\)/);
+  assert.doesNotMatch(app, /TE bonus \(values stay full PPR\)/);
+  assert.match(app, /text: "Values use 1 point per catch at every position, even with the TE bonus\."/);
+  assert.match(app, /class="sheet-slot-full">Superflex</);
+  assert.match(app, /class="sheet-slot-short" title="Superflex" aria-label="Superflex">SF</);
+  assert.match(sit, /Sit — on injured reserve/);
+  assert.match(weekly, /Players who are out or on injured reserve count as 0% until that changes\./);
+  assert.match(weekly, /SFO: "SF"/);
 });
 
 test("a cold /player load focuses the card heading", () => {
@@ -400,6 +441,89 @@ test("heading focus waits for the node and follows a replacement", () => {
   });
   assert.equal(doc.activeElement, field);
   assert.equal(queued.length, before);
+
+  doc.activeElement = body;
+  doc.nodes = [first];
+  first.isConnected = true;
+  const skipped = queued.length;
+  focusHeadingWhenPresent(doc, ".ranks-card h2", {
+    maxMs: 1000,
+    now: () => now,
+    stillWanted: () => false,
+    schedule(fn) {
+      queued.push(fn);
+    },
+  });
+  assert.equal(doc.activeElement, body);
+  assert.equal(queued.length, skipped);
+
+  const hiddenRoom = {
+    className: "room hidden",
+    parentElement: null,
+    hidden: false,
+    getAttribute() {
+      return null;
+    },
+  };
+  const stale = heading("h2", "power-heading");
+  stale.tagName = "H2";
+  stale.parentElement = hiddenRoom;
+  const roomHeading = heading("h2", "league-heading");
+  roomHeading.tagName = "H2";
+  roomHeading.isConnected = true;
+  roomHeading.focus = () => {
+    doc.activeElement = roomHeading;
+  };
+  doc.activeElement = stale;
+  doc.nodes = [roomHeading];
+  focusHeadingWhenPresent(doc, "#league-heading", {
+    maxMs: 1000,
+    now: () => now,
+    schedule(fn) {
+      queued.push(fn);
+    },
+  });
+  assert.equal(doc.activeElement, roomHeading);
+
+  const visibleRoom = { ...hiddenRoom, className: "room" };
+  const playerHeading = heading("h2", "player-heading");
+  playerHeading.tagName = "H2";
+  playerHeading.parentElement = visibleRoom;
+  doc.activeElement = playerHeading;
+  doc.nodes = [roomHeading];
+  const held = queued.length;
+  focusHeadingWhenPresent(doc, "#league-heading", {
+    maxMs: 1000,
+    now: () => now,
+    schedule(fn) {
+      queued.push(fn);
+    },
+  });
+  assert.equal(doc.activeElement, playerHeading);
+  assert.equal(queued.length, held);
+
+  const leagueButton = { id: "load-league-btn", className: "", tagName: "BUTTON" };
+  doc.activeElement = leagueButton;
+  doc.nodes = [roomHeading];
+  const blocked = queued.length;
+  focusHeadingWhenPresent(doc, "#league-heading", {
+    maxMs: 1000,
+    now: () => now,
+    schedule(fn) {
+      queued.push(fn);
+    },
+  });
+  assert.equal(doc.activeElement, leagueButton);
+  assert.equal(queued.length, blocked);
+  focusHeadingWhenPresent(doc, "#league-heading", {
+    maxMs: 1000,
+    now: () => now,
+    takeover: true,
+    schedule(fn) {
+      queued.push(fn);
+    },
+  });
+  assert.equal(doc.activeElement, roomHeading);
 });
 
 test("aria-current page sits on the active tab and comes off the others", () => {
@@ -508,7 +632,7 @@ test("one polite live region announces the route", () => {
   assert.equal(routeAnnouncement({ tab: "league", view: "scores" }, { tab: "league", view: "board" }), "This week");
   assert.equal(routeAnnouncement({ tab: "league", view: "activity" }, { tab: "league", view: "scores" }), "Activity");
   assert.equal(routeAnnouncement({ tab: "league", view: "history" }, { tab: "league", view: "activity" }), "History");
-  assert.equal(routeAnnouncement({ tab: "league", view: "team" }, { tab: "league", view: "history" }), "My League");
+  assert.equal(routeAnnouncement({ tab: "league", view: "team" }, { tab: "league", view: "history" }), "My team");
   assert.equal(routeAnnouncement(
     { tab: "league", view: "scores", overlay: "player", playerName: "Jahmyr Gibbs" },
     { tab: "league", view: "board" },
@@ -532,12 +656,44 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(app, /history\.back\(\)/);
   assert.match(app, /announceRoute\(document/);
   assert.match(app, /ensureRouteLive\(document\)/);
-  assert.match(app, /focusHeadingWhenPresent\(document, selector\)/);
+  assert.match(app, /focusHeadingWhenPresent\(document, selector, \{/);
+  assert.match(app, /stillWanted: \(\) => Date\.now\(\) < followHeadingsUntil/);
   assert.match(app, /function focusLeagueRoomHeading\(room\)/);
+  assert.match(app, /function focusClickedRoute\(before\)/);
+  assert.match(app, /if \(pendingPopstateFocus\) return;/);
+  assert.match(app, /void focusAfterPopstate\(\{ focus, trigger: step\.trigger, before, token \}\)/);
+  assert.match(app, /location\.hash === "#workspace" && !event\.state\?\.tab\) return/);
+  assert.match(app, /await new Promise\(\(resolve\) => requestAnimationFrame\(resolve\)\)/);
+  assert.match(app, /while \(token === routeFocusToken && state\.leagueSwitching && Date\.now\(\) < deadline\)/);
+  assert.match(app, /leagueRoomMove\(before, after\) \? "heading" : step\.focus/);
   assert.equal(index.split('id="route-announcer"').length - 1, 1);
   assert.match(index, /id="route-announcer"[^>]*aria-live="polite"/);
   assert.match(index, /id="players-tab"[^>]*aria-current="page"/);
   assert.match(index, /<h1 id="mobile-chrome-title">/);
+  assert.match(index, /<h1 id="route-title" class="sr-only">Dynasty Ticker<\/h1>/);
+  assert.match(app, /function guestRouteHeading\(\)/);
+  assert.match(app, /function routeHeadingText\(\)/);
+  assert.match(app, /team: "My team"/);
+  assert.doesNotMatch(app, /bindInPageTab\(document\)/);
+  const css = read("../docs/styles.css");
+  assert.match(css, /body\.launch-open #route-title/);
+  assert.doesNotMatch(css, /body\.league-loaded #route-title/);
+  assert.match(css, /body\.cold-share #route-title[\s\S]*display:\s*block !important/);
+  assert.match(css, /\[data-room-panel\] h2:focus-visible[\s\S]*box-shadow:\s*var\(--focus\)/);
+  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus:not\(:focus-visible\)\s*\{[^}]*outline:\s*0 none/s);
+  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus:not\(:focus-visible\)\s*\{[^}]*box-shadow:\s*none/s);
+  assert.match(app, /message !== headingText/);
+  assert.match(app, /focusVisible: roomFocusVisible\(\)/);
+  const meta = app.slice(app.indexOf("function syncDocumentMeta"), app.indexOf("async function bootLandingRather"));
+  assert.match(meta, /el\.routeTitle\.textContent = routeHeadingText\(\)/);
+  const league = read("../docs/ui/league.html");
+  assert.match(league, /<h2 id="power-heading" tabindex="-1">/);
+  assert.match(league, /<h2 id="league-heading" tabindex="-1">How the league ranks<\/h2>/);
+  assert.match(league, /<h2 id="scores-heading" tabindex="-1">This week<\/h2>/);
+  assert.doesNotMatch(league, /id="scores-heading"[^>]*\bsr-only\b/);
+  assert.match(league, /<h2 id="activity-heading" tabindex="-1">Activity<\/h2>/);
+  assert.doesNotMatch(league, /id="activity-heading"[^>]*\bsr-only\b/);
+  assert.match(league, /data-room-panel="history"[\s\S]*<h2 id="history-heading" tabindex="-1">Titles, records, and who stayed<\/h2>/);
   assert.doesNotMatch(index, /<(?:body|html)[^>]*\stabindex/);
   assert.match(index, /id="workspace"[^>]*tabindex="-1"/);
   const honors = app.slice(app.indexOf("function renderWeeklyHonors"), app.indexOf("function renderSeasonSuperlatives"));
@@ -1103,9 +1259,26 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
     } catch {
       // Older Chrome still reports sequential focus without this.
     }
-    await waitForPage(pageSocket, `() => ({
-      ok: Boolean(document.querySelector("#trades-tab")),
-    })`, 15000, "trade shell");
+    // #trades-tab is in the static shell. The desk is ready once boot has
+    // released, the trade history entry is written, and focus has stopped moving.
+    await waitForStable(pageSocket, `() => {
+      const el = document.activeElement;
+      const id = el === document.body ? "BODY" : (el?.id || el?.tagName || "");
+      const boot = window.__dynastyBootFind?.pending === false;
+      const title = document.querySelector("#route-title")?.textContent || "";
+      return {
+        ok: Boolean(document.querySelector("#trades-tab"))
+          && boot
+          && history.state?.tab === "trades"
+          && title === "Trade"
+          && location.pathname === "/trade"
+          && (id === "BODY" || id === "route-title"),
+        id,
+        boot,
+        title,
+        path: location.pathname,
+      };
+    }`, 20000, 400, "trade ready");
     await pageEval(pageSocket, () => {
       window.__stops = [];
       document.addEventListener("focusin", (event) => {
@@ -1133,7 +1306,7 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
     await pageSocket.send("Input.dispatchKeyEvent", {
       type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
     });
-    const skipped = await waitForPage(pageSocket, `() => {
+    const skipped = await waitForStable(pageSocket, `() => {
       const el = document.activeElement;
       return {
         ok: el?.id === "workspace" && location.pathname === "/trade",
@@ -1141,7 +1314,7 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
         tab: el?.getAttribute?.("tabindex") || "",
         path: location.pathname,
       };
-    }`, 3000, "skip link");
+    }`, 5000, 400, "skip link");
     assert.equal(skipped.id, "workspace");
     assert.equal(skipped.path, "/trade");
   } finally {

@@ -28,7 +28,7 @@ import {
   launchTrendMarkup,
 } from "../docs/modules/launch-landing.js";
 import { draftVerdictModel } from "../docs/modules/trade-draft.js";
-import { TIER_BANDS, percentMore, verdictCopy } from "../docs/modules/verdict-copy.js";
+import { TIER_BANDS, displayMore, percentMore, verdictCopy } from "../docs/modules/verdict-copy.js";
 import { sharedBarSegments } from "../docs/modules/verdict-bars.js";
 import { formatNumber } from "../docs/modules/html.js";
 
@@ -101,12 +101,17 @@ test("the example trade is the calculator verdict, and a new price changes it", 
   const shown = html.match(/class="vt"><b>([^<]*)<\/b>/);
   assert.equal(shown?.[1], copy.line);
   assert.match(html, new RegExp(`launch-verdict ${copy.publicTone}`));
+  const landing = readFileSync(join(root, "../docs/modules/launch-landing.js"), "utf8");
+  assert.match(landing, /\$\{starsPremiumMarkup\(model\)\}/);
+  assert.doesNotMatch(landing, /starsPremiumMarkup\(model,\s*\{[^}]*detail/);
+  assert.doesNotMatch(html, /After that/);
+  if (copy.detail) assert.equal(html.split(copy.detail).length - 1, 1);
   const bigger = bars.give.total === bars.get.total ? "" : (bars.give.total > bars.get.total ? "Give" : "Get");
   assert.equal(copy.side, bigger);
   if (bigger === "Give") assert.match(html, /calc-pointer-wide">◀[\s\S]*You give/);
   if (bigger === "Get") assert.match(html, /You get[\s\S]{0,240}calc-pointer-wide">▶/);
   assert.equal(percentMore(bars.give.total, bars.get.total), copy.more);
-  if (copy.more != null && copy.tier !== "even") assert.match(copy.line, new RegExp(`${copy.more}% more`));
+  if (copy.more != null && copy.tier !== "even") assert.match(copy.line, new RegExp(`${displayMore(copy.more)}% more`));
   assert.match(html, new RegExp(`>${formatNumber(bars.give.total)}<`));
   assert.match(html, new RegExp(`>${formatNumber(bars.get.total)}<`));
   const meters = html.match(/data-give="(\d+)" data-get="(\d+)"/);
@@ -213,6 +218,7 @@ test("a pre-league landing has one heading and two calls to action", () => {
   assert.match(index, /<body class="launch-open">/);
   assert.deepEqual(index.match(/<h1\b[^>]*>/g), [
     '<h1 id="mobile-chrome-title">',
+    '<h1 id="route-title" class="sr-only">',
     '<h1 id="landing-job-hint">',
   ]);
   assert.match(index, /<h1 id="landing-job-hint">Is your dynasty trade fair\?/);

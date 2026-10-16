@@ -170,7 +170,7 @@
             </div>
           </div>
           <label for="me-select">Team</label>
-          <select id="me-select"></select>
+          <select id="me-select" aria-label="Team"></select>
         </section>
 
         <div class="rail-footer">
@@ -186,6 +186,7 @@
       </button>
 
       <main class="workspace" id="workspace" tabindex="-1">
+        <h1 id="route-title" class="sr-only">Dynasty Ticker</h1>
         <div id="sample-banner" class="sample-banner" hidden></div>
         <button type="button" id="sample-find-btn" class="sample-find-btn" data-sample-find data-action="find-my-leagues" hidden>Connect my league</button>
         <header class="workspace-header" id="workspace-header">
@@ -236,12 +237,12 @@
           <nav class="room-nav" id="room-nav" role="tablist" aria-label="On this page"></nav>
         </div>
 
-        <div id="ticker" class="ticker hidden" aria-label="League ticker" aria-pressed="false" title="Tap to pause or resume. Drag to scrub.">
+        <button type="button" id="ticker" class="ticker hidden" aria-label="League ticker" aria-pressed="false" title="Tap to pause or resume. Drag to scrub.">
           <span class="ticker-label">Live</span>
-          <div class="ticker-viewport">
-            <div class="ticker-track" id="ticker-track"></div>
-          </div>
-        </div>
+          <span class="ticker-viewport">
+            <span class="ticker-track" id="ticker-track"></span>
+          </span>
+        </button>
 
         <div id="ui-pages">
           <section class="launch" id="landing">

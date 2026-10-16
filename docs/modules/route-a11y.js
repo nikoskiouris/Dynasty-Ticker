@@ -8,6 +8,7 @@ export const ROUTE_TAB_LABELS = Object.freeze({
   league: "My League",
 });
 export const ROUTE_ROOM_TITLES = Object.freeze({
+  team: "My team",
   board: "League",
   scores: "This week",
   activity: "Activity",
@@ -51,12 +52,18 @@ export function routeAnnouncement(place = {}, before = {}) {
   return ROUTE_TAB_LABELS[place.tab] || "";
 }
 
-export function focusWithoutScroll(el) {
+export function focusWithoutScroll(el, { focusVisible = false } = {}) {
   if (!el || typeof el.focus !== "function") return false;
+  const opts = { preventScroll: true };
+  if (focusVisible) opts.focusVisible = true;
   try {
-    el.focus({ preventScroll: true });
+    el.focus(opts);
   } catch {
-    el.focus();
+    try {
+      el.focus({ preventScroll: true });
+    } catch {
+      el.focus();
+    }
   }
   return true;
 }
@@ -92,22 +99,28 @@ function visibleHeading(root, selector) {
 }
 
 // Prefer the view's h1 or h2. Dialogs that only have an h3 still receive focus.
-export function focusViewHeading(root) {
+export function focusViewHeading(root, { focusVisible = false } = {}) {
   const heading = visibleHeading(root, "h1, h2") || visibleHeading(root, "h3");
   if (!heading) return null;
   if (typeof heading.setAttribute === "function") heading.setAttribute("tabindex", "-1");
-  focusWithoutScroll(heading);
+  focusWithoutScroll(heading, { focusVisible });
   return heading;
 }
+
+const LEAGUE_ROOM_HEADINGS = Object.freeze({
+  team: "#power-heading",
+  board: "#league-heading",
+  scores: "#scores-heading",
+  activity: "#activity-heading",
+  history: "#history-heading",
+});
 
 export function headingSelectorFor(place = {}) {
   const overlay = String(place.overlay || "");
   if (overlay === "player" || place.playerId) return ".ranks-card h2, .player-week-sheet h2";
   const page = place.page || place.tab || "";
   const room = String(place.view || "");
-  if (page === "league" && (room === "board" || room === "scores" || room === "activity" || room === "history")) {
-    return `[data-room-panel="${room}"] h2`;
-  }
+  if (page === "league" && LEAGUE_ROOM_HEADINGS[room]) return LEAGUE_ROOM_HEADINGS[room];
   return "";
 }
 
@@ -126,11 +139,23 @@ function railOpen(doc) {
   return classListHas(body, "rail-open");
 }
 
-function mayMoveFocus(doc, active) {
+function inLeagueIdForm(active) {
+  if (!active) return false;
+  if (active.id === "league-id" || active.id === "load-league-btn") return true;
+  return typeof active.closest === "function" && Boolean(active.closest("#league-load-form"));
+}
+
+function mayMoveFocus(doc, active, takeover = false) {
   if (!active || active === doc.body || active === doc.documentElement) return true;
   if (active.id === "workspace") return true;
+  // Back after a league-id switch leaves focus in that form. The restored room heading takes it.
+  if (takeover && inLeagueIdForm(active)) return true;
   // Closing the phone menu parks focus on Sections. The room heading should take it.
   if ((active.id === "mobile-rail-toggle" || active.id === "mobile-rail-close") && !railOpen(doc)) return true;
+  // A room change hides the previous room. Focus is still on that heading until
+  // the browser drops it, and the next room heading has to take over.
+  const tag = String(active.tagName || "");
+  if ((tag === "H1" || tag === "H2" || tag === "H3") && isHidden(active)) return true;
   const cls = typeof active.className === "string" ? active.className : "";
   return cls.split(/\s+/).some((name) => (
     name === "room-tab" || name === "page-tab" || name === "phone-desk-room" || name === "phone-desk-page"
@@ -141,10 +166,11 @@ let headingWatch = 0;
 
 // Retry until the heading is in the document and still focused on a later frame.
 // A render that replaces the node drops focus to the body, so the watch continues.
-export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000, settleMs = 400, now, onStuck } = {}) {
+export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000, settleMs = 400, now, onStuck, stillWanted, focusVisible = false, takeover = false } = {}) {
   if (!doc || !selector) return 0;
   const watch = ++headingWatch;
   const clock = now || (() => Date.now());
+  const wanted = () => (typeof stillWanted === "function" ? stillWanted() !== false : true);
   const queue = schedule || ((fn) => {
     if (typeof requestAnimationFrame === "function") return requestAnimationFrame(fn);
     return setTimeout(fn, 16);
@@ -152,19 +178,21 @@ export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000
   const started = clock();
   const tick = () => {
     if (watch !== headingWatch) return;
+    if (!wanted()) return;
     const active = doc.activeElement;
     const heading = firstVisible(doc, selector);
     const already = Boolean(heading) && active === heading;
-    if (!already && !mayMoveFocus(doc, active)) return;
+    if (!already && !mayMoveFocus(doc, active, takeover)) return;
     if (heading) {
       if (heading.getAttribute?.("tabindex") == null && typeof heading.setAttribute === "function") {
         heading.setAttribute("tabindex", "-1");
       }
-      if (!already) focusWithoutScroll(heading);
+      if (!already) focusWithoutScroll(heading, { focusVisible });
       if (doc.activeElement === heading) {
         const stableAt = clock();
         const confirm = () => {
           if (watch !== headingWatch) return;
+          if (!wanted()) return;
           if (heading.isConnected === false || doc.activeElement !== heading) {
             if (clock() - started < maxMs) queue(tick);
             return;

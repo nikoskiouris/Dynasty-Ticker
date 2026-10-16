@@ -1400,13 +1400,14 @@ a.inline-link {
 
 .sheet-player strong,
 .player-name > .player-name-text {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  display: block;
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
-  overflow-wrap: break-word;
-  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  white-space: nowrap;
   text-overflow: ellipsis;
   line-height: 1.2;
 }

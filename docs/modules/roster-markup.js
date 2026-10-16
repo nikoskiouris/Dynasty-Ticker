@@ -44,8 +44,9 @@ export function renderSleeperInsight(insight) {
   const busy = insight?.busy === true ? ` aria-busy="true"` : "";
   return `
     <section class="insight-item ${tone}"${busy}>
-      <strong>${escapeHtml(insight?.title)}</strong>
+      <strong>${escapeHtml(insight?.title)}${insight?.tipHtml || ""}</strong>
       <span>${escapeHtml(insight?.body)}</span>
+      ${insight?.hint ? `<span class="pick-value-hint">${escapeHtml(insight.hint)}</span>` : ""}
     </section>
   `;
 }

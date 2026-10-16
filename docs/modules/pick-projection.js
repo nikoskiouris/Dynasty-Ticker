@@ -77,6 +77,26 @@ export function nextDraftSeason(leagueSeason) {
   return Number.isFinite(season) && season > 0 ? season + 1 : 0;
 }
 
+const GENERIC_PICK_TAIL = /^(any|early|mid|middle|late)$/i;
+
+// Named 2028+ 1sts share one price: the mid 1st. Generic catalog rows
+// already say Early, Mid, or Late in the name.
+export function valuedAsMidFirstHint(asset, leagueSeason) {
+  if (!asset || asset.assetType !== "pick") return "";
+  const season = Number(asset.raw?.season ?? asset.season);
+  const round = Number(asset.raw?.round ?? asset.round);
+  const next = nextDraftSeason(leagueSeason);
+  if (round !== 1 || !(next > 0 && Number.isFinite(season) && season > next)) return "";
+  const parts = String(asset.assetId || "").split(":");
+  const tail = parts.length > 1 ? parts[parts.length - 1] : "";
+  if (GENERIC_PICK_TAIL.test(tail)) return "";
+  const owner = asset.raw?.original_owner ?? asset.raw?.roster_id ?? asset.original_owner;
+  const named = (owner != null && String(owner) !== "" && String(owner) !== "any")
+    || (tail && !GENERIC_PICK_TAIL.test(tail) && !/^r\d+$/i.test(tail));
+  if (!named) return "";
+  return "valued as a mid 1st";
+}
+
 // Next year keeps a slot and a finish. Later years are the mid 1st (or that
 // round's single price) with no slot and no finish claim. An assigned slot
 // is a known pick, not a projection.

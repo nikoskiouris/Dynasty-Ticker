@@ -65,6 +65,8 @@ import {
   loadPlayersCacheEntry,
   savePlayersCacheEntry,
   playersCacheIsFresh,
+  mergePlayerRecords,
+  playersFromSlimFile,
   slimPlayersMap,
   sleeperAvatarUrl,
   previousLeagueId,
@@ -91,6 +93,8 @@ import {
   pickValueBundle,
   selectValueFormat,
   fetchValuationBundles,
+  NFL_PLAYERS_SLIM_PATH,
+  playersFromValueSnapshot,
   fetchPriceHistory,
   PRICE_HISTORY_INDEX_PATH,
   coerceValueMap,
@@ -306,7 +310,7 @@ import {
   topOverlay,
   urlPath,
 } from "./modules/history-route.js";
-import { EVEN_UP_OFFER_ABOVE, ideaLimitMore, oldPctToMore, STAR_PREMIUM_KEY, TIER_EXPLAINER, barLabel, creditedTotalsLine, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
+import { EVEN_UP_OFFER_ABOVE, displayMore, ideaLimitMore, oldPctToMore, STAR_PREMIUM_KEY, TIER_EXPLAINER, barLabel, creditedTotalsLine, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
 import { bindInfoTips, infoTipMarkup, valuesWorkText } from "./modules/info-tip.js";
 import {
   EXAMPLE_GET,
@@ -351,6 +355,7 @@ import {
   projectPickSlots,
   resolvePickProjection,
   rosterRecordsReady,
+  valuedAsMidFirstHint,
 } from "./modules/pick-projection.js";
 import {
   applyDocumentMeta,
@@ -406,6 +411,7 @@ import {
   ensureRouteLive,
   focusHeadingWhenPresent,
   focusViewHeading,
+  focusWithoutScroll,
   headingRootFor,
   headingSelectorFor,
   restoreTriggerFocus,
@@ -575,6 +581,7 @@ const el = {
   stickyMobileCta: document.querySelector("#sticky-mobile-cta"),
   stickyFindBtn: document.querySelector("#sticky-find-btn"),
   mobileChromeTitle: document.querySelector("#mobile-chrome-title"),
+  routeTitle: document.querySelector("#route-title"),
   mobileRailToggle: document.querySelector("#mobile-rail-toggle"),
   mobileRailClose: document.querySelector("#mobile-rail-close"),
   deskBoardClose: document.querySelector("#desk-board-close"),
@@ -735,7 +742,10 @@ el.mobileRailToggle?.addEventListener("click", () => {
   const nextOpen = !document.body.classList.contains("rail-open");
   setMobileRailOpen(nextOpen);
   if (nextOpen) {
-    requestAnimationFrame(() => el.mobileRailClose?.focus());
+    requestAnimationFrame(() => {
+      if (!document.body.classList.contains("rail-open")) return;
+      el.mobileRailClose?.focus();
+    });
   }
 });
 el.phoneDesk?.addEventListener("click", handlePhoneDeskClick);
@@ -896,7 +906,16 @@ let appBooted = false;
 let coldPlayerHeading = false;
 let rankExtrasSettled = true;
 let followHeadingsUntil = 0;
+let routeFocusToken = 0;
+let pendingPopstateFocus = 0;
+let routeFocusHold = null;
+let routeKeyboardUntil = 0;
+let routeHeadingFocusVisible = false;
+let historyFocusTakeover = false;
+const routeSettleJobs = new Set();
 let leagueOpenedInApp = false;
+let slimDirectory = null;
+let slimDirectoryPromise = null;
 function noteSearchedUser(leagueId) {
   if (searchedUserNoted) return;
   const pick = searchedUserPick({ sleeperUser: state.sleeperUser, userLeagues: state.userLeagues, leagueId });
@@ -905,6 +924,7 @@ function noteSearchedUser(leagueId) {
   void recordSearchedUser(pick);
 }
 bootFromUrl();
+if (bootRoute?.leagueId) void loadSlimPlayersFile();
 coldPlayerHeading = bootRoute?.name === "player";
 document.addEventListener("focusin", (event) => {
   const target = event.target;
@@ -912,11 +932,27 @@ document.addEventListener("focusin", (event) => {
   if (target.id === "workspace") return;
   const tag = String(target.tagName || "");
   if (tag === "H1" || tag === "H2" || tag === "H3") return;
+  // Closing the menu can move focus onto the close control after the room
+  // heading. That is not the user staying in the menu.
+  if (target.id === "mobile-rail-close" && !document.body.classList.contains("rail-open")) return;
   const cls = typeof target.className === "string" ? target.className : "";
   if (/(?:^|\s)(?:room-tab|page-tab|phone-desk-room|phone-desk-page)(?:\s|$)/.test(cls)) return;
   followHeadingsUntil = 0;
   coldPlayerHeading = false;
 });
+document.addEventListener("pointerdown", releaseRouteFocusHold, true);
+document.addEventListener("keydown", releaseRouteFocusHold, true);
+document.addEventListener("pointerdown", () => {
+  routeKeyboardUntil = 0;
+}, true);
+document.addEventListener("keydown", () => {
+  routeKeyboardUntil = Date.now() + 2500;
+}, true);
+document.addEventListener("focusin", () => {
+  const hold = routeFocusHold;
+  if (!hold || hold.token !== routeFocusToken) return;
+  requestAnimationFrame(() => restoreHeldFocus());
+}, true);
 window.addEventListener("resize", syncDeskRailOffset);
 if (bootRoute?.badLeague) {
   showLeagueNotFound();
@@ -957,11 +993,19 @@ void hydrateCrowdVotes().then((ok) => {
 if (typeof history.scrollRestoration === "string") history.scrollRestoration = "manual";
 ensureRouteLive(document);
 window.addEventListener("popstate", (event) => {
+  // Skip to content only adds #workspace. That is not a desk move, and the
+  // page-heading focus would take the workspace the link just targeted.
+  if (window.location.hash === "#workspace" && !event.state?.tab) return;
   const raw = event.state?.idx;
   const next = Number.isFinite(Number(raw)) ? Number(raw) : Math.max(0, routeFocus.index() - 1);
+  const before = routePlaceNow();
   const step = routeFocus.pop(next);
+  const token = claimRouteFocus();
+  pendingPopstateFocus = token;
   applyDeskPopState(event.state);
-  syncRouteA11y({ focus: appBooted ? step.focus : "none", trigger: step.trigger });
+  const after = routePlaceNow();
+  const focus = !appBooted ? "none" : (leagueRoomMove(before, after) ? "heading" : step.focus);
+  void focusAfterPopstate({ focus, trigger: step.trigger, before, token });
   const followTitle = () => syncDocumentMeta();
   setTimeout(followTitle, 0);
   if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => setTimeout(followTitle, 0));
@@ -1699,11 +1743,45 @@ function armHeadingFollow() {
   followHeadingsUntil = Date.now() + 45000;
 }
 
+function roomFocusVisible() {
+  return Date.now() < routeKeyboardUntil;
+}
+
+function focusRouteHeading(selector, focusVisible = routeHeadingFocusVisible, takeover = false) {
+  if (pendingPopstateFocus) return;
+  if (!selector || Date.now() >= followHeadingsUntil) return;
+  focusHeadingWhenPresent(document, selector, {
+    stillWanted: () => Date.now() < followHeadingsUntil,
+    focusVisible,
+    takeover,
+  });
+}
+
+function leagueRoomMove(before, after) {
+  if (!before || !after) return false;
+  if (before.overlay || after.overlay || before.playerId || after.playerId) return false;
+  if ((before.page || before.tab) !== "league" || (after.page || after.tab) !== "league") return false;
+  return String(before.view || "") !== String(after.view || "");
+}
+
 function focusLeagueRoomHeading(room) {
+  if (pendingPopstateFocus) return;
   if (!appBooted || Date.now() >= followHeadingsUntil) return;
-  if (room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
+  if (room !== "team" && room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
   if (state.activePage !== "league" || getRoom() !== room) return;
-  focusHeadingWhenPresent(document, `[data-room-panel="${room}"] h2`);
+  const run = () => {
+    if (pendingPopstateFocus || !appBooted || Date.now() >= followHeadingsUntil) return;
+    if (state.activePage !== "league" || getRoom() !== room) return;
+    focusHeadingWhenPresent(document, headingSelectorFor({ page: "league", view: room }), {
+      stillWanted: () => Date.now() < followHeadingsUntil,
+      focusVisible: roomFocusVisible(),
+    });
+  };
+  if (routeFocusHold && routeFocusHold.token === routeFocusToken) {
+    requestAnimationFrame(run);
+    return;
+  }
+  run();
 }
 
 function focusColdPlayerHeading() {
@@ -1719,22 +1797,191 @@ function focusColdPlayerHeading() {
   });
 }
 
-function syncRouteA11y({ focus = "none", trigger = null, before = null } = {}) {
+function claimRouteFocus() {
+  routeFocusToken += 1;
+  pendingPopstateFocus = 0;
+  routeFocusHold = null;
+  followHeadingsUntil = 0;
+  return routeFocusToken;
+}
+
+function releaseRouteFocusHold() {
+  routeFocusHold = null;
+}
+
+function focusHoldExempt(node) {
+  if (!node) return false;
+  const id = node.id || "";
+  if (id === "mobile-rail-toggle" || id === "mobile-rail-close" || id === "desk-board-open" || id === "desk-board-close") return true;
+  const cls = typeof node.className === "string" ? node.className : "";
+  return cls.split(/\s+/).some((name) => (
+    name === "room-tab" || name === "page-tab" || name === "phone-desk-room" || name === "phone-desk-page"
+  ));
+}
+
+function shownElement(node) {
+  let el = node;
+  while (el && el.nodeType === 1) {
+    if (el.hidden) return false;
+    if (typeof el.classList?.contains === "function" && el.classList.contains("hidden")) return false;
+    if (typeof getComputedStyle === "function") {
+      const style = getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+    }
+    el = el.parentElement;
+  }
+  return Boolean(node);
+}
+
+function shownQuery(selector) {
+  const nodes = document.querySelectorAll(selector);
+  for (const node of nodes) {
+    if (shownElement(node)) return node;
+  }
+  return null;
+}
+
+function visiblePageHeading() {
+  const nodes = [
+    document.querySelector("#landing-job-hint"),
+    document.querySelector("#mobile-chrome-title"),
+    document.querySelector("#route-title"),
+  ];
+  return nodes.find((node) => shownElement(node)) || null;
+}
+
+function focusPageHeading() {
+  const heading = visiblePageHeading();
+  if (!heading) return null;
+  if (heading.getAttribute("tabindex") == null) heading.setAttribute("tabindex", "-1");
+  focusWithoutScroll(heading, { focusVisible: routeHeadingFocusVisible });
+  return heading;
+}
+
+function holdRouteFocus(token, getTarget, focusVisible = false) {
+  routeFocusHold = { token, getTarget, fails: 0, focusVisible };
+  requestAnimationFrame(() => restoreHeldFocus());
+}
+
+function restoreHeldFocus() {
+  const hold = routeFocusHold;
+  if (!hold || hold.token !== routeFocusToken) return;
+  const target = hold.getTarget();
+  if (!target || target.isConnected === false) return;
+  if (document.activeElement === target) {
+    hold.fails = 0;
+    return;
+  }
+  if (focusHoldExempt(document.activeElement)) return;
+  if (hold.fails > 4) return;
+  if (target.getAttribute("tabindex") == null) target.setAttribute("tabindex", "-1");
+  focusWithoutScroll(target, { focusVisible: Boolean(hold.focusVisible) });
+  if (document.activeElement === target) hold.fails = 0;
+  else hold.fails += 1;
+}
+
+function trackRouteSettle(promise) {
+  const job = Promise.resolve(promise).finally(() => routeSettleJobs.delete(job));
+  routeSettleJobs.add(job);
+  return job;
+}
+
+async function waitForRouteToSettle(token) {
+  const deadline = Date.now() + 5000;
+  while (token === routeFocusToken && Date.now() < deadline) {
+    if (!pageRenderQueue.isPending() && routeSettleJobs.size === 0) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      if (token !== routeFocusToken) return;
+      if (!pageRenderQueue.isPending() && routeSettleJobs.size === 0) return;
+      continue;
+    }
+    await Promise.race([
+      routeSettleJobs.size ? Promise.all([...routeSettleJobs]) : Promise.resolve(),
+      new Promise((resolve) => requestAnimationFrame(resolve)),
+    ]);
+  }
+}
+
+function visibleHeadingText(place) {
+  const selector = headingSelectorFor(place);
+  if (!selector) return "";
+  return String(shownQuery(selector)?.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function clearRouteAnnouncement() {
+  const node = document.getElementById("route-announcer");
+  if (node && node.textContent) node.textContent = "";
+}
+
+function focusClickedRoute(before) {
+  const focusVisible = routeHeadingFocusVisible;
+  const takeover = historyFocusTakeover;
+  armHeadingFollow();
+  const place = routePlaceNow();
+  const selector = headingSelectorFor(place);
+  if (selector) {
+    focusRouteHeading(selector, focusVisible, takeover);
+    return;
+  }
+  const root = headingRootFor(document, place, before || {});
+  if (!focusViewHeading(root, { focusVisible })) focusViewHeading(document.querySelector("main"), { focusVisible });
+}
+
+async function waitForHistoryLeague(token) {
+  const deadline = Date.now() + 20000;
+  while (token === routeFocusToken && state.leagueSwitching && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 40));
+  }
+}
+
+async function focusAfterPopstate({ focus, trigger, before, token }) {
+  const focusVisible = roomFocusVisible();
+  if (focus === "none") {
+    if (pendingPopstateFocus === token) pendingPopstateFocus = 0;
+    syncRouteA11y({ focus: "none", trigger, before, settled: token, focusVisible });
+    return;
+  }
+  await waitForRouteToSettle(token);
+  if (token !== routeFocusToken) return;
+  // Back to another league restores the URL before that room is on screen.
+  // Wait until the restored room is the one in state, then focus its heading.
+  await waitForHistoryLeague(token);
+  if (token !== routeFocusToken) return;
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  if (token !== routeFocusToken) return;
+  if (pendingPopstateFocus === token) pendingPopstateFocus = 0;
+  const place = routePlaceNow();
+  const selector = headingSelectorFor(place);
+  const mode = selector ? "heading" : ((!place.overlay && !place.playerId) ? "page" : focus);
+  if (mode === "heading") holdRouteFocus(token, () => shownQuery(selector), focusVisible);
+  else if (mode === "page") holdRouteFocus(token, () => visiblePageHeading(), focusVisible);
+  historyFocusTakeover = mode === "heading";
+  syncRouteA11y({ focus: mode, trigger, before, settled: token, focusVisible });
+  historyFocusTakeover = false;
+}
+
+function syncRouteA11y({ focus = "none", trigger = null, before = null, settled = 0, focusVisible = roomFocusVisible() } = {}) {
   syncDocumentMeta();
   syncRouteAriaCurrent();
   if (!appBooted || focus === "none") return;
+  if (settled) {
+    if (settled !== routeFocusToken) return;
+  } else {
+    claimRouteFocus();
+  }
+  routeHeadingFocusVisible = focusVisible;
   const place = routePlaceNow();
   const message = routeAnnouncement(place, before || {});
-  if (message) announceRoute(document, message);
+  const headingText = focus === "heading" ? visibleHeadingText(place) : "";
+  if (message && message !== headingText) announceRoute(document, message);
+  else if (message && headingText && message === headingText) clearRouteAnnouncement();
   if (focus === "heading") {
+    focusClickedRoute(before);
+    return;
+  }
+  if (focus === "page") {
     armHeadingFollow();
-    const selector = headingSelectorFor(place);
-    if (selector) {
-      focusHeadingWhenPresent(document, selector);
-      return;
-    }
-    const root = headingRootFor(document, place, before || {});
-    if (!focusViewHeading(root)) focusViewHeading(document.querySelector("main"));
+    focusPageHeading();
     return;
   }
   if (focus === "restore") restoreTriggerFocus(document, trigger || routeFocus.opener());
@@ -1809,6 +2056,8 @@ function updateUrlState({ mode = "replace", force = false } = {}) {
   const path = deskUrlPath();
   const snapshot = historyPlaceNow();
   const currentPath = `${window.location.pathname}${window.location.search}`;
+  const nextPath = String(path || "").split("?")[0] || "/";
+  const here = window.location.pathname || "/";
   const pathChanged = currentPath !== path;
   const placeWrite = decideHistoryWrite({
     current: history.state || {},
@@ -1832,6 +2081,12 @@ function updateUrlState({ mode = "replace", force = false } = {}) {
   }
   if (write === "silent") {
     routeFocus.forget();
+    return;
+  }
+  // A league is open. Keep the /l/ path, and still store the new history state.
+  if (state.leagueId && nextPath === "/" && here.startsWith("/l/")) {
+    routeFocus.forget();
+    history.replaceState(entry, "", here);
     return;
   }
   routeFocus.forget();
@@ -2572,6 +2827,28 @@ function syncDeskRailOffset() {
   if (height > 0) document.documentElement.style.setProperty("--desk-rail-height", `${height}px`);
 }
 
+function guestRouteHeading() {
+  const path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+  if (publicRanksOpen && !state.leagueId) return "Player ranks";
+  if (path === "/trade" || state.activePage === "trades") return "Trade";
+  if (path === "/players" || (state.activePage === "players" && !landingVisible())) return "Players";
+  return "Dynasty Ticker";
+}
+
+function routeHeadingText() {
+  if (state.leagueId && state.activePage === "league") {
+    const labels = {
+      team: "My team",
+      board: "League",
+      scores: "This week",
+      activity: "Activity",
+      history: "History",
+    };
+    if (labels[getRoom()]) return labels[getRoom()];
+  }
+  return guestRouteHeading();
+}
+
 function renderSessionSnapshot() {
   rebindUsernameInputs();
   const sampleOn = Boolean(state.viewingSample && state.leagueId);
@@ -2599,8 +2876,9 @@ function renderSessionSnapshot() {
         ? (state.leagueName || "Sample league")
         : state.leagueName
           ? (you ? `${you} · ${state.leagueName}` : state.leagueName)
-          : "Your Sleeper league";
+          : guestRouteHeading();
   }
+  if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
   if (el.mobileChromeViewing) {
     el.mobileChromeViewing.hidden = !sampleOn;
     el.mobileChromeViewing.textContent = sampleOn ? sampleViewingLine(you) : "";
@@ -2683,7 +2961,10 @@ function renderLeagueHero() {
             ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
             : "Matchups are syncing.";
   const sampleNote = state.viewingSample ? (sampleVoice()?.accountNote || "Public sample — not this account. ") : "";
-  el.heroLede.textContent = `${sampleNote}${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`;
+  const formatTip = tepLevel(league) > 0
+    ? ` ${infoTipMarkup({ id: "pop-hero-format", label: "Scoring", text: "Values use 1 point per catch at every position, even with the TE bonus." })}`
+    : "";
+  el.heroLede.innerHTML = `${escapeHtml(`${sampleNote}${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`)}${formatTip}`;
   if (el.leagueAvatar) {
     const leagueAvatarSrc = sleeperAvatarUrl(league.avatar);
     el.leagueAvatar.innerHTML = leagueAvatarSrc
@@ -3176,6 +3457,24 @@ function rememberPickedLeague(leagueId) {
   if (applyingHistory || typeof history?.replaceState !== "function") return;
   const nextSearch = stampPickedLeagueSearch(window.location.search, leagueId);
   if (!nextSearch) return;
+  const here = window.location.pathname || "/";
+  // Home has no league path. Push the place the manager is already on, or the team.
+  // Do not replaceState onto "/".
+  if ((here === "/" || here === "") && leagueOpenedInApp && typeof history.pushState === "function") {
+    const place = historyPlaceNow();
+    const picked = pathForPlace({
+      ...place,
+      leagueId,
+      playerName: routePlayerName(),
+      give: draftSideIds("left"),
+      get: draftSideIds("right"),
+      shareCode: activeShareCode(),
+    });
+    const next = picked && picked !== urlPath() ? picked : urlPath("l", leagueId, "team");
+    routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
+    history.pushState({ ...place, pushed: true }, "", next);
+    return;
+  }
   if (leagueOpenedInApp && typeof history.pushState === "function") {
     routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
     history.pushState({ ...historyPlaceNow(), pushed: true }, "", `${window.location.pathname}${window.location.search}`);
@@ -3293,7 +3592,6 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.trendingAdds = [];
     state.trendingDrops = [];
     state.trendingLoaded = false;
-    state.playerMetadataLoaded = false;
     state.playerMetadataFailed = false;
     if (!sameLeague) {
       state.activePage = DEFAULT_PAGE;
@@ -3342,7 +3640,8 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.rosters = rosters;
     state.tradedPicks = tradedPicks;
     state.currentDraftContext = draftLoad?.context || null;
-    state.players = {};
+    state.players = seedPlayerDirectory();
+    state.playerMetadataLoaded = Object.keys(state.players).length > 0;
     state.previousLeague = previousContext.league;
     state.previousUsers = previousContext.users;
     state.previousRosters = previousContext.rosters;
@@ -3373,7 +3672,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     setStatus(
       missingTeam || (state.viewingSample
         ? (sampleVoice()?.statusSample || "Sample league — not this account.")
-        : `Loaded ${state.leagueName}. Player names are still syncing...`),
+        : `Loaded ${state.leagueName}.`),
       missingTeam ? { error: true } : { loading: true },
     );
     loadTrendingPlayers();
@@ -3387,21 +3686,8 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     loadPlayersWithCache()
       .then((players) => {
         if (playersLoadStale(playersEpoch, token, leagueId)) return;
-        state.players = players;
-        state.playerMetadataLoaded = true;
-        state.playerMetadataFailed = false;
-        refreshPlayerPositionRanks();
-        rebuildWeeklyValueContext();
+        commitPlayerDirectory(players, { epoch: playersEpoch, leagueId, hydrate: true });
         void ensureWeeklyValueContext();
-        state.normalizedRosters = normalizeRosters(state.league, state.rosters, state.users, players, {
-          league: state.previousLeague,
-          users: state.previousUsers,
-          rosters: state.previousRosters,
-        }, state.tradedPicks, state.currentDraftContext);
-        invalidateSeasonCaches();
-        hydrateManagerSelector();
-        syncTradeModeUi();
-        requestActivePageRender();
         const me = getMyRoster();
         const missingTeam = me ? "" : noTeamInLeagueCopy(state.sleeperUser);
         setStatus(
@@ -3417,6 +3703,16 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       })
       .catch((err) => {
         if (playersLoadStale(playersEpoch, token, leagueId) || err?.name === "AbortError") return;
+        // Value names are not the Sleeper directory. A roster that still has
+        // a missing name or position stays failed when both player files are blocked.
+        const gaps = state.normalizedRosters.some((roster) => (roster.assets || []).some((asset) => {
+          const gap = assetMetadataGap(asset);
+          return gap.name || gap.position;
+        }));
+        if (!gaps && Object.keys(state.players).length > 0) {
+          console.warn("Could not refresh NFL player metadata", err);
+          return;
+        }
         state.playerMetadataLoaded = false;
         state.playerMetadataFailed = true;
         syncTradeModeUi();
@@ -3457,6 +3753,10 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       startLivePolling();
     }
     setLeagueSwitchStale(failedSwitch);
+    if (!state.leagueId && String(window.location.pathname || "").startsWith("/l/") && typeof history?.replaceState === "function") {
+      history.replaceState({ ...historyPlaceNow(), pushed: false }, "", urlPath());
+      syncDocumentMeta();
+    }
   } finally {
     if (leagueLoader.isCurrent(token)) stopLeagueLoadingUi();
   }
@@ -3982,6 +4282,112 @@ async function loadPlayersWithCache() {
   }
 }
 
+function seedPlayerDirectory() {
+  const names = {
+    ...(state.valueBundles?.names || {}),
+    ...(state.valueNameMap || {}),
+  };
+  const fromValues = playersFromValueSnapshot(state.valueBundles?.players, names);
+  const fromSlim = slimDirectory || {};
+  return mergePlayerRecords(mergePlayerRecords(fromValues, fromSlim), state.players);
+}
+
+function commitPlayerDirectory(players, { failed = false, epoch = playerLoadEpoch, leagueId = state.leagueId, hydrate = false } = {}) {
+  if (epoch !== playerLoadEpoch) return;
+  if (leagueId && state.leagueId && String(leagueId) !== String(state.leagueId)) return;
+  state.players = mergePlayerRecords(state.players, players);
+  if (Object.keys(state.players).length > 0) {
+    state.playerMetadataLoaded = true;
+    state.playerMetadataFailed = false;
+  } else if (failed) {
+    state.playerMetadataLoaded = false;
+    state.playerMetadataFailed = true;
+  }
+  if (!state.league || !state.rosters?.length) return;
+  refreshPlayerPositionRanks();
+  rebuildWeeklyValueContext();
+  state.normalizedRosters = normalizeRosters(state.league, state.rosters, state.users, state.players, {
+    league: state.previousLeague,
+    users: state.previousUsers,
+    rosters: state.previousRosters,
+  }, state.tradedPicks, state.currentDraftContext);
+  invalidateSeasonCaches();
+  if (hydrate) hydrateManagerSelector();
+  syncTradeModeUi();
+  requestActivePageRender();
+}
+
+function loadSlimPlayersFile() {
+  if (slimDirectory && Object.keys(slimDirectory).length) return Promise.resolve(slimDirectory);
+  if (!slimDirectoryPromise) {
+    slimDirectoryPromise = fetch(NFL_PLAYERS_SLIM_PATH, { cache: "default" })
+      .then((response) => (response?.ok ? response.json() : null))
+      .then((payload) => {
+        const players = playersFromSlimFile(payload);
+        if (!Object.keys(players).length) {
+          // An empty or blocked file must not stick, so Retry can fetch it again.
+          slimDirectoryPromise = null;
+          return players;
+        }
+        slimDirectory = players;
+        if (state.leagueId) commitPlayerDirectory(players, { hydrate: false });
+        return players;
+      })
+      .catch((err) => {
+        console.warn("Could not load slim player file", err);
+        slimDirectoryPromise = null;
+        return null;
+      });
+  }
+  return slimDirectoryPromise;
+}
+
+function scheduleQuietPlayerRefresh(epoch, signal) {
+  const timer = setTimeout(() => {
+    if (signal.aborted || epoch !== playerLoadEpoch) return;
+    void refreshPlayersQuietly(epoch, signal);
+  }, 4000);
+  signal.addEventListener?.("abort", () => clearTimeout(timer), { once: true });
+}
+
+async function refreshPlayersQuietly(epoch, signal) {
+  let stateKey = null;
+  let stateFailed = false;
+  try {
+    const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1, signal });
+    stateKey = `${nflState?.season || "na"}-${nflState?.league_season || "na"}-${nflState?.week || "na"}`;
+  } catch (err) {
+    if (err?.name === "AbortError" || signal.aborted || epoch !== playerLoadEpoch) return;
+    stateFailed = true;
+  }
+  if (signal.aborted || epoch !== playerLoadEpoch) return;
+  const fromCache = await loadPlayersCacheEntry(playersCacheAdapters()).catch(() => null);
+  const now = Date.now();
+  const fresh = stateFailed
+    ? playersCacheIsFresh(fromCache, now, { ttlMs: PLAYERS_CACHE_TTL_MS })
+    : playersCacheIsFresh(fromCache, now, { stateKey, ttlMs: PLAYERS_CACHE_TTL_MS });
+  if (fresh) return;
+  try {
+    const raw = await apiGetWithRetry(`/players/nfl`, {
+      timeoutMs: 30000,
+      retries: 1,
+      cache: "default",
+      signal,
+    });
+    if (signal.aborted || epoch !== playerLoadEpoch) return;
+    const slim = slimPlayersMap(raw);
+    try {
+      await savePlayersCacheEntry({ players: slim, savedAt: Date.now(), stateKey }, playersCacheAdapters());
+    } catch (err) {
+      console.warn("Could not save players cache", err);
+    }
+    commitPlayerDirectory(slim, { epoch, hydrate: false });
+  } catch (err) {
+    if (signal.aborted || epoch !== playerLoadEpoch || err?.name === "AbortError") return;
+    console.warn("Could not refresh NFL player metadata", err);
+  }
+}
+
 async function fetchPlayersForCache(epoch, signal) {
   const now = Date.now();
   const fromCache = await loadPlayersCacheEntry(playersCacheAdapters()).catch((err) => {
@@ -3990,21 +4396,21 @@ async function fetchPlayersForCache(epoch, signal) {
   });
   if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
 
-  let stateKey = null;
-  let stateFailed = false;
-  try {
-    const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1, signal });
-    stateKey = `${nflState?.season || "na"}-${nflState?.league_season || "na"}-${nflState?.week || "na"}`;
-  } catch (err) {
-    if (err?.name === "AbortError" || signal.aborted || epoch !== playerLoadEpoch) throw cancelledPlayerLoad();
-    stateFailed = true;
+  // Warm: the 6h slim cache is enough to paint. Revalidate the week key after.
+  if (playersCacheIsFresh(fromCache, now, { ttlMs: PLAYERS_CACHE_TTL_MS })) {
+    if (state.leagueId || bootRoute?.leagueId) scheduleQuietPlayerRefresh(epoch, signal);
+    return slimPlayersMap(fromCache.players);
   }
-  if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
 
-  const fresh = stateFailed
-    ? playersCacheIsFresh(fromCache, now, { ttlMs: PLAYERS_CACHE_TTL_MS })
-    : playersCacheIsFresh(fromCache, now, { stateKey, ttlMs: PLAYERS_CACHE_TTL_MS });
-  if (fresh) return slimPlayersMap(fromCache.players);
+  // Home and shared trades paint from the values file. The slim dump is for a league.
+  if (!state.leagueId && !bootRoute?.leagueId) return null;
+
+  const slim = await loadSlimPlayersFile();
+  if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
+  if (slim && Object.keys(slim).length) {
+    scheduleQuietPlayerRefresh(epoch, signal);
+    return slim;
+  }
 
   const raw = await apiGetWithRetry(`/players/nfl`, {
     timeoutMs: 30000,
@@ -4013,13 +4419,13 @@ async function fetchPlayersForCache(epoch, signal) {
     signal,
   });
   if (epoch !== playerLoadEpoch || signal.aborted) throw cancelledPlayerLoad();
-  const slim = slimPlayersMap(raw);
+  const downloaded = slimPlayersMap(raw);
   try {
-    await savePlayersCacheEntry({ players: slim, savedAt: now, stateKey }, playersCacheAdapters());
+    await savePlayersCacheEntry({ players: downloaded, savedAt: now, stateKey: null }, playersCacheAdapters());
   } catch (err) {
     console.warn("Could not save players cache", err);
   }
-  return slim;
+  return downloaded;
 }
 
 async function loadTrendingPlayers() {
@@ -4491,6 +4897,136 @@ function findNormalizedRoster(rosterId) {
   return state.normalizedRosters.find((roster) => String(roster.rosterId) === String(rosterId)) || null;
 }
 
+function assetMetadataGap(asset) {
+  if (!asset || asset.assetType !== "player") return { name: false, position: false, team: false };
+  const playerId = playerIdFromAssetId(asset.assetId);
+  const named = playerDisplayName(playerId, asset.raw, state.valueNameMap) || String(asset.name || "").trim();
+  const bare = !named || /^Player\s+\d+$/i.test(named);
+  return {
+    name: bare,
+    position: !playerPositionForAsset(asset),
+    team: !String(asset.raw?.team || "").trim(),
+  };
+}
+
+function rosterGradeReady(roster) {
+  const players = (roster?.assets || []).filter((asset) => asset.assetType === "player");
+  if (!players.length) return false;
+  return players.every((asset) => {
+    const gap = assetMetadataGap(asset);
+    return !gap.name && !gap.position;
+  });
+}
+
+function pricesReady() {
+  return Boolean(state.values && Object.keys(state.values).length > 0);
+}
+
+function renderMetadataPlaceholder() {
+  return `<span class="meta-pending" aria-hidden="true">…</span>`;
+}
+
+function retryPlayerMetadata(event) {
+  event?.preventDefault?.();
+  if (!state.leagueId || !state.playerMetadataFailed) return;
+  const leagueId = state.leagueId;
+  const epoch = playerLoadEpoch;
+  state.playerMetadataFailed = false;
+  syncTradeModeUi();
+  requestActivePageRender();
+  loadPlayersWithCache()
+    .then((players) => {
+      if (epoch !== playerLoadEpoch || String(state.leagueId) !== String(leagueId)) return;
+      if (players && Object.keys(players).length) {
+        commitPlayerDirectory(players, { epoch, leagueId, hydrate: true });
+      }
+      if (epoch !== playerLoadEpoch || String(state.leagueId) !== String(leagueId)) return;
+      const gaps = state.normalizedRosters.some((roster) => (roster.assets || []).some((asset) => {
+        const gap = assetMetadataGap(asset);
+        return gap.name || gap.position;
+      }));
+      if (!gaps) return;
+      state.playerMetadataLoaded = false;
+      state.playerMetadataFailed = true;
+      syncTradeModeUi();
+      requestActivePageRender();
+    })
+    .catch((err) => {
+      if (epoch !== playerLoadEpoch || String(state.leagueId) !== String(leagueId) || err?.name === "AbortError") return;
+      const gaps = state.normalizedRosters.some((roster) => (roster.assets || []).some((asset) => {
+        const gap = assetMetadataGap(asset);
+        return gap.name || gap.position;
+      }));
+      if (!gaps && Object.keys(state.players).length > 0) return;
+      state.playerMetadataLoaded = false;
+      state.playerMetadataFailed = true;
+      syncTradeModeUi();
+      requestActivePageRender();
+    });
+}
+
+function renderRosterDirectory(roster) {
+  const values = state.values;
+  const players = roster.assets
+    .filter((asset) => asset.assetType === "player")
+    .slice()
+    .sort((a, b) => getAssetValue(b, values) - getAssetValue(a, values) || String(a.name).localeCompare(String(b.name)));
+  const picks = roster.assets.filter((asset) => asset.assetType === "pick");
+  const showPicks = leagueUsesFuturePicks(state.league) || picks.length > 0;
+  if (el.rosterSheetHeading) el.rosterSheetHeading.textContent = roster.manager.displayName;
+  const namingGap = players.some((asset) => {
+    const gap = assetMetadataGap(asset);
+    return gap.name || gap.position;
+  });
+  const loadingPlayers = namingGap && !state.playerMetadataFailed;
+  const failedPlayers = state.playerMetadataFailed && players.some((asset) => assetMetadataGap(asset).name);
+  const failedNote = failedPlayers
+    ? `<p class="muted small roster-names-note">Player names couldn't load. Values still work; try again later. <button type="button" class="ghost-btn roster-names-retry" data-action="retry-player-metadata">Retry</button></p>`
+    : "";
+  const loadingLabel = loadingPlayers ? `<span class="sr-only">Loading player</span>` : "";
+  const failedLabel = failedPlayers ? `<span class="sr-only">Player details unavailable</span>` : "";
+  const rowClass = loadingPlayers ? "sheet-row directory-row loading-row" : "sheet-row directory-row";
+  el.rosterSheet.innerHTML = `
+    ${failedNote}
+    <div class="sheet-grid">
+      <section class="sheet-column"${loadingPlayers ? ` aria-busy="true"` : ""}>
+        <h4>Roster</h4>
+        ${loadingLabel}
+        ${failedLabel}
+        ${players.map((asset) => {
+          const gap = assetMetadataGap(asset);
+          const name = gap.name
+            ? (failedPlayers ? "Details unavailable" : renderMetadataPlaceholder())
+            : escapeHtml(asset.name || "…");
+          const position = gap.position
+            ? (failedPlayers ? "" : renderMetadataPlaceholder())
+            : escapeHtml(formatPlayerPositionLabel(asset));
+          const team = gap.team
+            ? (failedPlayers ? "" : renderMetadataPlaceholder())
+            : escapeHtml(String(asset.raw?.team || ""));
+          const meta = failedPlayers
+            ? [position, team].filter(Boolean).join(" · ")
+            : `${position}${team ? ` · ${team}` : ""}`;
+          return `
+            <div class="${rowClass}">
+              <div class="sheet-player">
+                <strong>${name}</strong>
+                ${meta ? `<span>${meta}</span>` : ""}
+              </div>
+              <span class="sheet-value mono">${renderAssetValuePlain(asset, values)}</span>
+            </div>
+          `;
+        }).join("") || `<p class="muted small">No players on this roster.</p>`}
+        ${showPicks ? `
+          <h4>Pick vault</h4>
+          ${renderPickVaultIntro()}
+          ${picks.map((asset) => renderPickVaultRow(asset, values)).join("") || `<p class="muted small">No draft picks owned.</p>`}
+        ` : ""}
+      </section>
+    </div>
+  `;
+}
+
 function renderPowerDashboard() {
   if (!el.powerDashboard) return;
   const meRoster = getLensRoster();
@@ -4501,25 +5037,16 @@ function renderPowerDashboard() {
     el.powerDashboard.innerHTML = `<p class="muted">Choose your team to generate a power score.</p>`;
     return;
   }
-  if (!state.playerMetadataLoaded) {
+  if (!rosterGradeReady(meRoster) || !pricesReady()) {
     const ammo = draftAmmoInsightForRoster(meRoster);
     const ammoHtml = ammo ? `<div class="insight-list">${renderSleeperInsight(ammo)}</div>` : "";
-    // A final lead is the whole card. The player-metadata status stays on the
-    // power score, and it does not sit on a card whose value is already final.
-    if (ammo && ammo.busy !== true) {
-      el.powerDashboard.innerHTML = ammoHtml;
-      return;
-    }
+    // Draft Ammo does not need player metadata. The score does. A missing
+    // position stays on the score, not on a card whose picks are already final.
     el.powerDashboard.innerHTML = `
-      <div class="power-sync" role="status">
-        <strong>${state.playerMetadataFailed ? "Player metadata unavailable" : "Syncing player metadata"}</strong>
-        <p class="muted">${
-          state.playerMetadataFailed
-            ? "Sleeper league data loaded, but positions and ages are missing. Trade search still works with fallback values."
-            : "Power Score needs Sleeper positions, ages, injury flags, and team metadata before it can grade the roster."
-        }</p>
-      </div>
       ${ammoHtml}
+      <div class="power-stat-grid">
+        ${renderPowerStat("Power", state.playerMetadataFailed ? "Unavailable" : "…")}
+      </div>
     `;
     return;
   }
@@ -5149,7 +5676,7 @@ function renderStandingsPanel(model, sim) {
       </div>
       <div class="standings-table">
         <div class="standings-head">
-          <span>#</span><span>Team</span><span>W-L</span><span class="col-pf">Points</span><span class="col-pa">PA</span><span class="col-streak">Strk</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
+          <span>#</span><span>Team</span><span>Record</span><span class="col-pf">Points</span><span class="col-pa">PA</span><span class="col-streak">Strk</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
         </div>
         ${rowsHtml}
       </div>
@@ -5313,7 +5840,7 @@ function renderTeamsPage() {
   if (!peekLeaguePowerBoard()) {
     // Cold board solves every roster. Let the Teams tab paint before that work.
     if (el.teamsGrid) el.teamsGrid.innerHTML = `<p class="muted">Ranking rosters…</p>`;
-    void finishTeamsPagePaint(generation);
+    void trackRouteSettle(finishTeamsPagePaint(generation));
     return;
   }
   renderTeamsGrid();
@@ -5921,21 +6448,10 @@ function renderWindowCallDashboard() {
       : "Pick a manager. Desk says rebuild, win now, or hold."}</p>`;
     return;
   }
-  if (!state.playerMetadataLoaded) {
+  if (!rosterGradeReady(roster) || !pricesReady()) {
     host.innerHTML = `
       ${renderLensPicker(roster)}
-      <div class="power-sync">
-        <strong>${state.playerMetadataFailed ? "Player metadata unavailable" : "Syncing player metadata"}</strong>
-        <p class="muted">${
-          state.playerMetadataFailed
-            ? (seasonCall
-              ? "Need positions before the ticker can make an in-it / bubble / out call."
-              : "Need positions and ages before the ticker can make a rebuild / win-now / hold call.")
-            : (seasonCall
-              ? "Waiting on Sleeper positions so the call is not a coin flip."
-              : "Waiting on Sleeper positions, ages, and pick data so the call is not a coin flip.")
-        }</p>
-      </div>
+      <p class="muted small meta-pending">${state.playerMetadataFailed ? "Player metadata unavailable" : "…"}</p>
     `;
     return;
   }
@@ -6575,16 +7091,8 @@ function renderRosterSheet() {
     syncWeeklyScoreHelp();
     return;
   }
-  if (!state.playerMetadataLoaded) {
-    const failed = state.playerMetadataFailed;
-    el.rosterSheet.innerHTML = `
-      <div class="power-sync">
-        <strong>${failed ? "Player metadata unavailable" : "Syncing player metadata"}</strong>
-        <p class="muted">${failed
-          ? "Sleeper didn't return player names, positions, or ages. Rosters and trade search still work with fallback values."
-          : "Names, positions, and ages arrive in a moment."}</p>
-      </div>
-    `;
+  if (!rosterGradeReady(roster) || !pricesReady()) {
+    renderRosterDirectory(roster);
     syncWeeklyScoreHelp();
     return;
   }
@@ -6663,7 +7171,7 @@ function renderRosterSheet() {
   const renderPlayerRow = (asset, slotLabel, extra = {}) => {
     const playerId = playerIdFromAssetId(asset.assetId);
     const nickname = roster.nicknames?.[playerId];
-    const injury = String(asset.raw?.injury_status || "").trim();
+    const injury = plainRosterStatus(asset.raw?.injury_status);
     const team = String(asset.raw?.team || "").trim();
     const weekly = weeklyFor(asset);
     const weeklyLabel = state.weeklyValue?.loading && !state.weeklyValue?.context
@@ -6684,7 +7192,7 @@ function renderRosterSheet() {
     ].filter(Boolean).join(" · ");
     return `
       <button type="button" class="${rowClass}" data-action="open-player" data-player-id="${escapeHtml(playerId)}" aria-pressed="${open ? "true" : "false"}"${note ? ` title="${escapeHtml(note)}"` : ""}>
-        <span class="sheet-slot">${escapeHtml(slotLabel)}</span>
+        ${sheetSlotMarkup(extra.slot, slotLabel)}
         <div class="sheet-player">
           ${renderPlayerFace(playerId, asset.name, { size: "sm" })}
           <strong>${escapeHtml(asset.name)}${nickname ? ` <em class="nickname">“${escapeHtml(nickname)}”</em>` : ""}</strong>
@@ -6752,10 +7260,11 @@ function renderRosterSheet() {
         <h4>Start</h4>
         ${startRows.map((entry) => entry.asset
           ? renderPlayerRow(entry.asset, entry.slotLabel || formatRosterSlotLabel(entry.slot), {
+              slot: entry.slot,
               note: entry.rowNote,
               closeCall: String(entry.rowNote || "").startsWith("Close vs"),
             })
-          : `<div class="sheet-row empty"><span class="sheet-slot">${escapeHtml(entry.slotLabel || formatRosterSlotLabel(entry.slot))}</span><div class="sheet-player"><strong>${escapeHtml(entry.rowNote || "Open")}</strong></div></div>`).join("")}
+          : `<div class="sheet-row empty">${sheetSlotMarkup(entry.slot, entry.slotLabel || formatRosterSlotLabel(entry.slot))}<div class="sheet-player"><strong>${escapeHtml(entry.rowNote || "Open")}</strong></div></div>`).join("")}
       </section>
       <section class="sheet-column">
         <h4>Sit</h4>
@@ -7314,13 +7823,18 @@ function draftItemDisplayName(item, names) {
 
 let draftNamesRequested = false;
 function requestDraftPlayerNames() {
-  if (draftNamesRequested || (state.players && Object.keys(state.players).length)) return;
+  if (draftNamesRequested) return;
   draftNamesRequested = true;
   const epoch = playerLoadEpoch;
-  void loadPlayersWithCache()
+  // A league uses the slim file. A shared trade has no league, so a missing
+  // name still comes from Sleeper without downloading the slim dump.
+  const job = (state.leagueId || bootRoute?.leagueId)
+    ? loadPlayersWithCache()
+    : apiGetWithRetry(`/players/nfl`, { timeoutMs: 30000, retries: 1, cache: "default" }).then((raw) => slimPlayersMap(raw));
+  void job
     .then((players) => {
       if (epoch !== playerLoadEpoch || !players || !Object.keys(players).length) return;
-      if (!state.players || !Object.keys(state.players).length) state.players = players;
+      state.players = mergePlayerRecords(state.players, players);
       if (el.calculatorShell?.querySelector(".calc-grid")) patchTradeDraft();
     })
     .catch(() => {});
@@ -7461,6 +7975,7 @@ function draftSuggestionRows(side, view) {
         round: Number(asset.raw?.round) || 0,
         context: mine ? (sampleVoice()?.roster || "Your roster") : roster.manager.displayName,
         leagueId: isLeaguePickAssetId(asset.assetId) ? String(state.leagueId) : "",
+        hint: valuedAsMidFirstHint(asset, state.league?.season),
         group: side === "left" ? (mine ? 0 : 2) : (rosterId === partnerId ? 0 : 1),
       });
     }
@@ -7526,6 +8041,7 @@ function renderDraftSuggestions(side, view) {
           <div class="asset-meta">
             <span class="asset-pill ${row.assetType === "pick" ? "gold" : ""}">${row.assetType === "pick" ? "Pick" : escapeHtml(row.position || "Player")}</span>
             ${row.context ? `<span class="asset-context">${escapeHtml(row.context)}</span>` : ""}
+            ${row.hint ? `<span class="pick-value-hint">${escapeHtml(row.hint)}</span>` : ""}
           </div>
         </div>
         <span class="asset-value-badge" title="Value">${formatNumber(row.value)}${row.estimated ? " est" : ""}</span>
@@ -7595,7 +8111,7 @@ function renderDraftVerdict(view) {
   const meters = draftMeterValues(model);
   // One verdict wording everywhere (verdict-copy.js): app, /t, card, meta, share text.
   const copy = verdictCopy(verdict);
-  // The headline is the full line ("Lopsided · Give side worth 89.3% more"), like the card.
+  // The headline is the full line ("Lopsided · Give side worth 89% more"), like the card.
   const label = bothSides ? copy.line : copy.label;
   const sharedView = bothSides ? sharedVerdictFor(view) : null;
   // RECHECK4: on a cold /t the bars are sized on the credited totals the
@@ -8150,6 +8666,9 @@ function handleWorkspaceClick(event) {
     }
     case "open-public-ranks":
       openPublicRanks();
+      break;
+    case "retry-player-metadata":
+      retryPlayerMetadata(event);
       break;
     case "find-my-leagues":
       if (leagueMissing || sleeperUnreachable) {
@@ -9827,13 +10346,13 @@ function renderHallBoard(history) {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">All-time hall</span>
-          <h3>Titles, career W-L, playoff trips</h3>
+          <h3>Titles, career record, playoff trips</h3>
         </div>
-        <p class="section-copy">Who has the rings. Career W-L is the rest of the story.</p>
+        <p class="section-copy">Who has the rings. Career record is the rest of the story.</p>
       </div>
       <div class="hall-table">
         <div class="hall-head">
-          <span>#</span><span>Mgr</span><span>Titles</span><span>W-L</span><span>PO</span>
+          <span>#</span><span>Mgr</span><span>Titles</span><span>Record</span><span>PO</span>
         </div>
         ${hall.map((row, index) => `
           <div class="hall-row ${row.managerKey === meKey ? "you" : ""}">
@@ -11051,13 +11570,26 @@ function buildPowerBadges({ score, lane, assetSummary, strongestPosition, weakes
   return [...new Set(badges)].slice(0, 5);
 }
 
-function draftAmmoInsight(firstRoundPickCount, lead) {
+function laterFirstHint(lead, roster) {
+  const season = state.league?.season;
+  const onLead = valuedAsMidFirstHint(lead, season);
+  if (onLead) return onLead;
+  const later = (roster?.assets || []).some((asset) => valuedAsMidFirstHint(asset, season));
+  return later ? "Later 1sts are valued as a mid 1st." : "";
+}
+
+function inlineMidFirstHint(hint) {
+  const text = String(hint || "").trim().replace(/\.+$/, "");
+  return text ? ` (${text})` : "";
+}
+
+function draftAmmoInsight(firstRoundPickCount, lead, roster = null) {
   if (!(Number(firstRoundPickCount) > 0)) return null;
   const nextYear = Number(state.league?.season) + 1;
   const leadSeason = Number(lead?.raw?.season);
   const leadSlot = Number(lead?.raw?.projectedDraftSlot);
   const waitingOnSlot = leadSeason === nextYear && !(leadSlot > 0);
-  const leadReady = state.pickProjectionReady && Boolean(lead?.name) && !waitingOnSlot;
+  const leadReady = state.pickProjectionReady && pricesReady() && Boolean(lead?.name) && !waitingOnSlot;
   if (!leadReady) {
     return {
       title: "Your picks",
@@ -11067,9 +11599,10 @@ function draftAmmoInsight(firstRoundPickCount, lead) {
     };
   }
   const count = Number(firstRoundPickCount);
+  const hint = inlineMidFirstHint(laterFirstHint(lead, roster));
   return {
     title: "Your picks",
-    body: `${count} first-round pick${count === 1 ? "" : "s"} owned, led by ${lead.name}.`,
+    body: `${count} first-round pick${count === 1 ? "" : "s"} owned, led by ${lead.name}${hint}.`,
     tone: "gold",
   };
 }
@@ -11080,7 +11613,7 @@ function draftAmmoInsightForRoster(roster) {
     asset,
     value: getAssetValue(asset, state.values),
   })));
-  return draftAmmoInsight(firsts.length, lead);
+  return draftAmmoInsight(firsts.length, lead, roster);
 }
 
 function buildSleeperInsightCards(profile, context) {
@@ -11090,6 +11623,9 @@ function buildSleeperInsightCards(profile, context) {
     title: "League Format",
     body: formatInsight,
     tone: "blue",
+    tipHtml: tepLevel(context.league) > 0
+      ? infoTipMarkup({ id: "pop-league-format", label: "Scoring", text: "Values use 1 point per catch at every position, even with the TE bonus." })
+      : "",
   });
 
   if (profile.strongestPosition) {
@@ -11109,7 +11645,13 @@ function buildSleeperInsightCards(profile, context) {
   }
 
   const ammo = draftAmmoInsight(profile.assetSummary.firstRoundPickCount, profile.assetSummary.leadFirst);
-  if (ammo) insights.push(ammo);
+  if (ammo) {
+    if (ammo.body.includes("led by") && !ammo.body.includes("valued as a mid 1st")) {
+      const hint = inlineMidFirstHint(laterFirstHint(profile.assetSummary.leadFirst, findNormalizedRoster(profile.rosterId)));
+      if (hint) ammo.body = ammo.body.replace(/\.\s*$/, `${hint}.`);
+    }
+    insights.push(ammo);
+  }
 
   if (state.tradedPicks.length > 0) {
     insights.push({
@@ -11147,7 +11689,13 @@ function describeLeagueFormat(league) {
   const scoring = league?.scoring_settings || {};
   const receptionValue = Number(scoring.rec);
   const pprLabel = Number.isFinite(receptionValue)
-    ? receptionValue >= 1 ? "PPR" : receptionValue > 0 ? `${receptionValue} PPR` : "standard"
+    ? receptionValue >= 1
+      ? "1 point per catch"
+      : receptionValue === 0.5
+        ? "0.5 points per catch"
+        : receptionValue > 0
+          ? `${receptionValue} PPR`
+          : "standard"
     : "custom scoring";
   const taxiSlots = Number(league?.settings?.taxi_slots || 0);
   const draftRounds = Number(league?.settings?.draft_rounds || 0);
@@ -11157,8 +11705,8 @@ function describeLeagueFormat(league) {
     pprLabel,
     `${slots.length} starters`,
   ];
-  if (tepLevel(league) > 0) parts.push("TE bonus (values stay full PPR)");
-  if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi`);
+  if (tepLevel(league) > 0) parts.push("TE bonus");
+  if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi spots`);
   if (leagueUsesFuturePicks(league) && draftRounds > 0) parts.push(`${draftRounds}-round rookie draft`);
   return parts.join(" • ");
 }
@@ -11396,6 +11944,7 @@ function buildAssetPickerMarkup(asset, { values, contextLabel } = {}) {
     if (asset.raw?.season) pills.push(`<span class="asset-pill">${escapeHtml(asset.raw.season)}</span>`);
     if (asset.raw?.round) pills.push(`<span class="asset-pill">R${escapeHtml(asset.raw.round)}</span>`);
   }
+  const pickHint = asset.assetType === "pick" ? valuedAsMidFirstHint(asset, state.league?.season) : "";
 
   return `
     <div class="asset-row-top">
@@ -11405,6 +11954,7 @@ function buildAssetPickerMarkup(asset, { values, contextLabel } = {}) {
         <div class="asset-meta">
           ${pills.join("")}
           ${contextLabel ? `<span class="asset-context">${escapeHtml(contextLabel)}</span>` : ""}
+          ${pickHint ? `<span class="pick-value-hint">${escapeHtml(pickHint)}</span>` : ""}
         </div>
       </div>
       <span class="asset-value-badge-slot">${renderAssetValueBadge(asset, values)}</span>
@@ -12142,7 +12692,7 @@ function renderMultiTeamCard(idea, index, values) {
       <div class="multi-team-card-header">
         <div>
           <h3>Idea ${index + 1}</h3>
-          <p class="muted small">${idea.teamCount} teams • one side worth up to ${idea.maxPctDiff}% more • added value ${formatNumber(idea.extraMovedValueTotal || 0)} • common value ${formatNumber(idea.commonValue)}</p>
+          <p class="muted small">${idea.teamCount} teams • one side worth up to ${displayMore(idea.maxPctDiff, { band: false })}% more • added value ${formatNumber(idea.extraMovedValueTotal || 0)} • common value ${formatNumber(idea.commonValue)}</p>
         </div>
         <div class="participant-pill-row">
           ${(idea.tags || []).map((tag) => `<span class="participant-pill">${escapeHtml(tag)}</span>`).join("")}
@@ -12972,16 +13522,36 @@ function assetCanFillRosterSlot(asset, slot) {
   return playerPositions.some((position) => allowedPositions.has(position));
 }
 
+function plainRosterStatus(status) {
+  const key = String(status || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (key === "ir" || key === "injured_reserve") return "Injured reserve";
+  return String(status || "").trim();
+}
+
 function formatRosterSlotLabel(slot) {
   const labels = {
-    SUPER_FLEX: "SFlex",
+    SUPER_FLEX: "Superflex",
+    SUPERFLEX: "Superflex",
+    SF: "Superflex",
+    BN: "Bench",
+    BENCH: "Bench",
+    IR: "Injured reserve",
     REC_FLEX: "Rec Flex",
     WRRB_FLEX: "RB/WR",
     RBWR_FLEX: "RB/WR",
     WRTE_FLEX: "WR/TE",
     FLEX: "Flex",
   };
-  return labels[slot] || slot.replace(/_/g, " ");
+  const key = String(slot || "").trim().toUpperCase();
+  return labels[key] || String(slot || "").replace(/_/g, " ");
+}
+
+function sheetSlotMarkup(slot, slotLabel) {
+  const key = String(slot || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (key === "SUPER_FLEX" || key === "SUPERFLEX" || key === "SF") {
+    return `<span class="sheet-slot sheet-slot-superflex"><span class="sheet-slot-full">Superflex</span><span class="sheet-slot-short" title="Superflex" aria-label="Superflex">SF</span></span>`;
+  }
+  return `<span class="sheet-slot">${escapeHtml(slotLabel || "")}</span>`;
 }
 
 function findClosestValuationPick(targetValue, values, valueNameMap) {
@@ -16997,11 +17567,9 @@ function renderPlayerValueMarks(asset, values = state.values, { soon = false, sp
 }
 
 function renderAssetValueBadge(asset, values = state.values) {
-  const value = getAssetValue(asset, values);
-  const missing = isEstimatedAsset(asset, values);
   return `
     <span class="asset-value-badge">
-      <strong>${missing ? "Unavailable" : formatNumber(value)}</strong>
+      <strong>${renderAssetValuePlain(asset, values)}</strong>
     </span>
   `;
 }
@@ -17012,9 +17580,10 @@ function renderPickVaultIntro() {
 }
 
 function renderPickVaultRow(asset, values) {
+  const hint = valuedAsMidFirstHint(asset, state.league?.season);
   const body = `
               <span class="sheet-slot">${escapeHtml(String(asset?.raw?.season || ""))}</span>
-              <div class="sheet-player"><strong>${escapeHtml(asset?.name || "Pick")}</strong></div>
+              <div class="sheet-player"><strong>${escapeHtml(asset?.name || "Pick")}</strong>${hint ? `<span class="pick-value-hint">${escapeHtml(hint)}</span>` : ""}</div>
               <span class="sheet-value mono">${renderAssetValuePlain(asset, values)}</span>
           `;
   return `
@@ -17025,12 +17594,12 @@ function renderPickVaultRow(asset, values) {
 }
 
 function renderAssetValuePlain(asset, values = state.values) {
+  if (!values || Object.keys(values).length === 0) return "…";
   return isEstimatedAsset(asset, values) ? "Unavailable" : formatNumber(getAssetValue(asset, values));
 }
 
 function formatAssetSecondaryLabel(asset, values) {
-  const missing = isEstimatedAsset(asset, values);
-  const parts = [missing ? "Unavailable" : formatNumber(getAssetValue(asset, values))];
+  const parts = [renderAssetValuePlain(asset, values)];
   if (asset.assetType === "player") {
     const position = formatPlayerPositionLabel(asset);
     if (position) parts.push(position);
@@ -17607,6 +18176,11 @@ function applyValuationBundle(bundle, { rerender = true } = {}) {
   state.valuationRevision = Number(state.valuationRevision || 0) + 1;
   state.values = bundle?.values && typeof bundle.values === "object" ? bundle.values : {};
   state.valueNameMap = bundle?.nameMap && typeof bundle.nameMap === "object" ? bundle.nameMap : {};
+  state.players = seedPlayerDirectory();
+  if (Object.keys(state.players).length > 0) {
+    state.playerMetadataLoaded = true;
+    state.playerMetadataFailed = false;
+  }
   refreshCrowdShifts();
   refreshPlayerPositionRanks();
   state.pickValueCatalog = buildPickValuationCatalog(state.values, state.valueNameMap);
@@ -17853,7 +18427,7 @@ function rebindUsernameInputs() {
     if (cached?.isConnected === false && String(cached.value || "").length && !String(live.value || "").length) {
       live.value = cached.value;
       const active = document.activeElement;
-      const shouldFocus = !active || active === cached || active === document.body || active === document.documentElement;
+      const shouldFocus = !routeFocusHold && (!active || active === cached || active === document.body || active === document.documentElement);
       if (shouldFocus) {
         live.focus();
         try {
@@ -17973,6 +18547,7 @@ function syncDocumentMeta() {
     }),
     description,
   });
+  if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
 }
 
 async function bootLandingRather({ playersTab = false } = {}) {

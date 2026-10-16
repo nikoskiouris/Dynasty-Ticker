@@ -38,7 +38,12 @@ const SIT_ROSTER = new Set([
 ]);
 
 const SLOT_LABELS = {
-  SUPER_FLEX: "SFlex",
+  SUPER_FLEX: "Superflex",
+  SUPERFLEX: "Superflex",
+  SF: "Superflex",
+  BN: "Bench",
+  BENCH: "Bench",
+  IR: "Injured reserve",
   REC_FLEX: "Rec Flex",
   WRRB_FLEX: "RB/WR",
   RBWR_FLEX: "RB/WR",
@@ -63,14 +68,20 @@ export function formatSitStartSlot(slot) {
   return SLOT_LABELS[normalized] || normalized.replace(/_/g, " ");
 }
 
+function plainInjuryName(injury) {
+  const key = String(injury || "").trim().toLowerCase().replace(/[\s_/-]+/g, " ");
+  if (key === "ir" || key.includes("injured reserve")) return "on injured reserve";
+  return String(injury || "").trim();
+}
+
 export function injurySitReason(injuryStatus, playerStatus) {
   const injury = String(injuryStatus || "").trim();
   const injuryKey = injury.toLowerCase();
-  if (injury && SIT_INJURY.has(injuryKey)) return `Sit — ${injury}`;
+  if (injury && SIT_INJURY.has(injuryKey)) return `Sit — ${plainInjuryName(injury)}`;
   const status = String(playerStatus || "").trim().toLowerCase();
   if (SIT_ROSTER.has(status)) return "Sit — Inactive";
   if (SIT_INJURY.has(status) || status.includes("injured reserve") || status.includes("pup")) {
-    return "Sit — IR";
+    return "Sit — on injured reserve";
   }
   return "";
 }
@@ -139,7 +150,7 @@ function usageBit(weekly) {
     if (weekly?.targetShare != null) return `${formatShare(weekly.targetShare)} targets`;
   }
   if (pos === "QB" && Number.isFinite(Number(weekly?.recentPoints))) {
-    return `${formatWeeklyPoints(weekly.recentPoints)} PPR/game`;
+    return `${formatWeeklyPoints(weekly.recentPoints)} points per game`;
   }
   return "";
 }
