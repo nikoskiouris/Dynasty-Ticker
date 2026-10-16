@@ -1,7 +1,8 @@
 import { test, expect } from "@playwright/test";
 
-const FROM = "1315165104303513600";
-const TO = "1360686137898700800";
+// Stubbed ids. The retired private sample id is not allowed anywhere in the tree.
+const FROM = "1000000000000000001";
+const TO = "1000000000000000002";
 
 function leagueBody(id) {
   return {
