@@ -6656,7 +6656,7 @@ function renderRosterSheet() {
   const renderPlayerRow = (asset, slotLabel, extra = {}) => {
     const playerId = playerIdFromAssetId(asset.assetId);
     const nickname = roster.nicknames?.[playerId];
-    const injury = String(asset.raw?.injury_status || "").trim();
+    const injury = plainRosterStatus(asset.raw?.injury_status);
     const team = String(asset.raw?.team || "").trim();
     const weekly = weeklyFor(asset);
     const weeklyLabel = state.weeklyValue?.loading && !state.weeklyValue?.context
@@ -11139,13 +11139,15 @@ function describeLeagueFormat(league) {
     ? receptionValue >= 1 ? "PPR" : receptionValue > 0 ? `${receptionValue} PPR` : "standard"
     : "custom scoring";
   const taxiSlots = Number(league?.settings?.taxi_slots || 0);
+  const reserveSlots = Number(league?.settings?.reserve_slots || 0);
   const draftRounds = Number(league?.settings?.draft_rounds || 0);
   const parts = [
     leagueTypeLabel(league),
     hasSuperflex ? "Superflex" : "1-QB",
     pprLabel,
-    `${slots.length} starters`,
+    `${slots.length} starting spots`,
   ];
+  if (reserveSlots > 0) parts.push(`${reserveSlots} injured reserve`);
   if (tepLevel(league) > 0) parts.push("TE bonus (values stay full PPR)");
   if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi`);
   if (leagueUsesFuturePicks(league) && draftRounds > 0) parts.push(`${draftRounds}-round rookie draft`);
@@ -12961,6 +12963,12 @@ function assetCanFillRosterSlot(asset, slot) {
   return playerPositions.some((position) => allowedPositions.has(position));
 }
 
+function plainRosterStatus(status) {
+  const key = String(status || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (key === "ir" || key === "injured_reserve") return "Injured reserve";
+  return String(status || "").trim();
+}
+
 function formatRosterSlotLabel(slot) {
   const labels = {
     SUPER_FLEX: "Superflex",
@@ -12968,6 +12976,7 @@ function formatRosterSlotLabel(slot) {
     SF: "Superflex",
     BN: "Bench",
     BENCH: "Bench",
+    IR: "Injured reserve",
     REC_FLEX: "Rec Flex",
     WRRB_FLEX: "RB/WR",
     RBWR_FLEX: "RB/WR",

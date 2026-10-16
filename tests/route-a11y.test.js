@@ -318,6 +318,13 @@ test("user-facing slot, scoring, and record words are plain", () => {
   assert.match(app, /BN: "Bench"/);
   assert.match(ranks, /label: "Projected points per game"/);
   assert.doesNotMatch(ranks, /Projected PPR\/G/);
+  assert.match(ranks, /label: "Opportunities per game"/);
+  assert.doesNotMatch(ranks, /Opportunities\/G/);
+  assert.match(ranks, /full PPR \(points per reception\)/);
+  assert.equal((ranks.match(/points per reception/g) || []).length, 1);
+  assert.match(app, /\$\{slots\.length\} starting spots/);
+  assert.match(app, /\$\{reserveSlots\} injured reserve/);
+  assert.match(app, /IR: "Injured reserve"/);
   assert.match(sit, /points per game/);
   assert.doesNotMatch(sit, /PPR\/game/);
   assert.match(weekly, /SFO: "SF"/);
