@@ -106,15 +106,20 @@ export function focusViewHeading(root) {
   return heading;
 }
 
+const LEAGUE_ROOM_HEADINGS = Object.freeze({
+  team: "#power-heading",
+  board: "#league-heading",
+  scores: "#scores-heading",
+  activity: "#activity-heading",
+  history: "#history-heading",
+});
+
 export function headingSelectorFor(place = {}) {
   const overlay = String(place.overlay || "");
   if (overlay === "player" || place.playerId) return ".ranks-card h2, .player-week-sheet h2";
   const page = place.page || place.tab || "";
   const room = String(place.view || "");
-  if (page === "league" && room === "history") return "#history-heading";
-  if (page === "league" && (room === "team" || room === "board" || room === "scores" || room === "activity")) {
-    return `[data-room-panel="${room}"] h2`;
-  }
+  if (page === "league" && LEAGUE_ROOM_HEADINGS[room]) return LEAGUE_ROOM_HEADINGS[room];
   return "";
 }
 
@@ -138,6 +143,10 @@ function mayMoveFocus(doc, active) {
   if (active.id === "workspace") return true;
   // Closing the phone menu parks focus on Sections. The room heading should take it.
   if ((active.id === "mobile-rail-toggle" || active.id === "mobile-rail-close") && !railOpen(doc)) return true;
+  // A room change hides the previous room. Focus is still on that heading until
+  // the browser drops it, and the next room heading has to take over.
+  const tag = String(active.tagName || "");
+  if ((tag === "H1" || tag === "H2" || tag === "H3") && isHidden(active)) return true;
   const cls = typeof active.className === "string" ? active.className : "";
   return cls.split(/\s+/).some((name) => (
     name === "room-tab" || name === "page-tab" || name === "phone-desk-room" || name === "phone-desk-page"

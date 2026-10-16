@@ -18131,6 +18131,7 @@ function syncDocumentMeta() {
     }),
     description,
   });
+  if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
 }
 
 async function bootLandingRather({ playersTab = false } = {}) {

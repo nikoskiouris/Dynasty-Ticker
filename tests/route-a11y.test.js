@@ -299,9 +299,10 @@ test("league, activity, history, and this week have distinct document titles", (
   assert.equal(routeDocumentTitle({ tab: "league", room: "team" }), "My League · Dynasty Ticker");
   assert.equal(routeDocumentTitle({ playerName: "Jahmyr Gibbs", tab: "league", room: "activity" }), "Jahmyr Gibbs · Dynasty Ticker");
   assert.equal(headingSelectorFor({ overlay: "player", playerId: "9221" }), ".ranks-card h2, .player-week-sheet h2");
-  assert.equal(headingSelectorFor({ page: "league", view: "team" }), '[data-room-panel="team"] h2');
-  assert.equal(headingSelectorFor({ page: "league", view: "scores" }), '[data-room-panel="scores"] h2');
-  assert.equal(headingSelectorFor({ tab: "league", view: "activity" }), '[data-room-panel="activity"] h2');
+  assert.equal(headingSelectorFor({ page: "league", view: "team" }), "#power-heading");
+  assert.equal(headingSelectorFor({ page: "league", view: "board" }), "#league-heading");
+  assert.equal(headingSelectorFor({ page: "league", view: "scores" }), "#scores-heading");
+  assert.equal(headingSelectorFor({ tab: "league", view: "activity" }), "#activity-heading");
   assert.equal(headingSelectorFor({ page: "league", view: "history" }), "#history-heading");
 });
 
@@ -435,6 +436,51 @@ test("heading focus waits for the node and follows a replacement", () => {
   });
   assert.equal(doc.activeElement, body);
   assert.equal(queued.length, skipped);
+
+  const hiddenRoom = {
+    className: "room hidden",
+    parentElement: null,
+    hidden: false,
+    getAttribute() {
+      return null;
+    },
+  };
+  const stale = heading("h2", "power-heading");
+  stale.tagName = "H2";
+  stale.parentElement = hiddenRoom;
+  const roomHeading = heading("h2", "league-heading");
+  roomHeading.tagName = "H2";
+  roomHeading.isConnected = true;
+  roomHeading.focus = () => {
+    doc.activeElement = roomHeading;
+  };
+  doc.activeElement = stale;
+  doc.nodes = [roomHeading];
+  focusHeadingWhenPresent(doc, "#league-heading", {
+    maxMs: 1000,
+    now: () => now,
+    schedule(fn) {
+      queued.push(fn);
+    },
+  });
+  assert.equal(doc.activeElement, roomHeading);
+
+  const visibleRoom = { ...hiddenRoom, className: "room" };
+  const playerHeading = heading("h2", "player-heading");
+  playerHeading.tagName = "H2";
+  playerHeading.parentElement = visibleRoom;
+  doc.activeElement = playerHeading;
+  doc.nodes = [roomHeading];
+  const held = queued.length;
+  focusHeadingWhenPresent(doc, "#league-heading", {
+    maxMs: 1000,
+    now: () => now,
+    schedule(fn) {
+      queued.push(fn);
+    },
+  });
+  assert.equal(doc.activeElement, playerHeading);
+  assert.equal(queued.length, held);
 });
 
 test("aria-current page sits on the active tab and comes off the others", () => {
@@ -585,7 +631,15 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.doesNotMatch(css, /body\.league-loaded #route-title/);
   assert.match(css, /body\.cold-share #route-title[\s\S]*display:\s*block !important/);
   assert.match(css, /\[data-room-panel\] h2:focus-visible[\s\S]*box-shadow:\s*var\(--focus\)/);
+  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus\s*\{[^}]*outline:\s*none/s);
+  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus\s*\{[^}]*box-shadow:\s*none/s);
+  const meta = app.slice(app.indexOf("function syncDocumentMeta"), app.indexOf("async function bootLandingRather"));
+  assert.match(meta, /el\.routeTitle\.textContent = routeHeadingText\(\)/);
   const league = read("../docs/ui/league.html");
+  assert.match(league, /<h2 id="power-heading" tabindex="-1">/);
+  assert.match(league, /<h2 id="league-heading" tabindex="-1">How the league ranks<\/h2>/);
+  assert.match(league, /<h2 id="scores-heading" class="sr-only" tabindex="-1">This week<\/h2>/);
+  assert.match(league, /<h2 id="activity-heading" class="sr-only" tabindex="-1">Activity<\/h2>/);
   assert.match(league, /data-room-panel="history"[\s\S]*<h2 id="history-heading" tabindex="-1">Titles, records, and who stayed<\/h2>/);
   assert.doesNotMatch(index, /<(?:body|html)[^>]*\stabindex/);
   assert.match(index, /id="workspace"[^>]*tabindex="-1"/);

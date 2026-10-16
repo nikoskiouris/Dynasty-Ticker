@@ -231,6 +231,11 @@ body.launch-open #route-title {
   }
 }
 
+[data-room-panel] h2[tabindex="-1"]:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 /* ==========================================================================
    Frame, rail, workspace
    ========================================================================== */
