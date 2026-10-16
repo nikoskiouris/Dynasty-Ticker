@@ -98,11 +98,11 @@ function visibleHeading(root, selector) {
 }
 
 // Prefer the view's h1 or h2. Dialogs that only have an h3 still receive focus.
-export function focusViewHeading(root) {
+export function focusViewHeading(root, { focusVisible = false } = {}) {
   const heading = visibleHeading(root, "h1, h2") || visibleHeading(root, "h3");
   if (!heading) return null;
   if (typeof heading.setAttribute === "function") heading.setAttribute("tabindex", "-1");
-  focusWithoutScroll(heading, { focusVisible: true });
+  focusWithoutScroll(heading, { focusVisible });
   return heading;
 }
 
@@ -157,7 +157,7 @@ let headingWatch = 0;
 
 // Retry until the heading is in the document and still focused on a later frame.
 // A render that replaces the node drops focus to the body, so the watch continues.
-export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000, settleMs = 400, now, onStuck, stillWanted } = {}) {
+export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000, settleMs = 400, now, onStuck, stillWanted, focusVisible = false } = {}) {
   if (!doc || !selector) return 0;
   const watch = ++headingWatch;
   const clock = now || (() => Date.now());
@@ -178,7 +178,7 @@ export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000
       if (heading.getAttribute?.("tabindex") == null && typeof heading.setAttribute === "function") {
         heading.setAttribute("tabindex", "-1");
       }
-      if (!already) focusWithoutScroll(heading, { focusVisible: true });
+      if (!already) focusWithoutScroll(heading, { focusVisible });
       if (doc.activeElement === heading) {
         const stableAt = clock();
         const confirm = () => {

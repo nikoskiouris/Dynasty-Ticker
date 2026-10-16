@@ -902,6 +902,8 @@ let followHeadingsUntil = 0;
 let routeFocusToken = 0;
 let pendingPopstateFocus = 0;
 let routeFocusHold = null;
+let routeKeyboardUntil = 0;
+let routeHeadingFocusVisible = false;
 const routeSettleJobs = new Set();
 let leagueOpenedInApp = false;
 let slimDirectory = null;
@@ -932,6 +934,12 @@ document.addEventListener("focusin", (event) => {
 });
 document.addEventListener("pointerdown", releaseRouteFocusHold, true);
 document.addEventListener("keydown", releaseRouteFocusHold, true);
+document.addEventListener("pointerdown", () => {
+  routeKeyboardUntil = 0;
+}, true);
+document.addEventListener("keydown", () => {
+  routeKeyboardUntil = Date.now() + 2500;
+}, true);
 document.addEventListener("focusin", () => {
   const hold = routeFocusHold;
   if (!hold || hold.token !== routeFocusToken) return;
@@ -1712,11 +1720,16 @@ function armHeadingFollow() {
   followHeadingsUntil = Date.now() + 45000;
 }
 
-function focusRouteHeading(selector) {
+function roomFocusVisible() {
+  return Date.now() < routeKeyboardUntil;
+}
+
+function focusRouteHeading(selector, focusVisible = routeHeadingFocusVisible) {
   if (pendingPopstateFocus) return;
   if (!selector || Date.now() >= followHeadingsUntil) return;
   focusHeadingWhenPresent(document, selector, {
     stillWanted: () => Date.now() < followHeadingsUntil,
+    focusVisible,
   });
 }
 
@@ -1737,6 +1750,7 @@ function focusLeagueRoomHeading(room) {
     if (state.activePage !== "league" || getRoom() !== room) return;
     focusHeadingWhenPresent(document, headingSelectorFor({ page: "league", view: room }), {
       stillWanted: () => Date.now() < followHeadingsUntil,
+      focusVisible: roomFocusVisible(),
     });
   };
   if (routeFocusHold && routeFocusHold.token === routeFocusToken) {
@@ -1816,12 +1830,12 @@ function focusPageHeading() {
   const heading = visiblePageHeading();
   if (!heading) return null;
   if (heading.getAttribute("tabindex") == null) heading.setAttribute("tabindex", "-1");
-  focusWithoutScroll(heading, { focusVisible: true });
+  focusWithoutScroll(heading, { focusVisible: routeHeadingFocusVisible });
   return heading;
 }
 
-function holdRouteFocus(token, getTarget) {
-  routeFocusHold = { token, getTarget, fails: 0 };
+function holdRouteFocus(token, getTarget, focusVisible = false) {
+  routeFocusHold = { token, getTarget, fails: 0, focusVisible };
   requestAnimationFrame(() => restoreHeldFocus());
 }
 
@@ -1837,7 +1851,7 @@ function restoreHeldFocus() {
   if (focusHoldExempt(document.activeElement)) return;
   if (hold.fails > 4) return;
   if (target.getAttribute("tabindex") == null) target.setAttribute("tabindex", "-1");
-  focusWithoutScroll(target, { focusVisible: true });
+  focusWithoutScroll(target, { focusVisible: Boolean(hold.focusVisible) });
   if (document.activeElement === target) hold.fails = 0;
   else hold.fails += 1;
 }
@@ -1864,22 +1878,35 @@ async function waitForRouteToSettle(token) {
   }
 }
 
+function visibleHeadingText(place) {
+  const selector = headingSelectorFor(place);
+  if (!selector) return "";
+  return String(shownQuery(selector)?.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function clearRouteAnnouncement() {
+  const node = document.getElementById("route-announcer");
+  if (node && node.textContent) node.textContent = "";
+}
+
 function focusClickedRoute(before) {
+  const focusVisible = routeHeadingFocusVisible;
   armHeadingFollow();
   const place = routePlaceNow();
   const selector = headingSelectorFor(place);
   if (selector) {
-    focusRouteHeading(selector);
+    focusRouteHeading(selector, focusVisible);
     return;
   }
   const root = headingRootFor(document, place, before || {});
-  if (!focusViewHeading(root)) focusViewHeading(document.querySelector("main"));
+  if (!focusViewHeading(root, { focusVisible })) focusViewHeading(document.querySelector("main"), { focusVisible });
 }
 
 async function focusAfterPopstate({ focus, trigger, before, token }) {
+  const focusVisible = roomFocusVisible();
   if (focus === "none") {
     if (pendingPopstateFocus === token) pendingPopstateFocus = 0;
-    syncRouteA11y({ focus: "none", trigger, before, settled: token });
+    syncRouteA11y({ focus: "none", trigger, before, settled: token, focusVisible });
     return;
   }
   await waitForRouteToSettle(token);
@@ -1890,12 +1917,12 @@ async function focusAfterPopstate({ focus, trigger, before, token }) {
   const place = routePlaceNow();
   const selector = headingSelectorFor(place);
   const mode = selector ? "heading" : ((!place.overlay && !place.playerId) ? "page" : focus);
-  if (mode === "heading") holdRouteFocus(token, () => shownQuery(selector));
-  else if (mode === "page") holdRouteFocus(token, () => visiblePageHeading());
-  syncRouteA11y({ focus: mode, trigger, before, settled: token });
+  if (mode === "heading") holdRouteFocus(token, () => shownQuery(selector), focusVisible);
+  else if (mode === "page") holdRouteFocus(token, () => visiblePageHeading(), focusVisible);
+  syncRouteA11y({ focus: mode, trigger, before, settled: token, focusVisible });
 }
 
-function syncRouteA11y({ focus = "none", trigger = null, before = null, settled = 0 } = {}) {
+function syncRouteA11y({ focus = "none", trigger = null, before = null, settled = 0, focusVisible = roomFocusVisible() } = {}) {
   syncDocumentMeta();
   syncRouteAriaCurrent();
   if (!appBooted || focus === "none") return;
@@ -1904,9 +1931,12 @@ function syncRouteA11y({ focus = "none", trigger = null, before = null, settled 
   } else {
     claimRouteFocus();
   }
+  routeHeadingFocusVisible = focusVisible;
   const place = routePlaceNow();
   const message = routeAnnouncement(place, before || {});
-  if (message) announceRoute(document, message);
+  const headingText = focus === "heading" ? visibleHeadingText(place) : "";
+  if (message && message !== headingText) announceRoute(document, message);
+  else if (message && headingText && message === headingText) clearRouteAnnouncement();
   if (focus === "heading") {
     focusClickedRoute(before);
     return;

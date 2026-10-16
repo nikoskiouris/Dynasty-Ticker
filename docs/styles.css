@@ -224,6 +224,11 @@ body.launch-open #route-title {
   }
 }
 
+[data-room-panel] h2:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
 @media (min-width: 701px) {
   [data-room-panel] h2:focus-visible {
     outline-color: transparent;
@@ -231,8 +236,8 @@ body.launch-open #route-title {
   }
 }
 
-[data-room-panel] h2[tabindex="-1"]:focus {
-  outline: none;
+[data-room-panel] h2[tabindex="-1"]:focus:not(:focus-visible) {
+  outline: 0 none;
   box-shadow: none;
 }
 

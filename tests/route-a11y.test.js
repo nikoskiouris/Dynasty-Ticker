@@ -635,8 +635,10 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.doesNotMatch(css, /body\.league-loaded #route-title/);
   assert.match(css, /body\.cold-share #route-title[\s\S]*display:\s*block !important/);
   assert.match(css, /\[data-room-panel\] h2:focus-visible[\s\S]*box-shadow:\s*var\(--focus\)/);
-  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus\s*\{[^}]*outline:\s*none/s);
-  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus\s*\{[^}]*box-shadow:\s*none/s);
+  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus:not\(:focus-visible\)\s*\{[^}]*outline:\s*0 none/s);
+  assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus:not\(:focus-visible\)\s*\{[^}]*box-shadow:\s*none/s);
+  assert.match(app, /message !== headingText/);
+  assert.match(app, /focusVisible: roomFocusVisible\(\)/);
   const meta = app.slice(app.indexOf("function syncDocumentMeta"), app.indexOf("async function bootLandingRather"));
   assert.match(meta, /el\.routeTitle\.textContent = routeHeadingText\(\)/);
   const league = read("../docs/ui/league.html");
