@@ -90,3 +90,28 @@ for (const width of [390, 1280]) {
     expect(snap.height).toBeGreaterThan(0);
   });
 }
+
+test("a failed in-app league switch leaves history alone so the first Back leaves", async ({ page }) => {
+  test.setTimeout(90000);
+  const from = "1360686137898700800";
+  const to = "1000000000000000002";
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`/l/${from}/team`);
+  await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
+  await expect(page).toHaveURL(new RegExp(`/l/${from}/team`));
+  const before = await page.evaluate(() => history.length);
+
+  await page.route("**/api.sleeper.app/**", (route) => route.abort());
+  await page.locator("#league-id").evaluate((el, id) => {
+    el.value = id;
+  }, to);
+  await page.locator("#load-league-btn").evaluate((el) => el.click());
+  await expect(page.locator("#desk-load-alert")).toContainText(`Couldn't switch to ${to}`, { timeout: 20000 });
+  await expect(page).toHaveURL(new RegExp(`/l/${from}/team`));
+  await expect(page.locator("body")).toHaveClass(/league-loaded/);
+  await expect(page.locator("#league-missing")).toBeHidden();
+  expect(await page.evaluate(() => history.length)).toBe(before);
+
+  await page.goBack();
+  await expect.poll(() => page.url()).not.toMatch(new RegExp(`/l/${from}/team`));
+});

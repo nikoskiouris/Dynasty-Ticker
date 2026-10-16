@@ -178,14 +178,15 @@ test("history focus waits for the archive at 390", async ({ page }) => {
   });
 });
 
-test("an unknown numeric league room returns home", async ({ page }) => {
+test("a missing numeric league under a room path is not found", async ({ page }) => {
   test.setTimeout(90000);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/l/1/activity");
-  await expect(page.locator("#landing")).toBeVisible();
-  await expect.poll(() => {
-    const url = new URL(page.url());
-    return `${url.pathname}${url.search}`;
-  }, { timeout: 45000 }).toBe("/");
+  await expect(page.locator("#league-missing-title")).toBeVisible({ timeout: 45000 });
+  await expect(page.locator("#league-missing-title")).toHaveText("We couldn't find that league");
+  await expect(page).toHaveTitle("We couldn't find that league · Dynasty Ticker");
+  await expect(page.locator("#landing")).toBeHidden();
+  await expect(page.locator("#sleeper-down")).toBeHidden();
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/l/1/activity");
   await expect(page.locator("body")).not.toHaveClass(/league-loaded/);
 });

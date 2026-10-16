@@ -49,10 +49,13 @@ test("placeholder app routes fall back to index.html and other misses 404", () =
 
   assert.equal(classifyRequest("/nope").status, 404);
   assert.match(classifyRequest("/nope").file, /404\.html$/);
-  assert.equal(classifyRequest("/l").status, 404);
+  assert.equal(classifyRequest("/l").status, 200);
+  assert.match(classifyRequest("/l").file, /index\.html$/);
   assert.equal(classifyRequest("/player").status, 404);
   assert.equal(classifyRequest("/player/").status, 404);
-  assert.equal(classifyRequest("/l/").status, 404);
+  assert.equal(classifyRequest("/l/").status, 200);
+  assert.match(classifyRequest("/l/").file, /index\.html$/);
+  assert.equal(classifyRequest("/l/x.json").status, 404);
   for (const slash of ["/players/", "/trade/", "/connect/", "/l/42/", "/l/42/team/", "/player/9221/", "/player/9221/jahmyr-gibbs/"]) {
     const hit = classifyRequest(slash);
     assert.equal(hit.status, 200, slash);
