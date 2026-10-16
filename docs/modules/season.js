@@ -685,7 +685,7 @@ export function scoreUpcomingWeekAngles(model, sim = null, { weekEntry = null } 
       const bubbleP = bubbleTeam.p;
       leverageGames.push({
         kind: "leverage",
-        title: "Highest leverage",
+        title: "Biggest swing",
         rosterId: String(bubbleTeam.side.rosterId),
         teamName: bubbleTeamRow?.name || `Roster ${bubbleTeam.side.rosterId}`,
         opponentRosterId: String(bubbleTeam === under ? fav.side.rosterId : under.side.rosterId),
@@ -709,7 +709,7 @@ export function scoreUpcomingWeekAngles(model, sim = null, { weekEntry = null } 
         opponentName: model.teams.get(String(right.rosterId))?.name || `Roster ${right.rosterId}`,
         winPct: Math.min(pLeft, pRight) * 100,
         valueLabel: `${Math.round(Math.min(pLeft, pRight) * 100)}-${Math.round(Math.max(pLeft, pRight) * 100)}`,
-        detail: "Scoring distributions overlap almost completely. The Gaussian win model calls this a toss-up.",
+        detail: "These teams score about the same. This one is a toss-up.",
         tone: "green",
         score: tossScore,
         matchupId,
@@ -745,7 +745,7 @@ export function scoreUpcomingWeekAngles(model, sim = null, { weekEntry = null } 
           opponentName: model.teams.get(String(fav.rosterId))?.name || `Roster ${fav.rosterId}`,
           winPct: p * 100,
           valueLabel: `${Math.round(p * 100)}%`,
-          detail: `${Math.round(p * 100)}% by scoring-profile sim to beat ${model.teams.get(String(fav.rosterId))?.name || "the favorite"}. Gaussian matchup CDF on empirical-Bayes scoring, not the roster price.`,
+          detail: `${Math.round(p * 100)}% chance to beat ${model.teams.get(String(fav.rosterId))?.name || "the favorite"}, from how these teams score, not from roster price.`,
           tone: "gold",
           score: 0.5 - p,
           matchupId: game.matchupId ?? `${sides[0].rosterId}-${sides[1].rosterId}`,

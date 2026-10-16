@@ -167,24 +167,23 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="sample-league-link"/);
   assert.match(index, /href="\.\/\?sample=1"/);
   assert.match(index, /See the sample league/);
-  assert.match(index, /Find my leagues/);
+  assert.match(index, /Connect my league/);
   assert.match(index, /class="empty-cta"/);
   assert.equal(existsSync(join(docs, "modules/recap.js")), false);
   assert.equal(existsSync(join(docs, "modules/recap-card.js")), false);
   assert.match(index, /id="landing-rather"/);
-  assert.match(index, /id="open-public-ranks"/);
-  assert.match(index, /Look up a player/);
-  assert.match(index, /Prices, trades, and your roster/);
+  assert.match(index, /Check this trade/);
+  assert.match(index, /Is your dynasty trade fair\? Find out in one tap\./);
+  assert.match(index, /Free values for Sleeper dynasty leagues\. No sign-up\./);
   assert.doesNotMatch(index, /Find your league/);
   assert.match(index, /id="sample-league-chip"/);
-  assert.match(index, />Sample league</);
+  assert.match(index, />Sample league · Connect yours</);
   assert.match(index, /id="sample-banner"/);
-  assert.match(index, /This is a public sample league\. Connect your Sleeper username anytime\./);
-  assert.match(index, /id="sample-banner"[\s\S]*?data-idle-label="Find my leagues"[\s\S]*?>Loading…</);
+  assert.doesNotMatch(index, /This is a public sample league\. Connect your Sleeper username anytime\./);
   assert.doesNotMatch(readDocs("ui/league.html"), /Connect Sleeper|Find leagues</);
   assert.match(readDocs("app.js"), /Sample league — not this account\./);
   assert.match(readDocs("app.js"), /Viewing as \$\{me\.manager\?\.displayName \|\| "a roster"\}/);
-  assert.match(readDocs("app.js"), /Viewing \$\{name\} · sample/);
+  assert.match(readDocs("app.js"), /return "Sample league"/);
   assert.match(readDocs("app.js"), /Example roster/);
   assert.match(index, /id="public-ranks"/);
   assert.match(index, /id="ranks-dashboard"/);
@@ -196,7 +195,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /id="landing-jobs"/);
   assert.match(index, /brand\/wordmark-on-dark\.svg/);
   assert.match(index, /class="brand-wordmark/);
-  assert.match(index, /class="brand-lockup brand-lockup--landing"/);
+  assert.match(index, /class="brand-lockup brand-lockup--header"/);
   assert.match(index, /id="league-avatar"[\s\S]*brand\/mark\.svg/);
   assert.match(index, /class="league-mark"/);
   assert.doesNotMatch(index, /class="brand-mark"/);
@@ -250,7 +249,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="find-more-btn"/);
   assert.match(index, />Find more</);
   assert.match(index, />Find partners</);
-  assert.match(index, /Check an offer or find a deal/);
+  assert.match(index, /Check a trade or find a deal/);
   assert.match(index, /Review trade fills the calculator/);
   assert.doesNotMatch(index, /Got an offer\?/);
   const tradesPage = index.slice(index.indexOf('id="trades-page"'), index.indexOf('id="league-page"'));
@@ -527,6 +526,13 @@ test("wide board can shut so the page fills the screen", () => {
   assert.match(css, /html\.desk-shut \.workspace \{[^}]*grid-column:\s*1/s);
   assert.match(css, /html\.desk-shut \.control-rail \{[^}]*display:\s*none !important/s);
   assert.match(css, /Wide board shuts so the page fills the screen/);
+  assert.match(index, /id="mobile-rail-close"[^>]*tabindex="-1"/);
+  const deskShut = app.slice(app.indexOf("function setDeskBoardShut"), app.indexOf("function setMobileRailOpen"));
+  assert.match(deskShut, /deskBoardClose\?\.setAttribute\("tabindex", "-1"\)/);
+  assert.match(deskShut, /deskBoardClose\?\.removeAttribute\("tabindex"\)/);
+  const rail = app.slice(app.indexOf("function setMobileRailOpen"), app.indexOf("function scrollChildIntoStrip"));
+  assert.match(rail, /mobileRailClose\?\.setAttribute\("tabindex", "-1"\)/);
+  assert.match(rail, /mobileRailClose\?\.removeAttribute\("tabindex"\)/);
 });
 
 test("each desk page is its own file and boot mounts them before the app", () => {
@@ -612,4 +618,24 @@ test("product name Dynasty Ticker never shares the repo with the old brand", () 
 
   walk(root);
   assert.deepEqual(hits, []);
+});
+
+test("user-facing copy says players and picks, not assets", () => {
+  const app = readDocs("app.js");
+  const voice = readDocs("modules/sample-voice.js");
+  assert.match(app, /tap players & picks on both sides/);
+  assert.match(app, /No traded players & picks to rank yet/);
+  assert.match(app, /\$\{playersAndPicksLabel\(movements\.length\)\} moved/);
+  assert.match(readDocs("modules/html.js"), /1 player or pick/);
+  assert.match(readDocs("modules/html.js"), /players & picks/);
+  assert.match(app, /No matching players & picks found on your roster/);
+  assert.match(app, /Select one of your own players & picks to shop first/);
+  assert.match(app, /fewer included players & picks/);
+  assert.match(app, /exclude fewer players & picks/);
+  assert.match(app, /headline players & picks/);
+  assert.match(app, /high-value players & picks/);
+  assert.match(voice, /No matching players & picks found on \$\{poss\} roster/);
+  assert.match(voice, /Select one of \$\{poss\} players & picks to shop first/);
+  assert.doesNotMatch(app, /tap assets|traded assets|assets moved|matching assets|own assets|included assets|fewer assets|headline assets|high-value assets/);
+  assert.doesNotMatch(voice, /assets/);
 });

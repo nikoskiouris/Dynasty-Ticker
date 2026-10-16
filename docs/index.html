@@ -32,7 +32,7 @@
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./product.css" />
   </head>
-  <body>
+  <body class="launch-open">
     <a class="skip-link" href="#workspace">Skip to content</a>
     <div id="route-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     <div class="app-frame">
@@ -54,11 +54,12 @@
           </span>
           <div class="mobile-chrome-title-row">
             <h1 id="mobile-chrome-title">Your Sleeper league</h1>
-            <span id="sample-league-chip" class="sample-league-chip" data-sample-chip hidden>Sample league</span>
-            <button type="button" class="sample-find-btn" data-sample-find hidden>Find my leagues</button>
+            <span id="sample-league-chip" class="sample-league-chip" data-sample-chip hidden>Sample league · Connect yours</span>
+            <button type="button" class="sample-find-btn" data-sample-find hidden>Connect my league</button>
           </div>
           <p id="mobile-chrome-viewing" class="mobile-chrome-viewing" hidden></p>
         </div>
+        <a class="launch-header-link" href="/connect?next=/" data-launch="connect">Connect my league</a>
         <div class="mobile-chrome-actions">
           <button
             type="button"
@@ -79,15 +80,16 @@
           <span class="brand-lockup brand-lockup--rail">
             <img class="brand-wordmark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" />
           </span>
+          <a class="launch-header-link" href="/connect?next=/" data-launch="connect">Connect my league</a>
           <div id="sample-chrome" class="sample-chrome" hidden>
             <div class="sample-chrome-title-row">
               <strong id="sample-chrome-title"></strong>
-              <span class="sample-league-chip" data-sample-chip hidden>Sample league</span>
-              <button type="button" class="sample-find-btn" data-sample-find hidden>Find my leagues</button>
+              <span class="sample-league-chip" data-sample-chip hidden>Sample league · Connect yours</span>
+              <button type="button" class="sample-find-btn" data-sample-find hidden>Connect my league</button>
             </div>
             <p id="sample-chrome-viewing" class="sample-chrome-viewing"></p>
           </div>
-          <button type="button" id="mobile-rail-close" class="mobile-rail-close" aria-label="Close league controls">
+          <button type="button" id="mobile-rail-close" class="mobile-rail-close" aria-label="Close league controls" tabindex="-1">
             <span aria-hidden="true">×</span>
           </button>
           <button type="button" id="desk-board-close" class="desk-board-close" aria-label="Close board" aria-controls="control-rail">
@@ -127,7 +129,7 @@
               aria-describedby="username-error"
             />
             <p id="username-error" class="field-error" hidden role="alert"></p>
-            <button id="find-leagues-btn" type="submit" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+            <button id="find-leagues-btn" type="submit" data-idle-label="Connect my league" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
           </form>
           <div id="league-picker" class="league-picker hidden" data-league-picker></div>
 
@@ -138,7 +140,7 @@
               <input
                 id="league-id"
                 name="league-id"
-                placeholder="League ID or Sleeper URL"
+                placeholder="Paste a league link or ID"
                 autocomplete="off"
                 value=""
                 autocapitalize="none"
@@ -148,7 +150,7 @@
                 aria-describedby="league-id-error"
               />
               <p id="league-id-error" class="field-error" hidden role="alert"></p>
-              <button id="load-league-btn" type="submit">Load League</button>
+              <button id="load-league-btn" type="submit">Open league</button>
             </form>
           </details>
 
@@ -184,12 +186,8 @@
       </button>
 
       <main class="workspace" id="workspace" tabindex="-1">
-        <div id="sample-banner" class="sample-banner" hidden>
-          <p>This is a public sample league. Connect your Sleeper username anytime.</p>
-          <button type="button" data-action="find-my-leagues" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
-          <button type="button" class="ghost-btn sample-banner-dismiss" data-action="dismiss-sample-banner">Dismiss</button>
-        </div>
-        <button type="button" id="sample-find-btn" class="sample-find-btn" data-sample-find data-action="find-my-leagues" hidden>Find my leagues</button>
+        <div id="sample-banner" class="sample-banner" hidden></div>
+        <button type="button" id="sample-find-btn" class="sample-find-btn" data-sample-find data-action="find-my-leagues" hidden>Connect my league</button>
         <header class="workspace-header" id="workspace-header">
           <div class="league-hero">
             <div class="league-avatar" id="league-avatar">
@@ -197,7 +195,7 @@
             </div>
             <div class="league-hero-copy">
               <span class="eyebrow" id="hero-eyebrow">Sleeper dynasty league</span>
-              <h1 id="hero-title">Your Sleeper league</h1>
+              <p id="hero-title">Your Sleeper league</p>
               <p class="workspace-lede" id="hero-lede">Type a username. Scores open first.</p>
             </div>
           </div>
@@ -229,7 +227,7 @@
               <span class="tab-copy"><strong>Players</strong><small>What is he worth?</small></span>
             </button>
             <button id="trades-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades">
-              <span class="tab-copy"><strong>Trade</strong><small>Check an offer or find a deal</small></span>
+              <span class="tab-copy"><strong>Trade</strong><small>Check a trade or find a deal</small></span>
             </button>
             <button id="league-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="league-page" tabindex="-1" data-page="league">
               <span class="tab-copy"><strong>My League</strong><small id="teams-tab-hint">Your team, this week, the league</small></span>
@@ -245,14 +243,111 @@
           </div>
         </div>
 
-        <div id="ui-pages"></div>
+        <div id="ui-pages">
+          <section class="launch" id="landing">
+  <div class="launch-wrap">
+    <h1 id="landing-job-hint">Is your dynasty trade fair? Find out in one tap.</h1>
+    <p class="sub">Free values for Sleeper dynasty leagues. No sign-up.</p>
+    <div class="launch-main">
+      <div class="launch-example-col">
+        <div class="launch-lab">
+          <span>Example trade</span>
+          <a href="/trade" data-launch="empty">Try your own ›</a>
+        </div>
+        <div id="launch-example" class="launch-box launch-example" aria-busy="true">
+          <div class="launch-side">
+            <div class="sh"><span>You give</span></div>
+            <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+          </div>
+          <div class="launch-side">
+            <div class="sh"><span>You get</span></div>
+            <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+            <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+          </div>
+          <div class="launch-verdict launch-verdict-skel" aria-hidden="true">
+            <div class="vt"><span class="sk"></span><span class="sk"></span></div>
+            <div class="bar"></div>
+            <span class="meta">Tap to change any player</span>
+          </div>
+        </div>
+        <button type="button" class="launch-check" data-launch="example">Check this trade</button>
+        <div class="launch-cta">
+          <button type="button" class="ghost-btn launch-connect" data-launch="connect">Connect my league</button>
+        </div>
+        <p class="launch-sample">No league yet? <a class="sample-league-link" href="./?sample=1">See the sample league</a></p>
+        <div id="landing-connect" hidden>
+          <form id="landing-username-form" class="landing-search" novalidate>
+            <label for="landing-username">Sleeper username</label>
+            <div class="landing-search-row">
+              <input
+                id="landing-username"
+                name="landing-username"
+                placeholder="Search your Sleeper username"
+                autocomplete="off"
+                value=""
+                autocapitalize="none"
+                autocorrect="off"
+                spellcheck="false"
+                enterkeyhint="search"
+                aria-describedby="landing-username-error"
+              />
+              <button id="landing-find-btn" type="submit" data-idle-label="Connect my league" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+            </div>
+            <p id="landing-username-error" class="field-error" hidden role="alert"></p>
+            <div id="landing-search-status" class="status error landing-search-status hidden" aria-live="polite">
+              <span id="landing-search-status-text"></span>
+              <button type="button" id="landing-search-retry" class="ghost-btn status-retry">Retry</button>
+            </div>
+          </form>
+          <div id="landing-league-picker" class="league-picker landing-league-picker hidden" data-league-picker></div>
+          <p id="landing-loading" class="landing-loading hidden" aria-live="polite">
+            <span class="status-loader" aria-hidden="true"></span>
+            <span id="landing-loading-text">Opening league from Sleeper…</span>
+          </p>
+          <div id="landing-league-error" class="status error landing-league-error hidden" role="alert">
+            <span id="landing-league-error-text"></span>
+            <button type="button" id="landing-league-retry" class="ghost-btn status-retry">Retry</button>
+          </div>
+        </div>
+      </div>
+      <div class="launch-trend-col">
+        <div class="launch-lab">
+          <span>Hot on Sleeper</span>
+          <a href="/players" data-launch="players">All players ›</a>
+        </div>
+        <div id="launch-trend" class="launch-box launch-trend" aria-busy="true">
+          <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+          <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+          <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+          <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+          <div class="launch-row launch-row-skel" aria-hidden="true"><span class="sk"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="public-ranks" class="public-ranks hidden" hidden>
+  <div class="workspace-panel">
+    <div class="panel-heading">
+      <div>
+        <span class="eyebrow">Values</span>
+        <h2>Player ranks</h2>
+      </div>
+      <button type="button" class="ghost-btn" data-action="close-public-ranks">Back</button>
+    </div>
+    <div id="public-ranks-board"></div>
+  </div>
+</section>
+        </div>
 
     <div id="site-dock" class="site-dock">
       <div id="sticky-mobile-cta" class="sticky-mobile-cta" hidden>
-        <button id="sticky-find-btn" type="button" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+        <button id="sticky-find-btn" type="button" data-idle-label="Connect my league" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
       </div>
     </div>
 
+    <script type="module" src="./launch-early.js"></script>
     <script type="module" src="./boot.js"></script>
   </body>
 </html>

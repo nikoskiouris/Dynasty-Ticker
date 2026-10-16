@@ -99,7 +99,7 @@ test("blank calculator adds, sums, and grades both sides", () => {
   assert.equal(sumValueCalcSide(state.left, priceOf), 9000);
   assert.equal(sumValueCalcSide(state.right, priceOf), 11100);
   const verdict = valueCalcVerdict(9000, 11100);
-  assert.match(verdict.label, /Get/);
+  assert.match(verdict.label, /Favors Get/);
   state = removeValueCalcItem(state, "right", state.right[0].uid);
   assert.equal(state.right.length, 1);
   state.leftQuery = "bijan";
