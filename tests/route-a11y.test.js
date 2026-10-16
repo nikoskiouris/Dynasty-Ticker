@@ -662,6 +662,7 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(app, /function focusClickedRoute\(before\)/);
   assert.match(app, /if \(pendingPopstateFocus\) return;/);
   assert.match(app, /void focusAfterPopstate\(\{ focus, trigger: step\.trigger, before, token \}\)/);
+  assert.match(app, /location\.hash === "#workspace" && !event\.state\?\.tab\) return/);
   assert.match(app, /await new Promise\(\(resolve\) => requestAnimationFrame\(resolve\)\)/);
   assert.match(app, /while \(token === routeFocusToken && state\.leagueSwitching && Date\.now\(\) < deadline\)/);
   assert.match(app, /leagueRoomMove\(before, after\) \? "heading" : step\.focus/);
@@ -1258,12 +1259,26 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
     } catch {
       // Older Chrome still reports sequential focus without this.
     }
-    await waitForPage(pageSocket, `() => ({
-      ok: Boolean(document.querySelector("#trades-tab")),
-    })`, 15000, "trade shell");
-    await waitForPage(pageSocket, `() => ({
-      ok: window.__dynastyBootFind?.pending === false,
-    })`, 20000, "app boot");
+    // #trades-tab is in the static shell. The desk is ready once boot has
+    // released, the trade history entry is written, and focus has stopped moving.
+    await waitForStable(pageSocket, `() => {
+      const el = document.activeElement;
+      const id = el === document.body ? "BODY" : (el?.id || el?.tagName || "");
+      const boot = window.__dynastyBootFind?.pending === false;
+      const title = document.querySelector("#route-title")?.textContent || "";
+      return {
+        ok: Boolean(document.querySelector("#trades-tab"))
+          && boot
+          && history.state?.tab === "trades"
+          && title === "Trade"
+          && location.pathname === "/trade"
+          && (id === "BODY" || id === "route-title"),
+        id,
+        boot,
+        title,
+        path: location.pathname,
+      };
+    }`, 20000, 400, "trade ready");
     await pageEval(pageSocket, () => {
       window.__stops = [];
       document.addEventListener("focusin", (event) => {
@@ -1291,7 +1306,7 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
     await pageSocket.send("Input.dispatchKeyEvent", {
       type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
     });
-    const skipped = await waitForPage(pageSocket, `() => {
+    const skipped = await waitForStable(pageSocket, `() => {
       const el = document.activeElement;
       return {
         ok: el?.id === "workspace" && location.pathname === "/trade",
@@ -1299,7 +1314,7 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
         tab: el?.getAttribute?.("tabindex") || "",
         path: location.pathname,
       };
-    }`, 3000, "skip link");
+    }`, 5000, 400, "skip link");
     assert.equal(skipped.id, "workspace");
     assert.equal(skipped.path, "/trade");
   } finally {

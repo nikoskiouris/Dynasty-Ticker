@@ -984,6 +984,9 @@ void hydrateCrowdVotes().then((ok) => {
 if (typeof history.scrollRestoration === "string") history.scrollRestoration = "manual";
 ensureRouteLive(document);
 window.addEventListener("popstate", (event) => {
+  // Skip to content only adds #workspace. That is not a desk move, and the
+  // page-heading focus would take the workspace the link just targeted.
+  if (window.location.hash === "#workspace" && !event.state?.tab) return;
   const raw = event.state?.idx;
   const next = Number.isFinite(Number(raw)) ? Number(raw) : Math.max(0, routeFocus.index() - 1);
   const before = routePlaceNow();
