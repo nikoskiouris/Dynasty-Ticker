@@ -15,6 +15,9 @@ fi
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
+# The preflight inspects installed function dependencies on clean runners.
+npm ci
+
 # Fail before touching Netlify if an expected function, edge function, or
 # included_files entry is missing from the checkout.
 node scripts/deploy_bundle_expect.mjs "$root"
@@ -28,8 +31,6 @@ NETLIFY_CLI_VERSION="27.12.1"
 python3 scripts/ensure_netlify_salts.py
 
 bash scripts/netlify_stop_git_builds.sh
-
-npm ci
 
 if [[ "${SKIP_MARKET_REFRESH:-}" != "1" ]]; then
   bash scripts/refresh_market_data.sh
