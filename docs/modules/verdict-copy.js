@@ -6,7 +6,7 @@
 //   Fair, slight edge · Get side worth 9% more          (amber)
 //   Favors one side · Give side worth 15% more          (green/red on /trade only)
 //   Lopsided · Give side worth 89% more                 (green/red on /trade only)
-// Above 10× (more than 900% more) the sentence stops counting: "worth over 10x more".
+// Above 10× (more than 900% more) the sentence stops counting: "worth over 10× as much".
 // Exactly 10× stays "900% more". A zero smaller side (null) uses the same cap.
 // One metric, on the credited totals: (bigger - smaller) / smaller, kept to
 // one decimal. Tiers are banded on that unrounded percent (RECHECK3): <= 5
@@ -70,7 +70,7 @@ export function displayMore(more, { band = true } = {}) {
 const TEN_X_MORE = 900;
 
 function worthMorePhrase(name, more) {
-  if (more == null || more > TEN_X_MORE) return `${name} worth over 10x more`;
+  if (more == null || more > TEN_X_MORE) return `${name} worth over 10× as much`;
   const shown = displayMore(more);
   const amount = shown == null ? "" : `${shown}% `;
   return `${name} worth ${amount}more`;

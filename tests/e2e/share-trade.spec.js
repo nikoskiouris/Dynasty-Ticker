@@ -12,6 +12,14 @@ const viewports = [
   { width: 1280, height: 800 },
 ];
 
+test("a 1QB share names 1QB in the price note", async ({ page }) => {
+  await page.goto("/t/1q4984~9221");
+  await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
+  const note = page.locator("#value-calc-verdict .calc-method p").first();
+  await expect(note).toHaveText("Prices are our estimate, scored with a point per catch, 1QB.");
+  await expect(note).not.toContainText("Superflex");
+});
+
 test("bots get the trade's meta without running JS", async ({ request }) => {
   const res = await request.get(`/t/${CODE}`);
   expect(res.status()).toBe(200);

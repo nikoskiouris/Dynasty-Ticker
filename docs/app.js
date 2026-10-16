@@ -8043,7 +8043,7 @@ function evenUpCopy(choice, side) {
 
 function renderDraftMethod(view) {
   const lines = [
-    "Prices are our estimate, scored with a point per catch, Superflex.",
+    `Prices are our estimate, scored with a point per catch, ${rankFormatLabel(view.basis.format)}.`,
     "Age, role, efficiency, availability, team environment, draft investment, and position-specific career retention feed the forecast. Connecting a league never changes a player's price.",
   ];
   if ([...view.priced.values()].some((row) => row.estimated)) {

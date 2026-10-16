@@ -63,7 +63,7 @@ test("the card never shows a verdict for the side with the smaller total", () =>
     const raw = small > 0 ? Math.round((Math.abs(s.giveCredited - s.getCredited) / small) * 1000) / 10 : null;
     const more = displayMore(raw);
     const phrase = raw == null || raw > 900
-      ? `${bigger} side worth over 10x more`
+      ? `${bigger} side worth over 10× as much`
       : `${bigger} side worth ${more}% more`;
     if (v.text !== "Fair trade") assert.equal(v.pctText, phrase, code);
     // RECHECK3: public card colours only the tier, never red/green by side.
@@ -100,11 +100,28 @@ test("verdict format: tier · column worth N% more, tiers banded on the shown N 
   assert.equal(at(11000, 10000).publicTone, "fair");
   assert.equal(at(20000, 10000).line, "Lopsided · Give side worth 100% more");
   assert.equal(at(10000, 1000).line, "Lopsided · Give side worth 900% more");
-  assert.equal(at(10001, 1000).line, "Lopsided · Give side worth over 10x more");
-  assert.equal(at(17600, 1000).line, "Lopsided · Give side worth over 10x more");
-  assert.equal(verdictCopy({ label: "Lopsided for Give", left: 17600, right: 1000 }).detail, "Give side worth over 10x more");
-  assert.equal(verdictCopy({ label: "Lopsided for Give", left: 100, right: 0 }).detail, "Give side worth over 10x more");
-  assert.equal(verdictLineNamed({ label: "Lopsided for Get", left: 1000, right: 17600 }, { Get: "My side" }), "Lopsided · My side worth over 10x more");
+  const capped = "Lopsided · Give side worth over 10× as much";
+  assert.equal(at(10001, 1000).line, capped);
+  assert.equal(at(17600, 1000).line, capped);
+  assert.equal(verdictCopy({ label: "Lopsided for Give", left: 17600, right: 1000 }).detail, "Give side worth over 10× as much");
+  assert.equal(verdictCopy({ label: "Lopsided for Give", left: 100, right: 0 }).detail, "Give side worth over 10× as much");
+  assert.equal(verdictLineNamed({ label: "Lopsided for Get", left: 1000, right: 17600 }, { Get: "My side" }), "Lopsided · My side worth over 10× as much");
+  const cappedSummary = {
+    give: [{ name: "Bijan Robinson" }],
+    get: [{ name: "Malik Nabers" }],
+    giveTotal: 17600,
+    getTotal: 1000,
+    giveCredited: 17600,
+    getCredited: 1000,
+    credit: null,
+    verdict: { label: "Lopsided for Give", left: 17600, right: 1000, pct: 94.3 },
+    stamp: "",
+    formatLabel: "Superflex",
+  };
+  assert.equal(shareText(cappedSummary).title, `Bijan Robinson for Malik Nabers: ${capped}`);
+  const cappedPage = injectShareMeta("<html><head><title>Old</title></head><body></body></html>", { summary: cappedSummary, code: "1s9509~11632" });
+  assert.match(cappedPage, /<title>Bijan Robinson for Malik Nabers: Lopsided · Give side worth over 10× as much \| Dynasty Ticker<\/title>/);
+  assert.match(cappedPage, /property="og:title" content="Bijan Robinson for Malik Nabers: Lopsided · Give side worth over 10× as much"/);
   assert.equal(percentMore(11112, 21031), 89.3);
   // PM's acceptance case: Gibbs for two 1sts (credited 21,031 vs 11,112).
   const gibbs = summaryOf("1s9221~p27r1e.p28r1a");

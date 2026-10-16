@@ -683,7 +683,7 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(css, /body\.cold-share #route-title\s*\{[^}]*display:\s*none !important/s);
   assert.doesNotMatch(css, /body\.cold-share #route-title\s*\{[^}]*display:\s*block !important/s);
   assert.match(css, /\.sheet-slot-short\s*\{[^}]*text-decoration:\s*none/s);
-  assert.match(app, /Prices are our estimate, scored with a point per catch, Superflex\./);
+  assert.match(app, /Prices are our estimate, scored with a point per catch, \$\{rankFormatLabel\(view\.basis\.format\)\}\./);
   assert.doesNotMatch(app, /independent football forecast: full PPR/);
   assert.match(app, /<span class="col-pa">Pts against<\/span>/);
   assert.match(app, /<span class="col-streak">Streak<\/span>/);
