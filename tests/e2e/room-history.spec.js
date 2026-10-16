@@ -152,6 +152,31 @@ for (const viewport of viewports) {
   });
 }
 
+test("a cold unknown league room opens the team", async ({ page }) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/l/${LEAGUE}/not-a-room`);
+  await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
+  await expect.poll(() => pathOf(page.url())).toBe(`/l/${LEAGUE}/team`);
+  await expect(page.locator("[data-room-panel='team']")).toBeVisible();
+  await expect(page.locator("#landing")).toBeHidden();
+});
+
+test("history focus waits for the archive at 390", async ({ page }) => {
+  test.setTimeout(120000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loadLeague(page);
+  await openRoom(page, "history");
+  await expect(page.locator("#history-dashboard")).toContainText(/games in the archive/i, { timeout: 60000 });
+  await expect.poll(() => page.evaluate(() => ({
+    id: document.activeElement?.id || "",
+    text: (document.activeElement?.textContent || "").replace(/\s+/g, " ").trim(),
+  }))).toEqual({
+    id: "history-heading",
+    text: "Titles, records, and who stayed",
+  });
+});
+
 test("an unknown numeric league room returns home", async ({ page }) => {
   test.setTimeout(90000);
   await page.setViewportSize({ width: 1280, height: 800 });

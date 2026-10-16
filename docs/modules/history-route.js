@@ -244,6 +244,16 @@ export function matchRoute(pathname, search = "") {
       next: row.name === "connect" ? safeNext(params.get("next")) : "",
     });
   }
+  // /l/<id>/<unknown room> is still that league. Open the team, not home.
+  // A dotted last segment is a file (team.js) and stays unknown.
+  if (bits.length === 3 && bits[0] === "l") {
+    const leagueId = decodePart(bits[1]);
+    const segment = decodePart(bits[2]);
+    const candidate = `/l/${leagueId}/${segment}`;
+    if (LEAGUE_ID.test(leagueId) && segment && !isAssetLikePath(candidate)) {
+      return blankRoute({ name: "team", page: "league", room: "team", leagueId });
+    }
+  }
   return null;
 }
 
