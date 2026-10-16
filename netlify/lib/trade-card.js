@@ -202,36 +202,38 @@ export async function renderCardPng(svg) {
 }
 
 // /og/t/<code>.png renders PNG (what X, iMessage, Slack, and Facebook need).
-// /og/t/<code>.svg is the same card as SVG, and the fallback if PNG fails.
+// /og/t/<code>.svg must not return SVG. It 301s to the PNG. A .png that cannot
+// render is a 503, never SVG.
 export function createTradeCardHandler(deps = {}) {
   return async (req) => {
     const url = new URL(req.url);
     // Rewritten as ?file=<code>.png. Direct calls carry it as the last segment.
     const file = url.searchParams.get("file") ? `/${url.searchParams.get("file")}` : url.pathname;
-    const wantsSvg = file.endsWith(".svg");
-    const code = codeFromPath(file, { suffix: wantsSvg ? ".svg" : ".png" });
+    if (file.endsWith(".svg")) {
+      const pngName = file.slice(file.lastIndexOf("/") + 1).replace(/\.svg$/, ".png");
+      return new Response(null, {
+        status: 301,
+        headers: {
+          ...SAFE_HEADERS,
+          location: `/og/t/${pngName}`,
+          "cache-control": "public, max-age=86400",
+        },
+      });
+    }
+    const code = codeFromPath(file, { suffix: ".png" });
     const hit = code ? await summaryForCode(code, deps).catch(() => null) : null;
     if (!hit?.summary) {
       return new Response("Not found", { status: 404, headers: { ...SAFE_HEADERS, "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=60" } });
     }
     const art = await loadCardArt().catch(() => ({}));
     const svg = renderCardSvg(hit.summary, art);
-    if (!wantsSvg) {
-      try {
-        const png = await (deps.renderPng || renderCardPng)(svg);
-        return new Response(png, { status: 200, headers: { ...SAFE_HEADERS, "content-type": "image/png", "cache-control": CARD_CACHE } });
-      } catch {
-        // fall back to SVG below, briefly cached so a retry can render PNG
-      }
+    // A .png URL only ever serves PNG. X, iMessage and Facebook do not render
+    // an SVG og:image, so a missing resvg/wasm must fail loudly, uncached.
+    try {
+      const png = await (deps.renderPng || renderCardPng)(svg);
+      return new Response(png, { status: 200, headers: { ...SAFE_HEADERS, "content-type": "image/png", "cache-control": CARD_CACHE } });
+    } catch {
+      return new Response("Card renderer unavailable", { status: 503, headers: { ...SAFE_HEADERS, "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
     }
-    return new Response(svg, {
-      status: 200,
-      headers: {
-        ...SAFE_HEADERS,
-        "content-type": "image/svg+xml",
-        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'",
-        "cache-control": wantsSvg ? CARD_CACHE : "public, max-age=300",
-      },
-    });
   };
 }
