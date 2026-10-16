@@ -577,10 +577,12 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(app, /function guestRouteHeading\(\)/);
   assert.match(app, /function routeHeadingText\(\)/);
   assert.match(app, /team: "My team"/);
+  assert.doesNotMatch(app, /bindInPageTab\(document\)/);
   const css = read("../docs/styles.css");
   assert.match(css, /body\.launch-open #route-title/);
   assert.doesNotMatch(css, /body\.league-loaded #route-title/);
   assert.match(css, /body\.cold-share #route-title[\s\S]*display:\s*block !important/);
+  assert.match(css, /\[data-room-panel\] h2:focus-visible[\s\S]*box-shadow:\s*var\(--focus\)/);
   const league = read("../docs/ui/league.html");
   assert.match(league, /data-room-panel="history"[\s\S]*<h2 id="history-heading" tabindex="-1">Titles, records, and who stayed<\/h2>/);
   assert.doesNotMatch(index, /<(?:body|html)[^>]*\stabindex/);

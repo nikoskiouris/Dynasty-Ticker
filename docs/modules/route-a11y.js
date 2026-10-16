@@ -51,12 +51,18 @@ export function routeAnnouncement(place = {}, before = {}) {
   return ROUTE_TAB_LABELS[place.tab] || "";
 }
 
-export function focusWithoutScroll(el) {
+export function focusWithoutScroll(el, { focusVisible = false } = {}) {
   if (!el || typeof el.focus !== "function") return false;
+  const opts = { preventScroll: true };
+  if (focusVisible) opts.focusVisible = true;
   try {
-    el.focus({ preventScroll: true });
+    el.focus(opts);
   } catch {
-    el.focus();
+    try {
+      el.focus({ preventScroll: true });
+    } catch {
+      el.focus();
+    }
   }
   return true;
 }
@@ -96,7 +102,7 @@ export function focusViewHeading(root) {
   const heading = visibleHeading(root, "h1, h2") || visibleHeading(root, "h3");
   if (!heading) return null;
   if (typeof heading.setAttribute === "function") heading.setAttribute("tabindex", "-1");
-  focusWithoutScroll(heading);
+  focusWithoutScroll(heading, { focusVisible: true });
   return heading;
 }
 
@@ -163,7 +169,7 @@ export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000
       if (heading.getAttribute?.("tabindex") == null && typeof heading.setAttribute === "function") {
         heading.setAttribute("tabindex", "-1");
       }
-      if (!already) focusWithoutScroll(heading);
+      if (!already) focusWithoutScroll(heading, { focusVisible: true });
       if (doc.activeElement === heading) {
         const stableAt = clock();
         const confirm = () => {
