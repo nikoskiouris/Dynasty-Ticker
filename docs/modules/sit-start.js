@@ -65,7 +65,7 @@ export function formatSitStartSlot(slot) {
 
 function plainInjuryName(injury) {
   const key = String(injury || "").trim().toLowerCase().replace(/[\s_/-]+/g, " ");
-  if (key === "ir" || key.includes("injured reserve")) return "injured reserve";
+  if (key === "ir" || key.includes("injured reserve")) return "on injured reserve";
   return String(injury || "").trim();
 }
 
@@ -76,7 +76,7 @@ export function injurySitReason(injuryStatus, playerStatus) {
   const status = String(playerStatus || "").trim().toLowerCase();
   if (SIT_ROSTER.has(status)) return "Sit — Inactive";
   if (SIT_INJURY.has(status) || status.includes("injured reserve") || status.includes("pup")) {
-    return "Sit — injured reserve";
+    return "Sit — on injured reserve";
   }
   return "";
 }

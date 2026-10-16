@@ -75,7 +75,8 @@ export function weeklyScoreHelpLines() {
     "Top-tier names belong in the 90s. A healthy RB1 vs an average defense should sit near 90, not 60.",
     `Blends role, last ${WEEKLY_LOOKBACK_WEEKS} games of PPR, drops, and this week's opponent. Matchup barely moves a lock; it matters more at 50/50.`,
     "Not dynasty trade price. Last week alone does not set it.",
-    "Sit/start uses this number. Out and injured reserve are 0% until that designation comes off. Questionable stays available. Bye, no team, and a missing opponent still sit. Dynasty price only breaks ties.",
+    "Players who are out or on injured reserve count as 0% until that changes.",
+    "Questionable stays available. Bye, no team, and a missing opponent still sit. Dynasty price only breaks ties.",
   ];
 }
 

@@ -370,9 +370,9 @@ test("weekly score help popup explains start chance", () => {
   assert.match(pop, /50% is a coin flip/);
   assert.match(pop, /90% is a lock/);
   assert.match(pop, /data-action="close-weekly-help"/);
-  assert.match(pop, /Sit\/start uses this number/);
+  assert.match(pop, /Players who are out or on injured reserve count as 0% until that changes\./);
   const lines = weeklyScoreHelpLines();
-  assert.equal(lines.length, 5);
+  assert.equal(lines.length, 6);
   const sheetOpen = renderWeeklyPlayerSheet({
     playerId: "111",
     name: "Demo WR",

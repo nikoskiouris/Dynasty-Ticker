@@ -2652,7 +2652,10 @@ function renderLeagueHero() {
             ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
             : "Matchups are syncing.";
   const sampleNote = state.viewingSample ? (sampleVoice()?.accountNote || "Public sample — not this account. ") : "";
-  el.heroLede.textContent = `${sampleNote}${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`;
+  const formatTip = tepLevel(league) > 0
+    ? ` ${infoTipMarkup({ id: "pop-hero-format", label: "Scoring", text: "(values stay full PPR)" })}`
+    : "";
+  el.heroLede.innerHTML = `${escapeHtml(`${sampleNote}${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`)}${formatTip}`;
   if (el.leagueAvatar) {
     const leagueAvatarSrc = sleeperAvatarUrl(league.avatar);
     el.leagueAvatar.innerHTML = leagueAvatarSrc
@@ -6641,7 +6644,7 @@ function renderRosterSheet() {
     ].filter(Boolean).join(" · ");
     return `
       <button type="button" class="${rowClass}" data-action="open-player" data-player-id="${escapeHtml(playerId)}" aria-pressed="${open ? "true" : "false"}"${note ? ` title="${escapeHtml(note)}"` : ""}>
-        <span class="sheet-slot">${escapeHtml(slotLabel)}</span>
+        ${sheetSlotMarkup(extra.slot, slotLabel)}
         <div class="sheet-player">
           ${renderPlayerFace(playerId, asset.name, { size: "sm" })}
           <strong>${escapeHtml(asset.name)}${nickname ? ` <em class="nickname">“${escapeHtml(nickname)}”</em>` : ""}</strong>
@@ -6709,10 +6712,11 @@ function renderRosterSheet() {
         <h4>Start</h4>
         ${startRows.map((entry) => entry.asset
           ? renderPlayerRow(entry.asset, entry.slotLabel || formatRosterSlotLabel(entry.slot), {
+              slot: entry.slot,
               note: entry.rowNote,
               closeCall: String(entry.rowNote || "").startsWith("Close vs"),
             })
-          : `<div class="sheet-row empty"><span class="sheet-slot">${escapeHtml(entry.slotLabel || formatRosterSlotLabel(entry.slot))}</span><div class="sheet-player"><strong>${escapeHtml(entry.rowNote || "Open")}</strong></div></div>`).join("")}
+          : `<div class="sheet-row empty">${sheetSlotMarkup(entry.slot, entry.slotLabel || formatRosterSlotLabel(entry.slot))}<div class="sheet-player"><strong>${escapeHtml(entry.rowNote || "Open")}</strong></div></div>`).join("")}
       </section>
       <section class="sheet-column">
         <h4>Sit</h4>
@@ -11043,6 +11047,9 @@ function buildSleeperInsightCards(profile, context) {
     title: "League Format",
     body: formatInsight,
     tone: "blue",
+    tipHtml: tepLevel(context.league) > 0
+      ? infoTipMarkup({ id: "pop-league-format", label: "Scoring", text: "(values stay full PPR)" })
+      : "",
   });
 
   if (profile.strongestPosition) {
@@ -11103,16 +11110,14 @@ function describeLeagueFormat(league) {
     ? receptionValue >= 1 ? "PPR" : receptionValue > 0 ? `${receptionValue} PPR` : "standard"
     : "custom scoring";
   const taxiSlots = Number(league?.settings?.taxi_slots || 0);
-  const reserveSlots = Number(league?.settings?.reserve_slots || 0);
   const draftRounds = Number(league?.settings?.draft_rounds || 0);
   const parts = [
     leagueTypeLabel(league),
     hasSuperflex ? "Superflex" : "1-QB",
     pprLabel,
-    `${slots.length} starting spots`,
+    `${slots.length} starters`,
   ];
-  if (reserveSlots > 0) parts.push(`${reserveSlots} injured reserve`);
-  if (tepLevel(league) > 0) parts.push("TE bonus (values stay full PPR)");
+  if (tepLevel(league) > 0) parts.push("TE bonus");
   if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi`);
   if (leagueUsesFuturePicks(league) && draftRounds > 0) parts.push(`${draftRounds}-round rookie draft`);
   return parts.join(" • ");
@@ -12944,6 +12949,14 @@ function formatRosterSlotLabel(slot) {
     FLEX: "Flex",
   };
   return labels[slot] || slot.replace(/_/g, " ");
+}
+
+function sheetSlotMarkup(slot, slotLabel) {
+  const key = String(slot || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (key === "SUPER_FLEX" || key === "SUPERFLEX" || key === "SF") {
+    return `<span class="sheet-slot" title="Superflex" aria-label="Superflex">SF</span>`;
+  }
+  return `<span class="sheet-slot">${escapeHtml(slotLabel || "")}</span>`;
 }
 
 function findClosestValuationPick(targetValue, values, valueNameMap) {

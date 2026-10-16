@@ -85,7 +85,7 @@ test("bye and missing opponent sit instead of silently starting", () => {
 
 test("out sits, questionable can still start", () => {
   assert.equal(injurySitReason("Out"), "Sit — Out");
-  assert.equal(injurySitReason("IR"), "Sit — injured reserve");
+  assert.equal(injurySitReason("IR"), "Sit — on injured reserve");
   assert.equal(injurySitReason("Doubtful"), "Sit — Doubtful");
   assert.equal(injurySitReason("Questionable"), "");
   const board = buildSitStart({

@@ -79,7 +79,7 @@ export function ownerLine(owner, { leagueOpen = false, kind = "player" } = {}) {
 }
 
 export function rankBoardNote({ format = "sf", leagueFormat = "", caveat = "" } = {}) {
-  const base = "Our estimate, full PPR (points per reception). Same number on Trade and My League. The pick line is the closest pick.";
+  const base = "Our estimate, scored with a point per catch. Same number on Trade and My League. The pick line is the closest pick.";
   const peek = leagueFormat && format && format !== leagueFormat
     ? ` Peeking at ${rankFormatLabel(format)}. Your league is ${rankFormatLabel(leagueFormat)}.`
     : "";
@@ -387,7 +387,7 @@ function renderRankCard(row, view = {}) {
       ? { label: "Availability", value: `${Math.round(Number(components.availability) * 100)}%` }
       : null,
     Number.isFinite(Number(components.roleOppPerGame))
-      ? { label: "Opportunities per game", value: Number(components.roleOppPerGame).toFixed(1) }
+      ? { label: "Touches + targets per game", value: Number(components.roleOppPerGame).toFixed(1) }
       : null,
   ].filter(Boolean);
   const spread = Array.isArray(row.spread) && row.spread.length > 1
