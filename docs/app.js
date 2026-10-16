@@ -148,7 +148,6 @@ import { facePlayerId, renderPlayerFace, renderPlayerLabel } from "./modules/pla
 import {
   addValueCalcItem,
   clearValueCalcSides,
-  draftVerdictLabel,
   emptyValueCalcState,
   isGenericPickAssetId,
   isLeaguePickAssetId,
@@ -162,8 +161,6 @@ import {
   tradeRowName,
   withPlayerDirectoryNames,
 } from "./modules/value-calc.js";
-import { TIER_EXPLAINER, verdictCopy } from "./modules/verdict-copy.js";
-import { calcPointer, meterTrack, sharedBarSegments, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import {
   describeDraftItem,
   draftFromReview,
@@ -310,6 +307,7 @@ import {
   topOverlay,
   urlPath,
 } from "./modules/history-route.js";
+import { EVEN_UP_OFFER_ABOVE, ideaLimitMore, oldPctToMore, STAR_PREMIUM_KEY, TIER_EXPLAINER, barLabel, creditedTotalsLine, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
 import { bindInfoTips, infoTipMarkup, valuesWorkText } from "./modules/info-tip.js";
 import {
   EXAMPLE_GET,
@@ -965,6 +963,7 @@ window.addEventListener("popstate", (event) => {
   syncRouteA11y({ focus: appBooted ? step.focus : "none", trigger: step.trigger });
 });
 if (isPhoneLayout()) setMobileRailOpen(false);
+
 syncDocumentMeta();
 appBooted = true;
 focusColdPlayerHeading();
@@ -1786,7 +1785,7 @@ function escapeRouteOverlay(event) {
   return true;
 }
 
-function updateUrlState({ mode = "replace" } = {}) {
+function updateUrlState({ mode = "replace", force = false } = {}) {
   if (applyingHistory) {
     routeFocus.forget();
     return;
@@ -1799,11 +1798,16 @@ function updateUrlState({ mode = "replace" } = {}) {
   const path = deskUrlPath();
   const snapshot = historyPlaceNow();
   const currentPath = `${window.location.pathname}${window.location.search}`;
-  const write = decideHistoryWrite({
+  const pathChanged = currentPath !== path;
+  const placeWrite = decideHistoryWrite({
     current: history.state || {},
     next: snapshot,
     mode: sameHistoryPlace(history.state || {}, snapshot) && currentPath === path && mode === "push" ? "push" : mode,
   });
+  // Leaving a cold /t stays on the trade calculator, so the place key does not
+  // change and a normal push is downgraded to replace. Force one history entry
+  // so Back and Forward can restore the shared title and the app title.
+  const write = force && mode === "push" && pathChanged ? "push" : placeWrite;
   const pushed = write === "push" ? true : (write === "replace" && sameHistoryPlace(history.state || {}, snapshot) && Boolean(history.state?.pushed));
   const entry = { ...snapshot, pushed };
   if (write === "push" && typeof history.pushState === "function") {
@@ -1818,6 +1822,8 @@ function updateUrlState({ mode = "replace" } = {}) {
   }
   routeFocus.forget();
   history.replaceState(entry, "", path);
+  // A same-place replace (cold /t -> /trade) still has to drop the shared title.
+  syncDocumentMeta();
   if (!appBooted) return;
   const after = historySnap(entry);
   const changed = before.overlay !== after.overlay
@@ -2008,6 +2014,7 @@ function applyTradeRoute(route) {
 // A dated stamp whose file was pruned still opens today's board, with a note.
 async function loadSharedTrade(code, draft) {
   state.sharedTrade = null;
+  state.sharedEditing = false;
   const decoded = decodeTradeShare(code || "");
   if (!decoded) return;
   const entry = { code, decoded, key: draftAssetKey(draft), snapshot: null, snapshotState: decoded.stamp ? "loading" : "none" };
@@ -2558,7 +2565,11 @@ function renderSessionSnapshot() {
     syncSiteDock();
     return;
   }
-  if (el.mobileChromeTitle) {
+  // Cold /t/<code>: no "Your Sleeper league" subtitle under the wordmark.
+  const coldShare = !state.leagueId && /^\/t\//.test(window.location.pathname);
+  document.body.classList.toggle("cold-share", coldShare);
+  if (el.mobileChromeTitle) el.mobileChromeTitle.hidden = coldShare;
+  if (el.mobileChromeTitle && !coldShare) {
     el.mobileChromeTitle.textContent = publicRanksOpen && !state.leagueId
       ? "Player ranks"
       : sampleOn
@@ -7219,6 +7230,36 @@ function renderTradeDraft() {
     return;
   }
   const view = buildDraftView();
+  // Cold /t/<code>: the recipient sees what was sent first (M1). A "Shared
+  // trade" header, the full verdict, then the sides; the model notes fold away.
+  const shared = Boolean(activeSharedTrade(view.draft));
+  host.dataset.sharedView = shared ? "1" : "";
+  host.dataset.sharedEditing = shared && state.sharedEditing ? "1" : "";
+  if (shared) {
+    host.innerHTML = `
+      <div class="shared-trade-head">
+        <span class="eyebrow">Shared trade</span>
+        <h2 id="shared-trade-title">${escapeHtml(sharedTradeTitle(view))}</h2>
+      </div>
+      <div id="draft-notice">${renderBadShareNotice()}${renderDraftNotice()}</div>
+      <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
+      <div class="calc-grid">
+        ${renderDraftPane("left", view)}
+        ${renderDraftPane("right", view)}
+      </div>
+      ${state.sharedEditing ? "" : `<div class="shared-trade-cta">
+        <button type="button" class="ghost-btn shared-edit-btn" data-action="shared-edit">Edit this trade</button>
+      </div>`}
+      <details class="shared-trade-about">
+        <summary>About these prices</summary>
+        ${renderValueBoardBar({ marketHint: marketBoardHint() })}
+        ${renderPriceLegend(["model", "package"])}
+        <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
+      </details>
+      <div id="draft-team" class="draft-team">${renderDraftTeam(view)}</div>
+    `;
+    return;
+  }
   host.innerHTML = `
     ${renderValueBoardBar({ marketHint: marketBoardHint() })}
     ${renderValuesFreshness(valuesFreshness())}
@@ -7250,6 +7291,11 @@ function patchTradeDraft(listSides = []) {
     return;
   }
   const view = buildDraftView();
+  // Editing a shared trade (or landing on one) switches layout: full render.
+  if ((host.dataset.sharedView === "1") !== Boolean(activeSharedTrade(view.draft))) {
+    renderTradeDraft();
+    return;
+  }
   ["left", "right"].forEach((side) => {
     const pane = host.querySelector(`[data-draft-side="${side}"]`);
     if (!pane) return;
@@ -7265,6 +7311,8 @@ function patchTradeDraft(listSides = []) {
     if (notes) notes.innerHTML = renderDraftNotes(side, view);
     if (listSides.includes(side)) patchDraftSuggestions(side, view);
   });
+  const sharedTitle = host.querySelector("#shared-trade-title");
+  if (sharedTitle) sharedTitle.textContent = sharedTradeTitle(view);
   const basisEl = host.querySelector("#draft-basis");
   if (basisEl) basisEl.innerHTML = renderDraftBasis(view);
   const notice = host.querySelector("#draft-notice");
@@ -7304,6 +7352,22 @@ function renderDraftBasis(view) {
 }
 
 // /t/<code> that does not decode. The calculator stays usable underneath.
+// "Bijan Robinson for Malik Nabers + 1 more"
+// Before Sleeper names load an item's name is its raw id; never show that.
+function sharedTradeTitle(view) {
+  const raw = (name) => !name || /^(player|pick):/i.test(String(name)) || /^\d+$/.test(String(name));
+  const all = [...view.draft.left, ...view.draft.right];
+  if (all.some((item) => raw(item.name))) {
+    return `${pieceCount(view.draft.left)} for ${pieceCount(view.draft.right)}`;
+  }
+  const side = (items) => {
+    const names = items.map((item) => item.name).filter(Boolean);
+    if (!names.length) return "nothing";
+    return names.length > 1 ? `${names[0]} + ${names.length - 1} more` : names[0];
+  };
+  return `${side(view.draft.left)} for ${side(view.draft.right)}`;
+}
+
 function renderBadShareNotice() {
   if (!state.badShareLink) return "";
   return `
@@ -7336,6 +7400,8 @@ function renderDraftNotice() {
 
 function renderDraftPaneTitle(side, view) {
   const left = side === "left";
+  // Cold /t: neutral column names, never the sender's name.
+  if (activeSharedTrade(view.draft)) return `<span class="analytics-kicker">${left ? "Give side" : "Get side"}</span>`;
   const voice = sampleVoice();
   let name = "";
   if (view.basis.connected) {
@@ -7352,12 +7418,28 @@ function renderDraftPaneTitle(side, view) {
   `;
 }
 
+// "1 player", "2 picks", "1 player & 1 pick". Players first, then picks.
+function pieceCount(items) {
+  const list = Array.isArray(items) ? items : [];
+  const players = list.filter((item) => {
+    if (item?.assetType === "pick") return false;
+    if (item?.assetType === "player") return true;
+    return String(item?.assetId || "").startsWith("player:");
+  }).length;
+  const picks = list.length - players;
+  const bit = (n, one, many) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
+  const parts = [];
+  if (players) parts.push(bit(players, "player", "players"));
+  if (picks) parts.push(bit(picks, "pick", "picks"));
+  return parts.join(" & ");
+}
+
 function renderDraftTotal(side, view) {
   const items = view.draft[side] || [];
   const total = side === "left" ? view.give : view.get;
   return `
     <strong>${formatNumber(total)}</strong>
-    <small>${items.length ? playersAndPicksLabel(items.length) : "Nothing added"}</small>
+    <small>${items.length ? pieceCount(items) : "Nothing added"}</small>
   `;
 }
 
@@ -7653,7 +7735,8 @@ function evenUpCopy(choice, side) {
     return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
   }
   if (Number.isFinite(Number(choice.pct))) {
-    return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}). After that pick the sides are still ${choice.pct}% apart.`;
+    const after = choice.verdict ? verdictLineNamed(choice.verdict) : "";
+    return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}).${after ? ` After that pick: ${after}.` : ""}`;
   }
   const short = choice.value < choice.gap;
   const why = short
@@ -7696,23 +7779,23 @@ function renderDraftVerdict(view) {
   // verdict compares, with the stars credit as its own segment.
   const bars = sharedBarSegments(model, sharedView ? null : meters);
   const maxSide = Math.max(bars.give.total, bars.get.total, 1);
-  const evenUp = bothSides && verdict.pct > 5 ? findEvenUpPick(view) : null;
+  // Same metric and bands as the headline (verdict-copy.js).
+  const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpPick(view) : null;
   const evenSide = verdict.gap > 0 ? (voice ? voice.youGive : "You") : (view.partner ? them : "They");
-  const giveLabel = voice?.giveLabel || "You give";
-  const getLabel = voice?.getLabel || "You get";
+  const giveLabel = sharedView ? "Give side" : (voice?.giveLabel || "You give");
+  const getLabel = sharedView ? "Get side" : (voice?.getLabel || "You get");
   const credited = adjustment?.side === "left" ? giveLabel : getLabel;
   return `
     <section class="calc-summary ${bothSides ? (sharedView ? copy.publicTone : copy.tone) : ""}">
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
-        ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${escapeHtml(label)}</h3>`}
-        ${/* TODO(follow-up): spell a bare percent ("96% apart") as a plain outcome. Out of scope for this push. */ ""}
-        <p>${sharedView ? sharedTotalsLine(model) : `${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}`}</p>
-        ${sharedView ? renderVerdictFinePrint(`
-          ${starsPremiumMarkup(model, { detail: copy.detail })}
+        ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${verdictLineHtml(label)}</h3>`}
+        ${sharedView ? renderVerdictFinePrint(escapeHtml(sharedTotalsLine(model)), `
+          ${adjustment ? `<p class="draft-package"><strong>Stars cost extra:</strong> one great player beats a pile of good ones. That adds ${formatNumber(adjustment.amount)} to ${adjustment.side === "left" ? "Give" : "Get"}. Listed prices stay put. After that: ${escapeHtml(copy.detail)}.</p>` : ""}
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
+        <p>${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}</p>
         ${adjustment ? `<p class="draft-package"><strong>Package credit:</strong> the best player is worth more than the same total split into smaller pieces. That adds ${formatNumber(adjustment.amount)} to ${escapeHtml(credited)}. Listed prices stay put. After that credit: ${escapeHtml(copy.detail)}.</p>` : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method">
@@ -7720,38 +7803,70 @@ function renderDraftVerdict(view) {
           ${renderDraftMethod(view)}
         </details>`}
       </div>
-      <div class="calc-bars">
+      <div class="calc-bars">${bars.give.stars || bars.get.stars ? `
+        <p class="calc-legend"><span class="calc-legend-swatch" aria-hidden="true"></span>${escapeHtml(STAR_PREMIUM_KEY)}</p>` : ""}
         <div class="calc-bar team-a${sharedView && copy.side === "Give" ? " is-bigger" : ""}">
           <span>${sharedView && copy.side === "Give" ? `${calcPointer("◀")} ` : ""}${escapeHtml(giveLabel)}</span>
-          ${meterTrack(bars.give, maxSide)}
+          ${meterTrack(bars.give, maxSide, barLabel("Give", bars.give.listed, bars.give.stars))}
           <strong>${formatNumber(bars.give.total)}</strong>
         </div>
         <div class="calc-bar team-b${sharedView && copy.side === "Get" ? " is-bigger" : ""}">
           <span>${escapeHtml(getLabel)}${sharedView && copy.side === "Get" ? ` ${calcPointer("▶")}` : ""}</span>
-          ${meterTrack(bars.get, maxSide)}
+          ${meterTrack(bars.get, maxSide, barLabel("Get", bars.get.listed, bars.get.stars))}
           <strong>${formatNumber(bars.get.total)}</strong>
         </div>
       </div>
       <div class="calc-actions">
+        ${sharedView ? `<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>` : ""}
         ${bothSides && draftShareCode(view) ? `<button type="button" class="ghost-btn btn-sm calc-share" data-action="trade-share">Share trade</button>` : ""}
-        <button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>
+        ${sharedView ? "" : `<button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>`}
         <p class="calc-share-status" role="status" aria-live="polite"></p>
       </div>
     </section>
   `;
 }
 
-// Cold /t detail line (RECHECK3): lead with the credited totals the verdict
-// compares, then how the stars credit got there, so the numbers never
-// contradict the headline. "Give 19,224 incl. stars. Get 14,457. Listed: Give 11,811 + 7,413 stars."
+// Bar segments: listed price plus a separate stars segment. Private /trade
+// passes its meters (listed totals) and gets no stars segment.
+function sharedBarSegments(model, meters = null) {
+  const adj = model?.adjustment;
+  const side = (key, listed) => {
+    const stars = !meters && adj && (adj.side === "left") === (key === "give") ? Math.round(Number(adj.amount) || 0) : 0;
+    const base = Math.round(Number(meters ? meters[key] : listed) || 0);
+    return { listed: base, stars, total: base + stars };
+  };
+  return { give: side("give", model?.give), get: side("get", model?.get) };
+}
+
+// A bar with a star premium segment carries a text label for screen readers
+// ("Give 21,472 including 8,561 star premium"); the hatch has a visible key.
+function meterTrack(seg, maxSide, label = "") {
+  const pct = (value) => Math.round((value / maxSide) * 1000) / 10;
+  if (!seg.stars) return `<div class="meter-track"><span style="width:${pct(seg.listed)}%"></span></div>`;
+  return `<div class="meter-track meter-split" role="img" aria-label="${escapeHtml(label)}"><span style="width:${pct(seg.listed)}%"></span><span class="meter-stars" style="width:${pct(seg.stars)}%"></span></div>`;
+}
+
+// ◀/▶ beside the bigger side's bar on wide layouts; a plain dot on phones,
+// where the stacked bars leave nothing to point at (RECHECK4).
+function calcPointer(arrow) {
+  return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
+}
+
+// Cold /t detail line: "Give 19,224 (11,811 + 7,413 star premium). Get 14,457."
 function sharedTotalsLine(model) {
   const adj = model.adjustment;
-  const giveStars = adj?.side === "left" ? " incl. stars" : "";
-  const getStars = adj?.side === "right" ? " incl. stars" : "";
-  const listed = adj
-    ? ` Listed: ${adj.side === "left" ? "Give" : "Get"} ${formatNumber(adj.side === "left" ? model.give : model.get)} + ${formatNumber(adj.amount)} stars.`
-    : "";
-  return `Give ${formatNumber(model.compareGive)}${giveStars}. Get ${formatNumber(model.compareGet)}${getStars}.${listed}`;
+  return creditedTotalsLine({
+    giveListed: model.give,
+    getListed: model.get,
+    stars: adj ? adj.amount : 0,
+    starSide: adj ? (adj.side === "left" ? "give" : "get") : "",
+  });
+}
+
+// "Lopsided · Give side…": the dot gets real space on screen (the face's
+// word space is narrow), while the text stays the plain " · " line.
+function verdictLineHtml(line) {
+  return String(line || "").split(" · ").map(escapeHtml).join(` <span class="verdict-dot">·</span> `);
 }
 
 // Shared link: the verdict line. When prices moved since it was shared, a
@@ -7759,13 +7874,13 @@ function sharedTotalsLine(model) {
 function renderSharedVerdictHead(shared) {
   if (!shared.shared) {
     const note = shared.missing ? missingBoardNote(shared.date) : "";
-    return `<h3>${escapeHtml(shared.today.label)}</h3>${note ? `<p class="calc-shared-note">${escapeHtml(note)}</p>` : ""}`;
+    return `<h3>${verdictLineHtml(shared.today.label)}</h3>${note ? `<p class="calc-shared-note">${escapeHtml(note)}</p>` : ""}`;
   }
   return `
     <h3 class="sr-only">Shared on ${escapeHtml(shared.date)}: ${escapeHtml(shared.shared.label)}. Today: ${escapeHtml(shared.today.label)}.</h3>
     <dl class="calc-shared">
-      <div><dt>${escapeHtml(shared.date)}</dt><dd>${escapeHtml(shared.shared.label)}</dd></div>
-      <div class="is-today"><dt>Today</dt><dd><strong>${escapeHtml(shared.today.label)}</strong></dd></div>
+      <div><dt>${escapeHtml(shared.date)}</dt><dd>${verdictLineHtml(shared.shared.label)}</dd></div>
+      <div class="is-today"><dt>Today</dt><dd><strong>${verdictLineHtml(shared.today.label)}</strong></dd></div>
     </dl>
     <p class="calc-shared-note">Prices moved since this was shared.</p>
   `;
@@ -7779,15 +7894,16 @@ function setVerdictInfoOpen(button, open) {
 }
 
 let verdictInfoSeq = 0;
-// The method, credit and even-up notes sit behind one ⓘ button on a shared link.
-function renderVerdictFinePrint(inner) {
+// The method, credit and even-up notes sit behind one ⓘ button on a shared
+// link. The button sits inline at the end of the subline (leadHtml).
+function renderVerdictFinePrint(leadHtml, inner) {
   verdictInfoSeq += 1;
   const id = `verdict-info-${verdictInfoSeq}`;
   const open = Boolean(state.verdictInfoOpen);
   return `
-    <button type="button" class="info-toggle verdict-info-toggle" data-action="verdict-info" aria-expanded="${open}" aria-controls="${id}">
+    <p class="calc-subline">${leadHtml} <button type="button" class="info-toggle verdict-info-toggle" data-action="verdict-info" aria-expanded="${open}" aria-controls="${id}">
       <span aria-hidden="true">ⓘ</span><span class="sr-only">How this verdict works</span>
-    </button>
+    </button></p>
     <div class="verdict-fine-print" id="${id}"${open ? "" : " hidden"}>${inner}</div>
   `;
 }
@@ -7872,11 +7988,12 @@ function buildDraftOfferText(view) {
   const list = (items) => items.map((item) => `${item.name} (${formatNumber(view.priceOf(item))})`).join(", ") || "nothing";
   const partnerName = view.partner?.manager?.displayName || "them";
   const { verdict, adjustment } = view.model;
-  const copy = verdictCopy(verdict);
-  const label = draftVerdictLabel(verdict, { them: partnerName, getFavor: sampleVoice()?.favor || "your", favorName: sampleVoice()?.youGive || "" }) || copy.line;
+  // Same metric and bands as the headline: "Favors one side · My side worth 25% more".
+  const mySide = sampleVoice()?.sideLabel || "my side";
+  const line = verdictLineNamed(verdict, { Give: `${mySide.charAt(0).toUpperCase()}${mySide.slice(1)}`, Get: view.partner?.manager?.displayName ? `${partnerName}'s side` : "The other side" });
   const creditSide = adjustment?.side === "left" ? (sampleVoice()?.sideLabel || "my side") : "their side";
   const credit = adjustment ? ` Package adjustment +${formatNumber(adjustment.amount)} to ${creditSide}.` : "";
-  return `Trade idea: ${view.me?.manager?.displayName || "I"} sends ${list(view.draft.left)} to ${partnerName} for ${list(view.draft.right)}. Market ${formatNumber(view.give)} vs ${formatNumber(view.get)}.${credit} ${verdict.pct}% apart (${label}). Dynasty Ticker prices, ${rankFormatLabel(view.basis.format)}.`;
+  return `Trade idea: ${view.me?.manager?.displayName || "I"} sends ${list(view.draft.left)} to ${partnerName} for ${list(view.draft.right)}. Market ${formatNumber(view.give)} vs ${formatNumber(view.get)}.${credit} ${line}. Dynasty Ticker prices, ${rankFormatLabel(view.basis.format)}.`;
 }
 
 function renderDraftTeam(view) {
@@ -8408,6 +8525,28 @@ function handleWorkspaceClick(event) {
     }
     case "verdict-info": {
       setVerdictInfoOpen(target, target.getAttribute("aria-expanded") !== "true");
+      break;
+    }
+    case "shared-edit": {
+      // Inputs stay hidden on a cold /t until the recipient asks to edit.
+      state.sharedEditing = true;
+      if (el.calculatorShell) el.calculatorShell.dataset.sharedEditing = "1";
+      target.closest(".shared-trade-cta")?.remove();
+      el.calculatorShell?.querySelector("[data-draft-side='left'] [data-input='value-search']")?.focus({ preventScroll: true });
+      break;
+    }
+    case "shared-check-own": {
+      event?.preventDefault?.();
+      // Drop the share before the draft write. setDraft would otherwise
+      // replace /t with /trade, and Back would leave the app.
+      state.sharedTrade = null;
+      state.sentShare = null;
+      draftReplaced = null;
+      state.valueCalc = clearValueCalcSides(state.valueCalc);
+      writeStoredDraft(state.valueCalc);
+      renderTradeDraft();
+      updateUrlState({ mode: "push", force: true });
+      el.calculatorShell?.querySelector("[data-input='value-search']")?.focus({ preventScroll: true });
       break;
     }
     case "value-clear": {
@@ -11734,7 +11873,7 @@ async function generateTradeMatches({ userRequested = false } = {}) {
           ),
         });
         const pctDiff = Number(calculatePctDiff(packageResult.myAdjustedValue, packageResult.theirAdjustedValue).toFixed(2));
-        if (pctDiff > Math.max(fairnessPct, 26)) return;
+        if (pctDiff > ideaLimitMore(Math.max(fairnessPct, 26))) return;
         cheapIdeas.push({ deal, packageResult, pctDiff });
       });
       cheapIdeas.sort((a, b) => {
@@ -12201,7 +12340,7 @@ function renderMultiTeamCard(idea, index, values) {
       <div class="multi-team-card-header">
         <div>
           <h3>Idea ${index + 1}</h3>
-          <p class="muted small">${idea.teamCount} teams • max ${idea.maxPctDiff}% diff • added value ${formatNumber(idea.extraMovedValueTotal || 0)} • common value ${formatNumber(idea.commonValue)}</p>
+          <p class="muted small">${idea.teamCount} teams • one side worth up to ${idea.maxPctDiff}% more • added value ${formatNumber(idea.extraMovedValueTotal || 0)} • common value ${formatNumber(idea.commonValue)}</p>
         </div>
         <div class="participant-pill-row">
           ${(idea.tags || []).map((tag) => `<span class="participant-pill">${escapeHtml(tag)}</span>`).join("")}
@@ -12254,7 +12393,7 @@ function renderMultiTeamPartyCard(participant, values, meRosterId) {
       <div class="trade-metrics">
         <div class="trade-metric">
           <strong>Raw balance</strong>
-          send ${formatNumber(participant.outgoingAdjustedValue)} vs receive ${formatNumber(participant.incomingAdjustedValue)} (${participant.pctDiff}% diff)
+          send ${formatNumber(participant.outgoingAdjustedValue)} vs receive ${formatNumber(participant.incomingAdjustedValue)} (${escapeHtml(verdictLineNamed(valueCalcVerdict(participant.outgoingAdjustedValue, participant.incomingAdjustedValue), { Give: "Send side", Get: "Receive side" }))})
         </div>
         <div class="trade-metric">
           <strong>Bridge gap</strong>
@@ -12347,7 +12486,7 @@ function renderTradeCard(idea, index, values) {
         <div class="trade-metrics">
           <div class="trade-metric">
             <strong>Adjusted value</strong>
-            you ${formatNumber(idea.myAdjustedValue)} vs them ${formatNumber(idea.theirAdjustedValue)} (${idea.pctDiff}% apart)
+            you ${formatNumber(idea.myAdjustedValue)} vs them ${formatNumber(idea.theirAdjustedValue)} (${escapeHtml(verdictLineNamed(valueCalcVerdict(idea.myAdjustedValue, idea.theirAdjustedValue), { Give: "Send side", Get: "Receive side" }))})
           </div>
           <div class="trade-metric">
             <strong>Elite premium</strong>
@@ -13428,7 +13567,7 @@ function suggestShopDealsWithRoster({
           globalMaxValue: getGlobalMaxPlayerValue(values, Math.max(shopValue, theirPackage.totalValue || theirPackage.total || 0)),
         });
         const pctDiff = calculatePctDiff(packageResult.myAdjustedValue, packageResult.theirAdjustedValue);
-        if (pctDiff > effectiveFairnessPct) return false;
+        if (pctDiff > ideaLimitMore(effectiveFairnessPct)) return false;
 
         const idea = buildShopTradeIdea({
           myPackage,
@@ -14615,7 +14754,7 @@ function finalizeMultiTeamTradeIdea({
       tradeShape,
     });
     const pctDiff = fairnessMetrics.pctDiff;
-    if (pctDiff > fairnessLimit) return null;
+    if (pctDiff > ideaLimitMore(fairnessLimit)) return null;
 
     const sendToNames = [...new Set(
       participantState.outgoingTransfers
@@ -14756,7 +14895,7 @@ function finalizeMultiTeamTradeIdea({
       structureTag,
       laneTag,
       extraMovedValueTotal <= Math.max(1400, requestedAnchorValueTotal * 0.18) ? "Lean Structure" : extraMovedValueTotal <= Math.max(2600, requestedAnchorValueTotal * 0.34) ? "Controlled Structure" : "Heavy Structure",
-      maxPctDiff <= fairnessLimit * 0.55 ? "Tight Value" : "Flexible Value",
+      maxPctDiff <= oldPctToMore(fairnessLimit * 0.55) ? "Tight Value" : "Flexible Value",
     ],
     summary: buildMultiTeamSummary(participants, focusLabel),
   };
@@ -16136,7 +16275,7 @@ function buildMultiTeamIdeasFromCycle({
       };
     });
 
-    if (participants.some((participant) => participant.pctDiff > effectiveFairnessPct)) continue;
+    if (participants.some((participant) => participant.pctDiff > ideaLimitMore(effectiveFairnessPct))) continue;
 
     const maxPctDiff = Number(Math.max(...participants.map((participant) => participant.pctDiff)).toFixed(2));
     const avgPctDiff = Number((participants.reduce((sum, participant) => sum + participant.pctDiff, 0) / participants.length).toFixed(2));
@@ -16151,7 +16290,7 @@ function buildMultiTeamIdeasFromCycle({
       labScore,
       meRosterId: meRoster.rosterId,
       participants,
-      tags: [`${participantRosters.length} Team`, maxPctDiff <= 6 ? "Tight Value" : "Fair Value"],
+      tags: [`${participantRosters.length} Team`, maxPctDiff <= oldPctToMore(6) ? "Tight Value" : "Fair Value"],
       summary: buildMultiTeamSummary(participants, focusLabel),
     });
   }
@@ -16329,7 +16468,7 @@ function suggestTrades({
         globalMaxValue,
       });
       const pctDiff = calculatePctDiff(packageResult.myAdjustedValue, packageResult.theirAdjustedValue);
-      if (pctDiff > effectiveFairnessPct) return false;
+      if (pctDiff > ideaLimitMore(effectiveFairnessPct)) return false;
       const labDetails = scoreTradeIdea({
         myRoster,
         theirRoster,
@@ -16858,7 +16997,7 @@ function buildFallbackTradeTags(idea) {
   if (idea.theirAssets?.length < idea.myAssets?.length) tags.push("Consolidation");
   if (idea.theirAssets?.length > idea.myAssets?.length) tags.push("Depth Return");
   if (idea.theirAssets?.some(isFirstRoundPick) || idea.myAssets?.some(isFirstRoundPick)) tags.push("Pick Leverage");
-  if (idea.pctDiff <= 6) tags.push("Tight Value");
+  if (idea.pctDiff <= oldPctToMore(6)) tags.push("Tight Value");
   if (tags.length === 0) tags.push("Fair Market");
   return [...new Set(tags)].slice(0, 4);
 }
@@ -16867,7 +17006,7 @@ function buildFallbackTradeSummary(idea) {
   if (idea.powerUpgrade?.summary) return idea.powerUpgrade.summary;
   const incoming = formatAssetNameList(idea.theirAssets || []);
   const outgoing = formatAssetNameList(idea.myAssets || []);
-  return `You turn ${outgoing} into ${incoming} while keeping the adjusted-value gap at ${idea.pctDiff}%.`;
+  return `${outgoing} turns into ${incoming}; after adjustments one side is worth ${idea.pctDiff}% more.`;
 }
 
 function buildFallbackTradePitch(idea) {
@@ -17855,7 +17994,24 @@ function focusUsernameSearch() {
   target?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
+// A cold /t/<code> arrives with a trade-specific <title> and meta from the
+// server (trade-page). Read once, on the first sync (before anything rewrites
+// the title), and keep it while the page still shows that link (L1).
+function serverShareMeta() {
+  if (serverShareMeta.value === undefined) {
+    serverShareMeta.value = /^\/t\/[^/]+\/?$/.test(window.location.pathname) && /\| Dynasty Ticker$/.test(document.title)
+      ? { path: window.location.pathname, title: document.title }
+      : null;
+  }
+  return serverShareMeta.value;
+}
+
 function syncDocumentMeta() {
+  const shareMeta = serverShareMeta();
+  if (shareMeta && window.location.pathname === shareMeta.path && !state.leagueId) {
+    document.title = shareMeta.title;
+    return;
+  }
   if (state.leagueSwitching) {
     applyDocumentMeta(document, {
       title: "Loading league — Dynasty Ticker",

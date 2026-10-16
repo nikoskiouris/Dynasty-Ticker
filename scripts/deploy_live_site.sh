@@ -60,3 +60,25 @@ npx --yes "netlify-cli@${NETLIFY_CLI_VERSION}" deploy \
   --no-build \
   --skip-functions-cache \
   --message="$message"
+
+# Post-deploy: a shared-trade card must come back as a real PNG. If resvg or its
+# wasm did not ship, the .png URL returns 503 and link previews would break.
+# Read-only GETs against the live site; retries cover CDN propagation.
+check_origin="${DEPLOY_CHECK_ORIGIN:-https://dynastyticker.com}"
+check_code="${DEPLOY_CHECK_CARD_CODE:-1s9221~p27r1e.p28r1a}"
+card_url="${check_origin}/og/t/${check_code}.png?deploycheck=$(date +%s)"
+card_ok=0
+for attempt in 1 2 3 4 5 6; do
+  card_type="$(curl -sS -o /dev/null -w '%{http_code} %{content_type}' "$card_url" || true)"
+  if [[ "$card_type" == "200 image/png"* ]]; then
+    card_ok=1
+    break
+  fi
+  echo "post-deploy check ${attempt}/6: ${card_url} -> ${card_type:-no response}" >&2
+  sleep 10
+done
+if [[ "$card_ok" != "1" ]]; then
+  echo "post-deploy check FAILED: ${card_url} is not 200 image/png. Link previews are broken." >&2
+  exit 1
+fi
+echo "post-deploy check ok: ${card_url} -> 200 image/png"

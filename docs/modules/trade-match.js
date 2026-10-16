@@ -1,3 +1,4 @@
+import { ideaGapMore, ideaLimitMore } from "./verdict-copy.js";
 export const MATCH_NEED_PERCENTILE = 0.42;
 export const MATCH_CRITICAL_PERCENTILE = 0.28;
 export const MATCH_SURPLUS_PERCENTILE = 0.62;
@@ -575,7 +576,7 @@ function packageWithinFairness(pkg, fairnessPct) {
   const mine = sumEntries(pkg.outgoing);
   const theirs = sumEntries(pkg.incoming);
   if (mine <= 0 || theirs <= 0) return false;
-  return percentDiff(mine, theirs) <= fairnessPct;
+  return percentDiff(mine, theirs) <= ideaLimitMore(fairnessPct);
 }
 
 function packagesFrom(entries, maxSize) {
@@ -785,10 +786,9 @@ function maxAssetValue(assets, values, getAssetValue) {
   return (assets || []).reduce((max, asset) => Math.max(max, getValue(asset, values, getAssetValue)), 0);
 }
 
+// The verdict's shown metric (% more, gap / smaller side).
 function percentDiff(left, right) {
-  const top = Math.max(left, right);
-  if (!top) return 100;
-  return Math.abs(left - right) / top * 100;
+  return ideaGapMore(left, right);
 }
 
 function getValue(asset, values, getAssetValue) {

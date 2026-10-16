@@ -145,7 +145,7 @@ test("parity: app, /t page, card, og:title, og:description and share text say th
   assert.match(app, /const copy = verdictCopy\(verdict\);[\s\S]{0,120}const label = bothSides \? copy\.line : copy\.label;/);
   assert.match(app, /calc-summary \$\{bothSides \? \(sharedView \? copy\.publicTone : copy\.tone\) : ""\}/);
   // Cold /t leads with the credited totals the verdict compares.
-  assert.match(app, /sharedView \? sharedTotalsLine\(model\)/);
+  assert.match(app, /sharedView \? renderVerdictFinePrint\(escapeHtml\(sharedTotalsLine\(model\)\)/);
   assert.match(app, /lines\.push\(TIER_EXPLAINER\)/);
   const tiers = new Set();
   for (const code of codes) {

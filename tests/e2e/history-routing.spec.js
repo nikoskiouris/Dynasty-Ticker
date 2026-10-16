@@ -5,9 +5,26 @@ const viewports = [
   { width: 1280, height: 800 },
 ];
 
+// app.js is a deferred module. Until it has attached its listeners and
+// released the boot gate, a Load League click is dropped (boot-intent.js
+// queues only Find presses), and the URL never leaves "/". The gate flag
+// flips after the listeners exist, so wait on it instead of on time.
+async function waitForAppBoot(page) {
+  await page.waitForFunction(() => window.__dynastyBootFind?.pending === false);
+}
+
+async function loadLeagueFromLanding(page, leagueId) {
+  await waitForAppBoot(page);
+  await page.locator("#league-id").evaluate((el, id) => {
+    el.value = id;
+  }, leagueId);
+  await page.locator("#load-league-btn").evaluate((el) => el.click());
+}
+
 async function landFromAnotherPage(page) {
   await page.goto("about:blank");
   await page.goto("/");
+  await waitForAppBoot(page);
   await page.waitForFunction(() => document.querySelectorAll("[data-action='rank-open']").length > 0);
 }
 
@@ -42,10 +59,7 @@ for (const viewport of viewports) {
     expect(page.url()).not.toBe("about:blank");
     await expect(page.locator("#landing")).toBeVisible();
 
-    await page.locator("#league-id").evaluate((el) => {
-      el.value = "1360686137898700800";
-    });
-    await page.locator("#load-league-btn").evaluate((el) => el.click());
+    await loadLeagueFromLanding(page, "1360686137898700800");
     await expect(page).toHaveURL(/\/l\/1360686137898700800\/team/, { timeout: 30000 });
     await page.goBack();
     expect(page.url()).not.toBe("about:blank");
@@ -90,10 +104,7 @@ for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await page.goto("/");
     await expect(page.locator("#launch-example .launch-row").first()).toBeVisible({ timeout: 30000 });
-    await page.locator("#league-id").evaluate((el) => {
-      el.value = "1360686137898700800";
-    });
-    await page.locator("#load-league-btn").evaluate((el) => el.click());
+    await loadLeagueFromLanding(page, "1360686137898700800");
     await expect(page).toHaveURL(/\/l\/1360686137898700800\/team/, { timeout: 30000 });
     await expect(page.locator("body")).toHaveClass(/league-loaded/);
     await page.goBack();
@@ -145,4 +156,17 @@ test("legacy ?asset= opens the player route", async ({ page }) => {
   await expect(page.locator(".ranks-card h2")).toHaveText("Jahmyr Gibbs", { timeout: 30000 });
   await expect(page).toHaveURL(/\/player\/9221/);
   await expect(page).not.toHaveURL(/[?&]asset=/);
+});
+
+// Regression for the 390 flake: with app.js arriving late, the boot wait
+// still makes the first Load League click count.
+test("Load League after a slow app.js boot still routes to the league", async ({ page }) => {
+  await page.route("**/app.js*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.continue();
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await loadLeagueFromLanding(page, "1360686137898700800");
+  await expect(page).toHaveURL(/\/l\/1360686137898700800\/team/, { timeout: 30000 });
 });
