@@ -4,7 +4,7 @@ import { cpSync, mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expectedBundle, readDeployConfig, staticDeployProblems } from "../scripts/deploy_bundle_expect.mjs";
+import { BASE_FUNCTIONS, expectedBundle, readDeployConfig, staticDeployProblems } from "../scripts/deploy_bundle_expect.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -12,6 +12,8 @@ test("this checkout ships every expected function, edge function, and included f
   const { want, problems } = staticDeployProblems(root);
   assert.deepEqual(problems, []);
   assert.ok(want.functions.includes("rather-vote"));
+  assert.ok(want.functions.includes("collect"));
+  assert.ok(want.functions.includes("analytics-stats"));
   assert.ok(want.edge.includes("asset-404"));
   assert.ok(readDeployConfig(root).edgeDecls.some((row) => row.function === "asset-404"));
 });
@@ -21,7 +23,7 @@ function fixture({ share = false, asset = false, toml = "" } = {}) {
   mkdirSync(join(dir, "docs/modules"), { recursive: true });
   mkdirSync(join(dir, "netlify/functions"), { recursive: true });
   mkdirSync(join(dir, "netlify/edge-functions"), { recursive: true });
-  for (const name of ["rather-vote", "searched-user"]) writeFileSync(join(dir, `netlify/functions/${name}.js`), "");
+  for (const name of BASE_FUNCTIONS) writeFileSync(join(dir, `netlify/functions/${name}.js`), "");
   if (share) writeFileSync(join(dir, "docs/modules/trade-share.js"), "");
   if (asset) writeFileSync(join(dir, "docs/modules/asset-path.js"), "");
   writeFileSync(join(dir, "netlify.toml"), toml);
@@ -30,7 +32,7 @@ function fixture({ share = false, asset = false, toml = "" } = {}) {
 
 test("the expected list follows whichever PR has landed", () => {
   const neither = fixture();
-  assert.deepEqual(expectedBundle(neither), { functions: ["rather-vote", "searched-user"], edge: [], resvg: false });
+  assert.deepEqual(expectedBundle(neither), { functions: [...BASE_FUNCTIONS], edge: [], resvg: false });
   assert.deepEqual(staticDeployProblems(neither).problems, []);
 
   const only165 = fixture({ asset: true });
@@ -38,7 +40,7 @@ test("the expected list follows whichever PR has landed", () => {
   assert.match(staticDeployProblems(only165).problems.join("\n"), /asset-404 missing/);
 
   const only164 = fixture({ share: true });
-  assert.deepEqual(expectedBundle(only164).functions, ["rather-vote", "searched-user", "trade-page", "trade-card"]);
+  assert.deepEqual(expectedBundle(only164).functions, [...BASE_FUNCTIONS, "trade-page", "trade-card"]);
   const missing = staticDeployProblems(only164).problems.join("\n");
   assert.match(missing, /function trade-page missing/);
   assert.match(missing, /function trade-card missing/);

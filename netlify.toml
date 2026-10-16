@@ -56,6 +56,22 @@
   status = 200
   force = true
 
+# First-party analytics (launch item 5). ANALYTICS_SALT (optional, daily
+# uniques) and ANALYTICS_READ_TOKEN (stats read) live in the site environment
+# only. Never commit values. Unset salt = counts without uniques; unset token =
+# /api/analytics-stats answers 404.
+[[redirects]]
+  from = "/api/collect"
+  to = "/.netlify/functions/collect"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/analytics-stats"
+  to = "/.netlify/functions/analytics-stats"
+  status = 200
+  force = true
+
 # Shared trades. /t/:code returns index.html with that trade's og: and
 # twitter: tags so bots read them without JS. /og/t/:file is the card image.
 [[redirects]]

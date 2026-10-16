@@ -369,6 +369,7 @@ import {
   tickerDurationSeconds,
 } from "./modules/site.js";
 import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
+import { createBeaconAdapter, pageview as analyticsPageview, setAnalyticsAdapter, track as analyticsTrack, trackShareTapped, trackTradeLinkOpened } from "./modules/analytics.js";
 import {
   DEFAULT_RATHER_FORMAT,
   buildRatherBoard,
@@ -903,6 +904,7 @@ renderSessionSnapshot();
 syncTradeModeUi();
 let searchedUserNoted = false;
 let appBooted = false;
+let routeReports = 0;
 let coldPlayerHeading = false;
 let rankExtrasSettled = true;
 let followHeadingsUntil = 0;
@@ -923,6 +925,11 @@ function noteSearchedUser(leagueId) {
   searchedUserNoted = true;
   void recordSearchedUser(pick);
 }
+// First-party cookieless beacon to /api/collect. Set before bootFromUrl: boot
+// rewrites the URL (updateUrlState -> reportRoute), and that can be the cold
+// load's first pageview. Opt-outs (DNT, GPC, localhost, previews, automation)
+// are enforced in modules/analytics.js before any send.
+setAnalyticsAdapter(createBeaconAdapter());
 bootFromUrl();
 if (bootRoute?.leagueId) void loadSlimPlayersFile();
 coldPlayerHeading = bootRoute?.name === "player";
@@ -1009,6 +1016,7 @@ window.addEventListener("popstate", (event) => {
   const followTitle = () => syncDocumentMeta();
   setTimeout(followTitle, 0);
   if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => setTimeout(followTitle, 0));
+  reportRoute();
 });
 window.addEventListener("pageshow", (event) => {
   if (!event.persisted) return;
@@ -1017,6 +1025,7 @@ window.addEventListener("pageshow", (event) => {
 if (isPhoneLayout()) setMobileRailOpen(false);
 
 syncDocumentMeta();
+reportRoute();
 appBooted = true;
 focusColdPlayerHeading();
 syncSiteDock();
@@ -2076,6 +2085,7 @@ function updateUrlState({ mode = "replace", force = false } = {}) {
   if (write === "push" && typeof history.pushState === "function") {
     routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
     history.pushState(entry, "", path);
+    reportRoute();
     syncRouteA11y({ focus: appBooted ? "heading" : "none", before });
     return;
   }
@@ -2091,6 +2101,7 @@ function updateUrlState({ mode = "replace", force = false } = {}) {
   }
   routeFocus.forget();
   history.replaceState(entry, "", path);
+  reportRoute();
   // A same-place replace (cold /t -> /trade) still has to drop the shared title.
   syncDocumentMeta();
   if (!appBooted) return;
@@ -2106,6 +2117,20 @@ function updateUrlState({ mode = "replace", force = false } = {}) {
     return;
   }
   syncRouteA11y({ focus: "heading", before });
+}
+
+// One pageview per route change (templated, no ids), plus landing_view when
+// the route lands on the home landing. The adapter is the first-party beacon
+// set at boot (createBeaconAdapter).
+// The first pageview that actually reaches an adapter carries the referrer
+// and UTM (modules/analytics.js), whichever call it comes from.
+function reportRoute() {
+  const fresh = analyticsPageview(window.location.pathname);
+  if (!fresh) return;
+  routeReports += 1;
+  if (window.location.pathname === urlPath() && landingVisible()) {
+    analyticsTrack("landing_view", {}, { once: `route:${routeReports}` });
+  }
 }
 
 function closeHistoryOverlay(kind) {
@@ -2294,7 +2319,13 @@ async function loadSharedTrade(code, draft) {
   if (!decoded) return;
   const entry = { code, decoded, key: draftAssetKey(draft), snapshot: null, snapshotState: decoded.stamp ? "loading" : "none" };
   state.sharedTrade = entry;
-  if (!decoded.stamp) return;
+  // #167: t_opened is sent once per open from the first verdict render after
+  // the archive lookup settles, so drift matches what the page shows.
+  const settle = () => {
+    entry.settled = true;
+    if (state.sharedTrade === entry && el.calculatorShell?.querySelector("#value-calc-verdict")) patchTradeDraft();
+  };
+  if (!decoded.stamp) return settle();
   try {
     // Index first. A stamp that is not listed is not fetched, so a pruned
     // board does not log a console 404.
@@ -2321,7 +2352,7 @@ async function loadSharedTrade(code, draft) {
   } catch {
     entry.snapshotState = "missing";
   }
-  if (state.sharedTrade === entry && el.calculatorShell?.querySelector("#value-calc-verdict")) patchTradeDraft();
+  settle();
 }
 
 function activeSharedTrade(draft = state.valueCalc) {
@@ -2351,6 +2382,10 @@ function sharedVerdictFor(view) {
   const today = shareSummary(entry.decoded, state.valueBundles);
   const shared = entry.snapshot ? shareSummary(entry.decoded, entry.snapshot, {}, state.valueBundles) : null;
   const moved = Boolean(shared) && !sameVerdict(shared, today);
+  if (entry.settled && !entry.reported) {
+    entry.reported = true;
+    trackTradeLinkOpened({ drift: moved });
+  }
   return {
     today,
     shared: moved ? shared : null,
@@ -3655,7 +3690,10 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     setLeagueSwitchStale(false);
 
     setFieldError(el.leagueId, el.leagueIdError, "");
-    hydrateManagerSelector();
+    // No URL write yet: the landing is still showing, so it would replace the
+    // route with "/" for a moment (an extra "/" pageview and landing_view).
+    // showAppPages below writes the real route.
+    hydrateManagerSelector({ syncUrl: false });
     syncTradeModeUi();
     renderSessionSnapshot();
     el.identitySection?.classList.remove("hidden");
@@ -3670,6 +3708,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     setMobileRailOpen(false, { history: "silent" });
     showAppPages();
     noteSearchedUser(leagueId);
+    analyticsTrack("league_connected", { sample: state.viewingSample ? "yes" : "no" });
     scrollLoadedWorkspaceIntoView();
     const missingTeam = state.meRosterId ? "" : noTeamInLeagueCopy(state.sleeperUser);
     setStatus(
@@ -4826,7 +4865,7 @@ function applyMeSelectValue(rosterId) {
   }
 }
 
-function hydrateManagerSelector() {
+function hydrateManagerSelector({ syncUrl = true } = {}) {
   if (!el.meSelect) return;
   const epoch = ++managerSelectorHydrateEpoch;
   managerSelectorHydrating = true;
@@ -4855,7 +4894,7 @@ function hydrateManagerSelector() {
   renderPlayerSearch();
   renderSessionSnapshot();
   requestActivePageRender();
-  updateUrlState({ mode: "replace" });
+  if (syncUrl) updateUrlState({ mode: "replace" });
   requestAnimationFrame(() => {
     if (epoch !== managerSelectorHydrateEpoch) return;
     if (chosen) applyMeSelectValue(chosen.rosterId);
@@ -8103,12 +8142,25 @@ function renderDraftMethod(view) {
   return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
 }
 
+// trade_checked fires once per distinct give/get pair that reaches a verdict.
+// The key stays in memory; only { mode } is sent.
+function noteTradeChecked(draft) {
+  const side = (rows) => rows.map((row) => String(row.assetId || row.uid || "")).sort().join(",");
+  const mode = state.leagueId ? "league" : "public";
+  const once = `${side(draft.left)}|${side(draft.right)}`;
+  // setActivePage renders the verdict before it writes the URL. Send after the
+  // current task's URL write so the event carries the route it was checked on
+  // (/trade or /t/:code), not the page the user came from.
+  queueMicrotask(() => analyticsTrack("trade_checked", { mode }, { once }));
+}
+
 function renderDraftVerdict(view) {
   const { draft, model } = view;
   if (!draft.left.length && !draft.right.length) {
     return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. The verdict uses the same prices as Players.</p>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
+  if (bothSides) noteTradeChecked(draft);
   const them = view.partner?.manager?.displayName || "them";
   const voice = sampleVoice();
   const { verdict, adjustment } = model;
@@ -8290,6 +8342,7 @@ async function shareDraftTrade(button) {
   if (typeof navigator.share === "function") {
     try {
       await navigator.share({ title: "Dynasty Ticker trade check", text, url });
+      trackShareTapped("webshare");
       say("Shared.");
       return;
     } catch (error) {
@@ -8301,6 +8354,7 @@ async function shareDraftTrade(button) {
   }
   try {
     await navigator.clipboard.writeText(url);
+    trackShareTapped("copy");
     say("Link copied.");
   } catch {
     say(`Copy this link: ${url}`);
