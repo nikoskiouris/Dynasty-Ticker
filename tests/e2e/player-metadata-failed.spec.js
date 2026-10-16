@@ -3,7 +3,8 @@ import { test, expect } from "@playwright/test";
 async function expectRosterNamesSettled(sheet) {
   const names = await sheet.locator(".directory-row .sheet-player").allInnerTexts();
   expect(names.length).toBeGreaterThan(0);
-  expect(names.some((name) => name.includes("Unknown player"))).toBe(true);
+  expect(names.some((name) => name.includes("Details unavailable"))).toBe(true);
+  expect(names.some((name) => name.includes("Unknown player"))).toBe(false);
   for (const name of names) {
     expect(name, name).not.toMatch(/…/);
     expect(name, name).not.toMatch(/Player\s+\d+/);
@@ -11,7 +12,7 @@ async function expectRosterNamesSettled(sheet) {
   }
   const values = await sheet.locator(".directory-row .sheet-value").allInnerTexts();
   expect(values.some((value) => /\d/.test(value))).toBe(true);
-  const unknown = sheet.locator(".directory-row").filter({ hasText: "Unknown player" }).first();
+  const unknown = sheet.locator(".directory-row").filter({ hasText: "Details unavailable" }).first();
   await expect(unknown.locator(".sheet-value")).not.toHaveText(/…/);
   const order = await sheet.evaluate((root) => {
     const note = root.querySelector(".roster-names-note");

@@ -156,7 +156,8 @@ test("roster sheet paints while player metadata is still missing", () => {
   assert.match(directory, /renderMetadataPlaceholder\(\)/);
   assert.match(directory, /Player names couldn't load\. Values still work; try again later\./);
   assert.match(directory, /data-action="retry-player-metadata"/);
-  assert.match(directory, /Unknown player/);
+  assert.match(directory, /Details unavailable/);
+  assert.doesNotMatch(directory, /Unknown player/);
   assert.doesNotMatch(directory, /Player metadata unavailable\. Rosters and trade search still work with fallback values\./);
   assert.match(directory, /sr-only">Loading player/);
   assert.match(directory, /sr-only">Player details unavailable/);

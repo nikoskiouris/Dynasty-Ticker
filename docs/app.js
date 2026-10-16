@@ -4416,7 +4416,7 @@ function renderRosterDirectory(roster) {
         ${players.map((asset) => {
           const gap = assetMetadataGap(asset);
           const name = gap.name
-            ? (failedPlayers ? "Unknown player" : renderMetadataPlaceholder())
+            ? (failedPlayers ? "Details unavailable" : renderMetadataPlaceholder())
             : escapeHtml(asset.name || "…");
           const position = gap.position
             ? (failedPlayers ? "" : renderMetadataPlaceholder())
