@@ -106,15 +106,20 @@ export function focusViewHeading(root) {
   return heading;
 }
 
+const LEAGUE_ROOM_HEADINGS = Object.freeze({
+  team: "#power-heading",
+  board: "#league-heading",
+  scores: "#scores-heading",
+  activity: "#activity-heading",
+  history: "#history-heading",
+});
+
 export function headingSelectorFor(place = {}) {
   const overlay = String(place.overlay || "");
   if (overlay === "player" || place.playerId) return ".ranks-card h2, .player-week-sheet h2";
   const page = place.page || place.tab || "";
   const room = String(place.view || "");
-  if (page === "league" && room === "history") return "#history-heading";
-  if (page === "league" && (room === "board" || room === "scores" || room === "activity")) {
-    return `[data-room-panel="${room}"] h2`;
-  }
+  if (page === "league" && LEAGUE_ROOM_HEADINGS[room]) return LEAGUE_ROOM_HEADINGS[room];
   return "";
 }
 
@@ -138,6 +143,10 @@ function mayMoveFocus(doc, active) {
   if (active.id === "workspace") return true;
   // Closing the phone menu parks focus on Sections. The room heading should take it.
   if ((active.id === "mobile-rail-toggle" || active.id === "mobile-rail-close") && !railOpen(doc)) return true;
+  // A room change hides the previous room. Focus is still on that heading until
+  // the browser drops it, and the next room heading has to take over.
+  const tag = String(active.tagName || "");
+  if ((tag === "H1" || tag === "H2" || tag === "H3") && isHidden(active)) return true;
   const cls = typeof active.className === "string" ? active.className : "";
   return cls.split(/\s+/).some((name) => (
     name === "room-tab" || name === "page-tab" || name === "phone-desk-room" || name === "phone-desk-page"
@@ -148,10 +157,11 @@ let headingWatch = 0;
 
 // Retry until the heading is in the document and still focused on a later frame.
 // A render that replaces the node drops focus to the body, so the watch continues.
-export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000, settleMs = 400, now, onStuck } = {}) {
+export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000, settleMs = 400, now, onStuck, stillWanted } = {}) {
   if (!doc || !selector) return 0;
   const watch = ++headingWatch;
   const clock = now || (() => Date.now());
+  const wanted = () => (typeof stillWanted === "function" ? stillWanted() !== false : true);
   const queue = schedule || ((fn) => {
     if (typeof requestAnimationFrame === "function") return requestAnimationFrame(fn);
     return setTimeout(fn, 16);
@@ -159,6 +169,7 @@ export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000
   const started = clock();
   const tick = () => {
     if (watch !== headingWatch) return;
+    if (!wanted()) return;
     const active = doc.activeElement;
     const heading = firstVisible(doc, selector);
     const already = Boolean(heading) && active === heading;
@@ -172,6 +183,7 @@ export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000
         const stableAt = clock();
         const confirm = () => {
           if (watch !== headingWatch) return;
+          if (!wanted()) return;
           if (heading.isConnected === false || doc.activeElement !== heading) {
             if (clock() - started < maxMs) queue(tick);
             return;

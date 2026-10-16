@@ -119,6 +119,9 @@ test("the example trade is the calculator verdict, and a new price changes it", 
     assert.match(html, /Stars cost extra/);
     assert.match(html, new RegExp(formatNumber(model.adjustment.amount)));
   }
+  if (copy.detail) assert.match(html, /After that/);
+  const landingSrc = readFileSync(join(root, "../docs/modules/launch-landing.js"), "utf8");
+  assert.match(landingSrc, /starsPremiumMarkup\(model, \{ detail: copy\.detail \}\)/);
   assert.doesNotMatch(html, /var\(--red\)|var\(--green\)|\.up|\.dn/);
   assert.match(html, /10,000/);
   const moved = exampleTradeFromValues({ ...values, "player:9509": 8200 }, { globalMaxValue: 10000 });
@@ -213,6 +216,7 @@ test("a pre-league landing has one heading and two calls to action", () => {
   assert.match(index, /<body class="launch-open">/);
   assert.deepEqual(index.match(/<h1\b[^>]*>/g), [
     '<h1 id="mobile-chrome-title">',
+    '<h1 id="route-title" class="sr-only">',
     '<h1 id="landing-job-hint">',
   ]);
   assert.match(index, /<h1 id="landing-job-hint">Is your dynasty trade fair\?/);

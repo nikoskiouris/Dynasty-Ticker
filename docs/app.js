@@ -407,6 +407,7 @@ import {
   ensureRouteLive,
   focusHeadingWhenPresent,
   focusViewHeading,
+  focusWithoutScroll,
   headingRootFor,
   headingSelectorFor,
   restoreTriggerFocus,
@@ -576,6 +577,7 @@ const el = {
   stickyMobileCta: document.querySelector("#sticky-mobile-cta"),
   stickyFindBtn: document.querySelector("#sticky-find-btn"),
   mobileChromeTitle: document.querySelector("#mobile-chrome-title"),
+  routeTitle: document.querySelector("#route-title"),
   mobileRailToggle: document.querySelector("#mobile-rail-toggle"),
   mobileRailClose: document.querySelector("#mobile-rail-close"),
   deskBoardClose: document.querySelector("#desk-board-close"),
@@ -735,7 +737,10 @@ el.mobileRailToggle?.addEventListener("click", () => {
   const nextOpen = !document.body.classList.contains("rail-open");
   setMobileRailOpen(nextOpen);
   if (nextOpen) {
-    requestAnimationFrame(() => el.mobileRailClose?.focus());
+    requestAnimationFrame(() => {
+      if (!document.body.classList.contains("rail-open")) return;
+      el.mobileRailClose?.focus();
+    });
   }
 });
 el.phoneDesk?.addEventListener("click", handlePhoneDeskClick);
@@ -894,6 +899,10 @@ let appBooted = false;
 let coldPlayerHeading = false;
 let rankExtrasSettled = true;
 let followHeadingsUntil = 0;
+let routeFocusToken = 0;
+let pendingPopstateFocus = 0;
+let routeFocusHold = null;
+const routeSettleJobs = new Set();
 let leagueOpenedInApp = false;
 let slimDirectory = null;
 let slimDirectoryPromise = null;
@@ -913,11 +922,21 @@ document.addEventListener("focusin", (event) => {
   if (target.id === "workspace") return;
   const tag = String(target.tagName || "");
   if (tag === "H1" || tag === "H2" || tag === "H3") return;
+  // Closing the menu can move focus onto the close control after the room
+  // heading. That is not the user staying in the menu.
+  if (target.id === "mobile-rail-close" && !document.body.classList.contains("rail-open")) return;
   const cls = typeof target.className === "string" ? target.className : "";
   if (/(?:^|\s)(?:room-tab|page-tab|phone-desk-room|phone-desk-page)(?:\s|$)/.test(cls)) return;
   followHeadingsUntil = 0;
   coldPlayerHeading = false;
 });
+document.addEventListener("pointerdown", releaseRouteFocusHold, true);
+document.addEventListener("keydown", releaseRouteFocusHold, true);
+document.addEventListener("focusin", () => {
+  const hold = routeFocusHold;
+  if (!hold || hold.token !== routeFocusToken) return;
+  requestAnimationFrame(() => restoreHeldFocus());
+}, true);
 window.addEventListener("resize", syncDeskRailOffset);
 if (!(bootRoute?.leagueId || parseShareParams(window.location.search).leagueId)) {
   const place = state.pendingPlace;
@@ -958,9 +977,14 @@ ensureRouteLive(document);
 window.addEventListener("popstate", (event) => {
   const raw = event.state?.idx;
   const next = Number.isFinite(Number(raw)) ? Number(raw) : Math.max(0, routeFocus.index() - 1);
+  const before = routePlaceNow();
   const step = routeFocus.pop(next);
+  const token = claimRouteFocus();
+  pendingPopstateFocus = token;
   applyDeskPopState(event.state);
-  syncRouteA11y({ focus: appBooted ? step.focus : "none", trigger: step.trigger });
+  const after = routePlaceNow();
+  const focus = !appBooted ? "none" : (leagueRoomMove(before, after) ? "heading" : step.focus);
+  void focusAfterPopstate({ focus, trigger: step.trigger, before, token });
 });
 if (isPhoneLayout()) setMobileRailOpen(false);
 
@@ -1688,11 +1712,38 @@ function armHeadingFollow() {
   followHeadingsUntil = Date.now() + 45000;
 }
 
+function focusRouteHeading(selector) {
+  if (pendingPopstateFocus) return;
+  if (!selector || Date.now() >= followHeadingsUntil) return;
+  focusHeadingWhenPresent(document, selector, {
+    stillWanted: () => Date.now() < followHeadingsUntil,
+  });
+}
+
+function leagueRoomMove(before, after) {
+  if (!before || !after) return false;
+  if (before.overlay || after.overlay || before.playerId || after.playerId) return false;
+  if ((before.page || before.tab) !== "league" || (after.page || after.tab) !== "league") return false;
+  return String(before.view || "") !== String(after.view || "");
+}
+
 function focusLeagueRoomHeading(room) {
+  if (pendingPopstateFocus) return;
   if (!appBooted || Date.now() >= followHeadingsUntil) return;
-  if (room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
+  if (room !== "team" && room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
   if (state.activePage !== "league" || getRoom() !== room) return;
-  focusHeadingWhenPresent(document, headingSelectorFor({ page: "league", view: room }));
+  const run = () => {
+    if (pendingPopstateFocus || !appBooted || Date.now() >= followHeadingsUntil) return;
+    if (state.activePage !== "league" || getRoom() !== room) return;
+    focusHeadingWhenPresent(document, headingSelectorFor({ page: "league", view: room }), {
+      stillWanted: () => Date.now() < followHeadingsUntil,
+    });
+  };
+  if (routeFocusHold && routeFocusHold.token === routeFocusToken) {
+    requestAnimationFrame(run);
+    return;
+  }
+  run();
 }
 
 function focusColdPlayerHeading() {
@@ -1708,22 +1759,161 @@ function focusColdPlayerHeading() {
   });
 }
 
-function syncRouteA11y({ focus = "none", trigger = null, before = null } = {}) {
+function claimRouteFocus() {
+  routeFocusToken += 1;
+  pendingPopstateFocus = 0;
+  routeFocusHold = null;
+  followHeadingsUntil = 0;
+  return routeFocusToken;
+}
+
+function releaseRouteFocusHold() {
+  routeFocusHold = null;
+}
+
+function focusHoldExempt(node) {
+  if (!node) return false;
+  const id = node.id || "";
+  if (id === "mobile-rail-toggle" || id === "mobile-rail-close" || id === "desk-board-open" || id === "desk-board-close") return true;
+  const cls = typeof node.className === "string" ? node.className : "";
+  return cls.split(/\s+/).some((name) => (
+    name === "room-tab" || name === "page-tab" || name === "phone-desk-room" || name === "phone-desk-page"
+  ));
+}
+
+function shownElement(node) {
+  let el = node;
+  while (el && el.nodeType === 1) {
+    if (el.hidden) return false;
+    if (typeof el.classList?.contains === "function" && el.classList.contains("hidden")) return false;
+    if (typeof getComputedStyle === "function") {
+      const style = getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+    }
+    el = el.parentElement;
+  }
+  return Boolean(node);
+}
+
+function shownQuery(selector) {
+  const nodes = document.querySelectorAll(selector);
+  for (const node of nodes) {
+    if (shownElement(node)) return node;
+  }
+  return null;
+}
+
+function visiblePageHeading() {
+  const nodes = [
+    document.querySelector("#landing-job-hint"),
+    document.querySelector("#mobile-chrome-title"),
+    document.querySelector("#route-title"),
+  ];
+  return nodes.find((node) => shownElement(node)) || null;
+}
+
+function focusPageHeading() {
+  const heading = visiblePageHeading();
+  if (!heading) return null;
+  if (heading.getAttribute("tabindex") == null) heading.setAttribute("tabindex", "-1");
+  focusWithoutScroll(heading, { focusVisible: true });
+  return heading;
+}
+
+function holdRouteFocus(token, getTarget) {
+  routeFocusHold = { token, getTarget, fails: 0 };
+  requestAnimationFrame(() => restoreHeldFocus());
+}
+
+function restoreHeldFocus() {
+  const hold = routeFocusHold;
+  if (!hold || hold.token !== routeFocusToken) return;
+  const target = hold.getTarget();
+  if (!target || target.isConnected === false) return;
+  if (document.activeElement === target) {
+    hold.fails = 0;
+    return;
+  }
+  if (focusHoldExempt(document.activeElement)) return;
+  if (hold.fails > 4) return;
+  if (target.getAttribute("tabindex") == null) target.setAttribute("tabindex", "-1");
+  focusWithoutScroll(target, { focusVisible: true });
+  if (document.activeElement === target) hold.fails = 0;
+  else hold.fails += 1;
+}
+
+function trackRouteSettle(promise) {
+  const job = Promise.resolve(promise).finally(() => routeSettleJobs.delete(job));
+  routeSettleJobs.add(job);
+  return job;
+}
+
+async function waitForRouteToSettle(token) {
+  const deadline = Date.now() + 5000;
+  while (token === routeFocusToken && Date.now() < deadline) {
+    if (!pageRenderQueue.isPending() && routeSettleJobs.size === 0) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      if (token !== routeFocusToken) return;
+      if (!pageRenderQueue.isPending() && routeSettleJobs.size === 0) return;
+      continue;
+    }
+    await Promise.race([
+      routeSettleJobs.size ? Promise.all([...routeSettleJobs]) : Promise.resolve(),
+      new Promise((resolve) => requestAnimationFrame(resolve)),
+    ]);
+  }
+}
+
+function focusClickedRoute(before) {
+  armHeadingFollow();
+  const place = routePlaceNow();
+  const selector = headingSelectorFor(place);
+  if (selector) {
+    focusRouteHeading(selector);
+    return;
+  }
+  const root = headingRootFor(document, place, before || {});
+  if (!focusViewHeading(root)) focusViewHeading(document.querySelector("main"));
+}
+
+async function focusAfterPopstate({ focus, trigger, before, token }) {
+  if (focus === "none") {
+    if (pendingPopstateFocus === token) pendingPopstateFocus = 0;
+    syncRouteA11y({ focus: "none", trigger, before, settled: token });
+    return;
+  }
+  await waitForRouteToSettle(token);
+  if (token !== routeFocusToken) return;
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  if (token !== routeFocusToken) return;
+  if (pendingPopstateFocus === token) pendingPopstateFocus = 0;
+  const place = routePlaceNow();
+  const selector = headingSelectorFor(place);
+  const mode = selector ? "heading" : ((!place.overlay && !place.playerId) ? "page" : focus);
+  if (mode === "heading") holdRouteFocus(token, () => shownQuery(selector));
+  else if (mode === "page") holdRouteFocus(token, () => visiblePageHeading());
+  syncRouteA11y({ focus: mode, trigger, before, settled: token });
+}
+
+function syncRouteA11y({ focus = "none", trigger = null, before = null, settled = 0 } = {}) {
   syncDocumentMeta();
   syncRouteAriaCurrent();
   if (!appBooted || focus === "none") return;
+  if (settled) {
+    if (settled !== routeFocusToken) return;
+  } else {
+    claimRouteFocus();
+  }
   const place = routePlaceNow();
   const message = routeAnnouncement(place, before || {});
   if (message) announceRoute(document, message);
   if (focus === "heading") {
+    focusClickedRoute(before);
+    return;
+  }
+  if (focus === "page") {
     armHeadingFollow();
-    const selector = headingSelectorFor(place);
-    if (selector) {
-      focusHeadingWhenPresent(document, selector);
-      return;
-    }
-    const root = headingRootFor(document, place, before || {});
-    if (!focusViewHeading(root)) focusViewHeading(document.querySelector("main"));
+    focusPageHeading();
     return;
   }
   if (focus === "restore") restoreTriggerFocus(document, trigger || routeFocus.opener());
@@ -2557,6 +2747,28 @@ function syncDeskRailOffset() {
   if (height > 0) document.documentElement.style.setProperty("--desk-rail-height", `${height}px`);
 }
 
+function guestRouteHeading() {
+  const path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+  if (publicRanksOpen && !state.leagueId) return "Player ranks";
+  if (path === "/trade" || state.activePage === "trades") return "Trade";
+  if (path === "/players" || (state.activePage === "players" && !landingVisible())) return "Players";
+  return "Dynasty Ticker";
+}
+
+function routeHeadingText() {
+  if (state.leagueId && state.activePage === "league") {
+    const labels = {
+      team: "My team",
+      board: "League",
+      scores: "This week",
+      activity: "Activity",
+      history: "History",
+    };
+    if (labels[getRoom()]) return labels[getRoom()];
+  }
+  return guestRouteHeading();
+}
+
 function renderSessionSnapshot() {
   rebindUsernameInputs();
   const sampleOn = Boolean(state.viewingSample && state.leagueId);
@@ -2584,8 +2796,9 @@ function renderSessionSnapshot() {
         ? (state.leagueName || "Sample league")
         : state.leagueName
           ? (you ? `${you} · ${state.leagueName}` : state.leagueName)
-          : "Your Sleeper league";
+          : guestRouteHeading();
   }
+  if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
   if (el.mobileChromeViewing) {
     el.mobileChromeViewing.hidden = !sampleOn;
     el.mobileChromeViewing.textContent = sampleOn ? sampleViewingLine(you) : "";
@@ -5368,7 +5581,7 @@ function renderStandingsPanel(model, sim) {
       </div>
       <div class="standings-table">
         <div class="standings-head">
-          <span>#</span><span>Team</span><span>W-L</span><span class="col-pf">Points</span><span class="col-pa">PA</span><span class="col-streak">Strk</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
+          <span>#</span><span>Team</span><span>Record</span><span class="col-pf">Points</span><span class="col-pa">PA</span><span class="col-streak">Strk</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
         </div>
         ${rowsHtml}
       </div>
@@ -5532,7 +5745,7 @@ function renderTeamsPage() {
   if (!peekLeaguePowerBoard()) {
     // Cold board solves every roster. Let the Teams tab paint before that work.
     if (el.teamsGrid) el.teamsGrid.innerHTML = `<p class="muted">Ranking rosters…</p>`;
-    void finishTeamsPagePaint(generation);
+    void trackRouteSettle(finishTeamsPagePaint(generation));
     return;
   }
   renderTeamsGrid();
@@ -7375,7 +7588,7 @@ function renderDraftBasis(view) {
   const { basis } = view;
   return `
     <div class="draft-basis-row" role="group" aria-label="Scoring format">
-      ${["sf", "oneQb"].map((format) => `<button type="button" class="ranks-chip${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}">PPR · ${escapeHtml(rankFormatLabel(format))}</button>`).join("")}
+      ${["sf", "oneQb"].map((format) => `<button type="button" class="ranks-chip${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}">Full PPR · ${escapeHtml(rankFormatLabel(format))}</button>`).join("")}
       ${infoTipMarkup({ id: "pop-values-trade", label: "How values work", text: valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10)) })}
     </div>
   `;
@@ -10033,13 +10246,13 @@ function renderHallBoard(history) {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">All-time hall</span>
-          <h3>Titles, career W-L, playoff trips</h3>
+          <h3>Titles, career record, playoff trips</h3>
         </div>
-        <p class="section-copy">Who has the rings. Career W-L is the rest of the story.</p>
+        <p class="section-copy">Who has the rings. Career record is the rest of the story.</p>
       </div>
       <div class="hall-table">
         <div class="hall-head">
-          <span>#</span><span>Mgr</span><span>Titles</span><span>W-L</span><span>PO</span>
+          <span>#</span><span>Mgr</span><span>Titles</span><span>Record</span><span>PO</span>
         </div>
         ${hall.map((row, index) => `
           <div class="hall-row ${row.managerKey === meKey ? "you" : ""}">
@@ -13202,14 +13415,19 @@ function assetCanFillRosterSlot(asset, slot) {
 
 function formatRosterSlotLabel(slot) {
   const labels = {
-    SUPER_FLEX: "SFlex",
+    SUPER_FLEX: "Superflex",
+    SUPERFLEX: "Superflex",
+    SF: "Superflex",
+    BN: "Bench",
+    BENCH: "Bench",
     REC_FLEX: "Rec Flex",
     WRRB_FLEX: "RB/WR",
     RBWR_FLEX: "RB/WR",
     WRTE_FLEX: "WR/TE",
     FLEX: "Flex",
   };
-  return labels[slot] || slot.replace(/_/g, " ");
+  const key = String(slot || "").trim().toUpperCase();
+  return labels[key] || String(slot || "").replace(/_/g, " ");
 }
 
 function findClosestValuationPick(targetValue, values, valueNameMap) {
@@ -17971,7 +18189,7 @@ function rebindUsernameInputs() {
     if (cached?.isConnected === false && String(cached.value || "").length && !String(live.value || "").length) {
       live.value = cached.value;
       const active = document.activeElement;
-      const shouldFocus = !active || active === cached || active === document.body || active === document.documentElement;
+      const shouldFocus = !routeFocusHold && (!active || active === cached || active === document.body || active === document.documentElement);
       if (shouldFocus) {
         live.focus();
         try {
@@ -18077,6 +18295,7 @@ function syncDocumentMeta() {
     }),
     description,
   });
+  if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
 }
 
 async function bootLandingRather({ playersTab = false } = {}) {
