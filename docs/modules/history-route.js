@@ -87,22 +87,33 @@ export function assetIdFromRoute(routeId) {
   return isRankAssetId(id) ? id : "";
 }
 
+function canonicalizeAssetToken(part) {
+  const id = String(part || "").trim();
+  if (ASSET_ID.test(id)) return id;
+  if (/^(?!0$)\d{1,12}$/.test(id)) return `player:${id}`;
+  return "";
+}
+
 export function parseAssetList(raw) {
   return String(raw || "")
     .split(",")
-    .map((part) => part.trim())
-    .filter((id) => ASSET_ID.test(id))
+    .map(canonicalizeAssetToken)
+    .filter(Boolean)
     .slice(0, 12);
 }
 
+function publicTradeId(id) {
+  return String(id || "").replace(/^player:/, "");
+}
+
 export function tradeHref(give = [], get = [], leagueId = "") {
-  const params = new URLSearchParams();
   const giveIds = parseAssetList(Array.isArray(give) ? give.join(",") : give);
   const getIds = parseAssetList(Array.isArray(get) ? get.join(",") : get);
-  if (giveIds.length) params.set("give", giveIds.join(","));
-  if (getIds.length) params.set("get", getIds.join(","));
-  if (LEAGUE_ID.test(String(leagueId || ""))) params.set("league", String(leagueId));
-  const query = params.toString();
+  const bits = [];
+  if (giveIds.length) bits.push(`give=${giveIds.map(publicTradeId).join(",")}`);
+  if (getIds.length) bits.push(`get=${getIds.map(publicTradeId).join(",")}`);
+  if (LEAGUE_ID.test(String(leagueId || ""))) bits.push(`league=${String(leagueId)}`);
+  const query = bits.join("&");
   return `${urlPath("trade")}${query ? `?${query}` : ""}`;
 }
 

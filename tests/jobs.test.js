@@ -71,7 +71,7 @@ test("landing HTML leads with the username and skips the job quiz", () => {
   assert.match(index, /id="landing-league-picker"/);
   assert.match(index, /id="start-dashboard"/);
   assert.match(index, /data-room-panel="team"/);
-  assert.match(index, /Check an offer or find a deal/);
+  assert.match(index, /Check a trade or find a deal/);
   assert.doesNotMatch(index, /Got an offer\?/);
   assert.doesNotMatch(index, /id="landing-features"/);
 });

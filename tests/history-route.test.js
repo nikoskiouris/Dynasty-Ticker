@@ -140,7 +140,8 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(trade.room, "calculator");
   assert.deepEqual(trade.give, ["player:9221"]);
   assert.deepEqual(trade.get, ["pick:2027:r1:early"]);
-  assert.equal(tradeHref(["player:9221"], ["pick:2027:r1:early"], "1360686137898700800"), "/trade?give=player%3A9221&get=pick%3A2027%3Ar1%3Aearly&league=1360686137898700800");
+  assert.equal(tradeHref(["player:9221"], ["pick:2027:r1:early"], "1360686137898700800"), "/trade?give=9221&get=pick:2027:r1:early&league=1360686137898700800");
+  assert.deepEqual(matchRoute("/trade", "?give=9509&get=11632,pick:2027:r1:early").give, ["player:9509"]);
   const league = matchRoute("/l/1360686137898700800");
   assert.equal(league.name, "league");
   assert.equal(league.page, "league");

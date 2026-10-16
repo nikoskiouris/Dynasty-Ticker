@@ -1,4 +1,4 @@
-const FIND_IDLE = "Find my leagues";
+const FIND_IDLE = "Connect my league";
 const USERNAME_IDS = ["sleeper-username", "landing-username"];
 
 // Shared with docs/boot-intent.js, which runs before this module downloads.

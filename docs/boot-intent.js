@@ -34,7 +34,7 @@
     if (action === "find-my-leagues") return true;
     var id = button.id || "";
     if (id === "find-leagues-btn" || id === "landing-find-btn" || id === "sticky-find-btn") return true;
-    return (button.getAttribute("data-idle-label") || "") === "Find my leagues";
+    return (button.getAttribute("data-idle-label") || "") === "Connect my league";
   }
 
   function formHasFind(form) {
