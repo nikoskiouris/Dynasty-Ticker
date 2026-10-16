@@ -122,7 +122,7 @@ for (const width of [1280, 390]) {
     await openLeagueRoom(page, "This week");
     await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/week`));
     await expect.poll(async () => {
-      const text = await page.locator("[data-room-panel='scores'] h2").first().innerText();
+      const text = await page.locator("[data-room-panel='scores'] h2").filter({ hasText: /Week / }).first().innerText();
       return text.replace(/\s+/g, " ").trim();
     }, { timeout: 20000 }).toMatch(/Week /);
     const weekHeading = await headingFocus(page);
@@ -143,6 +143,74 @@ for (const width of [1280, 390]) {
       id: document.activeElement?.id || "",
       text: (document.activeElement?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
     })), { timeout: 15000 }).toEqual(weekHeading);
+  });
+}
+
+const ROOMS = [
+  { name: "My team", id: "power-heading", route: "My team", slug: "team" },
+  { name: "This week", id: "scores-heading", route: "This week", slug: "week" },
+  { name: "League", id: "league-heading", route: "League", slug: "league" },
+  { name: "Activity", id: "activity-heading", route: "Activity", slug: "activity" },
+  { name: "History", id: "history-heading", route: "History", slug: "history" },
+];
+
+async function expectRoomHeading(page, room, width) {
+  const wanted = { id: room.id, tag: "H2", tab: "-1" };
+  const read = () => page.evaluate(() => {
+    const el = document.activeElement;
+    return {
+      id: el?.id || "",
+      tag: el?.tagName || "",
+      tab: el?.getAttribute?.("tabindex") || "",
+    };
+  });
+  await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/${room.slug}`));
+  await expect.poll(read, { timeout: 15000 }).toEqual(wanted);
+  await page.waitForTimeout(500);
+  await expect.poll(read, { timeout: 5000 }).toEqual(wanted);
+  if (width === 1280) await expect(page.locator("#route-title")).toHaveText(room.route);
+}
+
+for (const width of [1280, 390]) {
+  test(`every room heading takes focus at ${width}`, async ({ page }) => {
+    test.setTimeout(240000);
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 800 });
+    await page.goto(`/l/${LEAGUE}/team`);
+    await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
+
+    const visit = [...ROOMS.slice(1), ROOMS[0]];
+    for (const room of visit) {
+      await openLeagueRoom(page, room.name);
+      await expectRoomHeading(page, room, width);
+    }
+    for (const room of [...ROOMS].reverse()) {
+      await page.goBack();
+      await expectRoomHeading(page, room, width);
+    }
+    for (const room of visit) {
+      await page.goForward();
+      await expectRoomHeading(page, room, width);
+    }
+
+    if (width > 700) {
+      for (let step = 1; step <= ROOMS.length; step += 1) {
+        await page.locator("#room-nav [data-room].active").focus();
+        await page.keyboard.press("ArrowRight");
+        await expectRoomHeading(page, ROOMS[step % ROOMS.length], width);
+      }
+      return;
+    }
+    for (const room of visit) {
+      const open = await page.locator("body").evaluate((body) => body.classList.contains("rail-open"));
+      if (!open) {
+        await page.locator("#mobile-rail-toggle").click();
+        await expect(page.locator("#mobile-rail-close")).toBeFocused();
+      }
+      const section = page.locator("#phone-desk").getByRole("button", { name: "My League" });
+      if ((await section.getAttribute("aria-expanded")) !== "true") await section.click();
+      await page.locator("#phone-desk").getByRole("button", { name: room.name, exact: true }).press("Enter");
+      await expectRoomHeading(page, room, width);
+    }
   });
 }
 
