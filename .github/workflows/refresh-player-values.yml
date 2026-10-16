@@ -76,8 +76,8 @@ jobs:
 
       - name: Commit refreshed snapshot
         run: |
-          git add docs/data/player_values.json player-values/validation.json docs/data/price-history
-          if git diff --cached --quiet -- docs/data/player_values.json player-values/validation.json docs/data/price-history; then
+          git add docs/data/player_values.json player-values/validation.json docs/data/price-history docs/data/nfl_players_slim.json
+          if git diff --cached --quiet -- docs/data/player_values.json player-values/validation.json docs/data/price-history docs/data/nfl_players_slim.json; then
             echo "No player-value changes."
             exit 0
           fi

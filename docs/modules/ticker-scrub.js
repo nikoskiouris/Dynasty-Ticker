@@ -138,6 +138,17 @@ export function bindTicker(root, track, {
     root.setAttribute("aria-pressed", String(isPaused));
   }
 
+  function onKeyDown(event) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    isPaused = !isPaused;
+    if (!animation) ensureAnimation();
+    if (isPaused) animation?.pause();
+    else animation?.play();
+    root.classList.toggle("is-paused", isPaused);
+    root.setAttribute("aria-pressed", String(isPaused));
+  }
+
   function onPointerUp() {
     finishGesture();
   }
@@ -168,6 +179,7 @@ export function bindTicker(root, track, {
   viewport.addEventListener("pointerup", onPointerUp);
   viewport.addEventListener("pointercancel", onPointerCancel);
   viewport.addEventListener("pointerleave", onPointerLeave);
+  root.addEventListener("keydown", onKeyDown);
 
   return {
     get paused() {
@@ -184,8 +196,10 @@ export function bindTicker(root, track, {
       viewport.removeEventListener("pointerup", onPointerUp);
       viewport.removeEventListener("pointercancel", onPointerCancel);
       viewport.removeEventListener("pointerleave", onPointerLeave);
+      root.removeEventListener("keydown", onKeyDown);
       viewport.classList.remove("is-dragging");
       root.classList.remove("is-bound", "is-paused");
+      root.setAttribute("aria-pressed", "false");
     },
   };
 }

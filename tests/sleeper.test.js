@@ -10,6 +10,7 @@ import {
   preferLatestLeagues,
   mapInChunks,
   slimPlayersMap,
+  playersFromSlimFile,
   playersCacheIsFresh,
   savePlayersCacheEntry,
   loadPlayersCacheEntry,
@@ -390,6 +391,29 @@ test("slim players cache drops fat fields and still names the player", () => {
   assert.equal(slim["11"].stats, undefined);
   assert.equal(slim["11"].metadata.news, undefined);
   assert.ok(JSON.stringify(slim["11"]).length < 400);
+});
+
+test("slim file rows expand into name, position, and team", () => {
+  const players = playersFromSlimFile({
+    fields: ["full_name", "position", "team", "age", "injury_status", "status", "years_exp"],
+    players: { "6794": ["Justin Jefferson", "WR", "MIN", 27, "", "", 6] },
+  });
+  assert.equal(players["6794"].full_name, "Justin Jefferson");
+  assert.equal(players["6794"].position, "WR");
+  assert.equal(players["6794"].team, "MIN");
+  assert.deepEqual(players["6794"].fantasy_positions, ["WR"]);
+  assert.equal(players["6794"].years_exp, 6);
+  assert.equal(players["6794"].status, undefined);
+});
+
+test("shipped slim player file names Jefferson", () => {
+  const root = dirname(fileURLToPath(import.meta.url));
+  const payload = JSON.parse(readFileSync(join(root, "../docs/data/nfl_players_slim.json"), "utf8"));
+  const players = playersFromSlimFile(payload);
+  assert.equal(players["6794"].full_name, "Justin Jefferson");
+  assert.equal(players["6794"].position, "WR");
+  assert.equal(players["6794"].team, "MIN");
+  assert.ok(Object.keys(players).length > 2000);
 });
 
 test("players cache expires on TTL even when the state key matches", () => {
