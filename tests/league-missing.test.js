@@ -187,10 +187,10 @@ test("the missing-league state has a heading, connect, and the sample league", (
   assert.match(app, /connectAsked = route\.name === "connect" \|\| Boolean\(historyState\?\.connectAsked\)/);
 });
 
-test("a Sleeper outage has a heading, an alert, and its own title", () => {
+test("a Sleeper outage has a heading and its own title", () => {
   const landing = readDocs("ui/landing.html");
   const panel = landing.slice(landing.indexOf('id="sleeper-down"'), landing.indexOf('id="public-ranks"'));
-  assert.match(panel, /role="alert"/);
+  assert.doesNotMatch(panel, /role="alert"/);
   assert.match(panel, /<h1 id="sleeper-down-title" tabindex="-1">Couldn't reach Sleeper<\/h1>/);
   assert.match(panel, /Sleeper didn't answer\. Your league is safe, so try again in a moment\./);
   assert.doesNotMatch(panel, /Check your connection\./);
@@ -208,7 +208,7 @@ test("a Sleeper outage has a heading, an alert, and its own title", () => {
   assert.match(app, /description: "Sleeper didn't answer\. Your league is safe, so try again in a moment\."/);
   assert.match(app, /title: "Loading league · Dynasty Ticker"/);
   assert.match(app, /getElementById\("sleeper-down-title"\)\?\.focus\(\)/);
-  assert.match(app, /announceRoute\(document, "Couldn't reach Sleeper"\)/);
+  assert.doesNotMatch(app, /announceRoute\(document, "Couldn't reach Sleeper"\)/);
   assert.match(app, /function dropFailedLeagueQuery\(/);
   assert.match(app, /pageshow/);
   assert.match(app, /if \(text === SLEEPER_UNREACHABLE_MESSAGE && !loaded\) \{\s*showSleeperUnreachable\(\);\s*return;\s*\}/);

@@ -108,6 +108,14 @@ test("picking a league stamps ?league= without pushing over an open league", () 
   assert.match(appSource, /history\.replaceState\(history\.state, "", `\$\{window\.location\.pathname\}\$\{nextSearch\}`\)/);
   assert.match(appSource, /if \(!fromHistory\) rememberPickedLeague\(leagueId\)/);
   assert.match(appSource, /switchingLeagues && typeof history\?\.pushState === "function"/);
+  const picked = appSource.slice(appSource.indexOf("function rememberPickedLeague"), appSource.indexOf("async function loadLeagueById"));
+  const hold = picked.indexOf("String(state.leagueId) !== String(leagueId)");
+  assert.ok(hold >= 0);
+  assert.ok(hold < picked.indexOf("history.pushState"));
+  const load = appSource.match(/async function runLeagueLoad\(leagueId, token[^)]*\) \{[\s\S]*?\n\}/)?.[0] || "";
+  const opened = load.slice(0, load.indexOf("} catch (err)"));
+  assert.match(opened, /if \(switchingLeagues && typeof history\?\.pushState === "function"\) \{/);
+  assert.doesNotMatch(opened, /switchingLeagues && typeof history\?\.pushState === "function" && !leagueOpenedInApp/);
 });
 
 test("a searched user with no roster is not the first manager", () => {

@@ -78,7 +78,7 @@ test("an empty /l id is the missing-league state, and /l/x.json stays a 404", as
   expect(missing.status()).toBe(404);
 });
 
-test("a Sleeper outage has its own heading, alert, and title", async ({ page }) => {
+test("a Sleeper outage has its own heading and title", async ({ page }) => {
   await page.route("**/api.sleeper.app/**", (route) => route.abort());
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/l/1360686137898700800");
@@ -86,7 +86,7 @@ test("a Sleeper outage has its own heading, alert, and title", async ({ page }) 
   await expect(title).toBeVisible({ timeout: 30000 });
   await expect(title).toHaveText("Couldn't reach Sleeper");
   await expect(title).toBeFocused();
-  await expect(page.locator("#sleeper-down")).toHaveAttribute("role", "alert");
+  await expect(page.locator("#sleeper-down")).not.toHaveAttribute("role", "alert");
   await expect(page).toHaveTitle("Couldn't reach Sleeper · Dynasty Ticker");
   await expect(page.locator("#league-missing")).toBeHidden();
   await expect(page.locator("body")).toHaveClass(/launch-open/);
@@ -116,7 +116,7 @@ test("a Sleeper outage has its own heading, alert, and title", async ({ page }) 
   expect(paint.findBorderStyle).toBe("solid");
   expect(Number.parseFloat(paint.findBorder)).toBeGreaterThan(0);
   await expect(page.locator("#sleeper-down").getByRole("link", { name: "See the sample league" })).toHaveAttribute("href", "/?sample=1");
-  await expect(page.locator("#route-announcer")).toHaveText("Couldn't reach Sleeper");
+  await expect(page.locator("#route-announcer")).not.toHaveText("Couldn't reach Sleeper");
   expect(new URL(page.url()).searchParams.has("league")).toBe(false);
 });
 

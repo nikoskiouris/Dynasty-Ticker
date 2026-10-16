@@ -3457,6 +3457,9 @@ function rememberPickedLeague(leagueId) {
   if (applyingHistory || typeof history?.replaceState !== "function") return;
   const nextSearch = stampPickedLeagueSearch(window.location.search, leagueId);
   if (!nextSearch) return;
+  // An in-app switch pushes only after the new league loads. Pushing the
+  // current league first leaves a duplicate, so the first Back does nothing.
+  if (Boolean(state.leagueId) && String(state.leagueId) !== String(leagueId)) return;
   const here = window.location.pathname || "/";
   // Home has no league path. Push the place the manager is already on, or the team.
   // Do not replaceState onto "/".
@@ -3576,7 +3579,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       selectedAssetId: state.ranks?.selectedId || "",
       pendingPlace: state.pendingPlace,
     });
-    if (switchingLeagues && typeof history?.pushState === "function" && !leagueOpenedInApp) {
+    if (switchingLeagues && typeof history?.pushState === "function") {
       prepareDeskPush();
       routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
       history.pushState(history.state, "", `${window.location.pathname}${window.location.search}`);
@@ -18312,7 +18315,6 @@ function showSleeperUnreachable() {
   syncDocumentMeta();
   dropFailedLeagueQuery();
   document.getElementById("sleeper-down-title")?.focus();
-  announceRoute(document, "Couldn't reach Sleeper");
 }
 
 function hideSleeperUnreachable() {
