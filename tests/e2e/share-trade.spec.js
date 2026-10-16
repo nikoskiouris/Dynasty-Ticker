@@ -107,6 +107,17 @@ for (const viewport of viewports) {
 
   test(`a dated link whose prices moved shows shared and today at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     // An older archived board where Gibbs cost twice as much.
+    // The desk fetches a stamp only when the index lists it.
+    await page.route("**/data/price-history/index.json", async (route) => {
+      const res = await route.fetch();
+      const body = await res.json();
+      const snapshots = Array.isArray(body.snapshots) ? body.snapshots : [];
+      if (!snapshots.some((row) => row?.stamp === OLD)) {
+        snapshots.push({ asOf: "2026-10-07T11:17:00+00:00", stamp: OLD });
+      }
+      body.snapshots = snapshots;
+      await route.fulfill({ response: res, json: body });
+    });
     await page.route(`**/data/price-history/${OLD}.json`, (route) => route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({ asOf: "2026-10-07T11:17:00+00:00", sf: { ...VALUES.sf, "player:9221": VALUES.sf["player:9221"] * 2 }, oneQb: VALUES.oneQb }),
@@ -272,7 +283,7 @@ test("after sharing from /trade the sender's address bar shows /t/<code>", async
   expect(new URL(page.url()).pathname).toBe(`/t/2s${STAMP}4984~9221`);
   // Share pushed a history entry: Back returns to the /trade URL.
   await page.goBack();
-  await expect(page).toHaveURL(/\/trade\?give=player(:|%3A)4984&get=player(:|%3A)9221$/);
+  await expect(page).toHaveURL(/\/trade\?give=4984&get=9221$/);
   await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible();
   await page.waitForTimeout(300);
   expect(new URL(page.url()).pathname).toBe("/trade");

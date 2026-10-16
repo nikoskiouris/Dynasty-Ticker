@@ -198,6 +198,16 @@ const ORDERED_ROUTES = Object.freeze(
 export function matchRoute(pathname, search = "") {
   const bits = pathBits(pathname);
   if (!bits) return null;
+  // /l and /l/ have no id. That is a missing league, not the generic 404.
+  if (bits.length === 1 && bits[0] === "l") {
+    return blankRoute({
+      name: "league",
+      page: "league",
+      room: "team",
+      badLeague: true,
+      badLeagueId: "",
+    });
+  }
   const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
   for (const row of ORDERED_ROUTES) {
     const found = matchPattern(bits, row.pattern);
@@ -372,6 +382,8 @@ export const SPA_REWRITES = Object.freeze([
   "/l/:id/:view/",
   "/player/:id/",
   "/player/:id/:slug/",
+  "/l",
+  "/l/",
 ]);
 
 // /t/:code is served by the trade-page function so bots get the trade's

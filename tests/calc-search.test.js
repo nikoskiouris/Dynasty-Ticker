@@ -293,7 +293,11 @@ test("shared keyboard focus ring is one outline and trade rows are not outline n
   assert.match(rule[0], /outline:\s*2px solid var\(--text\);/);
   assert.match(rule[0], /outline-offset:\s*2px;/);
   assert.doesNotMatch(css, /\.trade-row:focus-visible\s*\{[^}]*outline:\s*none/);
-  assert.doesNotMatch(css, /outline:\s*none/);
+  // Programmatic focus on the missing-league heading drops the ring.
+  // Keyboard focus keeps the shared outline.
+  const focusRings = css.replace(/#league-missing-title:focus:not\(:focus-visible\)\s*\{[^}]*\}/g, "");
+  assert.match(css, /#league-missing-title:focus:not\(:focus-visible\)\s*\{[^}]*outline:\s*none/);
+  assert.doesNotMatch(focusRings, /outline:\s*none/);
 });
 
 function mockOption(active, id = "") {

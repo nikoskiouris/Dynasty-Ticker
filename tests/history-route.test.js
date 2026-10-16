@@ -191,7 +191,7 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(backTarget({ pushed: false }), "home");
   assert.equal(backTarget({ pushed: true }), "history");
   assert.equal(urlPath(), "/");
-  for (const skipped of ["/api/rather-vote", "/styles.css", "/data/player_values.json", "/ui/landing.html", "/l", "/player", "/nope"]) {
+  for (const skipped of ["/api/rather-vote", "/styles.css", "/data/player_values.json", "/ui/landing.html", "/player", "/nope"]) {
     assert.equal(isSpaPath(skipped), false, skipped);
     assert.equal(resolveLocation(skipped).unknown, true, skipped);
   }
@@ -226,7 +226,8 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(isSpaPath("/player/9221/"), true);
   assert.equal(isSpaPath("/player/9221/jahmyr-gibbs/"), true);
   assert.equal(isSpaPath("/player/"), false);
-  assert.equal(isSpaPath("/l/"), false);
+  assert.equal(isSpaPath("/l"), true);
+  assert.equal(isSpaPath("/l/"), true);
   assert.equal(isSpaPath("/nope"), false);
   assert.equal(resolveLocation("/player/9221").unknown, false);
   assert.equal(resolveLocation("/l/42").unknown, false);

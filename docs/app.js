@@ -677,6 +677,7 @@ el.leagueStatusRetry?.addEventListener("click", retryUserLeagueSearch);
 el.landingSearchRetry?.addEventListener("click", retryUserLeagueSearch);
 document.getElementById("landing-league-retry")?.addEventListener("click", retryFailedLeagueLoad);
 document.getElementById("desk-load-retry")?.addEventListener("click", retryFailedLeagueLoad);
+document.getElementById("sleeper-down-retry")?.addEventListener("click", retryFailedLeagueLoad);
 document.getElementById("desk-load-dismiss")?.addEventListener("click", dismissFailedLeagueLoad);
 el.leaguePicker?.addEventListener("click", handleLeaguePickClick);
 el.landingLeaguePicker?.addEventListener("click", handleLeaguePickClick);
@@ -884,6 +885,7 @@ el.seasonsDashboard?.addEventListener("change", handleHistoryCompareChange);
 
 let sampleBannerOff = false;
 let leagueMissing = false;
+let sleeperUnreachable = false;
 let connectAsked = false;
 const ratherBootGate = createRatherBootGate();
 setDeskBoardShut(readDeskBoardShut());
@@ -1920,7 +1922,7 @@ function applyDeskPopState(historyState) {
     document.querySelector("#landing")?.classList.remove("hidden");
     state.ranks.selectedId = "";
   }
-  connectAsked = route.name === "connect";
+  connectAsked = route.name === "connect" || Boolean(historyState?.connectAsked);
   const connectBox = document.querySelector("#landing-connect");
   if (connectBox) connectBox.hidden = !connectAsked;
   applyDeskPlaceFromHistory(parsed, historyState);
@@ -2104,7 +2106,10 @@ function syncLaunchChrome() {
   const trades = document.querySelector("#trades-page");
   const league = document.querySelector("#league-page");
   const onOther = (trades && !trades.classList.contains("hidden")) || (league && !league.classList.contains("hidden"));
-  const open = landingVisible() && !onOther && !state.leagueId;
+  // A missing league and a Sleeper outage are still the no-league screen:
+  // one h1, and no "Your Sleeper league" subtitle.
+  const bare = (landingVisible() || leagueMissing || sleeperUnreachable) && !state.leagueId;
+  const open = bare && !onOther;
   document.body.classList.toggle("launch-open", open);
 }
 
@@ -8010,7 +8015,10 @@ function handleWorkspaceClick(event) {
       openPublicRanks();
       break;
     case "find-my-leagues":
-      hideLeagueNotFound();
+      if (leagueMissing) {
+        openLandingFromMissingLeague();
+        break;
+      }
       if (!state.leagueId) document.querySelector("#landing")?.classList.remove("hidden");
       if (bootIsPending()) {
         queueFindForBoot(String(el.sleeperUsername?.value || el.landingUsername?.value || ""));
@@ -17480,6 +17488,7 @@ function applyValuationBundle(bundle, { rerender = true } = {}) {
 
 function showLeagueNotFound() {
   leagueMissing = true;
+  hideSleeperUnreachable();
   hideAppPages();
   stopLeagueLoadingUi();
   document.querySelector("#landing")?.classList.add("hidden");
@@ -17490,8 +17499,36 @@ function showLeagueNotFound() {
     panel.hidden = false;
     panel.classList.remove("hidden");
   }
+  syncLaunchChrome();
   document.getElementById("league-missing-title")?.focus();
   syncDocumentMeta();
+}
+
+function openLandingFromMissingLeague() {
+  hideLeagueNotFound();
+  const landing = document.querySelector("#landing");
+  if (landing) {
+    landing.classList.remove("hidden");
+    landing.hidden = false;
+  }
+  prepareDeskPush();
+  if (typeof history?.pushState === "function") {
+    history.pushState({
+      ...historyPlaceNow(),
+      tab: "players",
+      landing: true,
+      pushed: true,
+      connectAsked: true,
+    }, "", "/");
+  }
+  setActivePage("players", { history: "silent", landing: "show", scroll: "top" });
+  const box = document.querySelector("#landing-connect");
+  if (box) box.hidden = false;
+  document.querySelector(".launch-connect")?.setAttribute("hidden", "");
+  connectAsked = true;
+  syncLaunchChrome();
+  syncDocumentMeta();
+  document.getElementById("landing-username")?.focus();
 }
 
 function hideLeagueNotFound() {
@@ -17502,7 +17539,10 @@ function hideLeagueNotFound() {
     panel.hidden = true;
     panel.classList.add("hidden");
   }
-  if (was) syncDocumentMeta();
+  if (was) {
+    syncLaunchChrome();
+    syncDocumentMeta();
+  }
 }
 
 function showInvalidLeagueLink() {
@@ -17517,11 +17557,61 @@ function showInvalidLeagueLink() {
   if (retry) retry.classList.add("hidden");
 }
 
+function showSleeperUnreachable() {
+  sleeperUnreachable = true;
+  const missing = document.getElementById("league-missing");
+  if (missing) {
+    missing.hidden = true;
+    missing.classList.add("hidden");
+  }
+  document.querySelector("#landing")?.classList.add("hidden");
+  const panel = document.getElementById("sleeper-down");
+  if (panel) {
+    panel.hidden = false;
+    panel.classList.remove("hidden");
+  }
+  syncLaunchChrome();
+  document.getElementById("sleeper-down-title")?.focus();
+  syncDocumentMeta();
+}
+
+function hideSleeperUnreachable() {
+  if (!sleeperUnreachable) {
+    const panel = document.getElementById("sleeper-down");
+    if (panel) {
+      panel.hidden = true;
+      panel.classList.add("hidden");
+    }
+    return;
+  }
+  sleeperUnreachable = false;
+  const panel = document.getElementById("sleeper-down");
+  if (panel) {
+    panel.hidden = true;
+    panel.classList.add("hidden");
+  }
+  if (!leagueMissing) {
+    const landing = document.querySelector("#landing");
+    if (landing) {
+      landing.classList.remove("hidden");
+      landing.hidden = false;
+    }
+  }
+  syncLaunchChrome();
+  syncDocumentMeta();
+}
+
 function paintLeagueLoadError(message = "") {
   const text = String(message || "");
+  const loaded = document.body.classList.contains("league-loaded");
+  if (text === SLEEPER_UNREACHABLE_MESSAGE && !loaded) {
+    showSleeperUnreachable();
+    return;
+  }
+  hideSleeperUnreachable();
   const where = leagueLoadErrorVisibility({
     message: text,
-    leagueLoaded: document.body.classList.contains("league-loaded"),
+    leagueLoaded: loaded,
   });
   const landing = document.getElementById("landing-league-error");
   const landingText = document.getElementById("landing-league-error-text");
@@ -17657,6 +17747,13 @@ function syncDocumentMeta() {
     applyDocumentMeta(document, {
       title: "We couldn't find that league — Dynasty Ticker",
       description: "The link may be wrong, or the league was deleted.",
+    });
+    return;
+  }
+  if (sleeperUnreachable) {
+    applyDocumentMeta(document, {
+      title: "Couldn't reach Sleeper — Dynasty Ticker",
+      description: "Check your connection.",
     });
     return;
   }

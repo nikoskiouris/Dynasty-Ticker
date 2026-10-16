@@ -8395,6 +8395,10 @@ button.rather-skip {
   outline-offset: 3px;
 }
 
+#league-missing-title:focus:not(:focus-visible) {
+  outline: none;
+}
+
 .league-missing p {
   margin: 0;
   max-width: 36rem;
