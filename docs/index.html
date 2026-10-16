@@ -34,6 +34,7 @@
   </head>
   <body>
     <a class="skip-link" href="#workspace">Skip to content</a>
+    <div id="route-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     <div class="app-frame">
       <header class="mobile-chrome" id="mobile-chrome">
         <button
@@ -52,7 +53,7 @@
             <img class="brand-wordmark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
           </span>
           <div class="mobile-chrome-title-row">
-            <strong id="mobile-chrome-title">Your Sleeper league</strong>
+            <h1 id="mobile-chrome-title">Your Sleeper league</h1>
             <span id="sample-league-chip" class="sample-league-chip" data-sample-chip hidden>Sample league</span>
             <button type="button" class="sample-find-btn" data-sample-find hidden>Find my leagues</button>
           </div>
@@ -224,7 +225,7 @@
 
         <div class="desk-nav" id="desk-nav">
           <nav class="workspace-tabs" id="page-tabs" role="tablist" aria-label="What you can do">
-            <button id="players-tab" class="page-tab active" type="button" role="tab" aria-selected="true" aria-controls="players-page" tabindex="0" data-page="players">
+            <button id="players-tab" class="page-tab active" type="button" role="tab" aria-selected="true" aria-current="page" aria-controls="players-page" tabindex="0" data-page="players">
               <span class="tab-copy"><strong>Players</strong><small>What is he worth?</small></span>
             </button>
             <button id="trades-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades">
