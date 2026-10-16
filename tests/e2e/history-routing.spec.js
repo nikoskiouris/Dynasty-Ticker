@@ -103,6 +103,7 @@ for (const viewport of viewports) {
   test(`back from a league restores the picker at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
+    await expect(page.locator("#launch-example .launch-row").first()).toBeVisible({ timeout: 30000 });
     await loadLeagueFromLanding(page, "1360686137898700800");
     await expect(page).toHaveURL(/\/l\/1360686137898700800\/team/, { timeout: 30000 });
     await expect(page.locator("body")).toHaveClass(/league-loaded/);

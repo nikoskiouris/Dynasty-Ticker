@@ -15,6 +15,7 @@ import {
   tradablePickSeason,
   upcomingDraftSeason,
   fetchValuationBundles,
+  playersFromValueSnapshot,
   valuationUpdatedAt,
   pickValueBundle,
   crowdShiftsFromVotes,
@@ -475,4 +476,19 @@ test("league board evidence never creates a second player price", () => {
     leagueShifts: { "player:pw": 0.24 },
     applyLeagueBoard: true,
   }), 4200);
+});
+
+test("value snapshot players carry name, position, and team", () => {
+  const players = playersFromValueSnapshot({
+    "player:6794": { position: "WR", team: "MIN", age: 27, experience: 6, components: { huge: true } },
+  }, { "player:6794": "Justin Jefferson" });
+  assert.deepEqual(players["6794"], {
+    player_id: "6794",
+    full_name: "Justin Jefferson",
+    position: "WR",
+    fantasy_positions: ["WR"],
+    team: "MIN",
+    age: 27,
+    years_exp: 6,
+  });
 });

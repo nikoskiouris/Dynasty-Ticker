@@ -46,6 +46,7 @@ export function renderSleeperInsight(insight) {
     <section class="insight-item ${tone}"${busy}>
       <strong>${escapeHtml(insight?.title)}${insight?.tipHtml || ""}</strong>
       <span>${escapeHtml(insight?.body)}</span>
+      ${insight?.hint ? `<span class="pick-value-hint">${escapeHtml(insight.hint)}</span>` : ""}
     </section>
   `;
 }

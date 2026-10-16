@@ -107,15 +107,17 @@ for (const viewport of viewports) {
 
   test(`a dated link whose prices moved shows shared and today at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     // An older archived board where Gibbs cost twice as much.
+    // The desk fetches a stamp only when the index lists it.
     // #166 only fetches a stamp the price-history index lists, so the mocked
     // board has to be listed or the app treats it as pruned.
     await page.route("**/data/price-history/index.json", async (route) => {
-      const index = await (await route.fetch()).json();
+      const res = await route.fetch();
+      const index = await res.json();
       const snapshots = Array.isArray(index.snapshots) ? index.snapshots.slice() : [];
       if (!snapshots.some((row) => row?.stamp === OLD)) {
         snapshots.push({ asOf: "2026-10-07T11:17:00+00:00", stamp: OLD });
       }
-      await route.fulfill({ json: { ...index, snapshots } });
+      await route.fulfill({ response: res, json: { ...index, snapshots } });
     });
     await page.route(`**/data/price-history/${OLD}.json`, (route) => route.fulfill({
       contentType: "application/json",
@@ -272,8 +274,8 @@ test("a bad code with a saved trade still shows the notice and keeps the trade",
 test("the /trade headline carries the % like the card", async ({ page }) => {
   await page.goto("/trade?give=player:9221&get=pick:2027:r1:early,pick:2028:r1:any");
   const heading = page.locator("#value-calc-verdict h3");
-  // Gibbs for two 1sts: credited 21,031 vs 11,112 -> 89.3% more.
-  await expect(heading).toHaveText("Lopsided · Give side worth 89.3% more", { timeout: 30000 });
+  // Gibbs for two 1sts: credited 21,031 vs 11,112 -> 89.3% more, shown as 89.
+  await expect(heading).toHaveText("Lopsided · Give side worth 89% more", { timeout: 30000 });
 });
 
 test("Esc closes the info panel and returns focus to its button", async ({ page }) => {
