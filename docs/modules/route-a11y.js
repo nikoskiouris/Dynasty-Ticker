@@ -139,9 +139,17 @@ function railOpen(doc) {
   return classListHas(body, "rail-open");
 }
 
-function mayMoveFocus(doc, active) {
+function inLeagueIdForm(active) {
+  if (!active) return false;
+  if (active.id === "league-id" || active.id === "load-league-btn") return true;
+  return typeof active.closest === "function" && Boolean(active.closest("#league-load-form"));
+}
+
+function mayMoveFocus(doc, active, takeover = false) {
   if (!active || active === doc.body || active === doc.documentElement) return true;
   if (active.id === "workspace") return true;
+  // Back after a league-id switch leaves focus in that form. The restored room heading takes it.
+  if (takeover && inLeagueIdForm(active)) return true;
   // Closing the phone menu parks focus on Sections. The room heading should take it.
   if ((active.id === "mobile-rail-toggle" || active.id === "mobile-rail-close") && !railOpen(doc)) return true;
   // A room change hides the previous room. Focus is still on that heading until
@@ -158,7 +166,7 @@ let headingWatch = 0;
 
 // Retry until the heading is in the document and still focused on a later frame.
 // A render that replaces the node drops focus to the body, so the watch continues.
-export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000, settleMs = 400, now, onStuck, stillWanted, focusVisible = false } = {}) {
+export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000, settleMs = 400, now, onStuck, stillWanted, focusVisible = false, takeover = false } = {}) {
   if (!doc || !selector) return 0;
   const watch = ++headingWatch;
   const clock = now || (() => Date.now());
@@ -174,7 +182,7 @@ export function focusHeadingWhenPresent(doc, selector, { schedule, maxMs = 20000
     const active = doc.activeElement;
     const heading = firstVisible(doc, selector);
     const already = Boolean(heading) && active === heading;
-    if (!already && !mayMoveFocus(doc, active)) return;
+    if (!already && !mayMoveFocus(doc, active, takeover)) return;
     if (heading) {
       if (heading.getAttribute?.("tabindex") == null && typeof heading.setAttribute === "function") {
         heading.setAttribute("tabindex", "-1");

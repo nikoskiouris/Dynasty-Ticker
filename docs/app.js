@@ -904,6 +904,7 @@ let pendingPopstateFocus = 0;
 let routeFocusHold = null;
 let routeKeyboardUntil = 0;
 let routeHeadingFocusVisible = false;
+let historyFocusTakeover = false;
 const routeSettleJobs = new Set();
 let leagueOpenedInApp = false;
 let slimDirectory = null;
@@ -1724,12 +1725,13 @@ function roomFocusVisible() {
   return Date.now() < routeKeyboardUntil;
 }
 
-function focusRouteHeading(selector, focusVisible = routeHeadingFocusVisible) {
+function focusRouteHeading(selector, focusVisible = routeHeadingFocusVisible, takeover = false) {
   if (pendingPopstateFocus) return;
   if (!selector || Date.now() >= followHeadingsUntil) return;
   focusHeadingWhenPresent(document, selector, {
     stillWanted: () => Date.now() < followHeadingsUntil,
     focusVisible,
+    takeover,
   });
 }
 
@@ -1891,15 +1893,23 @@ function clearRouteAnnouncement() {
 
 function focusClickedRoute(before) {
   const focusVisible = routeHeadingFocusVisible;
+  const takeover = historyFocusTakeover;
   armHeadingFollow();
   const place = routePlaceNow();
   const selector = headingSelectorFor(place);
   if (selector) {
-    focusRouteHeading(selector, focusVisible);
+    focusRouteHeading(selector, focusVisible, takeover);
     return;
   }
   const root = headingRootFor(document, place, before || {});
   if (!focusViewHeading(root, { focusVisible })) focusViewHeading(document.querySelector("main"), { focusVisible });
+}
+
+async function waitForHistoryLeague(token) {
+  const deadline = Date.now() + 20000;
+  while (token === routeFocusToken && state.leagueSwitching && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 40));
+  }
 }
 
 async function focusAfterPopstate({ focus, trigger, before, token }) {
@@ -1911,6 +1921,10 @@ async function focusAfterPopstate({ focus, trigger, before, token }) {
   }
   await waitForRouteToSettle(token);
   if (token !== routeFocusToken) return;
+  // Back to another league restores the URL before that room is on screen.
+  // Wait until the restored room is the one in state, then focus its heading.
+  await waitForHistoryLeague(token);
+  if (token !== routeFocusToken) return;
   await new Promise((resolve) => requestAnimationFrame(resolve));
   if (token !== routeFocusToken) return;
   if (pendingPopstateFocus === token) pendingPopstateFocus = 0;
@@ -1919,7 +1933,9 @@ async function focusAfterPopstate({ focus, trigger, before, token }) {
   const mode = selector ? "heading" : ((!place.overlay && !place.playerId) ? "page" : focus);
   if (mode === "heading") holdRouteFocus(token, () => shownQuery(selector), focusVisible);
   else if (mode === "page") holdRouteFocus(token, () => visiblePageHeading(), focusVisible);
+  historyFocusTakeover = mode === "heading";
   syncRouteA11y({ focus: mode, trigger, before, settled: token, focusVisible });
+  historyFocusTakeover = false;
 }
 
 function syncRouteA11y({ focus = "none", trigger = null, before = null, settled = 0, focusVisible = roomFocusVisible() } = {}) {

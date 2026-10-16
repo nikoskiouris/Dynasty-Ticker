@@ -501,6 +501,29 @@ test("heading focus waits for the node and follows a replacement", () => {
   });
   assert.equal(doc.activeElement, playerHeading);
   assert.equal(queued.length, held);
+
+  const leagueButton = { id: "load-league-btn", className: "", tagName: "BUTTON" };
+  doc.activeElement = leagueButton;
+  doc.nodes = [roomHeading];
+  const blocked = queued.length;
+  focusHeadingWhenPresent(doc, "#league-heading", {
+    maxMs: 1000,
+    now: () => now,
+    schedule(fn) {
+      queued.push(fn);
+    },
+  });
+  assert.equal(doc.activeElement, leagueButton);
+  assert.equal(queued.length, blocked);
+  focusHeadingWhenPresent(doc, "#league-heading", {
+    maxMs: 1000,
+    now: () => now,
+    takeover: true,
+    schedule(fn) {
+      queued.push(fn);
+    },
+  });
+  assert.equal(doc.activeElement, roomHeading);
 });
 
 test("aria-current page sits on the active tab and comes off the others", () => {
@@ -640,6 +663,7 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(app, /if \(pendingPopstateFocus\) return;/);
   assert.match(app, /void focusAfterPopstate\(\{ focus, trigger: step\.trigger, before, token \}\)/);
   assert.match(app, /await new Promise\(\(resolve\) => requestAnimationFrame\(resolve\)\)/);
+  assert.match(app, /while \(token === routeFocusToken && state\.leagueSwitching && Date\.now\(\) < deadline\)/);
   assert.match(app, /leagueRoomMove\(before, after\) \? "heading" : step\.focus/);
   assert.equal(index.split('id="route-announcer"').length - 1, 1);
   assert.match(index, /id="route-announcer"[^>]*aria-live="polite"/);
