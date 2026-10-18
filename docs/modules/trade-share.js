@@ -1,5 +1,5 @@
 import { draftMarketPrice, draftVerdictModel } from "./trade-draft.js";
-import { verdictCopy } from "./verdict-copy.js";
+import { FEWER_BETTER_LABEL, verdictCopy } from "./verdict-copy.js";
 import { formatGenericPickAssetLabel, getGlobalMaxPlayerValue, pickValueBundle } from "./values.js";
 
 // A shared trade is its own state, so no server storage: /t/<code>.
@@ -173,7 +173,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     get,
     giveTotal: model.give,
     getTotal: model.get,
-    // Credited totals: the listed prices plus "Stars cost extra" on one side.
+    // Credited totals: the listed prices plus the extra for fewer, better players.
     // The gap, % and verdict all come from these, so the card's math adds up.
     giveCredited: model.compareGive,
     getCredited: model.compareGet,
@@ -207,8 +207,8 @@ export function shareMessage(summary) {
   return `${verdictCopy(summary?.verdict).line}. Check it on Dynasty Ticker.`;
 }
 
-// "Stars cost extra +7,413" on the side that gets the package credit.
+// "Fewer, better players +7,413" on the side that gets the extra.
 export function creditLine(summary) {
   if (!summary?.credit?.amount) return "";
-  return `Stars cost extra +${formatCount(summary.credit.amount)}`;
+  return `${FEWER_BETTER_LABEL} +${formatCount(summary.credit.amount)}`;
 }

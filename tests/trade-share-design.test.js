@@ -31,7 +31,7 @@ const summaryOf = (code) => shareSummary(decodeTradeShare(code), values, names);
 const indexHtml = readFileSync(join(root, "../docs/index.html"), "utf8");
 const svgText = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
 
-test("credited totals: rows plus 'Stars cost extra' add up to each side, and the gap is their difference", () => {
+test("credited totals: rows plus 'Fewer, better players' add up to each side, and the gap is their difference", () => {
   for (const code of ["1s9509~11632.p27r1e", "1s7564~11632.p27r2a", "1sp27r1e.p28r1a~p27r2a.p27r3a.p28r2a.p28r1e.p27r1l", "1s9509~9493"]) {
     const s = summaryOf(code);
     const sum = (rows) => rows.reduce((total, row) => total + row.value, 0);
@@ -53,9 +53,9 @@ test("the card never shows a verdict for the side with the smaller total", () =>
     assert.ok(texts.includes(s.giveCredited.toLocaleString("en-US")), `${code} give total`);
     assert.ok(texts.includes(s.getCredited.toLocaleString("en-US")), `${code} get total`);
     if (s.credit) {
-      assert.ok(texts.includes("Stars cost extra"));
+      assert.ok(texts.includes("Fewer, better players"));
       assert.ok(texts.includes(`+${s.credit.amount.toLocaleString("en-US")}`));
-      assert.equal(creditLine(s), `Stars cost extra +${s.credit.amount.toLocaleString("en-US")}`);
+      assert.equal(creditLine(s), `Fewer, better players +${s.credit.amount.toLocaleString("en-US")}`);
     }
     // The side named is the column worth more, by the true "% more".
     const bigger = s.giveCredited > s.getCredited ? "Give" : "Get";
@@ -78,7 +78,7 @@ test("og:title, og:description and alt use the card verdict and credited totals"
   const v = cardVerdict(s);
   assert.equal(title, `Bijan Robinson for Malik Nabers, 2027 Early 1st: ${v.text} · ${v.pctText}`);
   assert.equal(v.line, "Lopsided · Give side worth 33% more"); // 19,224 vs 14,457
-  assert.match(description, /^Give 11,811 \+ [\d,]+ stars cost extra = [\d,]+ vs get 14,457\./);
+  assert.match(description, /^Give 11,811 \+ [\d,]+ for fewer, better players = [\d,]+ vs get 14,457\./);
   assert.match(description, /Check your own trade free at Dynasty Ticker\.$/);
   assert.ok(alt.includes(s.giveCredited.toLocaleString("en-US")));
   assert.doesNotMatch(`${title} ${description} ${alt}`, /overpay|\bwin\b|\bthem\b/i);
