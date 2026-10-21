@@ -29,8 +29,14 @@ function isSleeperServerFailure(err) {
   return Number.isFinite(status) && status >= 500 && status <= 599;
 }
 
-export function describeUserSearchFailure(err, username) {
+// Echo a long username short, so the error never overflows the layout.
+export function shortUsername(username, max = 24) {
   const name = String(username || "").trim();
+  return name.length > max ? `${name.slice(0, max - 1)}…` : name;
+}
+
+export function describeUserSearchFailure(err, username) {
+  const name = shortUsername(username);
   if (isMissingSleeperUser(err)) {
     return { message: `We can't find "${name}" on Sleeper. Check the spelling.`, retry: false };
   }

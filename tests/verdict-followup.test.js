@@ -22,15 +22,17 @@ const BANNED = /in favor of|\bwins?\b|overpay|leans|\byou\b|\bthem\b/i;
 
 test("named-side lines use the shown % and the same tiers as the headline", () => {
   const names = { Give: "My side", Get: "Ben's side" };
-  assert.equal(verdictLineNamed(valueCalcVerdict(10000, 12500), names), "Favors one side · Ben's side worth 25% more");
-  assert.equal(verdictLineNamed(valueCalcVerdict(12500, 10000), names), "Favors one side · My side worth 25% more");
+  assert.equal(verdictLineNamed(valueCalcVerdict(10000, 12500), names), "Favors Ben's side · Ben's side worth 25% more");
+  assert.equal(verdictLineNamed(valueCalcVerdict(12500, 10000), names), "Favors My side · My side worth 25% more");
   assert.equal(verdictLineNamed(valueCalcVerdict(10000, 10400), names), "Fair trade · within 5%");
   // 12,820 vs 10,000 is 28.2% more: Lopsided on the unrounded metric, so the sentence ceils to 29.
   assert.equal(verdictLineNamed(valueCalcVerdict(10000, 12820), names), "Lopsided · Ben's side worth 29% more");
   for (const [a, b] of [[10000, 10499], [10000, 11400], [10000, 12800], [10000, 12810]]) {
     const named = verdictLineNamed(valueCalcVerdict(a, b), names);
     const plain = verdictCopyFor(a, b).line;
-    assert.equal(named.split(" · ")[0], plain.split(" · ")[0]);
+    // Same tier; "Favors" names the side in each surface's own words.
+    const tierWord = (line) => line.split(" · ")[0].replace(/^Favors .+$/, "Favors");
+    assert.equal(tierWord(named), tierWord(plain));
     assert.doesNotMatch(named, BANNED);
   }
   // Default names fall back to the plain line.

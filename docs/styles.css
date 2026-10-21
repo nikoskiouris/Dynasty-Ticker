@@ -9495,3 +9495,82 @@ body.cold-share #mobile-chrome-title {
     flex: 1 1 100%;
   }
 }
+
+/* QA 2026-10-18 */
+.share-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 80;
+  transform: translate(-50%, 12px);
+  padding: 0.6rem 1rem;
+  border-radius: var(--r-pill);
+  background: var(--text);
+  color: var(--bg, #0c0c0e);
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.share-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.selected-token .selected-token-remove {
+  min-width: 32px;
+  min-height: 32px;
+  margin: -0.36rem -0.4rem -0.36rem 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.field-error {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+.landing-search-row input {
+  min-width: 0;
+}
+.launch-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1rem;
+  margin-top: 2rem;
+  padding: 1rem 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.launch-footer a {
+  color: inherit;
+  text-decoration: underline;
+}
+.power-loading,
+.power-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+.power-badge-help {
+  margin-top: 0.5rem;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.power-badge-help ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+/* Phone: three lanes side by side left 0px for names. Stack them so names read. */
+@media (max-width: 640px) {
+  .window-call-league {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .window-call-row .team-name {
+    overflow-wrap: anywhere;
+  }
+}

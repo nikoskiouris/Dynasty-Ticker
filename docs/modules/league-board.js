@@ -296,7 +296,7 @@ const PRICE_LEGEND = {
   model: ["Value", "Same number on Players, Trade, and My League."],
   week: ["This week", "Start chance. Not a trade price."],
   lineup: ["Starters", "Value of your best lineup."],
-  package: ["Stars", "One great player beats a pile of good ones. Player prices stay the same."],
+  package: ["Stars", "One great player is worth more than several average players that add up to the same total. This changes the trade verdict. Player prices stay the same."],
 };
 
 export function renderPriceLegend(ids = ["model"]) {

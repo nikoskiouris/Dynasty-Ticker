@@ -136,7 +136,7 @@ for (const viewport of viewports) {
     const shared = page.locator(".calc-shared");
     await expect(shared).toBeVisible({ timeout: 30000 });
     // One neutral vocabulary: both rows name a side the same way.
-    const VERDICT = "(Fair trade · within 5%|(Fair, slight edge|Favors one side|Lopsided) · (Give|Get) side worth [\\d.]+% more)";
+    const VERDICT = "(Fair trade · within 5%|(Fair, slight edge|Favors (?:Give|Get) side|Lopsided) · (Give|Get) side worth [\\d.]+% more)";
     await expect(shared.locator("div").first()).toHaveText(new RegExp(`^Oct 7\\s*${VERDICT}$`));
     await expect(shared.locator(".is-today")).toHaveText(new RegExp(`^Today\\s*${VERDICT}$`));
     await expect(page.locator(".calc-shared-note")).toHaveText("Prices moved since this was shared.");
@@ -222,7 +222,7 @@ for (const viewport of viewports) {
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(fine).toBeVisible();
-    await expect(fine).toContainText("getting fewer, better players is worth extra");
+    await expect(fine).toContainText("One great player is worth more than several smaller ones");
     await expect(fine).not.toContainText(/credit|premium|consolidation|delta|multiplier/i);
     await toggle.click();
     await expect(fine).toBeHidden();

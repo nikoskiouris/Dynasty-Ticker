@@ -12,6 +12,30 @@ export function valuesWorkText(date = "") {
   return `Values come from our own football forecast: projected points, age and role, not crowd votes. Same number everywhere on the site.${updated}`;
 }
 
+// Plain words for terms a first-time or non-native reader may not know.
+export const GLOSSARY = Object.freeze({
+  PPR: "PPR (points per reception): every catch scores 1 point.",
+  Superflex: "Superflex: one lineup spot can hold a quarterback, so quarterbacks are worth more.",
+  "1QB": "1QB: only one quarterback starts, so quarterbacks are worth less.",
+  Stars: "Stars: one great player is worth more than several average players that add up to the same total. Player prices stay the same.",
+  "Pick slot": "Pick slot, like 1.04: round 1, 4th pick in that round.",
+  "Pick Hoarder": "Pick Hoarder: this team owns 3 or more future 1st-round picks.",
+  Edge: "Edge: this position group is one of the strongest in the league.",
+  Quest: "Quest: this position group is one of the weakest in the league, so it needs help.",
+  Lopsided: "Lopsided: one side gets more than 28% more value. Most managers would say no.",
+  "Youth Core": "Youth Core: many young players who should keep their value for years.",
+  Stack: "Stack: several players from the same NFL team.",
+  "Title Threat": "Title Threat: a power score of 90 or more.",
+});
+
+export function badgeMeaning(badge) {
+  const text = String(badge || "").trim();
+  if (GLOSSARY[text]) return GLOSSARY[text].replace(/^[^:]+:\s*/, "");
+  const tail = text.split(/\s+/).pop();
+  if (/\s/.test(text) && GLOSSARY[tail]) return GLOSSARY[tail].replace(/^[^:]+:\s*/, "");
+  return "";
+}
+
 export function infoTipMarkup({ id, label, text } = {}) {
   const popId = String(id || "").trim();
   const name = String(label || "More info").trim() || "More info";
@@ -79,7 +103,24 @@ export function bindInfoTips(doc = globalThis.document) {
 
   function popFor(button) {
     const id = button?.getAttribute?.("aria-controls") || "";
-    return id ? doc.getElementById(id) : null;
+    const source = id ? doc.getElementById(id) : null;
+    if (!source || typeof doc.createElement !== "function" || !doc.body?.appendChild) return source;
+    // Show a copy at the body level: a re-render, a transformed or clipped
+    // parent, or an overflow box can otherwise hide the text.
+    let portal = doc.getElementById("info-portal");
+    if (!portal) {
+      portal = doc.createElement("div");
+      portal.id = "info-portal";
+      portal.className = "info-pop";
+      portal.setAttribute("role", "dialog");
+      portal.hidden = true;
+      portal.tabIndex = -1;
+      doc.body.appendChild(portal);
+    }
+    if (portal.dataset) portal.dataset.source = id;
+    portal.setAttribute("aria-label", source.getAttribute("aria-label") || "More info");
+    portal.innerHTML = source.innerHTML;
+    return portal;
   }
 
   function place(button, pop) {
