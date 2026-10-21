@@ -155,6 +155,7 @@ import {
   isGenericPickAssetId,
   isLeaguePickAssetId,
   listGenericPicks,
+  pastPickSeasonHint,
   listValueCalcAssets,
   playerDisplayName,
   removeValueCalcItem,
@@ -312,7 +313,7 @@ import {
 } from "./modules/history-route.js";
 import { EVEN_UP_OFFER_ABOVE, displayMore, ideaLimitMore, oldPctToMore, STAR_PREMIUM_KEY, TIER_EXPLAINER, FEWER_BETTER_LINE, PRICE_FACTORS_LINE, UNAVAILABLE_PRICE_LINE, barLabel, creditedTotalsLine, fewerBetterOffer, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
-import { bindInfoTips, infoTipMarkup, valuesWorkText } from "./modules/info-tip.js";
+import { GLOSSARY, bindInfoTips, infoTipMarkup, valuesWorkText } from "./modules/info-tip.js";
 import {
   EXAMPLE_GET,
   EXAMPLE_GIVE,
@@ -321,7 +322,7 @@ import {
   launchExampleMarkup,
   launchTrendMarkup,
 } from "./modules/launch-landing.js";
-import { decodeTradeShare, encodeTradeShare, missingBoardNote, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
+import { decodeTradeShare, encodeTradeShare, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
 import {
   analyzeWindowCall,
   groupWindowCalls,
@@ -2054,6 +2055,11 @@ function escapeRouteOverlay(event) {
 }
 
 function updateUrlState({ mode = "replace", force = false } = {}) {
+  // A broken /t/ link keeps its address: never rewrite it to the saved draft.
+  if (mode === "replace" && state.badShareLink && /^\/t\//.test(window.location.pathname || "")) {
+    routeFocus.forget();
+    return;
+  }
   if (applyingHistory) {
     routeFocus.forget();
     return;
@@ -2287,6 +2293,7 @@ function routedPlayerName() {
 
 function applyTradeRoute(route) {
   state.badShareLink = Boolean(route?.badShare);
+  state.droppedPlayerNote = "";
   // Back from a just-shared /t/<code> lands on /trade and should stay there.
   state.sentShare = null;
   // A broken link leaves any saved draft alone, and the notice always shows.
@@ -2377,6 +2384,11 @@ function rememberSentShare(code) {
   history.pushState({ ...historyPlaceNow(), pushed: true }, "", sharePath(code));
 }
 
+function sharedOnCurrentPrices(stamp) {
+  const current = priceStamp(state.valueBundles?.asOf);
+  return Boolean(stamp && current && String(stamp) >= current);
+}
+
 function sharedVerdictFor(view) {
   const entry = activeSharedTrade(view.draft);
   if (!entry || !state.valueBundles) return null;
@@ -2391,7 +2403,8 @@ function sharedVerdictFor(view) {
     today,
     shared: moved ? shared : null,
     date: stampLabel(entry.decoded.stamp),
-    missing: entry.snapshotState === "missing",
+    // A link shared on today's prices is current, not "no longer saved".
+    missing: entry.snapshotState === "missing" && !sharedOnCurrentPrices(entry.decoded.stamp),
   };
 }
 
@@ -2493,7 +2506,11 @@ function openExampleTrade() {
 }
 
 function openEmptyTrade() {
-  // Enter the calculator with the current draft; a first visit is already empty.
+  // "Build a trade" starts fresh. An older draft stays one tap away (Restore draft).
+  state.sharedTrade = null;
+  state.badShareLink = false;
+  state.droppedPlayerNote = "";
+  if (!isDraftEmpty(state.valueCalc)) replaceDraft(clearValueCalcSides(state.valueCalc), "Cleared both sides.");
   openRoom("trades", "calculator", { history: "push", scroll: "top" });
   syncLaunchChrome();
   requestAnimationFrame(() => {
@@ -5089,9 +5106,9 @@ function renderPowerDashboard() {
     // position stays on the score, not on a card whose picks are already final.
     el.powerDashboard.innerHTML = `
       ${ammoHtml}
-      <div class="power-stat-grid">
-        ${renderPowerStat("Power", state.playerMetadataFailed ? "Unavailable" : "…")}
-      </div>
+      ${state.playerMetadataFailed
+        ? `<p class="power-empty muted" role="status">Power score unavailable: player details did not load. Reload to try again.</p>`
+        : `<p class="power-loading muted" role="status" aria-busy="true"><span class="name-skeleton" aria-hidden="true"></span> Scoring your roster…</p>`}
     `;
     return;
   }
@@ -5968,7 +5985,7 @@ function paintMockBoard() {
   const mineNote = mySlot
     ? (voice
       ? sampleMockNote(voice, { place: place.label, slots: slotLabels })
-      : `You sit ${place.label} now, so your names are ${slotLabels}. 3rds stay pick labels. College names have no trade value.`)
+      : `You sit ${place.label} now, so your names are ${slotLabels}. 3rds stay pick labels. College names have no trade value. A slot like 1.04 means round 1, 4th pick.`)
     : "1sts and 2nds get these names from current place. 3rds stay pick labels. College names have no trade value.";
   const focusId = state.mockFocus
     ? mockPickDomId(state.mockFocus.round, state.mockFocus.slot)
@@ -7605,6 +7622,35 @@ function draftValuesReady() {
   return Object.keys(draftBasis().values || {}).length > 0;
 }
 
+// A player id from the URL that is not a real player: say so, drop it, no verdict.
+function dropUnknownDraftPlayers() {
+  const players = state.players;
+  if (!players || typeof players !== "object" || !Object.keys(players).length) return;
+  const bundles = state.valueBundles || {};
+  const known = (assetId) => {
+    const id = String(assetId || "").replace(/^player:/, "");
+    return Boolean(players[id] || bundles.sf?.[assetId] != null || bundles.oneQb?.[assetId] != null || state.valueNameMap?.[assetId]);
+  };
+  const isPlayer = (item) => /^player:/.test(String(item?.assetId || ""));
+  const bad = [...(state.valueCalc?.left || []), ...(state.valueCalc?.right || [])].filter((item) => isPlayer(item) && !known(item.assetId));
+  if (!bad.length) return;
+  const ids = new Set(bad.map((item) => item.uid));
+  state.valueCalc = {
+    ...state.valueCalc,
+    left: (state.valueCalc.left || []).filter((item) => !ids.has(item.uid)),
+    right: (state.valueCalc.right || []).filter((item) => !ids.has(item.uid)),
+  };
+  writeStoredDraft(state.valueCalc);
+  const names = bad.map((item) => String(item.assetId).replace(/^player:/, "")).join(", ");
+  state.droppedPlayerNote = `Player not found (${names}). We removed it from the trade.`;
+  updateUrlState({ mode: "replace" });
+}
+
+function renderDroppedPlayerNotice() {
+  if (!state.droppedPlayerNote) return "";
+  return `<div class="share-broken" role="alert"><p>${escapeHtml(state.droppedPlayerNote)}</p></div>`;
+}
+
 function renderTradeDraft() {
   const host = el.calculatorShell;
   if (!host) return;
@@ -7613,6 +7659,7 @@ function renderTradeDraft() {
     if (!state.leagueId) void ensureRankExtras();
     return;
   }
+  dropUnknownDraftPlayers();
   const view = buildDraftView();
   // Cold /t/<code>: the recipient sees what was sent first (M1). A "Shared
   // trade" header, the full verdict, then the sides; the model notes fold away.
@@ -7625,7 +7672,7 @@ function renderTradeDraft() {
         <span class="eyebrow">Shared trade</span>
         <h1 id="shared-trade-title">${escapeHtml(sharedTradeTitle(view))}</h1>
       </div>
-      <div id="draft-notice">${renderBadShareNotice()}${renderDraftNotice()}</div>
+      <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
       <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
       <div class="calc-grid">
         ${renderDraftPane("left", view)}
@@ -7656,7 +7703,7 @@ function renderTradeDraft() {
       </div>
       <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
     </div>
-    <div id="draft-notice">${renderBadShareNotice()}${renderDraftNotice()}</div>
+    <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
     <div class="calc-grid">
       ${renderDraftPane("left", view)}
       ${renderDraftPane("right", view)}
@@ -7671,6 +7718,12 @@ function renderTradeDraft() {
 function patchTradeDraft(listSides = []) {
   const host = el.calculatorShell;
   if (!host?.querySelector(".calc-grid") || !draftValuesReady()) {
+    renderTradeDraft();
+    return;
+  }
+  const before = state.droppedPlayerNote;
+  dropUnknownDraftPlayers();
+  if (state.droppedPlayerNote !== before) {
     renderTradeDraft();
     return;
   }
@@ -7700,7 +7753,7 @@ function patchTradeDraft(listSides = []) {
   const basisEl = host.querySelector("#draft-basis");
   if (basisEl) basisEl.innerHTML = renderDraftBasis(view);
   const notice = host.querySelector("#draft-notice");
-  if (notice) notice.innerHTML = `${renderBadShareNotice()}${renderDraftNotice()}`;
+  if (notice) notice.innerHTML = `${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}`;
   const verdict = host.querySelector("#value-calc-verdict");
   if (verdict) verdict.innerHTML = renderDraftVerdict(view);
   const team = host.querySelector("#draft-team");
@@ -7730,6 +7783,7 @@ function renderDraftBasis(view) {
   return `
     <div class="draft-basis-row" role="group" aria-label="Scoring format">
       ${["sf", "oneQb"].map((format) => `<button type="button" class="ranks-chip${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}">PPR · ${escapeHtml(rankFormatLabel(format))}</button>`).join("")}
+      ${infoTipMarkup({ id: "pop-format-trade", label: "What PPR, Superflex and 1QB mean", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${GLOSSARY["1QB"]}` })}
       ${infoTipMarkup({ id: "pop-values-trade", label: "How values work", text: valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10)) })}
     </div>
   `;
@@ -7900,11 +7954,11 @@ function renderDraftTokens(side, view) {
       ? renderSelectedTokenLabel(item)
       : `<span class="selected-token-label is-loading"><span class="name-skeleton" aria-hidden="true"></span><span class="sr-only">Loading player name</span></span>`;
     return `
-      <button type="button" class="selected-token${draftItemMismatch(view, item) ? " is-mismatch" : ""}" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" title="${escapeHtml(name ? `Remove ${name}` : "Remove")}">
+      <span class="selected-token${draftItemMismatch(view, item) ? " is-mismatch" : ""}" data-uid="${escapeHtml(item.uid)}">
         ${label}
         <span class="selected-token-price" title="Value">${formatNumber(price?.value || 0)}${price?.estimated ? " est" : ""}</span>
-        <span class="selected-token-remove" aria-hidden="true">×</span>
-      </button>
+        <button type="button" class="selected-token-remove" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" aria-label="${escapeHtml(name ? `Remove ${name}` : "Remove")}"><span aria-hidden="true">×</span></button>
+      </span>
     `;
   }).join("");
 }
@@ -7921,7 +7975,7 @@ function renderDraftNotes(side, view) {
 }
 
 function draftSearchPlaceholder(side, view) {
-  if (!view.basis.connected) return "Player or pick, like 2026 early 1st";
+  if (!view.basis.connected) return `Player or pick, like ${nextRookieDraftSeason()} early 1st`;
   if (side === "left") return sampleVoice()?.draftSearchLeft || "Your players and picks";
   return "Their players and picks";
 }
@@ -7976,7 +8030,12 @@ function draftSuggestionRows(side, view) {
   const names = withPlayerDirectoryNames(basis.nameMap, state.players);
   if (!basis.connected) {
     if (!query) return [];
-    return listValueCalcAssets(basis.values, names, { query, limit: 40 }).map((row) => ({
+    const added = new Set([...draft.left, ...draft.right]
+      .filter((item) => !isGenericPickAssetId(item.assetId))
+      .map((item) => item.assetId));
+    return listValueCalcAssets(basis.values, names, { query, limit: 40, minSeason: nextRookieDraftSeason() })
+      .filter((row) => !added.has(row.assetId))
+      .map((row) => ({
       assetId: row.assetId,
       name: row.name,
       assetType: row.assetType,
@@ -8073,7 +8132,10 @@ function renderDraftSuggestions(side, view) {
     return `<div class="player-item muted">Loading names…</div>`;
   }
   if (!rows.length) {
-    if (query) return `<div class="player-item muted">No matching players or picks.</div>`;
+    if (query) {
+      const past = pastPickSeasonHint(query, nextRookieDraftSeason(), view.basis.values);
+      return `<div class="player-item muted" role="status">No matching players or picks.${past ? ` ${escapeHtml(past)}` : ""}</div>`;
+    }
     if (view.basis.connected && side === "right" && view.me) return `<div class="player-item muted">Type a name, or pick a team to browse.</div>`;
     return "";
   }
@@ -8115,6 +8177,12 @@ function findEvenUpPick(view) {
 function evenUpCopy(choice, side) {
   if (!choice) return "";
   const verb = side === "You" || side === "They" ? "add" : "adds";
+  // Cite a pick only when its price is close to the gap.
+  const near = Number(choice.value) > 0 && Number(choice.gap) > 0
+    && choice.value <= choice.gap * 1.5 && choice.value >= choice.gap * 0.67;
+  if (choice.closes && !near) {
+    return `${side} ${verb} about ${formatNumber(choice.gap)} to even it up. No single pick is close to that.`;
+  }
   if (choice.closes) {
     return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
   }
@@ -8322,8 +8390,39 @@ function draftShareCode(view) {
 
 const SHARE_STATUS_MS = 4000;
 let shareStatusTimer = 0;
+let shareInFlight = false;
+let shareToastTimer = 0;
 
+// A toast the user can see wherever the button sits (the inline status can scroll away).
+function showShareToast(text) {
+  if (typeof document === "undefined" || !document.body) return;
+  let toast = document.getElementById("share-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "share-toast";
+    toast.className = "share-toast";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    document.body.appendChild(toast);
+  }
+  toast.textContent = text;
+  toast.classList.add("is-visible");
+  clearTimeout(shareToastTimer);
+  shareToastTimer = setTimeout(() => toast.classList.remove("is-visible"), SHARE_STATUS_MS);
+}
+
+// A double click shares once.
 async function shareDraftTrade(button) {
+  if (shareInFlight) return;
+  shareInFlight = true;
+  try {
+    await shareDraftTradeOnce(button);
+  } finally {
+    shareInFlight = false;
+  }
+}
+
+async function shareDraftTradeOnce(button) {
   const view = buildDraftView();
   const code = draftShareCode(view);
   const status = button?.closest(".calc-actions")?.querySelector(".calc-share-status");
@@ -8362,6 +8461,7 @@ async function shareDraftTrade(button) {
     await navigator.clipboard.writeText(url);
     trackShareTapped("copy");
     say("Link copied.");
+    showShareToast("Link copied");
   } catch {
     say(`Copy this link: ${url}`);
   }
@@ -8919,6 +9019,8 @@ function handleWorkspaceClick(event) {
     }
     case "value-add": {
       pickDraftSuggestion(target);
+      // Clear the box and close the list so it never covers the verdict.
+      collapseCalcSearch(target.dataset.side === "right" ? "right" : "left");
       break;
     }
     case "value-remove": {

@@ -33,7 +33,9 @@ export function emptyValueCalcState() {
 
 export function isGenericPickAssetId(assetId) {
   const meta = parsePickAssetId(assetId);
-  return Boolean(meta && VALUE_CALC_BUCKETS.includes(meta.bucket));
+  if (!meta) return false;
+  // "pick:2027:r2:any" is a generic whole-round pick; "pick:2027:r1:5" is a league pick.
+  return VALUE_CALC_BUCKETS.includes(meta.bucket) || /:any$/i.test(String(assetId));
 }
 
 // A league pick is keyed by its original owner's roster id, which only means something
@@ -85,7 +87,8 @@ function wordMatchesToken(word, token) {
 
 export function valueCalcAssetMatchesQuery(row, query) {
   const tokens = searchWords(query);
-  if (!tokens.length) return true;
+  // Emoji or punctuation only: nothing to match, so show "No matching".
+  if (!tokens.length) return !String(query || "").trim();
   const words = searchWords(valueCalcAssetSearchText(row));
   return tokens.every((token) => words.some((word) => wordMatchesToken(word, token)));
 }
@@ -100,8 +103,19 @@ function sliceValueCalcRows(rows, limit) {
 
 export function listGenericPicks(values = {}, names = {}, { minSeason = upcomingDraftSeason() } = {}) {
   const floor = Number(minSeason);
+  // Rounds priced by slot (early/mid/late) list those; rounds priced only as a
+  // whole ("any", usually 2nd-5th) list the single round pick.
+  const bucketed = new Set();
+  Object.keys(values).forEach((assetId) => {
+    const meta = parsePickAssetId(assetId);
+    if (meta && VALUE_CALC_BUCKETS.includes(meta.bucket)) bucketed.add(`${meta.season}:${meta.round}`);
+  });
   return Object.entries(values)
-    .filter(([assetId, value]) => isGenericPickAssetId(assetId) && Number.isFinite(Number(value)))
+    .filter(([assetId, value]) => {
+      if (!isGenericPickAssetId(assetId) || !Number.isFinite(Number(value))) return false;
+      const meta = parsePickAssetId(assetId);
+      return meta.bucket !== "any" || !bucketed.has(`${meta.season}:${meta.round}`);
+    })
     .map(([assetId, value]) => {
       const meta = parsePickAssetId(assetId);
       return {
@@ -117,6 +131,15 @@ export function listGenericPicks(values = {}, names = {}, { minSeason = upcoming
     })
     .filter((pick) => !Number.isFinite(floor) || Number(pick.season) >= floor)
     .sort((a, b) => Number(a.season) - Number(b.season) || a.round - b.round || VALUE_CALC_BUCKETS.indexOf(a.bucket) - VALUE_CALC_BUCKETS.indexOf(b.bucket));
+}
+
+// "2026 early 1st" after the 2026 draft: say why nothing matched.
+// Only when that season truly has no pick values.
+export function pastPickSeasonHint(query, minSeason = upcomingDraftSeason(), values = null) {
+  const year = String(query || "").match(/\b(20\d{2})\b/);
+  if (!year || Number(year[1]) >= Number(minSeason)) return "";
+  if (values && Object.keys(values).some((id) => id.startsWith(`pick:${year[1]}:`))) return "";
+  return `${year[1]} picks were already drafted. Try ${minSeason} early 1st.`;
 }
 
 export function isBarePlayerId(label) {

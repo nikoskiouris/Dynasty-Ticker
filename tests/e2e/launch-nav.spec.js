@@ -54,7 +54,8 @@ for (const viewport of viewports) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 
-  test(`home Trade keeps an existing draft at ${viewport.width}`, async ({ page }) => {
+  // QA 2026-10-18 #6 (owner): landing "Build a trade" starts fresh; the old draft is one tap away.
+  test(`home Trade starts fresh and offers the old draft back at ${viewport.width}`, async ({ page }) => {
     await openLanding(page, viewport);
     await page.locator('.launch-nav [data-launch="players"]').click();
     await expect(page).toHaveURL(/\/players$/);
@@ -63,6 +64,9 @@ for (const viewport of viewports) {
     await expect(page.locator("#calculator-shell")).toContainText("Bijan Robinson", { timeout: 30000 });
     await page.goto("/");
     await page.locator('.launch-nav [data-launch="empty"]').click();
+    await expect(page.locator("[data-action='draft-restore']")).toBeVisible({ timeout: 30000 });
+    await expect(page.locator(".calc-grid")).not.toContainText("Bijan Robinson");
+    await page.locator("[data-action='draft-restore']").click();
     await expect(page.locator("#calculator-shell")).toContainText("Bijan Robinson", { timeout: 30000 });
     await expect(page.locator("#calculator-shell")).toContainText("Malik Nabers");
   });

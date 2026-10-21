@@ -115,8 +115,9 @@ export function verdictCopy(verdict) {
   const right = Number(verdict.right) || 0;
   const more = percentMore(left, right);
   const hit = { tier: tierForMore(more) };
-  hit.label = LABEL[hit.tier];
   const side = right > left ? "Get" : left > right ? "Give" : "";
+  // Say which side, never "one side".
+  hit.label = hit.tier === "favors" && side ? `Favors ${side} side` : LABEL[hit.tier];
   const detail = hit.tier === "even"
     ? `within ${TIER_BANDS.even}%`
     : worthMorePhrase(`${side} side`, more);
@@ -146,7 +147,8 @@ export function verdictLineNamed(verdict, names = {}) {
   const copy = verdictCopy(verdict);
   if (!copy.tier || copy.tier === "even" || !copy.side) return copy.line;
   const name = String(names[copy.side] || `${copy.side} side`);
-  return `${copy.label} · ${worthMorePhrase(name, copy.more)}`;
+  const label = copy.tier === "favors" ? `Favors ${name}` : copy.label;
+  return `${label} · ${worthMorePhrase(name, copy.more)}`;
 }
 
 // The even-up suggestion "closes" a trade when the shown % lands inside the

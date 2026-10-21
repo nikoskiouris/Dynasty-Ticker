@@ -156,8 +156,9 @@ test("the info icon is 44px, one opens at a time, and Esc returns focus", () => 
   assert.equal(INFO_HIT_PX, 44);
   assert.equal(INFO_HIT_OUTSET, 13);
   const css = readFileSync(join(root, "../docs/product.css"), "utf8");
-  assert.match(css, /\.info::before\s*\{[^}]*inset:\s*-13px/);
-  assert.match(css, /\.info\s*\{[^}]*width:\s*18px/);
+  // The button box itself is 32px (QA #5); ::before widens the hit area to 44px.
+  assert.match(css, /\.info::before\s*\{[^}]*inset:\s*-6px/);
+  assert.match(css, /\.info\s*\{[^}]*width:\s*32px/);
   const markup = infoTipMarkup({ id: "pop-values", label: "How values work", text: "Same number everywhere." });
   assert.match(markup, /<button[^>]*class="info"[^>]*aria-label="How values work"[^>]*aria-expanded="false"/);
   assert.match(markup, /role="dialog"/);

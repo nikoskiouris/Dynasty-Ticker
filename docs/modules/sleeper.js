@@ -280,7 +280,8 @@ export async function fetchUserLeagues(client, username, seasons) {
   if (!handle) throw new Error("Type a Sleeper username.");
   const user = await client.apiGetWithRetry(`/user/${encodeURIComponent(handle)}`, { timeoutMs: 10000, retries: 1 });
   if (!user || typeof user !== "object" || !user.user_id) {
-    throw new Error(`We can't find "${handle}" on Sleeper. Check the spelling.`);
+    const shown = handle.length > 24 ? `${handle.slice(0, 23)}…` : handle;
+    throw new Error(`We can't find "${shown}" on Sleeper. Check the spelling.`);
   }
   const seasonList = Array.isArray(seasons) && seasons.length ? seasons : [String(new Date().getUTCFullYear())];
   const batches = await Promise.all(
