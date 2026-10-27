@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import random
+import re
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -64,6 +68,135 @@ class PlayerValueBuildTests(unittest.TestCase):
         self.assertEqual((pid, how), ("00-0040718", "name"))
         pid, how = build.resolve_nfl_id({"full_name": "Kenneth Walker", "position": "RB"}, identity, "RB")
         self.assertEqual((pid, how), ("00-0038134", "name-position"))
+
+    def test_slim_player_keeps_only_desk_fields(self):
+        record = build.slim_nfl_player({
+            "player_id": "6794",
+            "full_name": "Justin Jefferson",
+            "first_name": "Justin",
+            "last_name": "Jefferson",
+            "position": "WR",
+            "team": "MIN",
+            "age": 27,
+            "fantasy_positions": ["WR"],
+            "injury_status": "Questionable",
+            "search_rank": 1,
+            "metadata": {"rookie_year": 2020, "channel_id": "nope"},
+        }, "6794")
+        self.assertEqual(record["full_name"], "Justin Jefferson")
+        self.assertEqual(record["position"], "WR")
+        self.assertEqual(record["team"], "MIN")
+        self.assertNotIn("search_rank", record)
+        self.assertEqual(record["metadata"], {"rookie_year": 2020})
+        self.assertIsNone(build.slim_nfl_player({
+            "player_id": "1",
+            "full_name": "Some Linebacker",
+            "position": "LB",
+            "fantasy_positions": ["LB"],
+        }, "1"))
+
+    def test_slim_file_bytes_do_not_change_when_the_input_order_does(self):
+        sleeper = {
+            "20": {
+                "player_id": "20",
+                "full_name": "Amon-Ra St. Brown",
+                "position": "WR",
+                "team": "DET",
+                "age": 25,
+                "status": "Active",
+                "years_exp": 5,
+            },
+            "3": {
+                "player_id": "3",
+                "full_name": "No Team Yet",
+                "position": "RB",
+                "status": "Active",
+                "years_exp": 1,
+            },
+        }
+        flipped = {"3": sleeper["3"], "20": sleeper["20"]}
+        teams = {"3": "SEA"}
+        with tempfile.TemporaryDirectory() as tmp:
+            first = Path(tmp) / "a.json"
+            second = Path(tmp) / "b.json"
+            build.write_slim_players(sleeper, output=first, teams_by_id=teams)
+            build.write_slim_players(flipped, output=second, teams_by_id=dict(reversed(list(teams.items()))))
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+            text = first.read_text(encoding="utf-8")
+            self.assertNotIn("asOf", text)
+            self.assertNotIn("generatedAt", text)
+            self.assertIsNone(re.search(r"\d{4}-\d{2}-\d{2}T", text))
+            payload = json.loads(text)
+            self.assertEqual(list(payload["players"]), ["20", "3"])
+            self.assertEqual(payload["players"]["3"][2], "SEA")
+
+    def test_shipped_slim_file_covers_priced_players_without_a_clock(self):
+        # Shipped file is 140744 bytes. 180KB leaves room for a season of
+        # call-ups and still rejects the old ~900KB object dump.
+        cap = 180_000
+        path = ROOT / "docs" / "data" / "nfl_players_slim.json"
+        raw = path.read_bytes()
+        self.assertLess(len(raw), cap, f"slim file is {len(raw)} bytes")
+        self.assertIsNone(re.search(r"\d{4}-\d{2}-\d{2}T", raw.decode("utf-8")))
+        payload = json.loads(raw)
+        self.assertEqual(sorted(payload), ["fields", "players", "source"])
+        self.assertEqual(
+            payload["fields"],
+            ["full_name", "position", "team", "age", "injury_status", "status", "years_exp"],
+        )
+        name_at = payload["fields"].index("full_name")
+        position_at = payload["fields"].index("position")
+        team_at = payload["fields"].index("team")
+        values = json.loads((ROOT / "docs" / "data" / "player_values.json").read_text(encoding="utf-8"))
+        missing = []
+        for asset_id, info in (values.get("players") or {}).items():
+            if not str(asset_id).startswith("player:"):
+                continue
+            player_id = str(asset_id).split(":", 1)[1]
+            row = payload["players"].get(player_id)
+            published_team = str((info or {}).get("team") or "").strip()
+            if (
+                not isinstance(row, list)
+                or not str(row[name_at] or "").strip()
+                or not str(row[position_at] or "").strip()
+                or (published_team and not str(row[team_at] or "").strip())
+            ):
+                missing.append(player_id)
+        self.assertEqual(missing, [])
+
+    def test_partial_sleeper_clock_does_not_wipe_the_season(self):
+        self.assertEqual(build.resolve_nfl_clock({"season": "2026", "week": 6}), (2026, 6))
+        self.assertEqual(
+            build.resolve_nfl_clock({"season": "2026", "season_type": "regular", "week": 6}),
+            (2026, 6),
+        )
+        self.assertEqual(
+            build.resolve_nfl_clock({"season": "2026", "season_type": "off", "week": 6}),
+            (2026, 1),
+        )
+        self.assertEqual(
+            build.resolve_nfl_clock({"season": "2026", "season_type": "post", "week": 2}),
+            (2026, 19),
+        )
+        with self.assertRaises(RuntimeError):
+            build.resolve_nfl_clock({})
+        with self.assertRaises(RuntimeError):
+            build.resolve_nfl_clock({"season": "2026"})
+        with self.assertRaises(RuntimeError):
+            build.resolve_nfl_clock({"season": "2026", "season_type": "regular"})
+
+    def test_short_upstream_body_does_not_truncate_the_cache(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "sleeper_state.json"
+            path.write_text('{"season":"2026","season_type":"regular","week":6}', encoding="utf-8")
+            before = path.read_bytes()
+            with self.assertRaises(RuntimeError):
+                build.cache_payload(path, b"{}")
+            self.assertEqual(path.read_bytes(), before)
+            build.cache_payload(path, b'{"season":"2026","season_type":"regular","week":7}')
+            self.assertIn(b"week\":7", path.read_bytes())
 
     def test_inactive_and_stale_players_are_not_listable(self):
         self.assertFalse(build.player_is_listable({"active": False, "status": "Active"}))
@@ -190,6 +323,52 @@ class PlayerValueBuildTests(unittest.TestCase):
         self.assertEqual(seen["through"], build.CONFIG["validationTrainingThrough"])
         self.assertEqual(report["replacementThrough"], build.CONFIG["validationTrainingThrough"])
         self.assertIn("replacement frozen", report["scope"])
+
+    def test_half_ages_round_up_so_odd_halves_do_not_skip_a_year(self):
+        self.assertEqual(build.age_bucket(29.5), 30)
+        self.assertEqual(build.age_bucket(30.5), 31)
+        self.assertEqual(build.age_bucket(31.5), 32)
+        self.assertEqual(build.age_bucket(30.49), 30)
+
+    def test_age_20_keep_rate_is_borrowed_by_the_next_thin_age(self):
+        retention = {("RB", 20, "starter"): [0.80] * 12}
+        keep, _surv, _n, _total = build.transition("RB", 21, "starter", retention, {}, {})
+        self.assertAlmostEqual(keep, 0.80)
+
+    def test_two_seasons_with_no_top12_stay_on_the_rookie_rate(self):
+        rookie = build.role_security({"experience": 1, "resume": {"top5Finishes": 0, "top12Finishes": 0}})
+        second_year = build.role_security({"experience": 2, "resume": {"top5Finishes": 0, "top12Finishes": 0}})
+        veteran_blank = build.role_security({"experience": 3, "resume": {"top5Finishes": 0, "top12Finishes": 0}})
+        one_finish = build.role_security({"experience": 2, "resume": {"top5Finishes": 0, "top12Finishes": 1}})
+        self.assertEqual(second_year, rookie)
+        self.assertLess(second_year, 1.0)
+        self.assertLess(veteran_blank, second_year)
+        self.assertEqual(one_finish, 1.0)
+
+    def test_clamped_round1_any_cannot_sit_under_a_later_round(self):
+        samples = {"sf": {}, "oneQb": {}}
+        for fmt in samples:
+            for slot in range(1, 61):
+                samples[fmt][slot] = [90.0]
+            for slot in range(1, 5):
+                samples[fmt][slot] = [8.0]
+        priced = build.pick_values(samples, 2026)
+        for fmt in ("sf", "oneQb"):
+            build._assert_pick_order(priced[fmt])
+            self.assertGreaterEqual(priced[fmt]["pick:2027:r1:any"], priced[fmt]["pick:2027:r2:any"])
+            self.assertGreaterEqual(priced[fmt]["pick:2027:r1:early"], priced[fmt]["pick:2032:r1:early"])
+
+    def test_random_slot_samples_keep_pick_order(self):
+        rng = random.Random(20261014)
+        samples = {"sf": {}, "oneQb": {}}
+        for fmt in samples:
+            for slot in range(1, 61):
+                samples[fmt][slot] = [float(rng.randint(1, 900)) for _ in range(rng.randint(1, 6))]
+            samples[fmt][3] = [20.0, 800.0, 20.0]
+            samples[fmt][15] = [900.0]
+        priced = build.pick_values(samples, 2026)
+        for fmt in ("sf", "oneQb"):
+            build._assert_pick_order(priced[fmt])
 
 
 if __name__ == "__main__":

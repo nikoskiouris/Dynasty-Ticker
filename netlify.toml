@@ -9,9 +9,34 @@
   PYTHON_VERSION = "3.12"
   NODE_VERSION = "22.12.0"
 
+# VISIT_SALT and RATHER_SALT must live in the Netlify site environment
+# (Functions and Runtime). scripts/deploy_live_site.sh runs
+# scripts/ensure_netlify_salts.py before upload. Do not commit the values.
+# dynasty-ticker-traffic-v1 and dynasty-ticker-rather-v1 are rejected.
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+  # Shared-trade cards read the deploy's own prices, fonts, and the resvg wasm.
+  included_files = [
+    "docs/index.html",
+    "docs/data/player_values.json",
+    "docs/data/price-history/*.json",
+    "netlify/fonts/*.ttf",
+    "docs/brand/wordmark-on-dark.svg",
+    "node_modules/@resvg/resvg-wasm/index_bg.wasm",
+  ]
+
+# :placeholder rewrites also match "x.json" or "9221.png", and Netlify has no
+# documented way to exclude an extension from a placeholder. This edge function
+# answers those file-like paths with 404.html and a 404 before the rewrites run.
+# Same rule as isAssetLikePath (docs/modules/asset-path.js) and serve_site.mjs.
+[[edge_functions]]
+  path = "/player/*"
+  function = "asset-404"
+
+[[edge_functions]]
+  path = "/l/*"
+  function = "asset-404"
 
 [[redirects]]
   from = "https://www.dynastyticker.com/*"
@@ -30,6 +55,142 @@
   to = "/.netlify/functions/searched-user"
   status = 200
   force = true
+
+# First-party analytics (launch item 5). ANALYTICS_SALT (optional, daily
+# uniques) and ANALYTICS_READ_TOKEN (stats read) live in the site environment
+# only. Never commit values. Unset salt = counts without uniques; unset token =
+# /api/analytics-stats answers 404.
+[[redirects]]
+  from = "/api/collect"
+  to = "/.netlify/functions/collect"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/analytics-stats"
+  to = "/.netlify/functions/analytics-stats"
+  status = 200
+  force = true
+
+# Shared trades. /t/:code returns index.html with that trade's og: and
+# twitter: tags so bots read them without JS. /og/t/:file is the card image.
+[[redirects]]
+  from = "/t/:code"
+  to = "/.netlify/functions/trade-page?code=:code"
+  status = 200
+
+[[redirects]]
+  from = "/t/:code/"
+  to = "/.netlify/functions/trade-page?code=:code"
+  status = 200
+
+[[redirects]]
+  from = "/og/t/:file"
+  to = "/.netlify/functions/trade-card?file=:file"
+  status = 200
+
+# Keep these /* values identical to netlify/lib/security-headers.js, which
+# the asset-404 edge function sets on its own response. tests check they match.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# data/*.json is not fingerprinted. player_values.json is about 2.9MB.
+# max-age=0 lets the browser revalidate instead of keeping a stale price file.
+# The CDN still gzip/brotli compresses JSON. Leave compression to the CDN.
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Documented rewrites only: a fixed path or one :placeholder per segment.
+# Not forced, so a real file still wins. /* is the only splat, and it is
+# the 404 catch-all, so /api, functions, and static files stay put.
+# A placeholder also matches a segment like x.js. The app treats a
+# non-numeric player id or a league id with a dot as unknown and sends it home.
+[[redirects]]
+  from = "/player/:id"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/player/:id/:slug"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/l/:id"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/l/:id/:view"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/players"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/trade"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/connect"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/players/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/trade/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/connect/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/l/:id/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/l/:id/:view/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/player/:id/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/player/:id/:slug/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/l"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/l/"
+  to = "/index.html"
+  status = 200
 
 [[redirects]]
   from = "/*"

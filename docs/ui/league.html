@@ -3,14 +3,18 @@
     <div id="start-dashboard" class="dashboard start-dashboard hidden"></div>
     <section class="workspace-panel" id="power-section">
       <div class="panel-heading">
-        <h2 id="power-heading">Outlook</h2>
+        <h2 id="power-heading" tabindex="-1">Outlook</h2>
       </div>
       <div id="power-dashboard" class="power-dashboard">
-        <p class="muted">Connect Sleeper to see your team.</p>
+        <div class="empty-cta">
+          <h2 class="empty-cta-title">Connect your league to see your team.</h2>
+          <p class="muted">Type your Sleeper username. No name yet? <a id="sample-league-link" class="sample-league-link" href="./?sample=1">See the sample league</a>.</p>
+          <button type="button" data-action="find-my-leagues" data-idle-label="Connect my league" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+        </div>
       </div>
       <div id="window-call-dashboard" class="window-call-dashboard"></div>
     </section>
-    <section class="workspace-panel" id="roster-sheet-section">
+    <section class="workspace-panel hidden" id="roster-sheet-section">
       <div class="panel-heading">
         <h2 id="roster-sheet-heading">Roster</h2>
         <button type="button" id="weekly-help-btn" class="weekly-help-btn" data-action="toggle-weekly-help" aria-expanded="false" aria-haspopup="dialog" aria-controls="weekly-help-pop" title="What this start score means">
@@ -23,6 +27,9 @@
     </section>
   </div>
   <div class="room hidden" data-room-panel="scores">
+    <div class="panel-heading">
+      <h2 id="scores-heading" tabindex="-1">This week</h2>
+    </div>
     <div id="scores-dashboard" class="dashboard"></div>
     <div id="weekly-honors-dashboard" class="dashboard"></div>
   </div>
@@ -31,7 +38,7 @@
       <div class="panel-heading">
         <div>
           <span class="eyebrow">League</span>
-          <h2>How the league ranks</h2>
+          <h2 id="league-heading" tabindex="-1">How the league ranks</h2>
         </div>
         <p class="section-copy" id="teams-grid-copy">Your team is outlined. Tap a team to view it.</p>
       </div>
@@ -46,11 +53,26 @@
     </details>
   </div>
   <div class="room hidden" data-room-panel="activity">
+    <div class="panel-heading">
+      <h2 id="activity-heading" tabindex="-1">Activity</h2>
+    </div>
     <div id="trade-log-dashboard" class="dashboard"></div>
   </div>
   <div class="room hidden" data-room-panel="history">
+    <section class="workspace-panel">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">History</span>
+          <h2 id="history-heading" tabindex="-1">Titles, records, and who stayed</h2>
+        </div>
+      </div>
+    </section>
     <div id="history-dashboard" class="dashboard analytics-dashboard">
-      <p class="muted">Connect a league to open history.</p>
+      <div class="empty-cta">
+        <h2 class="empty-cta-title">No league yet</h2>
+        <p class="muted">Type your Sleeper username. No name yet? <a class="sample-league-link" href="./?sample=1">See the sample league</a>.</p>
+        <button type="button" data-action="find-my-leagues" data-idle-label="Connect my league" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+      </div>
     </div>
     <div id="loyalty-dashboard" class="loyalty-dashboard"></div>
   </div>

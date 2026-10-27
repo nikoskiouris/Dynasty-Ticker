@@ -32,8 +32,8 @@ body {
 .product-kicker {
   color: var(--muted);
   font-family: var(--font-display);
-  font-style: italic;
-  font-size: 1.15rem;
+  font-style: normal;
+  font-size: var(--fs-xs);
   font-weight: 400;
   font-synthesis: none;
 }
@@ -41,8 +41,8 @@ body {
 .product-hero-copy {
   max-width: 28rem;
   color: var(--muted);
-  font-size: 1.05rem;
-  line-height: 1.5;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
 }
 
 h1,
@@ -50,6 +50,13 @@ h1,
 .panel-heading h2,
 .tab-copy strong {
   font-synthesis: none;
+}
+
+#hero-title {
+  margin: 0 0 0.35rem;
+  font-size: var(--fs-h1);
+  line-height: var(--lh-tight);
+  font-weight: var(--fw-semi);
 }
 
 /* --------------------------------------------------------------------------
@@ -64,7 +71,7 @@ h1,
   .control-rail {
     background: transparent;
     border-right: 0;
-    padding: 1.15rem 1.15rem 1.4rem 1.35rem;
+    padding: var(--section-gap) var(--card-pad);
     gap: 1rem;
   }
 
@@ -79,14 +86,14 @@ h1,
 
   .rail-module {
     border: 0;
-    border-radius: 28px;
+    border-radius: var(--r-md);
     background: color-mix(in srgb, var(--panel) 88%, transparent);
     box-shadow: var(--product-shadow);
-    padding: 1.15rem;
+    padding: var(--card-pad);
   }
 
   .step-badge {
-    border-radius: 999px;
+    border-radius: var(--r-sm);
     border-color: transparent;
     background: var(--panel-tint);
     color: var(--link);
@@ -96,7 +103,7 @@ h1,
   }
 
   .rail-module h2 {
-    font-size: 1.35rem;
+    font-size: var(--fs-h2);
     font-weight: 400;
     letter-spacing: -0.03em;
   }
@@ -108,16 +115,16 @@ h1,
   }
 
   #home-btn {
-    border-radius: 999px;
+    border-radius: var(--r-sm);
     border: 1px solid var(--line-strong);
     background: transparent;
     color: var(--text);
-    min-height: 2.5rem;
+    min-height: var(--btn-h);
   }
 
   .workspace {
-    padding: 1.5rem 2.6rem 4.5rem;
-    gap: 1.75rem;
+    padding: var(--section-gap) var(--page-x) var(--section-gap);
+    gap: var(--section-gap);
   }
 
   .workspace-header {
@@ -127,12 +134,14 @@ h1,
   }
 
   #hero-title {
-    font-size: clamp(2.8rem, 5vw, 4.4rem);
-    line-height: 0.95;
+    font-size: var(--fs-h1);
+    line-height: var(--lh-tight);
+    font-weight: var(--fw-semi);
+    margin: 0 0 0.35rem;
   }
 
   .league-avatar {
-    border-radius: 22px;
+    border-radius: var(--r-md);
     border-width: 0;
     background: var(--panel);
     box-shadow: var(--product-shadow);
@@ -145,7 +154,7 @@ h1,
   .state-grid > div {
     padding: 0.85rem 1rem;
     border: 0;
-    border-radius: 18px;
+    border-radius: var(--r-md);
     background: var(--panel);
     box-shadow: var(--product-shadow);
   }
@@ -155,7 +164,7 @@ h1,
     top: 0.7rem;
     z-index: 8;
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--r-sm);
     background: color-mix(in srgb, var(--panel) 82%, transparent);
     box-shadow: var(--product-shadow);
     backdrop-filter: blur(16px);
@@ -169,7 +178,7 @@ h1,
   .page-tab {
     min-height: 0;
     padding: 0.55rem 1rem;
-    border-radius: 999px;
+    border-radius: var(--r-sm);
     background: transparent;
     box-shadow: none;
   }
@@ -191,7 +200,7 @@ h1,
 
   .tab-copy strong {
     font-family: var(--font-body);
-    font-size: 0.92rem;
+    font-size: var(--fs-body);
     font-weight: 600;
     letter-spacing: 0;
   }
@@ -207,8 +216,8 @@ h1,
     padding: 0.38rem 0.8rem;
     margin-right: 0;
     border: 1px solid transparent;
-    border-radius: 999px;
-    font-size: 0.82rem;
+    border-radius: var(--r-pill);
+    font-size: var(--fs-sm2);
   }
 
   .room-tab.active,
@@ -220,7 +229,7 @@ h1,
   }
 
   .ticker {
-    border-radius: 18px;
+    border-radius: var(--r-md);
     margin-top: 0.2rem;
   }
 
@@ -229,10 +238,10 @@ h1,
   .action-panel,
   details.workspace-panel {
     border: 0;
-    border-radius: 28px;
+    border-radius: var(--r-md);
     background: var(--panel);
     box-shadow: var(--product-shadow);
-    padding: 1.5rem 1.6rem 1.7rem;
+    padding: var(--card-pad);
   }
 
   .panel-heading {
@@ -242,14 +251,14 @@ h1,
 
   .panel-heading h2,
   .action-panel h2 {
-    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    font-size: var(--fs-h2);
     line-height: 1;
     letter-spacing: -0.03em;
   }
 
   .section-copy {
     text-align: left;
-    font-size: 0.95rem;
+    font-size: var(--fs-body-lg);
   }
 
   .empty-workspace {
@@ -262,8 +271,9 @@ h1,
   .asset-item,
   .log-row,
   .history-row {
-    border-radius: 16px;
-    padding: 0.8rem 0.85rem;
+    border-radius: var(--r-sm);
+    min-height: var(--row-h-compact);
+    padding: 0 var(--card-pad);
   }
 
   button.ranks-row:hover,
@@ -284,7 +294,7 @@ h1,
   .mode-card,
   .pulse-tile {
     border: 0;
-    border-radius: 22px;
+    border-radius: var(--r-md);
     background: var(--panel-soft);
     box-shadow: var(--product-shadow);
   }
@@ -301,14 +311,14 @@ h1,
   }
 
   .rather-panel h2 {
-    font-size: clamp(2.4rem, 5vw, 4rem);
+    font-size: var(--fs-h2);
     line-height: 0.98;
   }
 
   .rather-player,
   button.rather-player {
     border: 0;
-    border-radius: 28px;
+    border-radius: var(--r-md);
     background: var(--panel);
     box-shadow: var(--product-shadow);
     padding: 1.3rem 1rem 1.2rem;
@@ -321,7 +331,7 @@ h1,
 
   .mode-card strong {
     font-family: var(--font-display);
-    font-size: 1.45rem;
+    font-size: var(--fs-h1);
     font-weight: 400;
     letter-spacing: -0.03em;
   }
@@ -335,8 +345,8 @@ h1,
   input,
   select,
   textarea {
-    border-radius: 999px;
-    min-height: 3rem;
+    border-radius: var(--r-sm);
+    min-height: var(--input-h);
     padding-inline: 1.05rem;
     border-color: transparent;
     background: var(--panel);
@@ -351,7 +361,7 @@ h1,
 
   .ghost-btn,
   button.ghost-btn {
-    border-radius: 999px;
+    border-radius: var(--r-sm);
     border-color: var(--line-strong);
     background: transparent;
     box-shadow: none;
@@ -382,7 +392,7 @@ h1,
     min-height: 0;
     max-height: none;
     overflow: visible;
-    padding: 1.35rem 2.4rem 0;
+    padding: var(--card-pad) var(--section-gap) 0;
     border: 0;
     background: transparent;
     box-shadow: none;
@@ -449,7 +459,7 @@ h1,
 
   body:not(.league-loaded):not(.board-tools-live) .tab-copy strong {
     font-family: var(--font-body);
-    font-size: 0.95rem;
+    font-size: var(--fs-body-lg);
     font-weight: 500;
   }
 
@@ -477,8 +487,8 @@ h1,
 
   body:not(.league-loaded):not(.board-tools-live) .landing-search label {
     font-family: var(--font-display);
-    font-style: italic;
-    font-size: 1rem;
+    font-style: normal;
+    font-size: var(--fs-sm);
     font-weight: 400;
     letter-spacing: 0;
     text-transform: none;
@@ -491,12 +501,12 @@ h1,
   }
 
   body:not(.league-loaded):not(.board-tools-live) .landing-search-row input {
-    min-height: 3.3rem;
+    min-height: var(--input-h);
     text-align: left;
   }
 
   body:not(.league-loaded):not(.board-tools-live) #landing-find-btn {
-    min-height: 3.3rem;
+    min-height: var(--btn-h);
     padding-inline: 1.4rem;
   }
 
@@ -525,7 +535,7 @@ h1,
   }
 
   body:not(.league-loaded):not(.board-tools-live) #ranks-section .panel-heading h2 {
-    font-size: clamp(2.2rem, 4vw, 3.2rem);
+    font-size: var(--fs-h2);
   }
 
   body:not(.league-loaded):not(.board-tools-live) #ranks-section .section-copy {
@@ -625,6 +635,10 @@ h1,
     display: none;
   }
 
+  body.league-loaded #league-status:has(.status-retry:not(.hidden)) {
+    display: flex;
+  }
+
   body.league-loaded .league-module .league-load-form {
     display: flex;
     gap: 0.45rem;
@@ -634,7 +648,7 @@ h1,
   body.league-loaded .league-module input,
   body.league-loaded #me-select {
     width: 14rem;
-    min-height: 2.6rem;
+    min-height: var(--input-h);
     box-shadow: none;
   }
 
@@ -675,8 +689,8 @@ h1,
 
 .ranks-search {
   width: min(560px, 100%);
-  min-height: 3.2rem;
-  border-radius: 999px;
+  min-height: var(--input-h);
+  border-radius: var(--r-sm);
   text-align: left;
 }
 
@@ -690,16 +704,16 @@ h1,
 }
 
 button.ranks-chip {
-  min-height: 2.15rem;
+  min-height: var(--chip-h);
   margin: 0;
   padding: 0.25rem 0.85rem;
   border: 1px solid var(--line-strong);
   border-bottom-width: 1px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: transparent;
   color: var(--muted-strong);
   font-family: var(--font-body);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
@@ -725,14 +739,14 @@ button.ranks-chip.active:hover {
 button.ranks-shelf-item .player-face,
 .player-face,
 .rather-headshot {
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   box-shadow: var(--product-shadow);
 }
 
 .ranks-num,
 .rank-number {
   font-family: var(--font-display);
-  font-size: 1.05rem;
+  font-size: var(--fs-h2);
   font-weight: 400;
   font-synthesis: none;
 }
@@ -770,7 +784,7 @@ button.ranks-shelf-item .player-face,
 .passport-card,
 .sheet-card {
   border: 0;
-  border-radius: 22px;
+  border-radius: var(--r-md);
   background: var(--panel-soft);
   box-shadow: var(--product-shadow);
 }
@@ -784,20 +798,20 @@ button.ranks-shelf-item .player-face,
 .seed-chip,
 .log-chip,
 .ticker-tag {
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 details.workspace-panel > summary,
 .league-id-fallback summary {
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: 1.15rem;
-  font-weight: 400;
+  font-family: var(--font-ui);
+  font-style: normal;
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-semi);
   letter-spacing: 0;
 }
 
 .field-error {
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
 }
 
 /* --------------------------------------------------------------------------
@@ -808,17 +822,17 @@ details.workspace-panel > summary,
 @media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
   .mobile-chrome {
     border-bottom: 0;
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    background: var(--bg);
   }
 
   .mobile-icon-btn {
-    border-radius: 999px;
+    border-radius: var(--r-sm);
     border-color: var(--line-strong);
     background: var(--panel);
   }
 
-  .mobile-chrome-copy strong {
-    font-size: 1.05rem;
+  .mobile-chrome-copy #mobile-chrome-title {
+    font-size: var(--fs-h2);
     font-weight: 400;
   }
 
@@ -827,11 +841,24 @@ details.workspace-panel > summary,
     margin-bottom: 1.1rem;
   }
 
+  .ranks {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .ranks-toolbar,
   .ranks-filters {
     width: 100%;
     max-width: 100%;
+    min-width: 0;
     justify-content: flex-start;
+    justify-items: stretch;
+  }
+
+  .ranks-search {
+    width: 100%;
+    max-width: 100%;
   }
 
   .ranks-filters {
@@ -851,17 +878,46 @@ details.workspace-panel > summary,
   }
 
   .landing-search-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+  }
+
+  .landing-search-row input,
+  .landing-search-row button,
+  .ranks-filters button,
+  .ranks-search {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .landing-copy,
+  .landing-search,
+  .landing-hero,
+  .empty-workspace,
+  .ranks-toolbar,
+  .ranks-filters {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .ranks-filters {
+    flex-wrap: wrap;
+  }
+
+  .workspace,
+  .empty-workspace {
+    overflow-x: clip;
   }
 
   #landing-find-btn,
   #sticky-find-btn {
-    min-height: 3.1rem;
+    min-height: var(--btn-h);
   }
 
   .workspace {
-    padding: 1rem 1rem 5.5rem;
-    gap: 1.2rem;
+    padding: var(--card-pad);
+    gap: var(--section-gap);
   }
 
   .workspace-panel,
@@ -869,14 +925,14 @@ details.workspace-panel > summary,
   .action-panel,
   details.workspace-panel {
     border: 0;
-    border-radius: 22px;
+    border-radius: var(--r-md);
     background: var(--panel);
     box-shadow: var(--product-shadow);
   }
 
   .panel-heading h2,
   .rather-panel h2 {
-    font-size: 2rem;
+    font-size: var(--fs-h2);
     line-height: 1.02;
   }
 
@@ -891,7 +947,7 @@ details.workspace-panel > summary,
   .game-card,
   .mode-card {
     border: 0;
-    border-radius: 20px;
+    border-radius: var(--r-md);
     box-shadow: var(--product-shadow);
   }
 
@@ -900,17 +956,42 @@ details.workspace-panel > summary,
   }
 
   button.ranks-row {
-    border-radius: 14px;
+    border-radius: var(--r-sm);
   }
 
   .sticky-mobile-cta {
-    padding: 0.7rem 1rem calc(0.7rem + env(safe-area-inset-bottom));
-    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    position: static;
+    padding: 0;
+    background: none;
     border-top: 0;
   }
 
   #sticky-find-btn {
-    border-radius: 999px;
+    position: static;
+    border-radius: var(--r-sm);
+  }
+
+  body.viewing-sample .mobile-chrome {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    align-items: center;
+  }
+
+  body.viewing-sample .mobile-chrome-copy,
+  body.viewing-sample .mobile-chrome-title-row {
+    min-width: 0;
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  body.viewing-sample .mobile-chrome-title-row #mobile-chrome-title {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  #sample-chrome {
+    display: none;
   }
 }
 
@@ -933,18 +1014,18 @@ details.workspace-panel > summary,
 }
 
 .legal-shell h1 {
-  font-size: clamp(2.6rem, 6vw, 4.2rem);
-  line-height: 0.96;
+  font-size: var(--fs-h1);
+  line-height: var(--lh-tight);
 }
 
 .legal-shell h2 {
   margin-top: 2rem;
-  font-size: 1.7rem;
+  font-size: var(--fs-h2);
 }
 
 .legal-shell p,
 .legal-shell li {
-  font-size: 1.02rem;
+  font-size: var(--fs-h2);
   color: var(--muted-strong);
 }
 
@@ -953,5 +1034,747 @@ details.workspace-panel > summary,
   display: inline-flex;
   width: auto;
   margin-top: 1.4rem;
-  border-radius: 999px;
+  border-radius: var(--r-sm);
 }
+
+/* Wide and mid desktops: wordmark row, then an opaque sticky tab row.
+   Tabs no longer sit on top of Find my leagues, Trade, or the team picker. */
+@media (min-width: 701px) {
+  body.league-loaded .control-rail,
+  body.board-tools-live .control-rail,
+  body:not(.league-loaded):not(.board-tools-live) .control-rail {
+    position: sticky;
+    top: 0;
+    left: auto;
+    z-index: 30;
+    display: flex;
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    padding: var(--card-pad) var(--section-gap);
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+    box-shadow: none;
+  }
+
+  body.league-loaded .workspace,
+  body.board-tools-live .workspace,
+  body:not(.league-loaded):not(.board-tools-live) .workspace {
+    width: min(1120px, calc(100% - 3rem));
+    margin: 0 auto;
+    padding-top: 1rem;
+  }
+
+  body.league-loaded .desk-nav,
+  body.board-tools-live .desk-nav,
+  body:not(.league-loaded):not(.board-tools-live) .desk-nav {
+    order: -1;
+    position: sticky;
+    top: var(--desk-rail-height, 4.6rem);
+    left: auto;
+    z-index: 28;
+    transform: none;
+    width: 100%;
+    max-width: none;
+    border-radius: 0;
+    background: var(--bg);
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  body.viewing-sample:not(.sample-connect-open) .league-module {
+    display: none;
+  }
+
+  /* The open list is in the top bar. Leave it in normal flow so it sits
+     above the desk instead of sticking over the league header. */
+  body.league-loaded:has(#league-picker:not(.hidden)) .control-rail,
+  body.board-tools-live:has(#league-picker:not(.hidden)) .control-rail {
+    position: static;
+    z-index: auto;
+    background: var(--bg);
+  }
+
+  body.league-loaded:has(#league-picker:not(.hidden)) .league-module,
+  body.board-tools-live:has(#league-picker:not(.hidden)) .league-module {
+    flex: 1 0 100%;
+    align-items: stretch;
+  }
+
+  body.league-loaded:has(#league-picker:not(.hidden)) #league-picker,
+  body.board-tools-live:has(#league-picker:not(.hidden)) #league-picker {
+    width: 100%;
+  }
+
+  body.league-loaded #me-select,
+  body.board-tools-live #me-select {
+    width: min(16rem, 46vw);
+  }
+
+  /* /players and other public boards have no league rail. The empty wordmark
+     strip was a 51px sticky bar. Phone .mobile-chrome scroll-reveal stays. */
+  body:not(.league-loaded):has(#landing.hidden) .control-rail {
+    display: none;
+  }
+
+  body:not(.league-loaded):has(#landing.hidden) .desk-nav {
+    top: 0;
+  }
+}
+
+/* Density lock. Tokens drive type, controls, rows, and cards. */
+.brand {
+  font-family: var(--font-brand);
+}
+
+.eyebrow,
+.product-kicker,
+.desk-jobs-kicker {
+  font-family: var(--font-ui);
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semi);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+}
+
+button.ranks-row,
+.player-item,
+.sheet-row,
+.team-card-main,
+.standings-row {
+  min-height: var(--row-h-compact);
+}
+
+button.ranks-row {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.ranks-card-price strong {
+  font-family: var(--font-ui);
+  font-size: var(--fs-num-xl);
+  font-weight: var(--fw-num);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-tight);
+}
+
+.team-card-score strong,
+.calc-pane-total strong,
+.weekly-score-badge strong,
+.dynasty-value-badge strong {
+  font-family: var(--font-ui);
+  font-size: var(--fs-num-lg);
+  font-weight: var(--fw-num);
+  font-variant-numeric: tabular-nums;
+}
+
+.avatar-sm,
+.avatar-md {
+  width: var(--avatar);
+  height: var(--avatar);
+}
+
+.player-face-sm,
+.player-face-md,
+.ranks-headshot,
+button.ranks-shelf-item .player-face {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  flex: 0 0 40px;
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--line-strong), var(--product-shadow);
+}
+
+.player-face-sm > .player-face-photo,
+.player-face-md > .player-face-photo,
+.ranks-headshot > .rather-photo {
+  width: 40px;
+  height: 40px;
+}
+
+button.ranks-chip,
+.week-chips button,
+.segmented button {
+  position: relative;
+  min-height: var(--chip-h);
+  border-radius: var(--r-pill);
+}
+
+/* Hit area. Visual size stays. Empty ::before grows the target to --tap-min.
+   Wide controls expand on the block axis only, so neighbors do not share a side.
+   28px chips use a deeper inset. Stacked rows are already 44px, so their
+   ::before stays inside the row. The pseudo paints nothing, so the 2px
+   focus outline stays visible. */
+.mobile-icon-btn,
+.mobile-rail-close,
+.selected-token-remove,
+button.weekly-help-close,
+#landing-find-btn,
+#find-leagues-btn,
+#load-league-btn,
+.ghost-btn,
+button.ghost-btn,
+.page-tab,
+.room-tab,
+.phone-desk-room,
+.team-card-trade,
+button.ranks-chip,
+.week-chips button,
+.segmented button,
+details.workspace-panel > summary,
+.league-id-fallback summary,
+.league-missing-primary {
+  position: relative;
+}
+
+.ghost-btn,
+button.ghost-btn,
+.page-tab,
+.room-tab,
+details.workspace-panel > summary,
+.league-id-fallback summary {
+  min-height: var(--btn-h);
+}
+
+/* ::before is positioned on the padding edge, so a 1px border made a
+   -4px inset land at 42 and a -8px chip inset land at 41. Size the
+   pseudo to --tap-min from that edge. It does not grow a target that
+   is already tall enough. */
+.mobile-icon-btn::before,
+.mobile-rail-close::before,
+.selected-token-remove::before,
+button.weekly-help-close::before,
+button.weekly-help-btn::before {
+  content: "";
+  position: absolute;
+  left: min(0px, calc((100% - var(--tap-min)) / 2));
+  right: min(0px, calc((100% - var(--tap-min)) / 2));
+  top: min(0px, calc((100% - var(--tap-min)) / 2));
+  bottom: min(0px, calc((100% - var(--tap-min)) / 2));
+  background: none;
+  pointer-events: auto;
+}
+
+#landing-find-btn::before,
+#find-leagues-btn::before,
+#load-league-btn::before,
+#sticky-find-btn::before,
+.sample-banner > button::before,
+.sample-find-btn::before,
+.ghost-btn::before,
+button.ghost-btn::before,
+.page-tab::before,
+.room-tab::before,
+button.ranks-chip::before,
+.week-chips button::before,
+.segmented button::before,
+button.inline-link::before,
+a.inline-link::before,
+details.workspace-panel > summary::before,
+.league-id-fallback summary::before,
+.league-missing-primary::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: min(0px, calc((100% - var(--tap-min)) / 2));
+  bottom: min(0px, calc((100% - var(--tap-min)) / 2));
+  background: none;
+  pointer-events: auto;
+}
+
+.phone-desk-room,
+.phone-desk-page,
+.team-card-trade,
+button.room-tab,
+button.ranks-row {
+  min-height: var(--tap-min);
+  padding-block: 0;
+}
+
+.sample-banner > button,
+.sample-find-btn,
+#sample-find-btn,
+#landing-find-btn,
+#find-leagues-btn,
+#load-league-btn,
+#sticky-find-btn {
+  position: relative;
+}
+
+button.weekly-help-btn,
+button.inline-link,
+a.inline-link {
+  position: relative;
+}
+
+button.inline-link,
+a.inline-link {
+  display: inline-block;
+}
+
+input,
+.ranks-search,
+.calc-search,
+.landing-search-row input,
+body:not(.league-loaded):not(.board-tools-live) .landing-search-row input,
+body.league-loaded .league-module input,
+body.board-tools-live .league-module input,
+body.league-loaded #me-select,
+body.board-tools-live #me-select,
+select,
+select[data-change="lens-roster"] {
+  min-height: var(--tap-min);
+}
+
+.ranks-toolbar {
+  gap: calc(var(--tap-min) - var(--chip-h) + 2px);
+}
+
+.ranks-filters {
+  row-gap: calc(var(--tap-min) - var(--chip-h) + 2px);
+}
+
+.phone-desk-room::before,
+.team-card-trade::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: none;
+  pointer-events: auto;
+}
+
+#me-select {
+  min-height: var(--tap-min);
+}
+
+.mobile-icon-btn:focus-visible,
+.mobile-rail-close:focus-visible,
+.ghost-btn:focus-visible,
+.page-tab:focus-visible,
+.room-tab:focus-visible,
+button.ranks-chip:focus-visible,
+.phone-desk-room:focus-visible,
+.team-card-trade:focus-visible,
+details.workspace-panel > summary:focus-visible,
+.league-id-fallback summary:focus-visible {
+  z-index: 1;
+}
+
+@media (max-width: 700px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Week chips inherited the 36px button height, and the sideways scroller
+   clips a ::before that sticks out. The button box is the hit target.
+   Sample-league and mock-draft links are inline text (~17px) unless the
+   real elements grow to --tap-min. */
+.week-chips button,
+a.sample-league-link,
+.pick-mock-note button.inline-link,
+.mock-board .section-copy a.inline-link,
+button.inline-link,
+a.inline-link {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  box-sizing: border-box;
+  min-height: var(--tap-min);
+  line-height: 1.2;
+}
+
+.sheet-player strong,
+.player-name > .player-name-text {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+@supports (-webkit-touch-callout: none) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Last word on the revealed phone bar. Earlier product rules used a translucent mix. */
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  header#mobile-chrome {
+    background: var(--bg);
+    background-color: var(--bg);
+  }
+}
+
+/* Launch landing. Heights match the loaded rows so the first paint does not jump. */
+.launch-wrap {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--sp-4) var(--page-x) 60px;
+}
+.launch h1 {
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-semi);
+  line-height: var(--lh-tight);
+  margin: 0 0 var(--sp-1);
+}
+.launch .sub {
+  color: var(--muted);
+  font-size: var(--fs-sm2);
+  margin: 0 0 var(--sp-4);
+}
+.launch-lab {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin: var(--sp-4) 0 var(--sp-1);
+  font-size: var(--fs-xs);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.launch-lab a {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted-strong);
+  font-size: var(--fs-sm);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.launch-box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.launch-example {
+  min-height: 360px;
+}
+.launch-trend {
+  min-height: 200px;
+}
+.launch-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--row-h-compact);
+  padding: 0 var(--card-pad);
+  border-top: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
+}
+.launch-box > .launch-row:first-child,
+.launch-side > .launch-row:first-of-type {
+  border-top: 0;
+}
+.launch-side {
+  padding: var(--sp-2) 0;
+}
+.launch-side + .launch-side {
+  border-top: 1px solid var(--line);
+}
+.launch .sh {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 var(--card-pad) var(--sp-1);
+  font-size: var(--fs-xs);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.launch .pos {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: var(--r-xs);
+  background: var(--panel-soft);
+  color: var(--muted-strong);
+  min-width: 26px;
+  text-align: center;
+}
+.launch .nm {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.launch .meta {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.launch .v {
+  font-weight: 700;
+  font-variant-numeric: var(--num);
+  font-size: var(--fs-num);
+}
+.launch-verdict-skel .vt {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 22px;
+}
+.launch-verdict-skel .sk {
+  display: block;
+  height: 12px;
+  width: 42%;
+  border-radius: 4px;
+  background: var(--panel-soft);
+}
+.launch-verdict {
+  padding: var(--card-pad);
+  border-top: 1px solid var(--line);
+}
+.launch .vt {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+.launch .big {
+  font-size: var(--fs-num-lg);
+  font-weight: 700;
+  font-variant-numeric: var(--num);
+}
+.launch-verdict.fair .vt { color: var(--amber); }
+.launch-verdict.strong .vt { color: var(--text); }
+.launch .bar,
+.launch-meters {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--panel-soft);
+  display: flex;
+  overflow: hidden;
+  margin: var(--sp-2) 0;
+}
+.launch .bar i { display: block; }
+.launch-meter { min-width: 0; }
+.launch-meter .meter-track {
+  height: 6px;
+  border-radius: 0;
+  background: transparent;
+}
+.launch-meter.meter-give .meter-track span { background: var(--team-a); }
+.launch-meter.meter-get .meter-track span { background: var(--team-b); }
+.launch-meter .meter-track.meter-split span.meter-stars {
+  background: repeating-linear-gradient(135deg, var(--muted-strong) 0 3px, rgba(244, 241, 236, 0.35) 3px 6px);
+}
+.launch .draft-package {
+  margin: 0 0 var(--sp-2);
+  color: var(--muted-strong);
+  font-size: var(--fs-sm);
+}
+.launch-sample {
+  margin: var(--sp-2) 0 0;
+  text-align: center;
+}
+.launch-sample a {
+  color: var(--muted-strong);
+  font-size: var(--fs-sm);
+}
+.launch-card-hit {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.launch-check,
+.launch-connect {
+  position: relative;
+  height: var(--btn-h);
+  margin-top: var(--sp-3);
+}
+.launch-check {
+  width: 100%;
+  background: var(--text);
+  color: var(--on-accent);
+  border: 0;
+  border-radius: var(--r-sm);
+  font-size: var(--btn-fs);
+  font-weight: 600;
+}
+.launch-check::before,
+.launch-connect::before,
+.launch-header-link::before {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+}
+.launch-connect {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+}
+.launch-row-skel .sk,
+.launch .sh .sk {
+  display: block;
+  height: 12px;
+  width: 46%;
+  border-radius: 4px;
+  background: var(--panel-soft);
+}
+.launch-error {
+  padding: var(--card-pad);
+}
+.launch-empty {
+  padding: var(--card-pad);
+}
+.launch-header-link {
+  display: none;
+  position: relative;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--fs-sm2);
+  color: var(--muted-strong);
+  text-decoration: none;
+}
+body.launch-open .launch-header-link,
+body.launch-open #find-leagues-btn,
+body.launch-open #sticky-find-btn,
+body.launch-open #sample-find-btn,
+body.launch-open .sample-find-btn,
+body.launch-open #ranks-section,
+body.launch-open #landing-rather,
+body.launch-open #passport-fold,
+body.launch-open .desk-nav,
+body.launch-open #workspace-header,
+body.launch-open #sample-banner,
+body.launch-open .phone-desk,
+body.launch-open #mobile-rail-toggle,
+body.launch-open .mobile-chrome-title-row,
+body.launch-open .mobile-chrome-viewing,
+body.launch-open #desk-board-open,
+body.launch-open .desk-board-close,
+body.launch-open #mobile-rail-close,
+body.launch-open .sample-chrome,
+body.launch-open #ticker,
+body.launch-open .state-grid,
+body.launch-open #site-dock {
+  display: none !important;
+}
+button.info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  /* 32px tap target; the visible ring stays 18px. */
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  margin: -7px -7px -7px -3px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: none;
+  background: radial-gradient(circle, transparent 8px, var(--line-strong) 8.5px, var(--line-strong) 9px, transparent 9.5px);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-style: italic;
+  line-height: 1;
+  vertical-align: middle;
+}
+.info::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+.info-pop {
+  position: fixed;
+  z-index: 40;
+  max-width: 280px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--card-pad);
+  font-size: var(--fs-sm2);
+  color: var(--text);
+}
+.info-pop[hidden] {
+  display: none;
+}
+.info-pop.info-sheet {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  max-width: none;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+}
+@media (min-width: 900px) {
+  .launch-main {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: var(--section-gap);
+    align-items: start;
+  }
+  .launch-trend-col {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .launch-example-col .launch-lab:first-child {
+    margin-top: 0;
+  }
+  .launch-trend-col .launch-lab {
+    margin-top: 0;
+  }
+}
+
+/* The home page is a starting point for every public task. */
+.launch-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-4);
+  border-bottom: 1px solid var(--line);
+}
+.launch-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--sp-2);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+.launch-start { display: grid; gap: var(--sp-2); }
+.launch-action {
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--card-pad);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  color: var(--text);
+  text-decoration: none;
+}
+.launch-action strong { display: flex; justify-content: space-between; gap: var(--sp-2); }
+.launch-action > span { color: var(--muted-strong); font-size: var(--fs-sm2); }
+.launch-action.launch-connect { height: auto; margin-top: 0; }
+.launch-action[hidden] { display: none; }
+.launch-action:hover, .launch-nav a:hover { background: var(--panel-soft); }
+.launch-action:focus-visible, .launch-nav a:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }

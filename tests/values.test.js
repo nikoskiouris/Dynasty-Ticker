@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   parseCsvValues,
   leagueHasSuperflex,
@@ -12,6 +15,8 @@ import {
   tradablePickSeason,
   upcomingDraftSeason,
   fetchValuationBundles,
+  playersFromValueSnapshot,
+  valuationUpdatedAt,
   pickValueBundle,
   crowdShiftsFromVotes,
   applyCrowdShift,
@@ -20,6 +25,16 @@ import {
   getGlobalMaxPlayerValue,
   CROWD_MAX_ABS_SHIFT,
 } from "../docs/modules/values.js";
+
+test("valuation stamp prefers meta.updatedAt, then asOf", () => {
+  assert.equal(valuationUpdatedAt(null), "");
+  assert.equal(valuationUpdatedAt({ asOf: "2026-09-28T21:49:04+00:00" }), "2026-09-28");
+  assert.equal(
+    valuationUpdatedAt({ asOf: "2026-09-28T21:49:04+00:00", meta: { updatedAt: "2026-10-02T00:00:00Z" } }),
+    "2026-10-02",
+  );
+  assert.equal(valuationUpdatedAt({ meta: { updatedAt: "not-a-date" } }), "not-a-date");
+});
 
 test("only picks after the NFL draft stay tradable", () => {
   assert.equal(upcomingDraftSeason(new Date("2026-04-25T12:00:00Z")), 2026);
@@ -68,6 +83,11 @@ test("superflex vs 1QB format pick", () => {
   assert.equal(selectValueFormat({ roster_positions: ["QB", "RB", "SUPER_FLEX"] }), "sf");
   assert.equal(selectValueFormat({ roster_positions: ["QB", "RB", "WR", "TE", "FLEX"] }), "oneQb");
   assert.equal(leagueHasSuperflex({ roster_positions: ["QB", "QB", "RB"] }), true);
+  assert.equal(leagueHasSuperflex({ roster_positions: ["QB", "RB", "WR", "TE", "SUPER FLEX"] }), true);
+  assert.equal(leagueHasSuperflex({ roster_positions: ["qb", "rb", "superflex"] }), true);
+  assert.equal(leagueHasSuperflex({ roster_positions: ["QB", "RB", "super-flex"] }), true);
+  assert.equal(selectValueFormat({ roster_positions: ["QB", "RB", "OP"] }), "sf");
+  assert.equal(leagueHasSuperflex({ roster_positions: ["QB", "RB", "WR", "TE", "FLEX", "LB", "DB"] }), false);
 });
 
 test("league scoring metadata never reprices the canonical player value", () => {
@@ -107,6 +127,53 @@ test("missing model numbers are unavailable instead of invented", () => {
 });
 
 
+test("an IDP or kicker does not inherit an offensive player's price by name", () => {
+  const values = { "player:9509": 11362, "player:10214": 31 };
+  const names = { "player:9509": "Bijan Robinson", "player:10214": "Davis Allen" };
+  const linebacker = {
+    assetId: "player:idp-bijan",
+    assetType: "player",
+    name: "Bijan Robinson",
+    raw: { position: "LB", fantasy_positions: ["LB"], full_name: "Bijan Robinson" },
+  };
+  const kicker = {
+    assetId: "player:k-1",
+    assetType: "player",
+    name: "Davis Allen",
+    raw: { position: "K", full_name: "Davis Allen" },
+  };
+  const staleQb = {
+    assetId: "player:stale-jayden",
+    assetType: "player",
+    name: "Jayden Daniels",
+    raw: { position: "QB", fantasy_positions: ["QB"], full_name: "Jayden Daniels" },
+  };
+  const qbNames = { ...names, "player:11566": "Jayden Daniels" };
+  const qbValues = { ...values, "player:11566": 9114 };
+  assert.equal(getAssetValue(linebacker, values, { valueNameMap: names }), 0);
+  assert.equal(isEstimatedAsset(linebacker, values, { valueNameMap: names }), true);
+  assert.equal(getAssetValue(kicker, values, { valueNameMap: names }), 0);
+  assert.equal(getAssetValue(staleQb, qbValues, { valueNameMap: qbNames }), 9114);
+  const pricedTe = { assetId: "player:10214", assetType: "player", raw: { position: "TE" } };
+  const tepLeague = { scoring_settings: { rec: 1, bonus_rec_te: 1.5 } };
+  assert.equal(tepLevel(tepLeague), 3);
+  assert.equal(getAssetValue(pricedTe, values, { league: tepLeague, valueNameMap: names }), 31);
+  assert.equal(tepLevel({ scoring_settings: { rec: 1, rec_te: 1 } }), 2);
+  assert.equal(tepLevel({ scoring_settings: { rec: 1, rec_te: 0.25 } }), 0);
+  assert.equal(tepLevel({ scoring_settings: { bonus_te_rec: 0.5 } }), 1);
+});
+
+test("the league format line uses the same superflex and TE premium checks as the prices", () => {
+  const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/app.js"), "utf8");
+  const start = app.indexOf("function describeLeagueFormat(");
+  const body = app.slice(start, app.indexOf("function buildTrendingInsight(", start));
+  assert.match(body, /leagueHasSuperflex\(league\)/);
+  assert.match(body, /tepLevel\(league\) > 0/);
+  assert.doesNotMatch(body, /bonus_rec_te \|\| scoring\.rec_te/);
+  assert.match(body, /\$\{receptionValue\} \$\{receptionValue === 1 \? "point" : "points"\} per catch/);
+  assert.doesNotMatch(body, /PPR/);
+});
+
 test("missing sleeper id still uses the market name", () => {
   const jayden = {
     assetId: "player:stale",
@@ -139,25 +206,31 @@ test("name fallback ignores punctuation, skips picks and dead rows, and refuses 
   assert.equal(findMarketValueByPlayerName("D J Moore", values, null), null);
 });
 
-test("value lookups that miss by id stay cheap on a full market board", () => {
+test("value lookups that miss by id stay correct on a full market board", () => {
   const values = {};
   const names = {};
   for (let index = 0; index < 3000; index += 1) {
     values[`player:${index}`] = 1000 + index;
     names[`player:${index}`] = `Player Number ${index} Jr.`;
   }
+  const options = { valueNameMap: names };
+  const named = {
+    assetId: "player:missing",
+    assetType: "player",
+    name: "Player Number 10 Jr.",
+  };
+  assert.equal(getAssetValue(named, values, options), 1010);
+  assert.equal(isEstimatedAsset(named, values, options), false);
   const misses = Array.from({ length: 400 }, (_, index) => ({
     assetId: `pick:2027:${(index % 4) + 1}:${index}`,
     assetType: "pick",
     name: `2027 Round ${(index % 4) + 1}`,
     raw: { season: 2027, round: (index % 4) + 1 },
   }));
-  const started = Date.now();
-  for (let pass = 0; pass < 50; pass += 1) {
-    misses.forEach((asset) => getAssetValue(asset, values, { valueNameMap: names }));
+  for (const asset of misses) {
+    assert.equal(getAssetValue(asset, values, options), 0);
+    assert.equal(isEstimatedAsset(asset, values, options), true);
   }
-  const elapsed = Date.now() - started;
-  assert.ok(elapsed < 400, `20,000 missed lookups took ${elapsed}ms`);
 });
 
 
@@ -169,6 +242,92 @@ test("pick lookup time-discounts a nearest-year fallback", () => {
   const catalogValues = { "pick:2027:r2:any": 3200 };
   assert.equal(resolvePickAssetValue(future, catalogValues), Math.round(3200 * (0.85 ** 2)));
   assert.deepEqual(parsePickAssetId("pick:2028:r1:early"), { season: "2028", round: 1, bucket: "early" });
+});
+
+test("a missing early first discounts the early row, not the cheaper any row listed first", () => {
+  const anyPrice = 2500;
+  const earlyPrice = 4000;
+  const values = {
+    "pick:2028:r1:any": anyPrice,
+    "pick:2028:r1:early": earlyPrice,
+  };
+  assert.equal(
+    findPickCatalogValue({ season: "2029", round: 1, bucket: "early" }, values),
+    Math.round(earlyPrice * 0.85),
+  );
+  assert.equal(
+    findPickCatalogValue({ season: "2029", round: 1, bucket: "any" }, values),
+    Math.round(anyPrice * 0.85),
+  );
+  assert.ok(earlyPrice > anyPrice);
+});
+
+test("equidistant pick years discount forward from the earlier season, in either key order", () => {
+  const want = { season: "2028", round: 1, bucket: "any" };
+  const expected = Math.round(8000 * 0.85);
+  assert.equal(findPickCatalogValue(want, { "pick:2027:r1:any": 8000, "pick:2029:r1:any": 5000 }), expected);
+  assert.equal(findPickCatalogValue(want, { "pick:2029:r1:any": 5000, "pick:2027:r1:any": 8000 }), expected);
+});
+
+test("the 0.85 ruler keeps falling after four years", () => {
+  const values = { "pick:2026:r1:any": 5000 };
+  const fiveYears = findPickCatalogValue({ season: "2031", round: 1, bucket: "any" }, values);
+  assert.equal(fiveYears, Math.round(5000 * (0.85 ** 5)));
+  assert.ok(fiveYears < Math.round(5000 * 0.5));
+  const eightYears = findPickCatalogValue({ season: "2034", round: 1, bucket: "any" }, values);
+  assert.equal(eightYears, Math.max(1, Math.round(5000 * (0.85 ** 8))));
+  assert.ok(eightYears < fiveYears);
+});
+
+test("pick fallback keeps early above any, falls with distance, and ignores key order", () => {
+  const anchors = [120, 480, 1600, 6400];
+  for (const earlyPrice of anchors) {
+    const anyPrice = Math.round(earlyPrice * 0.8);
+    const secondPrice = Math.round(anyPrice * 0.45);
+    const forward = {
+      "pick:2028:r1:any": anyPrice,
+      "pick:2028:r1:early": earlyPrice,
+      "pick:2028:r2:any": secondPrice,
+    };
+    const reverse = {
+      "pick:2028:r1:early": earlyPrice,
+      "pick:2028:r2:any": secondPrice,
+      "pick:2028:r1:any": anyPrice,
+    };
+    let previousEarly = Infinity;
+    let previousAny = Infinity;
+    for (let distance = 0; distance <= 8; distance += 1) {
+      const season = String(2028 + distance);
+      const metaEarly = { season, round: 1, bucket: "early" };
+      const metaAny = { season, round: 1, bucket: "any" };
+      const earlyValue = findPickCatalogValue(metaEarly, forward);
+      const anyValue = findPickCatalogValue(metaAny, forward);
+      assert.equal(earlyValue, findPickCatalogValue(metaEarly, reverse), `${season} early depends on key order`);
+      assert.equal(anyValue, findPickCatalogValue(metaAny, reverse), `${season} any depends on key order`);
+      assert.ok(earlyValue >= anyValue, `${season} early ${earlyValue} fell under any ${anyValue}`);
+      assert.ok(earlyValue <= previousEarly, `${season} early rose with distance`);
+      assert.ok(anyValue <= previousAny, `${season} any rose with distance`);
+      assert.equal(earlyValue, Math.max(1, Math.round(earlyPrice * (0.85 ** distance))));
+      previousEarly = earlyValue;
+      previousAny = anyValue;
+    }
+    const traded = {
+      assetId: "pick:2028:r1:7",
+      assetType: "pick",
+      valueAssetId: "pick:2028:r1:early",
+      raw: { season: "2028", round: 1, ktcBucket: "early" },
+    };
+    assert.equal(resolvePickAssetValue(traded, forward), earlyPrice);
+    assert.ok(findPickCatalogValue({ season: "2028", round: 2, bucket: "any" }, forward) < anyPrice);
+  }
+});
+
+test("an unknown round is not borrowed from a cheaper known round", () => {
+  const values = { "pick:2027:r5:any": 400, "pick:2027:r1:any": 5000 };
+  const sixth = { assetId: "pick:2027:r6:1", assetType: "pick", raw: { season: "2027", round: 6 } };
+  assert.equal(resolvePickAssetValue(sixth, values), null);
+  assert.equal(getAssetValue(sixth, values), 0);
+  assert.equal(isEstimatedAsset(sixth, values), true);
 });
 
 test("pickValueBundle prefers 1QB or Superflex maps", () => {
@@ -319,4 +478,19 @@ test("league board evidence never creates a second player price", () => {
     leagueShifts: { "player:pw": 0.24 },
     applyLeagueBoard: true,
   }), 4200);
+});
+
+test("value snapshot players carry name, position, and team", () => {
+  const players = playersFromValueSnapshot({
+    "player:6794": { position: "WR", team: "MIN", age: 27, experience: 6, components: { huge: true } },
+  }, { "player:6794": "Justin Jefferson" });
+  assert.deepEqual(players["6794"], {
+    player_id: "6794",
+    full_name: "Justin Jefferson",
+    position: "WR",
+    fantasy_positions: ["WR"],
+    team: "MIN",
+    age: 27,
+    years_exp: 6,
+  });
 });

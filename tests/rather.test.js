@@ -36,6 +36,10 @@ import {
   readRatherVotes,
   recordRatherVote,
   renderRatherMarkup,
+  createRatherBootGate,
+  ratherBootPaints,
+  renderLandingRatherPlaceholder,
+  shouldStartLandingRather,
   sleeperPlayerThumbUrl,
   writeRatherSessionDone,
 } from "../docs/modules/rather.js";
@@ -228,7 +232,7 @@ test("desk board ranks two NFL RB1s as RB1 and RB2 from our values", () => {
   assert.equal(boarded[1].boardRank, "RB2");
   assert.equal(boarded[2].boardRank, "WR1");
   assert.equal(formatRatherBoardRank(boarded[1]), "RB2");
-  assert.equal(formatRatherMatchup(boarded[0], boarded[1]), "RB1 vs RB2 on the ticker board");
+  assert.equal(formatRatherMatchup(boarded[0], boarded[1]), "RB1 vs RB2 in the rankings");
   assert.equal(
     decorateRatherPlayer(boarded[0], { bijan: { position: "RB", team: "ATL", age: 23, depth_chart_order: 1 } }).meta,
     "RB1 · ATL · 23y"
@@ -411,7 +415,7 @@ test("renderRatherMarkup shows headline, format detail, and two players", () => 
   assert.match(html, /Sleeper trades from many dynasty leagues/);
   assert.doesNotMatch(html, /KeepTradeCut|keeptradecut|\bKTC\b/i);
   assert.match(html, /not NFL depth charts/);
-  assert.match(html, /public ticker board for everyone/);
+  assert.match(html, /public rankings for everyone/);
   assert.doesNotMatch(html, /Desk Crowd/);
   assert.doesNotMatch(html, /8510/);
 });
@@ -455,14 +459,14 @@ test("applyRatherOverlayHidden toggles the hidden attribute", () => {
   assert.equal(classes.has("hidden"), true);
 });
 
-test("index puts rather on the landing page and never auto-opens a league overlay", () => {
+test("the players page no longer shows rather, and the vote module stays", () => {
   const index = siteMarkup();
   const css = readFileSync(join(docs, "styles.css"), "utf8");
   const app = readFileSync(join(docs, "app.js"), "utf8");
-  assert.match(index, /id="landing-rather"/);
+  assert.doesNotMatch(index, /id="landing-rather"/);
+  assert.doesNotMatch(index, /Who would you rather have\?/);
   assert.match(index, /id="landing-username"/);
   assert.match(index, /id="landing-find-btn"/);
-  assert.match(index, /Who would you rather have\?/);
   assert.doesNotMatch(index, /id="rather-overlay"/);
   assert.doesNotMatch(index, /id="landing-focus-btn"/);
   assert.match(css, /\.landing-rather\s*\{/);
@@ -475,12 +479,62 @@ test("index puts rather on the landing page and never auto-opens a league overla
   const boot = app.slice(app.indexOf("async function bootLandingRather"), app.indexOf("async function loadRatherPromptContext"));
   assert.doesNotMatch(boot, /loadRatherPromptContext/);
   assert.match(boot, /getPlayersCache/);
-  assert.match(app, /landingSearchOffscreen/);
+  assert.match(boot, /shouldStartLandingRather/);
+  assert.match(boot, /ratherBootGate\.claim\(\)/);
+  assert.doesNotMatch(boot, /if \(parseShareParams\(window\.location\.search\)\.leagueId\) return/);
+  assert.doesNotMatch(boot, /innerHTML = renderLandingRatherPlaceholder/);
+  assert.match(app, /ratherBootPaints\(/);
+  const playersRender = app.slice(app.indexOf("function renderActivePage("), app.indexOf("function requestActivePageRender("));
+  assert.match(playersRender, /bootLandingRather\(\{ playersTab: true \}\)/);
   assert.match(app, /buildRatherBoard/);
   assert.match(app, /minValue: 1/);
   assert.match(app, /is \$\{winnerRow\.boardRank\} on the ticker/);
   assert.doesNotMatch(app, /on the desk/);
   assert.doesNotMatch(app, /function chooseRatherPlayer[\s\S]*loadLeagueById/);
+});
+
+test("sample mode and the Players tab still start Rather when a league is open", () => {
+  assert.equal(shouldStartLandingRather({ leagueId: "99" }), false);
+  assert.equal(shouldStartLandingRather({ leagueId: "99", sample: true }), true);
+  assert.equal(shouldStartLandingRather({ leagueId: "99", playersTab: true }), true);
+  assert.equal(shouldStartLandingRather({}), true);
+  assert.equal(shouldStartLandingRather({ leagueId: "  ", sample: false, playersTab: false }), true);
+});
+
+test("sample rather paints the matchup once and skips the loading line", () => {
+  const slotHtml = renderLandingRatherPlaceholder();
+  const matchup = renderRatherMarkup({
+    left: { name: "Ada", assetId: "player:1", initials: "A" },
+    right: { name: "Bea", assetId: "player:2", initials: "B" },
+  });
+  const host = { html: slotHtml, writes: 0 };
+  const slot = {
+    get innerHTML() { return host.html; },
+    set innerHTML(value) {
+      host.writes += 1;
+      host.html = value;
+    },
+  };
+  const opening = ratherBootPaints({ slotHtml: slot.innerHTML, dataReady: false });
+  const ready = ratherBootPaints({ slotHtml: slot.innerHTML, dataReady: true, matchupHtml: matchup });
+  for (const frame of [...opening, ...ready]) slot.innerHTML = frame;
+  assert.equal(opening.length + ready.length, 1);
+  assert.equal(host.writes, 1);
+  assert.doesNotMatch(slot.innerHTML, /Loading a close matchup/);
+  assert.match(slot.innerHTML, /rather-duel/);
+
+  const straight = ratherBootPaints({ slotHtml: "", dataReady: true, matchupHtml: matchup });
+  assert.equal(straight.length, 1);
+  assert.equal(straight[0], matchup);
+});
+
+test("Rather boot claims once so a second call does not paint again", () => {
+  const gate = createRatherBootGate();
+  assert.equal(gate.started(), false);
+  assert.equal(gate.claim(), true);
+  assert.equal(gate.started(), true);
+  assert.equal(gate.claim(), false);
+  assert.equal(gate.claim(), false);
 });
 
 test("rankRatherPlayers prefers the crowd-shifted player", () => {

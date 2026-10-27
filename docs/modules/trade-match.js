@@ -1,3 +1,4 @@
+import { ideaGapMore, ideaLimitMore } from "./verdict-copy.js";
 export const MATCH_NEED_PERCENTILE = 0.42;
 export const MATCH_CRITICAL_PERCENTILE = 0.28;
 export const MATCH_SURPLUS_PERCENTILE = 0.62;
@@ -230,14 +231,17 @@ export function rankPartnerMatches(myProfile, otherProfiles, { limit = MATCH_MAX
     .slice(0, limit);
 }
 
-export function describePartnerMatch(match, myProfile) {
+export function describePartnerMatch(match, myProfile, options = {}) {
+  const voice = options?.voice || null;
+  const poss = voice?.favor || "your";
+  const needVerb = voice ? `${voice.youGive} needs` : "you need";
   const parts = [];
   const myNeed = match.takePositions?.[0] || myProfile?.weakestPosition?.position;
   const theirNeed = match.givePositions?.[0];
   if (match.takePositions?.length && match.givePositions?.length) {
-    parts.push(`They have the ${match.takePositions.join("/")} you need, and they need your ${match.givePositions.join("/")}.`);
+    parts.push(`They have the ${match.takePositions.join("/")} ${needVerb}, and they need ${poss} ${match.givePositions.join("/")}.`);
   } else if (match.takePositions?.length) {
-    parts.push(`They are deep at ${match.takePositions.join("/")}, your weakest group.`);
+    parts.push(`They are deep at ${match.takePositions.join("/")}, ${poss} weakest group.`);
   } else if (match.givePositions?.length) {
     parts.push(`They need ${match.givePositions.join("/")}, where you have extra.`);
   } else if (myNeed) {
@@ -245,7 +249,7 @@ export function describePartnerMatch(match, myProfile) {
   }
 
   if (match.timelinePairing === "contend-rebuild") {
-    parts.push("You're contending; they're tanking. Buy a starter, send future.");
+    parts.push("You're contending; they're rebuilding. Buy a starter, send future.");
   } else if (match.timelinePairing === "rebuild-contend") {
     parts.push("You're rebuilding; they're win-now. Cash a vet, take youth or picks.");
   }
@@ -356,6 +360,7 @@ export function proposeMatchDeals({
   playerAgeForAsset,
   fairnessPct = MATCH_FAIRNESS_PCT,
   maxResults = MATCH_MAX_DEALS_PER_PARTNER,
+  voice = null,
 } = {}) {
   if (!myProfile || !theirProfile) return [];
 
@@ -431,7 +436,7 @@ export function proposeMatchDeals({
         myHelp,
         theirHelp,
         tags: buildMatchDealTags(resolvedMatch, myHelp, kind),
-        summary: buildMatchDealSummary({ match: resolvedMatch, myHelp, theirHelp, myProfile, theirProfile }),
+        summary: buildMatchDealSummary({ match: resolvedMatch, myHelp, theirHelp, myProfile, theirProfile, voice }),
         pitch: buildMatchDealPitch({ match: resolvedMatch, myAssets, theirAssets, myProfile, theirProfile }),
       });
     }
@@ -442,7 +447,7 @@ export function proposeMatchDeals({
     .slice(0, maxResults);
 }
 
-export function previewBestMatch(myProfile, otherProfiles) {
+export function previewBestMatch(myProfile, otherProfiles, options = {}) {
   const ranked = rankPartnerMatches(myProfile, otherProfiles, { limit: 1, minScore: 12 });
   if (!ranked.length) return null;
   const { profile, match } = ranked[0];
@@ -452,7 +457,7 @@ export function previewBestMatch(myProfile, otherProfiles) {
     managerName: profile.managerName,
     laneLabel: profile.laneLabel,
     need,
-    detail: describePartnerMatch(match, myProfile),
+    detail: describePartnerMatch(match, myProfile, { voice: options?.voice || null }),
     score: match.score,
   };
 }
@@ -571,7 +576,7 @@ function packageWithinFairness(pkg, fairnessPct) {
   const mine = sumEntries(pkg.outgoing);
   const theirs = sumEntries(pkg.incoming);
   if (mine <= 0 || theirs <= 0) return false;
-  return percentDiff(mine, theirs) <= fairnessPct;
+  return percentDiff(mine, theirs) <= ideaLimitMore(fairnessPct);
 }
 
 function packagesFrom(entries, maxSize) {
@@ -686,24 +691,34 @@ function scoreDealHelp(myHelp, theirHelp, pctDiff, myValue, theirValue, myCount 
 function buildMatchDealTags(match, myHelp, kind) {
   const tags = ["Match"];
   if (match.twoWay) tags.push("Two-Way Fit");
-  if (kind === "contend-rebuild" || kind === "rebuild-contend") tags.push("Contend / Tank");
+  if (kind === "contend-rebuild" || kind === "rebuild-contend") tags.push("Contend / Rebuild");
   if (myHelp.patchedNeeds[0]) tags.push(`${myHelp.patchedNeeds[0].position} Hole`);
   return [...new Set(tags)].slice(0, 4);
 }
 
-function buildMatchDealSummary({ match, myHelp, theirHelp, myProfile, theirProfile }) {
+export function describeMatchDeal(args = {}) {
+  return buildMatchDealSummary(args);
+}
+
+function buildMatchDealSummary({ match, myHelp, theirHelp, myProfile, theirProfile, voice = null }) {
   const myPatch = myHelp.patchedNeeds[0];
   const theirPatch = theirHelp.patchedNeeds[0];
+  const poss = voice?.favor || "your";
+  const who = voice?.youGive || "You";
   if (myPatch && theirPatch) {
-    return `You patch ${myPatch.position} while ${theirProfile.managerName} patches ${theirPatch.position}.`;
+    return voice
+      ? `${who} patches ${myPatch.position} while ${theirProfile.managerName} patches ${theirPatch.position}.`
+      : `You patch ${myPatch.position} while ${theirProfile.managerName} patches ${theirPatch.position}.`;
   }
   if (match.timelinePairing === "contend-rebuild") {
     return `Win-now piece for a team that is collecting future, not starting ${myProfile.weakestPosition?.position || "this week"}.`;
   }
   if (match.timelinePairing === "rebuild-contend") {
-    return `You move a win-now piece and take the future ${theirProfile.managerName} can actually use.`;
+    return voice
+      ? `${who} moves a win-now piece and takes the future ${theirProfile.managerName} can actually use.`
+      : `You move a win-now piece and take the future ${theirProfile.managerName} can actually use.`;
   }
-  if (myPatch) return `This is aimed at your ${myPatch.position} hole, not a random value swap.`;
+  if (myPatch) return `This is aimed at ${poss} ${myPatch.position} hole, not a random value swap.`;
   return `Built from roster needs, not leftover draft capital.`;
 }
 
@@ -771,10 +786,9 @@ function maxAssetValue(assets, values, getAssetValue) {
   return (assets || []).reduce((max, asset) => Math.max(max, getValue(asset, values, getAssetValue)), 0);
 }
 
+// The verdict's shown metric (% more, gap / smaller side).
 function percentDiff(left, right) {
-  const top = Math.max(left, right);
-  if (!top) return 100;
-  return Math.abs(left - right) / top * 100;
+  return ideaGapMore(left, right);
 }
 
 function getValue(asset, values, getAssetValue) {

@@ -9,7 +9,9 @@ import {
   isAllowedWrite,
   isBot,
   landingFromReferer,
+  rateLimitHash,
   summarize,
+  VISIT_MAX_PER_HOUR,
   visitPeriodKeys,
   visitorHash,
   wrapLambdaHandler,
@@ -85,12 +87,19 @@ test("period keys use the US Eastern day, ISO week, and calendar year", () => {
 });
 
 test("visitor hashes stay stable for the same IP and browser", () => {
-  const first = visitorHash("1.2.3.4", "Mozilla/5.0 Desk");
-  const second = visitorHash("1.2.3.4", "Mozilla/5.0 Desk");
-  const other = visitorHash("5.6.7.8", "Mozilla/5.0 Desk");
+  const first = visitorHash("1.2.3.4", "Mozilla/5.0 Desk", "test-salt");
+  const second = visitorHash("1.2.3.4", "Mozilla/5.0 Desk", "test-salt");
+  const other = visitorHash("5.6.7.8", "Mozilla/5.0 Desk", "test-salt");
   assert.equal(first, second);
   assert.equal(first.length, 32);
   assert.notEqual(first, other);
+});
+
+test("visitor hashes fail closed without a secret salt", () => {
+  assert.equal(visitorHash("1.2.3.4", "Mozilla/5.0 Desk"), "");
+  assert.equal(visitorHash("1.2.3.4", "Mozilla/5.0 Desk", ""), "");
+  assert.equal(visitorHash("1.2.3.4", "Mozilla/5.0 Desk", "dynasty-ticker-traffic-v1"), "");
+  assert.equal(visitorHash("1.2.3.4", "Mozilla/5.0 Desk", "dynasty-ticker-rather-v1"), "");
 });
 
 test("bot user-agents are skipped, browsers are not", () => {
@@ -191,6 +200,7 @@ test("the visit handler counts people from hashed IP plus user-agent", async () 
 
   const read = await handler(request("https://dynastyticker.com/api/views"));
   assert.equal(read.status, 200);
+  assert.equal(read.headers.get("access-control-allow-origin"), null);
   const payload = await read.json();
   assert.deepEqual(core(payload.today), { views: 3, people: 2, active: 0 });
   assert.deepEqual(core(payload.all), { views: 3, people: 2, active: 0 });
@@ -211,21 +221,57 @@ test("concurrent page views are retained after conditional-write conflicts", asy
 });
 
 test("storage failures return retryable errors instead of false success", async () => {
-  const unavailable = createVisitHandler({ getStore: () => null, nowFn: () => NOW });
+  const unavailable = createVisitHandler({ getStore: () => null, nowFn: () => NOW, salt: "test-salt" });
   const missing = await unavailable(request("https://dynastyticker.com/api/visit", { method: "POST", headers: liveHeaders() }), { ip: "1.1.1.1" });
   assert.equal(missing.status, 503);
   assert.equal((await missing.json()).retryable, true);
 
-  const readFailure = createVisitHandler({ getStore: () => memoryStore(null, { failRead: true }), nowFn: () => NOW });
+  const readFailure = createVisitHandler({ getStore: () => memoryStore(null, { failRead: true }), nowFn: () => NOW, salt: "test-salt" });
   const failedRead = await readFailure(request("https://dynastyticker.com/api/visit", { method: "POST", headers: liveHeaders() }), { ip: "1.1.1.1" });
   assert.equal(failedRead.status, 503);
 
-  const writeFailure = createVisitHandler({ getStore: () => memoryStore(null, { failWrite: true }), nowFn: () => NOW });
+  const writeFailure = createVisitHandler({ getStore: () => memoryStore(null, { failWrite: true }), nowFn: () => NOW, salt: "test-salt" });
   const failedWrite = await writeFailure(request("https://dynastyticker.com/api/visit", { method: "POST", headers: liveHeaders() }), { ip: "1.1.1.1" });
   assert.equal(failedWrite.status, 503);
 });
 
-test("client IP prefers Netlify context then forwarded headers", () => {
+test("visit handler refuses the public salt and a missing salt", async () => {
+  const store = memoryStore();
+  for (const salt of ["", "dynasty-ticker-traffic-v1"]) {
+    const handler = createVisitHandler({ getStore: () => store, nowFn: () => NOW, salt });
+    const response = await handler(request("https://dynastyticker.com/api/visit", { method: "POST", headers: liveHeaders() }), { ip: "1.2.3.4" });
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, "config");
+  }
+  assert.equal(store.snapshot(), null);
+});
+
+test("one person cannot flood visit posts", async () => {
+  const store = memoryStore();
+  const handler = createVisitHandler({ getStore: () => store, nowFn: () => NOW, salt: "test-salt" });
+  for (let index = 0; index < VISIT_MAX_PER_HOUR; index += 1) {
+    const response = await handler(request("https://dynastyticker.com/api/visit", { method: "POST", headers: liveHeaders() }), { ip: "1.2.3.4" });
+    assert.equal(response.status, 200);
+  }
+  const blocked = await handler(request("https://dynastyticker.com/api/visit", { method: "POST", headers: liveHeaders() }), { ip: "1.2.3.4" });
+  assert.equal(blocked.status, 429);
+  const payload = await (await handler(request("https://dynastyticker.com/api/views"))).json();
+  assert.equal(payload.today.views, VISIT_MAX_PER_HOUR);
+  const other = await handler(request("https://dynastyticker.com/api/visit", { method: "POST", headers: liveHeaders() }), { ip: "9.9.9.9" });
+  assert.equal(other.status, 200);
+});
+
+test("visit totals stay off other websites", async () => {
+  const store = memoryStore();
+  const handler = createVisitHandler({ getStore: () => store, nowFn: () => NOW, salt: "test-salt" });
+  const foreign = await handler(request("https://dynastyticker.com/api/views", {
+    headers: { origin: "https://evil.example" },
+  }));
+  assert.equal(foreign.status, 403);
+  assert.equal(foreign.headers.get("access-control-allow-origin"), null);
+});
+
+test("client IP is only the platform address and ignores spoofed forwarding headers", () => {
   const req = request("https://dynastyticker.com/api/visit", {
     headers: {
       "x-forwarded-for": "9.9.9.9, 1.1.1.1",
@@ -233,7 +279,13 @@ test("client IP prefers Netlify context then forwarded headers", () => {
     },
   });
   assert.equal(clientIp(req, { ip: "1.2.3.4" }), "1.2.3.4");
-  assert.equal(clientIp(req, {}), "8.8.4.4");
+  assert.equal(clientIp(req, {}), "");
+  assert.equal(clientIp(req, { ip: "  " }), "");
+  assert.equal(rateLimitHash("1.2.3.4", "test-salt"), rateLimitHash("1.2.3.4", "test-salt"));
+  assert.notEqual(rateLimitHash("1.2.3.4", "test-salt"), rateLimitHash("9.9.9.9", "test-salt"));
+  assert.equal(rateLimitHash("", "test-salt"), "");
+  assert.equal(rateLimitHash("1.2.3.4", ""), "");
+  assert.equal(rateLimitHash("1.2.3.4", "dynasty-ticker-traffic-v1"), "");
 });
 
 test("classic wrapper remains testable for request conversion", async () => {
@@ -283,6 +335,90 @@ test("loading a league counts active use without a second view", () => {
   assert.equal(summary.today.sources["t.co"], 1);
   assert.equal(summary.today.landings.shared, 1);
   assert.equal(summary.all.active, 1);
+});
+
+test("spoofed forwarding headers cannot mint a new visit bucket", async () => {
+  const store = memoryStore();
+  const handler = createVisitHandler({ getStore: () => store, nowFn: () => NOW, salt: "test-salt" });
+  for (let index = 0; index < 3; index += 1) {
+    const response = await handler(new Request("https://dynastyticker.com/api/visit", {
+      method: "POST",
+      headers: {
+        ...liveHeaders(),
+        "x-forwarded-for": `10.0.0.${index}`,
+        "x-nf-client-connection-ip": `11.0.0.${index}`,
+        "user-agent": `Mozilla/5.0 Chrome/${index}`,
+      },
+      body: JSON.stringify({ visitorId: index.toString(16).padStart(32, "a") }),
+    }), { ip: "1.2.3.4" });
+    assert.equal(response.status, 200);
+  }
+  const payload = await (await handler(request("https://dynastyticker.com/api/views"))).json();
+  assert.equal(payload.today.views, 3);
+  assert.equal(payload.today.people, 3);
+
+  const naked = await handler(new Request("https://dynastyticker.com/api/visit", {
+    method: "POST",
+    headers: {
+      ...liveHeaders(),
+      "x-forwarded-for": "8.8.8.8",
+      "x-nf-client-connection-ip": "9.9.9.9",
+    },
+  }), {});
+  assert.equal(naked.status, 503);
+  assert.equal((await naked.json()).error, "config");
+  assert.equal(summarize(store.snapshot(), NOW).today.views, 3);
+});
+
+test("rotating browser ids cannot walk past the hourly visit cap", async () => {
+  const store = memoryStore();
+  const handler = createVisitHandler({ getStore: () => store, nowFn: () => NOW, salt: "test-salt" });
+  for (let index = 0; index < VISIT_MAX_PER_HOUR; index += 1) {
+    const response = await handler(new Request("https://dynastyticker.com/api/visit", {
+      method: "POST",
+      headers: { ...liveHeaders(), "user-agent": `Mozilla/5.0 Agent/${index}` },
+      body: JSON.stringify({ visitorId: index.toString(16).padStart(32, "b") }),
+    }), { ip: "1.2.3.4" });
+    assert.equal(response.status, 200);
+  }
+  const blocked = await handler(new Request("https://dynastyticker.com/api/visit", {
+    method: "POST",
+    headers: { ...liveHeaders(), "user-agent": "Mozilla/5.0 Agent/fresh" },
+    body: JSON.stringify({ visitorId: "c".repeat(32) }),
+  }), { ip: "1.2.3.4" });
+  assert.equal(blocked.status, 429);
+  assert.equal(summarize(store.snapshot(), NOW).today.views, VISIT_MAX_PER_HOUR);
+});
+
+test("bad or huge visit JSON does not count", async () => {
+  const store = memoryStore();
+  const handler = createVisitHandler({ getStore: () => store, nowFn: () => NOW, salt: "test-salt" });
+  const headers = { ...liveHeaders(), "content-type": "application/json" };
+  const bad = await handler(new Request("https://dynastyticker.com/api/visit", {
+    method: "POST",
+    headers,
+    body: "{not-json",
+  }), { ip: "1.2.3.4" });
+  assert.equal(bad.status, 400);
+  const arrayBody = await handler(new Request("https://dynastyticker.com/api/visit", {
+    method: "POST",
+    headers,
+    body: "[1,2,3]",
+  }), { ip: "1.2.3.4" });
+  assert.equal(arrayBody.status, 400);
+  const huge = await handler(new Request("https://dynastyticker.com/api/visit", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ pad: "A".repeat(4000) }),
+  }), { ip: "1.2.3.4" });
+  assert.equal(huge.status, 413);
+  const wrong = await handler(new Request("https://dynastyticker.com/api/visit", {
+    method: "PUT",
+    headers,
+    body: "{}",
+  }), { ip: "1.2.3.4" });
+  assert.equal(wrong.status, 405);
+  assert.equal(store.snapshot(), null);
 });
 
 test("shared links keep the landing and drop the league id", () => {

@@ -20,6 +20,7 @@ export function emptyDealBoard() {
 export function createState() {
   return {
     leagueId: "",
+    viewingSample: false,
     leagueName: "",
     league: null,
     users: [],
@@ -86,6 +87,8 @@ export function createState() {
     seasonWeekRows: new Map(),
     seasonLoaded: false,
     seasonLoadError: "",
+    // Draft slots wait until the current season's matchup rows have all arrived.
+    pickProjectionReady: false,
     seasonModelCache: { key: "", model: null },
     simCache: { key: "", result: null },
     lensRosterId: null,
@@ -120,6 +123,7 @@ export function createState() {
     livePolling: false,
     value: "sf",
     valueBundles: { sf: { values: {}, nameMap: {} }, oneQb: { values: {}, nameMap: {} }, names: {} },
+    valueHistory: null,
     leagueBoard: {
       ready: false,
       tradeCount: 0,
