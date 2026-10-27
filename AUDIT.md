@@ -2,7 +2,7 @@
 
 Date: 2026-10-06. Scope: `develop` at `6b76713` (“Rebuild the desk as a product page”). No product changes in this branch. Findings are from the tree, the test suite shape, and live responses from the two public hosts.
 
-This is the Sleeper dynasty desk by Niko Skiouris (`nikoskiouris/Dynasty-Ticker`). The browser loads a league from `https://api.sleeper.app/v1`, prices players from a checked-in forecast (`docs/data/player_values.json`), and suggests roster and trade moves. There is no app account.
+This is Dynasty Ticker, the Sleeper dynasty app by Niko Skiouris (`nikoskiouris/Dynasty-Ticker`). The browser loads a league from `https://api.sleeper.app/v1`, prices players from a checked-in forecast (`docs/data/player_values.json`), and suggests roster and trade moves. There is no app account.
 
 ## How the two public hosts differ
 
