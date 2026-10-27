@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.domain.valuation import ValuationService
 from src.engine.trade_generator import TradeGenerator
@@ -20,7 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target-player", required=True, help="Player you want to acquire.")
     parser.add_argument("--league", help="League ID. If omitted, will use your first league for season.")
     parser.add_argument("--username", help="Sleeper username for league discovery (if --league omitted).")
-    parser.add_argument("--season", default=str(datetime.utcnow().year), help="Season for league discovery.")
+    parser.add_argument("--season", default=str(datetime.now(timezone.utc).year), help="Season for league discovery.")
     parser.add_argument("--max-results", type=int, default=5)
     parser.add_argument("--fairness-pct", type=float, default=15.0)
     parser.add_argument("--value-file", help="Optional path to a football-forecast player_values.json snapshot.")
@@ -71,23 +71,11 @@ def main() -> int:
             logging.warning("Could not load traded picks for league %s: %s", league_id, exc)
         players = client.get_players("nfl")
 
-        previous_league = None
-        previous_rosters = None
-        previous_league_id = league.get("previous_league_id")
-        if previous_league_id:
-            try:
-                previous_league = client.get_league(previous_league_id)
-                previous_rosters = client.get_rosters(previous_league_id)
-            except RuntimeError as exc:
-                logging.warning("Could not load previous league context for pick labels: %s", exc)
-
         ctx = build_league_context(
             league_id,
             users,
             rosters,
             players,
-            previous_league=previous_league,
-            previous_rosters=previous_rosters,
             league=league,
             traded_picks=traded_picks,
         )

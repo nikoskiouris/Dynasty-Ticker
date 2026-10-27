@@ -1,6 +1,11 @@
 export const API_BASE = "https://api.sleeper.app/v1";
+// Public 2026 Superflex dynasty league ("The Front Office", 12 teams).
+// ?sample=1 opens it. Do not pin a manager.
+export const SAMPLE_LEAGUE_ID = "1360686137898700800";
 export const SLEEPER_AVATAR_BASE = "https://sleepercdn.com/avatars/thumbs/";
-export const PLAYERS_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+// Injury and status move during the week. Expire even when the NFL state
+// key has not changed, so a Sunday designation does not sit until next week.
+export const PLAYERS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 export const SIM_ITERATIONS = 4000;
 // Three jobs: Players, Trade, My League.
 // Old page and room names stay as aliases so existing links still open.
@@ -14,7 +19,7 @@ export const PAGE_LABELS = {
 };
 export const PAGE_HINTS = {
   players: "What is this player worth?",
-  trades: "Check an offer or find a deal",
+  trades: "Check a trade or find a deal",
   league: "Your team, this week, and the league",
 };
 export const PAGE_ROOMS = {
@@ -32,7 +37,7 @@ export const ROOM_LABELS = {
     ranks: "Players",
   },
   trades: {
-    calculator: "Check an offer",
+    calculator: "Check a trade",
     find: "Find a trade",
   },
   league: {

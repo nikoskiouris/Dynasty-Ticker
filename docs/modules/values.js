@@ -1,6 +1,21 @@
 import { ordinal } from "./season.js";
+import { normalizePriceHistory, stampsForWindow, TREND_WINDOW_DAYS } from "./value-scale.js";
 
 export const PLAYER_VALUES_PATH = "./data/player_values.json";
+export const NFL_PLAYERS_SLIM_PATH = "./data/nfl_players_slim.json";
+export const PRICE_HISTORY_INDEX_PATH = "./data/price-history/index.json";
+const PRICE_STAMP = /^20\d{10}$/;
+
+// Prefer meta.updatedAt when a bundle has it. Otherwise the file's asOf stamp.
+export function valuationUpdatedAt(bundle) {
+  const meta = bundle?.meta;
+  const raw = (meta && typeof meta === "object" && meta.updatedAt) || bundle?.asOf || "";
+  const text = String(raw || "").trim();
+  if (!text) return "";
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return text;
+  return date.toISOString().slice(0, 10);
+}
 export const PLAYER_VALUE_MODEL_VERSION = "football-forecast-v1";
 // Same annual discount as player-values/config.json. A missing pick year uses this ruler.
 export const PICK_YEAR_DISCOUNT = 0.85;
@@ -31,10 +46,17 @@ const NO_NAMES = Object.freeze({});
 // Sleeper "Reception Bonus - TE" stacks on top of `rec`. Missing/zero is not TEP.
 const TE_REC_BONUS_KEYS = ["bonus_rec_te", "rec_te", "bonus_te_rec"];
 
+function normalizeRosterSlotToken(slot) {
+  return String(slot || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+}
+
 export function leagueHasSuperflex(league) {
   const slots = Array.isArray(league?.roster_positions) ? league.roster_positions : [];
-  const normalized = slots.map((slot) => String(slot || "").toUpperCase());
-  if (normalized.some((slot) => slot === "SUPER_FLEX" || slot === "OP")) return true;
+  const normalized = slots.map(normalizeRosterSlotToken);
+  if (normalized.some((slot) => slot === "SUPER_FLEX" || slot === "SUPERFLEX" || slot === "OP")) return true;
   return normalized.filter((slot) => slot === "QB").length >= 2;
 }
 
@@ -118,6 +140,33 @@ export function pickValueBundle(payload, format) {
   return coerceValueMap(payload);
 }
 
+export function playersFromValueSnapshot(playerMeta = {}, names = {}) {
+  const out = {};
+  const meta = playerMeta && typeof playerMeta === "object" ? playerMeta : {};
+  const nameMap = names && typeof names === "object" ? names : {};
+  Object.entries(meta).forEach(([assetId, row]) => {
+    if (!String(assetId).startsWith("player:") || !row || typeof row !== "object") return;
+    const id = assetId.slice("player:".length);
+    if (!id) return;
+    const record = { player_id: id };
+    const name = String(nameMap[assetId] || "").trim();
+    if (name) record.full_name = name;
+    const position = String(row.position || "").trim().toUpperCase();
+    if (position) {
+      record.position = position;
+      record.fantasy_positions = [position];
+    }
+    const team = String(row.team || "").trim();
+    if (team) record.team = team;
+    const age = Number(row.age);
+    if (Number.isFinite(age) && age > 0) record.age = age;
+    const years = Number(row.experience);
+    if (Number.isFinite(years) && years >= 0) record.years_exp = years;
+    out[id] = record;
+  });
+  return out;
+}
+
 export function playerPositionForRaw(raw) {
   return (raw?.position || raw?.fantasy_positions?.[0] || "").toUpperCase();
 }
@@ -144,6 +193,45 @@ export function isInactivePlayerAsset(asset) {
     if (Number.isFinite(age) && age >= 30) return true;
   }
   return false;
+}
+
+// Published firsts are three thirds of the round: slots 1-4 early, 5-8 mid,
+// 9-12 late in a 12-team draft. Slot 1 is the earliest pick. No slot stays "any".
+export function bucketForProjectedSlot(slot, teamCount) {
+  const n = Number(slot);
+  const total = Number(teamCount);
+  if (!Number.isFinite(n) || !Number.isFinite(total) || n < 1 || total < 1 || n > total) return "any";
+  const tierSize = Math.max(1, Math.floor(total / 3));
+  if (n <= tierSize) return "early";
+  if (n > total - tierSize) return "late";
+  return "mid";
+}
+
+function ownedPickSlot(asset) {
+  const slot = Number(asset?.raw?.projectedDraftSlot ?? asset?.raw?.assignedDraftSlot);
+  return Number.isFinite(slot) && slot > 0 ? slot : Number.POSITIVE_INFINITY;
+}
+
+// Highest getAssetValue first. A tie keeps the earlier projected slot, then
+// the earlier round, then the nearer season. Name is only the last tiebreak.
+export function compareOwnedPickValue(a, b) {
+  const valueDiff = Number(b?.value) - Number(a?.value);
+  if (valueDiff) return valueDiff;
+  const slotDiff = ownedPickSlot(a?.asset) - ownedPickSlot(b?.asset);
+  if (slotDiff) return slotDiff;
+  const roundDiff = (Number(a?.asset?.raw?.round) || 99) - (Number(b?.asset?.raw?.round) || 99);
+  if (roundDiff) return roundDiff;
+  const seasonDiff = (Number(a?.asset?.raw?.season) || 9999) - (Number(b?.asset?.raw?.season) || 9999);
+  if (seasonDiff) return seasonDiff;
+  return String(a?.asset?.name || "").localeCompare(String(b?.asset?.name || ""));
+}
+
+export function chooseLeadPick(entries) {
+  const rows = (Array.isArray(entries) ? entries : []).filter((entry) => (
+    entry?.asset && Number.isFinite(Number(entry.value))
+  ));
+  rows.sort(compareOwnedPickValue);
+  return rows[0]?.asset || null;
 }
 
 export function normalizePickBucket(bucket) {
@@ -285,9 +373,10 @@ function adjustPickAcrossYears(value, sourceSeason, targetSeason) {
   const target = Number(targetSeason);
   if (!Number.isFinite(value) || !Number.isFinite(source) || !Number.isFinite(target)) return value;
   const yearDelta = target - source;
+  // A later catalog row is not marked up onto an earlier year. Forward years use 0.85^n.
   if (yearDelta <= 0) return Math.max(1, Math.round(value));
   const factor = PICK_YEAR_DISCOUNT ** yearDelta;
-  return Math.max(1, Math.round(value * Math.max(0.5, factor)));
+  return Math.max(1, Math.round(value * factor));
 }
 
 const pickCatalogs = new WeakMap();
@@ -328,7 +417,13 @@ export function findPickCatalogValue(meta, values, valueNameMap = NO_NAMES, cata
   if (!Number.isFinite(numericSeason)) return null;
   const nearest = list
     .filter((pick) => pick.round === meta.round && desiredBuckets.includes(pick.bucket))
-    .sort((a, b) => Math.abs(Number(a.season) - numericSeason) - Math.abs(Number(b.season) - numericSeason))[0];
+    .sort((a, b) => {
+      const distance = Math.abs(Number(a.season) - numericSeason) - Math.abs(Number(b.season) - numericSeason);
+      if (distance) return distance;
+      const bucketOrder = desiredBuckets.indexOf(a.bucket) - desiredBuckets.indexOf(b.bucket);
+      if (bucketOrder) return bucketOrder;
+      return Number(a.season) - Number(b.season);
+    })[0];
   return nearest ? adjustPickAcrossYears(nearest.value, nearest.season, meta.season) : null;
 }
 
@@ -391,11 +486,25 @@ export function findMarketValueByPlayerName(name, values, valueNameMap = NO_NAME
   return match;
 }
 
+const NON_OFFENSIVE_POSITIONS = new Set([
+  "K", "PK", "P", "DEF", "DST", "D/ST",
+  "DL", "DE", "DT", "NT", "LB", "ILB", "OLB", "MLB",
+  "DB", "CB", "S", "FS", "SS", "EDGE", "IDP",
+]);
+
+function assetSkipsOffensiveNameMatch(asset) {
+  const fantasy = Array.isArray(asset?.raw?.fantasy_positions) ? asset.raw.fantasy_positions : [];
+  const positions = fantasy.length > 0 ? fantasy : [asset?.raw?.position].filter(Boolean);
+  return positions.some((position) => NON_OFFENSIVE_POSITIONS.has(String(position || "").trim().toUpperCase()));
+}
+
 export function lookupMarketValue(asset, values, valueNameMap = NO_NAMES, catalog = null) {
   const exact = values?.[asset?.assetId];
   if (Number.isFinite(exact)) return { value: exact, estimated: false };
-  const named = findMarketValueByPlayerName(playerNameForAsset(asset), values, valueNameMap);
-  if (Number.isFinite(named)) return { value: named, estimated: false };
+  if (!assetSkipsOffensiveNameMatch(asset)) {
+    const named = findMarketValueByPlayerName(playerNameForAsset(asset), values, valueNameMap);
+    if (Number.isFinite(named)) return { value: named, estimated: false };
+  }
   if (asset?.assetType === "pick") {
     const resolvedPickValue = resolvePickAssetValue(asset, values, valueNameMap, catalog);
     if (Number.isFinite(resolvedPickValue)) return { value: resolvedPickValue, estimated: false };
@@ -560,8 +669,28 @@ async function readJsonIfOk(fetchImpl, path) {
   }
 }
 
+let valuationInflight = null;
+
 export async function fetchValuationBundles(fetchImpl = globalThis.fetch) {
-  const payload = await readJsonIfOk(fetchImpl, PLAYER_VALUES_PATH);
+  if (fetchImpl === globalThis.fetch && valuationInflight) return valuationInflight;
+  const job = loadValuationBundles(fetchImpl);
+  if (fetchImpl !== globalThis.fetch) return job;
+  valuationInflight = job.catch((err) => {
+    valuationInflight = null;
+    throw err;
+  });
+  return valuationInflight;
+}
+
+async function loadValuationBundles(fetchImpl) {
+  let response = null;
+  let payload = null;
+  try {
+    response = await fetchImpl(PLAYER_VALUES_PATH);
+    if (response?.ok) payload = await response.json();
+  } catch {
+    payload = null;
+  }
   if (!payload || typeof payload !== "object") {
     throw new Error("Independent player values did not load.");
   }
@@ -573,6 +702,7 @@ export async function fetchValuationBundles(fetchImpl = globalThis.fetch) {
   const names = payload.names && typeof payload.names === "object"
     ? payload.names
     : { ...sf.nameMap, ...oneQb.nameMap };
+  const lastModified = response?.headers?.get?.("last-modified") || "";
   return {
     sf: { values: sf.values, nameMap: { ...names, ...sf.nameMap } },
     oneQb: { values: oneQb.values, nameMap: { ...names, ...oneQb.nameMap } },
@@ -581,5 +711,22 @@ export async function fetchValuationBundles(fetchImpl = globalThis.fetch) {
     meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {},
     modelVersion: payload.modelVersion,
     asOf: payload.asOf || "",
+    generatedAt: payload.generatedAt || "",
+    lastModified,
   };
+}
+
+export async function fetchPriceHistory(fetchImpl = globalThis.fetch, { now = new Date(), days = TREND_WINDOW_DAYS } = {}) {
+  const index = await readJsonIfOk(fetchImpl, PRICE_HISTORY_INDEX_PATH);
+  if (!index || typeof index !== "object") return null;
+  if (index.schemaVersion != null && index.schemaVersion !== 1) return null;
+  const listed = Array.isArray(index.snapshots) ? index.snapshots : [];
+  const needed = stampsForWindow(listed, { now, days });
+  const loaded = await Promise.all(needed.map(async (row) => {
+    const snap = await readJsonIfOk(fetchImpl, `./data/price-history/${row.stamp}.json`);
+    if (!snap || typeof snap !== "object") return null;
+    return { ...snap, stamp: row.stamp };
+  }));
+  const history = normalizePriceHistory(loaded.filter(Boolean));
+  return history.snapshots.length ? history : null;
 }

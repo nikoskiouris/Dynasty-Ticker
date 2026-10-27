@@ -23,8 +23,10 @@ ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parent
 CONFIG = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
 OUTPUT = REPO / "docs" / "data" / "player_values.json"
+SLIM_PLAYERS_OUTPUT = REPO / "docs" / "data" / "nfl_players_slim.json"
 VALIDATION = ROOT / "validation.json"
 POSITIONS = ("QB", "RB", "WR", "TE")
+SLIM_POSITIONS = {"QB", "RB", "WR", "TE", "FB", "K", "DEF"}
 TWO_WAY_POSITIONS = {"CB", "DB", "S", "FS", "SS", "LB", "ILB", "OLB", "DE", "DT", "EDGE", "DL", "NB"}
 RETIRED_STATUSES = {"retired", "inactive", "reserve_retired", "reserve/did_not_report", "did_not_report"}
 REQUIRED_ASSETS = {
@@ -167,15 +169,64 @@ def http_bytes(url):
         return response.read()
 
 
+def cache_payload(path, payload, min_bytes=32):
+    """Replace a cache file only after a full upstream body is in hand.
+
+    A short or empty response must not truncate the last good download.
+    """
+    if not isinstance(payload, (bytes, bytearray)) or len(payload) < min_bytes:
+        size = len(payload) if isinstance(payload, (bytes, bytearray)) else 0
+        raise RuntimeError(f"{path.name} from upstream was only {size} bytes")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temp_name = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(payload)
+        os.replace(temp_name, path)
+    finally:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+    return path
+
+
 def fetch(cache, name, url, refresh=True):
     path = cache / name
     if refresh or not path.exists():
-        payload = http_bytes(url)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temp = path.with_suffix(path.suffix + ".tmp")
-        temp.write_bytes(payload)
-        os.replace(temp, path)
+        cache_payload(path, http_bytes(url))
     return path
+
+
+def resolve_nfl_clock(state):
+    """Return (season, week) from Sleeper.
+
+    A missing season_type must not wipe the current season. Offseason and
+    preseason stay at week 1. Anything else without a usable week fails closed.
+    """
+    if not isinstance(state, dict) or not state:
+        raise RuntimeError("Sleeper NFL state is missing")
+    season_raw = state.get("season")
+    if season_raw in (None, ""):
+        season_raw = state.get("league_season")
+    if season_raw in (None, ""):
+        raise RuntimeError("Sleeper NFL state is missing season")
+    season = int(num(season_raw, 0))
+    if season < 1990:
+        raise RuntimeError(f"Sleeper NFL season is not usable: {season_raw!r}")
+    season_type = str(state.get("season_type") or "").strip().lower()
+    week = int(num(state.get("week"), 0))
+    if season_type == "post":
+        return season, 19
+    if season_type == "regular":
+        if week < 1 or week > 22:
+            raise RuntimeError(f"Sleeper regular-season week is not usable: {state.get('week')!r}")
+        return season, week
+    if season_type in {"pre", "off"}:
+        return season, 1
+    if 1 <= week <= 18:
+        return season, week
+    raise RuntimeError("Sleeper NFL state is missing season_type and week")
 
 
 def read_csv(path):
@@ -464,13 +515,7 @@ def manifest(paths):
 def load_inputs(cache, refresh=True):
     state_path = fetch(cache, "sleeper_state.json", SLEEPER_STATE_URL, refresh=refresh)
     state = json.loads(state_path.read_text(encoding="utf-8"))
-    current_season = int(num(state.get("season") or state.get("league_season"), datetime.now(timezone.utc).year))
-    season_type = str(state.get("season_type") or "").lower()
-    current_week = int(num(state.get("week"), 1))
-    if season_type == "post":
-        current_week = 19
-    elif season_type != "regular":
-        current_week = 1
+    current_season, current_week = resolve_nfl_clock(state)
 
     player_path = fetch(cache, "players.csv", PLAYERS_URL, refresh=refresh)
     draft_path = fetch(cache, "draft_picks.csv", DRAFT_URL, refresh=refresh)
@@ -779,7 +824,7 @@ def learn_transitions(rows, replacement, through_origin):
     for (pid, season), row in rows.items():
         if season >= through_origin or row["games"] < 4 or row["age"] is None:
             continue
-        key = (row["position"], int(round(row["age"])), role_tier(row, replacement["sf"][row["position"]]))
+        key = (row["position"], age_bucket(row["age"]), role_tier(row, replacement["sf"][row["position"]]))
         survival[key][1] += 1
         nxt = rows.get((pid, season + 1))
         if not nxt or nxt["games"] < 4:
@@ -788,39 +833,53 @@ def learn_transitions(rows, replacement, through_origin):
         if row["games"] >= 8 and nxt["games"] >= 8 and row["ppg"] > 1:
             ratio = clamp(nxt["ppg"] / row["ppg"], 0.35, 1.45)
             retention[key].append(ratio)
-            generic[(row["position"], int(round(row["age"])))].append(ratio)
+            generic[(row["position"], age_bucket(row["age"]))].append(ratio)
     return retention, survival, generic
 
 
-def _keep_rate(position, age_bucket, tier, retention, generic):
+def age_bucket(age):
+    """Whole-year bucket. Half ages round up.
+
+    Python's round() is half-even, so 30.5 stayed 30 and 31.5 jumped to 32.
+    The curve then skipped a year at every odd .5.
+    """
+    return int(math.floor(float(age) + 0.5))
+
+
+def _borrowed_ages(age_bucket_value):
+    # Stop at 19 so a measured age-20 rate is visible to the next thin age.
+    return range(age_bucket_value - 1, 19, -1)
+
+
+def _keep_rate(position, age_bucket_value, tier, retention, generic):
     """Year-to-year scoring change. A thin old age borrows the last measured decline.
 
     Defaulting that age to 1.0 freezes a 32-year-old at his current rate for the
     whole horizon. The last measured rate is reused. A long career is not punished
     again just for outliving the sample.
     """
-    exact = retention.get((position, age_bucket, tier), [])
+    exact = retention.get((position, age_bucket_value, tier), [])
     if len(exact) >= 12:
         return median(exact), 0
-    for past in range(age_bucket - 1, 20, -1):
+    for past in _borrowed_ages(age_bucket_value):
         older = retention.get((position, past, tier), [])
         if len(older) >= 12:
-            return median(older), age_bucket - past
-    broad = generic.get((position, age_bucket), [])
+            return median(older), age_bucket_value - past
+    broad = generic.get((position, age_bucket_value), [])
     if len(broad) >= 12:
         return median(broad), 0
-    for past in range(age_bucket - 1, 20, -1):
+    for past in _borrowed_ages(age_bucket_value):
         older = generic.get((position, past), [])
         if len(older) >= 12:
-            return median(older), age_bucket - past
-    return (0.92 if age_bucket >= 30 else 1.0), 0
+            return median(older), age_bucket_value - past
+    return (0.92 if age_bucket_value >= 30 else 1.0), 0
 
 
 def transition(position, age, tier, retention, survival, generic):
-    age_bucket = int(round(age))
-    exact = retention.get((position, age_bucket, tier), [])
-    keep, _years_past = _keep_rate(position, age_bucket, tier, retention, generic)
-    survived, total = survival.get((position, age_bucket, tier), (0, 0))
+    bucket = age_bucket(age)
+    exact = retention.get((position, bucket, tier), [])
+    keep, _years_past = _keep_rate(position, bucket, tier, retention, generic)
+    survived, total = survival.get((position, bucket, tier), (0, 0))
     probability = (survived + 8.0) / (total + 10.0) if total else 0.80
     return clamp(keep, 0.55, 1.18), clamp(probability, 0.35, 0.98), len(exact), total
 
@@ -833,7 +892,9 @@ def role_security(profile):
     top12 = int(info.get("top12Finishes") or 0)
     experience = int(profile.get("experience") or 0)
     if experience < int(resume["roleSecurityExperience"]):
-        if experience <= 1 and top5 == 0 and top12 == 0:
+        # The old check only haircut experience <= 1, so a player with two
+        # seasons and no top-12 was fully locked, then fell off at experience 3.
+        if top5 == 0 and top12 == 0:
             return float(resume["roleSecurityRookie"])
         return 1.0
     if top5 >= 2 or top12 >= 2:
@@ -1073,6 +1134,9 @@ def pick_values(samples, current_season):
         round_values = force_descending(rounds)
         any_first = _bucket_median(samples[fmt], range(1, 13))
         any_first = min(early, max(late, any_first))
+        # The published round-1 price is `any`, which the early/late clamp can
+        # pull below the raw round median. Later rounds have to follow that price.
+        round_values = force_descending([any_first, *round_values[1:]])
         raw[fmt] = {"early": early, "mid": mid, "late": late, "any": any_first, "rounds": round_values}
 
     for year in range(current_season + 1, current_season + 7):
@@ -1144,6 +1208,137 @@ def backtest(rows, replacement=None):
             for key, value in sorted(breakdown.items())
         },
     }
+
+
+def slim_nfl_player(player, player_id=""):
+    """Keep only the fields the desk reads from Sleeper."""
+    if not isinstance(player, dict):
+        return None
+    positions = []
+    for raw in player.get("fantasy_positions") or []:
+        position = str(raw or "").strip().upper()
+        if position and position not in positions:
+            positions.append(position)
+    primary = str(player.get("position") or "").strip().upper()
+    if primary and primary not in positions:
+        positions.insert(0, primary)
+    if not any(position in SLIM_POSITIONS for position in positions):
+        return None
+    status = str(player.get("status") or "").strip()
+    team = str(player.get("team") or "").strip()
+    retired = status.lower() in {"retired", "inactive", "reserve_retired", "did_not_report"}
+    if not team and (player.get("active") is False or retired):
+        return None
+    first = str(player.get("first_name") or "").strip()
+    last = str(player.get("last_name") or "").strip()
+    full = str(player.get("full_name") or "").strip() or f"{first} {last}".strip()
+    if not full:
+        return None
+    record = {"player_id": str(player.get("player_id") or player_id or "")}
+    if not record["player_id"]:
+        return None
+    record["full_name"] = full
+    if primary:
+        record["position"] = primary
+    elif positions:
+        record["position"] = positions[0]
+    team = str(player.get("team") or "").strip()
+    if team:
+        record["team"] = team
+    age = num(player.get("age"), default=None)
+    if age is not None and age > 0:
+        record["age"] = int(age) if float(age).is_integer() else round(float(age), 1)
+    injury = str(player.get("injury_status") or "").strip()
+    if injury:
+        record["injury_status"] = injury
+    status = str(player.get("status") or "").strip()
+    if status:
+        record["status"] = status
+    years = num(player.get("years_exp"), default=None)
+    if years is not None and years >= 0:
+        record["years_exp"] = int(years)
+    if player.get("active") is False:
+        record["active"] = False
+    if positions:
+        record["fantasy_positions"] = positions[:4]
+    rookie = num((player.get("metadata") or {}).get("rookie_year"), default=None)
+    if rookie is not None and rookie > 0:
+        record["metadata"] = {"rookie_year": int(rookie)}
+    return record
+
+
+def build_slim_players(sleeper_players):
+    players = {}
+    for player_id, player in (sleeper_players or {}).items():
+        record = slim_nfl_player(player, player_id)
+        if record:
+            players[str(player_id)] = record
+    return players
+
+
+SLIM_FILE_FIELDS = ("full_name", "position", "team", "age", "injury_status", "status", "years_exp")
+
+
+def compact_slim_players(records):
+    rows = {}
+    for player_id in sorted(records or {}, key=str):
+        record = records[player_id]
+        status = record.get("status") or ""
+        if status == "Active":
+            status = ""
+        rows[str(player_id)] = [
+            record.get("full_name") or "",
+            record.get("position") or "",
+            record.get("team") or "",
+            record.get("age") or 0,
+            record.get("injury_status") or "",
+            status,
+            record.get("years_exp") if record.get("years_exp") is not None else None,
+        ]
+    return rows
+
+
+def published_player_teams(path=OUTPUT):
+    """Team on the published snapshot, used only when Sleeper has none."""
+    if not path.exists():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    teams = {}
+    for asset_id, info in (payload.get("players") or {}).items():
+        if not str(asset_id).startswith("player:"):
+            continue
+        team = str((info or {}).get("team") or "").strip()
+        if team:
+            teams[str(asset_id).split(":", 1)[1]] = team
+    return teams
+
+
+def write_slim_players(sleeper_players, output=SLIM_PLAYERS_OUTPUT, teams_by_id=None):
+    """Byte-stable. No clock, and player ids are sorted."""
+    records = build_slim_players(sleeper_players)
+    for player_id, record in records.items():
+        if str(record.get("team") or "").strip():
+            continue
+        team = str((teams_by_id or {}).get(str(player_id)) or "").strip()
+        if team:
+            record["team"] = team
+    payload = {
+        "source": "sleeper",
+        "fields": list(SLIM_FILE_FIELDS),
+        "players": compact_slim_players(records),
+    }
+    atomic_json(output, payload)
+    return payload
+
+
+def build_slim_only(cache, refresh=True):
+    sleeper_path = fetch(cache, "sleeper_players.json", SLEEPER_PLAYERS_URL, refresh=refresh)
+    sleeper = json.loads(sleeper_path.read_text(encoding="utf-8"))
+    payload = write_slim_players(sleeper, teams_by_id=published_player_teams())
+    print(json.dumps({
+        "output": str(SLIM_PLAYERS_OUTPUT),
+        "players": len(payload["players"]),
+    }, indent=2))
 
 
 def atomic_json(path, payload):
@@ -1300,10 +1495,12 @@ def build(cache, refresh=True):
     scale = float(CONFIG["displayScale"])
 
     validation = backtest(rows)
+    generated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     bundle = {
         "schemaVersion": int(CONFIG["schemaVersion"]),
         "modelVersion": CONFIG["modelVersion"],
-        "asOf": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "asOf": generated_at,
+        "generatedAt": generated_at,
         "season": current_season,
         "throughWeek": max(0, current_week - 1),
         "sf": {},
@@ -1386,6 +1583,7 @@ def build(cache, refresh=True):
     validate(bundle)
     atomic_json(OUTPUT, bundle)
     atomic_json(VALIDATION, report)
+    write_slim_players(inputs["sleeper"], teams_by_id=published_player_teams())
     print(json.dumps({
         "output": str(OUTPUT),
         "players": len(player_meta),
@@ -1400,7 +1598,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache-dir", type=Path, default=Path(".cache/player-values"))
     parser.add_argument("--use-cache", action="store_true", help="Reuse already-downloaded upstream files")
+    parser.add_argument("--slim-only", action="store_true", help="Write docs/data/nfl_players_slim.json and skip the value model")
     args = parser.parse_args()
+    if args.slim_only:
+        build_slim_only(args.cache_dir, refresh=not args.use_cache)
+        return
     build(args.cache_dir, refresh=not args.use_cache)
 
 

@@ -12,7 +12,7 @@ Sleeper dynasty league ticker: live scores, standings, playoff odds, awards, arc
 
 Open `docs/` locally (`npm run serve`) or [dynastyticker.com](https://dynastyticker.com/).
 
-1. Type a **Sleeper username** and press **Find leagues**.
+1. Type a **Sleeper username** and press **Find my leagues**. No username yet? Open `/?sample=1`. That loads one public Sleeper league so you can see the desk. It does not sign you in as a manager.
 2. Pick the league.
 3. League ID / URL still lives behind “Have a league ID or URL instead?”
 
@@ -44,17 +44,19 @@ There is one player-value system: `player-values/`.
 - League trade history and crowd votes remain useful context/preferences, but they do not create a second player price.
 - Package consolidation credit can still affect a trade verdict without changing any player's listed price.
 
-The complete design and caveats live in `player-values/SPEC.md`; implementation details are in `player-values/README.md`. The current chronological one-year holdout covers 1,605 player-season observations and reports 43.25 MAE versus 56.86 for the persistence baseline; this validates that narrow retention target, not eight-year market-price accuracy. Refresh with `python3 player-values/build.py`. The refresh validates before atomically replacing the last good snapshot. The 2027 Superflex rookie mock remains a separate display feature and refreshes with `python3 scripts/update_dynasty_rookie_mock.py`.
+The complete design and caveats live in `player-values/SPEC.md`; implementation details are in `player-values/README.md`. The chronological one-year holdout (observation count, MAE, and persistence MAE) lives on the snapshot `meta.validation` object and in `player-values/validation.json`. It validates that narrow retention target, not eight-year market-price accuracy. Refresh with `python3 player-values/build.py`. `python3 scripts/check_market_files.py` checks the committed file. `npm test` warns when that file is old. A live publish and the player-value refresh fail if it is older than 21 days. The refresh validates before atomically replacing the last good snapshot. The 2027 Superflex rookie mock remains a separate display feature and refreshes with `python3 scripts/update_dynasty_rookie_mock.py`.
 
 ## Live site (dynastyticker.com)
 
-The live app is a static site on **Netlify**. Public URL: `https://dynastyticker.com/`. Unreleased `develop` also goes to GitHub Pages as a preview: `https://nikoskiouris.github.io/Dynasty-Ticker/`.
+The live app is a static site on **Netlify**. Public URL: `https://dynastyticker.com/`. That is the product. `develop` is the integration branch. Unreleased work stays on `develop` until a release.
 
 **Work on `develop`. Live site updates only when `develop` is merged into `prod`.** That merge cuts a GitHub Release. GitHub Actions then scrapes market files and uploads with the Netlify CLI. Merges to `develop` (or leftover `main`) do not publish the live site.
 
+**github.io is not the app.** Do not treat `nikoskiouris.github.io` as Dynasty Ticker or as a preview of `develop`. After dynastyticker.com is serving this desk, turn GitHub Pages off in the repo settings, or replace the leftover Pages site with a 301 to `https://dynastyticker.com/`. Do not add a Pages custom domain. This repo no longer publishes `docs/` to Pages.
+
 Netlify emails on a GitHub merge do **not** mean credits were spent. On credit plans, a **successful production deploy** costs 15 credits. Skipped, canceled, and failed git deploys cost 0, but they still start a job and still email you. **Stop builds** (not “stop auto publishing”) is the switch that prevents the job from existing. This repo turns that on through the Netlify API. Bandwidth, web requests, and functions still use credits when people visit the site.
 
-1. GitHub → **Settings → General → Default branch:** `develop`.
+1. GitHub → **Settings → General → Default branch:** `develop`. Scheduled jobs run only from the default branch. While that setting stays on `main`, the Tuesday player-value refresh and the Monday rookie-mock refresh never start, and `docs/data` goes stale.
 2. Open [Netlify](https://app.netlify.com/), sign up with GitHub, **Add new site → Import an existing project**, pick this repo.
 3. Netlify reads `netlify.toml` (`publish = docs`). First deploy gives a `*.netlify.app` URL.
 4. **Domain management → Add custom domain:** `dynastyticker.com` and `www.dynastyticker.com`.
@@ -62,10 +64,14 @@ Netlify emails on a GitHub merge do **not** mean credits were spent. On credit p
 6. Repo **Settings → Secrets and variables → Actions**, add:
    - `NETLIFY_AUTH_TOKEN` — Netlify user access token (User settings → Applications → New access token).
    - `NETLIFY_SITE_ID` — Site API ID (Site configuration → Site details).
-7. GitHub Actions runs `.github/workflows/stop-netlify-git-builds.yml` so Netlify **Build status = Stopped builds**. Confirm in Netlify: **Project configuration → Build & deploy → Continuous deployment → Build settings → Stopped builds**. Do **not** use “Stop auto publishing”; that still starts a canceled production job. `netlify.toml` skip/refuse scripts are only a backup.
-8. Repo **Settings → Pages**: source is **GitHub Actions**. A push to `develop` runs `.github/workflows/refresh-pages-preview.yml`, which starts `.github/workflows/preview-pages.yml` on `main`. That job checks out `develop` and publishes `docs/` to `https://nikoskiouris.github.io/Dynasty-Ticker/`. Pages only allows deploys from `main`. That URL is the unreleased preview. Do **not** add a custom domain there. Visit counts and rather votes stay on dynastyticker.com only.
+7. On the Netlify site, set **Environment variables** (Site configuration → Environment variables), scoped to **Functions** and **Runtime**:
+   - `VISIT_SALT` — secret salt for the first-party page-view hash.
+   - `RATHER_SALT` — secret salt for the rather-vote rate-limit hash.
+   Do not commit them. Do not reuse `dynasty-ticker-traffic-v1` or `dynasty-ticker-rather-v1` (those strings shipped in source and are rejected). `scripts/deploy_live_site.sh` checks before upload. If a salt is missing or still one of those old defaults, `scripts/ensure_netlify_salts.py` writes a new random secret to the site and does not print it. A salt that is already a real secret is left alone. You can also set `VISIT_SALT` and `RATHER_SALT` in the deploy environment; the script copies those values instead of generating new ones.
+8. GitHub Actions runs `.github/workflows/stop-netlify-git-builds.yml` so Netlify **Build status = Stopped builds**. Confirm in Netlify: **Project configuration → Build & deploy → Continuous deployment → Build settings → Stopped builds**. Do **not** use “Stop auto publishing”; that still starts a canceled production job. `netlify.toml` skip/refuse scripts are only a backup.
+9. Repo **Settings → Pages**: turn the source **off** once dynastyticker.com matches this desk. If a github.io URL is still up, replace it with a redirect to `https://dynastyticker.com/`. Do **not** add a custom domain there. Visit counts and rather votes stay on dynastyticker.com only. An old Pages workflow left on `main` checks out `develop` and runs `scripts/stage_pages_preview.sh`. That script refuses, so the dispatch cannot publish a second desk.
 
-Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Tests: `.github/workflows/test.yml`. Unreleased preview: `.github/workflows/refresh-pages-preview.yml` starts `.github/workflows/preview-pages.yml` on `main`.
+Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Tests: `.github/workflows/test.yml`. Local check: `npm run serve`. There is no GitHub Pages preview workflow.
 
 ### Traffic
 
@@ -73,7 +79,7 @@ Cut a release: open a PR from `develop` into `prod` and merge it (or push `devel
 
 A week in mid-September 2026 read **557 unique visitors** and **879 pageviews**, almost all on `/` because the desk is one page. Treat that as roughly **400 real people** that week, not 557 humans. China, Germany, and Singapore add scanner IPs. Someone on Wi-Fi and cell data can count twice.
 
-Who actually opened a league is the searched-username list below. The old desk tally and `/secret-numbers` page are gone. The old third-party `page-views-api.ratneshc.com` counter stays retired.
+Who actually opened a league is the searched-username list below. The old desk tally and `/secret-numbers` page are gone. The old third-party `page-views-api.ratneshc.com` counter stays retired. A first-party page-view hash, when the host runs it, uses `VISIT_SALT` and is not shown on the page. Rather votes use `RATHER_SALT` the same way, and that hash is dropped with the two-day rate-limit record.
 
 ### Searched usernames
 
@@ -98,7 +104,7 @@ Download it from Netlify: **Data & Storage → Blobs → desk-users → searched
 NETLIFY_AUTH_TOKEN=... NETLIFY_SITE_ID=... node scripts/searched_users.mjs
 ```
 
-That writes `searched-users.csv` (gitignored). **This repo is public. Never commit that file.** There is no public URL for the list; `/api/searched-user` only accepts writes from dynastyticker.com. Localhost and the GitHub Pages preview never send a username.
+That writes `searched-users.csv` (gitignored). **This repo is public. Never commit that file.** There is no public URL for the list; `/api/searched-user` only accepts writes from dynastyticker.com. Localhost never sends a username. github.io is not the app, so it must not be treated as a second desk.
 
 ## CLI
 

@@ -4,7 +4,10 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import re
+import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -12,6 +15,7 @@ SLEEPER_PLAYERS_URL = "https://api.sleeper.app/v1/players/nfl"
 NFLVERSE_DRAFT_URL = "https://github.com/nflverse/nflverse-data/releases/download/draft_picks/draft_picks.csv"
 OUTPUT_PATH = Path("docs/data/nfl_draft_picks.json")
 RECENT_SEASONS = 3
+MIN_PUBLISHED_PICKS = 400
 NAME_SUFFIXES = {"jr", "sr", "ii", "iii", "iv", "v"}
 TEAM_ALIASES = {
     "GBP": "GB",
@@ -156,12 +160,18 @@ def pick_best_candidate(row: dict, candidates: list[dict]) -> dict | None:
             continue
         seen.add(candidate["player_id"])
         unique.append(candidate)
-    if len(unique) == 1:
-        return unique[0]
-
     season = str(row.get("season") or "")
-    year_matches = [item for item in unique if item["rookie_year"] == season]
+    year_matches = [
+        item for item in unique
+        if season and str(item.get("rookie_year") or "") == season
+    ]
+    # A dated sleeper row from another class is a namesake, not this pick.
+    # Undated rows can still match when the name is unique.
+    if any(str(item.get("rookie_year") or "") for item in unique) and not year_matches:
+        return None
     pool = year_matches or unique
+    if len(pool) == 1:
+        return pool[0]
 
     college = normalize_college(row.get("college"))
     if college:
@@ -254,6 +264,28 @@ def recent_seasons(current_year: int, count: int = RECENT_SEASONS) -> set[str]:
     return {str(year) for year in range(current_year - count + 1, current_year + 1)}
 
 
+def atomic_write_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    encoded = text.encode("utf-8")
+    descriptor, temp_name = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(encoded)
+        os.replace(temp_name, path)
+    finally:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+
+
+def publish_draft_picks(path: Path, payload: dict, min_picks: int = MIN_PUBLISHED_PICKS) -> None:
+    count = len((payload or {}).get("picks") or {})
+    if count < min_picks:
+        raise RuntimeError(f"Refusing to replace draft picks with only {count} rows")
+    atomic_write_text(path, json.dumps(payload, separators=(",", ":"), sort_keys=True))
+
+
 def main() -> int:
     players = json.loads(http_get(SLEEPER_PLAYERS_URL, timeout=120))
     csv_text = http_get(NFLVERSE_DRAFT_URL, timeout=60).decode("utf-8")
@@ -263,12 +295,12 @@ def main() -> int:
     draft_rows = parse_draft_rows(csv_text, seasons)
     picks = build_draft_pick_map(players, draft_rows)
     payload = {
+        "updated": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "year": current_year,
         "seasons": sorted(int(season) for season in seasons),
         "picks": picks,
     }
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_PATH.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
+    publish_draft_picks(OUTPUT_PATH, payload)
     print(f"Wrote {len(picks)} draft picks to {OUTPUT_PATH}")
     return 0
 

@@ -7,7 +7,8 @@ export const WEEKLY_SCORE_MAX = 99;
 export const WEEKLY_SCORE_LABEL = "This week";
 export const WEEKLY_SCORE_HINT = "Chance you should start them this week. Not trade value.";
 export const WEEKLY_SCORE_HELP_TITLE = "Start chance this week";
-export const DYNASTY_SCORE_LABEL = "Dynasty";
+export const DYNASTY_SCORE_LABEL = "Value";
+export const DYNASTY_SCORE_HINT = "Value. Same number as Players and Trade.";
 export const LINEUP_START_CHANCE_WEIGHT = 1_000_000;
 const START_CHANCE_BASE = 18;
 const START_CHANCE_ROLE_SPAN = 72;
@@ -74,7 +75,8 @@ export function weeklyScoreHelpLines() {
     "Top-tier names belong in the 90s. A healthy RB1 vs an average defense should sit near 90, not 60.",
     `Blends role, last ${WEEKLY_LOOKBACK_WEEKS} games of PPR, drops, and this week's opponent. Matchup barely moves a lock; it matters more at 50/50.`,
     "Not dynasty trade price. Last week alone does not set it.",
-    "Sit/start uses this number. Out and IR are 0% until that designation comes off. Questionable stays available. Bye, no team, and a missing opponent still sit. Dynasty price only breaks ties.",
+    "Players who are out or on injured reserve count as 0% until that changes.",
+    "Questionable stays available. Bye, no team, and a missing opponent still sit. Dynasty price only breaks ties.",
   ];
 }
 
@@ -577,9 +579,9 @@ export function weeklyUnavailableReason(injuryStatus, playerStatus) {
   const injury = designationText(injuryStatus);
   const status = designationText(playerStatus);
   if (injury === "out" || /\bout\b/.test(injury)) return "Out";
-  if (injury === "ir" || /\bir\b/.test(injury) || injury.includes("injured reserve")) return "IR";
+  if (injury === "ir" || /\bir\b/.test(injury) || injury.includes("injured reserve")) return "Injured reserve";
   if (status === "out" || /\bout\b/.test(status)) return "Out";
-  if (status === "ir" || /\bir\b/.test(status) || status.includes("injured reserve")) return "IR";
+  if (status === "ir" || /\bir\b/.test(status) || status.includes("injured reserve")) return "Injured reserve";
   return "";
 }
 
@@ -809,11 +811,11 @@ export function renderWeeklyPlayerSheet(model, { helpOpen = false } = {}) {
         </div>
         <div class="player-week-scores">
           <div class="weekly-score-badge" title="${escapeHtml(WEEKLY_SCORE_HINT)}">
-            <small class="sr-only">${WEEKLY_SCORE_LABEL}</small>
+            <small>${escapeHtml(WEEKLY_SCORE_LABEL)}</small>
             <strong>${escapeHtml(parts.value)}${parts.max ? `<span class="weekly-score-max">${escapeHtml(parts.max)}</span>` : ""}</strong>
           </div>
-          <div class="dynasty-value-badge" title="${escapeHtml(DYNASTY_SCORE_LABEL)}">
-            <small class="sr-only">${DYNASTY_SCORE_LABEL}</small>
+          <div class="dynasty-value-badge" title="${escapeHtml(DYNASTY_SCORE_HINT)}">
+            <small>${escapeHtml(DYNASTY_SCORE_LABEL)}</small>
             <strong>${escapeHtml(dynasty)}</strong>
           </div>
           ${renderWeeklyScoreHelpButton({ open: helpOpen })}

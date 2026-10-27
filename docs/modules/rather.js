@@ -1,4 +1,5 @@
 import { escapeHtml } from "./html.js";
+import { sleeperAvatarUrl } from "./sleeper.js";
 import {
   SLEEPER_PLAYER_THUMB_BASE,
   playerIdFromAssetId,
@@ -256,7 +257,7 @@ export function formatRatherMatchup(left, right) {
   const rightRank = right?.boardRank || formatRatherBoardRank(right);
   if (!leftRank || !rightRank) return "";
   if (left?.position && left.position === right?.position) {
-    return `${leftRank} vs ${rightRank} on the ticker board`;
+    return `${leftRank} vs ${rightRank} in the rankings`;
   }
   return `${leftRank} vs ${rightRank}`;
 }
@@ -332,7 +333,7 @@ export function renderRatherMarkup(pair, format = DEFAULT_RATHER_FORMAT, options
   const right = pair?.right || {};
   const skipLabel = options.skipLabel || "Skip";
   const note = options.note
-    || "Your pick slightly nudges the public ticker board for everyone. These ranks are ours, not NFL depth charts. The prior is Sleeper trades from many dynasty leagues.";
+    || "Your pick slightly nudges the public rankings for everyone. These ranks are ours, not NFL depth charts. The prior is Sleeper trades from many dynasty leagues.";
   const status = options.status || "";
   const matchup = options.matchup || formatRatherMatchup(left, right);
   return `
@@ -371,6 +372,35 @@ export function renderLandingRatherPlaceholder() {
       <p class="muted">Loading a close matchup…</p>
     </div>
   `;
+}
+
+// A league deep link used to skip boot and leave the loading line up.
+// Sample mode and a Players-tab render still start it.
+export function shouldStartLandingRather({ leagueId = "", sample = false, playersTab = false } = {}) {
+  if (sample || playersTab) return true;
+  return !String(leagueId || "").trim();
+}
+
+export function createRatherBootGate() {
+  let started = false;
+  return {
+    claim() {
+      if (started) return false;
+      started = true;
+      return true;
+    },
+    started() {
+      return started;
+    },
+  };
+}
+
+// The Players tab already shows the loading line. Boot writes the matchup
+// once. A second placeholder paint is what made sample mode flash twice.
+export function ratherBootPaints({ matchupHtml = "", failed = false } = {}) {
+  if (failed) return [renderRatherNoClose()];
+  if (matchupHtml) return [matchupHtml];
+  return [];
 }
 
 function ratherCareerClose(left, right) {
@@ -478,8 +508,9 @@ export function applyRatherOverlayHidden(overlay, hidden) {
 function renderRatherPlayerButton(player, side) {
   const name = player?.name || "Player";
   const initials = player?.initials || playerInitials(name);
-  const photo = player?.photoUrl
-    ? `<img class="rather-photo" src="${escapeHtml(player.photoUrl)}" alt="" width="96" height="96" data-initials="${escapeHtml(initials)}">`
+  const photoSrc = sleeperAvatarUrl(player?.photoUrl);
+  const photo = photoSrc
+    ? `<img class="rather-photo" src="${escapeHtml(photoSrc)}" alt="" width="96" height="96" data-initials="${escapeHtml(initials)}">`
     : "";
   const meta = player?.meta
     ? `<small class="rather-meta">${escapeHtml(player.meta)}</small>`

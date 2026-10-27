@@ -19,6 +19,7 @@ import {
   tickerDurationSeconds,
   writeStorageNoticeDismissed,
 } from "../docs/modules/site.js";
+import { SAMPLE_LEAGUE_ID } from "../docs/modules/constants.js";
 import { siteMarkup } from "./site-markup.js";
 
 const docs = join(dirname(fileURLToPath(import.meta.url)), "../docs");
@@ -163,20 +164,38 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /id="copy-league-id-btn"/);
   assert.doesNotMatch(index, /Use demo league/);
   assert.doesNotMatch(index, /Open demo/);
+  assert.match(index, /id="sample-league-link"/);
+  assert.match(index, /href="\.\/\?sample=1"/);
+  assert.match(index, /See the sample league/);
+  assert.match(index, /Connect my league/);
+  assert.match(index, /class="empty-cta"/);
   assert.equal(existsSync(join(docs, "modules/recap.js")), false);
   assert.equal(existsSync(join(docs, "modules/recap-card.js")), false);
-  assert.match(index, /id="landing-rather"/);
-  assert.match(index, /id="open-public-ranks"/);
-  assert.match(index, /Look up a player/);
+  assert.doesNotMatch(index, /id="landing-rather"/);
+  assert.match(index, /Build a trade/);
+  assert.match(index, /Your next dynasty move starts here\./);
+  assert.match(index, /Explore player values, build a trade, or connect your Sleeper league\. Free\. No sign-up\./);
+  assert.doesNotMatch(index, /Find your league/);
+  assert.match(index, /id="sample-league-chip"/);
+  assert.match(index, />Sample league · Connect yours</);
+  assert.match(index, /id="sample-banner"/);
+  assert.doesNotMatch(index, /This is a public sample league\. Connect your Sleeper username anytime\./);
+  assert.doesNotMatch(readDocs("ui/league.html"), /Connect Sleeper|Find leagues</);
+  assert.match(readDocs("app.js"), /Sample league — not this account\./);
+  assert.match(readDocs("app.js"), /Viewing as \$\{me\.manager\?\.displayName \|\| "a roster"\}/);
+  assert.match(readDocs("app.js"), /return "Sample league"/);
+  assert.match(readDocs("app.js"), /Example roster/);
   assert.match(index, /id="public-ranks"/);
   assert.match(index, /id="ranks-dashboard"/);
   assert.match(index, /id="landing-username"/);
   assert.doesNotMatch(index, /See a value\. Check a trade\. Then your team\./);
+  assert.doesNotMatch(index, /See the league\./);
+  assert.doesNotMatch(index, /Then the next move/);
   assert.match(index, /Type your Sleeper username/);
   assert.doesNotMatch(index, /id="landing-jobs"/);
   assert.match(index, /brand\/wordmark-on-dark\.svg/);
   assert.match(index, /class="brand-wordmark/);
-  assert.match(index, /class="brand-lockup brand-lockup--landing"/);
+  assert.match(index, /class="brand-lockup brand-lockup--header"/);
   assert.match(index, /id="league-avatar"[\s\S]*brand\/mark\.svg/);
   assert.match(index, /class="league-mark"/);
   assert.doesNotMatch(index, /class="brand-mark"/);
@@ -191,8 +210,8 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /id="footer-visits"/);
   assert.doesNotMatch(index, /anonymous visit ping/);
   assert.doesNotMatch(index, /secret-numbers/);
-  assert.match(index, /Who would you rather have\?/);
-  assert.match(index, /PPR 12-man Superflex/);
+  assert.doesNotMatch(index, /Who would you rather have\?/);
+  assert.doesNotMatch(index, /PPR 12-man Superflex/);
   assert.match(index, /id="username-error"/);
   assert.match(index, /data-theme="dark"/);
   assert.match(index, /theme-color" content="#0c0c0e"/);
@@ -202,7 +221,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, />Light mode</);
   assert.doesNotMatch(index, />Dark mode</);
   assert.doesNotMatch(index, /data-theme="light"/);
-  assert.match(index, /family=Instrument\+Serif:/);
+  assert.match(index, /href="\.\/tokens\.css"/);
+  assert.doesNotMatch(index, /fonts\.googleapis\.com/);
+  assert.doesNotMatch(index, /fonts\.gstatic\.com/);
   for (const page of ["players", "trades", "league"]) {
     assert.match(index, new RegExp(`data-page="${page}"`));
     assert.match(index, new RegExp(`id="${page}-page"`));
@@ -228,7 +249,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="find-more-btn"/);
   assert.match(index, />Find more</);
   assert.match(index, />Find partners</);
-  assert.match(index, /Check an offer or find a deal/);
+  assert.match(index, /Check a trade or find a deal/);
   assert.match(index, /Review trade fills the calculator/);
   assert.doesNotMatch(index, /Got an offer\?/);
   const tradesPage = index.slice(index.indexOf('id="trades-page"'), index.indexOf('id="league-page"'));
@@ -269,8 +290,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /last username, league/);
   assert.doesNotMatch(index, /privacy\.html/);
   assert.doesNotMatch(index, /terms\.html/);
-  assert.doesNotMatch(index, />Privacy</);
-  assert.doesNotMatch(index, />Terms</);
+  // QA 2026-10-18 (#10, owner): the landing footer links /privacy and /terms.
+  assert.match(index, /class="launch-footer"[\s\S]*href="\/privacy">Privacy<[\s\S]*href="\/terms">Terms</);
+  assert.match(index, /Free, no sign-up\./);
   assert.doesNotMatch(index, />Contact</);
   assert.doesNotMatch(index, /workspace-footer/);
 
@@ -310,7 +332,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(notFound, /class="brand-mark"/);
   assert.doesNotMatch(notFound, /League Command Center/);
   assert.doesNotMatch(notFound, /demo league/i);
-  assert.doesNotMatch(notFound, /1315165104303513600/);
+  assert.doesNotMatch(notFound, new RegExp(SAMPLE_LEAGUE_ID));
   assert.doesNotMatch(notFound, /privacy\.html/);
   assert.doesNotMatch(notFound, /terms\.html/);
   assert.doesNotMatch(notFound, /Contact/);
@@ -325,6 +347,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(privacy, /GitHub issues/);
   assert.match(privacy, /who would you rather have/);
   assert.match(privacy, /Public rather votes/);
+  assert.match(privacy, /salted hash/);
+  assert.match(privacy, /two days/);
+  assert.match(privacy, /not sent to a third-party counter/);
   assert.doesNotMatch(privacy, /GitHub Pages/);
   assert.doesNotMatch(privacy, /visit count/i);
   assert.doesNotMatch(privacy, /page-views-api/);
@@ -343,7 +368,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(app, /renderTradeDraft\(/);
   assert.doesNotMatch(app, /value-pick-board/);
   assert.doesNotMatch(app, /renderValueCalcPickBoard/);
-  assert.match(app, /Player or pick, like 2026 early 1st/);
+  assert.match(app, /Player or pick, like \$\{nextRookieDraftSeason\(\)\} early 1st/);
   assert.match(app, /listValueCalcAssets/);
   assert.doesNotMatch(readDocs("styles.css"), /value-pick-board/);
   assert.match(app, /function goLeagueHome/);
@@ -415,10 +440,11 @@ test("Got it hides the storage notice and remembers the choice", () => {
   assert.equal(classes.has("hidden"), true);
 });
 
-test("storage notice CSS does not override the hidden attribute", () => {
-  const css = readDocs("styles.css");
-  assert.match(css, /\.storage-notice:not\(\[hidden\]\)\s*\{[^}]*display:\s*flex/s);
-  assert.doesNotMatch(css, /\.storage-notice\s*\{[^}]*display:\s*flex/s);
+test("dead storage notice CSS and the sticky cta id rules are gone", () => {
+  const css = `${readDocs("styles.css")}\n${readDocs("product.css")}`;
+  assert.doesNotMatch(css, /\.storage-notice/);
+  assert.doesNotMatch(css, /#sticky-mobile-cta/);
+  assert.match(readDocs("styles.css"), /\.sticky-mobile-cta\s*\{[^}]*display:\s*none/s);
 });
 
 test("side rail is fixed so the page cannot scroll a blank screen past the last card", () => {
@@ -493,12 +519,21 @@ test("wide board can shut so the page fills the screen", () => {
   assert.match(index, /id="desk-board-close"/);
   assert.match(index, /id="desk-board-open"/);
   assert.match(index, /id="board-tools"/);
-  assert.match(index, /dynasty_ticker_board/);
+  assert.match(readDocs("desk-shut.js"), /dynasty_ticker_board/);
+  assert.match(index, /src="\.\/desk-shut\.js"/);
+  assert.doesNotMatch(index, /<script>\s*try/);
   assert.match(app, /dynasty_ticker_board/);
   assert.match(app, /renderRanksToolbar/);
   assert.match(css, /html\.desk-shut \.workspace \{[^}]*grid-column:\s*1/s);
   assert.match(css, /html\.desk-shut \.control-rail \{[^}]*display:\s*none !important/s);
   assert.match(css, /Wide board shuts so the page fills the screen/);
+  assert.match(index, /id="mobile-rail-close"[^>]*tabindex="-1"/);
+  const deskShut = app.slice(app.indexOf("function setDeskBoardShut"), app.indexOf("function setMobileRailOpen"));
+  assert.match(deskShut, /deskBoardClose\?\.setAttribute\("tabindex", "-1"\)/);
+  assert.match(deskShut, /deskBoardClose\?\.removeAttribute\("tabindex"\)/);
+  const rail = app.slice(app.indexOf("function setMobileRailOpen"), app.indexOf("function scrollChildIntoStrip"));
+  assert.match(rail, /mobileRailClose\?\.setAttribute\("tabindex", "-1"\)/);
+  assert.match(rail, /mobileRailClose\?\.removeAttribute\("tabindex"\)/);
 });
 
 test("each desk page is its own file and boot mounts them before the app", () => {
@@ -514,7 +549,29 @@ test("each desk page is its own file and boot mounts them before the app", () =>
     assert.equal(existsSync(join(docs, "ui", file)), true);
   }
   assert.match(boot, /await import\("\.\/app\.js"\)/);
-  assert.match(siteMarkup(), /id="landing-rather"/);
+  assert.match(boot, /showBootError/);
+  assert.match(boot, /role="alert"/);
+  assert.match(boot, /paintFindLeagueButtons\(document, "loading"\)/);
+  assert.doesNotMatch(boot, /player_values/);
+  assert.match(readDocs("app.js"), /releaseBootGate\(document\)/);
+  assert.match(readDocs("app.js"), /scheduleBootFind\(\(\) => requestFindLeagues\(\)\)/);
+  assert.match(readDocs("app.js"), /applyBootFieldValue/);
+  assert.match(index, /src="\.\/boot-intent\.js"/);
+  assert.ok(index.indexOf('src="./boot-intent.js"') < index.indexOf('src="./boot.js"'));
+  assert.match(index, /id="find-leagues-btn"[^>]*aria-disabled="true"[^>]*aria-busy="true"/);
+  assert.match(index, /id="sticky-find-btn"[^>]*aria-disabled="true"[^>]*aria-busy="true"/);
+  assert.doesNotMatch(index, /id="find-leagues-btn"[^>]*\sdisabled[\s=]/);
+  assert.doesNotMatch(index, /id="sticky-find-btn"[^>]*\sdisabled[\s=]/);
+  assert.match(readDocs("ui/landing.html"), /id="landing-find-btn"[^>]*aria-disabled="true"[^>]*aria-busy="true"/);
+  assert.doesNotMatch(readDocs("ui/landing.html"), /id="landing-find-btn"[^>]*\sdisabled[\s=]/);
+  assert.match(readDocs("ui/league.html"), /data-action="find-my-leagues"[^>]*aria-busy="true"/);
+  assert.doesNotMatch(readDocs("ui/league.html"), /data-action="find-my-leagues"[^>]*\sdisabled[\s=]/);
+  assert.doesNotMatch(index, /id="sleeper-username"[^>]*disabled/);
+  assert.doesNotMatch(readDocs("ui/landing.html"), /id="landing-username"[^>]*disabled/);
+  assert.match(index, /class="skip-link"/);
+  assert.doesNotMatch(siteMarkup(), /id="landing-rather"/);
+  assert.doesNotMatch(readDocs("ui/players.html"), /id="landing-rather"/);
+  assert.doesNotMatch(readDocs("ui/players.html"), /Who would you rather have\?/);
   assert.match(siteMarkup(), /id="calculator-shell"/);
   assert.match(siteMarkup(), /id="weekly-help-btn"/);
 });
@@ -564,4 +621,24 @@ test("product name Dynasty Ticker never shares the repo with the old brand", () 
 
   walk(root);
   assert.deepEqual(hits, []);
+});
+
+test("user-facing copy says players and picks, not assets", () => {
+  const app = readDocs("app.js");
+  const voice = readDocs("modules/sample-voice.js");
+  assert.match(app, /tap players & picks on both sides/);
+  assert.match(app, /No traded players & picks to rank yet/);
+  assert.match(app, /\$\{playersAndPicksLabel\(movements\.length\)\} moved/);
+  assert.match(readDocs("modules/html.js"), /1 player or pick/);
+  assert.match(readDocs("modules/html.js"), /players & picks/);
+  assert.match(app, /No matching players & picks found on your roster/);
+  assert.match(app, /Select one of your own players & picks to shop first/);
+  assert.match(app, /fewer included players & picks/);
+  assert.match(app, /exclude fewer players & picks/);
+  assert.match(app, /headline players & picks/);
+  assert.match(app, /high-value players & picks/);
+  assert.match(voice, /No matching players & picks found on \$\{poss\} roster/);
+  assert.match(voice, /Select one of \$\{poss\} players & picks to shop first/);
+  assert.doesNotMatch(app, /tap assets|traded assets|assets moved|matching assets|own assets|included assets|fewer assets|headline assets|high-value assets/);
+  assert.doesNotMatch(voice, /assets/);
 });

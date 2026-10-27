@@ -5,6 +5,7 @@ import {
   PAGE_IDS,
   PAGE_ROOMS,
   PLACE_ALIASES,
+  SAMPLE_LEAGUE_ID,
   SCOPED_ROOM_ALIASES,
 } from "./constants.js";
 import { isRankAssetId } from "./ranks.js";
@@ -36,7 +37,7 @@ export function normalizeUsername(raw) {
   return value.replace(/^@/, "").replace(/\s+/g, "");
 }
 
-export function classifyLeagueInput(raw) {
+export function classifyLeagueInput(raw, { digitsAreLeague = true } = {}) {
   const value = String(raw || "").trim();
   if (!value) return { kind: "empty", leagueId: "", username: "" };
 
@@ -45,7 +46,8 @@ export function classifyLeagueInput(raw) {
     return { kind: "league", leagueId: leaguePathMatch[1], username: "" };
   }
 
-  if (/^\d+$/.test(value)) {
+  // The league-id box treats a bare number as an id. The username box never does.
+  if (digitsAreLeague && /^\d+$/.test(value)) {
     return { kind: "league", leagueId: value, username: "" };
   }
 
@@ -60,6 +62,16 @@ export function classifyLeagueInput(raw) {
   }
 
   return { kind: "username", leagueId: "", username: normalizeUsername(value) };
+}
+
+export function classifyUsernameField(raw) {
+  return classifyLeagueInput(raw, { digitsAreLeague: false });
+}
+
+export function classifyLeagueField(leagueRaw, usernameRaw = "") {
+  const league = String(leagueRaw || "").trim();
+  if (league) return classifyLeagueInput(league);
+  return classifyUsernameField(usernameRaw);
 }
 
 export function uniqueSeasons(currentSeason, extra = 1) {
@@ -176,8 +188,10 @@ export function buildShareParams({
   week = null,
   tone = "",
   asset = "",
+  sample = false,
 } = {}) {
   const params = new URLSearchParams();
+  if (sample) params.set("sample", "1");
   if (leagueId) params.set("league", String(leagueId));
   if (meRosterId) params.set("me", String(meRosterId));
   const place = resolveDeskPlace({ tab, view });
@@ -189,9 +203,29 @@ export function buildShareParams({
   return params;
 }
 
+export const INVALID_LEAGUE_LINK_MESSAGE = "That league link isn't valid";
+
+function sampleRequested(params) {
+  const raw = String(params.get("sample") || "").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
+// First pick, before the load finishes. Empty when the URL already names a league
+// so a later switch can still push a Back entry.
+export function stampPickedLeagueSearch(search, leagueId) {
+  const id = String(leagueId || "").trim();
+  if (!/^\d+$/.test(id)) return "";
+  const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+  if (parseLeagueId(params.get("league") || "")) return "";
+  params.set("league", id);
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
 export function parseShareParams(search) {
   const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
   const league = String(params.get("league") || "").trim();
+  const sample = sampleRequested(params);
   const me = Number(params.get("me"));
   const rawTab = params.get("tab") || "";
   const rawView = params.get("view") || "";
@@ -200,8 +234,12 @@ export function parseShareParams(search) {
   const asset = String(params.get("asset") || "").trim();
   const hasPlace = Boolean(cleanToken(rawTab) || cleanToken(rawView));
   const place = resolveDeskPlace({ tab: rawTab, view: rawView });
+  const parsedLeague = parseLeagueId(league);
+  const invalidLeague = Boolean(league) && !parsedLeague && !sample;
   return {
-    leagueId: parseLeagueId(league) || league,
+    leagueId: parsedLeague || (sample ? SAMPLE_LEAGUE_ID : ""),
+    invalidLeague,
+    sample,
     meRosterId: Number.isFinite(me) && me > 0 ? me : null,
     asset: place.room === "ranks" && isRankAssetId(asset) ? asset : "",
     // `tab` stays "" when the URL did not ask for a place, so boot can fall

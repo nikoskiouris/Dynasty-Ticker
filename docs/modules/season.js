@@ -81,7 +81,7 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
       isCurrent,
       hasPoints,
       isLive: isCurrent && hasPoints,
-      status: isFinal ? "final" : isCurrent ? (hasPoints ? "live" : "current") : week < weekState.currentWeek ? "final" : "upcoming",
+      status: isFinal ? "final" : isCurrent ? (hasPoints ? "live" : "current") : "upcoming",
       label: isPlayoff ? `Week ${week} · Playoffs` : `Week ${week}`,
     });
   });
@@ -685,7 +685,7 @@ export function scoreUpcomingWeekAngles(model, sim = null, { weekEntry = null } 
       const bubbleP = bubbleTeam.p;
       leverageGames.push({
         kind: "leverage",
-        title: "Highest leverage",
+        title: "Biggest swing",
         rosterId: String(bubbleTeam.side.rosterId),
         teamName: bubbleTeamRow?.name || `Roster ${bubbleTeam.side.rosterId}`,
         opponentRosterId: String(bubbleTeam === under ? fav.side.rosterId : under.side.rosterId),
@@ -709,7 +709,7 @@ export function scoreUpcomingWeekAngles(model, sim = null, { weekEntry = null } 
         opponentName: model.teams.get(String(right.rosterId))?.name || `Roster ${right.rosterId}`,
         winPct: Math.min(pLeft, pRight) * 100,
         valueLabel: `${Math.round(Math.min(pLeft, pRight) * 100)}-${Math.round(Math.max(pLeft, pRight) * 100)}`,
-        detail: "Scoring distributions overlap almost completely. The Gaussian win model calls this a toss-up.",
+        detail: "These teams score about the same. This one is a toss-up.",
         tone: "green",
         score: tossScore,
         matchupId,
@@ -745,7 +745,7 @@ export function scoreUpcomingWeekAngles(model, sim = null, { weekEntry = null } 
           opponentName: model.teams.get(String(fav.rosterId))?.name || `Roster ${fav.rosterId}`,
           winPct: p * 100,
           valueLabel: `${Math.round(p * 100)}%`,
-          detail: `${Math.round(p * 100)}% by scoring-profile sim to beat ${model.teams.get(String(fav.rosterId))?.name || "the favorite"}. Gaussian matchup CDF on empirical-Bayes scoring, not the roster price.`,
+          detail: `${Math.round(p * 100)}% chance to beat ${model.teams.get(String(fav.rosterId))?.name || "the favorite"}, from how these teams score, not from roster price.`,
           tone: "gold",
           score: 0.5 - p,
           matchupId: game.matchupId ?? `${sides[0].rosterId}-${sides[1].rosterId}`,
@@ -1274,14 +1274,21 @@ function buildDivisions(standings, divisionCount) {
   return [...map.values()].sort((a, b) => a.division - b.division);
 }
 
+function weekHasMatchups(weekRows, week) {
+  if (!weekRows || typeof weekRows.has !== "function" || !weekRows.has(week)) return false;
+  const rows = weekRows.get(week);
+  return Array.isArray(rows) && rows.length > 0;
+}
+
 function resolveWeekState(league, nflState, weekRows, lastWeek) {
   const settings = league?.settings || {};
   const status = String(league?.status || "").toLowerCase();
   const leagueSeason = String(league?.season || "");
   const nflSeason = String(nflState?.season || nflState?.league_season || "");
-  const sameSeason = nflSeason && leagueSeason && nflSeason === leagueSeason;
+  const sameSeason = Boolean(nflSeason && leagueSeason && nflSeason === leagueSeason);
   const leg = Number(settings.leg);
   const lastScored = Number(settings.last_scored_leg);
+  const hasScoredLeg = Number.isFinite(lastScored) && lastScored > 0;
 
   if (status === "complete") {
     return { currentWeek: lastWeek + 1, finalThroughWeek: lastWeek, seasonComplete: true };
@@ -1289,22 +1296,49 @@ function resolveWeekState(league, nflState, weekRows, lastWeek) {
   if (status === "pre_draft" || status === "drafting") {
     return { currentWeek: 1, finalThroughWeek: 0, seasonComplete: false };
   }
-
-  let currentWeek = Number.isFinite(leg) && leg > 0 ? leg : null;
-  if (sameSeason) {
-    const nflWeek = Number(nflState.week) || Number(nflState.display_week) || null;
-    if (String(nflState.season_type || "") === "pre") currentWeek = 1;
-    else if (String(nflState.season_type || "") === "post") currentWeek = lastWeek + 1;
-    else if (nflWeek) currentWeek = currentWeek ? Math.max(currentWeek, nflWeek) : nflWeek;
-  } else if (nflSeason && leagueSeason && Number(nflSeason) > Number(leagueSeason)) {
+  if (nflSeason && leagueSeason && Number(nflSeason) > Number(leagueSeason)) {
     return { currentWeek: lastWeek + 1, finalThroughWeek: lastWeek, seasonComplete: true };
   }
-  if (!currentWeek) currentWeek = inferCurrentWeek(weekRows);
 
-  let finalThroughWeek = Number.isFinite(lastScored) && lastScored > 0 ? lastScored : Math.max(0, currentWeek - 1);
-  finalThroughWeek = Math.min(finalThroughWeek, lastWeek);
-  currentWeek = Math.max(currentWeek, finalThroughWeek + 1);
-  return { currentWeek, finalThroughWeek, seasonComplete: finalThroughWeek >= lastWeek };
+  // Weeks <= last_scored_leg are final. A later NFL week, including the
+  // NFL postseason, must not mark the unscored fantasy weeks in between as final.
+  const seasonType = String(nflState?.season_type || "");
+  let hinted = Number.isFinite(leg) && leg > 0 ? leg : null;
+  if (sameSeason) {
+    const nflWeek = Number(nflState?.week) || Number(nflState?.display_week) || null;
+    if (seasonType === "pre") {
+      hinted = 1;
+    } else if (seasonType === "post") {
+      if (!hinted) hinted = hasScoredLeg ? Math.min(lastWeek + 1, lastScored + 1) : 1;
+    } else if (nflWeek) {
+      hinted = hinted ? Math.max(hinted, nflWeek) : nflWeek;
+    }
+  }
+  if (!hinted) hinted = inferCurrentWeek(weekRows);
+
+  let finalThroughWeek = hasScoredLeg ? Math.min(lastScored, lastWeek) : Math.max(0, hinted - 1);
+  finalThroughWeek = Math.min(Math.max(0, finalThroughWeek), lastWeek);
+  const nextOpen = Math.min(lastWeek + 1, finalThroughWeek + 1);
+
+  let currentWeek = Math.min(Math.max(hinted, nextOpen), lastWeek + 1);
+  if (currentWeek > nextOpen && currentWeek <= lastWeek && !weekHasMatchups(weekRows, currentWeek)) {
+    currentWeek = nextOpen;
+  }
+  if (currentWeek > nextOpen) {
+    for (let week = nextOpen; week < currentWeek && week <= lastWeek; week += 1) {
+      if (!weekHasMatchups(weekRows, week)) {
+        currentWeek = week;
+        break;
+      }
+    }
+  }
+  if (currentWeek > lastWeek && finalThroughWeek < lastWeek) currentWeek = nextOpen;
+
+  return {
+    currentWeek,
+    finalThroughWeek,
+    seasonComplete: finalThroughWeek >= lastWeek,
+  };
 }
 
 function inferCurrentWeek(weekRows) {

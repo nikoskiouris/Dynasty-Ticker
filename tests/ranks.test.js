@@ -8,7 +8,9 @@ import {
   marketTape,
   ownerLine,
   pickEqualLine,
+  RANK_PAGE_SIZE,
   rankView,
+  renderRanksBody,
   renderRanksMarkup,
   sameMoney,
 } from "../docs/modules/ranks.js";
@@ -65,12 +67,12 @@ test("board ranks players and drops retired, defense, and unnamed scrubs", () =>
   assert.equal(rows[0].overallRank, 1);
   assert.equal(rows[0].owner.mine, true);
   assert.equal(rows[0].tape.tone, "model");
-  assert.match(rows[0].tape.line, /established NFL sample/);
+  assert.equal(rows[0].tape.line, "Estimate based on several NFL seasons.");
   assert.equal(rows[0].pickLine, "Worth more than a 2027 early 1st.");
   const chase = rows.find((row) => row.assetId === "player:2");
   assert.equal(chase.pickLine, "Worth about a 2027 early 1st.");
   assert.equal(chase.boardRank, "WR1");
-  assert.match(chase.tape.line, /developing NFL sample/);
+  assert.equal(chase.tape.line, "Estimate still settling: limited NFL games.");
   const even = rows.find((row) => row.assetId === "player:5");
   assert.equal(even.pickLine, "Worth about a 2027 late 1st.");
   assert.equal(even.pickEqual.value, 5000);
@@ -109,8 +111,9 @@ test("pick line and tape stay one sentence", () => {
   assert.equal(pickEqualLine(1300, { phrase: "2027 1st", value: 1000 }), "A step above a 2027 1st.");
   assert.equal(pickEqualLine(800, { phrase: "2027 1st", value: 1000 }), "A step under a 2027 1st.");
   assert.equal(pickEqualLine(4000, { phrase: "2028 3rd", value: 1000 }), "Closest pick is a 2028 3rd.");
-  assert.match(marketTape({ confidence: "established" }).line, /established NFL sample/);
-  assert.match(marketTape({ confidence: "thin" }).line, /thin NFL sample/);
+  assert.equal(marketTape({ confidence: "established" }).line, "Estimate based on several NFL seasons.");
+  assert.equal(marketTape({ confidence: "developing" }).line, "Estimate still settling: limited NFL games.");
+  assert.equal(marketTape({ confidence: "thin" }).line, "Early estimate: few NFL games so far.");
   assert.match(marketTape({ kind: "pick" }).line, /Historical rookie-outcome/);
   assert.equal(ownerLine({ mine: true }, { leagueOpen: true }), "You have him.");
   assert.equal(ownerLine({ name: "Demetri" }, { leagueOpen: true }), "Demetri has him.");
@@ -131,6 +134,11 @@ test("filters keep the tradable board and search finds the cheap name", () => {
   assert.equal(found.length, 1);
   assert.equal(found[0].name, "Ja'Marr Chase");
   assert.equal(foldRankQuery("Ja'Marr"), "jamarr");
+  assert.ok(found[0].overallRank > 1);
+  assert.match(renderRanksBody(rankView({ rows, query: "jamarr" })), new RegExp(`ranks-num">${found[0].overallRank}<`));
+  const wrView = rankView({ rows, position: "WR" });
+  assert.ok(wrView.rows[0].overallRank > 1);
+  assert.match(renderRanksBody(wrView), new RegExp(`ranks-num">${wrView.rows[0].overallRank}<`));
   const picks = filterRankRows(rows, { position: "PICK" });
   assert.ok(picks.every((row) => row.kind === "pick"));
   assert.equal(picks.some((row) => row.assetId === "pick:2027:r1:early"), false);
@@ -164,9 +172,37 @@ test("markup escapes names and opens the selected card", () => {
   assert.match(html, /Similar value/);
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /&lt;script&gt;/);
+  assert.match(html, /class="ranks-estimate">Our estimate</);
+  assert.doesNotMatch(html, />Model</);
+  const row = html.slice(html.indexOf('class="ranks-row'), html.indexOf('class="ranks-row', html.indexOf('class="ranks-row') + 1) || html.length);
+  assert.match(html, /class="value-tier"/);
+  assert.match(html, /class="sr-only">Value tier: /);
+  assert.match(html, /Our estimate, scored with a point per catch/);
+  assert.doesNotMatch(html, /Model price, full PPR/);
+  assert.match(html, /aria-hidden="true">—<\/span><span class="sr-only">No trend yet/);
+  assert.match(row, /class="ranks-value-num"/);
   assert.equal(isRankAssetId("player:12"), true);
   assert.equal(isRankAssetId("pick:2027:r1:any"), true);
   assert.equal(isRankAssetId("pick:2027:r1:nope"), false);
   const loading = renderRanksMarkup({ loading: true });
   assert.match(loading, /Loading player values/);
+});
+
+test("ranks open with one page and a show-more control", () => {
+  const rows = Array.from({ length: RANK_PAGE_SIZE + 3 }, (_, index) => ({
+    assetId: `player:${index + 1}`,
+    kind: "player",
+    name: `Player ${index + 1}`,
+    value: 9000 - index,
+    position: "WR",
+    playerId: String(index + 1),
+  }));
+  const first = rankView({ rows, position: "ALL" });
+  assert.equal(first.rows.length, RANK_PAGE_SIZE);
+  assert.equal(first.hidden, 3);
+  assert.match(renderRanksBody(first), /data-action="ranks-more"/);
+  const rest = rankView({ rows, position: "ALL", shown: RANK_PAGE_SIZE * 2 });
+  assert.equal(rest.rows.length, rows.length);
+  assert.equal(rest.hidden, 0);
+  assert.doesNotMatch(renderRanksBody(rest), /ranks-more/);
 });

@@ -12,21 +12,28 @@ import {
   swapValueCalcSides,
   valueCalcVerdict,
 } from "../docs/modules/value-calc.js";
+import { verdictCopy } from "../docs/modules/verdict-copy.js";
 import {
   TRADE_DRAFT_STORAGE_KEY,
   describeDraftItem,
   draftFromReview,
   draftMarketPrice,
+  draftMeterValues,
+  draftNoticeText,
+  evenUpPickChoice,
+  evenUpTradePick,
   draftSideForAsset,
   draftTeamSummary,
   draftVerdictModel,
   placeAfterConnect,
   readStoredDraft,
   resolveDraftContext,
+  restoreDraft,
   reviewPayloadFor,
   serializeDraft,
   writeStoredDraft,
 } from "../docs/modules/trade-draft.js";
+import { calculatePackageAdjustment } from "../docs/modules/package-value.js";
 import { getAssetValue } from "../docs/modules/values.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -236,14 +243,122 @@ test("one verdict: market totals stay visible, an uneven package gets a labeled 
   assert.deepEqual([starForTwo.give, starForTwo.get], [10321, 15000], "pane totals stay the plain market sums");
   assert.equal(starForTwo.adjustment.side, "left", "the side sending the best player gets the credit");
   assert.equal(starForTwo.compareGive, 10321 + starForTwo.adjustment.amount);
+  assert.deepEqual(draftMeterValues(starForTwo), { give: 10321, get: 15000 });
   assert.equal(starForTwo.compareGet, 15000);
-  assert.equal(valueCalcVerdict(10321, 15000).label, "Lopsided for Get", "raw sums alone would call this a steal");
-  assert.notEqual(starForTwo.verdict.label, "Lopsided for Get");
+  const rawSteal = valueCalcVerdict(10321, 15000).label;
+  assert.equal(rawSteal, "Lopsided for Get", "raw sums alone would call this a steal");
+  assert.notEqual(starForTwo.verdict.label, rawSteal);
 
   const oneSided = draftVerdictModel([10321], []);
   assert.equal(oneSided.adjustment, null);
-  assert.equal(oneSided.verdict.label, "Add the other side");
+  assert.equal(oneSided.verdict.label, "Now add what you get back");
   assert.deepEqual(draftVerdictModel([10321], [7700, 7300], { globalMaxValue: 10321 }), starForTwo, "same prices, same answer");
+});
+
+test("an explicit clear offers the saved draft back, and nothing else claims a clear", () => {
+  const both = {
+    left: [{ name: "Puka Nacua" }],
+    right: [{ name: "Drake London" }],
+  };
+  const one = { left: [{ name: "Puka Nacua" }], right: [] };
+  const empty = { left: [], right: [] };
+  const filled = { left: [{ name: "Brock Bowers" }], right: [] };
+  const cleared = draftNoticeText({ note: "Cleared both sides.", saved: both, current: empty });
+  assert.equal(cleared, "Started a new trade. Restore your Puka Nacua for Drake London draft?");
+  assert.equal(
+    draftNoticeText({ note: "Cleared both sides.", saved: one, current: empty }),
+    "Started a new trade. Restore your Puka Nacua for nothing draft?",
+  );
+  assert.equal(draftNoticeText({ note: "Cleared both sides.", saved: both, current: filled }), cleared);
+  assert.doesNotMatch(cleared, /Cleared both sides/);
+  assert.equal(draftNoticeText({ note: "Cleared both sides.", saved: empty, current: empty }), "");
+  assert.match(draftNoticeText({ note: "Opened the trade with Chris.", saved: both, current: filled }), /Opened the trade with Chris\. Saved:/);
+});
+
+test("even-up only names a pick that can close the gap", () => {
+  const wide = evenUpPickChoice(11000, [{ name: "2027 Early 1st", value: 6300 }]);
+  assert.equal(wide.closes, false);
+  assert.equal(wide.name, "2027 Early 1st");
+  const close = evenUpPickChoice(7000, [
+    { name: "2027 Early 1st", value: 6300 },
+    { name: "2027 Late 1st", value: 4100 },
+  ]);
+  assert.equal(close.closes, true);
+  assert.equal(close.name, "2027 Early 1st");
+  assert.equal(evenUpPickChoice(0, [{ name: "2027 Early 1st", value: 6300 }]), null);
+});
+
+test("even-up rescores the pick after stud credit, and bad numbers stay finite", () => {
+  const picks = [
+    { name: "2027 Early 1st", value: 6361 },
+    { name: "2027 Mid 1st", value: 4779 },
+    { name: "2027 Late 1st", value: 4234 },
+    { name: "2027 2nd", value: 1703 },
+  ];
+  const oneForOne = evenUpTradePick({
+    giveValues: [9000],
+    getValues: [4000],
+    picks,
+    globalMaxValue: 12000,
+  });
+  assert.equal(oneForOne.closes, false);
+  const stillOpen = draftVerdictModel([9000], [4000, oneForOne.value], { globalMaxValue: 12000 });
+  assert.ok(stillOpen.verdict.pct > 12, `claimed a close but left ${stillOpen.verdict.pct}%`);
+
+  const packageDeal = evenUpTradePick({
+    giveValues: [10000],
+    getValues: [6000, 3000],
+    picks,
+    globalMaxValue: 12000,
+  });
+  assert.equal(packageDeal.closes, true);
+  const closed = draftVerdictModel([10000], [6000, 3000, packageDeal.value], { globalMaxValue: 12000 });
+  assert.ok(closed.verdict.pct <= 12, `pick did not close: ${closed.verdict.pct}%`);
+
+  const flipped = evenUpTradePick({
+    giveValues: [6000, 3000],
+    getValues: [10000],
+    picks,
+    globalMaxValue: 12000,
+  });
+  assert.equal(flipped.name, packageDeal.name);
+  assert.equal(flipped.closes, packageDeal.closes);
+  assert.equal(flipped.value, packageDeal.value);
+
+  const poisoned = draftVerdictModel([Infinity, NaN, -40], [100], { globalMaxValue: 1000 });
+  assert.equal(poisoned.give, 0);
+  assert.equal(Number.isFinite(poisoned.verdict.pct), true);
+  assert.equal(Number.isFinite(poisoned.verdict.gap), true);
+  const junk = calculatePackageAdjustment({
+    myValues: [Infinity, -50, 100],
+    theirValues: [NaN, 40],
+    globalMaxValue: 1000,
+  });
+  assert.equal(junk.myBaseValue, 100);
+  assert.equal(junk.theirBaseValue, 40);
+  assert.equal(Number.isFinite(junk.packageAdjustment), true);
+
+  const app = readFileSync(join(root, "docs/app.js"), "utf8");
+  assert.match(app, /evenUpTradePick\(/);
+});
+
+test("the trade heading is verdictCopy output for both sides", () => {
+  const at = (give, get) => verdictCopy(valueCalcVerdict(give, get));
+  const copies = [
+    at(10000, 10200),
+    at(10000, 11000),
+    at(11000, 10000),
+    at(10000, 12000),
+    at(12000, 10000),
+    at(10000, 14000),
+    at(14000, 10000),
+  ];
+  const lines = copies.map((copy) => copy.line);
+  assert.equal(new Set(lines).size, lines.length);
+  assert.ok(copies.every((copy) => copy.line));
+  const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/app.js"), "utf8");
+  assert.match(app, /const copy = verdictCopy\(verdict\);/);
+  assert.match(app, /bothSides \? copy\.line : copy\.label/);
 });
 
 test("the verdict reads from the manager's seat", () => {
@@ -251,6 +366,128 @@ test("the verdict reads from the manager's seat", () => {
   assert.equal(draftVerdictLabel(valueCalcVerdict(11100, 9000), { them: "Chris" }), "Favors Chris");
   assert.equal(draftVerdictLabel(valueCalcVerdict(10000, 10200)), "Dead even");
   assert.equal(draftVerdictLabel(valueCalcVerdict(20000, 9000)), "Lopsided for them");
+  assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 20000)), "Lopsided in your favor");
+  assert.equal(draftVerdictLabel(valueCalcVerdict(9000, 20000), { getFavor: "chrisalberts'" }), "Lopsided in chrisalberts' favor");
+});
+
+test("a zero-value piece does not mint stud credit or hide a real side", () => {
+  const withGhost = draftVerdictModel([10000, 0], [9000], { globalMaxValue: 10000 });
+  const clean = draftVerdictModel([10000], [9000], { globalMaxValue: 10000 });
+  assert.equal(withGhost.adjustment, null);
+  assert.equal(withGhost.verdict.label, clean.verdict.label);
+  assert.equal(withGhost.verdict.label, "Fair, leans Give");
+  const missing = draftVerdictModel([0], [9000], { globalMaxValue: 9000 });
+  assert.equal(missing.give, 0);
+  assert.equal(missing.verdict.label, "Lopsided for Get");
+  assert.equal(valueCalcVerdict(0, 9000).label, "Now add what you get back");
+  const empty = draftVerdictModel([], [], { globalMaxValue: 1 });
+  assert.equal(empty.verdict.label, "Add players to both sides");
+  const tiny = draftVerdictModel([1], [1], { globalMaxValue: 1 });
+  assert.equal(tiny.verdict.label, "Dead even");
+});
+
+test("verdict bands stay on the rounded tenth, both directions", () => {
+  const band = (pct) => {
+    if (pct <= 5) return /Dead even/;
+    if (pct <= 12) return /Fair, leans/;
+    if (pct <= 22) return /Favors/;
+    return /Lopsided/;
+  };
+  for (let right = 1; right <= 4000; right += 41) {
+    const verdict = valueCalcVerdict(1000, right);
+    const pct = Math.round((Math.abs(right - 1000) / Math.max(1000, right, 1)) * 1000) / 10;
+    assert.equal(verdict.pct, pct);
+    assert.match(verdict.label, band(pct));
+    const flipped = valueCalcVerdict(right, 1000);
+    assert.equal(flipped.pct, pct);
+    if (pct > 5) assert.notEqual(verdict.label, flipped.label);
+  }
+  assert.equal(valueCalcVerdict(10000, 10526).label, "Dead even");
+  assert.equal(valueCalcVerdict(10000, 12821).label, "Favors Get");
+  assert.equal(valueCalcVerdict(10000, 12829).label, "Lopsided for Get");
+});
+
+test("restore drops duplicate players, keeps repeated generic picks, and reads an old unversioned draft", () => {
+  const stored = restoreDraft(JSON.stringify({
+    v: 1,
+    left: [
+      { assetId: "player:9509", name: "Bijan Robinson", value: 1 },
+      { assetId: "player:9509", name: "Bijan again" },
+      { assetId: "pick:2027:r1:early", name: "2027 Early 1st" },
+      { assetId: "pick:2027:r1:early", name: "2027 Early 1st" },
+    ],
+    right: [
+      { id: "player:9509", name: "Bijan on the other side", value: 99999 },
+      { assetId: "pick:2027:r1:5", name: "2027 1st", leagueId: "L1" },
+      { assetId: "pick:2027:r1:5", name: "same pick", leagueId: "L1" },
+      { assetId: "pick:2027:r1:5", name: "other league", leagueId: "L2" },
+    ],
+  }));
+  assert.deepEqual(stored.left.map((item) => item.assetId), ["player:9509", "pick:2027:r1:early", "pick:2027:r1:early"]);
+  assert.equal("value" in stored.left[0], false);
+  assert.deepEqual(stored.right.map((item) => [item.assetId, item.leagueId || ""]), [
+    ["pick:2027:r1:5", "L1"],
+    ["pick:2027:r1:5", "L2"],
+  ]);
+
+  const old = restoreDraft(JSON.stringify({
+    give: [{ assetId: "player:9221", name: "Jahmyr Gibbs" }],
+    get: [{ assetId: "player:9509", name: "Bijan Robinson" }],
+    partnerRosterId: 7,
+  }));
+  assert.deepEqual(old.left.map((item) => item.assetId), ["player:9221"]);
+  assert.deepEqual(old.right.map((item) => item.assetId), ["player:9509"]);
+  assert.equal(old.partnerRosterId, 7);
+  assert.equal(restoreDraft(JSON.stringify({ v: 2, left: [{ assetId: "player:9509", name: "Bijan" }] })), null);
+
+  const session = new Map();
+  const local = new Map();
+  const storage = {
+    getItem: (key) => (session.has(key) ? session.get(key) : null),
+    setItem: (key, value) => session.set(key, String(value)),
+    removeItem: (key) => session.delete(key),
+  };
+  const legacy = {
+    getItem: (key) => (local.has(key) ? local.get(key) : null),
+    setItem: (key, value) => local.set(key, String(value)),
+    removeItem: (key) => local.delete(key),
+  };
+  local.set("dynasty_ticker_trade_draft", JSON.stringify({
+    left: [{ assetId: "player:9221", name: "Jahmyr Gibbs" }],
+    right: [],
+  }));
+  const fromLocal = readStoredDraft(storage, legacy);
+  assert.equal(fromLocal.left[0].name, "Jahmyr Gibbs");
+  session.set(TRADE_DRAFT_STORAGE_KEY, "{not json");
+  assert.equal(readStoredDraft(storage, legacy).left[0].assetId, "player:9221");
+});
+
+test("an empty league and a one-player roster do not invent a partner", () => {
+  const lone = [{
+    rosterId: 1,
+    manager: { displayName: "Solo" },
+    assets: [{ assetId: "player:9509", name: "Bijan Robinson", assetType: "player" }],
+  }];
+  const draft = draftOf([bijan], [genericFirst]);
+  const emptyLeague = resolveDraftContext({ draft, rosters: [], meRosterId: 1, leagueId: "L1" });
+  assert.equal(emptyLeague.ready, false);
+  assert.equal(emptyLeague.items.get(draft.left[0].uid).status, "unrostered");
+  const tiny = resolveDraftContext({ draft, rosters: lone, meRosterId: 1, leagueId: "L1" });
+  assert.equal(tiny.items.get(draft.left[0].uid).status, "ok");
+  assert.equal(tiny.items.get(draft.right[0].uid).status, "generic");
+  assert.equal(tiny.ready, false);
+
+  const third = {
+    rosterId: 11,
+    manager: { displayName: "Pat" },
+    assets: [{ assetId: "player:4881", name: "Justin Jefferson", assetType: "player" }],
+  };
+  const jj = { assetId: "player:4881", name: "Justin Jefferson" };
+  const three = draftOf([gibbs], [bijan, warren, jj]);
+  const context = resolveDraftContext({ draft: three, rosters: [...rosters, third], meRosterId: ME, leagueId: "L1" });
+  assert.equal(context.ready, false);
+  assert.equal(context.partnerIds.length, 3);
+  assert.match(draftTeamSummary(context, { leftCount: 1, rightCount: 3, splitNames: ["Chris", "Ben", "Pat"] }), /Chris and Ben and Pat|more than one team/);
 });
 
 test("league load keeps the draft and there is one calculator", () => {
@@ -260,6 +497,9 @@ test("league load keeps the draft and there is one calculator", () => {
   const body = app.slice(start, end);
   assert.ok(start > 0 && end > start, "runLeagueLoad not found");
   assert.doesNotMatch(body, /state\.valueCalc\s*=/, "league load must not replace the trade draft");
+  assert.match(app, /draftNoticeText\(/);
+  assert.match(app, /draftMeterValues\(/);
+  assert.doesNotMatch(app, /weights stars above the market/);
   assert.doesNotMatch(body, /emptyValueCalcState\(\)|resetCalculatorState/, "league load must not clear the trade draft");
   assert.doesNotMatch(app, /state\.calc\./, "the roster-only calculator state is gone");
   const index = siteMarkup();

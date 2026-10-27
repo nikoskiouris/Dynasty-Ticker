@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   DOUBLE_TEAM_MISSING,
+  DYNASTY_SCORE_HINT,
   DYNASTY_SCORE_LABEL,
   NFL_SCHEDULE_PATH,
   NO_RECENT_GAMES,
@@ -289,6 +290,9 @@ test("player sheet keeps weekly and dynasty on separate badges", () => {
   assert.match(html, /class="dynasty-value-badge"/);
   assert.match(html, new RegExp(WEEKLY_SCORE_LABEL));
   assert.match(html, new RegExp(DYNASTY_SCORE_LABEL));
+  assert.match(html, new RegExp(DYNASTY_SCORE_HINT.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(html, /class="sr-only">This week/);
+  assert.doesNotMatch(html, /class="sr-only">Model/);
   assert.match(html, /8,412/);
   assert.match(html, /no double-team data/);
   assert.match(html, /weekly-score-max">%/);
@@ -366,9 +370,9 @@ test("weekly score help popup explains start chance", () => {
   assert.match(pop, /50% is a coin flip/);
   assert.match(pop, /90% is a lock/);
   assert.match(pop, /data-action="close-weekly-help"/);
-  assert.match(pop, /Sit\/start uses this number/);
+  assert.match(pop, /Players who are out or on injured reserve count as 0% until that changes\./);
   const lines = weeklyScoreHelpLines();
-  assert.equal(lines.length, 5);
+  assert.equal(lines.length, 6);
   const sheetOpen = renderWeeklyPlayerSheet({
     playerId: "111",
     name: "Demo WR",
@@ -473,10 +477,10 @@ test("unsigned players are 0% this week, even with leftover box scores", () => {
 });
 
 test("IR and Out are 0% this week until the designation comes off", () => {
-  assert.equal(weeklyUnavailableReason("IR"), "IR");
+  assert.equal(weeklyUnavailableReason("IR"), "Injured reserve");
   assert.equal(weeklyUnavailableReason("Out"), "Out");
-  assert.equal(weeklyUnavailableReason("", "Injured Reserve"), "IR");
-  assert.equal(weeklyUnavailableReason("injured_reserve"), "IR");
+  assert.equal(weeklyUnavailableReason("", "Injured Reserve"), "Injured reserve");
+  assert.equal(weeklyUnavailableReason("injured_reserve"), "Injured reserve");
   assert.equal(weeklyUnavailableReason("Questionable"), "");
   assert.equal(weeklyUnavailableReason("Doubtful"), "");
   assert.equal(weeklyUnavailableReason("PUP"), "");
@@ -531,10 +535,10 @@ test("IR and Out are 0% this week until the designation comes off", () => {
 
   assert.ok(available.score > 0, `healthy score ${available.score} should stay above 0`);
   assert.equal(ir.score, 0);
-  assert.equal(ir.unavailable, "IR");
+  assert.equal(ir.unavailable, "Injured reserve");
   assert.equal(weeklyScoreChipLabel(ir), "0%");
   assert.equal(ir.dynastyValue, 8818);
-  assert.match(renderWeeklyPlayerSheet(ir), /IR/);
+  assert.match(renderWeeklyPlayerSheet(ir), /Injured reserve/);
   assert.match(renderWeeklyPlayerSheet(ir), /weekly-score-badge[\s\S]*<strong>0<span class="weekly-score-max">%<\/span>/);
   assert.equal(out.score, 0);
   assert.equal(out.unavailable, "Out");

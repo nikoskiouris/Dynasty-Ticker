@@ -1,15 +1,15 @@
 /* ==========================================================================
    Dynasty Ticker — Night desk
-   Black field, ivory type, serif headlines. Instrument Serif on the big
-   type, Instrument Sans on the controls. One theme. Dark only. burgundy ink
-   accents stay in the brand marks and field coral.
+   Black field, ivory type. Instrument Sans on the UI.
+   Instrument Serif is only .brand. Sizes come from tokens.css.
+   burgundy ink accents stay in the brand marks and field coral.
    ========================================================================== */
 
 :root {
   color-scheme: dark;
-  --font-display: "Instrument Serif", "Iowan Old Style", Palatino, serif;
-  --font-body: "Instrument Sans", "Segoe UI", sans-serif;
-  --font-mono: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-ui);
+  --font-body: var(--font-ui);
+  --font-mono: var(--font-ui);
 
   --bg: #0c0c0e;
   --bg-glow-1: transparent;
@@ -65,9 +65,9 @@
   --shadow-soft: none;
   --lift-shadow: none;
   --accent-glow: transparent;
-  --radius: 18px;
-  --radius-sm: 14px;
-  --focus: 0 0 0 3px rgba(244, 241, 236, 0.32);
+  --radius: var(--r-md);
+  --radius-sm: var(--r-sm);
+  --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--text);
   --ink: #f4f1ec;
   --paper: #0c0c0e;
   --field: #e85d4c;
@@ -91,9 +91,9 @@ body {
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-body);
-  font-size: 15px;
-  line-height: 1.5;
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -130,33 +130,33 @@ h2,
 h3,
 h4,
 h5 {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
   font-synthesis: none;
-  font-weight: 400;
-  letter-spacing: -0.02em;
+  font-weight: var(--fw-semi);
+  letter-spacing: 0;
 }
 
 h1 {
   margin-bottom: 0.35rem;
-  font-size: clamp(2.4rem, 4.6vw, 4rem);
-  line-height: 1.02;
-  font-weight: 400;
-  letter-spacing: -0.03em;
+  font-size: var(--fs-h1);
+  line-height: var(--lh-tight);
+  font-weight: var(--fw-semi);
+  letter-spacing: 0;
   text-transform: none;
 }
 
 h2 {
   margin-bottom: 0.25rem;
-  font-size: 1.35rem;
-  line-height: 1.15;
-  font-weight: 400;
+  font-size: var(--fs-h2);
+  line-height: var(--lh-snug);
+  font-weight: var(--fw-semi);
 }
 
 h3 {
   margin-bottom: 0.25rem;
-  font-size: 1.12rem;
-  line-height: 1.2;
-  font-weight: 400;
+  font-size: var(--fs-h3);
+  line-height: var(--lh-snug);
+  font-weight: var(--fw-semi);
 }
 
 h4,
@@ -174,7 +174,7 @@ h5 {
 }
 
 .small {
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
 }
 
 .mono {
@@ -187,13 +187,13 @@ h5 {
   display: inline-flex;
   margin-bottom: 0.25rem;
   color: var(--muted);
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: 0.95rem;
-  font-weight: 400;
+  font-family: var(--font-ui);
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semi);
   font-synthesis: none;
-  letter-spacing: 0;
-  text-transform: none;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -206,6 +206,40 @@ h5 {
   clip: rect(0, 0, 0, 0) !important;
   white-space: nowrap !important;
   border: 0 !important;
+}
+
+/* The landing has its own h1. Phone uses the chrome title. */
+body.launch-open #route-title {
+  display: none !important;
+}
+
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  #route-title {
+    display: none !important;
+  }
+}
+
+/* Cold /t uses the shared-trade title as its only h1. Keep the route title
+   hidden at every width so it adds no height. */
+body.cold-share #route-title {
+  display: none !important;
+}
+
+[data-room-panel] h2:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+@media (min-width: 701px) {
+  [data-room-panel] h2:focus-visible {
+    outline-color: transparent;
+    box-shadow: var(--focus);
+  }
+}
+
+[data-room-panel] h2[tabindex="-1"]:focus:not(:focus-visible) {
+  outline: 0 none;
+  box-shadow: none;
 }
 
 /* ==========================================================================
@@ -242,7 +276,7 @@ h5 {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 1.15rem;
+  padding: var(--section-gap);
   background: var(--rail);
   border-right: 3px solid var(--rail-line);
   color: var(--rail-text);
@@ -335,7 +369,7 @@ a.brand-lockup:hover {
 .league-id-fallback summary {
   cursor: pointer;
   color: var(--rail-muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
   font-weight: 600;
 }
 
@@ -355,7 +389,7 @@ a.brand-lockup:hover {
 }
 
 .league-picker-head strong {
-  font-size: 0.92rem;
+  font-size: var(--fs-body);
 }
 
 .league-picker-list {
@@ -392,7 +426,7 @@ a.brand-lockup:hover {
   overflow: hidden;
   border-radius: 8px;
   background: var(--gradient);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .league-pick-avatar img {
@@ -416,7 +450,7 @@ a.brand-lockup:hover {
 
 .league-pick-copy small {
   color: var(--rail-muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
 }
 
 .module-heading {
@@ -427,7 +461,7 @@ a.brand-lockup:hover {
 
 .rail-module h2 {
   color: var(--rail-text);
-  font-size: 0.98rem;
+  font-size: var(--fs-h2);
 }
 
 .rail-module .eyebrow {
@@ -438,7 +472,7 @@ a.brand-lockup:hover {
   display: grid;
   gap: 0.42rem;
   color: var(--rail-muted);
-  font-size: 0.76rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
@@ -449,11 +483,11 @@ a.brand-lockup:hover {
   height: 2rem;
   padding: 0 0.45rem;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--panel-soft);
   color: var(--muted-strong);
-  font-size: 0.74rem;
-  font-weight: 800;
+  font-size: var(--fs-sm);
+  font-weight: 700;
   letter-spacing: 0.06em;
 }
 
@@ -474,10 +508,10 @@ select,
 button,
 textarea {
   width: 100%;
-  min-height: 2.75rem;
+  min-height: var(--input-h);
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 0.68rem 0.82rem;
+  border-radius: var(--r-sm);
+  padding: 0 var(--btn-px);
   background: var(--panel-soft);
   color: var(--text);
   transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
@@ -519,18 +553,54 @@ select:focus-visible,
 button:focus-visible,
 textarea:focus-visible,
 summary:focus-visible,
+a:focus-visible,
+.page-tab:focus-visible,
+.room-tab:focus-visible,
+#open-public-ranks:focus-visible,
+.ranks-chip:focus-visible,
+.ranks-shelf-item:focus-visible,
+.ranks-row:focus-visible,
+.trade-row:focus-visible,
 [role="button"]:focus-visible {
-  outline: none;
-  border-color: var(--blue);
-  box-shadow: var(--focus);
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  border-color: var(--text);
+  box-shadow: none;
+}
+
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 80;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--r-sm);
+  background: var(--text);
+  color: var(--on-accent);
+  font-weight: 700;
+  transform: translateY(-160%);
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: none;
 }
 
 button {
+  width: auto;
+  min-height: var(--btn-h);
+  padding: 0 var(--btn-px);
   border-color: transparent;
-  border-radius: 999px;
+  border-radius: var(--r-sm);
   background: var(--gradient);
   color: var(--on-accent);
-  font-weight: 600;
+  font-size: var(--btn-fs);
+  font-weight: var(--fw-semi);
+}
+
+textarea {
+  min-height: calc(var(--input-h) * 2);
+  padding: var(--sp-2) var(--btn-px);
 }
 
 button:hover {
@@ -562,12 +632,12 @@ button.loading {
 .ghost-btn,
 button.ghost-btn {
   width: auto;
-  min-height: 2.35rem;
-  padding: 0.45rem 0.85rem;
+  min-height: var(--chip-h);
+  padding: 0 var(--btn-px);
   border: 1px solid var(--line);
   background: var(--panel-soft);
   color: var(--text);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm2);
   font-weight: 700;
 }
 
@@ -626,11 +696,11 @@ button.ghost-btn:hover {
   align-items: center;
   min-height: 1.35rem;
   padding: 0.2rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--green-soft);
   color: var(--green);
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
 }
 
 .status {
@@ -640,7 +710,65 @@ button.ghost-btn:hover {
   min-height: 1.2rem;
   margin: 0.15rem 0 0;
   color: var(--rail-muted);
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
+}
+
+.status-retry {
+  flex: 0 0 auto;
+  align-self: center;
+  min-height: 1.7rem;
+  margin-left: auto;
+  padding: 0.15rem 0.7rem;
+  font-size: var(--fs-sm);
+}
+
+.landing-search-status {
+  margin-top: 0.55rem;
+}
+
+.landing-search-status,
+.landing-league-error,
+.desk-load-alert {
+  max-width: 100%;
+  box-sizing: border-box;
+  flex-wrap: wrap;
+}
+
+.landing-search-status > span,
+.landing-league-error > span,
+.desk-load-alert > span {
+  flex: 1 1 10rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.landing-league-error,
+.desk-load-alert {
+  width: min(40rem, 100%);
+  margin-top: 0.85rem;
+  text-align: left;
+}
+
+.desk-load-alert {
+  margin: 0 0 0.85rem;
+}
+
+body.league-switch-stale .workspace-header,
+body.league-switch-stale .mobile-chrome-title-row,
+body.league-switch-stale .desk-nav,
+body.league-switch-stale #ticker,
+body.league-switch-stale #ui-pages,
+body.league-switch-stale .sample-banner {
+  opacity: 0.45;
+}
+
+body.league-switch-stale #desk-load-alert {
+  opacity: 1;
+}
+
+.league-picker-note {
+  margin: 0;
+  font-size: var(--fs-sm2);
 }
 
 .status.ok {
@@ -658,7 +786,7 @@ button.ghost-btn:hover {
 .field-error {
   margin: 0.35rem 0 0;
   color: var(--red);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
   font-weight: 600;
   line-height: 1.35;
 }
@@ -676,7 +804,7 @@ select.is-invalid {
   margin-top: 0.2rem;
   border: 2px solid var(--rail-line);
   border-top-color: var(--rail-text);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   animation: spin 0.8s linear infinite;
 }
 
@@ -742,7 +870,7 @@ select.is-invalid {
   background: transparent;
   color: var(--muted);
   font-family: var(--font-body);
-  font-size: 0.92rem;
+  font-size: var(--fs-body);
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
@@ -767,7 +895,7 @@ select.is-invalid {
 }
 
 .room-tab:focus-visible {
-  outline: 2px solid var(--blue);
+  outline: 2px solid var(--text);
   outline-offset: 2px;
 }
 
@@ -776,7 +904,7 @@ select.is-invalid {
   align-items: center;
   gap: 0.55rem;
   min-width: 0;
-  min-height: 3.1rem;
+  min-height: var(--btn-h);
   padding: 0.45rem 0.75rem;
   border: 0;
   border-radius: 0;
@@ -811,7 +939,7 @@ select.is-invalid {
   overflow: hidden;
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.7rem;
+  font-size: var(--fs-h1);
   font-weight: 400;
   letter-spacing: -0.03em;
   text-transform: none;
@@ -822,7 +950,7 @@ select.is-invalid {
 .tab-copy small {
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: var(--fs-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -858,8 +986,8 @@ select.is-invalid {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  padding: 1.35rem 1.6rem 2.4rem;
+  gap: var(--section-gap);
+  padding: var(--section-gap) var(--page-x) var(--section-gap);
 }
 
 .workspace-header {
@@ -891,8 +1019,8 @@ select.is-invalid {
   color: var(--text);
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.9rem;
-  font-weight: 800;
+  font-size: var(--fs-h1);
+  font-weight: 700;
   box-shadow: none;
 }
 
@@ -920,7 +1048,7 @@ select.is-invalid {
   max-width: 56rem;
   margin-bottom: 0;
   color: var(--muted-strong);
-  font-size: 0.95rem;
+  font-size: var(--fs-body-lg);
 }
 
 .state-grid {
@@ -942,8 +1070,8 @@ select.is-invalid {
 
 .state-grid dt {
   color: var(--muted);
-  font-size: 0.64rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -952,7 +1080,7 @@ select.is-invalid {
   margin: 0.1rem 0 0;
   overflow: hidden;
   color: var(--text);
-  font-size: 0.88rem;
+  font-size: var(--fs-num);
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -964,7 +1092,7 @@ select.is-invalid {
   margin-top: auto;
   padding-top: 1rem;
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: var(--fs-sm);
 }
 
 .footer-links {
@@ -990,11 +1118,16 @@ select.is-invalid {
   z-index: 1;
   display: flex;
   align-items: stretch;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
   overflow: hidden;
   border: 0;
   border-radius: 0;
   background: #0c0c0e;
   color: #f6f1e8;
+  font-weight: 700;
+  text-align: left;
   backdrop-filter: none;
 }
 
@@ -1004,10 +1137,10 @@ select.is-invalid {
   flex: 0 0 auto;
   padding: 0.45rem 0.85rem;
   background: var(--field);
-  color: #f6f1e8;
+  color: #0c0c0e;
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1063,7 +1196,7 @@ select.is-invalid {
   flex: 0 0 auto;
   align-items: center;
   gap: 2.2rem;
-  padding: 0 1.1rem;
+  padding: 0 var(--section-gap);
 }
 
 .ticker-item {
@@ -1073,7 +1206,7 @@ select.is-invalid {
   padding-left: 0.12rem;
   color: #f6f1e8;
   font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm2);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1081,10 +1214,10 @@ select.is-invalid {
   display: inline-flex;
   align-items: center;
   padding: 0.1rem 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(246, 241, 232, 0.14);
   color: #f6f1e8;
-  font-size: 0.66rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1138,9 +1271,9 @@ body:not(.league-loaded) .workspace-header {
 
 .landing-job-hint {
   max-width: 38rem;
-  margin: 0.65rem 0 0;
+  margin: 0.65rem 0 0.85rem;
   color: var(--muted-strong);
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
   font-weight: 600;
 }
 
@@ -1158,7 +1291,7 @@ body:not(.league-loaded) .workspace-header {
 
 .desk-jobs-board h2 {
   margin: 0;
-  font-size: clamp(1.45rem, 3vw, 2rem);
+  font-size: var(--fs-h2);
   letter-spacing: -0.04em;
   line-height: 1.1;
 }
@@ -1170,8 +1303,8 @@ body:not(.league-loaded) .workspace-header {
 .desk-jobs-kicker {
   margin: 0.55rem 0 0.1rem;
   color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -1184,7 +1317,7 @@ body:not(.league-loaded) .workspace-header {
   min-height: 0;
   padding: 0.75rem 0.8rem;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-sm);
   background: var(--panel-soft);
   color: var(--text);
   font-weight: 700;
@@ -1208,13 +1341,13 @@ body:not(.league-loaded) .workspace-header {
 .desk-job strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 0.92rem;
+  font-size: var(--fs-body);
   letter-spacing: -0.02em;
 }
 
 .desk-job small {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: var(--fs-sm);
   font-weight: 500;
   line-height: 1.3;
 }
@@ -1224,7 +1357,7 @@ body:not(.league-loaded) .workspace-header {
 }
 
 .desk-jobs-more .desk-job strong {
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
 }
 
 .start-dashboard {
@@ -1264,10 +1397,17 @@ body:not(.league-loaded) .workspace-header {
 
 .landing-search label {
   color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 800;
+  font-size: var(--fs-sm);
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.landing-search,
+.landing-search-row,
+.league-load-form {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .landing-search-row {
@@ -1277,10 +1417,18 @@ body:not(.league-loaded) .workspace-header {
   align-items: start;
 }
 
+.landing-search-row input,
+.league-load-form input {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
 .landing-search-row button {
   width: auto;
   min-width: 8.5rem;
-  padding: 0.7rem 1.1rem;
+  min-height: var(--btn-h);
+  padding: 0 var(--btn-px);
 }
 
 .landing-actions {
@@ -1293,7 +1441,8 @@ body:not(.league-loaded) .workspace-header {
 .landing-actions button,
 .landing-actions .legal-btn {
   width: auto;
-  padding: 0.7rem 1.1rem;
+  min-height: var(--btn-h);
+  padding: 0 var(--btn-px);
 }
 
 .landing-loading {
@@ -1302,14 +1451,13 @@ body:not(.league-loaded) .workspace-header {
   gap: 0.5rem;
   margin: 0.9rem 0 0;
   color: var(--muted-strong);
-  font-size: 0.88rem;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 
 .league-loading .landing-actions,
 .league-loading .landing-search-row {
   opacity: 0.55;
-  pointer-events: none;
 }
 
 .landing-rather {
@@ -1330,7 +1478,7 @@ body:not(.league-loaded) .workspace-header {
 }
 
 .landing-rather .rather-panel h2 {
-  font-size: 1.2rem;
+  font-size: var(--fs-h2);
 }
 
 /* ==========================================================================
@@ -1401,7 +1549,7 @@ body:not(.league-loaded) .workspace-header {
 
 .analytics-panel-heading span {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
   font-weight: 600;
   text-align: right;
 }
@@ -1410,7 +1558,7 @@ body:not(.league-loaded) .workspace-header {
   max-width: 36rem;
   margin-bottom: 0;
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
   text-align: right;
 }
 
@@ -1467,19 +1615,19 @@ body:not(.league-loaded) .workspace-header {
   gap: 0.2rem;
   padding: 0.2rem;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--panel-soft);
 }
 
 .segmented button {
   width: auto;
-  min-height: 1.9rem;
+  min-height: var(--chip-h);
   padding: 0.25rem 0.75rem;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: transparent;
   color: var(--muted-strong);
-  font-size: 0.76rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
   box-shadow: none;
 }
@@ -1502,7 +1650,7 @@ body:not(.league-loaded) .workspace-header {
   flex: 0 0 auto;
   overflow: hidden;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--gradient-soft);
   line-height: 0;
   vertical-align: middle;
@@ -1514,13 +1662,13 @@ body:not(.league-loaded) .workspace-header {
 }
 
 .player-face-sm {
-  width: 1.7rem;
-  height: 1.7rem;
+  width: var(--avatar);
+  height: var(--avatar);
 }
 
 .player-face-md {
-  width: 2.45rem;
-  height: 2.45rem;
+  width: var(--avatar);
+  height: var(--avatar);
 }
 
 .player-face-photo {
@@ -1544,19 +1692,19 @@ body:not(.league-loaded) .workspace-header {
   color: var(--muted-strong);
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 0.55rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0;
   line-height: 1;
   text-transform: none;
 }
 
 .player-face-xs > .player-face-initials {
-  font-size: 0.4rem;
+  font-size: var(--fs-xs);
 }
 
 .player-face-md > .player-face-initials {
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
 }
 
 .player-name {
@@ -1583,12 +1731,12 @@ body:not(.league-loaded) .workspace-header {
   place-items: center;
   flex: 0 0 auto;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: hsl(var(--hue, 200) 60% 40%);
   color: #fff;
   font-family: var(--font-display);
   font-synthesis: none;
-  font-weight: 800;
+  font-weight: 700;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
@@ -1599,21 +1747,21 @@ body:not(.league-loaded) .workspace-header {
 }
 
 .avatar-sm {
-  width: 1.85rem;
-  height: 1.85rem;
-  font-size: 0.72rem;
+  width: var(--avatar);
+  height: var(--avatar);
+  font-size: var(--fs-xs);
 }
 
 .avatar-md {
-  width: 2.4rem;
-  height: 2.4rem;
-  font-size: 0.9rem;
+  width: var(--avatar);
+  height: var(--avatar);
+  font-size: var(--fs-xs);
 }
 
 .avatar-lg {
   width: 3.2rem;
   height: 3.2rem;
-  font-size: 1.15rem;
+  font-size: var(--fs-h1);
 }
 
 .team-identity {
@@ -1635,13 +1783,15 @@ body:not(.league-loaded) .workspace-header {
   gap: 0.4rem;
   min-width: 0;
   overflow: hidden;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-bold);
   white-space: nowrap;
 }
 
 .team-identity-copy .team-name {
   min-width: 0;
   overflow: hidden;
+  font-weight: var(--fw-bold);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1649,7 +1799,7 @@ body:not(.league-loaded) .workspace-header {
 .team-identity-copy > span {
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1663,9 +1813,9 @@ body:not(.league-loaded) .workspace-header {
   align-items: center;
   justify-content: center;
   padding: 0.08rem 0.42rem;
-  border-radius: 999px;
-  font-size: 0.62rem;
-  font-weight: 800;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -1737,11 +1887,11 @@ body:not(.league-loaded) .workspace-header {
   width: 2rem;
   aspect-ratio: 1;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--panel-soft);
   color: var(--muted-strong);
-  font-size: 0.78rem;
-  font-weight: 800;
+  font-size: var(--fs-sm2);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1750,7 +1900,7 @@ body:not(.league-loaded) .workspace-header {
 .luck-track {
   overflow: hidden;
   height: 0.46rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(127, 140, 170, 0.22);
 }
 
@@ -1766,8 +1916,8 @@ body:not(.league-loaded) .workspace-header {
   display: block;
   margin-bottom: 0.35rem;
   color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -1790,6 +1940,18 @@ body:not(.league-loaded) .workspace-header {
 
 .power-sync p {
   margin: 0.3rem 0 0;
+}
+
+.meta-pending {
+  color: var(--muted);
+}
+
+.pick-value-hint {
+  display: block;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .up {
@@ -1846,7 +2008,7 @@ body:not(.league-loaded) .workspace-header {
 .pulse-tile span,
 .pulse-tile small {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1865,7 +2027,7 @@ body:not(.league-loaded) .workspace-header {
   overflow: hidden;
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.2rem;
+  font-size: var(--fs-h1);
   line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1882,7 +2044,7 @@ body:not(.league-loaded) .workspace-header {
   align-items: center;
   gap: 0.5rem;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm2);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1954,7 +2116,7 @@ body:not(.league-loaded) .workspace-header {
 .game-side-score strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.35rem;
+  font-size: var(--fs-num-lg);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -1965,7 +2127,7 @@ body:not(.league-loaded) .workspace-header {
 
 .game-side-score small {
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1975,13 +2137,13 @@ body:not(.league-loaded) .workspace-header {
   gap: 2px;
   height: 0.38rem;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--muted) 18%, transparent);
 }
 
 .prob-left {
   background: var(--team-a);
-  border-radius: 999px 0 0 999px;
+  border-radius: var(--r-pill) 0 0 var(--r-pill);
 }
 
 .prob-right {
@@ -1994,7 +2156,7 @@ body:not(.league-loaded) .workspace-header {
   justify-content: space-between;
   gap: 0.5rem;
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2017,7 +2179,7 @@ body:not(.league-loaded) .workspace-header {
 .standings-head,
 .standings-row {
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1.7fr) 3.6rem 4.4rem 4.4rem 2.8rem 4.4rem 3.2rem;
+  grid-template-columns: 2rem minmax(0, 1.7fr) 3.6rem 4.4rem 7.6rem 5.2rem 4.4rem 3.2rem;
   gap: 0.55rem;
   align-items: center;
 }
@@ -2025,8 +2187,8 @@ body:not(.league-loaded) .workspace-header {
 .standings-head {
   padding: 0 0.6rem;
   color: var(--muted);
-  font-size: 0.66rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -2069,8 +2231,8 @@ body:not(.league-loaded) .workspace-header {
   height: 1px;
   border-top: 1px dashed var(--amber);
   color: var(--amber);
-  font-size: 0.58rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.12em;
   line-height: 1;
   text-transform: uppercase;
@@ -2079,14 +2241,14 @@ body:not(.league-loaded) .workspace-header {
 }
 
 .standings-row > span {
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
   font-weight: 600;
   color: var(--muted-strong);
 }
 
 .standings-row em {
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: var(--fs-sm);
   font-style: normal;
 }
 
@@ -2118,8 +2280,8 @@ body:not(.league-loaded) .workspace-header {
 .standings-division h4 {
   margin: 0.2rem 0 0.1rem;
   color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -2152,8 +2314,8 @@ body:not(.league-loaded) .workspace-header {
 .odds-head {
   padding: 0 0.6rem;
   color: var(--muted);
-  font-size: 0.66rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -2195,7 +2357,7 @@ body:not(.league-loaded) .workspace-header {
 }
 
 .odds-meter strong {
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -2205,7 +2367,7 @@ body:not(.league-loaded) .workspace-header {
 }
 
 .odds-row > span.mono {
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
   font-weight: 700;
 }
 
@@ -2259,7 +2421,7 @@ body:not(.league-loaded) .workspace-header {
 .power-board-meter small {
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2268,7 +2430,7 @@ body:not(.league-loaded) .workspace-header {
 .power-score {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.25rem;
+  font-size: var(--fs-num-lg);
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -2307,8 +2469,8 @@ body:not(.league-loaded) .workspace-header {
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.65rem;
   align-items: center;
-  min-height: auto;
-  padding: 0.85rem;
+  min-height: var(--row-h-compact);
+  padding: 0 var(--card-pad);
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -2324,15 +2486,22 @@ body:not(.league-loaded) .workspace-header {
 
 .team-card-copy {
   display: grid;
-  gap: 0.05rem;
+  gap: 0;
   min-width: 0;
+}
+
+.team-card-main .avatar-lg {
+  width: var(--avatar);
+  height: var(--avatar);
+  font-size: var(--fs-xs);
 }
 
 .team-card-copy strong {
   overflow: hidden;
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 0.92rem;
+  font-size: var(--fs-body);
+  line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2341,7 +2510,8 @@ body:not(.league-loaded) .workspace-header {
 .team-card-copy small {
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
+  line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2355,7 +2525,7 @@ body:not(.league-loaded) .workspace-header {
 .team-card-score strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.35rem;
+  font-size: var(--fs-num-lg);
   line-height: 1;
 }
 
@@ -2368,8 +2538,8 @@ body:not(.league-loaded) .workspace-header {
   border-radius: 0;
   background: transparent;
   color: var(--blue);
-  font-size: 0.74rem;
-  font-weight: 800;
+  font-size: var(--fs-sm);
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-align: left;
   text-transform: uppercase;
@@ -2388,6 +2558,18 @@ body:not(.league-loaded) .workspace-header {
 .roster-sheet {
   display: grid;
   gap: 1rem;
+}
+
+.roster-names-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  margin: 0;
+}
+
+.roster-names-retry {
+  flex: 0 0 auto;
 }
 
 .sheet-summary {
@@ -2412,8 +2594,8 @@ body:not(.league-loaded) .workspace-header {
 .roster-sheet > h4 {
   margin: 0.4rem 0 0.2rem;
   color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -2439,8 +2621,8 @@ body:not(.league-loaded) .workspace-header {
 
 .sit-start-head h4 {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 800;
+  font-size: var(--fs-h2);
+  font-weight: 700;
 }
 
 .sit-start-calls {
@@ -2451,14 +2633,14 @@ body:not(.league-loaded) .workspace-header {
 }
 
 .sit-start-calls li {
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
   font-weight: 650;
   line-height: 1.35;
 }
 
 .sheet-why {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-weight: 650;
   line-height: 1.3;
   white-space: normal;
@@ -2477,10 +2659,19 @@ body:not(.league-loaded) .workspace-header {
   grid-template-columns: 2.8rem minmax(0, 1fr) auto;
   gap: 0.75rem;
   align-items: center;
-  padding: 0.55rem 0.7rem;
+  min-height: var(--row-h-compact);
+  padding: 0 var(--card-pad);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--panel-soft);
+}
+
+.sheet-row.directory-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.sheet-row.directory-row.loading-row {
+  grid-template-columns: 2.8rem minmax(0, 1fr) auto;
 }
 
 button.sheet-row {
@@ -2559,7 +2750,7 @@ a.inline-link {
   min-height: 0;
   color: var(--link);
   font: inherit;
-  font-weight: 800;
+  font-weight: 700;
   text-decoration: underline;
   cursor: pointer;
 }
@@ -2589,18 +2780,28 @@ a.inline-link:hover {
 .mock-you {
   color: var(--muted);
   font-style: normal;
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .sheet-slot {
   color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.sheet-slot-full,
+.sheet-slot-short {
+  white-space: nowrap;
+}
+
+.sheet-slot-short {
+  display: none;
+  text-decoration: none;
 }
 
 .sheet-player {
@@ -2628,8 +2829,8 @@ a.inline-link:hover {
   overflow: hidden;
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.28rem;
-  font-weight: 800;
+  font-size: var(--fs-h1);
+  font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.05;
   text-overflow: ellipsis;
@@ -2638,27 +2839,37 @@ a.inline-link:hover {
 
 .sheet-player span {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 
+.sheet-player strong:has(.nickname) {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 .nickname {
+  display: block;
+  overflow: visible;
   color: var(--violet);
   font-family: var(--font-body);
   font-size: 0.62em;
   font-style: normal;
   font-weight: 650;
   letter-spacing: 0;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .injury {
   color: var(--red);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .sheet-value {
   text-align: right;
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
   font-weight: 700;
 }
 
@@ -2675,17 +2886,18 @@ a.inline-link:hover {
 .weekly-chip,
 .dynasty-chip {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: flex-end;
-  gap: 0.35rem;
+  gap: 0.2rem 0.35rem;
   line-height: 1;
 }
 
 .weekly-chip small,
 .dynasty-chip small {
   color: var(--muted);
-  font-size: 0.62rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -2701,15 +2913,15 @@ a.inline-link:hover {
   color: var(--blue);
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.72rem;
-  font-weight: 800;
+  font-size: var(--fs-h1);
+  font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 0.9;
 }
 
 .dynasty-chip strong {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm2);
   font-weight: 700;
 }
 
@@ -2717,11 +2929,49 @@ a.inline-link:hover {
   display: none;
 }
 
+@media (min-width: 701px) {
+  .sheet-row:has(.sheet-slot-superflex) {
+    grid-template-columns: max-content minmax(0, 1fr) auto;
+  }
+}
+
 @media (max-width: 700px) {
   .sheet-row {
     grid-template-columns: 2.3rem minmax(0, 1fr) auto;
     gap: 0.5rem;
     padding: 0.5rem 0.55rem;
+  }
+
+  .sheet-slot-full {
+    display: none;
+  }
+
+  .sheet-slot-short {
+    display: inline;
+  }
+
+  /* The value sits under the name so the name can use the row. */
+  .sheet-row:not(.directory-row):has(.sheet-metrics) {
+    grid-template-columns: 2.3rem minmax(0, 1fr);
+  }
+
+  .sheet-row:not(.directory-row):has(.sheet-metrics) > .sheet-slot {
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .sheet-row:not(.directory-row):has(.sheet-metrics) > .sheet-metrics {
+    grid-column: 2;
+    justify-items: end;
+    min-width: 0;
+  }
+
+  .sheet-row.directory-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .sheet-row.directory-row.loading-row {
+    grid-template-columns: 2.3rem minmax(0, 1fr) auto;
   }
 
   .sheet-row.mock-pick {
@@ -2760,7 +3010,7 @@ a.inline-link:hover {
   margin: 0;
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.85rem;
+  font-size: var(--fs-h3);
   letter-spacing: -0.03em;
   line-height: 1;
 }
@@ -2792,8 +3042,8 @@ a.inline-link:hover {
 .weekly-score-badge small,
 .dynasty-value-badge small {
   display: block;
-  font-size: 0.62rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -2802,7 +3052,7 @@ a.inline-link:hover {
 .dynasty-value-badge strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 2.15rem;
+  font-size: var(--fs-num-lg);
   line-height: 0.95;
 }
 
@@ -2829,13 +3079,13 @@ button.weekly-help-btn {
   min-height: 1.05rem;
   padding: 0;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--r-sm);
   background: var(--panel-soft);
   color: var(--muted-strong);
   box-shadow: none;
-  font-size: 0.68rem;
-  font-weight: 800;
-  font-style: italic;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  font-style: normal;
   line-height: 1;
 }
 
@@ -2900,13 +3150,13 @@ button.weekly-help-scrim:hover {
 
 .weekly-help-pop h3 {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: var(--fs-h3);
 }
 
 .weekly-help-pop p {
   margin: 0;
   color: var(--muted-strong);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm2);
   line-height: 1.4;
 }
 
@@ -2914,12 +3164,12 @@ button.weekly-help-close {
   width: 1.65rem;
   min-width: 1.65rem;
   height: 1.65rem;
-  min-height: 1.65rem;
+  min-height: var(--btn-h);
   padding: 0;
-  border-radius: 999px;
+  border-radius: var(--r-sm);
   background: var(--panel-soft);
   color: var(--text);
-  font-size: 1.05rem;
+  font-size: var(--fs-h2);
   font-weight: 700;
   line-height: 1;
 }
@@ -2933,7 +3183,7 @@ button.weekly-help-close:hover {
 .player-week-note {
   margin: 0;
   color: var(--muted-strong);
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 
@@ -2958,8 +3208,8 @@ button.weekly-help-close:hover {
 
 .week-input span {
   color: var(--muted);
-  font-size: 0.66rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -2967,14 +3217,14 @@ button.weekly-help-close:hover {
 .week-input strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.45rem;
+  font-size: var(--fs-h1);
   letter-spacing: -0.03em;
   line-height: 1;
 }
 
 .week-input small {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 
@@ -2997,8 +3247,8 @@ button.weekly-help-close:hover {
 .week-games h4 {
   margin: 0 0 0.35rem;
   color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -3020,8 +3270,8 @@ button.weekly-help-close:hover {
 
 .week-game span {
   color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
 }
 
 .week-sheet-close {
@@ -3047,20 +3297,20 @@ button.weekly-help-close:hover {
 
 .log-chip small {
   color: var(--muted);
-  font-size: 0.62rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.08em;
 }
 
 .log-chip strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1rem;
+  font-size: var(--fs-h2);
 }
 
 .log-chip span {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -3087,13 +3337,13 @@ button.weekly-help-close:hover {
 
 .week-chips button {
   width: auto;
-  min-height: 1.9rem;
+  min-height: var(--chip-h);
   padding: 0.25rem 0.7rem;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--panel-soft);
   color: var(--muted-strong);
-  font-size: 0.74rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
@@ -3156,15 +3406,15 @@ button.weekly-help-close:hover {
 
 .award-player strong {
   overflow: hidden;
-  font-size: 1rem;
+  font-size: var(--fs-h2);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .award-player span {
   color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -3186,22 +3436,22 @@ button.weekly-help-close:hover {
   overflow: hidden;
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 0.98rem;
+  font-size: var(--fs-body-lg);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .award-value {
   color: var(--text);
-  font-size: 0.86rem;
-  font-weight: 800;
+  font-size: var(--fs-body);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .award-card p {
   margin: 0;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm2);
   line-height: 1.45;
 }
 
@@ -3250,7 +3500,7 @@ button.weekly-help-close:hover {
   position: absolute;
   top: 0;
   bottom: 0;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--green);
 }
 
@@ -3264,13 +3514,13 @@ button.weekly-help-close:hover {
 
 .luck-meter small {
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: var(--fs-xs);
 }
 
 .luck-row > strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1rem;
+  font-size: var(--fs-h2);
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -3309,19 +3559,19 @@ button.weekly-help-close:hover {
 }
 
 .record-row strong {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
 }
 
 .record-row p {
   margin: 0.15rem 0 0;
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: var(--fs-sm);
 }
 
 .record-value {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.1rem;
+  font-size: var(--fs-h2);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -3365,8 +3615,8 @@ button.weekly-help-close:hover {
 
 .mode-card span {
   color: var(--blue);
-  font-size: 0.66rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -3374,12 +3624,12 @@ button.weekly-help-close:hover {
 .mode-card strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 0.96rem;
+  font-size: var(--fs-body-lg);
 }
 
 .mode-card small {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
   font-weight: 500;
 }
 
@@ -3391,15 +3641,15 @@ button.weekly-help-close:hover {
   display: block;
   margin-bottom: 0.42rem;
   color: var(--muted-strong);
-  font-size: 0.78rem;
-  font-weight: 800;
+  font-size: var(--fs-sm);
+  font-weight: 700;
 }
 
 .target-search-shell {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  min-height: 3rem;
+  min-height: var(--input-h);
   padding: 0.35rem 0.5rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -3432,7 +3682,7 @@ button.weekly-help-close:hover {
   max-width: 100%;
   padding: 0.36rem 0.5rem 0.36rem 0.7rem;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--blue-soft);
   color: var(--blue);
   font-weight: 700;
@@ -3447,7 +3697,7 @@ button.weekly-help-close:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.84rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
@@ -3465,13 +3715,13 @@ button.weekly-help-close:hover {
   place-items: center;
   width: 1.25rem;
   min-width: 1.25rem;
-  min-height: 1.25rem;
+  min-height: var(--input-h);
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: transparent;
   color: var(--blue);
-  font-size: 1rem;
+  font-size: var(--fs-h2);
   line-height: 1;
 }
 
@@ -3496,7 +3746,8 @@ button.weekly-help-close:hover {
 }
 
 .player-item {
-  padding: 0.7rem 0.85rem;
+  min-height: var(--row-h-compact);
+  padding: 0 var(--card-pad);
   border-bottom: 1px solid var(--line);
   cursor: pointer;
   transition: background 120ms ease;
@@ -3535,9 +3786,103 @@ button.weekly-help-close:hover {
   justify-content: flex-end;
 }
 
+.value-tier {
+  display: inline;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: none;
+}
+
+.value-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.value-trend.up {
+  color: var(--green);
+}
+
+.value-trend.down {
+  color: var(--red);
+}
+
+.value-trend.soon {
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.value-spark {
+  display: block;
+}
+
+.value-spark polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.values-updated {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.values-updated.is-end {
+  margin: 0;
+  padding: 0 0 2px;
+  text-align: right;
+}
+
+.value-scale-help {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: var(--fs-sm2);
+}
+
+.value-scale-help summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.value-scale-help p,
+.value-scale-help ul {
+  margin: 0.45rem 0 0;
+}
+
+.value-scale-help ul {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0;
+  list-style: none;
+}
+
+.value-scale-help li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
 .asset-name-stack strong {
   overflow-wrap: anywhere;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   line-height: 1.2;
 }
 
@@ -3549,7 +3894,7 @@ button.weekly-help-close:hover {
 
 .asset-context {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -3565,8 +3910,8 @@ button.weekly-help-close:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
-  font-weight: 800;
+  border-radius: var(--r-pill);
+  font-weight: 700;
 }
 
 .asset-pill,
@@ -3576,7 +3921,7 @@ button.weekly-help-close:hover {
   border: 1px solid var(--line);
   background: var(--panel-soft);
   color: var(--muted-strong);
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
 }
 
 .asset-pill.gold {
@@ -3616,7 +3961,7 @@ button.weekly-help-close:hover {
 .value-board-bar p {
   margin: 0.2rem 0 0;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-body);
 }
 
 .league-board-apply.is-on {
@@ -3629,7 +3974,7 @@ button.weekly-help-close:hover {
   max-width: none;
   text-align: left;
   font-family: var(--font-body);
-  font-size: 0.95rem;
+  font-size: var(--fs-body-lg);
   line-height: 1.45;
 }
 
@@ -3640,7 +3985,7 @@ button.weekly-help-close:hover {
   gap: 0.35rem;
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 0.95rem;
+  font-size: var(--fs-body-lg);
   line-height: 1.45;
   text-align: left;
 }
@@ -3666,7 +4011,7 @@ button.weekly-help-close:hover {
 
 .league-board-example span {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
 }
 
 .asset-value-badge.has-alt,
@@ -3686,7 +4031,7 @@ button.weekly-help-close:hover {
 .value-alt {
   display: block;
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
   text-transform: none;
 }
@@ -3699,8 +4044,8 @@ button.weekly-help-close:hover {
 
 .calc-partner span {
   color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -3712,7 +4057,8 @@ button.weekly-help-close:hover {
 }
 
 .calc-pane {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.6rem;
   min-width: 0;
   padding: 0.9rem;
@@ -3746,14 +4092,14 @@ button.weekly-help-close:hover {
 .calc-pane-total strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.35rem;
+  font-size: var(--fs-num-lg);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .calc-pane-total small {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -3761,7 +4107,7 @@ button.weekly-help-close:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  min-height: 2.2rem;
+  min-height: var(--input-h);
   align-items: center;
 }
 
@@ -3771,12 +4117,18 @@ button.weekly-help-close:hover {
   box-shadow: inset 0 0 0 1px var(--team-b-border);
 }
 
+/* Chip price on the Get pane: full-opacity tint at >= 4.5:1 on the chip (WCAG AA). */
+.calc-pane.team-b .selected-token-price {
+  opacity: 1;
+  color: #a9c6ff;
+}
+
 .calc-pane.team-b .selected-token-remove {
   color: var(--team-b);
 }
 
 .calc-search {
-  min-height: 2.5rem;
+  min-height: var(--input-h);
   background: var(--panel-solid);
   font-size: 16px;
   -webkit-appearance: none;
@@ -3785,17 +4137,59 @@ button.weekly-help-close:hover {
 
 .calc-search-wrap {
   position: relative;
+  margin-top: auto;
 }
 
 .calc-suggest {
   position: absolute;
-  z-index: 6;
+  z-index: 30;
   left: 0;
   right: 0;
   top: calc(100% + 0.3rem);
   margin-top: 0;
   max-height: 14rem;
-  box-shadow: var(--shadow);
+  background: var(--panel-solid);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
+}
+
+.player-item.calc-item {
+  display: block;
+  width: 100%;
+  margin: 0;
+  min-height: var(--row-h-compact);
+  padding: 0 var(--card-pad);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 400;
+  text-align: left;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.player-item.calc-item:hover,
+.player-item.calc-item.is-active {
+  filter: none;
+  transform: none;
+  background: var(--panel-tint);
+}
+
+.player-item.calc-item.is-active {
+  box-shadow: inset 3px 0 0 var(--blue);
+}
+
+.calc-suggest.is-closed {
+  display: none;
+}
+
+.calculator-shell:has(.calc-search-wrap:focus-within) .calc-hint,
+.calculator-shell:has(.calc-suggest:not(:empty)) .calc-hint {
+  display: none;
 }
 
 .calc-list:empty,
@@ -3806,6 +4200,53 @@ button.weekly-help-close:hover {
 .calc-item {
   -webkit-user-select: none;
   user-select: none;
+}
+
+.calc-item.is-active,
+.player-item.is-active {
+  background: var(--panel-tint);
+  box-shadow: inset 3px 0 0 var(--blue);
+}
+
+.price-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: var(--fs-sm2);
+}
+
+.price-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.price-legend strong {
+  color: var(--text);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.connect-gate {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  padding: 0.35rem 0 0.2rem;
+}
+
+.connect-gate p {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--muted-strong);
+}
+
+.connect-gate button {
+  min-height: var(--btn-h);
 }
 
 .calc-list {
@@ -3840,20 +4281,68 @@ button.weekly-help-close:hover {
   background: linear-gradient(135deg, var(--green-soft), var(--panel-soft));
 }
 
+/* Fair and slight-edge trades: amber, same as the share card (verdict-copy.js). */
+.calc-summary.fair {
+  border-color: rgba(240, 195, 106, 0.45);
+  background: linear-gradient(135deg, var(--amber-soft), var(--panel-soft));
+}
+
+/* Public /t: Favors and Lopsided share one neutral strong tone (RECHECK3). */
+.calc-summary.strong {
+  border-color: var(--team-a-border);
+  background: linear-gradient(135deg, var(--team-a-soft), var(--panel-soft));
+}
+
+.calc-bar.is-bigger span,
+.calc-bar.is-bigger strong {
+  color: var(--text);
+}
+
+.calc-pointer {
+  font-weight: 700;
+}
+
+.calc-pointer-narrow {
+  display: none;
+}
+
+/* Stars credit: its own segment on the credited side's bar. */
+.meter-track.meter-split {
+  display: flex;
+}
+
+.meter-track.meter-split span {
+  border-radius: 0;
+}
+
+.calc-bar .meter-track.meter-split span.meter-stars {
+  background: repeating-linear-gradient(135deg, var(--muted-strong) 0 3px, rgba(244, 241, 236, 0.35) 3px 6px);
+}
+
+@media (max-width: 620px) {
+  .calc-pointer-wide {
+    display: none;
+  }
+
+  .calc-pointer-narrow {
+    display: inline;
+  }
+}
+
 .calc-summary.bad {
   border-color: rgba(251, 113, 133, 0.45);
   background: linear-gradient(135deg, var(--red-soft), var(--panel-soft));
 }
 
 .calc-summary-main h3 {
-  font-size: 1.35rem;
+  font-size: var(--fs-h3);
   letter-spacing: -0.02em;
 }
 
 .calc-summary-main p {
   margin-bottom: 0.4rem;
   color: var(--muted-strong);
-  font-size: 0.88rem;
+  font-size: var(--fs-body);
 }
 
 .calc-even {
@@ -3877,8 +4366,8 @@ button.weekly-help-close:hover {
 
 .calc-bar span {
   color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -3904,6 +4393,182 @@ button.weekly-help-close:hover {
   grid-column: 1 / -1;
 }
 
+/* Share sits beside Clear. It is a quiet control; the verdict number stays loudest. */
+.calc-share {
+  position: relative;
+  min-height: var(--btn-h-sm);
+  padding: 0 var(--btn-px);
+  font-size: var(--fs-sm2);
+}
+
+.calc-share::before {
+  content: "";
+  position: absolute;
+  inset: -6px 0;
+}
+
+.calc-share-status {
+  flex-basis: 100%;
+  margin: 0;
+  min-height: 1em;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+}
+
+/* A /t/ link that does not decode. */
+.share-broken {
+  display: grid;
+  gap: var(--sp-2);
+  justify-items: start;
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-soft);
+}
+
+.share-broken h3,
+.share-broken p {
+  margin: 0;
+}
+
+.share-broken p {
+  color: var(--muted);
+}
+
+.share-broken .ghost-btn {
+  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Shared link, prices moved: a compact two-row compare, today in bold. */
+.calc-shared {
+  display: grid;
+  gap: var(--sp-1);
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm2);
+}
+
+.calc-shared > div {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: baseline;
+}
+
+.calc-shared dt {
+  min-width: 3.5em;
+  color: var(--muted);
+}
+
+.calc-shared dd {
+  margin: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.calc-shared .is-today dt,
+.calc-shared .is-today dd strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.calc-shared .is-today dd strong {
+  font-size: var(--fs-body-lg);
+}
+
+.calc-shared-note {
+  margin: var(--sp-1) 0 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+/* ⓘ: the method, credit and even-up notes on a shared link. 44px tap, quiet look. */
+.verdict-info-toggle {
+  display: inline-grid;
+  place-items: center;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  margin: 0 0 0 calc(var(--sp-3) * -1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: var(--fs-body);
+  cursor: pointer;
+}
+
+.verdict-info-toggle:hover,
+.verdict-info-toggle[aria-expanded="true"] {
+  color: var(--text);
+}
+
+/* The ⓘ sits inline at the end of the subline; the 44px hit area overlaps
+   the line box with negative margins instead of pushing a new row. */
+.calc-subline .verdict-info-toggle {
+  margin: calc((var(--tap-min) - 1.4em) / -2) 0;
+  vertical-align: middle;
+}
+
+/* Spaces around the verdict dot: the face's word space reads as none. */
+.verdict-dot {
+  display: inline-block;
+  margin: 0 0.12em;
+}
+
+/* Visible key for the hatched star premium segment. */
+.calc-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+.calc-legend-swatch {
+  display: inline-block;
+  flex: none;
+  width: 1.6rem;
+  height: 11px; /* 10–12px so the hatch reads as a key */
+  border-radius: var(--r-pill);
+  background: repeating-linear-gradient(135deg, var(--muted-strong) 0 3px, rgba(244, 241, 236, 0.35) 3px 6px);
+}
+
+.verdict-fine-print {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.verdict-fine-print[hidden] {
+  display: none;
+}
+
+/* A routed or shared trade before names load: a bar, never a raw id. */
+.selected-token-label.is-loading {
+  display: inline-flex;
+  align-items: center;
+}
+
+.name-skeleton {
+  display: inline-block;
+  width: 7.5em;
+  height: 0.9em;
+  border-radius: var(--radius-sm);
+  background: var(--panel-soft);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .name-skeleton {
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+}
+
+.calc-share-status:empty {
+  display: none;
+}
+
 .draft-basis {
   display: grid;
   justify-items: end;
@@ -3921,8 +4586,8 @@ button.weekly-help-close:hover {
 .draft-basis-label,
 .draft-partner span {
   color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: var(--fs-sm);
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -3930,7 +4595,7 @@ button.weekly-help-close:hover {
 .draft-basis-line {
   margin: 0;
   color: var(--muted-strong);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm2);
   text-align: right;
 }
 
@@ -3956,9 +4621,9 @@ button.weekly-help-close:hover {
 }
 
 .selected-token-price {
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
-  opacity: 0.8;
+  color: inherit;
 }
 
 .selected-token.is-mismatch,
@@ -3980,7 +4645,7 @@ button.weekly-help-close:hover {
   margin: 0;
   padding-left: 1.1rem;
   color: var(--muted-strong);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm2);
 }
 
 /* Browse lists open only while the box has focus and sit in the flow, so they never
@@ -3996,6 +4661,32 @@ button.weekly-help-close:hover {
   display: none;
 }
 
+.boot-error {
+  margin: 1.25rem 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.boot-error h2 {
+  margin: 0 0 0.35rem;
+  font-size: var(--fs-h2);
+}
+
+.boot-error p {
+  margin: 0;
+  color: var(--muted-strong);
+}
+
+.boot-error button {
+  margin-top: 0.8rem;
+}
+
+.ranks-more {
+  margin-top: 0.75rem;
+}
+
 .draft-notice,
 .draft-team-card {
   display: flex;
@@ -4009,10 +4700,16 @@ button.weekly-help-close:hover {
   background: var(--panel-tint);
 }
 
+.draft-notice {
+  border-color: var(--line);
+  background: var(--panel-soft);
+  color: var(--muted-strong);
+}
+
 .draft-notice p,
 .draft-team-card p {
   margin: 0.2rem 0 0;
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
 }
 
 .draft-notice-actions {
@@ -4037,7 +4734,7 @@ button.weekly-help-close:hover {
 .draft-package {
   margin: 0 0 0.4rem;
   color: var(--muted-strong);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm2);
 }
 
 .trade-card-actions {
@@ -4138,13 +4835,13 @@ button.weekly-help-close:hover {
 }
 
 .match-trade-offer {
-  font-size: 0.98rem;
+  font-size: var(--fs-body-lg);
   font-weight: 700;
 }
 
 .match-trade-rank {
   color: var(--muted-strong);
-  font-size: 0.88rem;
+  font-size: var(--fs-body);
 }
 
 .trade-card,
@@ -4190,14 +4887,14 @@ button.weekly-help-close:hover {
 
 .trade-card-context {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm2);
   font-weight: 600;
 }
 
 .trade-card-preview {
   margin-top: 0.25rem;
   color: var(--muted-strong);
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
 }
 
 .trade-summary-score {
@@ -4211,7 +4908,7 @@ button.weekly-help-close:hover {
 
 .trade-summary-score span {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
 }
 
 .trade-summary-score.good {
@@ -4243,8 +4940,8 @@ button.weekly-help-close:hover {
   border-radius: var(--radius-sm);
   background: var(--panel);
   color: var(--muted-strong);
-  font-size: 0.74rem;
-  font-weight: 800;
+  font-size: var(--fs-sm);
+  font-weight: 700;
 }
 
 .trade-card-toggle::before {
@@ -4308,8 +5005,8 @@ button.weekly-help-close:hover {
 
 .game-kicker {
   color: var(--muted);
-  font-size: 0.66rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -4324,12 +5021,12 @@ button.weekly-help-close:hover {
 
 .xp-chip strong {
   line-height: 1;
-  font-size: 1.15rem;
+  font-size: var(--fs-h1);
 }
 
 .xp-chip span {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
 }
 
 .xp-chip.good strong {
@@ -4373,7 +5070,7 @@ button.weekly-help-close:hover {
   padding-left: 0.8rem;
   border-left: 3px solid var(--blue);
   color: var(--text);
-  font-size: 0.88rem;
+  font-size: var(--fs-body);
 }
 
 .trade-side.team-a,
@@ -4407,7 +5104,7 @@ button.weekly-help-close:hover {
   padding: 0.18rem 0.45rem;
   background: var(--panel-solid);
   color: var(--muted);
-  font-size: 0.64rem;
+  font-size: var(--fs-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -4445,7 +5142,7 @@ button.weekly-help-close:hover {
 .asset-value {
   flex: 0 0 auto;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm2);
   font-variant-numeric: tabular-nums;
 }
 
@@ -4457,7 +5154,7 @@ button.weekly-help-close:hover {
 
 .trade-metric {
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
 }
 
 .trade-metric strong {
@@ -4479,7 +5176,7 @@ button.weekly-help-close:hover {
   padding: 0.22rem 0.5rem;
   background: var(--panel-solid);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
 }
 
 .impact-verdict.good {
@@ -4494,7 +5191,7 @@ button.weekly-help-close:hover {
 
 .impact-summary {
   color: var(--muted-strong);
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
 }
 
 .impact-metric-list {
@@ -4508,7 +5205,7 @@ button.weekly-help-close:hover {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm2);
 }
 
 .lineup-details summary,
@@ -4546,7 +5243,7 @@ button.weekly-help-close:hover {
   grid-template-columns: 64px minmax(0, 1fr) auto;
   gap: 0.55rem;
   align-items: start;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm2);
 }
 
 .bench-item {
@@ -4598,7 +5295,7 @@ button.weekly-help-close:hover {
 .multi-team-flow {
   margin: 0.75rem 0 0;
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
 }
 
 /* ==========================================================================
@@ -4642,15 +5339,15 @@ button.weekly-help-close:hover {
 .power-score-ring strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 2.05rem;
+  font-size: var(--fs-num-lg);
   line-height: 1;
 }
 
 .power-score-ring span {
   margin-top: -1.45rem;
   color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 800;
+  font-size: var(--fs-sm);
+  font-weight: 700;
 }
 
 .power-hero-copy {
@@ -4686,7 +5383,7 @@ button.weekly-help-close:hover {
   border: 1px solid var(--line);
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm2);
 }
 
 .power-tier.elite {
@@ -4721,7 +5418,7 @@ button.weekly-help-close:hover {
   border: 1px solid transparent;
   background: var(--blue-soft);
   color: var(--blue);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
 }
 
 .muted-badge {
@@ -4774,7 +5471,7 @@ button.weekly-help-close:hover {
 .analytics-metric span,
 .analytics-metric small {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -4784,7 +5481,7 @@ button.weekly-help-close:hover {
   overflow-wrap: anywhere;
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.85rem;
+  font-size: var(--fs-num-lg);
   line-height: 1;
 }
 
@@ -4809,7 +5506,7 @@ button.weekly-help-close:hover {
 .position-meter p {
   margin: 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
 }
 
 .position-meter-top {
@@ -4817,7 +5514,7 @@ button.weekly-help-close:hover {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
 }
 
 .position-meter-top span,
@@ -4825,7 +5522,7 @@ button.weekly-help-close:hover {
 .recent-trade span,
 .manager-heat-row span {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
 }
 
@@ -4841,13 +5538,17 @@ button.weekly-help-close:hover {
 .insight-item strong,
 .recent-trade strong,
 .storyline-card strong {
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
 }
 
 .insight-item span,
 .storyline-card span {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm2);
+}
+
+.insight-item[aria-busy="true"] span {
+  animation: pulse 1.6s ease-in-out infinite;
 }
 
 .green {
@@ -4890,8 +5591,8 @@ button.weekly-help-close:hover {
 .manager-score span,
 .manager-score small {
   color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
 }
 
 .trophy-panel strong,
@@ -4900,18 +5601,18 @@ button.weekly-help-close:hover {
   overflow-wrap: anywhere;
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.45rem;
+  font-size: var(--fs-num-lg);
   line-height: 1;
 }
 
 .trophy-panel strong {
   color: var(--amber);
-  font-size: 1.05rem;
+  font-size: var(--fs-h2);
 }
 
 .manager-score strong {
   color: var(--green);
-  font-size: 2rem;
+  font-size: var(--fs-num-lg);
 }
 
 .season-ledger,
@@ -4957,7 +5658,7 @@ button.weekly-help-close:hover {
 .season-card-title strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.2rem;
+  font-size: var(--fs-h1);
 }
 
 .season-card-title span,
@@ -4966,14 +5667,14 @@ button.weekly-help-close:hover {
 .manager-lens-stat span,
 .mini-season-chip span {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
 .season-stat strong,
 .manager-lens-stat strong {
   overflow-wrap: anywhere;
-  font-size: 0.9rem;
+  font-size: var(--fs-num);
   line-height: 1.12;
 }
 
@@ -5011,7 +5712,7 @@ button.weekly-help-close:hover {
 .manager-lens-hero p {
   margin-bottom: 0;
   color: var(--muted-strong);
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
 }
 
 .manager-lens-grid {
@@ -5062,8 +5763,8 @@ button.weekly-help-close:hover {
   display: grid;
   place-items: center;
   color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   text-transform: uppercase;
 }
 
@@ -5077,12 +5778,12 @@ button.weekly-help-close:hover {
 
 .finish-matrix-name strong {
   overflow-wrap: anywhere;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm2);
 }
 
 .finish-matrix-name span {
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -5090,8 +5791,8 @@ button.weekly-help-close:hover {
   display: grid;
   place-items: center;
   color: var(--muted-strong);
-  font-size: 0.84rem;
-  font-weight: 800;
+  font-size: var(--fs-sm2);
+  font-weight: 700;
 }
 
 .finish-cell.title {
@@ -5144,14 +5845,14 @@ button.weekly-help-close:hover {
 
 .history-compare-mode-tabs button {
   width: auto;
-  min-height: 2.1rem;
+  min-height: var(--btn-h);
   padding: 0.35rem 0.8rem;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-sm);
   background: var(--panel-solid);
   color: var(--muted-strong);
-  font-size: 0.78rem;
-  font-weight: 800;
+  font-size: var(--fs-sm2);
+  font-weight: 700;
 }
 
 .history-compare-mode-tabs button:hover {
@@ -5178,8 +5879,8 @@ button.weekly-help-close:hover {
 .history-compare-select span,
 .history-compare-vs {
   color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   text-transform: uppercase;
 }
 
@@ -5232,7 +5933,7 @@ button.weekly-help-close:hover {
 .h2h-score span,
 .h2h-meta span {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -5242,7 +5943,7 @@ button.weekly-help-close:hover {
   overflow-wrap: anywhere;
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.2rem;
+  font-size: var(--fs-h1);
   line-height: 1.1;
 }
 
@@ -5272,21 +5973,21 @@ button.weekly-help-close:hover {
 .compare-metric-row span,
 .compare-standings-name span {
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
 .compare-metric-row strong,
 .compare-standings-name strong {
   overflow-wrap: anywhere;
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
 }
 
 .compare-delta {
   text-align: center;
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
   font-style: normal;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--muted);
 }
 
@@ -5314,8 +6015,8 @@ button.weekly-help-close:hover {
   place-items: center;
   min-height: 2.2rem;
   color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   text-transform: uppercase;
 }
 
@@ -5339,7 +6040,7 @@ button.weekly-help-close:hover {
 }
 
 .compare-mover-chip span {
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -5374,7 +6075,7 @@ button.weekly-help-close:hover {
 
 .roster-delta-chip strong {
   overflow-wrap: anywhere;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm2);
 }
 
 .h2h-board {
@@ -5400,7 +6101,7 @@ button.weekly-help-close:hover {
 .h2h-score strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.8rem;
+  font-size: var(--fs-num-lg);
   line-height: 1;
   color: var(--blue);
 }
@@ -5441,7 +6142,7 @@ button.weekly-help-close:hover {
 .analytics-row em {
   color: var(--muted-strong);
   font-style: normal;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .recent-trade {
@@ -5461,7 +6162,7 @@ button.weekly-help-close:hover {
 .recent-trade p {
   margin: 0;
   color: var(--muted-strong);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm2);
 }
 
 .manager-heat-list {
@@ -5484,7 +6185,7 @@ button.weekly-help-close:hover {
 }
 
 ::-webkit-scrollbar-thumb {
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--blue) 42%, transparent);
 }
 
@@ -5566,7 +6267,7 @@ button.weekly-help-close:hover {
 
   .standings-head,
   .standings-row {
-    grid-template-columns: 2rem minmax(0, 1.7fr) 3.6rem 4.4rem 2.8rem 3.2rem;
+    grid-template-columns: 2rem minmax(0, 1.7fr) 3.6rem 4.4rem 5.2rem 3.2rem;
   }
 
   .col-pa,
@@ -5577,7 +6278,7 @@ button.weekly-help-close:hover {
 
 @media (max-width: 860px) {
   .page-tab {
-    min-height: 2.7rem;
+    min-height: var(--btn-h);
   }
 
   .tab-copy small {
@@ -5679,7 +6380,7 @@ button.weekly-help-close:hover {
 
 @media (max-width: 620px) {
   h1 {
-    font-size: 1.9rem;
+    font-size: var(--fs-h1);
   }
 
   .control-rail,
@@ -5694,7 +6395,7 @@ button.weekly-help-close:hover {
   .page-tab {
     justify-content: center;
     gap: 0.4rem;
-    min-height: 2.45rem;
+    min-height: var(--btn-h);
     padding: 0.4rem 0.5rem;
   }
 
@@ -5747,7 +6448,7 @@ button.weekly-help-close:hover {
   .league-avatar {
     width: 3.4rem;
     height: 3.4rem;
-    font-size: 1.4rem;
+    font-size: var(--fs-h1);
   }
 
   .empty-workspace {
@@ -5775,6 +6476,17 @@ button.weekly-help-close:hover {
     /* svh stays put while the URL bar shows and hides. dvh resizes the page mid-scroll. */
     min-height: 100svh;
     align-content: start;
+    padding-top: var(--mobile-chrome-space, 2.8rem);
+  }
+
+  /* Launch hides the title row, so the bar is only the wordmark. Reserve that
+     height before JS measures it, or the page jumps up by about 17px. */
+  body.launch-open {
+    --mobile-chrome-space: 28px;
+  }
+
+  html {
+    scroll-padding-top: var(--mobile-chrome-space, 2.8rem);
   }
 
   .workspace {
@@ -5782,23 +6494,41 @@ button.weekly-help-close:hover {
   }
 
   .mobile-chrome {
-    position: sticky;
+    position: fixed;
     top: 0;
-    z-index: 20;
+    right: 0;
+    left: 0;
+    z-index: 30;
     align-self: start;
     display: grid;
+    transform: translateY(0);
+    transition: transform 180ms ease;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 0.65rem;
+    gap: var(--sp-1);
     align-items: center;
-    height: calc(3.75rem + env(safe-area-inset-top));
-    min-height: calc(3.75rem + env(safe-area-inset-top));
+    height: auto;
+    min-height: 0;
     margin: 0;
-    padding: 0.4rem max(0.75rem, env(safe-area-inset-right)) 0.4rem max(0.75rem, env(safe-area-inset-left));
-    padding-top: calc(0.4rem + env(safe-area-inset-top));
+    padding: var(--sp-1) max(var(--page-x), env(safe-area-inset-right)) var(--sp-1) max(var(--page-x), env(safe-area-inset-left));
+    padding-top: calc(var(--sp-1) + env(safe-area-inset-top));
     background: var(--bg);
-    border-bottom: 3px solid var(--text);
+    border-bottom: 1px solid var(--line);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+
+  .mobile-chrome.is-away {
+    transform: translateY(-100%);
+    pointer-events: none;
+  }
+
+  .mobile-chrome.is-instant {
+    transition: none;
+  }
+
+  .desk-nav {
+    position: static;
+    top: auto;
   }
 
   .mobile-chrome-copy {
@@ -5809,13 +6539,17 @@ button.weekly-help-close:hover {
     display: none;
   }
 
-  .mobile-chrome-copy strong {
+  .mobile-chrome-copy #mobile-chrome-title {
     display: block;
     overflow: hidden;
+    margin: 0;
     font-family: var(--font-display);
-  font-synthesis: none;
-    font-size: 0.92rem;
+    font-synthesis: none;
+    font-size: var(--fs-body);
+    font-weight: 700;
     line-height: 1.15;
+    letter-spacing: 0;
+    text-transform: none;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -5823,9 +6557,9 @@ button.weekly-help-close:hover {
   .mobile-icon-btn {
     display: grid;
     place-items: center;
-    width: 2.75rem;
-    min-width: 2.75rem;
-    min-height: 2.75rem;
+    width: var(--btn-h);
+    min-width: var(--btn-h);
+    min-height: var(--btn-h);
     padding: 0;
     border: 1px solid var(--text);
     border-radius: 0;
@@ -5847,7 +6581,7 @@ button.weekly-help-close:hover {
     width: 1.05rem;
     height: 2px;
     background: currentColor;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
   }
 
   .menu-bars::before,
@@ -5858,7 +6592,7 @@ button.weekly-help-close:hover {
     width: 1.05rem;
     height: 2px;
     background: currentColor;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
   }
 
   .menu-bars::before {
@@ -5871,7 +6605,7 @@ button.weekly-help-close:hover {
 
   .mobile-chrome-actions {
     display: flex;
-    gap: 0.4rem;
+    gap: var(--sp-2);
     align-items: center;
   }
 
@@ -5891,7 +6625,7 @@ button.weekly-help-close:hover {
     width: 0.62rem;
     height: 0.6rem;
     border: 2px solid currentColor;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     box-sizing: border-box;
   }
 
@@ -5974,7 +6708,7 @@ button.weekly-help-close:hover {
     border-radius: 0;
     background: var(--rail-2);
     color: var(--rail-text);
-    font-size: 1.35rem;
+    font-size: var(--fs-h1);
     line-height: 1;
     box-shadow: none;
   }
@@ -6010,10 +6744,6 @@ button.weekly-help-close:hover {
     padding: 0.75rem max(0.75rem, env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
   }
 
-  body.dock-visible .workspace {
-    padding-bottom: calc(4.8rem + env(safe-area-inset-bottom));
-  }
-
   .workspace-header {
     gap: 0.7rem;
   }
@@ -6033,7 +6763,7 @@ button.weekly-help-close:hover {
   }
 
   .state-grid dd {
-    font-size: 0.78rem;
+    font-size: var(--fs-sm2);
   }
 
   /* Phone desk nav: sections live in the side board.
@@ -6054,8 +6784,8 @@ button.weekly-help-close:hover {
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    min-height: 2.8rem;
-    padding: 0.55rem 0.15rem;
+    min-height: var(--row-h);
+    padding: 0 var(--sp-2);
     border: 0;
     border-bottom: 1px solid var(--rail-line);
     border-radius: 0;
@@ -6068,7 +6798,7 @@ button.weekly-help-close:hover {
   .phone-desk-page span:first-child {
     font-family: var(--font-display);
   font-synthesis: none;
-    font-size: 1.35rem;
+    font-size: var(--fs-h1);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -6111,7 +6841,7 @@ button.weekly-help-close:hover {
     background: transparent;
     color: var(--rail-muted);
     text-align: left;
-    font-size: 0.95rem;
+    font-size: var(--fs-body-lg);
     font-weight: 600;
     box-shadow: none;
   }
@@ -6140,7 +6870,7 @@ button.weekly-help-close:hover {
   }
 
   .pulse-tile strong {
-    font-size: 1.02rem;
+    font-size: var(--fs-h2);
     white-space: normal;
   }
 
@@ -6149,7 +6879,7 @@ button.weekly-help-close:hover {
   }
 
   .game-side-score strong {
-    font-size: 1.2rem;
+    font-size: var(--fs-num-lg);
   }
 
   .standings-table,
@@ -6202,11 +6932,11 @@ button.weekly-help-close:hover {
   }
 
   .desk-job strong {
-    font-size: 0.84rem;
+    font-size: var(--fs-sm2);
   }
 
   .desk-job small {
-    font-size: 0.7rem;
+    font-size: var(--fs-xs);
   }
 
   .landing-search-row {
@@ -6247,7 +6977,7 @@ button.weekly-help-close:hover {
 
   .week-chips button {
     flex: 0 0 auto;
-    min-height: 2.35rem;
+    min-height: var(--chip-h);
   }
 
   .trade-card-summary {
@@ -6335,7 +7065,7 @@ button.weekly-help-close:hover {
 .legal-nav,
 .legal-foot {
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: var(--fs-body);
   font-weight: 700;
 }
 
@@ -6369,7 +7099,7 @@ button.weekly-help-close:hover {
 }
 
 .legal-card h1 {
-  font-size: clamp(1.7rem, 4vw, 2.4rem);
+  font-size: var(--fs-h1);
 }
 
 .legal-prose h2 {
@@ -6390,13 +7120,13 @@ button.weekly-help-close:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.75rem;
+  min-height: var(--btn-h);
   padding: 0.68rem 1.1rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: var(--gradient);
   color: var(--on-accent);
-  font-weight: 800;
+  font-weight: 700;
   text-decoration: none;
 }
 
@@ -6406,6 +7136,8 @@ button.weekly-help-close:hover {
   color: var(--text);
 }
 
+/* Fixed on the desk so an empty dock is out of the flex column.
+   A static zero-height dock still takes the 1.75rem workspace gap (28px). */
 .site-dock {
   position: fixed;
   right: 0;
@@ -6414,8 +7146,13 @@ button.weekly-help-close:hover {
   z-index: 45;
   display: grid;
   gap: 0.55rem;
-  padding: 0 0.85rem max(0.85rem, env(safe-area-inset-bottom));
+  margin: 0;
+  padding: 0;
   pointer-events: none;
+}
+
+.site-dock:has(> :not([hidden])) {
+  padding: 0 0.85rem max(0.85rem, env(safe-area-inset-bottom));
 }
 
 .site-dock > *:not([hidden]) {
@@ -6430,48 +7167,22 @@ body.rail-open .site-dock {
   display: none;
 }
 
-.storage-notice {
-  display: none;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.7rem;
-  padding: 0.8rem 0.95rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-.storage-notice:not([hidden]) {
-  display: flex;
-}
-
-.storage-notice p {
-  margin: 0;
-  color: var(--muted-strong);
-  font-size: 0.82rem;
-  line-height: 1.4;
-}
-
-.storage-notice a {
-  color: var(--link);
-  font-weight: 700;
-}
-
-.storage-notice button {
-  width: auto;
-  min-height: 2.35rem;
-  padding: 0.4rem 0.9rem;
-}
-
-body.dock-visible {
-  padding-bottom: 6.5rem;
-}
-
 @media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  .site-dock,
+  .sticky-mobile-cta,
+  #sticky-find-btn {
+    position: static;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    transform: none;
+  }
+
+  .site-dock:not(:has(> :not([hidden]))) {
+    display: none;
+  }
+
   .sticky-mobile-cta:not([hidden]) {
     display: grid;
     grid-template-columns: 1fr;
@@ -6479,11 +7190,7 @@ body.dock-visible {
   }
 
   .sticky-mobile-cta button {
-    min-height: 3rem;
-  }
-
-  body.dock-visible {
-    padding-bottom: 8.75rem;
+    min-height: var(--btn-h);
   }
 
   .legal-shell {
@@ -6527,7 +7234,7 @@ body.dock-visible {
 .window-call-banner strong,
 .window-call-hero h2 {
   margin: 0;
-  font-size: 2rem;
+  font-size: var(--fs-h2);
   letter-spacing: -0.03em;
   line-height: 1;
 }
@@ -6535,8 +7242,8 @@ body.dock-visible {
 .window-call-banner-score {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.7rem;
-  font-weight: 800;
+  font-size: var(--fs-num-lg);
+  font-weight: 700;
   line-height: 1;
 }
 
@@ -6571,11 +7278,11 @@ body.dock-visible {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 1rem;
   align-items: end;
-  padding: 1.1rem 1.2rem;
+  padding: var(--card-pad) var(--section-gap);
 }
 
 .window-call-hero h2 {
-  font-size: 2rem;
+  font-size: var(--fs-h2);
 }
 
 .window-call-hero p {
@@ -6593,20 +7300,20 @@ body.dock-visible {
 .window-call-signal span,
 .window-call-axis-top strong {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .window-call-confidence strong {
-  font-size: 2rem;
+  font-size: var(--fs-h1);
   line-height: 1;
 }
 
 .window-call-confidence small {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
 }
 
 .window-call-axes,
@@ -6651,7 +7358,7 @@ body.dock-visible {
 .window-call-signal small {
   margin: 0.45rem 0 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
 }
 
 .window-call-signal {
@@ -6662,7 +7369,7 @@ body.dock-visible {
 .window-call-signal strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.45rem;
+  font-size: var(--fs-h1);
   letter-spacing: -0.03em;
   line-height: 1;
 }
@@ -6690,7 +7397,7 @@ body.dock-visible {
 .window-call-group h3 em {
   color: var(--muted);
   font-style: normal;
-  font-size: 0.78rem;
+  font-size: var(--fs-h3);
 }
 
 .window-call-row {
@@ -6699,7 +7406,8 @@ body.dock-visible {
   gap: 0.5rem;
   align-items: center;
   width: 100%;
-  padding: 0.45rem 0.5rem;
+  padding: 0 var(--card-pad);
+  min-height: var(--row-h-compact);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--panel);
@@ -6716,6 +7424,11 @@ body.dock-visible {
 .window-call-row.you {
   border-color: var(--team-a-border);
   background: var(--team-a-soft);
+}
+
+.window-call-row .team-identity-copy strong,
+.window-call-row .team-identity-copy > span {
+  line-height: 1.05;
 }
 
 .loyalty-dashboard {
@@ -6750,14 +7463,14 @@ body.dock-visible {
 
 .loyalty-score span {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .loyalty-score strong {
-  font-size: 2rem;
+  font-size: var(--fs-num-lg);
   color: var(--blue);
 }
 
@@ -6787,7 +7500,6 @@ body.dock-visible {
 }
 
 .trade-row:focus-visible {
-  outline: none;
   border-color: var(--blue);
   box-shadow: var(--focus);
 }
@@ -6810,14 +7522,14 @@ body.dock-visible {
   display: grid;
   gap: 0.12rem;
   min-width: 0;
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
   font-weight: 700;
 }
 
 .trade-row-week {
   color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -6831,7 +7543,7 @@ body.dock-visible {
   grid-area: since;
   align-self: center;
   min-width: 3.25rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
   font-weight: 700;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -6849,7 +7561,7 @@ body.dock-visible {
   gap: 0.4rem 0.55rem;
   min-width: 0;
   color: var(--muted-strong);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm2);
   font-weight: 600;
   line-height: 1.45;
   overflow-wrap: break-word;
@@ -6870,7 +7582,7 @@ body.dock-visible {
   max-width: 100%;
   padding: 0.22rem 0.55rem;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--panel-solid);
   overflow-wrap: break-word;
   word-break: normal;
@@ -6895,7 +7607,7 @@ body.dock-visible {
 .trade-arrow {
   flex: 0 0 auto;
   color: var(--muted);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .pick-selection {
@@ -6922,7 +7634,7 @@ body.dock-visible {
   gap: 0.5rem;
   padding: 0.28rem 0;
   border-top: 1px solid var(--line);
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
 }
 
 .trade-asset-list li > span:has(.player-face) {
@@ -6955,8 +7667,8 @@ body.dock-visible {
   width: 1.55rem;
   height: 1.55rem;
   border-radius: 4px;
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
 }
 
 .result-pill.win { background: var(--green-soft); color: var(--green); }
@@ -6973,7 +7685,7 @@ body.dock-visible {
 
 .trade-later-label {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -6988,10 +7700,10 @@ body.dock-visible {
 .finish-chip {
   padding: 0.22rem 0.5rem;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--panel);
   color: var(--muted-strong);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -7023,7 +7735,7 @@ body.dock-visible {
 .trade-award span,
 .trade-award em {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
   font-style: normal;
   letter-spacing: 0.06em;
@@ -7033,7 +7745,7 @@ body.dock-visible {
 .trade-award p {
   margin: 0.35rem 0 0;
   color: var(--muted-strong);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
 }
 
 .trade-award.won { border-color: color-mix(in srgb, var(--green) 45%, var(--line)); }
@@ -7101,12 +7813,12 @@ body.dock-visible {
 }
 
 .passport-page-head strong {
-  font-size: 1rem;
+  font-size: var(--fs-h2);
 }
 
 .passport-page-head span {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -7114,9 +7826,9 @@ body.dock-visible {
 .passport-page-value {
   flex: 0 0 auto;
   color: var(--blue);
-  font-size: 1.05rem;
+  font-size: var(--fs-h2);
   font-style: normal;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -7185,8 +7897,8 @@ body.dock-visible {
 .passport-stamp-year {
   display: block;
   color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.06em;
 }
 
@@ -7199,7 +7911,7 @@ body.dock-visible {
   border: 1px dashed color-mix(in srgb, hsl(var(--stamp-hue, 168), 62%, 52%) 45%, var(--line));
   border-radius: 6px;
   background: var(--panel);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
   line-height: 1.25;
   transform: rotate(-1.1deg);
   transform-origin: left top;
@@ -7222,8 +7934,8 @@ body.dock-visible {
 .passport-stamp small {
   display: block;
   color: var(--muted);
-  font-size: 0.64rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -7235,8 +7947,8 @@ body.dock-visible {
 
 .grade-pill {
   flex: 0 0 auto;
-  font-size: 1.4rem;
-  font-weight: 800;
+  font-size: var(--fs-h1);
+  font-weight: 700;
   color: var(--blue);
 }
 
@@ -7269,14 +7981,14 @@ body.dock-visible {
 .loyalty-card span,
 .loyalty-card small {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .loyalty-card strong {
-  font-size: 1.15rem;
+  font-size: var(--fs-h1);
 }
 
 .loyalty-card strong.player-name {
@@ -7295,7 +8007,7 @@ body.dock-visible {
 
 .dna-col h3 {
   margin: 0 0 0.55rem;
-  font-size: 0.82rem;
+  font-size: var(--fs-h3);
 }
 
 .dna-col.kept { border-color: color-mix(in srgb, var(--green) 45%, var(--line)); }
@@ -7310,7 +8022,7 @@ body.dock-visible {
   align-items: center;
   padding: 0.4rem 0;
   border-top: 1px solid var(--line);
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
 }
 
 .dna-chip:first-of-type,
@@ -7336,7 +8048,7 @@ body.dock-visible {
   width: auto;
   min-height: 0;
   padding: 0.42rem 0.8rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm2);
 }
 
 .lens-picker {
@@ -7346,11 +8058,11 @@ body.dock-visible {
   margin: 0;
   padding: 0.3rem 0.4rem 0.3rem 0.8rem;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--panel-soft);
   color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 800;
+  font-size: var(--fs-sm);
+  font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -7361,9 +8073,9 @@ body.dock-visible {
   min-height: 0;
   margin: 0;
   padding: 0.3rem 1.8rem 0.3rem 0.6rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   color: var(--text);
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
@@ -7400,7 +8112,7 @@ body.dock-visible {
 .room-link strong {
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
 }
 
 .room-link strong::after {
@@ -7410,7 +8122,7 @@ body.dock-visible {
 
 .room-link span {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm2);
 }
 
 .record-list-wide {
@@ -7443,13 +8155,13 @@ body.dock-visible {
   gap: 0.45rem;
   align-items: center;
   padding: 0.55rem 0.75rem;
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
 }
 
 .hall-head {
   color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -7496,8 +8208,8 @@ body.dock-visible {
   background: var(--panel);
 }
 
-.career-chip strong { font-size: 0.9rem; }
-.career-chip span { color: var(--muted); font-size: 0.7rem; }
+.career-chip strong { font-size: var(--fs-body); }
+.career-chip span { color: var(--muted); font-size: var(--fs-xs); }
 .career-chip.champ { border-color: var(--amber); }
 
 @media (max-width: 1100px) {
@@ -7532,7 +8244,7 @@ body.dock-visible {
 
 .rather-panel h2 {
   margin: 0;
-  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-size: var(--fs-h2);
   letter-spacing: -0.03em;
   line-height: 1.05;
   text-transform: none;
@@ -7541,8 +8253,8 @@ body.dock-visible {
 .rather-format {
   margin: 0.45rem 0 0;
   color: var(--text);
-  font-size: 1.02rem;
-  font-weight: 800;
+  font-size: var(--fs-h2);
+  font-weight: 700;
 }
 
 .rather-format-detail {
@@ -7552,14 +8264,14 @@ body.dock-visible {
 .rather-matchup {
   margin: 0.2rem 0 0.45rem;
   color: var(--muted-strong);
-  font-size: 0.84rem;
+  font-size: var(--fs-sm2);
   font-weight: 700;
 }
 
 .rather-status {
   margin: 0 0 0.35rem;
   color: var(--blue);
-  font-size: 0.86rem;
+  font-size: var(--fs-body);
   font-weight: 700;
 }
 
@@ -7578,8 +8290,8 @@ body.dock-visible {
 .rather-or {
   align-self: center;
   color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -7637,12 +8349,12 @@ button.rather-player:hover {
   display: grid;
   place-items: center;
   color: var(--muted-strong);
-  font-size: 1.2rem;
-  font-weight: 800;
+  font-size: var(--fs-h1);
+  font-weight: 700;
 }
 
 .rather-player strong {
-  font-size: 0.98rem;
+  font-size: var(--fs-body-lg);
   letter-spacing: -0.03em;
   line-height: 1.2;
 }
@@ -7655,13 +8367,13 @@ button.rather-player:hover {
 
 .rather-meta {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
 .rather-stats {
   color: var(--muted-strong);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -7696,13 +8408,13 @@ button.rather-skip {
   }
 
   .landing-rather .rather-panel h2 {
-    font-size: 1.02rem;
+    font-size: var(--fs-h2);
   }
 
   .landing-rather .rather-format {
     margin: 0.05rem 0 0.3rem;
     color: var(--muted);
-    font-size: 0.78rem;
+    font-size: var(--fs-sm2);
     font-weight: 700;
   }
 
@@ -7715,7 +8427,7 @@ button.rather-skip {
   .landing-rather .rather-status {
     margin: 0 0 0.15rem;
     overflow: hidden;
-    font-size: 0.75rem;
+    font-size: var(--fs-sm);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -7727,7 +8439,7 @@ button.rather-skip {
   }
 
   .landing-rather .rather-or {
-    font-size: 0.64rem;
+    font-size: var(--fs-xs);
   }
 
   .landing-rather .rather-player,
@@ -7743,19 +8455,19 @@ button.rather-skip {
 
   .landing-rather .rather-player strong {
     overflow-wrap: anywhere;
-    font-size: 0.78rem;
+    font-size: var(--fs-sm2);
     line-height: 1.15;
   }
 
   .landing-rather .rather-meta {
-    font-size: 0.66rem;
+    font-size: var(--fs-xs);
   }
 
   .landing-rather .rather-skip,
   .landing-rather button.rather-skip {
-    min-height: 2.75rem;
+    min-height: var(--btn-h);
     padding: 0.3rem 0.85rem;
-    font-size: 0.8rem;
+    font-size: var(--fs-sm2);
   }
 }
 
@@ -7769,6 +8481,10 @@ button.rather-skip {
   *::after {
     transition: none !important;
     animation: none !important;
+  }
+
+  .mobile-chrome {
+    transition: none;
   }
 
   .ticker-track {
@@ -7830,6 +8546,182 @@ button.rather-skip {
   margin-top: 0.15rem;
 }
 
+.league-missing {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  width: min(28rem, 100%);
+  margin: 1.5rem auto 2rem;
+}
+
+.league-missing h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-h1);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.league-missing h1:focus {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
+#league-missing-title:focus:not(:focus-visible) {
+  outline: none;
+}
+
+#league-missing-title:focus, #sleeper-down-title:focus { outline: none; }
+
+.league-missing p {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--muted-strong);
+  font-size: var(--fs-sm2);
+  font-weight: 600;
+}
+
+.league-missing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+#sleeper-down-retry {
+  background: var(--gradient);
+  color: var(--on-accent);
+  border-color: transparent;
+}
+
+#sleeper-down-find,
+#sleeper-down-find:hover {
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+}
+
+.empty-cta {
+  display: grid;
+  gap: 0.4rem;
+  justify-items: start;
+  max-width: 28rem;
+}
+
+.empty-cta-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-h1);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.sample-league-link {
+  color: inherit;
+  text-underline-offset: 0.15em;
+}
+
+.sample-league-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0.18rem 0.55rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--panel);
+  color: var(--text);
+  font-size: var(--fs-sm2);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.sample-league-chip[hidden],
+.sample-chrome[hidden],
+.sample-banner[hidden],
+.sample-find-btn[hidden],
+.mobile-chrome-viewing[hidden] {
+  display: none;
+}
+
+.mobile-chrome-title-row,
+.sample-chrome-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.sample-find-btn {
+  width: auto;
+  margin: 0;
+  padding: 0.28rem 0.75rem;
+  min-height: var(--btn-h);
+  font-size: var(--fs-sm2);
+  white-space: nowrap;
+}
+
+#sample-find-btn {
+  margin-bottom: 0.75rem;
+}
+
+.mobile-chrome-title-row #mobile-chrome-title,
+.sample-chrome-title-row strong {
+  min-width: 0;
+}
+
+.mobile-chrome-viewing,
+.sample-chrome-viewing {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.sample-chrome {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.sample-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--panel);
+}
+
+.sample-banner p {
+  flex: 1 1 16rem;
+  margin: 0;
+}
+
+body.viewing-sample .standings-row.you,
+body.viewing-sample .odds-row.you,
+body.viewing-sample .power-board-row.you,
+body.viewing-sample .team-card.you,
+body.viewing-sample .luck-row.you,
+body.viewing-sample .window-call-row.you,
+body.viewing-sample .hall-row.you,
+body.viewing-sample .game-side.you,
+body.viewing-sample button.ranks-row.you,
+body.viewing-sample .multi-team-party-card.you,
+body.viewing-sample .team-identity.you {
+  background: transparent;
+  box-shadow: none;
+}
+
 .league-loaded .public-ranks {
   display: none;
 }
@@ -7856,12 +8748,12 @@ button.rather-skip {
 
 .ranks-note {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm2);
 }
 
 button.ranks-chip {
   width: auto;
-  min-height: 2.1rem;
+  min-height: var(--chip-h);
   padding: 0.2rem 0.15rem;
   margin-right: 0.85rem;
   border: 0;
@@ -7871,7 +8763,7 @@ button.ranks-chip {
   color: var(--muted);
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: 1.05rem;
+  font-size: var(--fs-h2);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -7913,7 +8805,7 @@ button.ranks-shelf-item {
   flex: 0 0 auto;
   justify-items: center;
   align-content: start;
-  gap: 0.35rem;
+  gap: 2px;
   width: 5.1rem;
   min-height: 0;
   padding: 0;
@@ -7937,8 +8829,9 @@ button.ranks-shelf-item .player-face {
 
 button.ranks-shelf-item strong {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
@@ -7955,8 +8848,8 @@ button.ranks-row {
   gap: 0.7rem;
   align-items: center;
   width: 100%;
-  min-height: 0;
-  padding: 0.65rem 0;
+  min-height: var(--row-h-compact);
+  padding: 0;
   border: 0;
   border-bottom: 1px solid var(--line);
   border-radius: 0;
@@ -7965,6 +8858,12 @@ button.ranks-row {
   text-align: left;
   font-weight: 600;
   box-shadow: none;
+}
+
+/* The 40px face is the row. Tap-min would stretch it back toward 44. */
+.ranks-list > button.ranks-row,
+.ranks-neighbors > button.ranks-row {
+  min-height: 0;
 }
 
 button.ranks-neighbor {
@@ -7978,22 +8877,29 @@ button.ranks-row:hover {
 }
 
 button.ranks-row.active,
-button.ranks-row.you {
+button.ranks-row.active:hover,
+button.ranks-row.you,
+button.ranks-row.you:hover {
   border-color: var(--team-a-border);
-  background: var(--team-a-soft);
+  /* 10% ivory over the page, already flattened. The wash's channels are
+     #f4f1ec, which scores the down trend at 2.25:1. */
+  background: #232324;
 }
 
 .ranks-num {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
 .ranks-who {
-  display: grid;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   min-width: 0;
+  overflow: hidden;
 }
 
 .ranks-who strong,
@@ -8005,21 +8911,71 @@ button.ranks-row.you {
 
 .ranks-who strong.player-name {
   display: flex;
+  flex: 0 0 auto;
+  align-items: center;
   gap: 0.45rem;
-  white-space: normal;
+  max-width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.ranks-who .player-name > .player-name-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
+  overflow-wrap: normal;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .ranks-who small {
+  flex: 1 1 0;
+  min-width: 0;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
+  line-height: 1.15;
+}
+
+/* Phone names wrap at spaces and hyphens. League lines do the same. */
+@media (max-width: 700px) {
+  .ranks-who {
+    overflow: visible;
+  }
+
+  .ranks-who strong.player-name,
+  .ranks-who .player-name > .player-name-text {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .ranks-who strong.player-name {
+    align-items: flex-start;
+  }
+
+  .power-board-row .team-identity-copy > span {
+    overflow: visible;
+    overflow-wrap: normal;
+    text-overflow: clip;
+    white-space: normal;
+    word-break: normal;
+  }
 }
 
 .ranks-value {
   font-family: var(--font-mono);
-  font-size: 0.95rem;
+  font-size: var(--fs-body-lg);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+.ranks-value-num {
+  font-weight: var(--fw-num);
+  line-height: 1.15;
 }
 
 .ranks-card {
@@ -8031,6 +8987,46 @@ button.ranks-row.you {
   background: var(--panel);
 }
 
+[data-player-connect-slot]:empty {
+  display: none;
+}
+
+.player-back {
+  width: auto;
+  justify-self: start;
+}
+
+.player-connect {
+  display: flex;
+  flex: 1 1 16rem;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.player-connect input,
+.player-connect button {
+  width: auto;
+  min-height: var(--tap-min);
+  padding: 0.3rem 0.7rem;
+}
+
+.player-connect input {
+  flex: 1 1 8rem;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.player-connect button {
+  flex: 0 0 auto;
+  min-height: var(--tap-min);
+  white-space: nowrap;
+}
+
+.player-league-list[hidden] {
+  display: none;
+}
+
 .ranks-card-main {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -8040,8 +9036,8 @@ button.ranks-row.you {
 
 .ranks-headshot {
   position: relative;
-  width: 5.2rem;
-  height: 5.2rem;
+  width: var(--avatar);
+  height: var(--avatar);
   overflow: hidden;
   border: 2px solid var(--line-strong);
   border-radius: 50%;
@@ -8055,11 +9051,11 @@ button.ranks-row.you {
 }
 
 .ranks-card h2 {
-  font-size: 1.35rem;
+  font-size: var(--fs-h2);
 }
 
 .ranks-card h3 {
-  font-size: 0.82rem;
+  font-size: var(--fs-h3);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -8069,7 +9065,7 @@ button.ranks-row.you {
 .ranks-spread,
 .ranks-held {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm2);
 }
 
 .ranks-pick-line {
@@ -8084,8 +9080,8 @@ button.ranks-row.you {
   display: block;
   font-family: var(--font-display);
   font-synthesis: none;
-  font-size: clamp(2.8rem, 8vw, 4.6rem);
-  font-weight: 800;
+  font-size: var(--fs-num-xl);
+  font-weight: 700;
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   line-height: 0.84;
@@ -8094,10 +9090,45 @@ button.ranks-row.you {
 .ranks-card-price span,
 .ranks-facts dt {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.ranks-card-price .ranks-estimate {
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.ranks-value {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  min-width: max-content;
+  white-space: nowrap;
+}
+
+.ranks-card-price .value-tier,
+.ranks-card-price .value-tier span,
+.ranks-card-price .value-trend,
+.ranks-card-price .value-trend span {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ranks-card-price .value-trend.up,
+.ranks-card-price .value-trend.up span {
+  color: var(--green);
+}
+
+.ranks-card-price .value-trend.down,
+.ranks-card-price .value-trend.down span {
+  color: var(--red);
 }
 
 .ranks-tape {
@@ -8126,7 +9157,8 @@ button.ranks-row.you {
 
 .ranks-facts dd {
   margin: 0;
-  font-weight: 800;
+  font-size: var(--fs-num);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -8177,7 +9209,7 @@ body.league-loaded .workspace-lede { display: none; }
     min-height: 0;
     max-height: none;
     overflow: visible;
-    padding: 0.7rem 1.4rem;
+    padding: var(--card-pad) var(--section-gap);
     border-right: 0;
     border-bottom: 3px solid var(--text);
   }
@@ -8203,9 +9235,7 @@ body.league-loaded .workspace-lede { display: none; }
 }
 
 body:not(.league-loaded):has(#trades-page:not(.hidden)) #landing,
-body:not(.league-loaded):has(#league-page:not(.hidden)) #landing,
-body:not(.league-loaded):has(#trades-page:not(.hidden)) #sticky-mobile-cta,
-body:not(.league-loaded):has(#league-page:not(.hidden)) #sticky-mobile-cta {
+body:not(.league-loaded):has(#league-page:not(.hidden)) #landing {
   display: none;
 }
 
@@ -8266,8 +9296,7 @@ body:not(.league-loaded):has(#league-page:not(.hidden)) #sticky-mobile-cta {
   margin-right: 0;
 }
 
-html:not(.desk-shut) body.board-tools-live #landing,
-html:not(.desk-shut) body.board-tools-live #sticky-mobile-cta {
+html:not(.desk-shut) body.board-tools-live #landing {
   display: none;
 }
 
@@ -8288,7 +9317,7 @@ html:not(.desk-shut) body.board-tools-live #sticky-mobile-cta {
     color: var(--rail-text);
     font-family: var(--font-display);
   font-synthesis: none;
-    font-size: 1.45rem;
+    font-size: var(--fs-h1);
     line-height: 1;
     box-shadow: none;
   }
@@ -8371,5 +9400,177 @@ html:not(.desk-shut) body.board-tools-live #sticky-mobile-cta {
 
   body.board-tools-live #ranks-section > .panel-heading {
     display: none;
+  }
+}
+
+/* Cold /t/<code> (M1): "Shared trade", the verdict, the sides, then a CTA.
+   Model notes and price chips fold into "About these prices". */
+.shared-trade-head {
+  display: grid;
+  gap: 0.2rem;
+  margin-bottom: var(--sp-3);
+}
+
+.shared-trade-head h1 {
+  margin: 0;
+  font-size: var(--fs-h3);
+  line-height: var(--lh-snug);
+  font-weight: var(--fw-semi);
+  overflow-wrap: anywhere;
+}
+
+[data-shared-view="1"] .calc-verdict {
+  margin-bottom: var(--sp-4);
+}
+
+body.cold-share #mobile-chrome-title {
+  display: none;
+}
+
+/* Cold /t: read-only until "Edit this trade". */
+[data-shared-view="1"]:not([data-shared-editing="1"]) .calc-search-wrap,
+[data-shared-view="1"]:not([data-shared-editing="1"]) .selected-token-remove,
+[data-shared-view="1"]:not([data-shared-editing="1"]) .draft-partner-slot {
+  display: none;
+}
+
+[data-shared-view="1"] .calc-actions .shared-own-btn {
+  order: -1;
+}
+
+.shared-trade-cta {
+  display: flex;
+  margin: var(--sp-4) 0;
+}
+
+.shared-own-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap-min);
+  padding: 0 1.1rem;
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.shared-trade-about {
+  margin-bottom: var(--sp-4);
+  color: var(--muted);
+}
+
+.shared-trade-about > summary {
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+@media (max-width: 620px) {
+  /* Shell gap already separates the blocks. Extra margins pushed
+     "Edit this trade" 1px under the 844px fold. */
+  .calculator-shell[data-shared-view="1"] {
+    gap: 0.75rem;
+  }
+
+  .calculator-shell[data-shared-view="1"] .shared-trade-head,
+  .calculator-shell[data-shared-view="1"] .calc-verdict,
+  .calculator-shell[data-shared-view="1"] .shared-trade-cta {
+    margin: 0;
+  }
+
+  [data-shared-view="1"] .calc-summary {
+    gap: 0.6rem;
+    padding: 0.8rem;
+  }
+
+  [data-shared-view="1"] .calc-actions {
+    margin-top: 0;
+  }
+
+  [data-shared-view="1"] .calc-actions .shared-own-btn {
+    flex: 1 1 100%;
+  }
+}
+
+/* QA 2026-10-18 */
+.share-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 80;
+  transform: translate(-50%, 12px);
+  padding: 0.6rem 1rem;
+  border-radius: var(--r-pill);
+  background: var(--text);
+  color: var(--bg, #0c0c0e);
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.share-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.selected-token .selected-token-remove {
+  min-width: 32px;
+  min-height: 32px;
+  margin: -0.36rem -0.4rem -0.36rem 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.field-error {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+.landing-search-row input {
+  min-width: 0;
+}
+.launch-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1rem;
+  margin-top: 2rem;
+  padding: 1rem 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.launch-footer a {
+  color: inherit;
+  text-decoration: underline;
+}
+.power-loading,
+.power-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+.power-badge-help {
+  margin-top: 0.5rem;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.power-badge-help ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+/* Phone: three lanes side by side left 0px for names. Stack them so names read. */
+@media (max-width: 640px) {
+  .window-call-league {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .window-call-row .team-name {
+    overflow-wrap: anywhere;
   }
 }
