@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { siteMarkup } from "./site-markup.js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -12,6 +13,7 @@ import {
   SIT_START_HINT,
   buildSitStart,
   closeCallReason,
+  formatSitStartSlot,
   injurySitReason,
   renderSitStartCallout,
   sitStartEligibility,
@@ -84,7 +86,7 @@ test("bye and missing opponent sit instead of silently starting", () => {
 
 test("out sits, questionable can still start", () => {
   assert.equal(injurySitReason("Out"), "Sit — Out");
-  assert.equal(injurySitReason("IR"), "Sit — IR");
+  assert.equal(injurySitReason("IR"), "Sit — on injured reserve");
   assert.equal(injurySitReason("Doubtful"), "Sit — Doubtful");
   assert.equal(injurySitReason("Questionable"), "");
   const board = buildSitStart({
@@ -98,6 +100,15 @@ test("out sits, questionable can still start", () => {
   assert.deepEqual(board.starters.map((entry) => entry.player?.name), ["Q RB", "OK RB"]);
   assert.equal(board.bench[0].player.name, "Hurt RB");
   assert.match(board.bench[0].sitReason, /Out/);
+});
+
+test("roster slots say Superflex and Bench", () => {
+  assert.equal(formatSitStartSlot("SF"), "Superflex");
+  assert.equal(formatSitStartSlot("SUPER_FLEX"), "Superflex");
+  assert.equal(formatSitStartSlot("BN"), "Bench");
+  assert.equal(formatSitStartSlot("BENCH"), "Bench");
+  assert.equal(formatSitStartSlot("IR"), "Injured reserve");
+  assert.equal(formatSitStartSlot("FLEX"), "Flex");
 });
 
 test("empty slot when nobody eligible", () => {
@@ -278,7 +289,7 @@ test("sit/start callout has loading and error states", () => {
   assert.match(app, /buildSitStart\(/);
   assert.match(app, />Start</);
   assert.match(app, />Sit</);
-  const index = readFileSync(join(docs, "index.html"), "utf8");
+  const index = siteMarkup();
   assert.match(index, /id="weekly-help-btn"/);
   assert.doesNotMatch(index, /Sit\/start this week/);
   assert.doesNotMatch(index, /Close calls get a matchup or usage why/);

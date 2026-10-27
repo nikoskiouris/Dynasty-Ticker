@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import { siteMarkup } from "./site-markup.js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -24,7 +25,7 @@ test("only the live dynastyticker.com host records a searched username", () => {
 });
 
 test("public pages do not show a visit tally or the secret numbers page", () => {
-  const index = readFileSync(join(docs, "index.html"), "utf8");
+  const index = siteMarkup();
   assert.doesNotMatch(index, /id="landing-visits"/);
   assert.doesNotMatch(index, /id="footer-visits"/);
   assert.doesNotMatch(index, /people have viewed this desk/);

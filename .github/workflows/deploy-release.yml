@@ -29,7 +29,13 @@ jobs:
       - name: Checkout release
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag || github.ref }}
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - name: Require a prod release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: bash scripts/assert_prod_release.sh "$RELEASE_TAG"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -45,5 +51,5 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          DEPLOY_MESSAGE: ${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
+          DEPLOY_MESSAGE: ${{ github.event.release.tag_name || inputs.tag }}
         run: bash scripts/deploy_live_site.sh

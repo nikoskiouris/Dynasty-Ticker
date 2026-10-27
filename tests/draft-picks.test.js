@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
+  inferPickSeasonSpan,
   draftedPickRosterKey,
   draftedPickOwnerKey,
   ownerKeyByRosterIdFromRosters,
@@ -126,4 +130,35 @@ test("ownerKeyByRosterIdFromRosters uses Sleeper user ids", () => {
   ]);
   assert.equal(map.get("12"), "user:abc");
   assert.equal(map.get("3"), "");
+});
+
+test("the price board does not mint owned picks through its last year", () => {
+  const span = inferPickSeasonSpan({ leagueSeason: 2026 });
+  assert.deepEqual(span, ["2026", "2027", "2028"]);
+  for (const year of ["2030", "2031", "2032"]) assert.equal(span.includes(year), false);
+  assert.deepEqual(
+    inferPickSeasonSpan({ leagueSeason: 2026, tradedSeasons: [2027] }),
+    ["2027", "2028"],
+  );
+  assert.deepEqual(
+    inferPickSeasonSpan({ leagueSeason: 2026, tradedSeasons: [2024, 2027, 2031] }),
+    ["2026", "2027", "2028", "2029", "2030", "2031"],
+  );
+  assert.deepEqual(
+    inferPickSeasonSpan({ leagueSeason: 2026, minOpenSeason: 2027 }),
+    ["2027", "2028", "2029"],
+  );
+  assert.deepEqual(
+    inferPickSeasonSpan({ leagueSeason: 2026, explicitSeasons: [], tradedSeasons: [2024], minOpenSeason: 2027 }),
+    ["2027", "2028", "2029"],
+  );
+});
+
+test("league pick years come from the span helper, not the value catalog", () => {
+  const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/modules/draft-picks.js"), "utf8");
+  const start = source.indexOf("export function inferLeaguePickSeasons(");
+  const body = source.slice(start, source.indexOf("export function inferLeagueDraftRounds(", start));
+  assert.match(body, /inferPickSeasonSpan\(/);
+  assert.doesNotMatch(body, /catalogSeasons/);
+  assert.match(body, /_pickValueCatalog/);
 });

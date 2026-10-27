@@ -1,0 +1,79 @@
+<div id="league-page" class="workspace-page app-page hidden" role="tabpanel" aria-labelledby="league-tab" data-page="league">
+  <div class="room" data-room-panel="team">
+    <div id="start-dashboard" class="dashboard start-dashboard hidden"></div>
+    <section class="workspace-panel" id="power-section">
+      <div class="panel-heading">
+        <h2 id="power-heading" tabindex="-1">Outlook</h2>
+      </div>
+      <div id="power-dashboard" class="power-dashboard">
+        <div class="empty-cta">
+          <h2 class="empty-cta-title">Connect your league to see your team.</h2>
+          <p class="muted">Type your Sleeper username. No name yet? <a id="sample-league-link" class="sample-league-link" href="./?sample=1">See the sample league</a>.</p>
+          <button type="button" data-action="find-my-leagues" data-idle-label="Connect my league" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+        </div>
+      </div>
+      <div id="window-call-dashboard" class="window-call-dashboard"></div>
+    </section>
+    <section class="workspace-panel hidden" id="roster-sheet-section">
+      <div class="panel-heading">
+        <h2 id="roster-sheet-heading">Roster</h2>
+        <button type="button" id="weekly-help-btn" class="weekly-help-btn" data-action="toggle-weekly-help" aria-expanded="false" aria-haspopup="dialog" aria-controls="weekly-help-pop" title="What this start score means">
+          <span aria-hidden="true">i</span>
+          <span class="sr-only">What this start score means</span>
+        </button>
+      </div>
+      <div id="roster-sheet" class="roster-sheet"></div>
+      <div id="weekly-help-layer-host"></div>
+    </section>
+  </div>
+  <div class="room hidden" data-room-panel="scores">
+    <div class="panel-heading">
+      <h2 id="scores-heading" tabindex="-1">This week</h2>
+    </div>
+    <div id="scores-dashboard" class="dashboard"></div>
+    <div id="weekly-honors-dashboard" class="dashboard"></div>
+  </div>
+  <div class="room hidden" data-room-panel="board">
+    <section class="workspace-panel" id="teams-section">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">League</span>
+          <h2 id="league-heading" tabindex="-1">How the league ranks</h2>
+        </div>
+        <p class="section-copy" id="teams-grid-copy">Your team is outlined. Tap a team to view it.</p>
+      </div>
+      <div id="teams-grid" class="teams-grid"></div>
+    </section>
+    <div id="standings-dashboard" class="dashboard"></div>
+    <div id="superlatives-dashboard" class="dashboard"></div>
+    <div id="power-board-dashboard" class="dashboard"></div>
+    <details class="workspace-panel" id="mock-fold">
+      <summary>Rookie mock</summary>
+      <div id="mock-dashboard" class="dashboard mock-dashboard"></div>
+    </details>
+  </div>
+  <div class="room hidden" data-room-panel="activity">
+    <div class="panel-heading">
+      <h2 id="activity-heading" tabindex="-1">Activity</h2>
+    </div>
+    <div id="trade-log-dashboard" class="dashboard"></div>
+  </div>
+  <div class="room hidden" data-room-panel="history">
+    <section class="workspace-panel">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">History</span>
+          <h2 id="history-heading" tabindex="-1">Titles, records, and who stayed</h2>
+        </div>
+      </div>
+    </section>
+    <div id="history-dashboard" class="dashboard analytics-dashboard">
+      <div class="empty-cta">
+        <h2 class="empty-cta-title">No league yet</h2>
+        <p class="muted">Type your Sleeper username. No name yet? <a class="sample-league-link" href="./?sample=1">See the sample league</a>.</p>
+        <button type="button" data-action="find-my-leagues" data-idle-label="Connect my league" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+      </div>
+    </div>
+    <div id="loyalty-dashboard" class="loyalty-dashboard"></div>
+  </div>
+</div>

@@ -1,4 +1,5 @@
 import { escapeHtml } from "./html.js";
+import { infoTipMarkup, valuesWorkText } from "./info-tip.js";
 import { playerIdFromAssetId, renderPlayerFace } from "./player-face.js";
 import {
   LEAGUE_BOARD_MAX_ABS_SHIFT,
@@ -280,7 +281,7 @@ export function renderLeagueBoardMarkup(board, { formatNumber = String } = {}) {
         </div>
       </div>
       <p class="section-copy">${escapeHtml(board?.summary || emptyLeagueBoard().summary)}</p>
-      <p class="muted small">This is context, not a second price. Dynasty Ticker's full-PPR model value stays the same everywhere. ${escapeHtml(status)}.</p>
+      <p class="muted small">${escapeHtml(status)} ${infoTipMarkup({ id: "pop-league-values", label: "How values work", text: valuesWorkText("") })}</p>
       ${biases.length > 1 ? `<ul class="league-bias-list">${biases.slice(1).map((bias) => `<li>${escapeHtml(bias.sentence)}</li>`).join("")}</ul>` : ""}
       ${examples.length ? `<div class="league-board-examples">${examples.slice(0, 4).map((row) => `
         <article class="league-board-example">
@@ -291,15 +292,27 @@ export function renderLeagueBoardMarkup(board, { formatNumber = String } = {}) {
   `;
 }
 
-export function renderValueBoardBar({ marketHint = "" } = {}) {
-  return `
-    <div class="value-board-bar">
-      <div>
-        <span class="analytics-kicker">Dynasty Ticker model</span>
-        <p>${escapeHtml(marketHint || "One full-PPR model price everywhere. League context does not reprice players.")}</p>
-      </div>
-    </div>
-  `;
+const PRICE_LEGEND = {
+  model: ["Value", "Same number on Players, Trade, and My League."],
+  week: ["This week", "Start chance. Not a trade price."],
+  lineup: ["Starters", "Value of your best lineup."],
+  package: ["Stars", "One great player is worth more than several average players that add up to the same total. This changes the trade verdict. Player prices stay the same."],
+};
+
+export function renderPriceLegend(ids = ["model"]) {
+  const rows = (Array.isArray(ids) ? ids : ["model"])
+    .map((id) => PRICE_LEGEND[id])
+    .filter(Boolean);
+  if (!rows.length) return "";
+  return `<ul class="price-legend">${rows.map(([label, text], index) => `<li><span>${escapeHtml(label)}</span>${infoTipMarkup({
+    id: `pop-legend-${String(label).toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${index}`,
+    label,
+    text,
+  })}</li>`).join("")}</ul>`;
+}
+
+export function renderValueBoardBar() {
+  return "";
 }
 
 function makeBucket() {

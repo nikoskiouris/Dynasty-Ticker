@@ -1,8 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { siteMarkup } from "./site-markup.js";
 import {
   DEFAULT_LANDING_HINT,
   DESK_JOBS,
@@ -13,8 +11,6 @@ import {
   renderDeskJobsMarkup,
   renderJobButton,
 } from "../docs/modules/jobs.js";
-
-const docs = join(dirname(fileURLToPath(import.meta.url)), "../docs");
 
 test("desk jobs map to real rooms and stay unique", () => {
   const ids = new Set();
@@ -67,15 +63,15 @@ test("redraft desk jobs drop mock and rename the call", () => {
 });
 
 test("landing HTML leads with the username and skips the job quiz", () => {
-  const index = readFileSync(join(docs, "index.html"), "utf8");
-  assert.match(index, />See a value\. Check a trade\. Then your team\.</);
+  const index = siteMarkup();
+  assert.doesNotMatch(index, /See a value\. Check a trade\. Then your team\./);
   assert.doesNotMatch(index, />What do you want to do\?</);
   assert.doesNotMatch(index, /id="landing-jobs"/);
   assert.match(index, /id="landing-job-hint"/);
   assert.match(index, /id="landing-league-picker"/);
   assert.match(index, /id="start-dashboard"/);
   assert.match(index, /data-room-panel="team"/);
-  assert.match(index, /Check an offer or find a deal/);
+  assert.match(index, /Check a trade or find a deal/);
   assert.doesNotMatch(index, /Got an offer\?/);
   assert.doesNotMatch(index, /id="landing-features"/);
 });

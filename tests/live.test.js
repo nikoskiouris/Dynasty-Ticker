@@ -117,3 +117,54 @@ test("a stopped poll drops scores that arrive after the league changed", async (
   assert.equal(liveUpdateMatchesLeague("a", "b"), false);
   assert.equal(liveUpdateMatchesLeague("", "b"), false);
 });
+
+test("restarting the poller drops scores from the tick that was already in flight", async () => {
+  let releaseFirst;
+  let releaseSecond;
+  let which = 0;
+  const scores = [];
+  const poller = createLivePoller({
+    isLive: () => true,
+    fetchUpdate: () => new Promise((resolve) => {
+      which += 1;
+      if (which === 1) releaseFirst = resolve;
+      else releaseSecond = resolve;
+    }),
+    onScores: (payload) => scores.push(payload.leagueId),
+    setIntervalFn: () => ({ id: 1 }),
+    clearIntervalFn: () => {},
+  });
+  const first = poller.start();
+  const second = poller.start();
+  releaseFirst({ leagueId: "old" });
+  const firstResult = await first;
+  assert.equal(firstResult.reason, "stopped");
+  releaseSecond({ leagueId: "new" });
+  const secondResult = await second;
+  assert.equal(secondResult.polled, true);
+  assert.deepEqual(scores, ["new"]);
+});
+
+test("a tick ignores scores when the league id changes before they land", async () => {
+  let league = "a";
+  let release;
+  let scores = 0;
+  const poller = createLivePoller({
+    isLive: () => true,
+    leagueId: () => league,
+    fetchUpdate: () => new Promise((resolve) => {
+      release = resolve;
+    }),
+    onScores: () => {
+      scores += 1;
+    },
+    setIntervalFn: () => ({ id: 1 }),
+    clearIntervalFn: () => {},
+  });
+  const started = poller.start();
+  league = "b";
+  release({ leagueId: "a" });
+  const result = await started;
+  assert.equal(result.reason, "stale");
+  assert.equal(scores, 0);
+});

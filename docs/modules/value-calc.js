@@ -33,7 +33,9 @@ export function emptyValueCalcState() {
 
 export function isGenericPickAssetId(assetId) {
   const meta = parsePickAssetId(assetId);
-  return Boolean(meta && VALUE_CALC_BUCKETS.includes(meta.bucket));
+  if (!meta) return false;
+  // "pick:2027:r2:any" is a generic whole-round pick; "pick:2027:r1:5" is a league pick.
+  return VALUE_CALC_BUCKETS.includes(meta.bucket) || /:any$/i.test(String(assetId));
 }
 
 // A league pick is keyed by its original owner's roster id, which only means something
@@ -85,7 +87,8 @@ function wordMatchesToken(word, token) {
 
 export function valueCalcAssetMatchesQuery(row, query) {
   const tokens = searchWords(query);
-  if (!tokens.length) return true;
+  // Emoji or punctuation only: nothing to match, so show "No matching".
+  if (!tokens.length) return !String(query || "").trim();
   const words = searchWords(valueCalcAssetSearchText(row));
   return tokens.every((token) => words.some((word) => wordMatchesToken(word, token)));
 }
@@ -100,8 +103,19 @@ function sliceValueCalcRows(rows, limit) {
 
 export function listGenericPicks(values = {}, names = {}, { minSeason = upcomingDraftSeason() } = {}) {
   const floor = Number(minSeason);
+  // Rounds priced by slot (early/mid/late) list those; rounds priced only as a
+  // whole ("any", usually 2nd-5th) list the single round pick.
+  const bucketed = new Set();
+  Object.keys(values).forEach((assetId) => {
+    const meta = parsePickAssetId(assetId);
+    if (meta && VALUE_CALC_BUCKETS.includes(meta.bucket)) bucketed.add(`${meta.season}:${meta.round}`);
+  });
   return Object.entries(values)
-    .filter(([assetId, value]) => isGenericPickAssetId(assetId) && Number.isFinite(Number(value)))
+    .filter(([assetId, value]) => {
+      if (!isGenericPickAssetId(assetId) || !Number.isFinite(Number(value))) return false;
+      const meta = parsePickAssetId(assetId);
+      return meta.bucket !== "any" || !bucketed.has(`${meta.season}:${meta.round}`);
+    })
     .map(([assetId, value]) => {
       const meta = parsePickAssetId(assetId);
       return {
@@ -119,16 +133,51 @@ export function listGenericPicks(values = {}, names = {}, { minSeason = upcoming
     .sort((a, b) => Number(a.season) - Number(b.season) || a.round - b.round || VALUE_CALC_BUCKETS.indexOf(a.bucket) - VALUE_CALC_BUCKETS.indexOf(b.bucket));
 }
 
+// "2026 early 1st" after the 2026 draft: say why nothing matched.
+// Only when that season truly has no pick values.
+export function pastPickSeasonHint(query, minSeason = upcomingDraftSeason(), values = null) {
+  const year = String(query || "").match(/\b(20\d{2})\b/);
+  if (!year || Number(year[1]) >= Number(minSeason)) return "";
+  if (values && Object.keys(values).some((id) => id.startsWith(`pick:${year[1]}:`))) return "";
+  return `${year[1]} picks were already drafted. Try ${minSeason} early 1st.`;
+}
+
+export function isBarePlayerId(label) {
+  const text = String(label || "").trim();
+  return /^\d+$/.test(text) || /^player:\d+$/i.test(text);
+}
+
+export function playerDisplayName(playerId, raw = {}, names = {}) {
+  const id = String(playerId || "").replace(/^player:/, "").trim();
+  const fromRaw = `${String(raw?.first_name || "").trim()} ${String(raw?.last_name || "").trim()}`.trim()
+    || String(raw?.full_name || "").trim();
+  if (fromRaw && !isBarePlayerId(fromRaw)) return fromRaw;
+  const mapped = String(names?.[`player:${id}`] || names?.[id] || "").trim();
+  if (mapped && !isBarePlayerId(mapped)) return mapped;
+  return "";
+}
+
+export function tradeRowName(asset, names = {}) {
+  if (!asset) return "";
+  if (asset.assetType === "pick") return String(asset.name || "").trim();
+  const named = playerDisplayName(asset.playerId || asset.assetId, asset.raw, names);
+  if (named) return named;
+  const fallback = String(asset.name || "").trim();
+  if (fallback && !isBarePlayerId(fallback)) return fallback;
+  return "";
+}
+
 function listValueCalcPlayerRows(values = {}, names = {}) {
   return Object.entries(values)
-    .filter(([assetId, value]) => String(assetId).startsWith("player:") && Number.isFinite(Number(value)))
+    .filter(([assetId, value]) => String(assetId).startsWith("player:") && Number(value) > 0)
     .map(([assetId, value]) => ({
       assetId,
       playerId: String(assetId).slice("player:".length),
-      name: names[assetId] || assetId,
+      name: playerDisplayName(assetId, {}, names),
       value: Number(value),
       assetType: "player",
-    }));
+    }))
+    .filter((row) => row.name);
 }
 
 export function listValueCalcAssets(values = {}, names = {}, { query = "", limit = 40, kinds = ["player", "pick"], minSeason } = {}) {
@@ -217,6 +266,8 @@ export function clearValueCalcSides(state) {
   Object.assign(next, state);
   next.left = [];
   next.right = [];
+  next.leftQuery = "";
+  next.rightQuery = "";
   return next;
 }
 
@@ -224,15 +275,17 @@ export function sumValueCalcSide(items = [], priceOf = null) {
   return items.reduce((sum, item) => sum + (Number(typeof priceOf === "function" ? priceOf(item) : item.value) || 0), 0);
 }
 
-export function valueCalcVerdict(leftTotal, rightTotal) {
+export function valueCalcVerdict(leftTotal, rightTotal, { leftCount = null, rightCount = null } = {}) {
   const left = Number(leftTotal) || 0;
   const right = Number(rightTotal) || 0;
   const gap = right - left;
   const maxSide = Math.max(left, right, 1);
   const pct = Math.round((Math.abs(gap) / maxSide) * 1000) / 10;
-  let label = "Add both sides";
+  const leftHas = leftCount == null ? left > 0 : Number(leftCount) > 0;
+  const rightHas = rightCount == null ? right > 0 : Number(rightCount) > 0;
+  let label = "Add players to both sides";
   let tone = "";
-  if (left > 0 && right > 0) {
+  if (leftHas && rightHas) {
     if (pct <= 5) {
       label = "Dead even";
       tone = "good";
@@ -246,22 +299,27 @@ export function valueCalcVerdict(leftTotal, rightTotal) {
       label = gap > 0 ? "Lopsided for Get" : "Lopsided for Give";
       tone = gap > 0 ? "good" : "bad";
     }
-  } else if (left > 0 || right > 0) {
-    label = "Add the other side";
+  } else if (leftHas || rightHas) {
+    label = "Now add what you get back";
   }
   return { left, right, gap, pct, label, tone };
 }
 
-// Same verdict, read from the manager's seat: "Get" is what you receive.
-export function draftVerdictLabel(verdict, { them = "them" } = {}) {
+// Seat wording for a sample league. The published line is verdictCopy, which stays Give/Get.
+export function draftVerdictLabel(verdict, { them = "them", getFavor = "your", favorName = "" } = {}) {
   const label = String(verdict?.label || "");
   const other = String(them || "them");
+  const favor = String(getFavor || "your");
+  const seat = String(favorName || "").trim();
+  const lopsidedGet = favor === "your" ? "Lopsided in your favor" : `Lopsided in ${favor} favor`;
+  const leansGet = favor === "your" ? "Fair, leans your way" : `Fair, leans ${favor} way`;
+  const favorsGet = favor === "your" ? "Favors you" : `Favors ${seat || favor}`;
   return {
-    "Favors Get": "Favors you",
+    "Favors Get": favorsGet,
     "Favors Give": `Favors ${other}`,
-    "Lopsided for Get": "Lopsided in your favor",
+    "Lopsided for Get": lopsidedGet,
     "Lopsided for Give": `Lopsided for ${other}`,
-    "Fair, leans Get": "Fair, leans your way",
+    "Fair, leans Get": leansGet,
     "Fair, leans Give": `Fair, leans ${other}`,
   }[label] || label;
 }

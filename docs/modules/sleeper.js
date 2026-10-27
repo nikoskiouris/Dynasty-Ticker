@@ -5,6 +5,19 @@ function defaultSleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function defaultYieldFrame() {
+  return new Promise((resolve) => {
+    const raf = globalThis.requestAnimationFrame;
+    if (typeof raf !== "function") {
+      setTimeout(resolve, 0);
+      return;
+    }
+    // One frame paints, then the second callback runs. Parsing in the first
+    // callback would block the paint the username search just queued.
+    raf(() => raf(() => resolve()));
+  });
+}
+
 function withTimeout(promise, timeoutMs, message) {
   return new Promise((resolve, reject) => {
     const id = setTimeout(() => reject(new Error(message)), timeoutMs);
@@ -29,12 +42,41 @@ export function createSleeperClient(options = {}) {
     minIntervalMs = 110,
     now = () => Date.now(),
     sleep = defaultSleep,
+    yieldFrame = defaultYieldFrame,
   } = options;
 
   let active = 0;
   let lastStart = 0;
   let draining = false;
+  let interactive = 0;
   const queue = [];
+  const idleWaiters = [];
+
+  function isBackgroundPath(path) {
+    return String(path || "").split("?")[0] === "/players/nfl";
+  }
+
+  function bumpInteractive(delta) {
+    interactive += delta;
+    if (interactive > 0) return;
+    interactive = 0;
+    const waiters = idleWaiters.splice(0);
+    // A later turn, so the username search can paint before a fat body is parsed.
+    for (const resume of waiters) setTimeout(resume, 0);
+  }
+
+  function whenInteractiveIdle() {
+    return new Promise((resolve) => {
+      const attempt = () => {
+        if (interactive > 0) {
+          idleWaiters.push(attempt);
+          return;
+        }
+        resolve();
+      };
+      setTimeout(attempt, 0);
+    });
+  }
 
   async function drain() {
     if (draining) return;
@@ -63,21 +105,19 @@ export function createSleeperClient(options = {}) {
     }
   }
 
-  function enqueue(run) {
-    return new Promise((resolve, reject) => {
-      queue.push({ run, resolve, reject });
-      void drain();
-    });
-  }
-
-  async function fetchJson(path, { timeoutMs = 25000 } = {}) {
+  async function fetchJson(path, { timeoutMs = 25000, cache = "no-store", signal = null } = {}) {
     const controller = typeof AbortController === "function" ? new AbortController() : null;
     const abortTimeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    const onCallerAbort = () => controller?.abort();
+    if (signal) {
+      if (signal.aborted) controller?.abort();
+      else signal.addEventListener?.("abort", onCallerAbort, { once: true });
+    }
     try {
       const response = await withTimeout(
         fetchImpl(`${baseUrl}${path}`, {
-          signal: controller?.signal,
-          cache: "no-store",
+          signal: controller?.signal || signal || undefined,
+          cache,
           credentials: "omit",
           mode: "cors",
         }),
@@ -87,7 +127,7 @@ export function createSleeperClient(options = {}) {
       if (response.status === 429) {
         const error = new Error("Sleeper API returned 429");
         error.status = 429;
-        error.retryAfterMs = Number(response.headers?.get?.("Retry-After")) * 1000;
+        error.retryAfterMs = retryAfterDelayMs(response.headers?.get?.("Retry-After"));
         throw error;
       }
       if (!response.ok) {
@@ -95,8 +135,25 @@ export function createSleeperClient(options = {}) {
         error.status = response.status;
         throw error;
       }
+      // The download is done. Parsing /players/nfl is synchronous and large.
+      // Do that only after username/league reads have painted, and don't let
+      // the download abort timer cancel a body we already have.
+      if (isBackgroundPath(path)) {
+        if (abortTimeoutId) clearTimeout(abortTimeoutId);
+        // Idle can flicker while a search sleeps between tries. Yield a frame
+        // so the picker can paint, then look again before the fat parse.
+        do {
+          await whenInteractiveIdle();
+          await yieldFrame();
+        } while (interactive > 0);
+      }
       return await withTimeout(response.json(), timeoutMs + 1500, "Sleeper API response parse timed out");
     } catch (err) {
+      if (signal?.aborted || err?.name === "AbortError" && signal?.aborted) {
+        const cancel = new Error("Request cancelled");
+        cancel.name = "AbortError";
+        throw cancel;
+      }
       if (err?.name === "AbortError") {
         throw new Error(`Sleeper API timed out after ${Math.round(timeoutMs / 1000)}s`);
       }
@@ -106,29 +163,69 @@ export function createSleeperClient(options = {}) {
       throw err;
     } finally {
       if (abortTimeoutId) clearTimeout(abortTimeoutId);
+      signal?.removeEventListener?.("abort", onCallerAbort);
     }
   }
 
-  async function apiGet(path, { timeoutMs = 25000 } = {}) {
-    return enqueue(() => fetchJson(path, { timeoutMs }));
-  }
-
-  async function apiGetWithRetry(path, { timeoutMs = 25000, retries = 1 } = {}) {
-    let lastError = null;
-    for (let attempt = 0; attempt <= retries; attempt += 1) {
-      try {
-        return await apiGet(path, { timeoutMs });
-      } catch (err) {
-        lastError = err;
-        if (attempt >= retries) break;
-        const retryAfter = Number(err?.retryAfterMs);
-        const delay = Number.isFinite(retryAfter) && retryAfter > 0
-          ? retryAfter
-          : 250 * (attempt + 1) * (err?.status === 429 ? 4 : 1);
-        await sleep(delay);
+  function enqueue(run, signal) {
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        const cancel = new Error("Request cancelled");
+        cancel.name = "AbortError";
+        reject(cancel);
+        return;
       }
+      const job = { run, resolve, reject, signal };
+      const onAbort = () => {
+        const index = queue.indexOf(job);
+        if (index < 0) return;
+        queue.splice(index, 1);
+        const cancel = new Error("Request cancelled");
+        cancel.name = "AbortError";
+        reject(cancel);
+      };
+      signal?.addEventListener?.("abort", onAbort, { once: true });
+      queue.push(job);
+      void drain();
+    });
+  }
+
+  async function apiGet(path, { timeoutMs = 25000, cache = "no-store", signal = null } = {}) {
+    const background = isBackgroundPath(path);
+    if (!background) bumpInteractive(1);
+    try {
+      return await enqueue(() => fetchJson(path, { timeoutMs, cache, signal }), signal);
+    } finally {
+      if (!background) bumpInteractive(-1);
     }
-    throw lastError;
+  }
+
+  async function apiGetWithRetry(path, { timeoutMs = 25000, retries = 1, cache = "no-store", signal = null } = {}) {
+    // apiGet drops its count in finally, before this sleep. Hold the whole
+    // retry, backoff included, so /players/nfl cannot parse in that gap.
+    const background = isBackgroundPath(path);
+    if (!background) bumpInteractive(1);
+    try {
+      let lastError = null;
+      for (let attempt = 0; attempt <= retries; attempt += 1) {
+        try {
+          return await apiGet(path, { timeoutMs, cache, signal });
+        } catch (err) {
+          lastError = err;
+          if (attempt >= retries) break;
+          // A missing resource will not appear on a second try. Cancellation either.
+          if (err?.name === "AbortError" || err?.status === 404) break;
+          const retryAfter = Number(err?.retryAfterMs);
+          const delay = Number.isFinite(retryAfter) && retryAfter > 0
+            ? retryAfter
+            : 250 * (attempt + 1) * (err?.status === 429 ? 4 : 1);
+          await sleep(delay);
+        }
+      }
+      throw lastError;
+    } finally {
+      if (!background) bumpInteractive(-1);
+    }
   }
 
   return {
@@ -171,7 +268,7 @@ export function preferLatestLeagues(leagues) {
   const ids = new Set(rows.map((league) => String(league?.league_id || "")).filter(Boolean));
   const superseded = new Set();
   rows.forEach((league) => {
-    const previousId = String(league?.previous_league_id || "");
+    const previousId = previousLeagueId(league?.previous_league_id);
     if (previousId && ids.has(previousId)) superseded.add(previousId);
   });
   if (!superseded.size) return rows;
@@ -183,32 +280,207 @@ export async function fetchUserLeagues(client, username, seasons) {
   if (!handle) throw new Error("Type a Sleeper username.");
   const user = await client.apiGetWithRetry(`/user/${encodeURIComponent(handle)}`, { timeoutMs: 10000, retries: 1 });
   if (!user || typeof user !== "object" || !user.user_id) {
-    throw new Error(`No Sleeper user named "${handle}".`);
+    const shown = handle.length > 24 ? `${handle.slice(0, 23)}…` : handle;
+    throw new Error(`We can't find "${shown}" on Sleeper. Check the spelling.`);
   }
   const seasonList = Array.isArray(seasons) && seasons.length ? seasons : [String(new Date().getUTCFullYear())];
   const batches = await Promise.all(
     seasonList.map(async (season) => {
+      const label = String(season);
       try {
         const rows = await client.apiGetWithRetry(
-          `/user/${user.user_id}/leagues/nfl/${season}`,
+          `/user/${user.user_id}/leagues/nfl/${label}`,
           { timeoutMs: 12000, retries: 1 }
         );
-        return Array.isArray(rows) ? rows : [];
+        if (!Array.isArray(rows)) return { season: label, leagues: [], failed: true };
+        return { season: label, leagues: rows, failed: false };
       } catch {
-        return [];
+        return { season: label, leagues: [], failed: true };
       }
     })
   );
   return {
     user,
-    leagues: preferLatestLeagues(dedupeLeagues(batches.flat())),
+    leagues: preferLatestLeagues(dedupeLeagues(batches.flatMap((batch) => batch.leagues))),
+    failedSeasons: batches.filter((batch) => batch.failed).map((batch) => batch.season),
   };
 }
 
+const AVATAR_ID = /^[A-Za-z0-9_-]{1,128}$/;
+
+function avatarHostAllowed(hostname) {
+  const host = String(hostname || "").toLowerCase();
+  return host === "sleepercdn.com" || host.endsWith(".sleepercdn.com");
+}
+
+function allowlistedAvatarUrl(raw) {
+  const candidate = raw.startsWith("//") ? `https:${raw}` : raw;
+  let url;
+  try {
+    url = new URL(candidate);
+  } catch {
+    return "";
+  }
+  if (url.username || url.password) return "";
+  if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+  if (!avatarHostAllowed(url.hostname)) return "";
+  url.protocol = "https:";
+  return url.href;
+}
+
+const SLIM_PLAYER_FIELDS = [
+  "first_name",
+  "last_name",
+  "full_name",
+  "position",
+  "team",
+  "age",
+  "injury_status",
+  "status",
+  "years_exp",
+  "active",
+  "depth_chart_order",
+  "depth_chart_position",
+];
+
+export function slimPlayerRecord(player, id = "") {
+  if (!player || typeof player !== "object") return null;
+  const record = {};
+  const playerId = String(player.player_id || id || "");
+  if (playerId) record.player_id = playerId;
+  SLIM_PLAYER_FIELDS.forEach((field) => {
+    const value = player[field];
+    if (value == null || value === "") return;
+    record[field] = value;
+  });
+  const positions = Array.isArray(player.fantasy_positions)
+    ? player.fantasy_positions.map((position) => String(position || "")).filter(Boolean).slice(0, 4)
+    : [];
+  if (positions.length) record.fantasy_positions = positions;
+  else if (record.position) record.fantasy_positions = [String(record.position)];
+  const rookieYear = Number(player?.metadata?.rookie_year);
+  if (Number.isFinite(rookieYear) && rookieYear > 0) record.metadata = { rookie_year: rookieYear };
+  if (!record.full_name) {
+    const name = `${record.first_name || ""} ${record.last_name || ""}`.trim();
+    if (name) record.full_name = name;
+  }
+  return record;
+}
+
+export function mergePlayerRecords(base, overlay) {
+  const out = { ...(base && typeof base === "object" ? base : {}) };
+  Object.entries(overlay && typeof overlay === "object" ? overlay : {}).forEach(([id, row]) => {
+    if (!row || typeof row !== "object") return;
+    const prev = out[id] && typeof out[id] === "object" ? out[id] : {};
+    const next = { ...prev };
+    Object.entries(row).forEach(([key, value]) => {
+      if (value == null || value === "") return;
+      if (Array.isArray(value) && value.length === 0) return;
+      next[key] = value;
+    });
+    out[String(id)] = next;
+  });
+  return out;
+}
+
+const SLIM_FILE_FIELDS = ["full_name", "position", "team", "age", "injury_status", "status", "years_exp"];
+
+export function playersFromSlimFile(payload) {
+  const players = payload?.players;
+  if (!players || typeof players !== "object") return {};
+  const sample = Object.values(players).find((row) => row != null);
+  if (sample && !Array.isArray(sample)) return slimPlayersMap(players);
+  const fields = Array.isArray(payload?.fields) && payload.fields.length ? payload.fields : SLIM_FILE_FIELDS;
+  const out = {};
+  Object.entries(players).forEach(([id, row]) => {
+    if (!Array.isArray(row)) return;
+    const record = { player_id: String(id) };
+    fields.forEach((field, index) => {
+      const value = row[index];
+      if (value == null || value === "") return;
+      if (field === "age" && !(Number(value) > 0)) return;
+      record[field] = value;
+    });
+    if (record.position && !record.fantasy_positions) record.fantasy_positions = [String(record.position)];
+    if (record.full_name || record.position) out[String(id)] = record;
+  });
+  return out;
+}
+
+export function slimPlayersMap(players) {
+  const out = {};
+  if (!players || typeof players !== "object") return out;
+  Object.entries(players).forEach(([id, player]) => {
+    const slim = slimPlayerRecord(player, id);
+    if (slim) out[String(id)] = slim;
+  });
+  return out;
+}
+
+export function playersCacheIsFresh(entry, now, { stateKey = "", ttlMs = 0 } = {}) {
+  if (!entry?.players || typeof entry.players !== "object") return false;
+  const savedAt = Number(entry.savedAt);
+  if (!Number.isFinite(savedAt)) return false;
+  if (Number(ttlMs) > 0 && Number(now) - savedAt >= Number(ttlMs)) return false;
+  if (stateKey && entry.stateKey && String(entry.stateKey) !== String(stateKey)) return false;
+  return true;
+}
+
+export async function loadPlayersCacheEntry({ localStorage, idb, key }) {
+  let localError = null;
+  try {
+    const raw = localStorage?.getItem?.(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.players && parsed.savedAt) return parsed;
+    }
+  } catch (err) {
+    localError = err;
+  }
+  if (idb?.get) {
+    const fromIdb = await idb.get(key);
+    if (fromIdb?.players && fromIdb.savedAt) return fromIdb;
+    return null;
+  }
+  if (localError) throw localError;
+  return null;
+}
+
+export async function savePlayersCacheEntry(entry, { localStorage, idb, key }) {
+  const payload = {
+    savedAt: entry?.savedAt,
+    stateKey: entry?.stateKey || null,
+    slim: true,
+    players: slimPlayersMap(entry?.players),
+  };
+  try {
+    localStorage.setItem(key, JSON.stringify(payload));
+    return { stored: "local", players: payload.players };
+  } catch (localError) {
+    if (!idb?.set) {
+      const error = new Error("Players cache did not fit in localStorage and IndexedDB is unavailable");
+      error.cause = localError;
+      throw error;
+    }
+    try {
+      await idb.set(key, payload);
+    } catch (idbError) {
+      const error = new Error("Players cache failed in localStorage and IndexedDB");
+      error.cause = idbError;
+      error.localError = localError;
+      throw error;
+    }
+    try { localStorage.removeItem(key); } catch { /* IndexedDB holds the slim copy. */ }
+    return { stored: "idb", players: payload.players };
+  }
+}
+
 export function sleeperAvatarUrl(avatar) {
-  if (!avatar) return "";
-  if (String(avatar).startsWith("http")) return String(avatar);
-  return `${SLEEPER_AVATAR_BASE}${avatar}`;
+  const raw = String(avatar || "").trim();
+  if (!raw) return "";
+  if (/^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith("//")) return allowlistedAvatarUrl(raw);
+  if (!AVATAR_ID.test(raw)) return "";
+  return `${SLEEPER_AVATAR_BASE}${raw}`;
 }
 
 const defaultClient = createSleeperClient();
@@ -216,3 +488,30 @@ const defaultClient = createSleeperClient();
 export const apiGet = (...args) => defaultClient.apiGet(...args);
 export const apiGetWithRetry = (...args) => defaultClient.apiGetWithRetry(...args);
 export { defaultClient as sleeperClient };
+
+const RETRY_AFTER_CAP_MS = 10_000;
+const RETRY_AFTER_FALLBACK_MS = 1_000;
+
+// Retry-After is seconds. Sleeper does not expose that header cross-origin
+// (no Access-Control-Expose-Headers), so headers.get("Retry-After") is null
+// in the browser. The 1s fallback is what actually runs. A value that does
+// arrive is still capped at 10s.
+export function retryAfterDelayMs(headerValue) {
+  const seconds = Number(headerValue);
+  if (!Number.isFinite(seconds) || seconds <= 0) return RETRY_AFTER_FALLBACK_MS;
+  return Math.min(seconds * 1000, RETRY_AFTER_CAP_MS);
+}
+
+// Sleeper uses "" / 0 / "0" / null when a league has no prior season.
+export function previousLeagueId(value) {
+  if (value == null) return "";
+  const id = String(value).trim();
+  if (!id || id === "0") return "";
+  return id;
+}
+
+export function sleeperLeaguePath(leagueId, suffix = "") {
+  const id = encodeURIComponent(String(leagueId ?? ""));
+  const extra = String(suffix || "").replace(/^\/+/, "");
+  return extra ? `/league/${id}/${extra}` : `/league/${id}`;
+}

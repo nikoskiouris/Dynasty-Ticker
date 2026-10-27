@@ -46,6 +46,17 @@ class ValuationServiceTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "Unsupported player-value model"):
                 PlayerValueProvider(path).load_values("sf")
 
+    def test_non_finite_and_negative_pieces_do_not_poison_the_package(self):
+        service = ValuationService({"player:a": 1000})
+        result = service.calculate_package_adjustment([float("inf"), -50, 100], [float("nan"), 40])
+        self.assertEqual(result.my_base_value, 100)
+        self.assertEqual(result.their_base_value, 40)
+        self.assertGreaterEqual(result.package_adjustment, 0)
+        swapped = service.calculate_package_adjustment([40], [100])
+        back = service.calculate_package_adjustment([100], [40])
+        self.assertEqual(result.package_adjustment, swapped.package_adjustment)
+        self.assertEqual(swapped.package_adjustment, back.package_adjustment)
+
     def test_league_format_only_switches_qb_market(self):
         self.assertEqual(league_value_format({"roster_positions": ["QB", "RB", "WR", "FLEX"]}), "oneQb")
         self.assertEqual(league_value_format({"roster_positions": ["QB", "RB", "SUPER_FLEX"]}), "sf")

@@ -9,6 +9,7 @@ import {
   packagesFromTransaction,
   readApplyLeagueBoard,
   renderLeagueBoardMarkup,
+  renderPriceLegend,
   selectNotableBiases,
   shouldShowLeagueAlt,
   writeApplyLeagueBoard,
@@ -196,5 +197,21 @@ test("legacy apply flag can still be read, but league markup has no price toggle
   assert.match(html, /Parker Washington/);
   assert.doesNotMatch(html, /your league 6200/);
   assert.match(html, /model 5000/);
-  assert.match(html, /not a second price/);
+  assert.match(html, /pop-league-values/);
+});
+
+test("the price legend names model, this week, and starter value as different measures", () => {
+  const html = renderPriceLegend(["week", "model", "lineup", "package"]);
+  assert.match(html, /<ul class="price-legend">/);
+  assert.match(html, /<span>Value<\/span>/);
+  assert.match(html, /<span>This week<\/span>/);
+  assert.match(html, /<span>Starters<\/span>/);
+  assert.match(html, /<span>Stars<\/span>/);
+  assert.match(html, /aria-label="Value"/);
+  assert.match(html, /Same number on Players, Trade, and My League\./);
+  assert.match(html, /aria-label="This week"/);
+  assert.match(html, /aria-label="Starters"/);
+  assert.match(html, /Value of your best lineup\./);
+  assert.match(html, /Player prices stay the same/);
+  assert.equal(renderPriceLegend([]), "");
 });
