@@ -1684,6 +1684,11 @@ body:not(.league-loaded) .workspace-header {
   display: none;
 }
 
+/* Headshots have transparent edges; initials behind them peek through as stray marks. */
+.player-face:has(> .player-face-photo:not(.is-broken)) > .player-face-initials {
+  visibility: hidden;
+}
+
 .player-face > .player-face-initials {
   position: absolute;
   inset: 0;
@@ -8825,6 +8830,20 @@ button.ranks-shelf-item:hover {
 button.ranks-shelf-item .player-face {
   width: 4.6rem;
   height: 4.6rem;
+}
+
+button.ranks-shelf-item .ranks-shelf-name {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted-strong);
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 button.ranks-shelf-item strong {

@@ -311,6 +311,7 @@ function renderRanksShelf(rows) {
       ${faces.map((row) => `
         <button type="button" class="ranks-shelf-item" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}" aria-label="${escapeHtml(row.name)}">
           ${renderPlayerFace(row.playerId, row.name, { size: "md" })}
+          <span class="ranks-shelf-name">${escapeHtml(row.name)}</span>
           <strong>${escapeHtml(formatNumber(row.value))}</strong>
         </button>
       `).join("")}
