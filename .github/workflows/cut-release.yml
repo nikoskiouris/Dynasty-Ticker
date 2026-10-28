@@ -34,8 +34,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
-            --jq "[.[] | select(.target_commitish==\"$GITHUB_SHA\" and .draft==false)][0].tag_name")
+          # The releases list can lag a just-created release by a few seconds.
+          tag=""
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            tag=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+              --jq "[.[] | select(.target_commitish==\"$GITHUB_SHA\" and .draft==false)][0].tag_name")
+            [[ "$tag" == prod-* ]] && break
+            sleep 3
+          done
           [[ "$tag" == prod-* ]] || { echo "No prod release found for $GITHUB_SHA" >&2; exit 1; }
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
