@@ -290,8 +290,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /last username, league/);
   assert.doesNotMatch(index, /privacy\.html/);
   assert.doesNotMatch(index, /terms\.html/);
-  assert.doesNotMatch(index, />Privacy</);
-  assert.doesNotMatch(index, />Terms</);
+  // QA 2026-10-18 (#10, owner): the landing footer links /privacy and /terms.
+  assert.match(index, /class="launch-footer"[\s\S]*href="\/privacy">Privacy<[\s\S]*href="\/terms">Terms</);
+  assert.match(index, /Free, no sign-up\./);
   assert.doesNotMatch(index, />Contact</);
   assert.doesNotMatch(index, /workspace-footer/);
 
@@ -367,7 +368,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(app, /renderTradeDraft\(/);
   assert.doesNotMatch(app, /value-pick-board/);
   assert.doesNotMatch(app, /renderValueCalcPickBoard/);
-  assert.match(app, /Player or pick, like 2026 early 1st/);
+  assert.match(app, /Player or pick, like \$\{nextRookieDraftSeason\(\)\} early 1st/);
   assert.match(app, /listValueCalcAssets/);
   assert.doesNotMatch(readDocs("styles.css"), /value-pick-board/);
   assert.match(app, /function goLeagueHome/);

@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { cardVerdict, stampLabel } from "../../docs/modules/trade-share.js";
+import { FEWER_BETTER_LABEL } from "../../docs/modules/verdict-copy.js";
 import { createMeasurer, truncateToWidth } from "./text-measure.js";
 import { CARD_CACHE, SAFE_HEADERS, codeFromPath, escapeMarkup, summaryForCode } from "./trade-share.js";
 
@@ -77,10 +78,10 @@ function sideColumn(summary, key, x, measure, bigger = "") {
     parts.push(`<text x="${x + PAD_X}" y="${y}" font-family="${SANS}" font-size="22" fill="${C.muted}">+${more} more</text>`);
   }
   if (summary.credit?.side === key) {
-    // The package credit is part of this side's total, so say so on the card.
+    // The extra for fewer, better players is part of this side's total, so say so on the card.
     y += 32;
     parts.push(
-      `<text x="${x + PAD_X}" y="${y}" font-family="${SANS}" font-size="22" fill="${C.muted}">Stars cost extra</text>`,
+      `<text x="${x + PAD_X}" y="${y}" font-family="${SANS}" font-size="22" fill="${C.muted}">${escapeMarkup(FEWER_BETTER_LABEL)}</text>`,
       `<text x="${right}" y="${y}" font-family="${SANS}" font-size="22" font-weight="700" fill="${C.mutedStrong}" text-anchor="end">+${escapeMarkup(count(summary.credit.amount))}</text>`,
     );
   }
@@ -100,7 +101,7 @@ function wordmarkMarkup(wordmark) {
 }
 
 // OG-CARD.md: the verdict (48px bold sans, colored by tier only) is the boldest thing.
-// Totals are credited, so the rows plus "Stars cost extra" add up to the header,
+// Totals include the extra, so the rows plus "Fewer, better players" add up to the header,
 // and the verdict compares those two numbers.
 export function renderCardSvg(summary, { measure = roughMeasure, wordmark = "" } = {}) {
   const verdict = cardVerdict(summary);

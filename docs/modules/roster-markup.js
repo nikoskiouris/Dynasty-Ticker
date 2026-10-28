@@ -1,4 +1,5 @@
 import { escapeHtml } from "./html.js";
+import { badgeMeaning } from "./info-tip.js";
 import { sleeperAvatarUrl } from "./sleeper.js";
 
 const AVATAR_SIZES = new Set(["xs", "sm", "md", "lg"]);
@@ -56,8 +57,14 @@ export function renderPowerHero({ score, managerName, grade, tierClass, badges }
   const safeScore = Number.isFinite(numeric) ? Math.max(0, Math.min(100, Math.round(numeric))) : 0;
   const tier = classToken(tierClass);
   const badgeHtml = (Array.isArray(badges) ? badges : [])
-    .map((badge) => `<span class="power-badge">${escapeHtml(badge)}</span>`)
+    .map((badge) => {
+      const meaning = badgeMeaning(badge);
+      return meaning
+        ? `<span class="power-badge" title="${escapeHtml(meaning)}">${escapeHtml(badge)}<span class="sr-only">: ${escapeHtml(meaning)}</span></span>`
+        : `<span class="power-badge">${escapeHtml(badge)}</span>`;
+    })
     .join("");
+  const meanings = (Array.isArray(badges) ? badges : []).map((badge) => badgeMeaning(badge) ? `${badge}: ${badgeMeaning(badge)}` : "").filter(Boolean);
   return `
     <div class="power-hero">
       <div class="power-score-ring" style="--score:${safeScore}">
@@ -72,6 +79,7 @@ export function renderPowerHero({ score, managerName, grade, tierClass, badges }
         <div class="power-badge-row">
           ${badgeHtml}
         </div>
+        ${meanings.length ? `<details class="power-badge-help"><summary>What these tags mean</summary><ul>${meanings.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul></details>` : ""}
       </div>
     </div>
   `;

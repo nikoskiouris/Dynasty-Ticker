@@ -136,7 +136,7 @@ for (const viewport of viewports) {
     const shared = page.locator(".calc-shared");
     await expect(shared).toBeVisible({ timeout: 30000 });
     // One neutral vocabulary: both rows name a side the same way.
-    const VERDICT = "(Fair trade · within 5%|(Fair, slight edge|Favors one side|Lopsided) · (Give|Get) side worth [\\d.]+% more)";
+    const VERDICT = "(Fair trade · within 5%|(Fair, slight edge|Favors (?:Give|Get) side|Lopsided) · (Give|Get) side worth [\\d.]+% more)";
     await expect(shared.locator("div").first()).toHaveText(new RegExp(`^Oct 7\\s*${VERDICT}$`));
     await expect(shared.locator(".is-today")).toHaveText(new RegExp(`^Today\\s*${VERDICT}$`));
     await expect(page.locator(".calc-shared-note")).toHaveText("Prices moved since this was shared.");
@@ -149,7 +149,7 @@ for (const viewport of viewports) {
 
   test(`disclaimers sit behind an accessible info button on a shared link at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    // Bijan for Nabers + a 1st gets package credit, so there is fine print to hide.
+    // Bijan for Nabers + a 1st gets the extra for fewer, better players, so there is fine print to hide.
     await page.goto(`/t/2s${STAMP}9509~11632.p27r1e`);
     const toggle = page.locator("[data-action='verdict-info']");
     await expect(toggle).toBeVisible({ timeout: 30000 });
@@ -160,9 +160,9 @@ for (const viewport of viewports) {
     await expect(page.locator("#value-calc-verdict")).not.toContainText("Package credit");
     // RECHECK3: the detail line leads with the credited totals, and a public
     // link colours only the tier (no green/red by side).
-    // Follow-up: "Give 19,224 (11,811 + 7,413 star premium). Get 14,457." with the ⓘ inline at its end.
+    // "Give 19,224 (11,811 + 7,413 for fewer, better players). Get 14,457." with the ⓘ inline at its end.
     const subline = page.locator(".calc-summary-main > p.calc-subline");
-    await expect(subline).toHaveText(/^Give [\d,]+ \([\d,]+ \+ [\d,]+ star premium\)\. Get [\d,]+\.\s*ⓘ\s*How this verdict works\s*$/);
+    await expect(subline).toHaveText(/^Give [\d,]+ \([\d,]+ \+ [\d,]+ for fewer, better players\)\. Get [\d,]+\.\s*ⓘ\s*How this verdict works\s*$/);
     await expect(subline.locator("[data-action='verdict-info']")).toHaveCount(1);
     const lineBox = await subline.boundingBox();
     const infoBox = await subline.locator("[data-action='verdict-info']").boundingBox();
@@ -170,8 +170,8 @@ for (const viewport of viewports) {
     expect(infoBox.y + infoBox.height / 2).toBeLessThan(lineBox.y + lineBox.height);
     // Stars legend: a visible hatch key, and the bar names the premium for screen readers.
     await expect(page.locator(".calc-legend")).toBeVisible();
-    await expect(page.locator(".calc-legend")).toHaveText("Star premium");
-    await expect(page.locator(".calc-bar.team-a .meter-track")).toHaveAttribute("aria-label", /^Give [\d,]+ including [\d,]+ star premium$/);
+    await expect(page.locator(".calc-legend")).toHaveText("Fewer, better players");
+    await expect(page.locator(".calc-bar.team-a .meter-track")).toHaveAttribute("aria-label", /^Give [\d,]+ including [\d,]+ for fewer, better players$/);
     // The verdict dot has visible space on both sides.
     const gaps = await page.evaluate(() => {
       const dot = document.querySelector("#value-calc-verdict h3 .verdict-dot");
@@ -222,7 +222,8 @@ for (const viewport of viewports) {
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(fine).toBeVisible();
-    await expect(fine).toContainText("Stars cost extra");
+    await expect(fine).toContainText("One great player is worth more than several smaller ones");
+    await expect(fine).not.toContainText(/credit|premium|consolidation|delta|multiplier/i);
     await toggle.click();
     await expect(fine).toBeHidden();
   });

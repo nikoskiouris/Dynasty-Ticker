@@ -48,6 +48,7 @@ Follow `.cursor/skills/ship-without-demos/SKILL.md`.
 - Test changes yourself. Do not record demo videos or walkthrough artifacts.
 - Do not upload videos for the user to watch.
 - One screenshot is enough, and only if a visual result is hard to describe.
+- A launch video, only when the owner asks for one, follows `.cursor/skills/brag/SKILL.md`.
 - After tests pass, commit, push, update the PR, and keep moving.
 
 ## Git branches

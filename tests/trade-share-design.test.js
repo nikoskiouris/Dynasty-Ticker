@@ -31,7 +31,7 @@ const summaryOf = (code) => shareSummary(decodeTradeShare(code), values, names);
 const indexHtml = readFileSync(join(root, "../docs/index.html"), "utf8");
 const svgText = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
 
-test("credited totals: rows plus 'Stars cost extra' add up to each side, and the gap is their difference", () => {
+test("credited totals: rows plus 'Fewer, better players' add up to each side, and the gap is their difference", () => {
   for (const code of ["1s9509~11632.p27r1e", "1s7564~11632.p27r2a", "1sp27r1e.p28r1a~p27r2a.p27r3a.p28r2a.p28r1e.p27r1l", "1s9509~9493"]) {
     const s = summaryOf(code);
     const sum = (rows) => rows.reduce((total, row) => total + row.value, 0);
@@ -53,9 +53,9 @@ test("the card never shows a verdict for the side with the smaller total", () =>
     assert.ok(texts.includes(s.giveCredited.toLocaleString("en-US")), `${code} give total`);
     assert.ok(texts.includes(s.getCredited.toLocaleString("en-US")), `${code} get total`);
     if (s.credit) {
-      assert.ok(texts.includes("Stars cost extra"));
+      assert.ok(texts.includes("Fewer, better players"));
       assert.ok(texts.includes(`+${s.credit.amount.toLocaleString("en-US")}`));
-      assert.equal(creditLine(s), `Stars cost extra +${s.credit.amount.toLocaleString("en-US")}`);
+      assert.equal(creditLine(s), `Fewer, better players +${s.credit.amount.toLocaleString("en-US")}`);
     }
     // The side named is the column worth more, by the true "% more".
     const bigger = s.giveCredited > s.getCredited ? "Give" : "Get";
@@ -78,7 +78,7 @@ test("og:title, og:description and alt use the card verdict and credited totals"
   const v = cardVerdict(s);
   assert.equal(title, `Bijan Robinson for Malik Nabers, 2027 Early 1st: ${v.text} · ${v.pctText}`);
   assert.equal(v.line, "Lopsided · Give side worth 33% more"); // 19,224 vs 14,457
-  assert.match(description, /^Give 11,811 \+ [\d,]+ stars cost extra = [\d,]+ vs get 14,457\./);
+  assert.match(description, /^Give 11,811 \+ [\d,]+ for fewer, better players = [\d,]+ vs get 14,457\./);
   assert.match(description, /Check your own trade free at Dynasty Ticker\.$/);
   assert.ok(alt.includes(s.giveCredited.toLocaleString("en-US")));
   assert.doesNotMatch(`${title} ${description} ${alt}`, /overpay|\bwin\b|\bthem\b/i);
@@ -92,7 +92,7 @@ test("verdict format: tier · column worth N% more, tiers banded on the shown N 
   assert.equal(at(10000, 11000).line, "Fair, slight edge · Get side worth 10% more");
   assert.equal(at(11000, 10000).line, "Fair, slight edge · Give side worth 10% more");
   assert.equal(at(11000, 10000).tone, "fair");
-  assert.equal(at(10000, 12500).line, "Favors one side · Get side worth 25% more");
+  assert.equal(at(10000, 12500).line, "Favors Get side · Get side worth 25% more");
   assert.equal(at(10000, 12500).tone, "good"); // private /trade only
   assert.equal(at(12500, 10000).tone, "bad");
   assert.equal(at(12500, 10000).publicTone, "strong");
@@ -141,8 +141,8 @@ test("tier bands: just below and just above 5, 14 and 28 (shown % more), both di
     [10499, "even", "Fair trade · within 5%"], [10500, "even", "Fair trade · within 5%"],
     [10510, "edge", "Fair, slight edge · Get side worth 6% more"],
     [11390, "edge", "Fair, slight edge · Get side worth 14% more"], [11400, "edge", "Fair, slight edge · Get side worth 14% more"],
-    [11410, "favors", "Favors one side · Get side worth 15% more"],
-    [12790, "favors", "Favors one side · Get side worth 28% more"], [12800, "favors", "Favors one side · Get side worth 28% more"],
+    [11410, "favors", "Favors Get side · Get side worth 15% more"],
+    [12790, "favors", "Favors Get side · Get side worth 28% more"], [12800, "favors", "Favors Get side · Get side worth 28% more"],
     [12810, "lopsided", "Lopsided · Get side worth 29% more"],
   ];
   for (const [big, tier, line] of cases) {
@@ -151,7 +151,7 @@ test("tier bands: just below and just above 5, 14 and 28 (shown % more), both di
     assert.equal(up.line, line, `${big}`);
     const down = verdictCopyFor(big, 10000);
     assert.equal(down.tier, tier, `reverse ${big}`);
-    assert.equal(down.line, line.replace("Get side", "Give side"), `reverse ${big}`);
+    assert.equal(down.line, line.replaceAll("Get side", "Give side"), `reverse ${big}`);
   }
   // RECHECK3's table now reads with matching numbers.
   assert.equal(verdictCopyFor(10000, 10527).tier, "edge"); // 5.3%
@@ -170,9 +170,9 @@ test("whole percents stay inside the tier at the band edges", () => {
     [5.0, "even", 5, "Fair trade · within 5%"],
     [5.4, "edge", 6, "Fair, slight edge · Get side worth 6% more"],
     [13.9, "edge", 14, "Fair, slight edge · Get side worth 14% more"],
-    [14.2, "favors", 15, "Favors one side · Get side worth 15% more"],
-    [27.9, "favors", 28, "Favors one side · Get side worth 28% more"],
-    [28.0, "favors", 28, "Favors one side · Get side worth 28% more"],
+    [14.2, "favors", 15, "Favors Get side · Get side worth 15% more"],
+    [27.9, "favors", 28, "Favors Get side · Get side worth 28% more"],
+    [28.0, "favors", 28, "Favors Get side · Get side worth 28% more"],
     [28.3, "lopsided", 29, "Lopsided · Get side worth 29% more"],
     [28.6, "lopsided", 29, "Lopsided · Get side worth 29% more"],
   ];
@@ -216,7 +216,7 @@ test("parity: app, /t page, card, og:title, og:description and share text say th
     assert.ok(svgText(svg).includes(appCopy.label), code);
     assert.ok(svgText(svg).includes(appCopy.pctText), code);
     assert.ok(title.endsWith(`: ${appCopy.line}`), code);
-    assert.match(appCopy.line, /^(Fair trade · within 5%|(Fair, slight edge|Favors one side|Lopsided) · (Give|Get) side worth \d+% more)$/, code);
+    assert.match(appCopy.line, /^(Fair trade · within 5%|(Fair, slight edge|Favors (?:Give|Get) side|Lopsided) · (Give|Get) side worth \d+% more)$/, code);
     assert.equal(shareMessage(s), `${appCopy.line}. Check it on Dynasty Ticker.`);
     for (const text of [card.text, s.label, title, description, shareMessage(s)]) {
       assert.doesNotMatch(text, BANNED, code);

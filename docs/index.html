@@ -118,6 +118,7 @@
             <input
               id="sleeper-username"
               name="sleeper-username"
+              maxlength="40"
               placeholder="username"
               autocomplete="off"
               value=""
@@ -224,13 +225,13 @@
 
         <div class="desk-nav" id="desk-nav">
           <nav class="workspace-tabs" id="page-tabs" role="tablist" aria-label="What you can do">
-            <button id="players-tab" class="page-tab active" type="button" role="tab" aria-selected="true" aria-current="page" aria-controls="players-page" tabindex="0" data-page="players">
+            <button id="players-tab" aria-label="Players" class="page-tab active" type="button" role="tab" aria-selected="true" aria-current="page" aria-controls="players-page" tabindex="0" data-page="players">
               <span class="tab-copy"><strong>Players</strong><small>What is he worth?</small></span>
             </button>
-            <button id="trades-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades">
+            <button id="trades-tab" aria-label="Trade" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades">
               <span class="tab-copy"><strong>Trade</strong><small>Check a trade or find a deal</small></span>
             </button>
-            <button id="league-tab" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="league-page" tabindex="-1" data-page="league">
+            <button id="league-tab" aria-label="My League" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="league-page" tabindex="-1" data-page="league">
               <span class="tab-copy"><strong>My League</strong><small id="teams-tab-hint">Your team, this week, the league</small></span>
             </button>
           </nav>
@@ -278,6 +279,7 @@
               <input
                 id="landing-username"
                 name="landing-username"
+                maxlength="40"
                 placeholder="Search your Sleeper username"
                 autocomplete="off"
                 value=""
@@ -321,6 +323,10 @@
       </div>
     </div>
   </div>
+  <footer class="launch-footer">
+    <span>Free, no sign-up.</span>
+    <nav aria-label="Legal"><a href="/privacy">Privacy</a> <span aria-hidden="true">·</span> <a href="/terms">Terms</a></nav>
+  </footer>
 </section>
 
 <section id="public-ranks" class="public-ranks hidden" hidden>
