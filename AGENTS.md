@@ -46,7 +46,7 @@ What follows from that:
 These apply to every agent (Cursor, Claude Code, or any other). How to record: `.cursor/skills/ship-with-demo/SKILL.md`.
 
 - Test changes yourself.
-- Every change ships with a demo video that shows what changed and how it works. After you put up or update a PR, show the owner the video. Embed it in the PR when your tools can upload it; otherwise send it in the final reply.
+- Every change ships with a demo video that shows what changed and how it works, including changes with nothing on screen (docs, tests, scripts, data jobs): show the diff, the terminal, or the page that proves the result. After you put up or update a PR, show the owner the video. Embed it in the PR when your tools can upload it; otherwise send it in the final reply.
 - A demo video is not usability evidence (see Proving a change).
 - A launch video, only when the owner asks for one, follows `.cursor/skills/brag/SKILL.md`.
 - After tests pass and the demo is recorded, commit, push, and update the PR.
