@@ -43,13 +43,13 @@ What follows from that:
 
 ## Cursor Cloud specific instructions
 
-Follow `.cursor/skills/ship-without-demos/SKILL.md`.
+Follow `.cursor/skills/ship-with-demo/SKILL.md`.
 
-- Test changes yourself. Do not record demo videos or walkthrough artifacts.
-- Do not upload videos for the user to watch.
-- One screenshot is enough, and only if a visual result is hard to describe.
+- Test changes yourself.
+- Every change ships with a demo video that shows what changed and how it works. Embed it in the PR and the final reply.
+- A demo video is not usability evidence (see Proving a change).
 - A launch video, only when the owner asks for one, follows `.cursor/skills/brag/SKILL.md`.
-- After tests pass, commit, push, update the PR, and keep moving.
+- After tests pass and the demo is recorded, commit, push, and update the PR.
 
 ## Git branches
 
