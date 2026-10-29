@@ -72,6 +72,7 @@ for (const viewport of viewports) {
     await expect(tokens(page, "left")).toHaveText(["Jahmyr Gibbs", "2028 2nd"]);
     await expect(tokens(page, "right")).toHaveText(["Malik Nabers"]);
     await expect(page.locator(".talk-connect")).toHaveCount(0);
+    await expect(page.locator("#talk-log")).not.toContainText("Connect your Sleeper league");
     const use = page.locator("[data-action='draft-use-league-pick']");
     await expect(use).toHaveText("Use the 2028 2nd on your roster");
 

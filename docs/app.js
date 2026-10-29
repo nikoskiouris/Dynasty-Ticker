@@ -7838,7 +7838,7 @@ function renderTradeTalkLog() {
   return tradeTalkLog.slice(0, 1).map((turn) => `
     <div class="talk-turn">
       ${turn.sticky && turn.lines.length ? `<div class="talk-lines">${turn.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>` : ""}
-      ${turn.connect && !state.leagueId ? `<button type="button" class="talk-connect" data-action="draft-connect">Connect my league</button>` : ""}
+      ${turn.connectLine && !state.leagueId ? `<div class="talk-lines"><p>${escapeHtml(turn.connectLine)}</p></div><button type="button" class="talk-connect" data-action="draft-connect">Connect my league</button>` : ""}
       ${turn.groups.map((group) => `
         <div class="talk-choice" role="group" aria-label="${escapeHtml(group.title)}">
           <p class="talk-choice-title">${escapeHtml(group.title)}</p>
@@ -7993,9 +7993,9 @@ function runTradeTalk(text) {
     chips: ask.options.map((option) => ({ ...option, side: ask.side || "left" })),
   }));
   const bothSides = after.draft.left.length > 0 && after.draft.right.length > 0;
-  if (plan.unknownPartner) {
-    lines.push(`Connect your Sleeper league to use ${plan.unknownPartner}’s roster. Until then these are market picks and players. This trade stays here.`);
-  }
+  const connectLine = plan.unknownPartner && !after.basis.connected
+    ? `Connect your Sleeper league to use ${plan.unknownPartner}’s roster. Until then these are market picks and players. This trade stays here.`
+    : "";
   if (plan.intent === "shop" && after.give > 0) {
     const partnerId = after.context?.partnerRosterId ?? null;
     const neighbors = priceNeighbors(ctx.catalog, after.give, {
@@ -8024,7 +8024,7 @@ function runTradeTalk(text) {
     lines,
     sticky,
     groups,
-    connect: Boolean(plan.unknownPartner) && !after.basis.connected,
+    connectLine,
     next: tradeTalkNext(after),
   }];
   analyticsTrack("trade_described", { intent: plan.intent });
