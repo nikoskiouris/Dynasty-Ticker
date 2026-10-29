@@ -1799,11 +1799,11 @@ button.info {
   margin: 0;
 }
 .talk-box,
-.landing-talk { border: 2px solid var(--text); }
+.landing-talk { border-color: var(--muted); }
 .talk-title,
 .landing-talk label {
-  font-size: var(--fs-h3);
-  font-weight: var(--fw-bold);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semi);
   color: var(--text);
 }
 .landing-talk-try {
@@ -1813,10 +1813,12 @@ button.info {
   gap: var(--sp-2);
 }
 .landing-talk-try span { color: var(--muted); font-size: var(--fs-sm2); }
+.landing-talk-try { row-gap: calc(var(--tap-min) - var(--chip-h) + 2px); }
 .landing-talk-try button {
+  position: relative;
   width: auto;
-  min-height: var(--tap-min);
-  padding: 4px 12px;
+  min-height: var(--chip-h);
+  padding: 2px 10px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-pill);
   background: var(--panel-soft);
@@ -1824,6 +1826,11 @@ button.info {
   font-size: var(--fs-sm2);
   font-weight: var(--fw-med);
   text-align: left;
+}
+.landing-talk-try button::before {
+  content: "";
+  position: absolute;
+  inset: calc((var(--chip-h) - var(--tap-min)) / 2) 0;
 }
 .landing-talk-try button:hover { background: var(--panel-tint); }
 .talk-row,
@@ -1861,7 +1868,7 @@ button.info {
 button.talk-chip {
   width: auto;
   min-height: var(--chip-h);
-  padding: 4px 10px;
+  padding: 2px 10px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-pill);
   background: var(--panel-soft);
@@ -1892,7 +1899,7 @@ button.talk-chip:hover { background: var(--panel-tint); }
   justify-self: end;
   max-width: 90%;
   margin: 0;
-  padding: 6px 10px;
+  padding: 3px 8px;
   border-radius: var(--r-md);
   background: var(--panel-soft);
   color: var(--muted-strong);
@@ -1908,12 +1915,12 @@ button.talk-verdict {
   gap: var(--sp-1) var(--sp-2);
   width: 100%;
   min-height: var(--tap-min);
-  padding: 10px 12px;
+  padding: 4px 10px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-md);
   background: var(--panel-soft);
   color: var(--text);
-  font-size: var(--fs-body-lg);
+  font-size: var(--fs-body);
   text-align: left;
 }
 button.talk-verdict.good { background: var(--green-soft); border-color: var(--green); }
@@ -1932,3 +1939,33 @@ button.talk-verdict.bad { background: var(--red-soft); border-color: var(--red);
   font-size: var(--fs-sm2) !important;
 }
 .landing-talk { max-width: 640px; margin: 0 0 var(--sp-4); }
+
+.selected-token .player-face.player-face-sm {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  min-height: 28px;
+  max-height: 28px;
+  flex: 0 0 28px;
+  font-size: var(--fs-xs);
+}
+.selected-token .player-face-sm > .player-face-photo {
+  width: 28px;
+  height: 28px;
+}
+
+/* Smaller chips and tabs keep a 44px touch target. */
+button.ranks-chip,
+.room-tab { min-width: var(--tap-min); }
+.selected-token { position: relative; }
+.selected-token::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: min(0px, calc((100% - var(--tap-min)) / 2));
+  bottom: min(0px, calc((100% - var(--tap-min)) / 2));
+  background: none;
+  pointer-events: auto;
+}

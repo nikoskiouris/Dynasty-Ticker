@@ -38,15 +38,15 @@ test("density tokens load before the desk styles and the fonts stay on this orig
   assert.match(tokens, /font-family:\s*"Instrument Sans"/);
   assert.match(tokens, /instrument-sans-latin\.woff2/);
   assert.match(tokens, /--font-brand:\s*"Instrument Serif"/);
-  assert.match(tokens, /--fs-body:\s*14px/);
-  assert.match(tokens, /--fs-h1:\s*18px/);
-  assert.match(tokens, /--fs-num-xl:\s*24px/);
-  assert.match(tokens, /--btn-h:\s*36px/);
-  assert.match(tokens, /--input-h:\s*36px/);
-  assert.match(tokens, /--card-pad:\s*12px/);
+  assert.match(tokens, /--fs-body:\s*13px/);
+  assert.match(tokens, /--fs-h1:\s*17px/);
+  assert.match(tokens, /--fs-num-xl:\s*22px/);
+  assert.match(tokens, /--btn-h:\s*32px/);
+  assert.match(tokens, /--input-h:\s*32px/);
+  assert.match(tokens, /--card-pad:\s*10px/);
   assert.match(tokens, /--r-sm:\s*6px/);
   assert.match(tokens, /--r-md:\s*8px/);
-  assert.match(tokens, /--row-h-compact:\s*40px/);
+  assert.match(tokens, /--row-h-compact:\s*36px/);
   assert.match(tokens, /--tap-min:\s*44px/);
   assert.match(tokens, /--focus:\s*0 0 0 2px/);
   assert.match(styles, /\.ranks-card-price span,\s*\n\.ranks-facts dt \{[^}]*font-size:\s*var\(--fs-xs\)/);
@@ -586,18 +586,18 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
     try {
     const box = await measureAt(bin, htmlPath, 390);
     assert.equal(box.innerWidth, 390);
-    assert.equal(box.bodyFont, "14px");
-    assert.equal(box.h1Font, "18px");
-    assert.equal(box.priceFont, "24px");
+    assert.equal(box.bodyFont, "13px");
+    assert.equal(box.h1Font, "17px");
+    assert.equal(box.priceFont, "22px");
     assert.equal(box.priceWeight, "700");
     assert.equal(box.labelFont, "11px");
     assert.equal(box.factFont, "11px");
     assert.equal(box.factWeight, "700");
-    assert.equal(box.factValueFont, "15px");
+    assert.equal(box.factValueFont, "14px");
     assert.equal(box.factValueWeight, "700");
-    assert.equal(box.numXl, "24px");
-    assert.ok(box.maxFont <= 24, `number max ${box.maxFont}`);
-    assert.ok(Math.abs(box.buttonHeight - 36) < 0.6, `button height ${box.buttonHeight}`);
+    assert.equal(box.numXl, "22px");
+    assert.ok(box.maxFont <= 22, `number max ${box.maxFont}`);
+    assert.ok(Math.abs(box.buttonHeight - 32) < 0.6, `button height ${box.buttonHeight}`);
     assert.ok(box.inputHeight >= 44, `input height ${box.inputHeight}`);
     assert.ok(Math.abs(box.rowHeight - 44) < 0.6, `row height ${box.rowHeight}`);
     assert.ok(Math.abs(box.headshot - 40) < 0.6, `headshot ${box.headshot}`);
@@ -616,7 +616,8 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
       ["offer head height", box.offerHeadH],
       ["offer photo height", box.offerPhotoH],
     ]) {
-      assert.ok(Math.abs(size - 40) < 0.6, `${label} ${size}`);
+      const want = label.includes("offer") ? 28 : 40;
+      assert.ok(Math.abs(size - want) < 0.6, `${label} ${size}`);
     }
     assert.deepEqual(box.clippedNames, [], `clipped names ${box.clippedNames.join(" | ")}`);
     assert.equal(box.inputFont, "16px");
@@ -657,7 +658,8 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
       ["desk offer head height", desk.offerHeadH],
       ["desk offer photo height", desk.offerPhotoH],
     ]) {
-      assert.ok(Math.abs(size - 40) < 0.6, `${label} ${size}`);
+      const want = label.includes("offer") ? 28 : 40;
+      assert.ok(Math.abs(size - want) < 0.6, `${label} ${size}`);
     }
     assert.deepEqual(desk.clippedNames, [], `desk clipped names ${desk.clippedNames.join(" | ")}`);
     for (const shot of [box, desk]) {
