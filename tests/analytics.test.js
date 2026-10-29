@@ -130,7 +130,7 @@ test("allowlist: unknown events, unknown keys and free-text values are dropped",
   assert.equal(track("trade_checked", { mode: "public", leagueId: "123", user: "niko" }, { env: LIVE }), true);
   assert.deepEqual(rec.calls, [["event", "trade_checked", { mode: "public" }]]);
   assert.equal(cleanProps("league_connected", { sample: true }), null);
-  assert.deepEqual(Object.keys(ANALYTICS_EVENTS).sort(), ["landing_view", "league_connected", "share_tapped", "t_opened", "trade_checked"]);
+  assert.deepEqual(Object.keys(ANALYTICS_EVENTS).sort(), ["landing_view", "league_connected", "share_tapped", "t_opened", "trade_checked", "trade_described"]);
 });
 
 test("once-only: a repeated occurrence key is dropped, a new one fires", () => {

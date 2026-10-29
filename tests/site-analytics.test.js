@@ -69,7 +69,7 @@ function collector(store, over = {}) {
 const day = () => "day/2026-10-15";
 
 test("allowlist: events, props, and paths are validated", () => {
-  assert.deepEqual(COLLECT_EVENTS, ["visit", "landing_view", "trade_checked", "share_tapped", "t_opened", "league_connected"]);
+  assert.deepEqual(COLLECT_EVENTS, ["visit", "landing_view", "trade_checked", "share_tapped", "t_opened", "league_connected", "trade_described"]);
   assert.equal(validateBeacon({ e: "purchase" }), null);
   assert.equal(validateBeacon({ e: "trade_checked", props: { mode: "everything" } }), null);
   assert.equal(validateBeacon({ e: "trade_checked", props: { mode: "league", user: "niko" } }), null);
