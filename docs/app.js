@@ -166,6 +166,13 @@ import {
   withPlayerDirectoryNames,
 } from "./modules/value-calc.js";
 import {
+  TRADE_TALK_MAX,
+  applyTradeTalk,
+  parseTradeTalk,
+  priceNeighbors,
+  tradeTalkReply,
+} from "./modules/trade-talk.js";
+import {
   describeDraftItem,
   draftFromReview,
   draftMarketPrice,
@@ -176,10 +183,12 @@ import {
   draftSideForAsset,
   draftTeamSummary,
   isDraftEmpty,
+  leaguePickForGeneric,
   placeAfterConnect,
   readStoredDraft,
   resolveDraftContext,
   reviewPayloadFor,
+  useLeaguePick,
   writeStoredDraft,
 } from "./modules/trade-draft.js";
 import {
@@ -571,6 +580,7 @@ const el = {
   landingFindBtn: document.querySelector("#landing-find-btn"),
   landingUsername: document.querySelector("#landing-username"),
   landingUsernameForm: document.querySelector("#landing-username-form"),
+  landingTalkForm: document.querySelector("#landing-talk-form"),
   landingUsernameError: document.querySelector("#landing-username-error"),
   landingJobs: document.querySelector("#landing-jobs"),
   landingJobHint: document.querySelector("#landing-job-hint"),
@@ -651,6 +661,10 @@ let bootRoute = null;
 let connectNextPlace = null;
 // The draft a Review trade, a new partner, or Clear replaced, so one tap brings it back.
 let draftReplaced = null;
+// Describe-a-trade box: the last message and its reply (memory only), and a
+// sentence typed before prices loaded.
+let tradeTalkLog = [];
+let pendingTradeTalk = "";
 // Picking a suggestion cancels the click. Swallow the follow-up so it cannot
 // land on Clear both sides after the list re-renders.
 let swallowCalcClick = false;
@@ -695,6 +709,7 @@ el.workspace?.addEventListener("click", (event) => {
   handleLeaguePickClick(event);
 });
 el.workspace?.addEventListener("submit", (event) => {
+  if (handleTradeTalkSubmit(event)) return;
   const form = event.target?.closest?.("[data-player-connect]");
   if (!form || !el.workspace.contains(form)) return;
   event.preventDefault();
@@ -812,6 +827,13 @@ window.matchMedia(PHONE_LAYOUT_QUERY).addEventListener("change", () => {
   else releaseRankBoardTools();
 });
 el.landingUsernameForm?.addEventListener("submit", requestFindLeagues);
+el.landingTalkForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const input = el.landingTalkForm.querySelector("input[name='say']");
+  const say = event.submitter?.name === "try" ? event.submitter.value : (input?.value || "");
+  if (input) input.value = "";
+  openTradeWithTalk(say);
+});
 el.stickyFindBtn?.addEventListener("click", (event) => {
   if (bootIsPending()) {
     event.preventDefault();
@@ -1625,7 +1647,7 @@ function bootFromUrl() {
   } else if (parsed.view === "ranks" && parsed.asset && !routeDrivesPlace) {
     state.ranks.selectedId = parsed.asset;
   }
-  if ((route.name === "trade") && (route.give.length || route.get.length || route.badShare)) {
+  if ((route.name === "trade") && (route.give.length || route.get.length || route.badShare || route.say)) {
     applyTradeRoute(route);
   }
   if (route.name === "connect") connectAsked = true;
@@ -2299,6 +2321,12 @@ function applyTradeRoute(route) {
   // A broken link leaves any saved draft alone, and the notice always shows.
   if (state.badShareLink) {
     state.sharedTrade = null;
+    return;
+  }
+  // A described trade replaces the draft only once it is read, so Restore draft can undo it.
+  if (route?.say && !route.give?.length && !route.get?.length) {
+    state.sharedTrade = null;
+    pendingTradeTalk = route.say;
     return;
   }
   // A shared link names its scoring. Without a league that sets the board format.
@@ -7691,26 +7719,368 @@ function renderTradeDraft() {
     `;
     return;
   }
+  const talk = snapshotTradeTalkInput(host);
   host.innerHTML = `
-    ${renderValueBoardBar({ marketHint: marketBoardHint() })}
-    ${renderValuesFreshness(valuesFreshness())}
-    ${renderValueScaleExplainer()}
-    ${renderPriceLegend(["model", "package"])}
     <div class="panel-heading calc-heading">
-      <div>
-        <span class="eyebrow">Trade</span>
-        <h2>${escapeHtml(sampleVoice()?.giveGetHeading || "You give / You get")}</h2>
-      </div>
+      <h2>${escapeHtml(sampleVoice()?.giveGetHeading || "Trade")}</h2>
       <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
+      ${renderValuesFreshness(valuesFreshness())}
     </div>
+    ${renderTradeTalk()}
     <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
-    <div class="calc-grid">
+    <div class="calc-grid has-meter">
       ${renderDraftPane("left", view)}
+      <div id="draft-meter" class="draft-meter">${renderDraftMeter(view)}</div>
       ${renderDraftPane("right", view)}
     </div>
     <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
+    <div class="calc-price-notes">
+      ${renderValueBoardBar({ marketHint: marketBoardHint() })}
+      ${renderValueScaleExplainer()}
+      ${renderPriceLegend(["model", "package"])}
+    </div>
     <div id="draft-team" class="draft-team">${renderDraftTeam(view)}</div>
   `;
+  restoreTradeTalkInput(host, talk);
+  syncTradeStickyTop();
+  if (pendingTradeTalk) {
+    const say = pendingTradeTalk;
+    pendingTradeTalk = "";
+    queueMicrotask(() => runTradeTalk(say));
+  }
+}
+
+// Side headers stick under whatever page chrome is pinned at this width.
+function syncTradeStickyTop() {
+  const host = el.calculatorShell;
+  if (!host) return;
+  let top = 0;
+  for (const node of document.querySelectorAll("#control-rail, #desk-nav, #mobile-chrome")) {
+    const cs = getComputedStyle(node);
+    if ((cs.position !== "sticky" && cs.position !== "fixed") || !node.offsetHeight) continue;
+    top = Math.max(top, (parseFloat(cs.top) || 0) + node.offsetHeight);
+  }
+  host.style.setProperty("--trade-sticky-top", `${Math.round(top)}px`);
+}
+window.addEventListener("resize", () => syncTradeStickyTop(), { passive: true });
+
+// ---------------------------------------------------------------------------
+// Describe-a-trade box. Rules in trade-talk.js read the sentence; the draft,
+// prices and verdict are the calculator's own.
+// ---------------------------------------------------------------------------
+
+function snapshotTradeTalkInput(host) {
+  const input = host?.querySelector?.("#trade-talk-input");
+  if (!input) return null;
+  return {
+    value: input.value,
+    focused: document.activeElement === input,
+    start: input.selectionStart,
+    end: input.selectionEnd,
+  };
+}
+
+function restoreTradeTalkInput(host, snap) {
+  const input = host?.querySelector?.("#trade-talk-input");
+  if (!input || !snap) return;
+  input.value = snap.value;
+  if (!snap.focused) return;
+  input.focus({ preventScroll: true });
+  try {
+    input.setSelectionRange(snap.start ?? snap.value.length, snap.end ?? snap.value.length);
+  } catch {
+    // Some input types reject a caret range.
+  }
+}
+
+function tradeTalkExamples() {
+  const season = nextRookieDraftSeason();
+  return [
+    `Gibbs and a ${season} 1st for Nabers`,
+    `add my ${season + 1} 2nd`,
+    "swap Nabers for Puka",
+    "what could I get for Bijan",
+  ];
+}
+
+function renderTradeTalk() {
+  const example = tradeTalkLog.length
+    ? `Keep going: add my ${nextRookieDraftSeason() + 1} 2nd`
+    : `Describe a trade, like ${tradeTalkExamples()[0]}`;
+  return `
+    <section class="talk-box" aria-labelledby="trade-talk-label">
+      <form class="talk-form" data-trade-talk novalidate>
+        <label id="trade-talk-label" for="trade-talk-input" class="sr-only">Describe the trade in your own words</label>
+        <div class="talk-row">
+          <input id="trade-talk-input" name="say" type="text" maxlength="${TRADE_TALK_MAX}" placeholder="${escapeHtml(example)}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send" />
+          <button type="submit" class="talk-send" aria-label="Build trade"><span aria-hidden="true">↑</span></button>
+        </div>
+      </form>
+      <div id="talk-log" class="talk-log" aria-live="polite">${renderTradeTalkLog()}</div>
+      <p id="talk-toast" class="talk-toast" role="status" hidden></p>
+    </section>
+  `;
+}
+
+function renderTalkChip(chip) {
+  return `<button type="button" class="talk-chip" data-action="talk-add" data-side="${chip.side === "right" ? "right" : "left"}" data-asset-id="${escapeHtml(chip.assetId)}" data-name="${escapeHtml(chip.name)}" data-kind="${chip.assetType === "pick" ? "pick" : "player"}"${chip.leagueId ? ` data-league-id="${escapeHtml(chip.leagueId)}"` : ""}>${escapeHtml(chip.label || chip.name)}${chip.value ? ` <span class="talk-chip-value">${formatNumber(chip.value)}</span>` : ""}</button>`;
+}
+
+function renderTalkSayChips(texts, label) {
+  if (!texts?.length) return "";
+  return `<div class="talk-chips talk-next" role="group" aria-label="${escapeHtml(label)}">${texts.map((text) => `<button type="button" class="talk-chip talk-example" data-action="talk-example" data-say="${escapeHtml(text)}">${escapeHtml(text)}</button>`).join("")}</div>`;
+}
+
+// Confirmations ("Added Josh Allen to You give.") flash as a toast. Anything
+// that needs an answer or explains a miss stays on screen.
+function renderTradeTalkLog() {
+  if (!tradeTalkLog.length) return renderTalkSayChips(tradeTalkExamples(), "Examples");
+  return tradeTalkLog.slice(0, 1).map((turn) => `
+    <div class="talk-turn">
+      ${turn.sticky && turn.lines.length ? `<div class="talk-lines">${turn.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>` : ""}
+      ${turn.connectLine && !state.leagueId ? `<div class="talk-lines"><p>${escapeHtml(turn.connectLine)}</p></div><button type="button" class="talk-connect" data-action="draft-connect">Connect my league</button>` : ""}
+      ${turn.groups.map((group) => `
+        <div class="talk-choice" role="group" aria-label="${escapeHtml(group.title)}">
+          <p class="talk-choice-title">${escapeHtml(group.title)}</p>
+          <div class="talk-chips">${group.chips.map(renderTalkChip).join("")}</div>
+        </div>
+      `).join("")}
+      ${renderTalkSayChips(turn.next, "Keep going")}
+    </div>
+  `).join("");
+}
+
+let talkToastTimer = 0;
+function showTalkToast(lines) {
+  const toast = el.calculatorShell?.querySelector("#talk-toast");
+  if (!toast) return;
+  clearTimeout(talkToastTimer);
+  const text = (lines || []).join(" ");
+  toast.textContent = text;
+  toast.hidden = !text;
+  if (text) talkToastTimer = setTimeout(() => { toast.hidden = true; }, 3500);
+}
+
+// Follow-ups are offered only when the parser would actually add something.
+function tradeTalkNext(view) {
+  const { draft } = view;
+  const season = nextRookieDraftSeason();
+  const ctx = tradeTalkContext(view);
+  const candidates = [];
+  const gap = Number(view.model?.verdict?.gap) || 0;
+  const more = draft.left.length && draft.right.length ? verdictCopy(view.model.verdict).more : null;
+  if (more != null && more > EVEN_UP_OFFER_ABOVE && gap) {
+    const pick = findEvenUpPick(view);
+    const near = pick && Number(pick.value) > 0 && pick.value <= Math.abs(gap) * 1.5 && pick.value >= Math.abs(gap) * 0.67;
+    if (pick?.closes && near && pick.name) {
+      candidates.push(gap > 0 ? `add a ${pick.name}` : `they add a ${pick.name}`);
+    } else {
+      const partnerId = view.context?.partnerRosterId ?? null;
+      const [player] = priceNeighbors(ctx.catalog, Math.abs(gap), {
+        exclude: [...draft.left, ...draft.right].map((item) => item.assetId),
+        ownerRosterId: gap > 0 ? ctx.meRosterId : partnerId,
+        notOwnerRosterId: gap > 0 ? partnerId : ctx.meRosterId,
+        limit: 1,
+      });
+      if (player) candidates.push(gap > 0 ? `add ${player.name}` : `they add ${player.name}`);
+    }
+  }
+  const givePlayer = draft.left.find((item) => item.assetType !== "pick");
+  if (givePlayer && !draft.right.length) candidates.push(`what could I get for ${givePlayer.name}`);
+  if (draft.left.length || draft.right.length) candidates.push(`add my ${season + 1} 2nd`);
+  const inDraft = new Set([...draft.left, ...draft.right].map((item) => String(item.assetId)));
+  const keep = [];
+  for (const text of candidates) {
+    if (keep.length >= 3) break;
+    const plan = parseTradeTalk(text, ctx);
+    if (plan.misses.length || plan.asks.length) continue;
+    if (plan.intent !== "shop" && !plan.adds.length) continue;
+    if (plan.adds.some((add) => inDraft.has(String(add.asset.assetId)))) continue;
+    keep.push(text);
+  }
+  if (draft.left.length || draft.right.length) keep.push("clear");
+  return keep;
+}
+
+function setTradeTalkPlaceholder() {
+  const input = el.calculatorShell?.querySelector("#trade-talk-input");
+  if (input && tradeTalkLog.length) input.placeholder = `Keep going: add my ${nextRookieDraftSeason() + 1} 2nd`;
+}
+
+function patchTradeTalkLog() {
+  const log = el.calculatorShell?.querySelector("#talk-log");
+  if (log) log.innerHTML = renderTradeTalkLog();
+  setTradeTalkPlaceholder();
+}
+
+function tradeTalkContext(view) {
+  const { basis, draft } = view;
+  const names = withPlayerDirectoryNames(basis.nameMap, state.players);
+  const catalog = [];
+  const seen = new Set();
+  if (basis.connected) {
+    for (const roster of state.normalizedRosters || []) {
+      for (const asset of roster.assets || []) {
+        if (!isTradeEligibleAsset(asset)) continue;
+        const pick = asset.assetType === "pick";
+        const name = pick ? asset.name : tradeRowName(asset, names);
+        if (!name) continue;
+        seen.add(asset.assetId);
+        catalog.push({
+          assetId: asset.assetId,
+          name,
+          assetType: pick ? "pick" : "player",
+          value: Number(draftMarketPrice(asset, basis).value) || 0,
+          ownerRosterId: roster.rosterId,
+          originalRosterId: pick ? asset.raw?.original_owner ?? null : null,
+          season: pick ? Number(asset.raw?.season) || null : null,
+          round: pick ? Number(asset.raw?.round) || null : null,
+          leagueId: isLeaguePickAssetId(asset.assetId) ? String(state.leagueId) : "",
+        });
+      }
+    }
+  }
+  listValueCalcAssets(basis.values, names, { limit: 0, kinds: ["player"] }).forEach((row) => {
+    if (seen.has(row.assetId)) return;
+    catalog.push({ ...row, ownerRosterId: null });
+  });
+  const me = view.me;
+  return {
+    catalog,
+    pickIds: new Set(Object.keys(basis.values || {}).filter((id) => id.startsWith("pick:"))),
+    managers: basis.connected
+      ? (state.normalizedRosters || []).map((roster) => ({
+        rosterId: roster.rosterId,
+        displayName: roster.manager?.displayName || "",
+        teamName: roster.manager?.teamName || "",
+      }))
+      : [],
+    meRosterId: me ? me.rosterId : null,
+    partnerRosterId: view.context?.partnerRosterId ?? draft.partnerRosterId ?? null,
+    season: nextRookieDraftSeason(),
+    connected: basis.connected,
+    draft,
+  };
+}
+
+function runTradeTalk(text) {
+  const say = String(text || "").trim().slice(0, TRADE_TALK_MAX);
+  if (!say) return;
+  if (!draftValuesReady()) {
+    pendingTradeTalk = say;
+    renderTradeDraft();
+    return;
+  }
+  const view = buildDraftView();
+  const ctx = tradeTalkContext(view);
+  const plan = parseTradeTalk(say, ctx);
+  const result = applyTradeTalk(state.valueCalc, plan);
+  const voice = sampleVoice();
+  const giveLabel = voice?.giveLabel || "You give";
+  const getLabel = voice?.getLabel || "You get";
+  const changed = draftAssetKey(result.draft) !== draftAssetKey(state.valueCalc)
+    || result.draft.partnerRosterId !== state.valueCalc.partnerRosterId;
+  if (changed) {
+    if (plan.intent === "clear") replaceDraft(result.draft, "Cleared both sides.");
+    else if (plan.replace) replaceDraft(result.draft, "Built a new trade from what you typed.");
+    else setDraft(result.draft);
+  }
+  const after = buildDraftView();
+  const lines = tradeTalkReply(plan, result, { giveLabel, getLabel });
+  const groups = plan.asks.map((ask) => ({
+    ask: true,
+    title: ask.question || `Which one for “${ask.text}”?`,
+    chips: ask.options.map((option) => ({ ...option, side: ask.side || "left" })),
+  }));
+  const bothSides = after.draft.left.length > 0 && after.draft.right.length > 0;
+  const connectLine = plan.unknownPartner && !after.basis.connected
+    ? `Connect your Sleeper league to use ${plan.unknownPartner}’s roster. Until then these are market picks and players. This trade stays here.`
+    : "";
+  if (plan.intent === "shop" && after.give > 0) {
+    const partnerId = after.context?.partnerRosterId ?? null;
+    const neighbors = priceNeighbors(ctx.catalog, after.give, {
+      exclude: [...after.draft.left, ...after.draft.right].map((item) => item.assetId),
+      ownerRosterId: partnerId,
+      notOwnerRosterId: partnerId == null ? ctx.meRosterId : null,
+    });
+    const partnerName = partnerId != null ? findNormalizedRoster(partnerId)?.manager?.displayName : "";
+    lines.push(`Worth ${formatNumber(after.give)} on our board. Tap a player to check him, or type what they offered.`);
+    if (neighbors.length) {
+      groups.push({
+        title: partnerName ? `Single players on ${partnerName}’s roster priced near that` : "Single players priced near that",
+        chips: neighbors.map((row) => ({ ...row, side: "right" })),
+      });
+    } else if (partnerName) {
+      lines.push(`${partnerName} has no single player priced near that. Try a package.`);
+    }
+  }
+  if (!bothSides && plan.intent === "verdict") {
+    lines.push("Add pieces to both sides first, like “Gibbs for Nabers.”");
+  }
+  const sticky = !changed || plan.misses.length > 0 || plan.notes.length > 0 || Boolean(plan.unknownPartner)
+    || plan.intent === "shop" || plan.intent === "verdict";
+  tradeTalkLog = [{
+    say,
+    lines,
+    sticky,
+    groups,
+    connectLine,
+    next: tradeTalkNext(after),
+  }];
+  analyticsTrack("trade_described", { intent: plan.intent });
+  patchTradeDraft(["left", "right"]);
+  patchTradeTalkLog();
+  showTalkToast(sticky ? [] : lines);
+}
+
+function addTalkChip(target) {
+  const side = target.dataset.side === "right" ? "right" : "left";
+  const added = addDraftAsset(side, {
+    assetId: target.dataset.assetId,
+    name: target.dataset.name,
+    assetType: target.dataset.kind === "pick" ? "pick" : "player",
+    leagueId: target.dataset.leagueId || "",
+  });
+  const label = side === "right" ? (sampleVoice()?.getLabel || "You get") : (sampleVoice()?.giveLabel || "You give");
+  const after = buildDraftView();
+  const last = tradeTalkLog[0];
+  const line = added ? `Added ${target.dataset.name} to ${label}.` : `${target.dataset.name} is already in the trade.`;
+  // "Jefferson and a first for Chase" asks twice. Answering one keeps the other.
+  const answered = target.closest(".talk-choice")?.getAttribute("aria-label") || "";
+  const groups = (last?.groups || []).filter((group) => !group.ask || group.title !== answered);
+  const waiting = groups.some((group) => group.ask);
+  tradeTalkLog = [{
+    say: last?.say || target.dataset.name || "",
+    lines: [line],
+    sticky: waiting,
+    groups: waiting ? groups : [],
+    next: waiting ? [] : tradeTalkNext(after),
+  }];
+  patchTradeDraft(["left", "right"]);
+  patchTradeTalkLog();
+  showTalkToast(waiting ? [] : [line]);
+}
+
+function handleTradeTalkSubmit(event) {
+  const form = event.target?.closest?.("[data-trade-talk]");
+  if (!form || !el.workspace?.contains(form)) return false;
+  event.preventDefault();
+  const input = form.querySelector("#trade-talk-input");
+  const say = input?.value || "";
+  if (input) input.value = "";
+  runTradeTalk(say);
+  return true;
+}
+
+// Landing box and /trade?say=: open the calculator, then read the sentence.
+function openTradeWithTalk(text) {
+  const say = String(text || "").trim().slice(0, TRADE_TALK_MAX);
+  state.sharedTrade = null;
+  state.badShareLink = false;
+  state.droppedPlayerNote = "";
+  if (say) pendingTradeTalk = say;
+  openRoom("trades", "calculator", { history: "push", scroll: "top" });
+  syncLaunchChrome();
 }
 
 // Taps and background data refresh everything except the search boxes, so the
@@ -7756,6 +8126,8 @@ function patchTradeDraft(listSides = []) {
   if (notice) notice.innerHTML = `${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}`;
   const verdict = host.querySelector("#value-calc-verdict");
   if (verdict) verdict.innerHTML = renderDraftVerdict(view);
+  const meter = host.querySelector("#draft-meter");
+  if (meter) meter.innerHTML = renderDraftMeter(view);
   const team = host.querySelector("#draft-team");
   if (team) team.innerHTML = renderDraftTeam(view);
 }
@@ -7782,9 +8154,10 @@ function renderDraftBasis(view) {
   const { basis } = view;
   return `
     <div class="draft-basis-row" role="group" aria-label="Scoring format">
-      ${["sf", "oneQb"].map((format) => `<button type="button" class="ranks-chip${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}">PPR · ${escapeHtml(rankFormatLabel(format))}</button>`).join("")}
-      ${infoTipMarkup({ id: "pop-format-trade", label: "What PPR, Superflex and 1QB mean", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${GLOSSARY["1QB"]}` })}
-      ${infoTipMarkup({ id: "pop-values-trade", label: "How values work", text: valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10)) })}
+      <div class="draft-format-toggle">
+        ${["sf", "oneQb"].map((format) => `<button type="button" class="draft-format-btn${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}" aria-label="PPR · ${escapeHtml(rankFormatLabel(format))}" title="PPR · ${escapeHtml(rankFormatLabel(format))}">${format === "sf" ? "SF" : "1QB"}</button>`).join("")}
+      </div>
+      ${infoTipMarkup({ id: "pop-format-trade", label: "Scoring and how values work", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${GLOSSARY["1QB"]} ${valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10))}` })}
     </div>
   `;
 }
@@ -7877,7 +8250,7 @@ function renderDraftTotal(side, view) {
   const total = side === "left" ? view.give : view.get;
   return `
     <strong>${formatNumber(total)}</strong>
-    <small>${items.length ? pieceCount(items) : "Nothing added"}</small>
+    <small title="${escapeHtml(items.length ? pieceCount(items) : "Nothing added")}">(${items.length})</small>
   `;
 }
 
@@ -7953,14 +8326,100 @@ function renderDraftTokens(side, view) {
     const label = name
       ? renderSelectedTokenLabel(item)
       : `<span class="selected-token-label is-loading"><span class="name-skeleton" aria-hidden="true"></span><span class="sr-only">Loading player name</span></span>`;
+    const meta = draftItemMeta(item);
     return `
       <span class="selected-token${draftItemMismatch(view, item) ? " is-mismatch" : ""}" data-uid="${escapeHtml(item.uid)}">
+        ${label.includes("player-face") ? "" : `<span class="token-face-blank" aria-hidden="true"></span>`}
         ${label}
+        ${meta ? `<span class="selected-token-meta">${escapeHtml(meta)}</span>` : ""}
         <span class="selected-token-price" title="Value">${formatNumber(price?.value || 0)}${price?.estimated ? " est" : ""}</span>
         <button type="button" class="selected-token-remove" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" aria-label="${escapeHtml(name ? `Remove ${name}` : "Remove")}"><span aria-hidden="true">×</span></button>
       </span>
     `;
   }).join("");
+}
+
+function draftItemMeta(item) {
+  if (item.assetType === "pick" || String(item.assetId || "").startsWith("pick:")) {
+    const season = parsePickAssetId(item.assetId)?.season || item.season || "";
+    return season ? `${season} pick` : "Pick";
+  }
+  const id = facePlayerId(item);
+  const record = state.valueBundles?.players?.[`player:${id}`] || state.players?.[id] || {};
+  return [record.position, record.team].filter(Boolean).join(" · ");
+}
+
+let draftMeterOpen = false;
+
+// One slim bar for the verdict: the split is the credited totals the verdict
+// compares, so the bar, the label and the full breakdown always agree.
+function renderDraftMeter(view) {
+  const { draft, model } = view;
+  if (!draft.left.length || !draft.right.length) {
+    return `
+      <div class="meter-head"><span class="meter-label muted">Add to both sides to see the verdict</span></div>
+      <div class="meter-bar is-empty" aria-hidden="true"></div>
+    `;
+  }
+  const { verdict } = model;
+  const copy = verdictCopy(verdict);
+  const give = Math.max(0, Number(verdict.left) || 0);
+  const get = Math.max(0, Number(verdict.right) || 0);
+  const giveShare = give + get > 0 ? (give / (give + get)) * 100 : 50;
+  const tone = copy.tier === "even" ? "good" : copy.tier === "edge" ? "fair" : (copy.tone || "fair");
+  const voice = sampleVoice();
+  const giveLabel = voice?.giveLabel || "You give";
+  const getLabel = voice?.getLabel || "You get";
+  return `
+    <button type="button" class="meter-head" data-action="meter-why" aria-expanded="${draftMeterOpen ? "true" : "false"}" aria-controls="meter-why">
+      <strong class="meter-label tone-${tone}">${escapeHtml(copy.line)}</strong>
+      <span class="meter-why-link">${draftMeterOpen ? "Hide" : "See why"} <span aria-hidden="true">›</span></span>
+    </button>
+    <div class="meter-bar tone-${tone}" role="img" aria-label="${escapeHtml(`${giveLabel} ${formatNumber(give)}, ${getLabel} ${formatNumber(get)}`)}">
+      <span class="meter-give" style="width:${giveShare.toFixed(1)}%"></span>
+      <span class="meter-get"></span>
+    </div>
+    ${draftMeterOpen ? renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) : ""}
+  `;
+}
+
+function renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) {
+  const { draft, model } = view;
+  const rowsFor = (side) => (draft[side] || []).map((item) => {
+    const price = view.priced.get(String(item.uid));
+    return { name: price?.asset?.name || item.name || "", value: Number(price?.value) || 0 };
+  });
+  const sides = [
+    { key: "left", label: giveLabel, rows: rowsFor("left"), total: give },
+    { key: "right", label: getLabel, rows: rowsFor("right"), total: get },
+  ];
+  const max = Math.max(1, ...sides.flatMap((side) => side.rows.map((row) => row.value)));
+  const adjustment = model.adjustment;
+  const winner = give > get ? "left" : get > give ? "right" : "";
+  return `
+    <div class="meter-why" id="meter-why">
+      ${sides.map((side) => `
+        <div class="meter-why-side side-${side.key}${winner === side.key ? " is-win" : ""}">
+          <p class="meter-why-title"><span>${escapeHtml(side.label)}</span><span class="meter-why-num">${formatNumber(side.total)}</span></p>
+          ${side.rows.map((row) => `
+            <div class="meter-why-row">
+              <span class="meter-why-name">${escapeHtml(row.name)}</span>
+              <span class="meter-why-track"><span style="width:${((row.value / max) * 100).toFixed(1)}%"></span></span>
+              <span class="meter-why-num">${formatNumber(row.value)}</span>
+            </div>
+          `).join("")}
+          ${adjustment?.side === side.key && adjustment.amount > 0 ? `
+            <div class="meter-why-row is-credit">
+              <span class="meter-why-name">Fewer, better players</span>
+              <span class="meter-why-track"></span>
+              <span class="meter-why-num">+${formatNumber(adjustment.amount)}</span>
+            </div>
+          ` : ""}
+        </div>
+      `).join("")}
+      <button type="button" class="inline-link meter-full" data-action="meter-full">Full breakdown</button>
+    </div>
+  `;
 }
 
 function renderDraftNotes(side, view) {
@@ -7969,13 +8428,25 @@ function renderDraftNotes(side, view) {
     const row = view.context.items.get(String(item.uid));
     if (!row || row.status === "ok") return "";
     const owner = row.ownerRosterId != null ? findNormalizedRoster(row.ownerRosterId)?.manager?.displayName : "";
+    const real = row.status === "generic" ? leaguePickForGeneric(item, side, {
+      draft: view.draft,
+      rosters: state.normalizedRosters,
+      meRosterId: view.me?.rosterId ?? null,
+      partnerRosterId: view.context.partnerRosterId || null,
+    }) : null;
+    if (real) {
+      const partner = findNormalizedRoster(view.context.partnerRosterId)?.manager?.displayName;
+      const whose = side === "left" ? (sampleVoice()?.roster || "your roster") : (partner ? `${partner}’s roster` : "their roster");
+      const label = `${item.name.replace(/^(\d{4} )(?:early |mid |late )/i, "$1")} on ${whose}`;
+      return `<li><strong>${escapeHtml(item.name)}:</strong> Generic pick at market price. <button type="button" class="inline-link" data-action="draft-use-league-pick" data-uid="${escapeHtml(item.uid)}" data-asset-id="${escapeHtml(real.assetId)}">Use the ${escapeHtml(label)}</button></li>`;
+    }
     return `<li><strong>${escapeHtml(item.name)}:</strong> ${escapeHtml(describeDraftItem(row, { ownerName: owner, kind: item.assetType, voice: sampleVoice() }))}</li>`;
   }).filter(Boolean);
   return notes.length ? `<ul class="draft-note-list">${notes.join("")}</ul>` : "";
 }
 
 function draftSearchPlaceholder(side, view) {
-  if (!view.basis.connected) return `Player or pick, like ${nextRookieDraftSeason()} early 1st`;
+  if (!view.basis.connected) return `+ Add player or pick, like ${nextRookieDraftSeason()} early 1st`;
   if (side === "left") return sampleVoice()?.draftSearchLeft || "Your players and picks";
   return "Their players and picks";
 }
@@ -9017,6 +9488,24 @@ function handleWorkspaceClick(event) {
       updateUrlState({ mode: "replace" });
       break;
     }
+    case "talk-example": {
+      runTradeTalk(target.dataset.say || "");
+      break;
+    }
+    case "talk-add": {
+      addTalkChip(target);
+      break;
+    }
+    case "meter-why": {
+      draftMeterOpen = !draftMeterOpen;
+      const meter = el.calculatorShell?.querySelector("#draft-meter");
+      if (meter) meter.innerHTML = renderDraftMeter(buildDraftView());
+      break;
+    }
+    case "meter-full": {
+      el.calculatorShell?.querySelector("#value-calc-verdict")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      break;
+    }
     case "value-add": {
       pickDraftSuggestion(target);
       // Clear the box and close the list so it never covers the verdict.
@@ -9086,6 +9575,15 @@ function handleWorkspaceClick(event) {
     }
     case "draft-connect": {
       openConnectPrompt();
+      break;
+    }
+    case "draft-use-league-pick": {
+      const uid = target.dataset.uid;
+      const item = [...state.valueCalc.left, ...state.valueCalc.right].find((entry) => String(entry.uid) === String(uid));
+      const asset = (state.normalizedRosters || []).flatMap((roster) => roster.assets || []).find((entry) => entry.assetId === target.dataset.assetId);
+      if (!item || !asset) break;
+      setDraft(useLeaguePick(state.valueCalc, uid, asset, state.leagueId));
+      renderTradeDraft();
       break;
     }
     case "draft-format": {

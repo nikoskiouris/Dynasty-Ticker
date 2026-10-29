@@ -1,0 +1,33 @@
+Title
+Describe a trade in plain words and the calculator builds it
+
+Status
+Done
+
+Shipped
+#193
+
+Priority
+P1
+
+Area
+Trade calculator and landing (`docs/modules/trade-talk.js`, `renderTradeTalk` in `docs/app.js`, `docs/ui/landing.html`)
+
+Description
+Managers think in sentences: "What could I get for Gibbs and a first from Chris?" or "I just got offered X and Y for Z, what do you think?" The calculator made them turn that into two search boxes, one piece at a time.
+
+Add a box at the top of the calculator, and on the landing, where you describe the trade. Rules (no AI model) map the words to players, picks, sides and the other manager, fill the same trade draft, and the same price snapshot gives the verdict. Follow-ups edit it: "add my 2028 2nd", "swap Nabers for Puka", "remove the 1st", "flip", "clear".
+
+Why
+Owner direction (Oct 2026): make describing the trade the calculator's main way in. AGENTS.md: one price, never erase work, label uncertainty, honest empty states.
+
+Acceptance
+- "Gibbs and a 2027 1st for Nabers" puts Gibbs and a 2027 1st on You give, Nabers on You get, and shows the same verdict as the calculator.
+- "I got offered X for Y" puts X on You get.
+- Follow-ups change the current draft. A new trade replaces it, and Restore draft brings the old one back.
+- A name that fits several players asks with buttons instead of guessing. A bare name ("Jefferson and a first for Chase") asks which Jefferson and which Chase, counting first-name matches like Chase Brown, with the biggest player first. Answering one question keeps the other on screen. Full names and nicknames go straight in. In a league only rostered players count. Words it cannot read are named, and the draft is kept.
+- With a league connected: "my", "his" and "Chris's" pick the owner's real league pick, a neutral "A for B" is read by who owns what, and a pick a team does not own is explained, not swapped.
+- "What could I get for X" prices the give side and lists single players priced near it, from the named manager's roster in a league. They are labeled as price neighbors, not offers anyone accepts.
+- Without a league it is a full calculator: no sign-in needed. When the words name a manager ("from Chris"), the box offers Connect my league, and the trade stays.
+- After connecting, the same trade is still there. A generic pick from before ("my 2028 2nd") stays generic and offers "Use the 2028 2nd on your roster" (or the partner's). Nothing is swapped without a tap.
+- Works at phone, iPad and desktop sizes. `/trade?say=` opens a described trade.

@@ -6,7 +6,7 @@ import {
   valueCalcVerdict,
 } from "./value-calc.js";
 import { calculatePackageAdjustment, finiteAssetValue } from "./package-value.js";
-import { lookupMarketValue } from "./values.js";
+import { lookupMarketValue, parsePickAssetId } from "./values.js";
 import { EVEN_UP_CLOSES_AT, EVEN_UP_OFFER_ABOVE, percentMore } from "./verdict-copy.js";
 
 export const TRADE_DRAFT_STORAGE_KEY = "dynasty_ticker_trade_draft_v1";
@@ -162,6 +162,34 @@ export function draftTeamSummary(context, { leftCount = 0, rightCount = 0, partn
       : `Team impact needs You give from your roster and You get from one team. ${fit}`;
   }
   return partnerName ? `With ${partnerName}.` : "";
+}
+
+// A generic pick added before the league loaded ("my 2028 2nd" with no league).
+// Find the real pick of that season and round on the side's team: your roster
+// for You give, the partner's for You get. Prefer the team's own pick. The
+// draft is not changed here; the manager taps to use it.
+export function leaguePickForGeneric(item, side, { draft = null, rosters = [], meRosterId = null, partnerRosterId = null } = {}) {
+  const id = String(item?.assetId || "");
+  if (!isGenericPickAssetId(id)) return null;
+  const meta = parsePickAssetId(id);
+  const owner = side === "left" ? meRosterId : partnerRosterId;
+  if (!meta || owner == null || owner === "") return null;
+  const taken = new Set([...(draft?.left || []), ...(draft?.right || [])].map((entry) => String(entry.assetId)));
+  const roster = (Array.isArray(rosters) ? rosters : []).find((entry) => String(entry?.rosterId) === String(owner));
+  const matches = (roster?.assets || []).filter((asset) => {
+    const pick = isLeaguePickAssetId(asset?.assetId) ? parsePickAssetId(asset.assetId) : null;
+    return pick && pick.season === meta.season && pick.round === meta.round && !taken.has(String(asset.assetId));
+  });
+  const own = (asset) => String(asset.assetId).split(":").pop() === String(owner);
+  return matches.find(own) || matches[0] || null;
+}
+
+// Puts a league pick where the generic pick was, keeping its place and uid.
+export function useLeaguePick(draft, uid, asset, leagueId = "") {
+  const swap = (items) => (items || []).map((item) => (String(item.uid) === String(uid)
+    ? { uid: item.uid, assetId: String(asset.assetId), name: String(asset.name || asset.assetId), assetType: "pick", leagueId: String(leagueId || "") }
+    : item));
+  return { ...draft, left: swap(draft?.left), right: swap(draft?.right) };
 }
 
 export function draftSideForAsset(assetId, { rosters = [], meRosterId = null } = {}) {
