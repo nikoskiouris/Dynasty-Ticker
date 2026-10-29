@@ -28,4 +28,6 @@ Acceptance
 - A name that fits several players asks with buttons instead of guessing. Words it cannot read are named, and the draft is kept.
 - With a league connected: "my", "his" and "Chris's" pick the owner's real league pick, a neutral "A for B" is read by who owns what, and a pick a team does not own is explained, not swapped.
 - "What could I get for X" prices the give side and lists single players priced near it, from the named manager's roster in a league. They are labeled as price neighbors, not offers anyone accepts.
+- Without a league it is a full calculator: no sign-in needed. When the words name a manager ("from Chris"), the box offers Connect my league, and the trade stays.
+- After connecting, the same trade is still there. A generic pick from before ("my 2028 2nd") stays generic and offers "Use the 2028 2nd on your roster" (or the partner's). Nothing is swapped without a tap.
 - Works at phone, iPad and desktop sizes. `/trade?say=` opens a described trade.

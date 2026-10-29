@@ -1996,6 +1996,15 @@ button.talk-chip:hover { background: var(--panel-tint); color: var(--text); }
 .talk-lines { display: grid; gap: 2px; }
 .talk-lines p { margin: 0; color: var(--muted-strong); font-size: var(--fs-sm2); }
 .talk-choice { display: grid; gap: var(--sp-1); }
+button.talk-connect {
+  justify-self: start;
+  width: auto;
+  min-height: var(--tap-min);
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-sm2);
+  font-weight: var(--fw-semi);
+}
 .talk-choice-title { margin: 0; color: var(--muted); font-size: var(--fs-xs) !important; font-weight: var(--fw-semi); letter-spacing: var(--ls-label); text-transform: uppercase; }
 .talk-box { position: relative; }
 .talk-toast {

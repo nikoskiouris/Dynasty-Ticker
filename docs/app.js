@@ -183,10 +183,12 @@ import {
   draftSideForAsset,
   draftTeamSummary,
   isDraftEmpty,
+  leaguePickForGeneric,
   placeAfterConnect,
   readStoredDraft,
   resolveDraftContext,
   reviewPayloadFor,
+  useLeaguePick,
   writeStoredDraft,
 } from "./modules/trade-draft.js";
 import {
@@ -7836,6 +7838,7 @@ function renderTradeTalkLog() {
   return tradeTalkLog.slice(0, 1).map((turn) => `
     <div class="talk-turn">
       ${turn.sticky && turn.lines.length ? `<div class="talk-lines">${turn.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>` : ""}
+      ${turn.connect && !state.leagueId ? `<button type="button" class="talk-connect" data-action="draft-connect">Connect my league</button>` : ""}
       ${turn.groups.map((group) => `
         <div class="talk-choice" role="group" aria-label="${escapeHtml(group.title)}">
           <p class="talk-choice-title">${escapeHtml(group.title)}</p>
@@ -7990,7 +7993,7 @@ function runTradeTalk(text) {
   }));
   const bothSides = after.draft.left.length > 0 && after.draft.right.length > 0;
   if (plan.unknownPartner) {
-    lines.push(`Connect your Sleeper league to use ${plan.unknownPartner}’s roster. Until then these are market picks and players.`);
+    lines.push(`Connect your Sleeper league to use ${plan.unknownPartner}’s roster. Until then these are market picks and players. This trade stays here.`);
   }
   if (plan.intent === "shop" && after.give > 0) {
     const partnerId = after.context?.partnerRosterId ?? null;
@@ -8020,6 +8023,7 @@ function runTradeTalk(text) {
     lines,
     sticky,
     groups,
+    connect: Boolean(plan.unknownPartner) && !after.basis.connected,
     next: tradeTalkNext(after),
   }];
   analyticsTrack("trade_described", { intent: plan.intent });
@@ -8419,6 +8423,18 @@ function renderDraftNotes(side, view) {
     const row = view.context.items.get(String(item.uid));
     if (!row || row.status === "ok") return "";
     const owner = row.ownerRosterId != null ? findNormalizedRoster(row.ownerRosterId)?.manager?.displayName : "";
+    const real = row.status === "generic" ? leaguePickForGeneric(item, side, {
+      draft: view.draft,
+      rosters: state.normalizedRosters,
+      meRosterId: view.me?.rosterId ?? null,
+      partnerRosterId: view.context.partnerRosterId || null,
+    }) : null;
+    if (real) {
+      const partner = findNormalizedRoster(view.context.partnerRosterId)?.manager?.displayName;
+      const whose = side === "left" ? (sampleVoice()?.roster || "your roster") : (partner ? `${partner}’s roster` : "their roster");
+      const label = `${item.name.replace(/^(\d{4} )(?:early |mid |late )/i, "$1")} on ${whose}`;
+      return `<li><strong>${escapeHtml(item.name)}:</strong> Generic pick at market price. <button type="button" class="inline-link" data-action="draft-use-league-pick" data-uid="${escapeHtml(item.uid)}" data-asset-id="${escapeHtml(real.assetId)}">Use the ${escapeHtml(label)}</button></li>`;
+    }
     return `<li><strong>${escapeHtml(item.name)}:</strong> ${escapeHtml(describeDraftItem(row, { ownerName: owner, kind: item.assetType, voice: sampleVoice() }))}</li>`;
   }).filter(Boolean);
   return notes.length ? `<ul class="draft-note-list">${notes.join("")}</ul>` : "";
@@ -9554,6 +9570,15 @@ function handleWorkspaceClick(event) {
     }
     case "draft-connect": {
       openConnectPrompt();
+      break;
+    }
+    case "draft-use-league-pick": {
+      const uid = target.dataset.uid;
+      const item = [...state.valueCalc.left, ...state.valueCalc.right].find((entry) => String(entry.uid) === String(uid));
+      const asset = (state.normalizedRosters || []).flatMap((roster) => roster.assets || []).find((entry) => entry.assetId === target.dataset.assetId);
+      if (!item || !asset) break;
+      setDraft(useLeaguePick(state.valueCalc, uid, asset, state.leagueId));
+      renderTradeDraft();
       break;
     }
     case "draft-format": {
