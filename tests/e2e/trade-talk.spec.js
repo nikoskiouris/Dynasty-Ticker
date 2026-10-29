@@ -87,6 +87,9 @@ for (const viewport of viewports) {
     await expect(chase).toBeVisible();
     await expect(tokens(page, "left")).toHaveText([/1st/]);
     await expect(tokens(page, "right")).toHaveCount(0);
+    // The reply stays in place; no toast floats over the questions.
+    await expect(page.locator(".talk-lines")).toContainText("2027 1st");
+    await expect(page.locator("#talk-toast")).toBeHidden();
 
     // Answering one question keeps the other on screen.
     await jefferson.locator("[data-action='talk-add']", { hasText: "Justin Jefferson" }).click();

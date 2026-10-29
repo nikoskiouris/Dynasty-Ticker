@@ -8017,8 +8017,9 @@ function runTradeTalk(text) {
   if (!bothSides && plan.intent === "verdict") {
     lines.push("Add pieces to both sides first, like “Gibbs for Nabers.”");
   }
-  const sticky = !changed || plan.misses.length > 0 || plan.notes.length > 0 || Boolean(plan.unknownPartner)
-    || plan.intent === "shop" || plan.intent === "verdict";
+  // A question needs an answer, so its reply stays on screen instead of a toast over it.
+  const sticky = !changed || plan.misses.length > 0 || plan.notes.length > 0 || plan.asks.length > 0
+    || Boolean(plan.unknownPartner) || plan.intent === "shop" || plan.intent === "verdict";
   tradeTalkLog = [{
     say,
     lines,
