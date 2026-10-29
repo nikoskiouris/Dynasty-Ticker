@@ -32,6 +32,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [014](014-redraft-values.txt) | Redraft rest-of-season values | P1 |
 | [017](017-ideas-explain-why.txt) | Trade ideas say what they do and why the other team says yes | P1 |
 | [018](018-returning-manager-resume.txt) | Returning manager lands back on their league and team | P1 |
+| [019](019-describe-a-trade.txt) | Describe a trade in plain words and the calculator builds it | P1 |
 
 ## Done
 
