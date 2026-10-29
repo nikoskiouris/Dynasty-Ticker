@@ -25,7 +25,7 @@ Acceptance
 - "Gibbs and a 2027 1st for Nabers" puts Gibbs and a 2027 1st on You give, Nabers on You get, and shows the same verdict as the calculator.
 - "I got offered X for Y" puts X on You get.
 - Follow-ups change the current draft. A new trade replaces it, and Restore draft brings the old one back.
-- A name that fits several players asks with buttons instead of guessing. Words it cannot read are named, and the draft is kept.
+- A name that fits several players asks with buttons instead of guessing. A bare name ("Jefferson and a first for Chase") asks which Jefferson and which Chase, counting first-name matches like Chase Brown, with the biggest player first. Answering one question keeps the other on screen. Full names and nicknames go straight in. In a league only rostered players count. Words it cannot read are named, and the draft is kept.
 - With a league connected: "my", "his" and "Chris's" pick the owner's real league pick, a neutral "A for B" is read by who owns what, and a pick a team does not own is explained, not swapped.
 - "What could I get for X" prices the give side and lists single players priced near it, from the named manager's roster in a league. They are labeled as price neighbors, not offers anyone accepts.
 - Without a league it is a full calculator: no sign-in needed. When the words name a manager ("from Chris"), the box offers Connect my league, and the trade stays.

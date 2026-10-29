@@ -176,14 +176,41 @@ test("in a league, 'what could I get from Chris' suggests his players priced nea
   assert.deepEqual(near.map((row) => row.name), ["Puka Nacua", "Malik Nabers"]);
 });
 
-test("a shared name goes to the clearly bigger player, and a close call asks", () => {
+// Owner direction (Oct 29): "Jefferson and a first for Chase" asks which
+// Jefferson and which Chase. A bare name never picks by price alone.
+test("a bare name shared by several players asks, biggest first; a full name or nickname does not", () => {
+  const { draft, turns } = converse(["Jefferson and a first for Chase"]);
+  const asks = turns[0].plan.asks;
+  assert.deepEqual(asks.map((ask) => [ask.question, ask.side]), [["Which Jefferson?", "left"], ["Which Chase?", "right"]]);
+  assert.equal(asks[0].options[0].name, "Justin Jefferson");
+  assert.ok(asks[0].options.some((row) => row.name === "Van Jefferson"));
+  assert.equal(asks[1].options[0].name, "Ja'Marr Chase");
+  assert.ok(asks[1].options.some((row) => row.name === "Chase Brown"), "a first-name match is a candidate too");
+  assert.deepEqual(names(draft.left), ["2027 1st"], "the pick still lands while the names wait");
+  assert.deepEqual(draft.right, []);
+
+  assert.deepEqual(names(converse(["Justin Jefferson for Ja'Marr Chase"]).draft.left), ["Justin Jefferson"]);
+  assert.deepEqual(names(converse(["JJ for Chase Brown"]).draft.right), ["Chase Brown"]);
+  assert.deepEqual(names(converse(["Gibbs for Nabers"]).draft.left), ["Jahmyr Gibbs"], "a one-of-a-kind name goes straight in");
+
   const rows = [
-    { assetId: "player:a", name: "Josh Allen", assetType: "player", value: 9000 },
-    { assetId: "player:b", name: "Keenan Allen", assetType: "player", value: 1200 },
     { assetId: "player:c", name: "Chris Godwin", assetType: "player", value: 3000 },
     { assetId: "player:d", name: "Chris Olave", assetType: "player", value: 3200 },
   ];
-  const ctx = { ...publicCtx, catalog: rows };
-  assert.deepEqual(names(converse(["Allen"], ctx).draft.left), ["Josh Allen"]);
-  assert.equal(converse(["Chris"], ctx).turns[0].plan.asks.length, 1);
+  assert.equal(converse(["Chris"], { ...publicCtx, catalog: rows }).turns[0].plan.asks.length, 1);
+});
+
+test("in a league, a bare name only counts rostered players", () => {
+  const ctx = {
+    ...publicCtx,
+    connected: true,
+    meRosterId: 1,
+    managers: [{ rosterId: 1, displayName: "niko" }, { rosterId: 2, displayName: "ChrisP" }],
+    catalog: [
+      { assetId: "player:jj", name: "Justin Jefferson", assetType: "player", value: 7900, ownerRosterId: 2 },
+      { assetId: "player:vj", name: "Van Jefferson", assetType: "player", value: 156, ownerRosterId: null },
+      { assetId: "player:g", name: "Jahmyr Gibbs", assetType: "player", value: 9000, ownerRosterId: 1 },
+    ],
+  };
+  assert.deepEqual(names(converse(["Gibbs for Jefferson"], ctx).draft.right), ["Justin Jefferson"]);
 });

@@ -76,3 +76,27 @@ test("the verdict meter matches the verdict and See why lists every piece", asyn
   await expect(page.locator("#talk-toast")).toHaveText(/Added 2028 2nd/);
   await expect(page.locator(".meter-why .side-left .meter-why-row")).toHaveCount(2);
 });
+
+for (const viewport of viewports) {
+  test(`"Jefferson and a first for Chase" asks which Jefferson and which Chase at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(`/trade?say=${encodeURIComponent("Jefferson and a first for Chase")}`);
+    const jefferson = page.locator(".talk-choice[aria-label='Which Jefferson?']");
+    const chase = page.locator(".talk-choice[aria-label='Which Chase?']");
+    await expect(jefferson).toBeVisible({ timeout: 30000 });
+    await expect(chase).toBeVisible();
+    await expect(tokens(page, "left")).toHaveText([/1st/]);
+    await expect(tokens(page, "right")).toHaveCount(0);
+
+    // Answering one question keeps the other on screen.
+    await jefferson.locator("[data-action='talk-add']", { hasText: "Justin Jefferson" }).click();
+    await expect(tokens(page, "left")).toHaveText([/1st/, "Justin Jefferson"]);
+    await expect(jefferson).toHaveCount(0);
+    await expect(chase).toBeVisible();
+
+    await chase.locator("[data-action='talk-add']", { hasText: "Chase Brown" }).click();
+    await expect(tokens(page, "right")).toHaveText(["Chase Brown"]);
+    await expect(chase).toHaveCount(0);
+    await expect(page.locator("#draft-meter .meter-label")).toHaveText(await page.locator("#value-calc-verdict h3").innerText());
+  });
+}

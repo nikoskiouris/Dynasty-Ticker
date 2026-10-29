@@ -7988,6 +7988,7 @@ function runTradeTalk(text) {
   const after = buildDraftView();
   const lines = tradeTalkReply(plan, result, { giveLabel, getLabel });
   const groups = plan.asks.map((ask) => ({
+    ask: true,
     title: ask.question || `Which one for “${ask.text}”?`,
     chips: ask.options.map((option) => ({ ...option, side: ask.side || "left" })),
   }));
@@ -8044,16 +8045,20 @@ function addTalkChip(target) {
   const after = buildDraftView();
   const last = tradeTalkLog[0];
   const line = added ? `Added ${target.dataset.name} to ${label}.` : `${target.dataset.name} is already in the trade.`;
+  // "Jefferson and a first for Chase" asks twice. Answering one keeps the other.
+  const answered = target.closest(".talk-choice")?.getAttribute("aria-label") || "";
+  const groups = (last?.groups || []).filter((group) => !group.ask || group.title !== answered);
+  const waiting = groups.some((group) => group.ask);
   tradeTalkLog = [{
     say: last?.say || target.dataset.name || "",
     lines: [line],
-    sticky: false,
-    groups: [],
-    next: tradeTalkNext(after),
+    sticky: waiting,
+    groups: waiting ? groups : [],
+    next: waiting ? [] : tradeTalkNext(after),
   }];
   patchTradeDraft(["left", "right"]);
   patchTradeTalkLog();
-  showTalkToast([line]);
+  showTalkToast(waiting ? [] : [line]);
 }
 
 function handleTradeTalkSubmit(event) {

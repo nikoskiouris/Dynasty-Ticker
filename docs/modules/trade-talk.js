@@ -130,6 +130,10 @@ export function resolvePlayer(text, index, { ownerRosterId = null, preferRostere
     }
   }
   if (!hits.length) return {};
+  // One bare word ("Jefferson", "Chase") names a person, not a price. Every
+  // player with that first or last name is a candidate, and two or more ask.
+  const bareName = qToks.length === 1 && (best === 80 || best === 60);
+  if (bareName) hits = index.filter((entry) => [80, 60].includes(scorePlayer(query, qToks, entry)));
   let rows = hits.map((entry) => entry.row);
   const narrow = (keep) => {
     const kept = rows.filter(keep);
@@ -141,7 +145,7 @@ export function resolvePlayer(text, index, { ownerRosterId = null, preferRostere
   if (rows.length === 1) return { match: rows[0] };
   const top = Number(rows[0].value) || 0;
   const next = Number(rows[1].value) || 0;
-  if (top > 0 && top >= next * 2) return { match: rows[0] };
+  if (!bareName && top > 0 && top >= next * 2) return { match: rows[0] };
   return { options: rows.slice(0, 4) };
 }
 
