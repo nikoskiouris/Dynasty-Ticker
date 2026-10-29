@@ -17,6 +17,8 @@ import {
   TRADE_DRAFT_STORAGE_KEY,
   describeDraftItem,
   draftFromReview,
+  leaguePickForGeneric,
+  useLeaguePick,
   draftMarketPrice,
   draftMeterValues,
   draftNoticeText,
@@ -504,4 +506,36 @@ test("league load keeps the draft and there is one calculator", () => {
   assert.doesNotMatch(app, /state\.calc\./, "the roster-only calculator state is gone");
   const index = siteMarkup();
   assert.equal((index.match(/class="calculator-shell"/g) || []).length, 1);
+});
+
+// A trade built with no league ("my 2028 2nd") keeps its generic pick when the
+// league loads. The matching real pick is offered, never swapped in silently.
+test("a generic pick from before the league loaded is matched to the side's real pick", () => {
+  const rosters = [
+    { rosterId: 1, assets: [
+      { assetId: "pick:2028:r2:4", name: "2028 2nd (dana)", assetType: "pick" },
+      { assetId: "pick:2028:r2:1", name: "2028 2nd (niko)", assetType: "pick" },
+      { assetId: "pick:2028:r1:1", name: "2028 1st (niko)", assetType: "pick" },
+    ] },
+    { rosterId: 2, assets: [{ assetId: "pick:2027:r1:2", name: "2027 1st (chris)", assetType: "pick" }] },
+  ];
+  let draft = addValueCalcItem(emptyValueCalcState(), "left", { assetId: "player:9221", name: "Jahmyr Gibbs", assetType: "player" });
+  draft = addValueCalcItem(draft, "left", { assetId: "pick:2028:r2:any", name: "2028 2nd", assetType: "pick" });
+  draft = addValueCalcItem(draft, "right", { assetId: "pick:2027:r1:early", name: "2027 Early 1st", assetType: "pick" });
+  const [, mine] = draft.left;
+  const [theirs] = draft.right;
+
+  const real = leaguePickForGeneric(mine, "left", { draft, rosters, meRosterId: 1, partnerRosterId: 2 });
+  assert.equal(real.assetId, "pick:2028:r2:1", "prefers the team's own pick");
+  assert.equal(leaguePickForGeneric(theirs, "right", { draft, rosters, meRosterId: 1, partnerRosterId: 2 }).assetId, "pick:2027:r1:2");
+  assert.equal(leaguePickForGeneric(theirs, "right", { draft, rosters, meRosterId: 1, partnerRosterId: null }), null, "no partner, no guess");
+  assert.equal(leaguePickForGeneric(theirs, "left", { draft, rosters, meRosterId: 1, partnerRosterId: 2 }), null, "you do not own a 2027 1st");
+  assert.equal(leaguePickForGeneric(draft.left[0], "left", { draft, rosters, meRosterId: 1 }), null, "players are not picks");
+
+  const next = useLeaguePick(draft, mine.uid, real, "L1");
+  assert.deepEqual(next.left.map((item) => item.assetId), ["player:9221", "pick:2028:r2:1"], "same place in the list");
+  assert.equal(next.left[1].uid, mine.uid);
+  assert.equal(next.left[1].leagueId, "L1");
+  assert.deepEqual(next.right, draft.right);
+  assert.equal(leaguePickForGeneric({ ...mine, uid: "99" }, "left", { draft: next, rosters, meRosterId: 1 }).assetId, "pick:2028:r2:4", "a pick already in the trade is not offered twice");
 });

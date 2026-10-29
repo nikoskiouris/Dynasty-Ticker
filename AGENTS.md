@@ -41,15 +41,15 @@ What follows from that:
 - Regression tests pin behavior (draft kept, one verdict, correct ownership, durable saves), not labels or tab counts.
 - A developer walkthrough is not usability evidence. First-visit tasks live in `research/first-visit-tasks.md`. Never invent results.
 
-## Cursor Cloud specific instructions
+## Shipping a change
 
-Follow `.cursor/skills/ship-without-demos/SKILL.md`.
+These apply to every agent (Cursor, Claude Code, or any other). How to record: `.cursor/skills/ship-with-demo/SKILL.md`.
 
-- Test changes yourself. Do not record demo videos or walkthrough artifacts.
-- Do not upload videos for the user to watch.
-- One screenshot is enough, and only if a visual result is hard to describe.
+- Test changes yourself.
+- Every change ships with a demo video that shows what changed and how it works, including changes with nothing on screen (docs, tests, scripts, data jobs): show the diff, the terminal, or the page that proves the result. After you put up or update a PR, show the owner the video. Embed it in the PR when your tools can upload it; otherwise send it in the final reply.
+- A demo video is not usability evidence (see Proving a change).
 - A launch video, only when the owner asks for one, follows `.cursor/skills/brag/SKILL.md`.
-- After tests pass, commit, push, update the PR, and keep moving.
+- After tests pass and the demo is recorded, commit, push, and update the PR.
 
 ## Git branches
 

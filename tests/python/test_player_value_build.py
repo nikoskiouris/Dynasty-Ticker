@@ -370,6 +370,117 @@ class PlayerValueBuildTests(unittest.TestCase):
         for fmt in ("sf", "oneQb"):
             build._assert_pick_order(priced[fmt])
 
+    def test_superflex_pick_is_never_cheaper_than_the_same_1qb_pick(self):
+        samples = {"sf": {}, "oneQb": {}}
+        for slot in range(1, 61):
+            samples["sf"][slot] = [float(600 - slot * 9)]
+            samples["oneQb"][slot] = [float(640 - slot * 9)]
+        priced = build.pick_values(samples, 2026)
+        for asset_id, one_qb in priced["oneQb"].items():
+            self.assertGreaterEqual(priced["sf"][asset_id], one_qb, asset_id)
+        build._assert_pick_order(priced["sf"])
+
+
+def _age_model(aging, survival=None, max_age=None):
+    return {
+        "aging": aging,
+        "regression": {},
+        "survival": survival or {},
+        "maxAge": max_age or {},
+    }
+
+
+def _profile(**overrides):
+    profile = {
+        "position": "RB",
+        "projectedPpg": 18.0,
+        "availability": 1.0,
+        "injuryMultiplier": 1.0,
+        "age": 22.0,
+        "experience": 1,
+        "careerGames": 17,
+        "draftPick": 6,
+        "resume": {"top5Finishes": 0, "top12Finishes": 0},
+    }
+    profile.update(overrides)
+    return profile
+
+
+class AgingAndRookieTests(unittest.TestCase):
+    replacement = {
+        "sf": {"QB": 6.0, "RB": 4.0, "WR": 4.0, "TE": 4.0},
+        "oneQb": {"QB": 13.0, "RB": 4.0, "WR": 4.0, "TE": 4.0},
+    }
+
+    def test_young_star_only_pays_the_role_haircut_and_regression_once(self):
+        retention = {("RB", age, "elite"): [0.90] * 12 for age in range(20, 40)}
+        flat = _age_model({("RB", age): 1.0 for age in range(21, 33)})
+        _raw, forecast = build.career_value(
+            _profile(), "sf", self.replacement, (retention, {}, {}, flat), current_week=1
+        )
+        year_one = forecast[1]["ppg"]
+        self.assertAlmostEqual(year_one, 18.0 * 0.90 * build.role_security(_profile()), places=2)
+        for later in forecast[2:]:
+            self.assertAlmostEqual(later["ppg"], year_one, places=2)
+
+    def test_old_quarterback_cannot_gain_points_from_a_survivor_sample(self):
+        retention = {("QB", 36, "elite"): [1.03] * 12}
+        aging = {("QB", age): 1.0 for age in range(22, 31)}
+        aging.update({("QB", 31): 0.98, ("QB", 32): 0.95})
+        keep, _surv, _n, _total = build.transition("QB", 42, "elite", retention, {}, {}, _age_model(aging))
+        self.assertLessEqual(keep, 0.95)
+
+    def test_nobody_outlives_the_oldest_season_on_record(self):
+        survival = {("QB", 38): (40, 50)}
+        model = _age_model({("QB", 30): 1.0}, survival, {"QB": 45})
+        _keep, at_45, _n, _total = build.transition("QB", 45, "elite", {}, {("QB", 45, "elite"): (3, 3)}, {}, model)
+        _keep, at_40, _n, _total = build.transition("QB", 40, "elite", {}, {}, {}, model)
+        _keep, at_38, _n, _total = build.transition("QB", 38, "elite", {}, {}, {}, model)
+        self.assertEqual(at_45, 0.0)
+        self.assertLess(at_40, at_38)
+        self.assertAlmostEqual(at_38, 0.8)
+
+    def test_age_curve_never_softens_after_the_peak(self):
+        by_age = {}
+        for age, change in {22: 0.10, 23: 0.06, 24: 0.0, 25: -0.05, 26: -0.08, 27: 0.04, 28: -0.10}.items():
+            by_age[age] = [(0.0, change)] * 20
+        factors = build._smoothed_age_factors(by_age, 0.0, 0.0)
+        self.assertGreater(factors[22], 1.0)
+        later = [factors[age] for age in range(25, 29)]
+        self.assertEqual(later, sorted(later, reverse=True))
+        self.assertLessEqual(max(later), 1.0)
+
+    def test_unplayed_high_pick_is_priced_from_his_draft_slot(self):
+        samples = {
+            "sf": {("QB", "top10"): [400.0] * 3, ("QB", "round1"): [200.0] * 3, ("QB", "late"): [0.0] * 9},
+            "oneQb": {},
+        }
+        weight, prior = build.rookie_prior(
+            _profile(position="QB", experience=0, careerGames=0, draftPick=1), "sf", samples
+        )
+        self.assertEqual(weight, 1.0)
+        self.assertEqual(prior, 300.0)
+        weight, prior = build.rookie_prior(
+            _profile(position="QB", experience=0, careerGames=1, draftPick=223), "sf", samples
+        )
+        self.assertGreater(weight, 0.8)
+        self.assertEqual(prior, 0.0)
+
+    def test_draft_slot_fades_once_a_player_has_a_track_record(self):
+        samples = {"sf": {("WR", "top10"): [300.0] * 8}, "oneQb": {}}
+        rookie, _ = build.rookie_prior(_profile(position="WR", experience=0, careerGames=5), "sf", samples)
+        second, _ = build.rookie_prior(_profile(position="WR", experience=1, careerGames=22), "sf", samples)
+        veteran, _ = build.rookie_prior(_profile(position="WR", experience=4, careerGames=60), "sf", samples)
+        self.assertGreater(rookie, second)
+        self.assertGreater(second, 0)
+        self.assertEqual(veteran, 0)
+
+    def test_thin_draft_range_borrows_its_neighbors_instead_of_pricing_zero(self):
+        samples = {"sf": {("RB", "top10"): [500.0] * 2, ("RB", "round1"): [300.0] * 6}, "oneQb": {}}
+        weight, prior = build.rookie_prior(_profile(experience=0, careerGames=0, draftPick=3), "sf", samples)
+        self.assertEqual(weight, 1.0)
+        self.assertGreater(prior, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

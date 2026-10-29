@@ -86,6 +86,32 @@ class PlayerValueSnapshotTests(unittest.TestCase):
                     self.assertGreaterEqual(previous_early, early)
                 previous_early = early
 
+    def test_superflex_picks_are_never_cheaper_than_1qb_picks(self):
+        for asset_id, one_qb in self.data["oneQb"].items():
+            if asset_id.startswith("pick:"):
+                self.assertGreaterEqual(self.data["sf"][asset_id], one_qb, asset_id)
+
+    def test_recent_top_ten_picks_are_priced_before_they_play(self):
+        season = int(self.data["season"])
+        for asset_id, info in self.data["players"].items():
+            if info.get("experience") == 0 and (info.get("draftPick") or 999) <= 10:
+                self.assertGreater(self.data["sf"][asset_id], 1000, asset_id)
+
+    def test_forty_year_olds_are_not_superflex_cornerstones(self):
+        board = sorted(
+            (key for key in self.data["sf"] if key in self.data["players"]),
+            key=lambda key: -self.data["sf"][key],
+        )[:60]
+        for asset_id in board:
+            self.assertLess(self.data["players"][asset_id]["age"], 40, asset_id)
+
+    def test_young_stars_do_not_lose_points_every_year_before_their_prime(self):
+        for asset_id, info in self.data["players"].items():
+            if info["position"] not in ("WR", "TE") or info["age"] > 23 or self.data["sf"].get(asset_id, 0) < 3000:
+                continue
+            ppg = [year["ppg"] for year in info["forecast"]["sf"]]
+            self.assertGreaterEqual(ppg[3], ppg[1] * 0.97, asset_id)
+
     def test_a_star_quarterback_is_worth_more_in_superflex(self):
         allen = "player:4984"
         self.assertGreater(self.data["sf"][allen], self.data["oneQb"][allen])

@@ -834,7 +834,134 @@ def learn_transitions(rows, replacement, through_origin):
             ratio = clamp(nxt["ppg"] / row["ppg"], 0.35, 1.45)
             retention[key].append(ratio)
             generic[(row["position"], age_bucket(row["age"]))].append(ratio)
-    return retention, survival, generic
+    return retention, survival, generic, learn_age_model(rows, through_origin)
+
+
+def _smoothed_age_factors(by_age, slope, center):
+    """Pure aging per position: next/this scoring with the pull toward average taken out.
+
+    Tier medians mix two things. A great season regresses toward average and a
+    player also ages. Applying a tier median every year regresses a young star
+    again each season. This keeps only the age part for later years.
+    """
+    config = CONFIG["aging"]
+    minimum = int(config["minSamples"])
+    raw = {}
+    for age, points in by_age.items():
+        if len(points) >= minimum:
+            raw[age] = (median([y - slope * (x - center) for x, y in points]), len(points))
+    if not raw:
+        return {}
+    smoothed = {}
+    for age in raw:
+        window = [raw[near] for near in (age - 1, age, age + 1) if near in raw]
+        total = sum(count for _value, count in window)
+        smoothed[age] = sum(value * count for value, count in window) / total
+    ages = sorted(smoothed)
+    level = 0.0
+    best_level = 0.0
+    peak = ages[0]
+    for age in ages:
+        level += smoothed[age]
+        if level > best_level:
+            best_level = level
+            peak = age + 1
+    floor = float(config["factorFloor"])
+    ceiling = float(config["factorCeiling"])
+    factors = {}
+    previous = 1.0
+    for age in ages:
+        factor = clamp(math.exp(smoothed[age]), floor, ceiling)
+        if age >= peak:
+            # Old players in the sample are the ones still good enough to play,
+            # so a late bounce is survivorship. Past the peak a decline never softens.
+            factor = min(factor, previous, 1.0)
+            previous = factor
+        factors[age] = factor
+    return factors
+
+
+def learn_age_model(rows, through_origin):
+    points = defaultdict(list)
+    pooled = defaultdict(lambda: [0, 0])
+    max_age = {}
+    for (pid, season), row in rows.items():
+        if season >= through_origin or row["age"] is None or row["games"] < 4:
+            continue
+        position = row["position"]
+        bucket = age_bucket(row["age"])
+        max_age[position] = max(max_age.get(position, bucket), bucket)
+        nxt = rows.get((pid, season + 1))
+        pooled[(position, bucket)][1] += 1
+        if nxt and nxt["games"] >= 4:
+            pooled[(position, bucket)][0] += 1
+        if nxt and row["games"] >= 8 and nxt["games"] >= 8 and row["ppg"] > 1 and nxt["ppg"] > 0:
+            ratio = clamp(nxt["ppg"] / row["ppg"], 0.35, 1.45)
+            points[position].append((bucket, math.log(row["ppg"]), math.log(ratio)))
+    aging = {}
+    regression = {}
+    for position, samples in points.items():
+        center = sum(x for _age, x, _y in samples) / len(samples)
+        by_age = defaultdict(list)
+        for age, x, y in samples:
+            by_age[age].append((x, y))
+        numerator = 0.0
+        denominator = 0.0
+        for group in by_age.values():
+            mean_x = sum(x for x, _y in group) / len(group)
+            mean_y = sum(y for _x, y in group) / len(group)
+            for x, y in group:
+                numerator += (x - mean_x) * (y - mean_y)
+                denominator += (x - mean_x) ** 2
+        slope = numerator / denominator if denominator else 0.0
+        regression[position] = {"slope": round(slope, 4), "centerPpg": round(math.exp(center), 3)}
+        for age, factor in _smoothed_age_factors(by_age, slope, center).items():
+            aging[(position, age)] = factor
+    return {
+        "aging": aging,
+        "regression": regression,
+        "survival": {key: tuple(value) for key, value in pooled.items()},
+        "maxAge": max_age,
+    }
+
+
+def aging_factor(position, age, age_model):
+    aging = (age_model or {}).get("aging") or {}
+    ages = sorted(measured for (pos, measured) in aging if pos == position)
+    if not ages:
+        return 1.0
+    bucket = age_bucket(age)
+    if bucket < ages[0]:
+        return aging[(position, ages[0])]
+    if bucket > ages[-1]:
+        return aging[(position, ages[-1])]
+    nearest = max(measured for measured in ages if measured <= bucket)
+    return aging[(position, nearest)]
+
+
+def pooled_survival(position, bucket, age_model):
+    """Chance any player at this position and age plays again. Past the data it keeps fading, and nobody outlives the oldest season on record."""
+    config = CONFIG["survival"]
+    max_age = (age_model.get("maxAge") or {}).get(position)
+    if max_age is not None and bucket + 1 > max_age:
+        return 0.0
+    minimum = int(config["pooledMinSamples"])
+    pooled = age_model.get("survival") or {}
+    measured = sorted(
+        age for (pos, age), (_survived, total) in pooled.items()
+        if pos == position and total >= minimum
+    )
+    if not measured:
+        return 0.80
+    if bucket in measured:
+        survived, total = pooled[(position, bucket)]
+        return survived / total
+    if bucket > measured[-1]:
+        survived, total = pooled[(position, measured[-1])]
+        return survived / total * float(config["fadePerYearPastData"]) ** (bucket - measured[-1])
+    older = min(age for age in measured if age > bucket)
+    survived, total = pooled[(position, older)]
+    return survived / total
 
 
 def age_bucket(age):
@@ -851,7 +978,20 @@ def _borrowed_ages(age_bucket_value):
     return range(age_bucket_value - 1, 19, -1)
 
 
-def _keep_rate(position, age_bucket_value, tier, retention, generic):
+def _borrowed_keep(keep, position, past, age_bucket_value, age_model):
+    """A rate borrowed from a younger age still owes the aging between the two ages.
+
+    The oldest measured QB ages are the few still good enough to play, so their
+    keep rate is near 1.0. Reusing it unchanged let a 42-year-old gain points every year.
+    """
+    if not age_model or past == age_bucket_value:
+        return keep
+    now = aging_factor(position, age_bucket_value, age_model)
+    keep *= min(1.0, now / aging_factor(position, past, age_model))
+    return min(keep, now) if now < 1.0 else keep
+
+
+def _keep_rate(position, age_bucket_value, tier, retention, generic, age_model=None):
     """Year-to-year scoring change. A thin old age borrows the last measured decline.
 
     Defaulting that age to 1.0 freezes a 32-year-old at his current rate for the
@@ -864,24 +1004,33 @@ def _keep_rate(position, age_bucket_value, tier, retention, generic):
     for past in _borrowed_ages(age_bucket_value):
         older = retention.get((position, past, tier), [])
         if len(older) >= 12:
-            return median(older), age_bucket_value - past
+            return _borrowed_keep(median(older), position, past, age_bucket_value, age_model), age_bucket_value - past
     broad = generic.get((position, age_bucket_value), [])
     if len(broad) >= 12:
         return median(broad), 0
     for past in _borrowed_ages(age_bucket_value):
         older = generic.get((position, past), [])
         if len(older) >= 12:
-            return median(older), age_bucket_value - past
+            return _borrowed_keep(median(older), position, past, age_bucket_value, age_model), age_bucket_value - past
     return (0.92 if age_bucket_value >= 30 else 1.0), 0
 
 
-def transition(position, age, tier, retention, survival, generic):
+def transition(position, age, tier, retention, survival, generic, age_model=None):
     bucket = age_bucket(age)
     exact = retention.get((position, bucket, tier), [])
-    keep, _years_past = _keep_rate(position, bucket, tier, retention, generic)
+    keep, _years_past = _keep_rate(position, bucket, tier, retention, generic, age_model)
     survived, total = survival.get((position, bucket, tier), (0, 0))
-    probability = (survived + 8.0) / (total + 10.0) if total else 0.80
-    return clamp(keep, 0.55, 1.18), clamp(probability, 0.35, 0.98), len(exact), total
+    config = CONFIG["survival"]
+    weight = float(config["priorWeight"])
+    floor = float(config["floor"])
+    if age_model:
+        prior = pooled_survival(position, bucket, age_model)
+        if prior <= 0:
+            return clamp(keep, 0.55, 1.18), 0.0, len(exact), total
+    else:
+        prior = 0.80
+    probability = (survived + weight * prior) / (total + weight) if total else prior
+    return clamp(keep, 0.55, 1.18), clamp(probability, floor, 0.98), len(exact), total
 
 
 def role_security(profile):
@@ -1016,14 +1165,16 @@ def current_profile(pid, player, inputs, baselines, finishes=None, anchors=None)
 
 
 def career_value(profile, fmt, replacement, learned, current_week):
-    retention, survival, generic = learned
+    retention, survival, generic, age_model = learned
     position = profile["position"]
     ppg = profile["projectedPpg"]
     availability = profile["availability"]
     age = profile["age"]
     alive = 1.0
     threshold = replacement[fmt][position]
-    ratio = ppg / max(threshold, 0.1)
+    # Tiers were learned against Superflex replacement. Using the 1QB line here
+    # put the same quarterback in a different tier than the one he was measured in.
+    ratio = ppg / max(replacement["sf"][position], 0.1)
     tier = "elite" if ratio >= 1.7 else ("starter" if ratio >= 1.2 else "depth")
     contributions = []
     explanation = []
@@ -1033,8 +1184,15 @@ def career_value(profile, fmt, replacement, learned, current_week):
             remaining = max(0, int(CONFIG["fantasyWeeks"]) - max(0, current_week - 1))
             games = remaining * availability * profile["injuryMultiplier"]
         else:
-            keep, survives, sample, _ = transition(position, age + horizon - 1, tier, retention, survival, generic)
-            ppg *= keep * role_security(profile)
+            keep, survives, sample, _ = transition(
+                position, age + horizon - 1, tier, retention, survival, generic, age_model
+            )
+            # The tier rate already holds one season of pull toward average, and
+            # the role haircut is one risk, not a yearly tax. Later years only age.
+            if horizon == 1:
+                ppg *= keep * role_security(profile)
+            else:
+                ppg *= aging_factor(position, age + horizon - 1, age_model)
             alive *= survives
             games = int(CONFIG["fantasyWeeks"]) * availability * alive
         advantage = max(0.0, ppg - threshold) * games
@@ -1100,6 +1258,47 @@ def rookie_slot_samples(meta, rows, replacement, scale, current_season):
     return output
 
 
+def rookie_prior_samples(meta, rows, replacement, current_season):
+    """What players at each position and NFL draft range went on to score. Same window and ruler as pick prices."""
+    output = {"sf": defaultdict(list), "oneQb": defaultdict(list)}
+    for pid, player in meta.items():
+        year = int(num(player.get("draft_year") or player.get("rookie_season"), 0))
+        pick = int(num(player.get("draft_pick"), 999))
+        position = str(player.get("position") or "").upper()
+        if year < int(CONFIG["pickHistoryStartSeason"]) or year > current_season - 2:
+            continue
+        if position not in POSITIONS or pick >= 999:
+            continue
+        for fmt in output:
+            output[fmt][(position, draft_bucket(pick))].append(
+                realized_rookie_value(pid, year, fmt, rows, replacement)
+            )
+    return output
+
+
+def rookie_prior(profile, fmt, samples):
+    """Blend weight and value for a young player's draft slot.
+
+    A rookie who has not played yet had no price at all, so the No. 1 pick
+    was worth less than a future first. Slot history fills in until games do.
+    """
+    config = CONFIG["rookiePrior"]
+    experience = int(profile.get("experience") or 0)
+    fade = max(0.0, 1.0 - experience / float(config["fadeSeasons"]))
+    games = int(profile.get("careerGames") or 0)
+    weight = float(config["gamesWeight"]) / (float(config["gamesWeight"]) + games) * fade
+    if weight <= 0:
+        return 0.0, 0.0
+    order = ("top10", "round1", "round2", "earlyDay3", "day3", "late")
+    center = order.index(draft_bucket(profile.get("draftPick") or 999))
+    for reach in range(len(order)):
+        nearby = order[max(0, center - reach):center + reach + 1]
+        values = [value for bucket in nearby for value in samples[fmt].get((profile["position"], bucket), [])]
+        if len(values) >= int(config["minSamples"]):
+            return weight, float(median(values))
+    return 0.0, 0.0
+
+
 def force_descending(values):
     """Keep an earlier pick worth at least as much as the next one. Later noise cannot jump the line."""
     output = []
@@ -1139,6 +1338,12 @@ def pick_values(samples, current_season):
         round_values = force_descending([any_first, *round_values[1:]])
         raw[fmt] = {"early": early, "mid": mid, "late": late, "any": any_first, "rounds": round_values}
 
+    # Every Superflex value is at least its 1QB value, so the kth-best rookie on a
+    # Superflex board is worth at least the kth-best on a 1QB board.
+    for key in ("early", "mid", "late", "any"):
+        raw["sf"][key] = max(raw["sf"][key], raw["oneQb"][key])
+    raw["sf"]["rounds"] = [max(sf, one) for sf, one in zip(raw["sf"]["rounds"], raw["oneQb"]["rounds"])]
+
     for year in range(current_season + 1, current_season + 7):
         delay = float(CONFIG["annualDiscount"]) ** max(1, year - current_season)
         for round_number in range(1, 6):
@@ -1161,7 +1366,7 @@ def backtest(rows, replacement=None):
     through = int(CONFIG["validationTrainingThrough"])
     if replacement is None:
         replacement = learn_replacement(rows, through=through)
-    retention, survival, generic = learn_transitions(
+    retention, survival, generic, age_model = learn_transitions(
         rows, replacement, through_origin=through
     )
     errors = []
@@ -1177,7 +1382,7 @@ def backtest(rows, replacement=None):
             ) * nxt["games"]
             tier = role_tier(row, replacement["sf"][row["position"]])
             keep, survives, _, _ = transition(
-                row["position"], row["age"], tier, retention, survival, generic
+                row["position"], row["age"], tier, retention, survival, generic, age_model
             )
             predicted = max(
                 0.0, row["ppg"] * keep - replacement["sf"][row["position"]]
@@ -1430,6 +1635,7 @@ def build(cache, refresh=True):
     learned = learn_transitions(rows, replacement, through_origin=current_season)
     finishes = positional_finishes(rows, current_season)
     anchors = draft_ppg_anchors(rows, inputs["meta"])
+    prior_samples = rookie_prior_samples(inputs["meta"], rows, replacement, current_season)
     active_pids = {
         pid
         for pid, weekly_rows in inputs["weekly"].items()
@@ -1441,6 +1647,7 @@ def build(cache, refresh=True):
     player_meta = {}
     names = {}
     chosen = {}
+    scale = float(CONFIG["displayScale"])
 
     for sleeper_id, player in inputs["sleeper"].items():
         if not isinstance(player, dict) or not player_is_listable(player):
@@ -1464,6 +1671,10 @@ def build(cache, refresh=True):
             continue
         sf_raw, sf_forecast = career_value(profile, "sf", replacement, learned, current_week)
         one_raw, one_forecast = career_value(profile, "oneQb", replacement, learned, current_week)
+        prior_weight, sf_prior = rookie_prior(profile, "sf", prior_samples)
+        _weight, one_prior = rookie_prior(profile, "oneQb", prior_samples)
+        sf_raw = sf_raw * (1 - prior_weight) + sf_prior * prior_weight
+        one_raw = one_raw * (1 - prior_weight) + one_prior * prior_weight
         aid = f"player:{sleeper_id}"
         projected[aid] = {"position": position, "sf": sf_raw, "oneQb": one_raw}
         label = str(player.get("full_name") or f"{player.get('first_name','')} {player.get('last_name','')}").strip()
@@ -1488,11 +1699,14 @@ def build(cache, refresh=True):
                 "careerGames": profile["careerGames"],
                 "currentSeasonGames": profile["currentGames"],
                 "resume": profile["resume"],
+                "draftSlotPrior": {
+                    "weight": round(prior_weight, 3),
+                    "sf": round(sf_prior * scale, 1),
+                    "oneQb": round(one_prior * scale, 1),
+                },
             },
             "forecast": {"sf": sf_forecast, "oneQb": one_forecast},
         }
-
-    scale = float(CONFIG["displayScale"])
 
     validation = backtest(rows)
     generated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -1532,6 +1746,17 @@ def build(cache, refresh=True):
                 "roleTrendPriorGames": int(CONFIG["roleTrendPriorGames"]),
                 "roleTrendWeight": float(CONFIG["roleTrendWeight"]),
             },
+            "aging": {
+                position: {
+                    str(age): round(factor, 4)
+                    for (pos, age), factor in sorted(learned[3]["aging"].items())
+                    if pos == position
+                }
+                for position in POSITIONS
+            },
+            "regressionToAverage": learned[3]["regression"],
+            "careerEndAge": learned[3]["maxAge"],
+            "rookiePrior": CONFIG["rookiePrior"],
             "validation": validation,
             "sourceManifest": manifest(inputs["sourcePaths"]),
             "status": "provisional football forecast",

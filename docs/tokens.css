@@ -44,15 +44,15 @@
   /* type scale (mobile) */
   --fs-xs: 11px;
   --fs-sm: 12px;
-  --fs-sm2: 13px;
-  --fs-body: 14px;
-  --fs-body-lg: 15px;
-  --fs-h3: 15px;
-  --fs-h2: 16px;
-  --fs-h1: 18px;
-  --fs-num: 15px; /* row values */
-  --fs-num-lg: 20px; /* screen display number */
-  --fs-num-xl: 24px; /* max: player value */
+  --fs-sm2: 12px;
+  --fs-body: 13px;
+  --fs-body-lg: 14px;
+  --fs-h3: 14px;
+  --fs-h2: 15px;
+  --fs-h1: 17px;
+  --fs-num: 14px; /* row values */
+  --fs-num-lg: 18px; /* screen display number */
+  --fs-num-xl: 22px; /* max: player value */
   --fw-reg: 400;
   --fw-med: 500;
   --fw-semi: 600;
@@ -73,31 +73,31 @@
   --sp-8: 32px;
   --page-x: 12px;
   --page-x-desk: 24px;
-  --stack: 8px;
-  --section-gap: 16px;
-  --card-pad: 12px;
-  --card-pad-compact: 8px 12px;
+  --stack: 6px;
+  --section-gap: 12px;
+  --card-pad: 10px;
+  --card-pad-compact: 6px 10px;
   /* radius */
   --r-xs: 4px;
   --r-sm: 6px;
   --r-md: 8px;
   --r-pill: 999px; /* pill only for chips */
   /* controls */
-  --btn-h: 36px;
-  --btn-h-sm: 32px;
-  --btn-h-lg: 40px;
-  --btn-px: 14px;
-  --btn-fs: 14px;
-  --input-h: 36px;
-  --chip-h: 28px;
+  --btn-h: 32px;
+  --btn-h-sm: 28px;
+  --btn-h-lg: 36px;
+  --btn-px: 12px;
+  --btn-fs: 13px;
+  --input-h: 32px;
+  --chip-h: 26px;
   --tap-min: 44px; /* hit area via ::before / padding, not visual size */
   /* rows */
-  --row-h: 44px;
-  --row-h-compact: 40px;
-  --row-h-dense: 32px;
+  --row-h: 40px;
+  --row-h-compact: 36px;
+  --row-h-dense: 28px;
   --avatar: 24px;
   /* layout */
-  --header-h: 48px;
+  --header-h: 44px;
   --content-max: 1120px;
   /* colors (existing develop values) */
   --bg: #0c0c0e;
@@ -122,10 +122,10 @@
 
 @media (min-width: 900px) {
   :root {
-    --fs-h1: 20px;
-    --fs-num-lg: 22px;
-    /* Player value stays the 24px max at every width. */
-    --fs-num-xl: 24px;
+    --fs-h1: 18px;
+    --fs-num-lg: 20px;
+    /* Player value stays the 22px max at every width. */
+    --fs-num-xl: 22px;
     --page-x: var(--page-x-desk);
   }
 }

@@ -136,9 +136,11 @@ test("rank order is deterministic and a filter keeps the overall rank", () => {
   });
   assert.deepEqual(forward.map((row) => row.assetId), backward.map((row) => row.assetId));
   assert.deepEqual(forward.map((row) => row.overallRank), backward.map((row) => row.overallRank));
-  const wrs = filterRankRows(forward, { position: "WR" });
+  const leaderPosition = snapshot.players[forward[0].assetId]?.position;
+  const chaser = forward.find((row) => snapshot.players[row.assetId]?.position && snapshot.players[row.assetId].position !== leaderPosition);
+  const wrs = filterRankRows(forward, { position: snapshot.players[chaser.assetId].position });
   assert.ok(wrs.length > 5);
-  assert.ok(wrs[0].overallRank > 1, "the WR1 in this snapshot is not the overall RB/QB No. 1");
+  assert.ok(wrs[0].overallRank > 1, "the filtered position's No. 1 is not the overall No. 1");
   assert.equal(wrs[0].listRank, 1);
   assert.equal(wrs[0].overallRank, forward.find((row) => row.assetId === wrs[0].assetId).overallRank);
   const tied = buildRankBoard({

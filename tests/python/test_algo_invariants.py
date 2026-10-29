@@ -31,6 +31,12 @@ class AlgoInvariantTests(unittest.TestCase):
         for age in range(21, 40):
             rate = 1.02 if age < 25 else max(0.72, 1.0 - 0.02 * (age - 25))
             retention[("RB", age, "elite")] = [rate] * 12
+        age_model = {
+            "aging": {(position, age): rates[0] for (position, age, _tier), rates in retention.items()},
+            "regression": {},
+            "survival": {},
+            "maxAge": {},
+        }
         replacement = {
             "sf": {"QB": 8, "RB": 6, "WR": 6, "TE": 5},
             "oneQb": {"QB": 14, "RB": 6, "WR": 6, "TE": 5},
@@ -49,7 +55,7 @@ class AlgoInvariantTests(unittest.TestCase):
 
         previous = None
         for age in range(24, 36):
-            total, _explanation = build.career_value(profile(age), "sf", replacement, (retention, {}, {}), 1)
+            total, _explanation = build.career_value(profile(age), "sf", replacement, (retention, {}, {}, age_model), 1)
             self.assertGreater(total, 0)
             if previous is not None:
                 self.assertLessEqual(total, previous * 1.01)

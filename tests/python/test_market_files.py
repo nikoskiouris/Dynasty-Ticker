@@ -26,7 +26,7 @@ class MarketFileTests(unittest.TestCase):
         cls.mod = load_module()
 
     def test_shipped_files_match_the_desk_schema(self):
-        now = datetime(2026, 10, 14, 18, tzinfo=timezone.utc)
+        now = datetime(2026, 10, 28, 21, tzinfo=timezone.utc)
         errors, warnings = self.mod.check_files(now=now)
         self.assertEqual(errors, [], warnings)
         self.assertTrue(any("nfl_schedule" in warning for warning in warnings))
