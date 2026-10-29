@@ -19,7 +19,7 @@ for (const viewport of viewports) {
 
     await expect(tokens(page, "left")).toHaveText(["Jahmyr Gibbs", "2027 1st"], { timeout: 30000 });
     await expect(tokens(page, "right")).toHaveText(["Malik Nabers"]);
-    await expect(page.locator(".talk-turn .talk-verdict strong")).toHaveText(await page.locator("#value-calc-verdict h3").innerText());
+    await expect(page.locator("#draft-meter .meter-label")).toHaveText(await page.locator("#value-calc-verdict h3").innerText());
     await expect(page).toHaveURL(/\/trade\?give=9221,pick:2027:r1:any&get=11632/);
 
     await page.fill("#trade-talk-input", "add my 2028 2nd");
@@ -60,4 +60,19 @@ test("a landing example opens that trade, and Keep going adds to it", async ({ p
   const before = await tokens(page, "left").count() + await tokens(page, "right").count();
   await next.click();
   await expect.poll(async () => await tokens(page, "left").count() + await tokens(page, "right").count()).toBe(before + 1);
+});
+
+test("the verdict meter matches the verdict and See why lists every piece", async ({ page }) => {
+  await page.goto(`/trade?say=${encodeURIComponent("I got offered JSN and two 2nds for CMC")}`);
+  await expect(tokens(page, "right")).toHaveCount(3, { timeout: 30000 });
+  await expect(page.locator("#draft-meter .meter-label")).toHaveText(await page.locator("#value-calc-verdict h3").innerText());
+  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("(3)");
+  await page.click("[data-action='meter-why']");
+  await expect(page.locator("[data-action='meter-why']")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(".meter-why .side-left .meter-why-row")).toHaveCount(1);
+  await expect(page.locator(".meter-why .side-right .meter-why-row:not(.is-credit)")).toHaveCount(3);
+  await page.fill("#trade-talk-input", "add my 2028 2nd");
+  await page.press("#trade-talk-input", "Enter");
+  await expect(page.locator("#talk-toast")).toHaveText(/Added 2028 2nd/);
+  await expect(page.locator(".meter-why .side-left .meter-why-row")).toHaveCount(2);
 });

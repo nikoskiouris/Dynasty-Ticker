@@ -7719,35 +7719,48 @@ function renderTradeDraft() {
   }
   const talk = snapshotTradeTalkInput(host);
   host.innerHTML = `
-    ${renderTradeTalk()}
     <div class="panel-heading calc-heading">
-      <div>
-        <span class="eyebrow">Trade</span>
-        <h2>${escapeHtml(sampleVoice()?.giveGetHeading || "You give / You get")}</h2>
-      </div>
+      <h2>${escapeHtml(sampleVoice()?.giveGetHeading || "Trade")}</h2>
       <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
+      ${renderValuesFreshness(valuesFreshness())}
     </div>
+    ${renderTradeTalk()}
     <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
-    <div class="calc-grid">
+    <div class="calc-grid has-meter">
       ${renderDraftPane("left", view)}
+      <div id="draft-meter" class="draft-meter">${renderDraftMeter(view)}</div>
       ${renderDraftPane("right", view)}
     </div>
     <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
     <div class="calc-price-notes">
       ${renderValueBoardBar({ marketHint: marketBoardHint() })}
-      ${renderValuesFreshness(valuesFreshness())}
       ${renderValueScaleExplainer()}
       ${renderPriceLegend(["model", "package"])}
     </div>
     <div id="draft-team" class="draft-team">${renderDraftTeam(view)}</div>
   `;
   restoreTradeTalkInput(host, talk);
+  syncTradeStickyTop();
   if (pendingTradeTalk) {
     const say = pendingTradeTalk;
     pendingTradeTalk = "";
     queueMicrotask(() => runTradeTalk(say));
   }
 }
+
+// Side headers stick under whatever page chrome is pinned at this width.
+function syncTradeStickyTop() {
+  const host = el.calculatorShell;
+  if (!host) return;
+  let top = 0;
+  for (const node of document.querySelectorAll("#control-rail, #desk-nav, #mobile-chrome")) {
+    const cs = getComputedStyle(node);
+    if ((cs.position !== "sticky" && cs.position !== "fixed") || !node.offsetHeight) continue;
+    top = Math.max(top, (parseFloat(cs.top) || 0) + node.offsetHeight);
+  }
+  host.style.setProperty("--trade-sticky-top", `${Math.round(top)}px`);
+}
+window.addEventListener("resize", () => syncTradeStickyTop(), { passive: true });
 
 // ---------------------------------------------------------------------------
 // Describe-a-trade box. Rules in trade-talk.js read the sentence; the draft,
@@ -7789,20 +7802,20 @@ function tradeTalkExamples() {
 }
 
 function renderTradeTalk() {
-  const example = tradeTalkLog.length ? `Keep going: add my ${nextRookieDraftSeason() + 1} 2nd` : tradeTalkExamples()[0];
+  const example = tradeTalkLog.length
+    ? `Keep going: add my ${nextRookieDraftSeason() + 1} 2nd`
+    : `Describe a trade, like ${tradeTalkExamples()[0]}`;
   return `
     <section class="talk-box" aria-labelledby="trade-talk-label">
       <form class="talk-form" data-trade-talk novalidate>
-        <label id="trade-talk-label" for="trade-talk-input" class="talk-label">
-          <span class="talk-title">Describe the trade</span>
-          <span class="talk-sub">Type it like you’d text it. We build it below and price it. Then keep going: add, swap, remove.</span>
-        </label>
+        <label id="trade-talk-label" for="trade-talk-input" class="sr-only">Describe the trade in your own words</label>
         <div class="talk-row">
           <input id="trade-talk-input" name="say" type="text" maxlength="${TRADE_TALK_MAX}" placeholder="${escapeHtml(example)}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send" />
-          <button type="submit" class="talk-send">Build</button>
+          <button type="submit" class="talk-send" aria-label="Build trade"><span aria-hidden="true">↑</span></button>
         </div>
       </form>
       <div id="talk-log" class="talk-log" aria-live="polite">${renderTradeTalkLog()}</div>
+      <p id="talk-toast" class="talk-toast" role="status" hidden></p>
     </section>
   `;
 }
@@ -7811,36 +7824,38 @@ function renderTalkChip(chip) {
   return `<button type="button" class="talk-chip" data-action="talk-add" data-side="${chip.side === "right" ? "right" : "left"}" data-asset-id="${escapeHtml(chip.assetId)}" data-name="${escapeHtml(chip.name)}" data-kind="${chip.assetType === "pick" ? "pick" : "player"}"${chip.leagueId ? ` data-league-id="${escapeHtml(chip.leagueId)}"` : ""}>${escapeHtml(chip.label || chip.name)}${chip.value ? ` <span class="talk-chip-value">${formatNumber(chip.value)}</span>` : ""}</button>`;
 }
 
+function renderTalkSayChips(texts, label) {
+  if (!texts?.length) return "";
+  return `<div class="talk-chips talk-next" role="group" aria-label="${escapeHtml(label)}">${texts.map((text) => `<button type="button" class="talk-chip talk-example" data-action="talk-example" data-say="${escapeHtml(text)}">${escapeHtml(text)}</button>`).join("")}</div>`;
+}
+
+// Confirmations ("Added Josh Allen to You give.") flash as a toast. Anything
+// that needs an answer or explains a miss stays on screen.
 function renderTradeTalkLog() {
-  if (!tradeTalkLog.length) {
-    return `
-      <div class="talk-examples" role="group" aria-label="Examples">
-        <span class="muted small">Try</span>
-        ${tradeTalkExamples().map((text) => `<button type="button" class="talk-chip talk-example" data-action="talk-example" data-say="${escapeHtml(text)}">${escapeHtml(text)}</button>`).join("")}
-      </div>
-    `;
-  }
+  if (!tradeTalkLog.length) return renderTalkSayChips(tradeTalkExamples(), "Examples");
   return tradeTalkLog.slice(0, 1).map((turn) => `
     <div class="talk-turn">
-      <p class="talk-you"><span class="sr-only">You said: </span>${escapeHtml(turn.say)}</p>
-      <div class="talk-reply">
-        ${turn.verdict ? `<button type="button" class="talk-verdict ${escapeHtml(turn.tone || "")}" data-action="talk-verdict"><strong>${escapeHtml(turn.verdict)}</strong><span class="talk-verdict-why">See why</span></button>` : ""}
-        <div class="talk-lines">${turn.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>
-        ${turn.groups.map((group) => `
-          <div class="talk-choice" role="group" aria-label="${escapeHtml(group.title)}">
-            <p class="talk-choice-title">${escapeHtml(group.title)}</p>
-            <div class="talk-chips">${group.chips.map(renderTalkChip).join("")}</div>
-          </div>
-        `).join("")}
-        ${turn.next?.length ? `
-          <div class="talk-next" role="group" aria-label="Keep going">
-            <p class="talk-next-title">Keep going</p>
-            <div class="talk-chips">${turn.next.map((text) => `<button type="button" class="talk-chip talk-example" data-action="talk-example" data-say="${escapeHtml(text)}">${escapeHtml(text)}</button>`).join("")}</div>
-          </div>
-        ` : ""}
-      </div>
+      ${turn.sticky && turn.lines.length ? `<div class="talk-lines">${turn.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>` : ""}
+      ${turn.groups.map((group) => `
+        <div class="talk-choice" role="group" aria-label="${escapeHtml(group.title)}">
+          <p class="talk-choice-title">${escapeHtml(group.title)}</p>
+          <div class="talk-chips">${group.chips.map(renderTalkChip).join("")}</div>
+        </div>
+      `).join("")}
+      ${renderTalkSayChips(turn.next, "Keep going")}
     </div>
   `).join("");
+}
+
+let talkToastTimer = 0;
+function showTalkToast(lines) {
+  const toast = el.calculatorShell?.querySelector("#talk-toast");
+  if (!toast) return;
+  clearTimeout(talkToastTimer);
+  const text = (lines || []).join(" ");
+  toast.textContent = text;
+  toast.hidden = !text;
+  if (text) talkToastTimer = setTimeout(() => { toast.hidden = true; }, 3500);
 }
 
 // Follow-ups are offered only when the parser would actually add something.
@@ -7974,11 +7989,9 @@ function runTradeTalk(text) {
     chips: ask.options.map((option) => ({ ...option, side: ask.side || "left" })),
   }));
   const bothSides = after.draft.left.length > 0 && after.draft.right.length > 0;
-  const copy = bothSides ? verdictCopy(after.model.verdict) : null;
   if (plan.unknownPartner) {
     lines.push(`Connect your Sleeper league to use ${plan.unknownPartner}’s roster. Until then these are market picks and players.`);
   }
-  const showVerdict = changed || plan.intent === "verdict" || plan.asked;
   if (plan.intent === "shop" && after.give > 0) {
     const partnerId = after.context?.partnerRosterId ?? null;
     const neighbors = priceNeighbors(ctx.catalog, after.give, {
@@ -8000,17 +8013,19 @@ function runTradeTalk(text) {
   if (!bothSides && plan.intent === "verdict") {
     lines.push("Add pieces to both sides first, like “Gibbs for Nabers.”");
   }
+  const sticky = !changed || plan.misses.length > 0 || plan.notes.length > 0 || Boolean(plan.unknownPartner)
+    || plan.intent === "shop" || plan.intent === "verdict";
   tradeTalkLog = [{
     say,
     lines,
-    verdict: copy && showVerdict ? copy.line : "",
-    tone: copy ? copy.tone : "",
+    sticky,
     groups,
     next: tradeTalkNext(after),
   }];
   analyticsTrack("trade_described", { intent: plan.intent });
   patchTradeDraft(["left", "right"]);
   patchTradeTalkLog();
+  showTalkToast(sticky ? [] : lines);
 }
 
 function addTalkChip(target) {
@@ -8023,19 +8038,18 @@ function addTalkChip(target) {
   });
   const label = side === "right" ? (sampleVoice()?.getLabel || "You get") : (sampleVoice()?.giveLabel || "You give");
   const after = buildDraftView();
-  const bothSides = after.draft.left.length > 0 && after.draft.right.length > 0;
-  const copy = bothSides ? verdictCopy(after.model.verdict) : null;
   const last = tradeTalkLog[0];
+  const line = added ? `Added ${target.dataset.name} to ${label}.` : `${target.dataset.name} is already in the trade.`;
   tradeTalkLog = [{
     say: last?.say || target.dataset.name || "",
-    lines: [added ? `Added ${target.dataset.name} to ${label}.` : `${target.dataset.name} is already in the trade.`],
-    verdict: copy ? copy.line : "",
-    tone: copy ? copy.tone : "",
+    lines: [line],
+    sticky: false,
     groups: [],
     next: tradeTalkNext(after),
   }];
   patchTradeDraft(["left", "right"]);
   patchTradeTalkLog();
+  showTalkToast([line]);
 }
 
 function handleTradeTalkSubmit(event) {
@@ -8103,6 +8117,8 @@ function patchTradeDraft(listSides = []) {
   if (notice) notice.innerHTML = `${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}`;
   const verdict = host.querySelector("#value-calc-verdict");
   if (verdict) verdict.innerHTML = renderDraftVerdict(view);
+  const meter = host.querySelector("#draft-meter");
+  if (meter) meter.innerHTML = renderDraftMeter(view);
   const team = host.querySelector("#draft-team");
   if (team) team.innerHTML = renderDraftTeam(view);
 }
@@ -8129,9 +8145,10 @@ function renderDraftBasis(view) {
   const { basis } = view;
   return `
     <div class="draft-basis-row" role="group" aria-label="Scoring format">
-      ${["sf", "oneQb"].map((format) => `<button type="button" class="ranks-chip${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}">PPR · ${escapeHtml(rankFormatLabel(format))}</button>`).join("")}
-      ${infoTipMarkup({ id: "pop-format-trade", label: "What PPR, Superflex and 1QB mean", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${GLOSSARY["1QB"]}` })}
-      ${infoTipMarkup({ id: "pop-values-trade", label: "How values work", text: valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10)) })}
+      <div class="draft-format-toggle">
+        ${["sf", "oneQb"].map((format) => `<button type="button" class="draft-format-btn${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}" aria-label="PPR · ${escapeHtml(rankFormatLabel(format))}" title="PPR · ${escapeHtml(rankFormatLabel(format))}">${format === "sf" ? "SF" : "1QB"}</button>`).join("")}
+      </div>
+      ${infoTipMarkup({ id: "pop-format-trade", label: "Scoring and how values work", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${GLOSSARY["1QB"]} ${valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10))}` })}
     </div>
   `;
 }
@@ -8224,7 +8241,7 @@ function renderDraftTotal(side, view) {
   const total = side === "left" ? view.give : view.get;
   return `
     <strong>${formatNumber(total)}</strong>
-    <small>${items.length ? pieceCount(items) : "Nothing added"}</small>
+    <small title="${escapeHtml(items.length ? pieceCount(items) : "Nothing added")}">(${items.length})</small>
   `;
 }
 
@@ -8300,14 +8317,100 @@ function renderDraftTokens(side, view) {
     const label = name
       ? renderSelectedTokenLabel(item)
       : `<span class="selected-token-label is-loading"><span class="name-skeleton" aria-hidden="true"></span><span class="sr-only">Loading player name</span></span>`;
+    const meta = draftItemMeta(item);
     return `
       <span class="selected-token${draftItemMismatch(view, item) ? " is-mismatch" : ""}" data-uid="${escapeHtml(item.uid)}">
+        ${label.includes("player-face") ? "" : `<span class="token-face-blank" aria-hidden="true"></span>`}
         ${label}
+        ${meta ? `<span class="selected-token-meta">${escapeHtml(meta)}</span>` : ""}
         <span class="selected-token-price" title="Value">${formatNumber(price?.value || 0)}${price?.estimated ? " est" : ""}</span>
         <button type="button" class="selected-token-remove" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" aria-label="${escapeHtml(name ? `Remove ${name}` : "Remove")}"><span aria-hidden="true">×</span></button>
       </span>
     `;
   }).join("");
+}
+
+function draftItemMeta(item) {
+  if (item.assetType === "pick" || String(item.assetId || "").startsWith("pick:")) {
+    const season = parsePickAssetId(item.assetId)?.season || item.season || "";
+    return season ? `${season} pick` : "Pick";
+  }
+  const id = facePlayerId(item);
+  const record = state.valueBundles?.players?.[`player:${id}`] || state.players?.[id] || {};
+  return [record.position, record.team].filter(Boolean).join(" · ");
+}
+
+let draftMeterOpen = false;
+
+// One slim bar for the verdict: the split is the credited totals the verdict
+// compares, so the bar, the label and the full breakdown always agree.
+function renderDraftMeter(view) {
+  const { draft, model } = view;
+  if (!draft.left.length || !draft.right.length) {
+    return `
+      <div class="meter-head"><span class="meter-label muted">Add to both sides to see the verdict</span></div>
+      <div class="meter-bar is-empty" aria-hidden="true"></div>
+    `;
+  }
+  const { verdict } = model;
+  const copy = verdictCopy(verdict);
+  const give = Math.max(0, Number(verdict.left) || 0);
+  const get = Math.max(0, Number(verdict.right) || 0);
+  const giveShare = give + get > 0 ? (give / (give + get)) * 100 : 50;
+  const tone = copy.tier === "even" ? "good" : copy.tier === "edge" ? "fair" : (copy.tone || "fair");
+  const voice = sampleVoice();
+  const giveLabel = voice?.giveLabel || "You give";
+  const getLabel = voice?.getLabel || "You get";
+  return `
+    <button type="button" class="meter-head" data-action="meter-why" aria-expanded="${draftMeterOpen ? "true" : "false"}" aria-controls="meter-why">
+      <strong class="meter-label tone-${tone}">${escapeHtml(copy.line)}</strong>
+      <span class="meter-why-link">${draftMeterOpen ? "Hide" : "See why"} <span aria-hidden="true">›</span></span>
+    </button>
+    <div class="meter-bar tone-${tone}" role="img" aria-label="${escapeHtml(`${giveLabel} ${formatNumber(give)}, ${getLabel} ${formatNumber(get)}`)}">
+      <span class="meter-give" style="width:${giveShare.toFixed(1)}%"></span>
+      <span class="meter-get"></span>
+    </div>
+    ${draftMeterOpen ? renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) : ""}
+  `;
+}
+
+function renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) {
+  const { draft, model } = view;
+  const rowsFor = (side) => (draft[side] || []).map((item) => {
+    const price = view.priced.get(String(item.uid));
+    return { name: price?.asset?.name || item.name || "", value: Number(price?.value) || 0 };
+  });
+  const sides = [
+    { key: "left", label: giveLabel, rows: rowsFor("left"), total: give },
+    { key: "right", label: getLabel, rows: rowsFor("right"), total: get },
+  ];
+  const max = Math.max(1, ...sides.flatMap((side) => side.rows.map((row) => row.value)));
+  const adjustment = model.adjustment;
+  const winner = give > get ? "left" : get > give ? "right" : "";
+  return `
+    <div class="meter-why" id="meter-why">
+      ${sides.map((side) => `
+        <div class="meter-why-side side-${side.key}${winner === side.key ? " is-win" : ""}">
+          <p class="meter-why-title"><span>${escapeHtml(side.label)}</span><span class="meter-why-num">${formatNumber(side.total)}</span></p>
+          ${side.rows.map((row) => `
+            <div class="meter-why-row">
+              <span class="meter-why-name">${escapeHtml(row.name)}</span>
+              <span class="meter-why-track"><span style="width:${((row.value / max) * 100).toFixed(1)}%"></span></span>
+              <span class="meter-why-num">${formatNumber(row.value)}</span>
+            </div>
+          `).join("")}
+          ${adjustment?.side === side.key && adjustment.amount > 0 ? `
+            <div class="meter-why-row is-credit">
+              <span class="meter-why-name">Fewer, better players</span>
+              <span class="meter-why-track"></span>
+              <span class="meter-why-num">+${formatNumber(adjustment.amount)}</span>
+            </div>
+          ` : ""}
+        </div>
+      `).join("")}
+      <button type="button" class="inline-link meter-full" data-action="meter-full">Full breakdown</button>
+    </div>
+  `;
 }
 
 function renderDraftNotes(side, view) {
@@ -8322,7 +8425,7 @@ function renderDraftNotes(side, view) {
 }
 
 function draftSearchPlaceholder(side, view) {
-  if (!view.basis.connected) return `Player or pick, like ${nextRookieDraftSeason()} early 1st`;
+  if (!view.basis.connected) return `+ Add player or pick, like ${nextRookieDraftSeason()} early 1st`;
   if (side === "left") return sampleVoice()?.draftSearchLeft || "Your players and picks";
   return "Their players and picks";
 }
@@ -9372,7 +9475,13 @@ function handleWorkspaceClick(event) {
       addTalkChip(target);
       break;
     }
-    case "talk-verdict": {
+    case "meter-why": {
+      draftMeterOpen = !draftMeterOpen;
+      const meter = el.calculatorShell?.querySelector("#draft-meter");
+      if (meter) meter.innerHTML = renderDraftMeter(buildDraftView());
+      break;
+    }
+    case "meter-full": {
       el.calculatorShell?.querySelector("#value-calc-verdict")?.scrollIntoView({ behavior: "smooth", block: "start" });
       break;
     }

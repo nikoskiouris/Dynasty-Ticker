@@ -616,8 +616,7 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
       ["offer head height", box.offerHeadH],
       ["offer photo height", box.offerPhotoH],
     ]) {
-      const want = label.includes("offer") ? 28 : 40;
-      assert.ok(Math.abs(size - want) < 0.6, `${label} ${size}`);
+      assert.ok(Math.abs(size - 40) < 0.6, `${label} ${size}`);
     }
     assert.deepEqual(box.clippedNames, [], `clipped names ${box.clippedNames.join(" | ")}`);
     assert.equal(box.inputFont, "16px");
@@ -658,8 +657,7 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
       ["desk offer head height", desk.offerHeadH],
       ["desk offer photo height", desk.offerPhotoH],
     ]) {
-      const want = label.includes("offer") ? 28 : 40;
-      assert.ok(Math.abs(size - want) < 0.6, `${label} ${size}`);
+      assert.ok(Math.abs(size - 40) < 0.6, `${label} ${size}`);
     }
     assert.deepEqual(desk.clippedNames, [], `desk clipped names ${desk.clippedNames.join(" | ")}`);
     for (const shot of [box, desk]) {

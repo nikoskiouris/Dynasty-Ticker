@@ -302,8 +302,8 @@ test("Esc closes the info panel and returns focus to its button", async ({ page 
 test("pane totals say players & picks, not assets", async ({ page }) => {
   await page.goto(`/t/2s${STAMP}9509~11632.p27r1e`);
   await expect(page.locator("#value-calc-verdict .calc-summary")).toBeVisible({ timeout: 30000 });
-  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("1 player & 1 pick");
-  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player");
+  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveAttribute("title", "1 player & 1 pick");
+  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveAttribute("title", "1 player");
 });
 
 test("after sharing from /trade the sender's address bar shows /t/<code>", async ({ page, context }) => {
@@ -382,8 +382,8 @@ test("cold /t at 390x844 shows the shared verdict in the first viewport, then a 
     return Boolean((el.textContent || "").trim());
   }).map((el) => el.id));
   expect(shownH1).toEqual(["shared-trade-title"]);
-  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("1 player & 1 pick");
-  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player");
+  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveAttribute("title", "1 player & 1 pick");
+  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveAttribute("title", "1 player");
   // Read-only until "Edit this trade". Edit may sit below the 844px fold.
   const edit = page.locator("[data-action='shared-edit']");
   await expect(edit).toBeVisible();
@@ -411,8 +411,8 @@ test("leaving a cold /t restores the app title, including back and forward", asy
   const serverTitle = /<title>([^<]*)<\/title>/.exec(html)[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"');
   await expect(page).toHaveTitle(serverTitle);
   await expect(page.locator("[data-action='shared-edit']")).toBeVisible();
-  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveText("1 player");
-  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveText("2 picks");
+  await expect(page.locator("[data-draft-side='left'] .calc-pane-total small")).toHaveAttribute("title", "1 player");
+  await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveAttribute("title", "2 picks");
   await page.locator("[data-action='shared-check-own']").click();
   await expect(page).toHaveURL(/\/trade$/);
   await expect(page).toHaveTitle("Trade · Dynasty Ticker");
