@@ -19,7 +19,7 @@ for (const viewport of viewports) {
 
     await expect(tokens(page, "left")).toHaveText(["Jahmyr Gibbs", "2027 1st"], { timeout: 30000 });
     await expect(tokens(page, "right")).toHaveText(["Malik Nabers"]);
-    await expect(page.locator(".talk-turn .talk-verdict")).toHaveText(await page.locator("#value-calc-verdict h3").innerText());
+    await expect(page.locator(".talk-turn .talk-verdict strong")).toHaveText(await page.locator("#value-calc-verdict h3").innerText());
     await expect(page).toHaveURL(/\/trade\?give=9221,pick:2027:r1:any&get=11632/);
 
     await page.fill("#trade-talk-input", "add my 2028 2nd");
@@ -47,4 +47,17 @@ test("/trade?say= opens the described trade", async ({ page }) => {
   await expect(tokens(page, "left")).toHaveText(["Christian McCaffrey"], { timeout: 30000 });
   await expect(tokens(page, "right")).toHaveText(["Jaxon Smith-Njigba"]);
   await expect(page).not.toHaveURL(/say=/);
+});
+
+test("a landing example opens that trade, and Keep going adds to it", async ({ page }) => {
+  await page.goto("/");
+  await waitForAppBoot(page);
+  await page.click(".landing-talk-try button[value='Gibbs and a 1st for Nabers']");
+  await expect(tokens(page, "left")).toHaveText(["Jahmyr Gibbs", /1st/], { timeout: 30000 });
+  await expect(tokens(page, "right")).toHaveText(["Malik Nabers"]);
+  const next = page.locator(".talk-next [data-action='talk-example']").first();
+  await expect(next).toBeVisible();
+  const before = await tokens(page, "left").count() + await tokens(page, "right").count();
+  await next.click();
+  await expect.poll(async () => await tokens(page, "left").count() + await tokens(page, "right").count()).toBe(before + 1);
 });

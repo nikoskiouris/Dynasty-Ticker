@@ -265,7 +265,7 @@ export function matchRoute(pathname, search = "") {
       get: row.name === "trade" ? parseAssetList(params.get("get")) : [],
       // "/trade?say=Gibbs for Nabers": a described trade. Read once, then the URL
       // becomes the usual give/get.
-      say: row.name === "trade" ? String(params.get("say") || "").trim().slice(0, 300) : "",
+      say: row.name === "trade" ? String(params.get("say") || params.get("try") || "").trim().slice(0, 300) : "",
       next: row.name === "connect" ? safeNext(params.get("next")) : "",
     });
   }

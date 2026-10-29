@@ -828,7 +828,7 @@ el.landingUsernameForm?.addEventListener("submit", requestFindLeagues);
 el.landingTalkForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   const input = el.landingTalkForm.querySelector("input[name='say']");
-  const say = input?.value || "";
+  const say = event.submitter?.name === "try" ? event.submitter.value : (input?.value || "");
   if (input) input.value = "";
   openTradeWithTalk(say);
 });
@@ -7720,10 +7720,6 @@ function renderTradeDraft() {
   const talk = snapshotTradeTalkInput(host);
   host.innerHTML = `
     ${renderTradeTalk()}
-    ${renderValueBoardBar({ marketHint: marketBoardHint() })}
-    ${renderValuesFreshness(valuesFreshness())}
-    ${renderValueScaleExplainer()}
-    ${renderPriceLegend(["model", "package"])}
     <div class="panel-heading calc-heading">
       <div>
         <span class="eyebrow">Trade</span>
@@ -7737,6 +7733,12 @@ function renderTradeDraft() {
       ${renderDraftPane("right", view)}
     </div>
     <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
+    <div class="calc-price-notes">
+      ${renderValueBoardBar({ marketHint: marketBoardHint() })}
+      ${renderValuesFreshness(valuesFreshness())}
+      ${renderValueScaleExplainer()}
+      ${renderPriceLegend(["model", "package"])}
+    </div>
     <div id="draft-team" class="draft-team">${renderDraftTeam(view)}</div>
   `;
   restoreTradeTalkInput(host, talk);
@@ -7787,13 +7789,13 @@ function tradeTalkExamples() {
 }
 
 function renderTradeTalk() {
-  const example = tradeTalkExamples()[0];
+  const example = tradeTalkLog.length ? `Keep going: add my ${nextRookieDraftSeason() + 1} 2nd` : tradeTalkExamples()[0];
   return `
     <section class="talk-box" aria-labelledby="trade-talk-label">
       <form class="talk-form" data-trade-talk novalidate>
         <label id="trade-talk-label" for="trade-talk-input" class="talk-label">
-          <span class="analytics-kicker">Describe the trade</span>
-          <span class="talk-sub">Type it like you’d text it. We build it below and price it.</span>
+          <span class="talk-title">Describe the trade</span>
+          <span class="talk-sub">Type it like you’d text it. We build it below and price it. Then keep going: add, swap, remove.</span>
         </label>
         <div class="talk-row">
           <input id="trade-talk-input" name="say" type="text" maxlength="${TRADE_TALK_MAX}" placeholder="${escapeHtml(example)}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send" />
@@ -7822,22 +7824,75 @@ function renderTradeTalkLog() {
     <div class="talk-turn">
       <p class="talk-you"><span class="sr-only">You said: </span>${escapeHtml(turn.say)}</p>
       <div class="talk-reply">
-        ${turn.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
-        ${turn.verdict ? `<p class="talk-verdict ${escapeHtml(turn.tone || "")}"><strong>${escapeHtml(turn.verdict)}</strong></p>` : ""}
+        ${turn.verdict ? `<button type="button" class="talk-verdict ${escapeHtml(turn.tone || "")}" data-action="talk-verdict"><strong>${escapeHtml(turn.verdict)}</strong><span class="talk-verdict-why">See why</span></button>` : ""}
+        <div class="talk-lines">${turn.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>
         ${turn.groups.map((group) => `
           <div class="talk-choice" role="group" aria-label="${escapeHtml(group.title)}">
             <p class="talk-choice-title">${escapeHtml(group.title)}</p>
             <div class="talk-chips">${group.chips.map(renderTalkChip).join("")}</div>
           </div>
         `).join("")}
+        ${turn.next?.length ? `
+          <div class="talk-next" role="group" aria-label="Keep going">
+            <p class="talk-next-title">Keep going</p>
+            <div class="talk-chips">${turn.next.map((text) => `<button type="button" class="talk-chip talk-example" data-action="talk-example" data-say="${escapeHtml(text)}">${escapeHtml(text)}</button>`).join("")}</div>
+          </div>
+        ` : ""}
       </div>
     </div>
   `).join("");
 }
 
+// Follow-ups are offered only when the parser would actually add something.
+function tradeTalkNext(view) {
+  const { draft } = view;
+  const season = nextRookieDraftSeason();
+  const ctx = tradeTalkContext(view);
+  const candidates = [];
+  const gap = Number(view.model?.verdict?.gap) || 0;
+  const more = draft.left.length && draft.right.length ? verdictCopy(view.model.verdict).more : null;
+  if (more != null && more > EVEN_UP_OFFER_ABOVE && gap) {
+    const pick = findEvenUpPick(view);
+    const near = pick && Number(pick.value) > 0 && pick.value <= Math.abs(gap) * 1.5 && pick.value >= Math.abs(gap) * 0.67;
+    if (pick?.closes && near && pick.name) {
+      candidates.push(gap > 0 ? `add a ${pick.name}` : `they add a ${pick.name}`);
+    } else {
+      const partnerId = view.context?.partnerRosterId ?? null;
+      const [player] = priceNeighbors(ctx.catalog, Math.abs(gap), {
+        exclude: [...draft.left, ...draft.right].map((item) => item.assetId),
+        ownerRosterId: gap > 0 ? ctx.meRosterId : partnerId,
+        notOwnerRosterId: gap > 0 ? partnerId : ctx.meRosterId,
+        limit: 1,
+      });
+      if (player) candidates.push(gap > 0 ? `add ${player.name}` : `they add ${player.name}`);
+    }
+  }
+  const givePlayer = draft.left.find((item) => item.assetType !== "pick");
+  if (givePlayer && !draft.right.length) candidates.push(`what could I get for ${givePlayer.name}`);
+  if (draft.left.length || draft.right.length) candidates.push(`add my ${season + 1} 2nd`);
+  const inDraft = new Set([...draft.left, ...draft.right].map((item) => String(item.assetId)));
+  const keep = [];
+  for (const text of candidates) {
+    if (keep.length >= 3) break;
+    const plan = parseTradeTalk(text, ctx);
+    if (plan.misses.length || plan.asks.length) continue;
+    if (plan.intent !== "shop" && !plan.adds.length) continue;
+    if (plan.adds.some((add) => inDraft.has(String(add.asset.assetId)))) continue;
+    keep.push(text);
+  }
+  if (draft.left.length || draft.right.length) keep.push("clear");
+  return keep;
+}
+
+function setTradeTalkPlaceholder() {
+  const input = el.calculatorShell?.querySelector("#trade-talk-input");
+  if (input && tradeTalkLog.length) input.placeholder = `Keep going: add my ${nextRookieDraftSeason() + 1} 2nd`;
+}
+
 function patchTradeTalkLog() {
   const log = el.calculatorShell?.querySelector("#talk-log");
   if (log) log.innerHTML = renderTradeTalkLog();
+  setTradeTalkPlaceholder();
 }
 
 function tradeTalkContext(view) {
@@ -7951,6 +8006,7 @@ function runTradeTalk(text) {
     verdict: copy && showVerdict ? copy.line : "",
     tone: copy ? copy.tone : "",
     groups,
+    next: tradeTalkNext(after),
   }];
   analyticsTrack("trade_described", { intent: plan.intent });
   patchTradeDraft(["left", "right"]);
@@ -7976,6 +8032,7 @@ function addTalkChip(target) {
     verdict: copy ? copy.line : "",
     tone: copy ? copy.tone : "",
     groups: [],
+    next: tradeTalkNext(after),
   }];
   patchTradeDraft(["left", "right"]);
   patchTradeTalkLog();
@@ -9313,6 +9370,10 @@ function handleWorkspaceClick(event) {
     }
     case "talk-add": {
       addTalkChip(target);
+      break;
+    }
+    case "talk-verdict": {
+      el.calculatorShell?.querySelector("#value-calc-verdict")?.scrollIntoView({ behavior: "smooth", block: "start" });
       break;
     }
     case "value-add": {
