@@ -113,7 +113,7 @@ const league = {
   connected: true,
   meRosterId: 1,
   season: 2027,
-  pickIds: new Set(["pick:2027:r1:any", "pick:2027:r2:any", "pick:2028:r2:any"]),
+  pickIds: new Set(["pick:2027:r1:any", "pick:2027:r2:any", "pick:2028:r2:any", "pick:2030:r1:any"]),
   managers: [
     { rosterId: 1, displayName: "niko", teamName: "Ticker Tape" },
     { rosterId: 2, displayName: "ChrisP", teamName: "Lions Den" },
@@ -161,6 +161,12 @@ test("in a league, a pick that team does not own is explained, not swapped", () 
   const { draft, turns } = converse(["Gibbs for Nabers", "add chris's 2028 2nd"], league);
   assert.deepEqual(names(draft.right), ["Malik Nabers"]);
   assert.match(turns[1].reply.join(" "), /ChrisP has no 2028 2nd/);
+});
+
+test("in a league, a pick year the league has not made yet is labeled a generic market pick", () => {
+  const { draft, turns } = converse(["Gibbs for Nabers", "add my 2030 1st"], league);
+  assert.equal(draft.left[1].assetId, "pick:2030:r1:any");
+  assert.match(turns[1].reply.join(" "), /No 2030 picks on rosters here, so 2030 1st is a generic pick at market price/);
 });
 
 test("in a league, 'what could I get from Chris' suggests his players priced near the give side", () => {

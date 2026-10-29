@@ -328,7 +328,10 @@ function resolvePick(pick, { side, ownerRosterId, ctx }) {
   }
   const generic = genericPickAsset(pick, ctx.pickIds);
   if (!generic) return { reason: `No price for ${pickLabel(pick)} picks yet.` };
-  return { picks: Array.from({ length: pick.count }, () => generic) };
+  const note = ctx.connected && !seasonKnown
+    ? `No ${pick.season} picks on rosters here, so ${generic.name} is a generic pick at market price.`
+    : "";
+  return { picks: Array.from({ length: pick.count }, () => generic), note };
 }
 
 function ownerFor(owned, ctx, partner) {
@@ -353,7 +356,7 @@ function resolvePiece(raw, { side, ctx, partner, index }) {
     const hit = resolvePick(pick, { side: pieceSide || "left", ownerRosterId, ctx });
     if (hit.reason) return { miss: { text: raw, reason: hit.reason } };
     if (hit.options) return { ask: { text: raw, side: pieceSide || "right", options: hit.options.map(asDraftAsset), question: hit.question } };
-    return { adds: hit.picks.map((row) => ({ side: pieceSide || "left", asset: asDraftAsset(row) })), partner: owned.manager || null };
+    return { adds: hit.picks.map((row) => ({ side: pieceSide || "left", asset: asDraftAsset(row) })), partner: owned.manager || null, note: hit.note || "" };
   }
   const found = resolvePlayer(owned.text, index, { ownerRosterId, preferRostered: ctx.connected });
   if (found.options) {
@@ -385,7 +388,7 @@ const PRONOUNS = new Set(["me", "him", "her", "them", "my", "his", "their", "us"
 
 // Players first, so "Pickens and his 2nd" reads "his" as Pickens's team.
 function piecesWithSide(text, side, ctx, partner, index) {
-  const out = { adds: [], asks: [], misses: [], partner: null };
+  const out = { adds: [], asks: [], misses: [], notes: [], partner: null };
   const pieces = splitPieces(text);
   const isPick = (piece) => Boolean(parsePickPhrase(pullOwner(piece, ctx.managers, ctx.meRosterId).text, { season: ctx.season }));
   const hits = new Map();
@@ -405,6 +408,7 @@ function piecesWithSide(text, side, ctx, partner, index) {
     if (hit.miss) out.misses.push(hit.miss);
     if (hit.ask) out.asks.push(hit.ask);
     if (hit.adds) out.adds.push(...hit.adds);
+    if (hit.note) out.notes.push(hit.note);
   });
   return out;
 }
@@ -431,13 +435,14 @@ function findInDraft(text, draft, ctx) {
 }
 
 function blankPlan(intent) {
-  return { intent, adds: [], removes: [], asks: [], misses: [], partnerRosterId: null, replace: false, asked: false, shopSide: "" };
+  return { intent, adds: [], removes: [], asks: [], misses: [], notes: [], partnerRosterId: null, replace: false, asked: false, shopSide: "" };
 }
 
 function absorb(plan, part) {
   plan.adds.push(...part.adds);
   plan.asks.push(...part.asks);
   plan.misses.push(...part.misses);
+  plan.notes.push(...(part.notes || []));
   if (part.partner && plan.partnerRosterId == null) plan.partnerRosterId = part.partner.rosterId;
 }
 
@@ -650,6 +655,7 @@ export function tradeTalkReply(plan, result, { giveLabel = "You give", getLabel 
     if (give.length) lines.push(`Added ${listNames(give)} to ${giveLabel}.`);
     if (get.length) lines.push(`Added ${listNames(get)} to ${getLabel}.`);
   }
+  (plan.notes || []).forEach((note) => lines.push(note));
   if (result.skipped.length) lines.push(`${listNames(result.skipped)} ${result.skipped.length === 1 ? "is" : "are"} already in the trade.`);
   plan.misses.forEach((miss) => {
     lines.push(miss.reason ? `“${miss.text}”: ${miss.reason}` : `Didn’t catch “${miss.text}”. Try a last name or a pick like 2027 1st.`);
