@@ -166,6 +166,13 @@ import {
   withPlayerDirectoryNames,
 } from "./modules/value-calc.js";
 import {
+  TRADE_TALK_MAX,
+  applyTradeTalk,
+  parseTradeTalk,
+  priceNeighbors,
+  tradeTalkReply,
+} from "./modules/trade-talk.js";
+import {
   describeDraftItem,
   draftFromReview,
   draftMarketPrice,
@@ -571,6 +578,7 @@ const el = {
   landingFindBtn: document.querySelector("#landing-find-btn"),
   landingUsername: document.querySelector("#landing-username"),
   landingUsernameForm: document.querySelector("#landing-username-form"),
+  landingTalkForm: document.querySelector("#landing-talk-form"),
   landingUsernameError: document.querySelector("#landing-username-error"),
   landingJobs: document.querySelector("#landing-jobs"),
   landingJobHint: document.querySelector("#landing-job-hint"),
@@ -651,6 +659,10 @@ let bootRoute = null;
 let connectNextPlace = null;
 // The draft a Review trade, a new partner, or Clear replaced, so one tap brings it back.
 let draftReplaced = null;
+// Describe-a-trade box: the last message and its reply (memory only), and a
+// sentence typed before prices loaded.
+let tradeTalkLog = [];
+let pendingTradeTalk = "";
 // Picking a suggestion cancels the click. Swallow the follow-up so it cannot
 // land on Clear both sides after the list re-renders.
 let swallowCalcClick = false;
@@ -695,6 +707,7 @@ el.workspace?.addEventListener("click", (event) => {
   handleLeaguePickClick(event);
 });
 el.workspace?.addEventListener("submit", (event) => {
+  if (handleTradeTalkSubmit(event)) return;
   const form = event.target?.closest?.("[data-player-connect]");
   if (!form || !el.workspace.contains(form)) return;
   event.preventDefault();
@@ -812,6 +825,13 @@ window.matchMedia(PHONE_LAYOUT_QUERY).addEventListener("change", () => {
   else releaseRankBoardTools();
 });
 el.landingUsernameForm?.addEventListener("submit", requestFindLeagues);
+el.landingTalkForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const input = el.landingTalkForm.querySelector("input[name='say']");
+  const say = input?.value || "";
+  if (input) input.value = "";
+  openTradeWithTalk(say);
+});
 el.stickyFindBtn?.addEventListener("click", (event) => {
   if (bootIsPending()) {
     event.preventDefault();
@@ -1625,7 +1645,7 @@ function bootFromUrl() {
   } else if (parsed.view === "ranks" && parsed.asset && !routeDrivesPlace) {
     state.ranks.selectedId = parsed.asset;
   }
-  if ((route.name === "trade") && (route.give.length || route.get.length || route.badShare)) {
+  if ((route.name === "trade") && (route.give.length || route.get.length || route.badShare || route.say)) {
     applyTradeRoute(route);
   }
   if (route.name === "connect") connectAsked = true;
@@ -2299,6 +2319,12 @@ function applyTradeRoute(route) {
   // A broken link leaves any saved draft alone, and the notice always shows.
   if (state.badShareLink) {
     state.sharedTrade = null;
+    return;
+  }
+  // A described trade replaces the draft only once it is read, so Restore draft can undo it.
+  if (route?.say && !route.give?.length && !route.get?.length) {
+    state.sharedTrade = null;
+    pendingTradeTalk = route.say;
     return;
   }
   // A shared link names its scoring. Without a league that sets the board format.
@@ -7691,7 +7717,9 @@ function renderTradeDraft() {
     `;
     return;
   }
+  const talk = snapshotTradeTalkInput(host);
   host.innerHTML = `
+    ${renderTradeTalk()}
     ${renderValueBoardBar({ marketHint: marketBoardHint() })}
     ${renderValuesFreshness(valuesFreshness())}
     ${renderValueScaleExplainer()}
@@ -7711,6 +7739,268 @@ function renderTradeDraft() {
     <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
     <div id="draft-team" class="draft-team">${renderDraftTeam(view)}</div>
   `;
+  restoreTradeTalkInput(host, talk);
+  if (pendingTradeTalk) {
+    const say = pendingTradeTalk;
+    pendingTradeTalk = "";
+    queueMicrotask(() => runTradeTalk(say));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Describe-a-trade box. Rules in trade-talk.js read the sentence; the draft,
+// prices and verdict are the calculator's own.
+// ---------------------------------------------------------------------------
+
+function snapshotTradeTalkInput(host) {
+  const input = host?.querySelector?.("#trade-talk-input");
+  if (!input) return null;
+  return {
+    value: input.value,
+    focused: document.activeElement === input,
+    start: input.selectionStart,
+    end: input.selectionEnd,
+  };
+}
+
+function restoreTradeTalkInput(host, snap) {
+  const input = host?.querySelector?.("#trade-talk-input");
+  if (!input || !snap) return;
+  input.value = snap.value;
+  if (!snap.focused) return;
+  input.focus({ preventScroll: true });
+  try {
+    input.setSelectionRange(snap.start ?? snap.value.length, snap.end ?? snap.value.length);
+  } catch {
+    // Some input types reject a caret range.
+  }
+}
+
+function tradeTalkExamples() {
+  const season = nextRookieDraftSeason();
+  return [
+    `Gibbs and a ${season} 1st for Nabers`,
+    `add my ${season + 1} 2nd`,
+    "swap Nabers for Puka",
+    "what could I get for Bijan",
+  ];
+}
+
+function renderTradeTalk() {
+  const example = tradeTalkExamples()[0];
+  return `
+    <section class="talk-box" aria-labelledby="trade-talk-label">
+      <form class="talk-form" data-trade-talk novalidate>
+        <label id="trade-talk-label" for="trade-talk-input" class="talk-label">
+          <span class="analytics-kicker">Describe the trade</span>
+          <span class="talk-sub">Type it like you’d text it. We build it below and price it.</span>
+        </label>
+        <div class="talk-row">
+          <input id="trade-talk-input" name="say" type="text" maxlength="${TRADE_TALK_MAX}" placeholder="${escapeHtml(example)}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send" />
+          <button type="submit" class="talk-send">Build</button>
+        </div>
+      </form>
+      <div id="talk-log" class="talk-log" aria-live="polite">${renderTradeTalkLog()}</div>
+    </section>
+  `;
+}
+
+function renderTalkChip(chip) {
+  return `<button type="button" class="talk-chip" data-action="talk-add" data-side="${chip.side === "right" ? "right" : "left"}" data-asset-id="${escapeHtml(chip.assetId)}" data-name="${escapeHtml(chip.name)}" data-kind="${chip.assetType === "pick" ? "pick" : "player"}"${chip.leagueId ? ` data-league-id="${escapeHtml(chip.leagueId)}"` : ""}>${escapeHtml(chip.label || chip.name)}${chip.value ? ` <span class="talk-chip-value">${formatNumber(chip.value)}</span>` : ""}</button>`;
+}
+
+function renderTradeTalkLog() {
+  if (!tradeTalkLog.length) {
+    return `
+      <div class="talk-examples" role="group" aria-label="Examples">
+        <span class="muted small">Try</span>
+        ${tradeTalkExamples().map((text) => `<button type="button" class="talk-chip talk-example" data-action="talk-example" data-say="${escapeHtml(text)}">${escapeHtml(text)}</button>`).join("")}
+      </div>
+    `;
+  }
+  return tradeTalkLog.slice(0, 1).map((turn) => `
+    <div class="talk-turn">
+      <p class="talk-you"><span class="sr-only">You said: </span>${escapeHtml(turn.say)}</p>
+      <div class="talk-reply">
+        ${turn.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+        ${turn.verdict ? `<p class="talk-verdict ${escapeHtml(turn.tone || "")}"><strong>${escapeHtml(turn.verdict)}</strong></p>` : ""}
+        ${turn.groups.map((group) => `
+          <div class="talk-choice" role="group" aria-label="${escapeHtml(group.title)}">
+            <p class="talk-choice-title">${escapeHtml(group.title)}</p>
+            <div class="talk-chips">${group.chips.map(renderTalkChip).join("")}</div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
+}
+
+function patchTradeTalkLog() {
+  const log = el.calculatorShell?.querySelector("#talk-log");
+  if (log) log.innerHTML = renderTradeTalkLog();
+}
+
+function tradeTalkContext(view) {
+  const { basis, draft } = view;
+  const names = withPlayerDirectoryNames(basis.nameMap, state.players);
+  const catalog = [];
+  const seen = new Set();
+  if (basis.connected) {
+    for (const roster of state.normalizedRosters || []) {
+      for (const asset of roster.assets || []) {
+        if (!isTradeEligibleAsset(asset)) continue;
+        const pick = asset.assetType === "pick";
+        const name = pick ? asset.name : tradeRowName(asset, names);
+        if (!name) continue;
+        seen.add(asset.assetId);
+        catalog.push({
+          assetId: asset.assetId,
+          name,
+          assetType: pick ? "pick" : "player",
+          value: Number(draftMarketPrice(asset, basis).value) || 0,
+          ownerRosterId: roster.rosterId,
+          originalRosterId: pick ? asset.raw?.original_owner ?? null : null,
+          season: pick ? Number(asset.raw?.season) || null : null,
+          round: pick ? Number(asset.raw?.round) || null : null,
+          leagueId: isLeaguePickAssetId(asset.assetId) ? String(state.leagueId) : "",
+        });
+      }
+    }
+  }
+  listValueCalcAssets(basis.values, names, { limit: 0, kinds: ["player"] }).forEach((row) => {
+    if (seen.has(row.assetId)) return;
+    catalog.push({ ...row, ownerRosterId: null });
+  });
+  const me = view.me;
+  return {
+    catalog,
+    pickIds: new Set(Object.keys(basis.values || {}).filter((id) => id.startsWith("pick:"))),
+    managers: basis.connected
+      ? (state.normalizedRosters || []).map((roster) => ({
+        rosterId: roster.rosterId,
+        displayName: roster.manager?.displayName || "",
+        teamName: roster.manager?.teamName || "",
+      }))
+      : [],
+    meRosterId: me ? me.rosterId : null,
+    partnerRosterId: view.context?.partnerRosterId ?? draft.partnerRosterId ?? null,
+    season: nextRookieDraftSeason(),
+    connected: basis.connected,
+    draft,
+  };
+}
+
+function runTradeTalk(text) {
+  const say = String(text || "").trim().slice(0, TRADE_TALK_MAX);
+  if (!say) return;
+  if (!draftValuesReady()) {
+    pendingTradeTalk = say;
+    renderTradeDraft();
+    return;
+  }
+  const view = buildDraftView();
+  const ctx = tradeTalkContext(view);
+  const plan = parseTradeTalk(say, ctx);
+  const result = applyTradeTalk(state.valueCalc, plan);
+  const voice = sampleVoice();
+  const giveLabel = voice?.giveLabel || "You give";
+  const getLabel = voice?.getLabel || "You get";
+  const changed = draftAssetKey(result.draft) !== draftAssetKey(state.valueCalc)
+    || result.draft.partnerRosterId !== state.valueCalc.partnerRosterId;
+  if (changed) {
+    if (plan.intent === "clear") replaceDraft(result.draft, "Cleared both sides.");
+    else if (plan.replace) replaceDraft(result.draft, "Built a new trade from what you typed.");
+    else setDraft(result.draft);
+  }
+  const after = buildDraftView();
+  const lines = tradeTalkReply(plan, result, { giveLabel, getLabel });
+  const groups = plan.asks.map((ask) => ({
+    title: ask.question || `Which one for “${ask.text}”?`,
+    chips: ask.options.map((option) => ({ ...option, side: ask.side || "left" })),
+  }));
+  const bothSides = after.draft.left.length > 0 && after.draft.right.length > 0;
+  const copy = bothSides ? verdictCopy(after.model.verdict) : null;
+  if (plan.unknownPartner) {
+    lines.push(`Connect your Sleeper league to use ${plan.unknownPartner}’s roster. Until then these are market picks and players.`);
+  }
+  const showVerdict = changed || plan.intent === "verdict" || plan.asked;
+  if (plan.intent === "shop" && after.give > 0) {
+    const partnerId = after.context?.partnerRosterId ?? null;
+    const neighbors = priceNeighbors(ctx.catalog, after.give, {
+      exclude: [...after.draft.left, ...after.draft.right].map((item) => item.assetId),
+      ownerRosterId: partnerId,
+      notOwnerRosterId: partnerId == null ? ctx.meRosterId : null,
+    });
+    const partnerName = partnerId != null ? findNormalizedRoster(partnerId)?.manager?.displayName : "";
+    lines.push(`Worth ${formatNumber(after.give)} on our board. Tap a player to check him, or type what they offered.`);
+    if (neighbors.length) {
+      groups.push({
+        title: partnerName ? `Single players on ${partnerName}’s roster priced near that` : "Single players priced near that",
+        chips: neighbors.map((row) => ({ ...row, side: "right" })),
+      });
+    } else if (partnerName) {
+      lines.push(`${partnerName} has no single player priced near that. Try a package.`);
+    }
+  }
+  if (!bothSides && plan.intent === "verdict") {
+    lines.push("Add pieces to both sides first, like “Gibbs for Nabers.”");
+  }
+  tradeTalkLog = [{
+    say,
+    lines,
+    verdict: copy && showVerdict ? copy.line : "",
+    tone: copy ? copy.tone : "",
+    groups,
+  }];
+  analyticsTrack("trade_described", { intent: plan.intent });
+  patchTradeDraft(["left", "right"]);
+  patchTradeTalkLog();
+}
+
+function addTalkChip(target) {
+  const side = target.dataset.side === "right" ? "right" : "left";
+  const added = addDraftAsset(side, {
+    assetId: target.dataset.assetId,
+    name: target.dataset.name,
+    assetType: target.dataset.kind === "pick" ? "pick" : "player",
+    leagueId: target.dataset.leagueId || "",
+  });
+  const label = side === "right" ? (sampleVoice()?.getLabel || "You get") : (sampleVoice()?.giveLabel || "You give");
+  const after = buildDraftView();
+  const bothSides = after.draft.left.length > 0 && after.draft.right.length > 0;
+  const copy = bothSides ? verdictCopy(after.model.verdict) : null;
+  const last = tradeTalkLog[0];
+  tradeTalkLog = [{
+    say: last?.say || target.dataset.name || "",
+    lines: [added ? `Added ${target.dataset.name} to ${label}.` : `${target.dataset.name} is already in the trade.`],
+    verdict: copy ? copy.line : "",
+    tone: copy ? copy.tone : "",
+    groups: [],
+  }];
+  patchTradeDraft(["left", "right"]);
+  patchTradeTalkLog();
+}
+
+function handleTradeTalkSubmit(event) {
+  const form = event.target?.closest?.("[data-trade-talk]");
+  if (!form || !el.workspace?.contains(form)) return false;
+  event.preventDefault();
+  const input = form.querySelector("#trade-talk-input");
+  const say = input?.value || "";
+  if (input) input.value = "";
+  runTradeTalk(say);
+  return true;
+}
+
+// Landing box and /trade?say=: open the calculator, then read the sentence.
+function openTradeWithTalk(text) {
+  const say = String(text || "").trim().slice(0, TRADE_TALK_MAX);
+  state.sharedTrade = null;
+  state.badShareLink = false;
+  state.droppedPlayerNote = "";
+  if (say) pendingTradeTalk = say;
+  openRoom("trades", "calculator", { history: "push", scroll: "top" });
+  syncLaunchChrome();
 }
 
 // Taps and background data refresh everything except the search boxes, so the
@@ -9015,6 +9305,14 @@ function handleWorkspaceClick(event) {
       state.selectedTradeManagerKey = "";
       renderTradeLogDesk();
       updateUrlState({ mode: "replace" });
+      break;
+    }
+    case "talk-example": {
+      runTradeTalk(target.dataset.say || "");
+      break;
+    }
+    case "talk-add": {
+      addTalkChip(target);
       break;
     }
     case "value-add": {

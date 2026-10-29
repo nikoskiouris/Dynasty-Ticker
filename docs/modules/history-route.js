@@ -191,6 +191,7 @@ function blankRoute(extra = {}) {
     give: [],
     get: [],
     next: "",
+    say: "",
     format: "",
     shareCode: "",
     badShare: false,
@@ -262,6 +263,9 @@ export function matchRoute(pathname, search = "") {
       slug,
       give: row.name === "trade" ? parseAssetList(params.get("give")) : [],
       get: row.name === "trade" ? parseAssetList(params.get("get")) : [],
+      // "/trade?say=Gibbs for Nabers": a described trade. Read once, then the URL
+      // becomes the usual give/get.
+      say: row.name === "trade" ? String(params.get("say") || "").trim().slice(0, 300) : "",
       next: row.name === "connect" ? safeNext(params.get("next")) : "",
     });
   }

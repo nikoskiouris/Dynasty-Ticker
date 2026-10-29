@@ -1778,3 +1778,112 @@ button.info {
 .launch-action[hidden] { display: none; }
 .launch-action:hover, .launch-nav a:hover { background: var(--panel-soft); }
 .launch-action:focus-visible, .launch-nav a:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+
+/* Describe-a-trade box (calculator and landing). */
+.talk-box,
+.landing-talk {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--card-pad);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  margin-bottom: var(--section-gap);
+}
+.talk-form { display: grid; gap: var(--sp-2); }
+.talk-label { display: grid; gap: 2px; }
+.talk-sub,
+.landing-talk-hint {
+  color: var(--muted);
+  font-size: var(--fs-sm2);
+  margin: 0;
+}
+.landing-talk label {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semi);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--muted-strong);
+}
+.talk-row,
+.landing-talk-row {
+  display: flex;
+  gap: var(--sp-2);
+}
+.talk-row input,
+.landing-talk-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--tap-min);
+  font-size: 16px; /* 16px keeps iOS from zooming in on focus */
+}
+.talk-row button,
+.landing-talk-row button {
+  flex: 0 0 auto;
+  width: auto;
+  min-height: var(--tap-min);
+  padding: 0 var(--btn-px);
+}
+.talk-log { display: grid; gap: var(--sp-2); }
+.talk-log:empty { display: none; }
+.talk-examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.talk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+button.talk-chip {
+  width: auto;
+  min-height: var(--chip-h);
+  padding: 4px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--panel-soft);
+  color: var(--text);
+  font-size: var(--fs-sm2);
+  font-weight: var(--fw-med);
+  text-align: left;
+  position: relative;
+}
+button.talk-chip::before {
+  content: "";
+  position: absolute;
+  inset: calc((var(--chip-h) - var(--tap-min)) / 2) 0;
+}
+button.talk-chip:hover { background: var(--panel-tint); }
+.talk-chip-value {
+  color: var(--muted);
+  font-variant-numeric: var(--num);
+  margin-left: 4px;
+}
+.talk-turn {
+  display: grid;
+  gap: var(--sp-1);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--line);
+}
+.talk-you {
+  justify-self: end;
+  max-width: 90%;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--r-md);
+  background: var(--panel-soft);
+  color: var(--muted-strong);
+  font-size: var(--fs-sm2);
+}
+.talk-reply { display: grid; gap: var(--sp-1); }
+.talk-reply p { margin: 0; font-size: var(--fs-body); }
+.talk-verdict.good strong { color: var(--green); }
+.talk-verdict.bad strong { color: var(--red); }
+.talk-choice { display: grid; gap: var(--sp-1); margin-top: var(--sp-1); }
+.talk-choice-title {
+  color: var(--muted-strong);
+  font-size: var(--fs-sm2) !important;
+}
+.landing-talk { max-width: 560px; margin: 0 0 var(--sp-4); }

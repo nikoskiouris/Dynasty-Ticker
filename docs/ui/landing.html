@@ -7,6 +7,14 @@
     </nav>
     <h1 id="landing-job-hint">Your next dynasty move starts here.</h1>
     <p class="sub">Explore player values, build a trade, or connect your Sleeper league. Free. No sign-up.</p>
+    <form id="landing-talk-form" class="landing-talk" action="/trade" method="get">
+      <label for="landing-talk">Describe a trade</label>
+      <div class="landing-talk-row">
+        <input id="landing-talk" name="say" type="text" maxlength="300" placeholder="Gibbs and a 1st for Nabers" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send" />
+        <button type="submit">Check it</button>
+      </div>
+      <p class="landing-talk-hint">Type it like you’d text it. We build the trade and price it.</p>
+    </form>
     <div class="launch-main">
       <div class="launch-start-col">
         <div class="launch-start" aria-label="Get started">
