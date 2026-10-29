@@ -85,8 +85,12 @@ A season-long finish is total offensive PPR at the position, minimum 8 games. Ra
 ### Draft investment
 Early-career production by draft bucket sets an anchor. A top-10 pick keeps part of the 75th percentile of that bucket. A late pick does not. The pull only goes up, only after 4 games, and it fades with seasons of evidence. It is smaller than the production gap between two young players, so a better producer stays ahead of a higher pick who has not produced. It is full at age 22 and gone by 29.
 
+A player with few NFL games is also priced from his draft slot. The slot value is the median four-season outcome of past players at the same position and NFL draft range, the same window and ruler that prices rookie picks. It carries weight `8 / (8 + career games)` and fades to nothing by the fourth season. A draft range with fewer than 6 past players borrows the neighboring ranges. So a rookie who has not played yet is priced like his pick, and one big game from a seventh-rounder does not count as a full role.
+
 ### Age
-Age still changes year-to-year retention and the chance of keeping a fantasy role. Once an age has too few players to measure, the forecast keeps that last decline and trims it again for each year past the sample. A player under 26 who missed time is pulled back toward a normal game rate. Two top-12 seasons lock a role. One hot year does not. A rookie with no top-12 finish does not get that role locked for the whole horizon. A weekly Out tag trims the rest of this season. IR is the designation that cuts the year.
+The first forecast year uses the measured next-season rate for the player's tier and age. That rate already holds one season of pull toward average, and the role haircut for an unproven player applies that year only. Later years apply a pure age curve per position: next-season scoring change with the pull toward average fitted out. Past the peak age, the curve never softens and never rises, because old players in the sample are the ones still good enough to play. A rate borrowed from a younger age also pays the aging between the two ages.
+
+The chance of playing next season is the tier rate shrunk toward all players at that position and age. Past the last well-measured age it fades 15% per year, and it is zero past the oldest season on record at the position. A player under 26 who missed time is pulled back toward a normal game rate. Two top-12 seasons lock a role. One hot year does not. A weekly Out tag trims the rest of this season. IR is the designation that cuts the year. The snapshot emits the learned curve (`meta.aging`), the fitted pull toward average (`meta.regressionToAverage`), and the career-end ages (`meta.careerEndAge`).
 
 ### Position and format
 Replacement is estimated from a **12-team reference league**, not a hard-coded QB18/RB48 lookup. The builder allocates:
@@ -112,7 +116,7 @@ Those are documented future inputs, not silent zeroes.
 
 A future pick is not an arbitrary percentage of a veteran.
 
-Historical rookie classes are ordered from information available at draft time: NFL draft pick, then a format shift for quarterbacks, then age. Each year older than 23 moves a prospect back 4 picks. 1QB moves quarterbacks back 32 picks. Superflex moves them back only 8, so the same quarterback is earlier than in 1QB and still does not jump a whole round of skill players. `config.json` owns those shifts.
+Historical rookie classes are ordered from information available at draft time: NFL draft pick, then a format shift for quarterbacks, then age. Each year older than 23 moves a prospect back 4 picks. 1QB moves quarterbacks back 32 picks. Superflex moves them back only 8, so the same quarterback is earlier than in 1QB and still does not jump a whole round of skill players. `config.json` owns those shifts. A Superflex pick is never priced under the same 1QB pick, because every Superflex player value is at least his 1QB value.
 
 The builder measures the discounted above-replacement production those ordered rookies actually produced, then aggregates slots 1-4 / 5-8 / 9-12 into early / mid / late firsts and twelve-pick blocks into later rounds. If a later bucket's history comes out higher, the published price is capped at the earlier bucket. Early is worth at least as much as mid, and mid at least as much as late.
 
