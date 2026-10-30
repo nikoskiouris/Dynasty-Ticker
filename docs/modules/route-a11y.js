@@ -3,19 +3,16 @@
 export const ROUTE_LIVE_ID = "route-announcer";
 export const ROUTE_SITE_NAME = "Dynasty Ticker";
 export const ROUTE_TAB_LABELS = Object.freeze({
-  players: "Players",
-  trades: "Trade",
-  league: "My League",
+  trades: "Check a trade",
+  league: "My team",
 });
 export const ROUTE_ROOM_TITLES = Object.freeze({
   team: "My team",
-  board: "League",
-  scores: "This week",
-  activity: "Activity",
-  history: "History",
+  find: "Find a trade",
+  calculator: "Check a trade",
 });
 
-const PAGE_ROOTS = new Set(["players", "trades", "league"]);
+const PAGE_ROOTS = new Set(["trades", "league"]);
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -24,7 +21,7 @@ function clean(value) {
 export function routeDocumentTitle({ playerName = "", tab = "", room = "", siteName = ROUTE_SITE_NAME } = {}) {
   const player = clean(playerName);
   if (player) return `${player} · ${siteName}`;
-  const roomLabel = tab === "league" ? (ROUTE_ROOM_TITLES[room] || "") : "";
+  const roomLabel = ROUTE_ROOM_TITLES[room] || "";
   if (roomLabel) return `${roomLabel} · ${siteName}`;
   const label = ROUTE_TAB_LABELS[tab] || "";
   if (label) return `${label} · ${siteName}`;
@@ -47,7 +44,7 @@ export function routeAnnouncement(place = {}, before = {}) {
   if (overlay === "rail" && !changed) return "Menu";
   if (overlay === "player" || player) return player || "Player";
   if (overlay === "public-ranks") return ROUTE_TAB_LABELS.players;
-  const roomLabel = place.tab === "league" ? (ROUTE_ROOM_TITLES[place.view] || "") : "";
+  const roomLabel = ROUTE_ROOM_TITLES[place.view] || "";
   if (roomLabel) return roomLabel;
   return ROUTE_TAB_LABELS[place.tab] || "";
 }

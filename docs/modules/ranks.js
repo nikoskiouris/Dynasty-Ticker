@@ -79,7 +79,7 @@ export function ownerLine(owner, { leagueOpen = false, kind = "player" } = {}) {
 }
 
 export function rankBoardNote({ format = "sf", leagueFormat = "", caveat = "" } = {}) {
-  const base = "Our estimate, scored with a point per catch. Same number on Trade and My League. The pick line is the closest pick.";
+  const base = "Our estimate, scored with a point per catch. Same number in every trade and on My team. The pick line is the closest pick.";
   const peek = leagueFormat && format && format !== leagueFormat
     ? ` Peeking at ${rankFormatLabel(format)}. Your league is ${rankFormatLabel(leagueFormat)}.`
     : "";

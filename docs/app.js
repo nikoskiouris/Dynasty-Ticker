@@ -2348,20 +2348,14 @@ function syncDeskRailOffset() {
 
 function guestRouteHeading() {
   const path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+  if (state.activePage === "trades" && getRoom("trades") === "find") return "Find a trade";
   if (path === "/trade" || path === "/players" || state.activePage === "trades") return "Check a trade";
   return "Dynasty Ticker";
 }
 
 function routeHeadingText() {
   if (state.leagueId && state.activePage === "league") {
-    const labels = {
-      team: "My team",
-      board: "League",
-      scores: "This week",
-      activity: "Activity",
-      history: "History",
-    };
-    if (labels[getRoom()]) return labels[getRoom()];
+    return "My team";
   }
   return guestRouteHeading();
 }
@@ -5781,7 +5775,7 @@ function noteTradeChecked(draft) {
 function renderDraftVerdict(view) {
   const { draft, model } = view;
   if (!draft.left.length && !draft.right.length) {
-    return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. The verdict uses the same prices as Players.</p>`;
+    return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. The verdict uses the same prices as the player list below.</p>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (bothSides) noteTradeChecked(draft);

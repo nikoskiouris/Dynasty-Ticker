@@ -12,8 +12,6 @@ import { analyzeWindowCall } from "../docs/modules/window-call.js";
 import {
   SAMPLE_BANNED_VOICE,
   ownerPossessive,
-  sampleMockNote,
-  sampleRoomHint,
   sampleRosterLabels,
 } from "../docs/modules/sample-voice.js";
 
@@ -160,11 +158,6 @@ function renderSampleMode(ownerName) {
     ["trades", "calculator"],
     ["trades", "find"],
     ["league", "team"],
-    ["league", "scores"],
-    ["league", "board"],
-    ["league", "activity"],
-    ["league", "history"],
-    ["players", "ranks"],
   ];
   const descriptions = places.map(([page, room]) => buildPageDescription({
     page,
@@ -176,7 +169,6 @@ function renderSampleMode(ownerName) {
   }));
   const dynamic = [
     ...Object.values(voice),
-    sampleMockNote(voice, { place: "3rd", slots: "1.03 and 2.03" }),
     describeDraftItem({ status: "already-yours" }, { kind: "player", voice }),
     describeDraftItem({ status: "already-yours" }, { kind: "pick", voice }),
     describeDraftItem({ status: "not-yours" }, { ownerName: "Ben", kind: "player", voice }),

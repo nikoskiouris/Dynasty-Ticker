@@ -18,13 +18,9 @@ export const DEFAULT_DESCRIPTION =
   "See what your players are worth, check a trade, and find your team's next move.";
 
 export const PAGE_META = {
-  players: {
-    title: PAGE_LABELS.players,
-    description: "Search a player and see what he is worth. Add him to a trade.",
-  },
   league: {
     title: PAGE_LABELS.league,
-    description: "Your outlook, this week's scores, standings, and league history.",
+    description: "Your roster value, draft picks, standings, and playoff odds.",
   },
   trades: {
     title: PAGE_LABELS.trades,
@@ -33,19 +29,12 @@ export const PAGE_META = {
 };
 
 const ROOM_DESCRIPTIONS = {
-  players: {
-    ranks: "Player and pick values. Open one, then add him to a trade.",
-  },
   league: {
-    team: "Your outlook, why, and the roster. The rest of the league is one step away.",
-    scores: "This week's matchups.",
-    board: "One league table: record, playoff odds, and roster rank.",
-    activity: "Past trades for your team and the league.",
-    history: "Last season's champion, titles, records, and who stayed.",
+    team: "Roster value, draft picks, standings, and playoff odds.",
   },
   trades: {
     calculator: "You give and you get. Same verdict with or without a league. A league adds roster picks and team impact.",
-    find: "Shop one of yours, target one of theirs, or find a partner. Review trade opens the calculator.",
+    find: "1-for-1 and 2-for-1 ideas from team needs. Review trade opens the calculator.",
   },
 };
 
