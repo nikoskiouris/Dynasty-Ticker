@@ -112,7 +112,7 @@ export function roomHintFor(page, room, league) {
       return "This-year roster board. Prices are still dynasty for now";
     }
     if (page === "league" && room === "team") {
-      return "Sit/start this week and your outlook";
+      return "Your outlook this season, roster, and standings";
     }
   }
   return ROOM_HINTS[page]?.[room] || "";

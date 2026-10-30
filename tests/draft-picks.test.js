@@ -9,11 +9,8 @@ import {
   draftedPickOwnerKey,
   ownerKeyByRosterIdFromRosters,
   slotToRosterIdFromDraft,
-  sortDraftsForSelectionIngest,
   indexDraftSelections,
   mergeDraftSelectionIndex,
-  lookupDraftedSelection,
-  formatPickWithSelection,
 } from "../docs/modules/draft-picks.js";
 
 test("indexDraftSelections keys a used pick by original roster and owner", () => {
@@ -32,26 +29,10 @@ test("indexDraftSelections keys a used pick by original roster and owner", () =>
     ],
   });
 
-  const hit = lookupDraftedSelection(indexed, {
-    season: "2026",
-    round: 1,
-    originalRosterId: 3,
-  });
+  const hit = indexed.get(draftedPickRosterKey("2026", 1, 3));
   assert.equal(hit.playerId, "11631");
   assert.equal(hit.metaName, "Cam Ward");
-  assert.equal(
-    lookupDraftedSelection(indexed, {
-      season: "2026",
-      round: 1,
-      originalRosterId: 99,
-      ownerKey: "user:zim",
-    }).playerId,
-    "11631"
-  );
-  assert.equal(
-    lookupDraftedSelection(indexed, { season: "2026", round: 1, originalRosterId: 8 }),
-    null
-  );
+  assert.equal(indexed.get(draftedPickRosterKey("2026", 1, 8)), undefined);
   assert.equal(indexed.get(draftedPickRosterKey("2026", 1, 3)).playerId, "11631");
   assert.equal(indexed.get(draftedPickOwnerKey("2026", 1, "user:zim")).playerId, "11631");
 });
@@ -84,15 +65,6 @@ test("slotToRosterIdFromDraft maps co-owners when owner_id is empty", () => {
   assert.equal(keys.get("9"), "user:userCo");
 });
 
-test("sortDraftsForSelectionIngest puts the smaller/rookie draft last", () => {
-  const sorted = sortDraftsForSelectionIngest([
-    { draft_id: "rookie", settings: { rounds: 4 } },
-    { draft_id: "startup", settings: { rounds: 22 } },
-  ]);
-  assert.equal(sorted[0].draft_id, "startup");
-  assert.equal(sorted[1].draft_id, "rookie");
-});
-
 test("later indexes overwrite the same pick key", () => {
   const startup = indexDraftSelections({
     season: "2024",
@@ -106,21 +78,9 @@ test("later indexes overwrite the same pick key", () => {
   });
   const merged = mergeDraftSelectionIndex(startup, rookie);
   assert.equal(
-    lookupDraftedSelection(merged, { season: "2024", round: 1, originalRosterId: 2 }).playerId,
+    merged.get(draftedPickRosterKey("2024", 1, 2)).playerId,
     "rookie-player"
   );
-});
-
-test("formatPickWithSelection keeps the pick and adds player plus value", () => {
-  assert.equal(
-    formatPickWithSelection("2026 1st from zim8box", "Cam Ward", 8474, (value) => Number(value).toLocaleString("en-US")),
-    "2026 1st from zim8box (Cam Ward, 8,474)"
-  );
-  assert.equal(
-    formatPickWithSelection("2026 1st from zim8box", "Cam Ward", 0),
-    "2026 1st from zim8box (Cam Ward)"
-  );
-  assert.equal(formatPickWithSelection("2026 1st from zim8box", "", 9000), "2026 1st from zim8box");
 });
 
 test("ownerKeyByRosterIdFromRosters uses Sleeper user ids", () => {

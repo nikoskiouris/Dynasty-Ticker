@@ -4,11 +4,10 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildOwnedPicksByRoster } from "../docs/modules/draft-picks.js";
-import { buildCurrentPlaceLookup, currentPlaceForOwner, projectedDraftSlot, rosterPointsFor } from "../docs/modules/mock-drafts.js";
+import { buildCurrentPlaceLookup, currentPlaceForOwner, projectedDraftSlot, rosterPointsFor } from "../docs/modules/draft-order.js";
 import { renderSleeperInsight } from "../docs/modules/roster-markup.js";
 import { buildSeasonModel } from "../docs/modules/standings.js";
 import {
-  collectProjectedLeads,
   compareTradeSearchPicks,
   formatPickLabel,
   projectPickSlots,
@@ -78,12 +77,6 @@ test("partial week tables publish no lead, then one final slot", () => {
   assert.equal(projectPickSlots(league, { settled: false, rosters, rows: partialRowsB }), null);
   assert.equal(projectPickSlots(league, { settled: false, rosters, rows: finalRows }), null);
 
-  const leads = collectProjectedLeads(league, [
-    { settled: false, rosters, rows: partialRowsA },
-    { settled: false, rosters, rows: partialRowsB },
-    { settled: true, rosters, rows: finalRows },
-  ], (slots) => slots.get("6")?.slot);
-  assert.deepEqual(leads, [4]);
   assert.equal(projectPickSlots(league, { settled: true, rosters, rows: finalRows }).get("6").slot, 4);
 });
 
@@ -256,7 +249,6 @@ test("Previous Year is gone from the app and the pick modules", () => {
     }
   }
   walk(join(root, "docs"));
-  walk(join(root, "src"));
   const hits = [];
   for (const path of files) {
     const text = readFileSync(path, "utf8");

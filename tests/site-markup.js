@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const docs = join(dirname(fileURLToPath(import.meta.url)), "../docs");
 
-const PAGE_ORDER = ["landing.html", "players.html", "trades.html", "league.html"];
+const PAGE_ORDER = ["landing.html", "trades.html", "league.html"];
 
 export function siteMarkup() {
   const pages = PAGE_ORDER.map((name) => readFileSync(join(docs, "ui", name), "utf8"));
