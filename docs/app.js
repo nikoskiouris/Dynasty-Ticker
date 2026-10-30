@@ -14,6 +14,7 @@ import {
 import {
   PLAYERS_CACHE_TTL_MS,
   SIM_ITERATIONS,
+  NAV_TABS,
   PAGE_IDS,
   PAGE_LABELS,
   DEFAULT_PAGE,
@@ -196,7 +197,7 @@ import {
   releaseBootGate,
   scheduleBootFind,
 } from "./modules/boot-gate.js";
-import { sampleRoomHint, sampleRosterLabels } from "./modules/sample-voice.js";
+import { sampleRosterLabels } from "./modules/sample-voice.js";
 import {
   buildTradeMatchProfile,
   countStartableAtPosition,
@@ -226,10 +227,7 @@ import {
   leagueTypeLabel,
   leagueUsesFuturePicks,
   marketCaveat,
-  pageHintForLeague,
   roomLabelFor,
-  roomHintFor,
-  roomsForPage,
   visibleRoomFor,
   windowCallHorizon,
 } from "./modules/league-format.js";
@@ -416,7 +414,6 @@ const el = {
   meSelect: document.querySelector("#me-select"),
   deskNav: document.querySelector("#desk-nav"),
   pageTabs: document.querySelector("#page-tabs"),
-  roomNav: document.querySelector("#room-nav"),
   powerSection: document.querySelector("#power-section"),
   powerDashboard: document.querySelector("#power-dashboard"),
   historyDashboard: document.querySelector("#history-dashboard"),
@@ -543,7 +540,6 @@ let lastSimSignature = "";
 let leagueTradeSideCache = { key: "", sides: [] };
 let franchiseIndexCache = { key: "", index: null };
 let applyingHistory = false;
-let phoneDeskCollapsed = false;
 let managerSelectorHydrating = false;
 let managerSelectorHydrateEpoch = 0;
 let seasonStatsCache = { season: "", stats: null };
@@ -626,25 +622,10 @@ el.leagueId?.addEventListener("keydown", (event) => {
 });
 el.pageTabButtons?.forEach((button) => {
   button.addEventListener("click", () => {
-    if (button.dataset.page === state.activePage) {
-      // Re-tapping the active tab returns to that page's first room.
-      openRoom(state.activePage, defaultRoomFor(state.activePage));
-      return;
-    }
-    setActivePage(button.dataset.page, {
-      history: "push",
-      scroll: "top",
-      landing: button.dataset.page === "players" ? "hide" : "",
-    });
+    document.querySelector("#landing")?.classList.add("hidden");
+    openRoom(button.dataset.page, button.dataset.room);
   });
 });
-el.roomNav?.addEventListener("click", (event) => {
-  const item = event.target.closest("[data-room]");
-  if (!item) return;
-  event.preventDefault();
-  openRoom(state.activePage, item.dataset.room);
-});
-el.roomNav?.addEventListener("keydown", handleRoomTabKeydown);
 el.pageTabs?.addEventListener("keydown", handlePageTabKeydown);
 el.mobileRailToggle?.addEventListener("click", () => {
   const nextOpen = !document.body.classList.contains("rail-open");
@@ -944,10 +925,6 @@ if (runQueuedFind) scheduleBootFind(() => requestFindLeagues());
 // Desk navigation: three pages, each with a row of rooms
 // ---------------------------------------------------------------------------
 
-function visibleRooms(page) {
-  return roomsForPage(page, state.league);
-}
-
 function clampRoom(page, room) {
   return visibleRoomFor(page, room, state.league) || defaultRoomFor(page);
 }
@@ -1047,7 +1024,6 @@ function hideAppPages() {
 
 function setActivePage(page, { history = "replace", scroll = "preserve", prepared = false, landing = "" } = {}) {
   const nextPage = PAGE_IDS.includes(page) ? page : DEFAULT_PAGE;
-  if (nextPage !== state.activePage) phoneDeskCollapsed = false;
   if (history === "push" && !prepared) prepareDeskPush();
   if (landing === "hide") document.querySelector("#landing")?.classList.add("hidden");
   if (landing === "show") document.querySelector("#landing")?.classList.remove("hidden");
@@ -1059,12 +1035,6 @@ function setActivePage(page, { history = "replace", scroll = "preserve", prepare
     const isActive = pageId === nextPage;
     pageEl?.classList.toggle("hidden", !isActive);
     if (pageEl) pageEl.hidden = !isActive;
-  });
-  el.pageTabButtons?.forEach((button) => {
-    const isActive = button.dataset.page === nextPage;
-    button.classList.toggle("active", isActive);
-    button.setAttribute("aria-selected", String(isActive));
-    button.tabIndex = isActive ? 0 : -1;
   });
   scrollActiveTabIntoView();
   renderSessionSnapshot();
@@ -1093,20 +1063,8 @@ function handlePageTabKeydown(event) {
   event.preventDefault();
   const nextTab = tabs[nextIndex];
   nextTab.focus();
-  if (nextTab.dataset.page === state.activePage) return;
-  setActivePage(nextTab.dataset.page, { history: "push", scroll: "top" });
-}
-
-function handleRoomTabKeydown(event) {
-  const tabs = [...(el.roomNav?.querySelectorAll("[data-room]") || [])];
-  if (tabs.length === 0) return;
-  const currentIndex = Math.max(0, tabs.findIndex((button) => button.classList.contains("active")));
-  const nextIndex = stepTabIndex(event, tabs.length, currentIndex);
-  if (nextIndex < 0) return;
-  event.preventDefault();
-  const nextTab = tabs[nextIndex];
-  nextTab.focus();
-  openRoom(state.activePage, nextTab.dataset.room, { history: "push", scroll: "preserve" });
+  if (isActiveNavTab(nextTab)) return;
+  openRoom(nextTab.dataset.page, nextTab.dataset.room, { history: "push", scroll: "top" });
 }
 
 function renderActivePage() {
@@ -1532,9 +1490,7 @@ function routePlaceNow() {
 
 function syncRouteAriaCurrent() {
   const room = getRoom();
-  syncAriaCurrent(el.pageTabButtons, (button) => button.dataset.page === state.activePage);
-  syncAriaCurrent(el.roomNav?.querySelectorAll("[data-room]") || [], (button) => button.dataset.room === room);
-  syncAriaCurrent(document.querySelectorAll("[data-phone-page]"), (button) => button.dataset.phonePage === state.activePage);
+  syncAriaCurrent(el.pageTabButtons, isActiveNavTab);
   syncAriaCurrent(document.querySelectorAll("[data-phone-room]"), (button) => {
     return button.dataset.page === state.activePage && button.dataset.phoneRoom === room;
   });
@@ -2796,65 +2752,34 @@ function syncRoomUi() {
   el.pages[page]?.querySelectorAll("[data-room-panel]").forEach((panel) => {
     panel.classList.toggle("hidden", panel.dataset.roomPanel !== room);
   });
-  renderRoomNav(page, room);
+  renderRoomNav();
   renderPhoneDesk();
 }
 
-function renderRoomNav(page, room) {
-  if (!el.roomNav) return;
-  const rooms = visibleRooms(page);
-  const navKey = `${page}:${leagueTypeId(state.league)}:${state.viewingSample ? deskRoomLabel("league", HOME_ROOM) : ""}`;
-  if (el.roomNav.dataset.navKey !== navKey) {
-    const buttons = rooms.map((id) => `
-      <button type="button" class="room-tab" role="tab" data-room="${escapeHtml(id)}" title="${escapeHtml(sampleRoomHint(page, id, sampleVoice()) || roomHintFor(page, id, state.league))}">
-        ${escapeHtml(deskRoomLabel(page, id))}
-      </button>
-    `).join("");
-    el.roomNav.innerHTML = buttons ? `<div class="room-nav-scroll">${buttons}</div>` : "";
-    el.roomNav.dataset.navKey = navKey;
-    el.roomNav.dataset.page = page;
-    el.roomNav.setAttribute("aria-label", `${PAGE_LABELS[page] || "Page"} rooms`);
-  }
-  let activeButton = null;
-  el.roomNav.querySelectorAll("[data-room]").forEach((button) => {
-    const isActive = button.dataset.room === room;
+function isActiveNavTab(button) {
+  return button.dataset.page === state.activePage && button.dataset.room === getRoom(state.activePage);
+}
+
+function renderRoomNav() {
+  el.pageTabButtons?.forEach((button) => {
+    const isActive = isActiveNavTab(button);
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-selected", String(isActive));
     button.tabIndex = isActive ? 0 : -1;
-    if (isActive) activeButton = button;
   });
-  scrollChildIntoStrip(el.roomNav.querySelector(".room-nav-scroll") || el.roomNav, activeButton);
+  scrollActiveTabIntoView();
   syncRouteAriaCurrent();
-}
-
-function phoneDeskRoomLabel(page, room) {
-  const label = deskRoomLabel(page, room);
-  if (label === (PAGE_LABELS[page] || page)) return pageHintForLeague(page, state.league) || label;
-  return label;
 }
 
 function renderPhoneDesk() {
   if (!el.phoneDesk) return;
-  const expanded = phoneDeskCollapsed ? "" : state.activePage;
-  el.phoneDesk.innerHTML = PAGE_IDS.map((page) => {
-    const rooms = visibleRooms(page);
-    const open = page === expanded;
-    const active = page === state.activePage;
-    const current = getRoom(page);
+  el.phoneDesk.innerHTML = NAV_TABS.map((tab) => {
+    const active = tab.page === state.activePage && tab.room === getRoom(tab.page);
     return `
-      <div class="phone-desk-group${open ? " is-open" : ""}">
-        <button type="button" class="phone-desk-page${active ? " active" : ""}" data-phone-page="${escapeHtml(page)}" aria-expanded="${open ? "true" : "false"}">
-          <span>${escapeHtml(PAGE_LABELS[page] || page)}</span>
-          <span class="phone-desk-chevron" aria-hidden="true"></span>
-        </button>
-        <div class="phone-desk-rooms">
-          ${rooms.map((room) => `
-            <button type="button" class="phone-desk-room${active && room === current ? " active" : ""}" data-phone-room="${escapeHtml(room)}" data-page="${escapeHtml(page)}">
-              ${escapeHtml(phoneDeskRoomLabel(page, room))}
-            </button>
-          `).join("")}
-        </div>
-      </div>
+      <button type="button" class="phone-desk-room${active ? " active" : ""}" data-phone-room="${escapeHtml(tab.room)}" data-page="${escapeHtml(tab.page)}">
+        <strong>${escapeHtml(tab.label)}</strong>
+        <small>${escapeHtml(tab.hint)}</small>
+      </button>
     `;
   }).join("");
   syncRouteAriaCurrent();
@@ -2888,41 +2813,14 @@ function scrollCheckOfferIntoView() {
 
 function handlePhoneDeskClick(event) {
   const roomButton = event.target.closest("[data-phone-room]");
-  if (roomButton) {
-    const page = roomButton.dataset.page;
-    const room = roomButton.dataset.phoneRoom;
-    leavePhoneMenu((mode) => {
-      openRoom(page, room, { history: mode, scroll: "top" });
-      if (page === "trades" && room === "calculator") scrollCheckOfferIntoView();
-    });
-    return;
-  }
-  const pageButton = event.target.closest("[data-phone-page]");
-  if (!pageButton) return;
-  const page = pageButton.dataset.phonePage;
-  if (!PAGE_IDS.includes(page)) return;
-  if (page === state.activePage && page === "players" && (landingVisible() || window.location.pathname !== pathForPlace({ page: "players", room: "ranks", landing: false }))) {
-    leavePhoneMenu((mode) => {
-      openRoom("players", "ranks", { history: mode, scroll: "top" });
-    });
-    return;
-  }
-  if (page !== state.activePage) {
-    phoneDeskCollapsed = false;
-    leavePhoneMenu((mode) => {
-      setActivePage(page, { history: mode, scroll: "top", landing: page === "players" ? "hide" : "" });
-      if (page === "trades" && getRoom(page) === "calculator") scrollCheckOfferIntoView();
-    });
-    return;
-  }
-  phoneDeskCollapsed = !phoneDeskCollapsed;
-  renderPhoneDesk();
-  if (page === "trades" && !phoneDeskCollapsed) {
-    document.querySelector("[data-phone-room='calculator']")?.scrollIntoView({
-      behavior: scrollMotion(),
-      block: "start",
-    });
-  }
+  if (!roomButton) return;
+  const page = roomButton.dataset.page;
+  const room = roomButton.dataset.phoneRoom;
+  document.querySelector("#landing")?.classList.add("hidden");
+  leavePhoneMenu((mode) => {
+    openRoom(page, room, { history: mode, scroll: "top" });
+    if (page === "trades" && room === "calculator") scrollCheckOfferIntoView();
+  });
 }
 
 function sampleVoice() {
@@ -5259,7 +5157,7 @@ async function finishTeamsPagePaint(generation) {
 
 function syncLeagueFormatCopy() {
   const teamsHint = document.querySelector("#teams-tab-hint");
-  if (teamsHint) teamsHint.textContent = sampleVoice()?.pageHintLeague || pageHintForLeague("league", state.league) || "Your team, this week, and the league";
+  if (teamsHint) teamsHint.textContent = "Roster, standings, playoff odds";
   const gridCopy = document.querySelector("#teams-grid-copy");
   if (gridCopy) {
     gridCopy.textContent = leagueTypeId(state.league) === "redraft"

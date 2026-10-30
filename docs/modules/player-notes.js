@@ -1,6 +1,5 @@
 // Player notes for the rankings board: age, rookie draft slot, last season's line,
 // and the position rank (WR3). Plain market price order; no crowd adjustments.
-
 export const DRAFT_PICKS_PATH = "./data/nfl_draft_picks.json";
 
 export function ordinal(value) {
