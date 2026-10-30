@@ -11,7 +11,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 test("this checkout ships every expected function, edge function, and included file", () => {
   const { want, problems } = staticDeployProblems(root);
   assert.deepEqual(problems, []);
-  assert.ok(want.functions.includes("rather-vote"));
+  assert.equal(want.functions.includes("rather-vote"), false);
   assert.ok(want.functions.includes("collect"));
   assert.ok(want.functions.includes("analytics-stats"));
   assert.ok(want.edge.includes("asset-404"));

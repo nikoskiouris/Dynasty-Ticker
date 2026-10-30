@@ -7848,13 +7848,6 @@ button.talk-chip {
   font-size: 12px;
 }
 
-.calc-search,
-.ranks-search,
-#trade-talk-input {
-  min-height: 40px;
-  height: 40px;
-}
-
 .ranks-row {
   min-height: 36px;
 }

@@ -155,7 +155,7 @@ test("the info icon is 44px, one opens at a time, and Esc returns focus", () => 
   assert.equal(INFO_ICON_PX, 18);
   assert.equal(INFO_HIT_PX, 44);
   assert.equal(INFO_HIT_OUTSET, 13);
-  const css = readFileSync(join(root, "../docs/product.css"), "utf8");
+  const css = readFileSync(join(root, "../docs/styles.css"), "utf8");
   // The button box itself is 32px (QA #5); ::before widens the hit area to 44px.
   assert.match(css, /\.info::before\s*\{[^}]*inset:\s*-6px/);
   assert.match(css, /\.info\s*\{[^}]*width:\s*32px/);
@@ -202,7 +202,7 @@ test("launch skeletons reserve the loaded row height", () => {
   assert.equal(LAUNCH_EXAMPLE_MIN_HEIGHT, 360);
   const rows = launchSkeletonRows(5);
   assert.equal((rows.match(/launch-row-skel/g) || []).length, 5);
-  const css = readFileSync(join(root, "../docs/product.css"), "utf8");
+  const css = readFileSync(join(root, "../docs/styles.css"), "utf8");
   assert.match(css, /\.launch-example\s*\{[^}]*min-height:\s*360px/);
   assert.match(css, /\.launch-trend\s*\{[^}]*min-height:\s*200px/);
   assert.match(css, /\.launch-row\s*\{[^}]*min-height:\s*var\(--row-h-compact\)/);
@@ -216,7 +216,7 @@ test("launch skeletons reserve the loaded row height", () => {
 
 test("a pre-league landing exposes all three starting tasks", () => {
   const index = readFileSync(join(root, "../docs/index.html"), "utf8");
-  const css = readFileSync(join(root, "../docs/product.css"), "utf8");
+  const css = readFileSync(join(root, "../docs/styles.css"), "utf8");
   assert.match(index, /<body class="launch-open">/);
   assert.deepEqual(index.match(/<h1\b[^>]*>/g), [
     '<h1 id="mobile-chrome-title">',
@@ -229,8 +229,9 @@ test("a pre-league landing exposes all three starting tasks", () => {
   assert.match(index, /Build a trade/);
   assert.match(index, /aria-label="Main navigation"/);
   assert.match(index, /See the sample league/);
-  assert.match(index, /href="\/connect\?next=\/" data-launch="connect">My League/);
-  assert.match(index, /href="\/trade" data-launch="empty">Trade/);
+  assert.match(index, /href="\/trade" data-launch="empty">Check a trade</);
+  assert.match(index, /href="\/connect\?next=\/" data-launch="connect">Find a trade</);
+  assert.match(index, /href="\/connect\?next=\/" data-launch="connect">My team</);
   assert.match(css, /body\.launch-open \.launch-header-link,/);
   assert.match(css, /body\.launch-open \.mobile-chrome-title-row,/);
   assert.match(css, /body\.launch-open #workspace-header,/);

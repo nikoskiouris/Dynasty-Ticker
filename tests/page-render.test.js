@@ -99,14 +99,9 @@ test("only text fields count as typing", () => {
 
 test("background loaders ask for a render; only user actions render on the spot", () => {
   const loaders = [
-    "loadDraftSelectionIndex",
     "loadTrendingPlayers",
-    "loadLeagueTransactions",
-    "loadLeagueHistoryTransactions",
-    "loadLeagueHistoryMatchups",
     "hydrateManagerSelector",
     "applyValuationBundle",
-    "applyRemoteCrowdVotes",
   ];
   loaders.forEach((name) => {
     const start = appSource.indexOf(`function ${name}(`);

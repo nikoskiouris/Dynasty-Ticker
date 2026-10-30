@@ -69,8 +69,6 @@ test("league history walks a real previous id and skips 0", () => {
   assert.match(history, /previousLeagueId\(currentCoreData\?\.league\?\.previous_league_id\)/);
   assert.match(history, /previousLeagueId\(historicalCore\?\.league\?\.previous_league_id\)/);
   assert.doesNotMatch(history, /loadLeagueCoreData\(currentCoreData/);
-  const previous = appSource.match(/async function loadPreviousLeagueContext\(league\) \{[\s\S]*?\n\}/)?.[0] || "";
-  assert.match(previous, /previousLeagueId\(league\?\.previous_league_id\)/);
 });
 
 test("a non-numeric share league is ignored", () => {
@@ -94,7 +92,6 @@ test("league path segments are encoded", () => {
   assert.equal(appSource.includes("`/league/${"), false);
   assert.match(appSource, /sleeperLeaguePath\(leagueId\)/);
   assert.match(appSource, /sleeperLeaguePath\(leagueId, "rosters"\)/);
-  assert.match(appSource, /sleeperLeaguePath\(entry\.leagueId, `matchups\/\$\{week\}`\)/);
 });
 
 test("picking a league stamps ?league= without pushing over an open league", () => {

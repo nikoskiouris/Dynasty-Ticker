@@ -60,7 +60,8 @@ test("offer text and trade ideas print the verdict line, not '% apart' on the ol
   assert.doesNotMatch(app, /\$\{idea\.pctDiff\}% apart/);
   assert.doesNotMatch(app, /\$\{participant\.pctDiff\}% diff/);
   assert.match(app, /\$\{credit\} \$\{line\}\. Dynasty Ticker prices/);
-  assert.equal((app.match(/verdictLineNamed\(valueCalcVerdict\(/g) || []).length, 2);
+  // Idea cards carry no verdict of their own; Review trade opens the one calculator verdict.
+  assert.equal((app.match(/verdictLineNamed\(valueCalcVerdict\(/g) || []).length, 0);
 });
 
 test("every verdict line has spaces around the dot, and the page keeps them visible", () => {
@@ -129,8 +130,6 @@ test("trade ideas: an idea that passes a filter never shows a verdict outside th
   assert.equal(calculatePctDiff(0, 5000), 1000);
   // Each filter site compares against ideaLimitMore, never a raw setting.
   assert.match(app, /pctDiff > ideaLimitMore\(Math\.max\(fairnessPct, 26\)\)/);
-  assert.equal((app.match(/pctDiff > ideaLimitMore\(effectiveFairnessPct\)/g) || []).length, 3);
-  assert.match(app, /pctDiff > ideaLimitMore\(fairnessLimit\)/);
   const match = readFileSync(new URL("../docs/modules/trade-match.js", import.meta.url), "utf8");
   assert.match(match, /percentDiff\(mine, theirs\) <= ideaLimitMore\(fairnessPct\)/);
   // Wording: "% more", not "diff" / "gap at". The multi-team cap is a limit, so it
@@ -139,7 +138,6 @@ test("trade ideas: an idea that passes a filter never shows a verdict outside th
   assert.equal(displayMore(28.34), 29);
   assert.equal(displayMore(14.2, { band: false }), 14);
   assert.equal(displayMore(5.6, { band: false }), 6);
-  assert.match(app, /one side worth up to \$\{displayMore\(idea\.maxPctDiff, \{ band: false \}\)\}% more/);
   assert.match(app, /Lopsided · Give side worth 89% more/);
   assert.match(app, /after adjustments one side is worth \$\{idea\.pctDiff\}% more\./);
   assert.doesNotMatch(app, /% diff •|adjusted-value gap at/);

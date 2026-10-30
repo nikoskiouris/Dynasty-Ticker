@@ -34,10 +34,5 @@ test("choosing Trade from the phone rail scrolls Check an offer into view", () =
     handler,
     /openRoom\(page, room, \{ history: mode, scroll: "top" \}\);\s*if \(page === "trades" && room === "calculator"\) scrollCheckOfferIntoView\(\);/,
   );
-  assert.match(
-    handler,
-    /setActivePage\(page, \{ history: mode, scroll: "top", landing: page === "players" \? "hide" : "" \}\);\s*if \(page === "trades" && getRoom\(page\) === "calculator"\) scrollCheckOfferIntoView\(\);/,
-  );
-  assert.match(handler, /\[data-phone-room='calculator'\]/);
-  assert.match(handler, /scrollIntoView\(\{\s*behavior: scrollMotion\(\),\s*block: "start",\s*\}\)/);
+  assert.match(handler, /closest\("\[data-phone-room\]"\)/);
 });

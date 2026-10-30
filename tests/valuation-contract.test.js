@@ -35,30 +35,6 @@ test("a stud package costs more than the same total in lesser pieces", () => {
   assert.match(app, /from "\.\/modules\/package-value\.js"/);
 });
 
-test("rather valuations follow the active SF or 1QB format", () => {
-  const start = app.indexOf("function ratherMarketValues");
-  const end = app.indexOf("function crowdVoteSource", start);
-  const block = app.slice(start, end);
-  assert.match(block, /state\.valueFormat === "oneQb"/);
-  assert.match(block, /state\.valueBundles\?\.\[format\]/);
-});
-
-test("vote UI distinguishes saving, saved, and failed persistence", () => {
-  const start = app.indexOf("async function chooseRatherPlayer");
-  const end = app.indexOf("function handleLandingRatherClick", start);
-  const block = app.slice(start, end);
-  assert.match(block, /Saving vote/);
-  assert.match(block, /Vote not saved/);
-  assert.match(block, /Saved\./);
-  assert.ok(block.indexOf("submitRatherCrowdVote") < block.indexOf("recordRatherVote"));
-});
-
-test("open clients refresh shared crowd evidence", () => {
-  assert.match(app, /ensureCrowdRefreshTimer/);
-  assert.match(app, /60_000/);
-  assert.match(app, /fetchRatherCrowdVotes/);
-});
-
 test("valuation-dependent caches key off a valuation revision instead of map size", () => {
   assert.match(app, /function valuationCacheVersion/);
   const uses = app.match(/valuationCacheVersion\(\)/g) || [];

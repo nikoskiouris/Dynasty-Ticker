@@ -50,6 +50,7 @@ import {
   slimPlayersMap,
   sleeperAvatarUrl,
   previousLeagueId,
+  mapInChunks,
   sleeperLeaguePath,
 } from "./modules/sleeper.js";
 import {
@@ -373,7 +374,6 @@ const el = {
   powerHeading: document.querySelector("#power-heading"),
   rosterSheet: document.querySelector("#roster-sheet"),
   rosterSheetHeading: document.querySelector("#roster-sheet-heading"),
-  weeklyHelpBtn: document.querySelector("#weekly-help-btn"),
   weeklyHelpLayerHost: document.querySelector("#weekly-help-layer-host"),
   windowCallDashboard: document.querySelector("#window-call-dashboard"),
   tradeMatchNeeds: document.querySelector("#trade-match-needs"),
@@ -747,7 +747,7 @@ if (bootRoute?.badLeague) {
   const page = place?.page === "trades" ? "trades" : "players";
   if (!waitingOnLeague && place?.page === page && place.room) setRoom(page, place.room);
   setActivePage(page, { history: "silent" });
-  const showRanks = Boolean(state.ranks.selectedId) || bootRoute?.name === "players" || bootRoute?.legacy === "ranks";
+  const showRanks = Boolean(state.ranks.selectedId) || bootRoute?.name === "players" || bootRoute?.name === "trade" || bootRoute?.legacy === "ranks";
   if (showRanks) document.querySelector("#landing")?.classList.add("hidden");
   if (bootRoute?.unknown) {
     document.querySelector("#landing")?.classList.remove("hidden");
@@ -834,14 +834,14 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
   const place = resolveDeskPlace({ tab: nextPage, view: room || "" });
   const aliased = place.page === nextPage ? place.room : "";
   const nextRoom = clampRoom(nextPage, isRoomOf(nextPage, room) ? room : (aliased || defaultRoomFor(nextPage)));
-  const openingPlayers = history !== "silent" && nextPage === "players" && nextRoom === "ranks";
+  const openingCalculator = history !== "silent" && nextPage === "trades" && nextRoom === "calculator";
   const samePlace = state.activePage === nextPage && getRoom(nextPage) === nextRoom && !state.selectedTradeId;
   if (samePlace && history === "push") {
     const href = pathForPlace({
       page: nextPage,
       room: nextRoom,
       leagueId: state.leagueId,
-      landing: openingPlayers ? false : landingVisible(),
+      landing: openingCalculator ? false : landingVisible(),
       give: draftSideIds("left"),
       get: draftSideIds("right"),
       shareCode: activeShareCode(),
@@ -849,7 +849,7 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
     if (!href || href === window.location.pathname) return;
   }
   if (history === "push") prepareDeskPush();
-  if (openingPlayers) document.querySelector("#landing")?.classList.add("hidden");
+  if (openingCalculator) document.querySelector("#landing")?.classList.add("hidden");
   setRoom(nextPage, nextRoom);
   // Room navigation always lands on the room itself, never on an open trade file.
   state.selectedTradeId = "";
@@ -902,7 +902,7 @@ function setActivePage(page, { history = "replace", scroll = "preserve", prepare
   if (landing === "hide") document.querySelector("#landing")?.classList.add("hidden");
   if (landing === "show") document.querySelector("#landing")?.classList.remove("hidden");
   state.activePage = nextPage;
-  if (nextPage !== "players") releaseRankBoardTools();
+  if (nextPage !== "trades") releaseRankBoardTools();
 
   PAGE_IDS.forEach((pageId) => {
     const pageEl = el.pages[pageId];
@@ -1382,7 +1382,7 @@ function leagueRoomMove(before, after) {
 function focusLeagueRoomHeading(room) {
   if (pendingPopstateFocus) return;
   if (!appBooted || Date.now() >= followHeadingsUntil) return;
-  if (room !== "team" && room !== "board" && room !== "scores" && room !== "activity" && room !== "history") return;
+  if (room !== "team") return;
   if (state.activePage !== "league" || getRoom() !== room) return;
   const run = () => {
     if (pendingPopstateFocus || !appBooted || Date.now() >= followHeadingsUntil) return;
@@ -3058,6 +3058,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       missingTeam ? { error: true } : { loading: true },
     );
     loadTrendingPlayers();
+    void loadSeasonWeeks(leagueId, league);
 
     const playersEpoch = playerLoadEpoch;
     loadPlayersWithCache()
@@ -3151,6 +3152,31 @@ function resetSeasonState() {
 
 // Matchup chunks update the standings table. They do not reprice picks.
 // A complete roster W-L table publishes the slots on the first paint.
+// Standings and playoff odds need this season's weekly scores.
+async function loadSeasonWeeks(leagueId, league) {
+  // Future weeks carry the schedule the playoff simulation plays out.
+  const playoffStart = Number(league?.settings?.playoff_week_start) || 15;
+  const lastWeek = Math.min(18, Math.max(playoffStart + 2, Number(state.nflState?.week) || 1));
+  const weeks = Array.from({ length: lastWeek }, (_, index) => index + 1);
+  const settled = await mapInChunks(weeks, 4, (week) => (
+    apiGetWithRetry(sleeperLeaguePath(leagueId, `matchups/${week}`), { timeoutMs: 15000, retries: 1 })
+      .then((rows) => ({ week, rows: Array.isArray(rows) ? rows : [] }))
+  ));
+  if (String(state.leagueId) !== String(leagueId)) return;
+  let loaded = 0;
+  settled.forEach((result) => {
+    if (result.status !== "fulfilled") return;
+    loaded += 1;
+    state.seasonWeekRows.set(Number(result.value.week), result.value.rows);
+  });
+  state.seasonLoaded = loaded > 0;
+  state.seasonLoadError = loaded > 0 ? "" : "Sleeper did not return matchups for the current season.";
+  invalidateSeasonCaches();
+  settlePickProjection();
+  renderSessionSnapshot();
+  requestActivePageRender();
+}
+
 function settlePickProjection() {
   if (state.pickProjectionReady) return;
   state.pickProjectionReady = true;
@@ -4426,16 +4452,10 @@ async function finishTeamsPagePaint(generation) {
 function syncLeagueFormatCopy() {
   const teamsHint = document.querySelector("#teams-tab-hint");
   if (teamsHint) teamsHint.textContent = "Roster, standings, playoff odds";
-  const gridCopy = document.querySelector("#teams-grid-copy");
-  if (gridCopy) {
-    gridCopy.textContent = leagueTypeId(state.league) === "redraft"
-      ? "Ranked by current power. Sit/start is this week. Tap a card for the scout."
-      : (sampleVoice()?.teamOutlined || "Your team is outlined. Tap a team for the rank, the win-now or rebuild call, and the lineup.");
-  }
   const powerCopy = document.querySelector("#power-section-copy");
   if (powerCopy) {
     powerCopy.textContent = leagueTypeId(state.league) === "redraft"
-      ? "Power score, in-it-or-out call, sit/start, and one note for the selected roster."
+      ? "Power score, in-it-or-out call, and one note for the selected roster."
       : "Power score, win-now or rebuild call, lineup rank, by position, and one idea for the selected roster.";
   }
 }
@@ -8098,7 +8118,6 @@ function buildRosterAfterTrade(roster, incomingAssets, outgoingAssets) {
 
 function evaluateRosterStrength(roster, values, league) {
   const starterSlots = getStarterRosterSlots(league);
-  // Starter XP is dynasty price. This week's start chance belongs to sit/start only.
   const lineupResult = buildOptimalStartingLineup(roster.assets, starterSlots, values);
 
   return {

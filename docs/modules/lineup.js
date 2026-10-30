@@ -1,4 +1,4 @@
-// Exact starter assignment shared by the dynasty lineup and sit/start.
+// Exact starter assignment for the dynasty lineup on My team.
 //
 // Players who fit exactly the same slots are interchangeable, so a best lineup only
 // ever starts the top few of each such group. The search state is "how many of each

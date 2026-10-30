@@ -30,7 +30,6 @@ export function sampleRosterLabels({ viewingSample = false, ownerName = "" } = {
     favor: poss,
     strengthens: `This trade strengthens ${poss} starting lineup while making the other side weaker or thinner.`,
     tradeFile: `${poss} trade file`,
-    teamOutlined: `${poss} team is outlined. Tap a team for the rank, the win-now or rebuild call, and the lineup.`,
     giveLabel: name ? `${name} gives` : "This team gives",
     getLabel: "They get",
     giveGetHeading: name ? `${name} gives / They get` : "This team gives / They get",

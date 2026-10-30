@@ -111,7 +111,7 @@ test("popstate restores the player or the previous view", () => {
 
 test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(typeof BASE, "string");
-  assert.deepEqual(HOME_PLACE, { page: "players", room: "ranks" });
+  assert.deepEqual(HOME_PLACE, { page: "trades", room: "calculator" });
   assert.deepEqual(ROUTES.map((row) => row.pattern), [
     "/",
     "/players",
@@ -120,20 +120,17 @@ test("route table maps the approved paths and unknown routes go home", () => {
     "/l/:leagueId",
     "/l/:leagueId/team",
     "/l/:leagueId/ideas",
-    "/l/:leagueId/league",
-    "/l/:leagueId/week",
-    "/l/:leagueId/activity",
-    "/l/:leagueId/history",
     "/player/:sleeperId/:slug?",
     "/t/:shareCode",
   ]);
   const home = matchRoute("/");
   assert.equal(home.name, "home");
-  assert.equal(home.page, "players");
+  assert.equal(home.page, "trades");
+  assert.equal(home.room, "calculator");
   const players = matchRoute("/players");
   assert.equal(players.name, "players");
-  assert.equal(players.page, "players");
-  assert.equal(players.room, "ranks");
+  assert.equal(players.page, "trades");
+  assert.equal(players.room, "calculator");
   const trade = matchRoute("/trade", "?give=player:9221&get=pick:2027:r1:early");
   assert.equal(trade.name, "trade");
   assert.equal(trade.page, "trades");
@@ -149,14 +146,14 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(matchRoute("/l/1360686137898700800/team").name, "team");
   assert.equal(matchRoute("/l/1360686137898700800/ideas").room, "find");
   assert.equal(matchRoute("/l/1360686137898700800/ideas").page, "trades");
-  assert.equal(matchRoute("/l/1360686137898700800/league").room, "board");
-  assert.equal(matchRoute("/l/1360686137898700800/week").room, "scores");
-  assert.equal(matchRoute("/l/1360686137898700800/week").page, "league");
-  assert.equal(matchRoute("/l/1360686137898700800/activity").room, "activity");
-  assert.equal(matchRoute("/l/1360686137898700800/history").room, "history");
-  assert.equal(resolveLocation("/l/42/week").unknown, false);
-  assert.equal(resolveLocation("/l/42/activity").unknown, false);
-  assert.equal(resolveLocation("/l/42/history").unknown, false);
+  // Removed rooms (week, league board, activity, history) land on My team.
+  for (const room of ["week", "league", "activity", "history"]) {
+    const removed = resolveLocation(`/l/42/${room}`);
+    assert.equal(removed.unknown, false, room);
+    assert.equal(removed.page, "league", room);
+    assert.equal(removed.room, "team", room);
+    assert.equal(removed.leagueId, "42", room);
+  }
   const unknownRoom = resolveLocation("/l/42/not-a-room");
   assert.equal(unknownRoom.unknown, false);
   assert.equal(unknownRoom.name, "team");
@@ -170,9 +167,9 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(player.name, "player");
   assert.equal(player.playerId, "9221");
   assert.equal(player.slug, "jahmyr-gibbs");
-  const connect = matchRoute("/connect", "?next=/players");
+  const connect = matchRoute("/connect", "?next=/trade");
   assert.equal(connect.name, "connect");
-  assert.equal(connect.next, "/players");
+  assert.equal(connect.next, "/trade");
   assert.equal(safeNext("https://evil.example/players"), "");
   assert.equal(safeNext("//evil.example/players"), "");
   assert.equal(resolveLocation("/nope").unknown, true);
@@ -182,37 +179,35 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(resolveLocation("/l/not-a-league").name, "league");
   assert.equal(resolveLocation("/?ranks=1").name, "players");
   assert.equal(resolveLocation("/?ranks=1").legacy, "ranks");
+  assert.equal(resolveLocation("/?ranks=1").page, "trades");
+  assert.equal(resolveLocation("/?ranks=1").room, "calculator");
   assert.equal(resolveLocation("/", "?asset=player:9221").name, "player");
   assert.equal(resolveLocation("/", "?asset=player:9221").playerId, "9221");
   assert.equal(resolveLocation("/", "?asset=player:9221").legacy, "asset");
   assert.equal(resolveLocation("/?asset=9221").playerId, "9221");
+  assert.equal(resolveLocation("/", "?view=ranks&asset=player:9221").playerId, "9221");
   assert.equal(resolveLocation("/players", "?asset=player:4984").name, "player");
   assert.equal(resolveLocation("/l/1312284338377383936/team", "?asset=player:9221").name, "team");
   assert.equal(resolveLocation("/", "?asset=nope").name, "home");
   assert.equal(resolveLocation("/player/0").unknown, true);
   assert.equal(resolveLocation("/player/0").playerId, "");
   assert.equal(playerIdFromPathname("/player/0"), "");
-  assert.equal(pathForPlace({ page: "players", room: "ranks", landing: true }), urlPath());
-  assert.equal(pathForPlace({ page: "players", room: "ranks", landing: false }), urlPath("players"));
+  assert.equal(pathForPlace({ page: "trades", room: "calculator", landing: true }), urlPath());
   assert.equal(pathForPlace({ page: "trades", room: "calculator" }), urlPath("trade"));
   assert.equal(pathForPlace({ page: "trades", room: "find", leagueId: "42" }), urlPath("l", "42", "ideas"));
   assert.equal(pathForPlace({ page: "league", room: "team", leagueId: "42" }), urlPath("l", "42", "team"));
-  assert.equal(pathForPlace({ page: "league", room: "board", leagueId: "42" }), urlPath("l", "42", "league"));
-  assert.equal(pathForPlace({ page: "league", room: "scores", leagueId: "42" }), urlPath("l", "42", "week"));
-  assert.equal(pathForPlace({ page: "league", room: "activity", leagueId: "42" }), urlPath("l", "42", "activity"));
-  assert.equal(pathForPlace({ page: "league", room: "history", leagueId: "42" }), urlPath("l", "42", "history"));
-  assert.equal(safeNext("/l/42/week"), urlPath("l", "42", "week"));
-  assert.equal(safeNext("/l/42/activity"), urlPath("l", "42", "activity"));
-  assert.equal(safeNext("/l/42/history"), urlPath("l", "42", "history"));
+  assert.equal(safeNext("/l/42/week"), urlPath("l", "42", "team"));
+  assert.equal(safeNext("/l/42/activity"), urlPath("l", "42", "team"));
+  assert.equal(safeNext("/l/42/history"), urlPath("l", "42", "team"));
   assert.equal(safeNext("/l/abc/week"), "");
   assert.equal(safeNext("/l/1%2F..%2Fx/week"), "");
   assert.equal(safeNext("//evil/l/1/week"), "");
   assert.equal(safeNext("/l/42/not-a-room"), urlPath("l", "42", "team"));
   assert.equal(safeNext("/l/42/team.js"), "");
-  assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221", playerName: "Jahmyr Gibbs" }), "/player/9221/jahmyr-gibbs");
-  assert.equal(pathForPlace({ page: "players", room: "ranks", playerId: "9221", playerName: "Jahmyr Gibbs", leagueId: "424242" }), "/player/9221/jahmyr-gibbs?league=424242");
-  assert.equal(pathForPlace({ page: "players", room: "ranks", landing: false, leagueId: "424242" }), "/players?league=424242");
-  assert.equal(pathForPlace({ page: "players", room: "ranks", landing: true, leagueId: "424242" }), "/");
+  assert.equal(pathForPlace({ page: "trades", room: "calculator", playerId: "9221", playerName: "Jahmyr Gibbs" }), "/player/9221/jahmyr-gibbs");
+  assert.equal(pathForPlace({ page: "trades", room: "calculator", playerId: "9221", playerName: "Jahmyr Gibbs", leagueId: "424242" }), "/player/9221/jahmyr-gibbs?league=424242");
+  assert.equal(pathForPlace({ page: "trades", room: "calculator", landing: false, leagueId: "424242" }), "/trade?league=424242");
+  assert.equal(pathForPlace({ page: "trades", room: "calculator", landing: true, leagueId: "424242" }), "/");
   assert.equal(pathForPlace({ page: "league", room: "team", leagueId: "424242" }), "/l/424242/team");
   assert.equal(topOverlay({ rail: true, player: true }), "rail");
   assert.equal(topOverlay({ help: true, player: true }), "help");
@@ -232,7 +227,7 @@ test("route table maps the approved paths and unknown routes go home", () => {
   assert.equal(isSpaPath("/l/4.2/team"), true);
   assert.equal(resolveLocation("/l/4.2/team").unknown, false);
   assert.equal(resolveLocation("/l/4.2/team").badLeague, true);
-  for (const room of ["/l/x/week", "/l/x/team", "/l/x/ideas", "/l/x/league", "/l/x/activity", "/l/x/history", "/l/4.2/week"]) {
+  for (const room of ["/l/x/team", "/l/x/ideas", "/l/4.2/team"]) {
     const badRoom = resolveLocation(room);
     assert.equal(isSpaPath(room), true, room);
     assert.equal(badRoom.badLeague, true, room);
@@ -282,7 +277,6 @@ test("the desk pushes player routes and restores them on popstate", () => {
   assert.match(app, /goSiteHome/);
   assert.match(app, /restoreHistoryScroll/);
   assert.match(app, /closeHistoryOverlay\("player"\)/);
-  assert.match(app, /closeHistoryOverlay\("help"\)/);
   assert.match(app, /closeHistoryOverlay\("rail"\)/);
   assert.match(app, /topOverlay/);
   assert.match(app, /leagueLoadBlocksPlayer/);
@@ -348,7 +342,6 @@ test("spa fallback lists placeholder routes then a 404 catch-all, after the api 
   const forced = blocks.filter((rule) => rule.force);
   assert.deepEqual(forced.map((rule) => rule.from), [
     "https://www.dynastyticker.com/*",
-    "/api/rather-vote",
     "/api/searched-user",
     "/api/collect",
     "/api/analytics-stats",
@@ -365,8 +358,13 @@ test("spa fallback lists placeholder routes then a 404 catch-all, after the api 
   assert.doesNotMatch(toml, /script-src 'unsafe-inline'/);
   const redirects = readFileSync(join(root, "../docs/_redirects"), "utf8");
   assert.match(redirects, /\/api\/searched-user\s+\/\.netlify\/functions\/searched-user\s+200!/);
-  assert.match(redirects, /\/api\/rather-vote\s+\/\.netlify\/functions\/rather-vote\s+200!/);
+  assert.doesNotMatch(redirects, /rather-vote/);
   assert.doesNotMatch(redirects, /index\.html/);
   assert.doesNotMatch(redirects, /\/player/);
-  assert.doesNotMatch(redirects, /\/l\//);
+  // Only the removed league rooms redirect; live /l/ routes stay on the SPA.
+  const leagueRules = redirects.split("\n").filter((line) => line.startsWith("/l/"));
+  for (const line of leagueRules) {
+    assert.match(line, /^\/l\/:id\/(week|league|activity|history)\/?\s+\S+\s+301!$/, line);
+  }
+  assert.equal(leagueRules.length, 8);
 });

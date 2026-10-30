@@ -284,18 +284,12 @@ test("boot-intent queues Enter and a click before app.js loads", () => {
   assert.ok(intentAt > 0 && intentAt < bootAt);
 });
 
-test("app boot does not clear the username and does not fetch values before the gate opens", () => {
-  const bootFn = app.slice(app.indexOf("function bootFromUrl"), app.indexOf("function currentDeskSnapshot"));
+test("app boot does not clear the username", () => {
+  const bootFn = app.slice(app.indexOf("function bootFromUrl"), app.indexOf("function activePlayerRouteId"));
+  assert.ok(bootFn.length > 0);
   assert.match(bootFn, /applyBootFieldValue/);
   assert.doesNotMatch(bootFn, /el\.sleeperUsername\.value\s*=/);
   assert.doesNotMatch(bootFn, /el\.landingUsername\.value\s*=/);
-  const rather = app.slice(app.indexOf("async function bootLandingRather"), app.indexOf("async function loadRatherPromptContext"));
-  assert.match(rather, /ensureValuesLoaded/);
-  assert.doesNotMatch(rather, /fetchValuationBundles/);
-  const init = app.slice(0, app.indexOf("function visibleRooms"));
-  const releaseAt = init.lastIndexOf("releaseBootGate(document)");
-  const ratherAt = init.lastIndexOf("void bootLandingRather()");
-  assert.ok(releaseAt > ratherAt);
 });
 
 test("blank username fields are not wiped when boot coalesces them", () => {
