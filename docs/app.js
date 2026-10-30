@@ -1200,7 +1200,6 @@ async function ensureRankExtras() {
 }
 
 function openPlayerBoard({ history = "push" } = {}) {
-  document.querySelector("#landing")?.classList.add("hidden");
   openRoom("trades", "calculator", { history });
   void ensureRankExtras();
 }
