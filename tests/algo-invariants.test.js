@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { calculatePackageAdjustment } from "../docs/modules/package-value.js";
 import { buildRankBoard, filterRankRows } from "../docs/modules/ranks.js";
-import { mulberry32 } from "../docs/modules/season.js";
+import { mulberry32 } from "../docs/modules/standings.js";
 import { draftVerdictModel } from "../docs/modules/trade-draft.js";
 import { valueCalcVerdict } from "../docs/modules/value-calc.js";
 import { getAssetValue, PICK_YEAR_DISCOUNT, tepLevel } from "../docs/modules/values.js";

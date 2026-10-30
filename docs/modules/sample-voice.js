@@ -30,7 +30,6 @@ export function sampleRosterLabels({ viewingSample = false, ownerName = "" } = {
     favor: poss,
     strengthens: `This trade strengthens ${poss} starting lineup while making the other side weaker or thinner.`,
     tradeFile: `${poss} trade file`,
-    teamOutlined: `${poss} team is outlined. Tap a team for the rank, the win-now or rebuild call, and the lineup.`,
     giveLabel: name ? `${name} gives` : "This team gives",
     getLabel: "They get",
     giveGetHeading: name ? `${name} gives / They get` : "This team gives / They get",
@@ -42,10 +41,10 @@ export function sampleRosterLabels({ viewingSample = false, ownerName = "" } = {
     roomHintCalculator: `${who} gives and they get. Works before a league is connected`,
     roomHintFind: `Shop ${oneOf}, target one of theirs, or find a partner`,
     roomHintTeam: `${poss} outlook, then the roster`,
-    pageHintLeague: name ? `${poss} team, this week, and the league` : "This team, this week, and the league",
+    pageHintLeague: `${poss} roster, standings, and playoff odds`,
     pageDescTrades: `One calculator: ${who} gives and they get. Find a deal that opens in that same calculator.`,
-    pageDescLeague: `${poss} outlook, this week's scores, standings, and league history.`,
-    roomDescFind: `Shop ${oneOf}, target one of theirs, or find a partner. Review trade opens the calculator.`,
+    pageDescLeague: `${poss} outlook, roster, standings, and playoff odds.`,
+    roomDescFind: `Trade ideas that fit ${poss} team and the other side. Review trade opens the calculator.`,
     roomDescActivity: `Past trades for ${name || "this team"} and the league.`,
     searchEmpty: `No matching players & picks found on ${poss} roster.`,
     gradeRoster: `Could not grade ${poss} roster for a match.`,
@@ -76,14 +75,6 @@ export function sampleRosterLabels({ viewingSample = false, ownerName = "" } = {
   };
 }
 
-export function sampleRoomHint(page, room, voice) {
-  if (!voice) return "";
-  if (page === "trades" && room === "calculator") return voice.roomHintCalculator;
-  if (page === "trades" && room === "find") return voice.roomHintFind;
-  if (page === "league" && room === "team") return voice.roomHintTeam;
-  return "";
-}
-
 export function sampleDescription({ page = "", room = "", voice = null } = {}) {
   if (!voice) return "";
   if (page === "trades" && room === "find") return voice.roomDescFind;
@@ -94,9 +85,3 @@ export function sampleDescription({ page = "", room = "", voice = null } = {}) {
   return "";
 }
 
-export function sampleMockNote(voice, { place = "", slots = "" } = {}) {
-  if (!voice) return "";
-  const where = slots ? `the names at ${slots}` : "those names";
-  const sitting = place ? `${voice.youGive} sits ${place} now, so ` : "";
-  return `${sitting}${where} belong to ${voice.youGive}. 3rds stay pick labels. College names have no trade value.`;
-}

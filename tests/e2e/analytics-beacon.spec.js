@@ -20,14 +20,14 @@ const visits = (sent) => sent.filter((row) => row.e === "visit");
 
 const COLD = [
   ["/", "/"],
-  ["/players", "/players"],
+  ["/players", "/trade"],
   ["/trade", "/trade"],
   ["/trade?give=player:4046&get=player:9509", "/trade"],
   ["/player/9509/bijan-robinson", "/player/:id"],
   ["/t/1s4984~9221", "/t/:code"],
   ["/connect", "/connect"],
   [`/l/${LEAGUE_ID}/team`, "/l/:id/team"],
-  [`/l/${LEAGUE_ID}/week`, "/l/:id/week"],
+  [`/l/${LEAGUE_ID}/ideas`, "/l/:id/ideas"],
 ];
 
 for (const [path, template] of COLD) {
@@ -45,6 +45,16 @@ for (const [path, template] of COLD) {
     expect(JSON.stringify(sent)).not.toMatch(/\d{4,}|player:|t\.co\/abc/);
   });
 }
+
+test("a cold removed room sends exactly one visit as it falls back to My team", async ({ page }) => {
+  const sent = await collect(page);
+  await page.goto(`/l/${LEAGUE_ID}/week`, { referer: REFERER });
+  await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE_ID}/team`), { timeout: 45000 });
+  await expect.poll(() => sent.some((row) => row.e === "league_connected"), { timeout: 45000 }).toBe(true);
+  await page.waitForTimeout(1500);
+  expect(visits(sent)).toHaveLength(1);
+  expect(visits(sent)[0]).toMatchObject({ e: "visit", r: "t.co" });
+});
 
 test("a shared trade is tagged /trade, not /", async ({ page }) => {
   const sent = await collect(page);

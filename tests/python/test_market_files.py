@@ -29,7 +29,6 @@ class MarketFileTests(unittest.TestCase):
         now = datetime(2026, 10, 28, 21, tzinfo=timezone.utc)
         errors, warnings = self.mod.check_files(now=now)
         self.assertEqual(errors, [], warnings)
-        self.assertTrue(any("nfl_schedule" in warning for warning in warnings))
         self.assertTrue(any("nfl_draft_picks" in warning for warning in warnings))
 
     def test_old_player_values_warn_unless_publish_mode(self):
@@ -46,15 +45,13 @@ class MarketFileTests(unittest.TestCase):
             root = Path(tmp)
             for name in (
                 "player_values.json",
-                "nfl_schedule.json",
-                "nfl_mock_drafts.json",
                 "nfl_draft_picks.json",
             ):
                 (root / name).write_text("[]", encoding="utf-8")
             for fail_on_age in (False, True):
                 errors, _warnings = self.mod.check_files(root=root, fail_on_age=fail_on_age)
                 self.assertTrue(any("not an object" in error for error in errors))
-                self.assertGreaterEqual(len(errors), 4)
+                self.assertGreaterEqual(len(errors), 2)
 
     def test_cli_warns_by_default_and_fails_on_age_flag(self):
         original = self.mod.check_files

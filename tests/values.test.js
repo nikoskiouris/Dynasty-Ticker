@@ -18,12 +18,9 @@ import {
   playersFromValueSnapshot,
   valuationUpdatedAt,
   pickValueBundle,
-  crowdShiftsFromVotes,
-  applyCrowdShift,
   findPickCatalogValue,
   findMarketValueByPlayerName,
   getGlobalMaxPlayerValue,
-  CROWD_MAX_ABS_SHIFT,
 } from "../docs/modules/values.js";
 
 test("valuation stamp prefers meta.updatedAt, then asOf", () => {
@@ -125,7 +122,6 @@ test("missing model numbers are unavailable instead of invented", () => {
   assert.equal(isEstimatedAsset(known, { "player:1": 3333 }), false);
   assert.equal(getAssetValue(known, { "player:1": 3333 }), 3333);
 });
-
 
 test("an IDP or kicker does not inherit an offensive player's price by name", () => {
   const values = { "player:9509": 11362, "player:10214": 31 };
@@ -232,7 +228,6 @@ test("value lookups that miss by id stay correct on a full market board", () => 
     assert.equal(isEstimatedAsset(asset, values, options), true);
   }
 });
-
 
 test("pick lookup time-discounts a nearest-year fallback", () => {
   const pick = { assetId: "pick:2026:r1:late", assetType: "pick", raw: { season: 2026, round: 1, ktcBucket: "late" } };
@@ -389,85 +384,6 @@ test("fetchValuationBundles rejects a legacy or missing model version", async ()
     json: async () => ({ modelVersion: "market-v2", sf: { "player:1": 8000 }, oneQb: { "player:1": 5000 } }),
   });
   await assert.rejects(() => fetchValuationBundles(fetchImpl), /Unsupported player-value model/);
-});
-
-function evenVote(winnerId, loserId, at = 1_700_000_000_000, format = "PPR 12-man Superflex", eventId = "") {
-  return { winnerId, loserId, format, at, eventId };
-}
-
-test("crowd votes remain preference evidence but never reprice players", () => {
-  const market = { "player:a": 8000, "player:b": 7900 };
-  const star = { assetId: "player:a", assetType: "player", raw: { position: "WR" } };
-  const shifts = crowdShiftsFromVotes([evenVote("player:a", "player:b")], market, { now: 1_700_000_000_000 });
-  assert.ok(shifts["player:a"] > 0);
-  assert.equal(getAssetValue(star, market, { crowdShifts: shifts }), 8000);
-});
-
-
-test("independent votes on the same pair keep contributing and stay capped", () => {
-  const market = { "player:a": 6000, "player:b": 5980 };
-  const votes = Array.from({ length: 40 }, (_, i) => evenVote("player:a", "player:b", 1_700_000_000_000 + i, "sf", `v${i}`));
-  const shifts = crowdShiftsFromVotes(votes, market, { now: 1_700_000_000_000 + 40 });
-  const once = crowdShiftsFromVotes([evenVote("player:a", "player:b")], market, { now: 1_700_000_000_000 });
-  assert.ok(shifts["player:a"] > once["player:a"]);
-  assert.ok(shifts["player:a"] <= CROWD_MAX_ABS_SHIFT);
-  const fortyTimes = applyCrowdShift("player:a", 6000, shifts);
-  assert.ok(fortyTimes <= Math.round(6000 * (1 + CROWD_MAX_ABS_SHIFT)));
-});
-
-test("later independent consensus can reverse an early preference", () => {
-  const market = { "player:a": 5000, "player:b": 5000 };
-  const start = 1_700_000_000_000;
-  const early = Array.from({ length: 10 }, (_, i) => evenVote("player:a", "player:b", start + i, "sf", `a${i}`));
-  const later = Array.from({ length: 1000 }, (_, i) => evenVote("player:b", "player:a", start + 100 + i, "sf", `b${i}`));
-  const shifts = crowdShiftsFromVotes([...early, ...later], market, { now: start + 1200 });
-  assert.ok(shifts["player:b"] > 0);
-  assert.ok(shifts["player:a"] < 0);
-});
-
-test("crowd aggregation is deterministic regardless of input order", () => {
-  const market = { "player:a": 7200, "player:b": 7000, "player:c": 6900 };
-  const votes = [
-    evenVote("player:a", "player:b", 100, "sf", "one"),
-    evenVote("player:c", "player:a", 200, "sf", "two"),
-    evenVote("player:b", "player:c", 300, "sf", "three"),
-  ];
-  const forward = crowdShiftsFromVotes(votes, market, { now: 400 });
-  const reverse = crowdShiftsFromVotes([...votes].reverse(), market, { now: 400 });
-  for (const id of Object.keys(forward)) {
-    assert.ok(Math.abs(forward[id] - reverse[id]) < 1e-12);
-  }
-});
-
-test("Superflex votes do not leak into a 1QB board", () => {
-  const market = { "player:qb": 8000, "player:wr": 7000 };
-  const votes = [evenVote("player:qb", "player:wr", 1_700_000_000_000, "PPR 12-man Superflex", "sf-only")];
-  const sf = crowdShiftsFromVotes(votes, market, { format: "sf", now: 1_700_000_000_000 });
-  const oneQb = crowdShiftsFromVotes(votes, market, { format: "oneQb", now: 1_700_000_000_000 });
-  assert.ok(sf["player:qb"] > 0);
-  assert.deepEqual(Object.keys(oneQb), []);
-});
-
-test("upsets move more than chalk, junk votes are ignored", () => {
-  const market = { "player:fav": 9000, "player:dog": 4000, "player:x": 5000 };
-  const chalk = crowdShiftsFromVotes([evenVote("player:fav", "player:dog")], market, { now: 1_700_000_000_000 });
-  const upset = crowdShiftsFromVotes([evenVote("player:dog", "player:fav")], market, { now: 1_700_000_000_000 });
-  assert.ok(Math.abs(upset["player:dog"]) > Math.abs(chalk["player:fav"]));
-
-  const junk = crowdShiftsFromVotes([
-    { winnerId: "player:fav", loserId: "player:fav", at: 1, format: "sf" },
-    { winnerId: "pick:2026:r1:any", loserId: "player:x", at: 1, format: "sf" },
-    { winnerId: "", loserId: "player:x", at: 1, format: "sf" },
-    evenVote("player:missing", "player:x"),
-  ], market, { now: 1_700_000_000_000 });
-  assert.deepEqual(Object.keys(junk), []);
-});
-
-test("crowd shift helpers cannot alter the canonical getAssetValue path", () => {
-  const star = { assetId: "player:gibbs", assetType: "player", raw: { position: "RB" } };
-  const market = { "player:gibbs": 9000, "player:other": 8800 };
-  const shifts = crowdShiftsFromVotes([evenVote("player:gibbs", "player:other")], market, { now: 1_700_000_000_000 });
-  assert.equal(getAssetValue(star, market, { crowdShifts: shifts }), 9000);
 });
 
 test("league board evidence never creates a second player price", () => {

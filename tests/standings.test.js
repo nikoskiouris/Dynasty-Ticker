@@ -3,22 +3,14 @@ import assert from "node:assert/strict";
 import {
   buildSeasonModel,
   simulateSeason,
-  computeWeeklyAwards,
-  computeSeasonSuperlatives,
-  computeRecordBook,
-  winProbability,
   seedTeams,
   formatRecord,
   formatOddsPct,
   blendSimPrior,
   playoffLockStatus,
-  scoreUpcomingWeekAngles,
-  pickWeekAngleCards,
-  resolveUpcomingWeekEntry,
   compareRosterRecord,
   playoffWeekCount,
-  transactionWeekEnd,
-} from "../docs/modules/season.js";
+} from "../docs/modules/standings.js";
 
 function leagueFixture({
   lastScored = 1,
@@ -120,7 +112,7 @@ test("final week writes standings, all-play, luck, and streaks", () => {
   assert.ok(bravo.luck < 0 || bravo.expectedWins > bravo.headToHeadWins || bravo.allPlayWins >= 0);
 });
 
-test("live week does not lock standings or name a winner", () => {
+test("live week does not lock standings", () => {
   const weekRows = new Map([
     [1, [
       side(1, 1, 40),
@@ -139,85 +131,6 @@ test("live week does not lock standings or name a winner", () => {
   assert.equal(model.currentWeekEntry.isLive, true);
   assert.equal(model.finalThroughWeek, 0);
   assert.equal(model.standings.every((team) => team.gamesPlayed === 0 || team.wins + team.losses === team.sleeperRecord.wins + team.sleeperRecord.losses), true);
-  const awards = computeWeeklyAwards(model, 1);
-  assert.equal(awards.provisional, true);
-  assert.equal(awards.awards.some((award) => award.id === "blowout"), false);
-  assert.equal(awards.awards.some((award) => award.id === "mvp"), true);
-});
-
-test("weekly awards after a final week include demolition, photo finish, and bench blunder", () => {
-  const weekRows = new Map([
-    [1, [
-      side(1, 1, 150, { starters: ["a"], startersPoints: [150], players: ["a", "b"], playersPoints: { a: 150, b: 40 } }),
-      side(2, 1, 80, { starters: ["c"], startersPoints: [80], players: ["c", "d"], playersPoints: { c: 80, d: 5 } }),
-      side(3, 2, 101.2, { starters: ["e"], startersPoints: [101.2], players: ["e", "f"], playersPoints: { e: 101.2, f: 1 } }),
-      side(4, 2, 100.8, { starters: ["g"], startersPoints: [100.8], players: ["g", "h"], playersPoints: { g: 100.8, h: 50 } }),
-    ]],
-  ]);
-  const model = buildSeasonModel({
-    league: leagueFixture({ lastScored: 1, leg: 2 }),
-    rosters: rosters(),
-    users: users(),
-    weekRows,
-    nflState: { season: "2026", week: 2, season_type: "regular" },
-    optimalPoints: (sideRow) => {
-      const pts = Object.values(sideRow.playersPoints || {}).sort((a, b) => b - a);
-      return pts[0] + (pts[1] || 0);
-    },
-  });
-  const weekly = computeWeeklyAwards(model, 1, {
-    playerName: (id) => `P${id}`,
-    playerPosition: () => "WR",
-    optimalPoints: (sideRow) => {
-      const pts = Object.values(sideRow.playersPoints || {}).sort((a, b) => b - a);
-      return pts[0] + (pts[1] || 0);
-    },
-  });
-  const ids = weekly.awards.map((award) => award.id);
-  assert.ok(ids.includes("top-score"));
-  assert.ok(ids.includes("blowout"));
-  assert.ok(ids.includes("closest"));
-  assert.ok(ids.includes("bench-blunder"));
-  assert.equal(weekly.provisional, false);
-});
-
-test("superlatives and record book survive a completed archive game", () => {
-  const weekRows = new Map([
-    [1, [side(1, 1, 140), side(2, 1, 90), side(3, 2, 110), side(4, 2, 70)]],
-    [2, [side(1, 1, 95), side(3, 1, 90), side(2, 2, 120), side(4, 2, 60)]],
-  ]);
-  const model = buildSeasonModel({
-    league: leagueFixture({ lastScored: 2, leg: 3 }),
-    rosters: rosters(),
-    users: users(),
-    weekRows,
-    nflState: { season: "2026", week: 3, season_type: "regular" },
-  });
-  const supers = computeSeasonSuperlatives(model);
-  assert.ok(supers.some((item) => item.id === "points-machine" && item.teamName === "Alpha"));
-  const book = computeRecordBook({
-    games: [
-      {
-        season: "2025",
-        week: 3,
-        isPlayoff: false,
-        a: { managerName: "Alpha", points: 180, rosterId: "1" },
-        b: { managerName: "Bravo", points: 40, rosterId: "2" },
-      },
-      {
-        season: "2025",
-        week: 4,
-        isPlayoff: false,
-        a: { managerName: "Charlie", points: 101, rosterId: "3" },
-        b: { managerName: "Delta", points: 100, rosterId: "4" },
-      },
-    ],
-    seasonRows: [
-      { managerName: "Alpha", points: 1800, wins: 11, losses: 3, complete: true, season: "2025" },
-    ],
-  });
-  assert.equal(book.records.find((row) => row.id === "high").holder, "Alpha");
-  assert.equal(book.records.find((row) => row.id === "closest").holder, "Charlie");
 });
 
 test("Monte Carlo stays off 99-1 in week 1 when priors shrink toward the mean", () => {
@@ -371,9 +284,7 @@ test("formatOddsPct never rounds 99.6 to 100", () => {
   assert.equal(formatOddsPct(61.2), "61%");
 });
 
-test("winProbability is symmetric and seed order prefers more wins", () => {
-  assert.equal(Number(winProbability({ mean: 120, std: 20 }, { mean: 120, std: 20 }).toFixed(2)), 0.5);
-  assert.ok(winProbability({ mean: 140, std: 16 }, { mean: 110, std: 16 }) > 0.7);
+test("seed order prefers more wins", () => {
   const rows = [
     { rosterId: "a", wins: 2, ties: 0, pf: 200, pa: 100 },
     { rosterId: "b", wins: 3, ties: 0, pf: 180, pa: 120 },
@@ -383,97 +294,6 @@ test("winProbability is symmetric and seed order prefers more wins", () => {
 
 test("formatRecord shows ties", () => {
   assert.equal(formatRecord({ wins: 2, losses: 1, ties: 1 }), "2-1-1");
-});
-
-test("upcoming week dark horses use scoring distributions, not a value check", () => {
-  const weekRows = new Map([
-    [1, [side(1, 1, 150), side(2, 1, 80), side(3, 2, 120), side(4, 2, 115)]],
-    [2, [side(1, 1, 0), side(4, 1, 0), side(2, 2, 0), side(3, 2, 0)]],
-    [3, [side(1, 1, 0), side(3, 1, 0), side(2, 2, 0), side(4, 2, 0)]],
-  ]);
-  const model = buildSeasonModel({
-    league: leagueFixture({ lastScored: 1, leg: 2, playoffTeams: 2 }),
-    rosters: rosters(),
-    users: users(),
-    weekRows,
-    nflState: { season: "2026", week: 2, season_type: "regular" },
-  });
-  assert.equal(resolveUpcomingWeekEntry(model)?.week, 2);
-
-  const distributions = new Map([
-    ["1", { mean: 145, std: 18 }],
-    ["2", { mean: 118, std: 32 }],
-    ["3", { mean: 132, std: 16 }],
-    ["4", { mean: 128, std: 18 }],
-  ]);
-  const simRow = (rosterId, projectedWins, playoffPct, titlePct) => ({
-    rosterId,
-    projectedWins,
-    playoffPct,
-    titlePct,
-  });
-  const results = [
-    simRow("1", 10.2, 92, 48),
-    simRow("3", 7.4, 58, 18),
-    simRow("4", 7.1, 47, 14),
-    simRow("2", 5.2, 22, 4),
-  ];
-  const sim = {
-    distributions,
-    results,
-    byRosterId: new Map(results.map((row) => [row.rosterId, row])),
-  };
-
-  const bravoWin = winProbability(distributions.get("2"), distributions.get("3"));
-  assert.ok(bravoWin > 0.18 && bravoWin < 0.42, `Bravo vs Charlie should be a live underdog, got ${bravoWin}`);
-
-  const angles = scoreUpcomingWeekAngles(model, sim);
-  assert.equal(angles.week, 2);
-  const horseNames = angles.darkHorses.map((card) => card.teamName);
-  assert.ok(horseNames.includes("Bravo"));
-  assert.ok(!horseNames.includes("Alpha"));
-  assert.ok(angles.cards.some((card) => card.kind === "dark-horse"));
-  assert.ok(angles.trapGames.some((card) => card.teamName === "Charlie" && card.opponentName === "Bravo"));
-  const bravoCard = angles.cards.find((card) => card.teamName === "Bravo");
-  assert.ok(bravoCard);
-  assert.ok(!angles.cards.some((card) => card.kind === "trap" && String(card.matchupId) === String(bravoCard.matchupId)));
-  assert.match(angles.darkHorses[0].detail, /how these teams score|boom tail/i);
-  assert.doesNotMatch(angles.darkHorses[0].detail, /KTC roster rank|raw KTC/i);
-});
-
-test("week angle cards tell each matchup once", () => {
-  const horse = (matchupId, name) => ({
-    kind: "dark-horse",
-    title: "Dark horse",
-    rosterId: `${matchupId}-dog`,
-    teamName: name,
-    opponentRosterId: `${matchupId}-fav`,
-    matchupId,
-  });
-  const trap = (matchupId, name) => ({
-    kind: "trap",
-    title: "Trap game",
-    rosterId: `${matchupId}-fav`,
-    teamName: name,
-    opponentRosterId: `${matchupId}-dog`,
-    matchupId,
-  });
-  const cards = pickWeekAngleCards({
-    darkHorses: [horse("g1", "Niko"), horse("g2", "Ben"), horse("g3", "Juan")],
-    trapGames: [trap("g1", "Logan"), trap("g4", "Other")],
-    leverageGames: [{ kind: "leverage", title: "Highest leverage", rosterId: "chris", teamName: "Chris", opponentRosterId: "yian", matchupId: "g5" }],
-  });
-  const kinds = cards.map((card) => `${card.kind}:${card.matchupId}`);
-  assert.deepEqual(kinds, ["dark-horse:g1", "dark-horse:g2", "leverage:g5", "dark-horse:g3"]);
-  assert.ok(!cards.some((card) => card.kind === "trap"));
-  assert.equal(new Set(cards.map((card) => card.matchupId)).size, cards.length);
-
-  const filled = pickWeekAngleCards({
-    darkHorses: [horse("g1", "Niko"), horse("g2", "Ben"), horse("g3", "Juan")],
-    trapGames: [trap("g1", "Logan"), trap("g2", "Skol")],
-  });
-  assert.deepEqual(filled.map((card) => card.matchupId), ["g1", "g2", "g3"]);
-  assert.ok(filled.every((card) => card.kind === "dark-horse"));
 });
 
 test("a scoreless final week does not mint ties", () => {
@@ -530,16 +350,11 @@ test("an unfinished schedule does not clinch or simulate", () => {
   assert.equal(model.teams.get("1").wins, 1);
 });
 
-test("tied records break on points against, and two-week playoffs stay in the trade fetch", () => {
+test("tied records break on points against, and two-week playoff rounds count double", () => {
   const better = { rosterId: "2", wins: 5, losses: 5, ties: 0, points: 1100, pointsAgainst: 1000 };
   const worse = { rosterId: "1", wins: 5, losses: 5, ties: 0, points: 1100, pointsAgainst: 1200 };
   assert.ok(compareRosterRecord(better, worse) < 0);
   assert.equal(playoffWeekCount(6, 2), 6);
-  const end = transactionWeekEnd({
-    settings: { playoff_week_start: 15, playoff_teams: 6, playoff_round_type: 2 },
-  });
-  assert.equal(end, 20);
-  assert.equal(transactionWeekEnd({ settings: { playoff_week_start: 15 } }), 18);
 });
 
 function longSeasonLeague({ lastScored, leg }) {

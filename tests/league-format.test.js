@@ -7,7 +7,6 @@ import {
   leagueTypeLabel,
   leagueUsesFuturePicks,
   marketCaveat,
-  pageHintForLeague,
   roomLabelFor,
   roomsForPage,
   visibleRoomFor,
@@ -37,10 +36,10 @@ test("three destinations stay short for every league type", () => {
   assert.equal(hiddenRoomsForLeague(redraft).length, 0);
   assert.equal(hiddenRoomsForLeague(keeper).length, 0);
   assert.equal(hiddenRoomsForLeague(dynasty).length, 0);
-  assert.deepEqual(roomsForPage("players"), ["ranks"]);
+  assert.deepEqual(roomsForPage("players"), []);
   assert.deepEqual(roomsForPage("trades"), ["calculator", "find"]);
   assert.deepEqual(roomsForPage("league"), ["team"]);
-  assert.deepEqual(roomsForPage("league", dynasty), ["team", "scores", "board", "activity", "history"]);
+  assert.deepEqual(roomsForPage("league", dynasty), ["team"]);
   assert.equal(visibleRoomFor("league", "team"), "team");
   assert.equal(isRoomVisible("trades", "calculator", redraft), true);
   assert.equal(isRoomVisible("league", "loyalty", dynasty), false);
@@ -58,7 +57,6 @@ test("redraft copy names the season call and warns about dynasty prices", () => 
   const redraft = leagueWithType(0);
   assert.equal(roomLabelFor("league", "team", redraft), "My team");
   assert.equal(roomLabelFor("league", "team", leagueWithType(2)), "My team");
-  assert.equal(pageHintForLeague("league", redraft), "Your team, this week, and the league");
   assert.match(marketCaveat(redraft), /redraft/i);
   assert.match(marketCaveat(redraft), /dynasty market/i);
   assert.equal(marketCaveat(leagueWithType(2)), "");

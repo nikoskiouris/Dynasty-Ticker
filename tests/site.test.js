@@ -16,7 +16,6 @@ import {
   buildDocumentTitle,
   buildPageDescription,
   readStorageNoticeDismissed,
-  tickerDurationSeconds,
   writeStorageNoticeDismissed,
 } from "../docs/modules/site.js";
 import { SAMPLE_LEAGUE_ID } from "../docs/modules/constants.js";
@@ -29,77 +28,38 @@ function readDocs(name) {
 }
 
 test("document titles and descriptions change with tab and league", () => {
+  const name = "Try Hard or Die Hard";
+  const title = (page, room = "") => buildDocumentTitle({ page, room, leagueName: name, loaded: true });
   assert.equal(buildDocumentTitle({}), DEFAULT_TITLE);
+  assert.equal(title("league"), "My team · Try Hard or Die Hard — Dynasty Ticker");
+  // Old tab and room names still open, on the tab that took them over.
+  for (const [page, room] of [["league", "scores"], ["recap"], ["team"], ["teams", "call"], ["history", "hall"]]) {
+    assert.equal(title(page, room), "My team · Try Hard or Die Hard — Dynasty Ticker", `${page}/${room}`);
+  }
   assert.equal(
-    buildDocumentTitle({ page: "league", leagueName: "Try Hard or Die Hard", loaded: true }),
-    "My League · Try Hard or Die Hard — Dynasty Ticker"
+    buildDocumentTitle({ page: "teams", leagueName: "Sunday Squad", loaded: true, room: "call", league: { settings: { type: 0 } } }),
+    "My team · Sunday Squad — Dynasty Ticker"
   );
-  assert.equal(
-    buildDocumentTitle({ page: "league", leagueName: "Try Hard or Die Hard", loaded: true, room: "scores" }),
-    "This week · Try Hard or Die Hard — Dynasty Ticker"
-  );
-  assert.equal(
-    buildDocumentTitle({ page: "recap", leagueName: "Try Hard or Die Hard", loaded: true }),
-    "This week · Try Hard or Die Hard — Dynasty Ticker"
-  );
-  assert.equal(
-    buildDocumentTitle({ page: "team", leagueName: "Try Hard or Die Hard", loaded: true }),
-    "My League · Try Hard or Die Hard — Dynasty Ticker"
-  );
-  assert.equal(
-    buildDocumentTitle({ page: "teams", leagueName: "Try Hard or Die Hard", loaded: true, room: "mock" }),
-    "League · Try Hard or Die Hard — Dynasty Ticker"
-  );
-  assert.equal(
-    buildDocumentTitle({ page: "teams", leagueName: "Try Hard or Die Hard", loaded: true, room: "call" }),
-    "My League · Try Hard or Die Hard — Dynasty Ticker"
-  );
-  assert.equal(
-    buildDocumentTitle({
-      page: "teams",
-      leagueName: "Sunday Squad",
-      loaded: true,
-      room: "call",
-      league: { settings: { type: 0 } },
-    }),
-    "My League · Sunday Squad — Dynasty Ticker"
-  );
-  assert.equal(
-    buildDocumentTitle({ page: "trades", leagueName: "Try Hard or Die Hard", loaded: true, room: "lab" }),
-    "Find a trade · Try Hard or Die Hard — Dynasty Ticker"
-  );
-  assert.equal(
-    buildDocumentTitle({ page: "trades", leagueName: "Try Hard or Die Hard", loaded: true, room: "match" }),
-    "Find a trade · Try Hard or Die Hard — Dynasty Ticker"
-  );
-  assert.equal(
-    buildDocumentTitle({ page: "trader", leagueName: "Try Hard or Die Hard", loaded: true }),
-    "Trade · Try Hard or Die Hard — Dynasty Ticker"
-  );
-  assert.equal(
-    buildDocumentTitle({ page: "history", leagueName: "Try Hard or Die Hard", loaded: true, room: "hall" }),
-    "History · Try Hard or Die Hard — Dynasty Ticker"
-  );
-  assert.equal(
-    buildDocumentTitle({ page: "history", leagueName: "Try Hard or Die Hard", loaded: true, room: "records" }),
-    "History · Try Hard or Die Hard — Dynasty Ticker"
-  );
+  assert.equal(title("trades", "lab"), "Find a trade · Try Hard or Die Hard — Dynasty Ticker");
+  assert.equal(title("trades", "match"), "Find a trade · Try Hard or Die Hard — Dynasty Ticker");
+  assert.equal(title("trades", "find"), "Find a trade · Try Hard or Die Hard — Dynasty Ticker");
+  assert.equal(title("trader"), "Trade · Try Hard or Die Hard — Dynasty Ticker");
+  assert.equal(title("players"), "Trade · Try Hard or Die Hard — Dynasty Ticker");
   assert.match(
-    buildPageDescription({ page: "home", leagueName: "Try Hard or Die Hard", loaded: true }),
+    buildPageDescription({ page: "home", leagueName: name, loaded: true }),
     /Now open: Try Hard or Die Hard/
-  );
-  assert.match(
-    buildPageDescription({ page: "league", room: "history", leagueName: "Demo", loaded: true }),
-    /Last season's champion/
   );
   assert.match(
     buildPageDescription({ page: "trades", room: "value", leagueName: "Demo", loaded: true }),
     /You give and you get/i
   );
-  assert.match(buildPageDescription({ page: "league", room: "team", loaded: true }), /outlook/);
+  assert.match(buildPageDescription({ page: "league", room: "team", loaded: true }), /standings/);
   assert.match(buildPageDescription({ page: "trades", room: "calculator", loaded: true }), /You give and you get/i);
-  assert.match(buildPageDescription({ page: "league", room: "activity", loaded: true }), /Past trades/);
   assert.match(buildPageDescription({ page: "trades", room: "find", loaded: true }), /Review trade/i);
+  assert.doesNotMatch(
+    ["league", "trades"].map((page) => buildPageDescription({ page, loaded: true })).join(" "),
+    /this week|league history|past trades/i
+  );
   assert.equal(buildPageDescription({}), DEFAULT_DESCRIPTION);
 });
 
@@ -144,7 +104,6 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
     "brand/wordmark.svg",
     "brand/wordmark-on-dark.svg",
     "brand/mark.svg",
-    "data/nfl_schedule.json",
   ];
   for (const name of required) {
     assert.equal(existsSync(join(docs, name)), true, name);
@@ -185,7 +144,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(readDocs("app.js"), /Viewing as \$\{me\.manager\?\.displayName \|\| "a roster"\}/);
   assert.match(readDocs("app.js"), /return "Sample league"/);
   assert.match(readDocs("app.js"), /Example roster/);
-  assert.match(index, /id="public-ranks"/);
+  assert.doesNotMatch(index, /id="public-ranks"/);
   assert.match(index, /id="ranks-dashboard"/);
   assert.match(index, /id="landing-username"/);
   assert.doesNotMatch(index, /See a value\. Check a trade\. Then your team\./);
@@ -224,40 +183,44 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /href="\.\/tokens\.css"/);
   assert.doesNotMatch(index, /fonts\.googleapis\.com/);
   assert.doesNotMatch(index, /fonts\.gstatic\.com/);
-  for (const page of ["players", "trades", "league"]) {
+  for (const page of ["trades", "league"]) {
     assert.match(index, new RegExp(`data-page="${page}"`));
     assert.match(index, new RegExp(`id="${page}-page"`));
   }
+  assert.doesNotMatch(index, /data-page="players"/);
+  assert.doesNotMatch(index, /id="players-page"/);
   assert.doesNotMatch(index, /data-page="history"/);
   assert.doesNotMatch(index, /id="history-page"/);
-  assert.match(index, /id="room-nav"/);
-  for (const room of ["ranks", "calculator", "find", "team", "scores", "board", "activity", "history"]) {
+  assert.doesNotMatch(index, /id="room-nav"/);
+  for (const room of ["calculator", "find", "team"]) {
     assert.match(index, new RegExp(`data-room-panel="${room}"`), room);
+  }
+  for (const room of ["ranks", "scores", "board", "activity", "history"]) {
+    assert.doesNotMatch(index, new RegExp(`data-room-panel="${room}"`), room);
   }
   assert.doesNotMatch(index, /data-room-panel="recap"/);
   assert.doesNotMatch(index, /data-room-panel="hall"/);
   assert.doesNotMatch(index, /data-room-panel="seasons"/);
   assert.doesNotMatch(index, /data-room-panel="records"/);
-  assert.match(index, /id="passport-dashboard"/);
-  assert.match(index, /id="mock-dashboard"/);
-  assert.match(index, /id="window-call-dashboard"/);
-  assert.match(index, /id="trade-log-dashboard"/);
+  assert.doesNotMatch(index, /id="passport-dashboard"/);
+  assert.doesNotMatch(index, /id="mock-dashboard"/);
+  assert.doesNotMatch(index, /id="trade-log-dashboard"/);
+  assert.match(index, /id="standings-dashboard"/);
   assert.match(index, /id="trade-match-dashboard"/);
   assert.match(index, /id="calculator-shell"/);
   assert.doesNotMatch(index, /id="value-calculator-shell"/);
   assert.match(index, /id="match-generate-btn"/);
-  assert.match(index, /id="find-more-btn"/);
-  assert.match(index, />Find more</);
+  assert.doesNotMatch(index, /id="find-more-btn"/);
   assert.match(index, />Find partners</);
-  assert.match(index, /Check a trade or find a deal/);
-  assert.match(index, /Review trade fills the calculator/);
+  assert.match(index, /data-page="trades" data-room="find"/);
+  assert.match(index, /Review trade opens it in Check a trade/);
   assert.doesNotMatch(index, /Got an offer\?/);
   const tradesPage = index.slice(index.indexOf('id="trades-page"'), index.indexOf('id="league-page"'));
   assert.deepEqual(
     [...tradesPage.matchAll(/data-room-panel="([^"]+)"/g)].map((row) => row[1]),
     ["calculator", "find"],
   );
-  assert.match(index, /id="history-dashboard"/);
+  assert.doesNotMatch(index, /id="history-dashboard"/);
   assert.match(index, /id="mobile-home-btn"/);
   assert.match(index, /data-action="league-home"/);
   assert.doesNotMatch(index, /id="mobile-chrome-title"[^>]*data-action/);
@@ -315,12 +278,12 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(netlify, /publish = "docs"/);
   assert.match(netlify, /dynastyticker\.com/);
   assert.match(netlify, /from = "\/api\/searched-user"/);
-  assert.match(netlify, /from = "\/api\/rather-vote"/);
+  assert.doesNotMatch(netlify, /rather-vote/);
   assert.doesNotMatch(netlify, /from = "\/api\/visit"/);
   assert.doesNotMatch(netlify, /from = "\/api\/views"/);
   assert.match(netlify, /directory = "netlify\/functions"/);
   assert.match(readDocs("_redirects"), /\/api\/searched-user\s+\/\.netlify\/functions\/searched-user\s+200!/);
-  assert.match(readDocs("_redirects"), /\/api\/rather-vote\s+\/\.netlify\/functions\/rather-vote\s+200!/);
+  assert.doesNotMatch(readDocs("_redirects"), /rather-vote/);
   assert.doesNotMatch(readDocs("_redirects"), /\/api\/visit/);
 
   const notFound = readDocs("404.html");
@@ -362,9 +325,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(app, />This team</);
   assert.doesNotMatch(app, /data-room="standings">Standings/);
   assert.doesNotMatch(app, /Last league remembered/);
-  assert.match(app, /tickerDurationSeconds\(items\.length\)/);
-  assert.match(app, /bindTicker\(/);
-  assert.match(app, /pickLatestCrown\(/);
+  assert.doesNotMatch(app, /bindTicker\(|pickLatestCrown\(/);
   assert.match(app, /renderTradeDraft\(/);
   assert.doesNotMatch(app, /value-pick-board/);
   assert.doesNotMatch(app, /renderValueCalcPickBoard/);
@@ -373,8 +334,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(readDocs("styles.css"), /value-pick-board/);
   assert.match(app, /function goLeagueHome/);
   assert.doesNotMatch(app, /from "\.\/modules\/recap/);
-  assert.match(readDocs("styles.css"), /--ticker-duration: 60s/);
-  assert.match(readDocs("styles.css"), /\.ticker\.is-bound \.ticker-track/);
+  assert.doesNotMatch(readDocs("styles.css"), /--ticker-duration|\.ticker-track/);
   assert.match(app, /shouldOpen = Boolean\(open\) && isPhoneLayout\(\)/);
   assert.doesNotMatch(app, /shouldOpen = Boolean\(open\) && isPhoneLayout\(\) && Boolean\(state\.leagueId\)/);
   assert.match(readDocs("index.html"), /id="phone-desk"/);
@@ -403,7 +363,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(readDocs("site.webmanifest"), /"theme_color": "#0c0c0e"/);
   assert.match(readDocs("styles.css"), /burgundy ink/);
   assert.match(readDocs("styles.css"), /Phone landing: search first/);
-  assert.match(readDocs("styles.css"), /Phone desk nav: sections live in the side board/);
+  assert.match(readDocs("styles.css"), /Phone desk nav: /);
 
   assert.ok(statSync(join(docs, "og-image.jpg")).size < 120_000);
   assert.match(OG_IMAGE_URL, /og-image\.jpg$/);
@@ -441,7 +401,7 @@ test("Got it hides the storage notice and remembers the choice", () => {
 });
 
 test("dead storage notice CSS and the sticky cta id rules are gone", () => {
-  const css = `${readDocs("styles.css")}\n${readDocs("product.css")}`;
+  const css = readDocs("styles.css");
   assert.doesNotMatch(css, /\.storage-notice/);
   assert.doesNotMatch(css, /#sticky-mobile-cta/);
   assert.match(readDocs("styles.css"), /\.sticky-mobile-cta\s*\{[^}]*display:\s*none/s);
@@ -452,22 +412,7 @@ test("side rail is fixed so the page cannot scroll a blank screen past the last 
   assert.match(css, /\.control-rail \{[^}]*position:\s*fixed/s);
   assert.match(css, /\.workspace \{[^}]*grid-column:\s*2/s);
   assert.match(css, /\.workspace \{\s*grid-column:\s*auto/s);
-  assert.doesNotMatch(css, /\.control-rail \{[^}]*position:\s*sticky/s);
-});
-
-test("weekly honors, season superlatives, and the rookie mock sit on the matching tabs", () => {
-  const index = siteMarkup();
-  const team = index.match(/data-room-panel="team"[\s\S]*?data-room-panel="scores"/)[0];
-  const scores = index.match(/data-room-panel="scores"[\s\S]*?data-room-panel="board"/)[0];
-  const board = index.match(/data-room-panel="board"[\s\S]*?data-room-panel="activity"/)[0];
-  const history = index.match(/data-room-panel="history"[\s\S]*?<\/div>\s*<\/div>/)[0];
-  assert.doesNotMatch(team, /mock-dashboard|weekly-honors|superlatives/);
-  assert.match(scores, /id="weekly-honors-dashboard"/);
-  assert.doesNotMatch(scores, /superlatives-dashboard|mock-dashboard/);
-  assert.match(board, /id="superlatives-dashboard"/);
-  assert.match(board, /id="mock-dashboard"/);
-  assert.match(board, /Rookie mock/);
-  assert.doesNotMatch(history, /awards-dashboard|weekly-honors|superlatives|mock-dashboard/);
+  assert.doesNotMatch(css, /^\.control-rail \{[^}]*position:\s*sticky/m);
 });
 
 test("phone scrolling stays put while the URL bar moves", () => {
@@ -479,37 +424,20 @@ test("phone scrolling stays put while the URL bar moves", () => {
   assert.match(phone, /\.control-rail \{[^}]*height:\s*0/s);
   assert.match(phone, /\.control-rail \{[^}]*backdrop-filter:\s*none/s);
   assert.match(phone, /\.mobile-chrome \{[^}]*backdrop-filter:\s*none/s);
-  assert.match(phone, /\.workspace-tabs,\s*\.room-nav \{[^}]*display:\s*none/s);
-  assert.match(css, /\.room-nav-scroll \{[^}]*overflow-x:\s*auto/s);
-  assert.match(readDocs("app.js"), /room-nav-scroll/);
+  assert.match(phone, /\.workspace-tabs \{[^}]*display:\s*none/s);
   assert.doesNotMatch(readDocs("app.js"), /scrollIntoView\(\{ inline: "center"/);
 });
 
-test("phone sections sit in the side board and drop open", () => {
+test("phone menu is a flat list of the three tabs in the side board", () => {
   const css = readDocs("styles.css");
-  assert.match(css, /Phone desk nav: sections live in the side board/);
-  assert.match(css, /Tap a section and its rooms drop open/);
   assert.doesNotMatch(css, /page tabs pin to the bottom edge/);
   assert.doesNotMatch(css, /Phone desk nav: page tabs sit in a fixed ink dock/);
   assert.doesNotMatch(css, /\.workspace-tabs \{[^}]*position:\s*fixed/s);
-  assert.match(css, /\.phone-desk-group\.is-open \.phone-desk-rooms \{[^}]*display:\s*grid/s);
-  assert.match(readDocs("app.js"), /data-phone-page/);
-  assert.doesNotMatch(css, /\.room-nav \{[^}]*position:\s*fixed/s);
-  assert.doesNotMatch(
-    css,
-    /\.asset-row-top,\s*\.asset-item \{[^}]*flex-direction:\s*column/s
-  );
-  assert.match(
-    css,
-    /\.asset-row-top,\s*\.asset-item \{[^}]*flex-direction:\s*row/s
-  );
-});
-
-test("ticker loops slower so names stay readable", () => {
-  assert.equal(tickerDurationSeconds(0), 50);
-  assert.equal(tickerDurationSeconds(4), 50);
-  assert.equal(tickerDurationSeconds(8), 72);
-  assert.equal(tickerDurationSeconds(12), 108);
+  assert.match(css, /\.phone-desk \{[^}]*display:\s*grid/s);
+  assert.match(readDocs("app.js"), /data-phone-room="\$\{escapeHtml\(tab\.room\)\}" data-page="\$\{escapeHtml\(tab\.page\)\}"/);
+  assert.doesNotMatch(readDocs("app.js"), /data-phone-page=/);
+  assert.doesNotMatch(css, /\.asset-row-top \{[^}]*flex-direction:\s*column/s);
+  assert.match(css, /\.asset-row-top \{[^}]*flex-direction:\s*row/s);
 });
 
 test("wide board can shut so the page fills the screen", () => {
@@ -544,7 +472,7 @@ test("each desk page is its own file and boot mounts them before the app", () =>
   assert.doesNotMatch(index, /id="players-page"/);
   assert.doesNotMatch(index, /id="trades-page"/);
   assert.doesNotMatch(index, /id="league-page"/);
-  for (const file of ["landing.html", "players.html", "trades.html", "league.html"]) {
+  for (const file of ["landing.html", "trades.html", "league.html"]) {
     assert.match(boot, new RegExp(`\\./ui/${file.replace(".", "\\.")}`));
     assert.equal(existsSync(join(docs, "ui", file)), true);
   }
@@ -570,10 +498,10 @@ test("each desk page is its own file and boot mounts them before the app", () =>
   assert.doesNotMatch(readDocs("ui/landing.html"), /id="landing-username"[^>]*disabled/);
   assert.match(index, /class="skip-link"/);
   assert.doesNotMatch(siteMarkup(), /id="landing-rather"/);
-  assert.doesNotMatch(readDocs("ui/players.html"), /id="landing-rather"/);
-  assert.doesNotMatch(readDocs("ui/players.html"), /Who would you rather have\?/);
+  assert.equal(existsSync(join(docs, "ui", "players.html")), false);
+  assert.doesNotMatch(siteMarkup(), /Who would you rather have\?/);
   assert.match(siteMarkup(), /id="calculator-shell"/);
-  assert.match(siteMarkup(), /id="weekly-help-btn"/);
+  assert.doesNotMatch(siteMarkup(), /id="weekly-help-btn"/);
 });
 
 test("the site never names KeepTradeCut", () => {
@@ -626,19 +554,9 @@ test("product name Dynasty Ticker never shares the repo with the old brand", () 
 test("user-facing copy says players and picks, not assets", () => {
   const app = readDocs("app.js");
   const voice = readDocs("modules/sample-voice.js");
-  assert.match(app, /tap players & picks on both sides/);
-  assert.match(app, /No traded players & picks to rank yet/);
-  assert.match(app, /\$\{playersAndPicksLabel\(movements\.length\)\} moved/);
   assert.match(readDocs("modules/html.js"), /1 player or pick/);
   assert.match(readDocs("modules/html.js"), /players & picks/);
-  assert.match(app, /No matching players & picks found on your roster/);
-  assert.match(app, /Select one of your own players & picks to shop first/);
-  assert.match(app, /fewer included players & picks/);
-  assert.match(app, /exclude fewer players & picks/);
-  assert.match(app, /headline players & picks/);
-  assert.match(app, /high-value players & picks/);
   assert.match(voice, /No matching players & picks found on \$\{poss\} roster/);
-  assert.match(voice, /Select one of \$\{poss\} players & picks to shop first/);
   assert.doesNotMatch(app, /tap assets|traded assets|assets moved|matching assets|own assets|included assets|fewer assets|headline assets|high-value assets/);
   assert.doesNotMatch(voice, /assets/);
 });

@@ -19,7 +19,7 @@ test("Find my leagues stays a real button and no longer docks on scroll", () => 
   const index = readDocs("index.html");
   const landing = readDocs("ui/landing.html");
   const app = readDocs("app.js");
-  const css = `${readDocs("styles.css")}\n${readDocs("product.css")}`;
+  const css = readDocs("styles.css");
   assert.match(index, /class="skip-link"/);
   assert.match(index, /<button id="sticky-find-btn" type="button"/);
   assert.match(landing, /id="landing-find-btn"/);
@@ -64,7 +64,6 @@ function fixtureHtml() {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="${cssHref("tokens.css")}" />
     <link rel="stylesheet" href="${cssHref("styles.css")}" />
-    <link rel="stylesheet" href="${cssHref("product.css")}" />
     <title>Find bar probe</title>
   </head>
   <body>

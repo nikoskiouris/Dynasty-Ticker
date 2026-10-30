@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PAGE_ROOMS, ROOM_HINTS } from "../docs/modules/constants.js";
 import { buildPageDescription } from "../docs/modules/site.js";
 import { describeDraftItem, draftNoticeText, draftTeamSummary } from "../docs/modules/trade-draft.js";
 import { describeMatchDeal, describePartnerMatch } from "../docs/modules/trade-match.js";
@@ -12,8 +11,6 @@ import { analyzeWindowCall } from "../docs/modules/window-call.js";
 import {
   SAMPLE_BANNED_VOICE,
   ownerPossessive,
-  sampleMockNote,
-  sampleRoomHint,
   sampleRosterLabels,
 } from "../docs/modules/sample-voice.js";
 
@@ -41,7 +38,6 @@ test("sample mode drops first-person roster copy", () => {
   assert.equal(named.giveGetHeading, "Ada gives / They get");
   assert.match(named.strengthens, /Ada's starting lineup/);
   assert.equal(named.tradeFile, "Ada's trade file");
-  assert.match(named.teamOutlined, /Ada's team is outlined/);
   const trailing = sampleRosterLabels({ viewingSample: true, ownerName: "chrisalberts" });
   assert.equal(ownerPossessive("chrisalberts"), "chrisalberts'");
   assert.equal(ownerPossessive("Ada"), "Ada's");
@@ -66,61 +62,26 @@ test("sample mode drops first-person roster copy", () => {
 });
 
 test("sample labels are what the desk renders", () => {
-  assert.match(app, /function syncSampleTradeCopy/);
   assert.match(app, /sampleVoice\(\)\?\.heatOnRoster \|\| "is on your roster"/);
   assert.match(app, /sampleVoice\(\)\?\.roster \|\| "Your roster"/);
   assert.match(app, /voice && page === "league" && room === HOME_ROOM/);
-  assert.match(app, /sampleVoice\(\)\?\.shopChoose/);
-  assert.match(app, /sampleVoice\(\)\?\.shopPick/);
-  assert.match(app, /voice\?\.shopSearch/);
-  assert.match(app, /Search your roster for the player or pick you want to move/);
-  assert.match(app, /voice\?\.mineLabel/);
   assert.match(app, /sampleVoice\(\)\?\.giveGetHeading/);
   assert.match(app, /sampleVoice\(\)\?\.draftSearchLeft/);
-  assert.match(app, /sampleVoice\(\)\?\.tradeFile/);
-  assert.match(app, /sampleVoice\(\)\?\.teamOutlined/);
   assert.match(app, /sampleVoice\(\)\?\.strengthens/);
   // The verdict heading is neutral (verdict-copy.js); the offer text keeps the
   // sample voice for the sharer's side name and uses the same verdict line.
   assert.match(app, /const mySide = sampleVoice\(\)\?\.sideLabel \|\| "my side";\s*const line = verdictLineNamed\(verdict,/);
-  assert.match(app, /sampleRoomHint\(/);
-  assert.match(app, /voice\?\.findIntro/);
-  assert.match(app, /voice\?\.shopIntro/);
-  assert.match(app, /sampleVoice\(\)\?\.pageHintLeague/);
-  assert.match(app, /voice\?\.banner/);
   assert.match(app, /viewingSample: Boolean\(state\.viewingSample\)/);
 });
 
-function paintSampleDesk(voice) {
-  const swaps = [
-    ["Start from a partner, one of yours, or one of theirs. Review trade fills the calculator.", voice.findIntro],
-    ["One of yours, or one of theirs. Then search the name.", voice.shopIntro],
-    [">Mine<", `>${voice.mineLabel}<`],
-    ["Sell one of mine", voice.shopOption],
-    ["One of mine", voice.oneOfMine],
-    ["Pick one of your players or picks.", voice.shopPick],
-    ['placeholder="Search player or pick"', `placeholder="${voice.shopSearch}"`],
-    ["Your team is outlined. Tap a team to view it.", voice.teamOutlined],
-    ["Your team, this week, the league", voice.pageHintLeague],
-  ];
-  let html = [
+function paintSampleDesk() {
+  const html = [
     tradesHtml,
     leagueHtml.replace(/<div class="empty-cta">[\s\S]*?<\/div>/g, ""),
     indexHtml.match(/<div id="sample-banner"[\s\S]*?<\/div>/)?.[0] || "",
     indexHtml.match(/<small id="teams-tab-hint">[\s\S]*?<\/small>/)?.[0] || "",
   ].join("\n");
-  for (const [from, to] of swaps) {
-    assert.equal(html.includes(from), true, `sample paint target missing: ${from}`);
-    html = html.replaceAll(from, to);
-  }
   return html;
-}
-
-function roomTitles(voice) {
-  return Object.entries(PAGE_ROOMS).flatMap(([page, rooms]) => rooms.map((room) => {
-    const title = sampleRoomHint(page, room, voice) || ROOM_HINTS[page]?.[room] || "";
-    return `<button class="room-tab" role="tab" title="${title}" aria-label="${title}"></button>`;
-  })).join("\n");
 }
 
 function outlookCopy(voice, overrides = {}) {
@@ -160,11 +121,6 @@ function renderSampleMode(ownerName) {
     ["trades", "calculator"],
     ["trades", "find"],
     ["league", "team"],
-    ["league", "scores"],
-    ["league", "board"],
-    ["league", "activity"],
-    ["league", "history"],
-    ["players", "ranks"],
   ];
   const descriptions = places.map(([page, room]) => buildPageDescription({
     page,
@@ -176,7 +132,6 @@ function renderSampleMode(ownerName) {
   }));
   const dynamic = [
     ...Object.values(voice),
-    sampleMockNote(voice, { place: "3rd", slots: "1.03 and 2.03" }),
     describeDraftItem({ status: "already-yours" }, { kind: "player", voice }),
     describeDraftItem({ status: "already-yours" }, { kind: "pick", voice }),
     describeDraftItem({ status: "not-yours" }, { ownerName: "Ben", kind: "player", voice }),
@@ -235,14 +190,14 @@ function renderSampleMode(ownerName) {
     outlookCopy(voice, { horizon: "season" }),
     ...descriptions,
   ];
-  return [paintSampleDesk(voice), roomTitles(voice), dynamic.join("\n")].join("\n");
+  return [paintSampleDesk(), dynamic.join("\n")].join("\n");
 }
 
 test("rendered sample mode has no your, yours, mine, or you give", () => {
   const ada = renderSampleMode("Ada");
   assert.doesNotMatch(ada, SAMPLE_BANNED_VOICE);
   assert.match(ada, /Search Ada's roster for the player or pick to move/);
-  assert.match(ada, /Ada's outlook, then the roster/);
+  assert.match(ada, /Ada's outlook, roster, standings, and playoff odds/);
   assert.match(ada, /Ada gives and they get/);
   assert.doesNotMatch(ada, /Search your roster|one of yours|Your outlook|You give and you get/i);
 
@@ -250,12 +205,12 @@ test("rendered sample mode has no your, yours, mine, or you give", () => {
   assert.doesNotMatch(trailing, SAMPLE_BANNED_VOICE);
   assert.doesNotMatch(trailing, /chrisalberts's/);
   assert.match(trailing, /Search chrisalberts' roster/);
-  assert.match(trailing, /chrisalberts' outlook, then the roster/);
+  assert.match(trailing, /chrisalberts' outlook, roster, standings/);
 
   const anon = renderSampleMode("");
   assert.doesNotMatch(anon, SAMPLE_BANNED_VOICE);
   assert.match(anon, /Search this team's roster/);
-  assert.match(anon, /this team's outlook, then the roster/);
+  assert.match(anon, /this team's outlook, roster, standings/);
   assert.match(anon, /This team gives and they get/);
   assert.match(anon, /one from this team/);
 });

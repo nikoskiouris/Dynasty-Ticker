@@ -9,8 +9,8 @@ import {
   currentPlaceForOwner,
   formatPickSlotLabel,
   projectedDraftSlot,
-} from "../docs/modules/mock-drafts.js";
-import { ordinal } from "../docs/modules/season.js";
+} from "../docs/modules/draft-order.js";
+import { ordinal } from "../docs/modules/standings.js";
 import {
   bucketForProjectedSlot,
   chooseLeadPick,
@@ -291,7 +291,6 @@ test("Draft Ammo, the vault, and trade read one pick price", () => {
   assert.match(appSource, /leadFirst: chooseLeadPick\(/);
   assert.match(appSource, /draftAmmoInsight\(profile\.assetSummary\.firstRoundPickCount, profile\.assetSummary\.leadFirst\)/);
   assert.match(appSource, /resolvePickProjection\(/);
-  assert.match(appSource, /function findOwnedPickAsset\(/);
   assert.match(appSource, /function refreshProjectedPickSlots\(/);
   assert.match(appSource, /projectPickSlots\(/);
   assert.match(appSource, /if \(!state\.pickProjectionReady\) return false/);
@@ -316,11 +315,4 @@ test("Draft Ammo, the vault, and trade read one pick price", () => {
     appSource.indexOf("function formatAssetSecondaryLabel("),
   );
   assert.match(plain, /getAssetValue\(asset, values\)/);
-  const trade = appSource.slice(
-    appSource.indexOf("function buildTransactionPickAsset("),
-    appSource.indexOf("function buildWeeklyTradeTimeline("),
-  );
-  assert.match(trade, /findOwnedPickAsset\(/);
-  assert.match(trade, /resolvePickProjection\(/);
-  assert.doesNotMatch(trade, /valueAssetId: `pick:\$\{season\}:r\$\{round\}:any`/);
 });

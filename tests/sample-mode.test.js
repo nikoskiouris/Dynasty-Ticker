@@ -163,9 +163,7 @@ test("sample copy drops pick I own, on your roster, and do not sell your aging s
   assert.match(ownCall.moves.join("\n"), /Do not sell your aging stars for picks/);
   assert.match(describeDraftItem({ status: "already-yours" }, { kind: "player" }), /on your roster/);
   const app = readFileSync(join(root, "docs/app.js"), "utf8");
-  assert.match(app, /voice\?\.shopOption \|\| "Sell one of mine"/);
   assert.match(app, /sampleVoice\(\)\?\.heatOnRoster \|\| "is on your roster"/);
-  assert.match(app, /sampleVoice\(\)\?\.searchEmpty/);
 });
 
 test("sample league id lives in one place and the old private league is gone", () => {

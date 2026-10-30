@@ -6,8 +6,7 @@ import { fileURLToPath } from "node:url";
 import { PAGE_IDS, PAGE_ROOMS, SAMPLE_LEAGUE_ID } from "../docs/modules/constants.js";
 import { DESK_JOBS, DESK_MORE_JOBS } from "../docs/modules/jobs.js";
 import { chooseBestLineup } from "../docs/modules/lineup.js";
-import { weekRowsFingerprint } from "../docs/modules/live.js";
-import { rosterPointsFor } from "../docs/modules/mock-drafts.js";
+import { rosterPointsFor } from "../docs/modules/draft-order.js";
 import {
   buildShareUrl,
   classifyLeagueInput,
@@ -16,7 +15,6 @@ import {
   parseShareParams,
   resolveDeskPlace,
 } from "../docs/modules/parse.js";
-import { pairKey, pickRatherPair, RATHER_MAX_VALUE_RATIO } from "../docs/modules/rather.js";
 import {
   bracketOrder,
   buildSeasonModel,
@@ -27,15 +25,10 @@ import {
   pointsAgainstFromSettings,
   simulateSeason,
   sleeperPoints,
-} from "../docs/modules/season.js";
-import { buildSitStart } from "../docs/modules/sit-start.js";
+  weekRowsFingerprint,
+} from "../docs/modules/standings.js";
 import { utcIsoWeek } from "../netlify/lib/traffic.js";
-import {
-  CROWD_MAX_ABS_SHIFT,
-  crowdShiftsFromVotes,
-  findPickCatalogValue,
-} from "../docs/modules/values.js";
-import { indexNflSchedule, weeksForWeeklyValue, buildWeeklyPlayerModel } from "../docs/modules/weekly-value.js";
+import { findPickCatalogValue } from "../docs/modules/values.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -290,49 +283,6 @@ check("playoff sim hands out every spot and one title", () => {
   return "";
 });
 
-check("weekly lookback does not repeat a slate", () => {
-  const weeks = weeksForWeeklyValue({ season: "2026", week: 2, previousSeason: "2025", count: 6 });
-  if (weeks.length !== 7) return `length ${weeks.length}`;
-  if (weeks[0].season !== "2026" || weeks[0].week !== 2) return `starts at ${weeks[0].season} week ${weeks[0].week}`;
-  const keys = weeks.map((row) => `${row.season}-${row.week}`);
-  if (new Set(keys).size !== keys.length) return `duplicate ${keys.join(",")}`;
-  return "";
-});
-
-check("crowd shifts stay inside the cap", () => {
-  const now = Date.UTC(2026, 8, 16);
-  const votes = Array.from({ length: 40 }, (_, index) => ({
-    eventId: `vote-${index}`,
-    winnerId: "player:a",
-    loserId: "player:b",
-    format: "sf",
-    at: now - index * 3600000,
-  }));
-  const shifts = crowdShiftsFromVotes(votes, { "player:a": 5000, "player:b": 4900 }, { format: "sf", now });
-  for (const [id, shift] of Object.entries(shifts)) {
-    if (Math.abs(shift) - CROWD_MAX_ABS_SHIFT > 1e-9) return `${id} shift ${shift}`;
-  }
-  return "";
-});
-
-check("rather picks a close fight when one exists", () => {
-  const players = [
-    { assetId: "player:a", playerId: "a", name: "Ace", value: 9000, position: "WR" },
-    { assetId: "player:b", playerId: "b", name: "Bee", value: 1000, position: "RB" },
-    { assetId: "player:c", playerId: "c", name: "Cee", value: 980, position: "TE" },
-  ];
-  const close = pairKey("player:b", "player:c");
-  for (let seed = 1; seed <= 12; seed += 1) {
-    const pair = pickRatherPair(players, { random: mulberry32(seed) });
-    if (!pair) return "no pair";
-    if (pair.key !== close) return `seed ${seed} picked ${pair.key}`;
-    const hi = Math.max(pair.left.value, pair.right.value);
-    const lo = Math.min(pair.left.value, pair.right.value);
-    if (hi / lo > RATHER_MAX_VALUE_RATIO) return `ratio ${hi / lo}`;
-  }
-  return "";
-});
-
 check("scoreless final week is not a pile of ties", () => {
   const model = buildSeasonModel({
     league: leagueFixture({ lastScored: 2, leg: 3 }),
@@ -388,42 +338,6 @@ check("one roster cannot bank two games in the same week", () => {
   return "";
 });
 
-check("2020 lookback stops at week 17", () => {
-  const weeks = weeksForWeeklyValue({ season: "2021", week: 1, previousSeason: "2020", count: 2 });
-  if (weeks[1]?.season !== "2020" || weeks[1]?.week !== 17) {
-    return weeks.map((row) => `${row.season}-W${row.week}`).join(",");
-  }
-  return "";
-});
-
-check("bye-week box score does not enter the lookback", () => {
-  const scheduleIndex = indexNflSchedule({
-    games: [
-      { season: "2026", week: 4, home: "BUF", away: "NYJ" },
-      { season: "2026", week: 5, home: "KC", away: "LAC" },
-    ],
-  });
-  const model = buildWeeklyPlayerModel({
-    playerId: "p1",
-    name: "Bye Back",
-    position: "WR",
-    team: "BUF",
-    dynastyValue: 1000,
-    context: {
-      season: "2026",
-      week: 6,
-      scheduleIndex,
-      weekRows: [
-        { season: "2026", week: 5, stats: { p1: { gp: 1, pts_ppr: 20, rec_tgt: 8 } } },
-        { season: "2026", week: 4, stats: { p1: { gp: 1, pts_ppr: 10, rec_tgt: 4 } } },
-      ],
-    },
-  });
-  if (model.recentPoints !== 10) return `recent ${model.recentPoints}`;
-  if (model.games.length !== 1) return `games ${model.games.length}`;
-  return "";
-});
-
 check("past pick catalog does not mark the pick up", () => {
   const past = findPickCatalogValue({ season: "2024", round: 1, bucket: "any" }, { "pick:2026:r1:any": 5000 });
   if (past > 5000) return `past pick ${past}`;
@@ -441,71 +355,6 @@ check("lineup solver does not play the same player twice", () => {
   const score = picks.reduce((sum, index) => sum + candidates[index].value, 0);
   if (score !== plan.score) return `score ${plan.score} vs ${score}`;
   if (plan.score !== 29) return `best score ${plan.score}`;
-  return "";
-});
-
-check("sit start keeps a scarce starter when stars crowd the cap", () => {
-  const qbs = [1, 2, 3].map((index) => ({
-    id: `qb${index}`,
-    name: `QB ${index}`,
-    position: "QB",
-    positions: ["QB"],
-    weekly: { score: 20 - index, position: "QB" },
-    dynastyValue: 1000,
-  }));
-  const wrs = Array.from({ length: 18 }, (_, index) => ({
-    id: `wr${index}`,
-    name: `WR ${index}`,
-    position: "WR",
-    positions: ["WR"],
-    weekly: { score: 99, position: "WR" },
-    dynastyValue: 8000,
-  }));
-  const board = buildSitStart({ players: [...qbs, ...wrs], slots: ["QB", "QB", "QB"], week: 3 });
-  const started = board.starters.map((entry) => entry.player?.id).filter(Boolean);
-  if (started.length !== 3) return `started ${started.join(",") || "nobody"}`;
-  const hurt = buildSitStart({
-    slots: ["QB"],
-    week: 3,
-    players: [
-      { id: "out", name: "Out QB", position: "QB", positions: ["QB"], injuryStatus: "Out", weekly: { score: 99, position: "QB" }, dynastyValue: 1 },
-      { id: "ok", name: "Healthy QB", position: "QB", positions: ["QB"], weekly: { score: 40, position: "QB" }, dynastyValue: 1 },
-    ],
-  });
-  if (hurt.starters[0]?.player?.id !== "ok") return `started ${hurt.starters[0]?.player?.id}`;
-  const inactive = buildSitStart({
-    slots: ["RB"],
-    week: 3,
-    players: [
-      { id: "inact", name: "Shelf", position: "RB", positions: ["RB"], playerStatus: "Inactive", weekly: { score: 99, position: "RB" }, dynastyValue: 1 },
-      { id: "ok", name: "Active", position: "RB", positions: ["RB"], weekly: { score: 40, position: "RB" }, dynastyValue: 1 },
-    ],
-  });
-  if (inactive.starters[0]?.player?.id !== "ok") return `started ${inactive.starters[0]?.player?.id}`;
-  const ghost = buildSitStart({
-    slots: ["WR", "WR"],
-    week: 3,
-    players: [
-      { id: "x", name: "X", position: "WR", positions: ["WR"], weekly: { score: 7, position: "WR" }, dynastyValue: 1 },
-      { id: "y", name: "Y", position: "WR", positions: ["WR"], weekly: { score: null, position: "WR" }, dynastyValue: 9000 },
-      { id: "z", name: "Z", position: "WR", positions: ["WR"], weekly: { score: 80, position: "WR" }, dynastyValue: 1 },
-    ],
-  });
-  if (ghost.closeCalls.some((call) => call.starterId === "y" || call.challengerId === "y")) {
-    return "null score entered a close call";
-  }
-  const generic = Array.from({ length: 11 }, (_, index) => `G${index}`);
-  const wide = buildSitStart({
-    slots: ["S0", "S1", ...generic],
-    week: 3,
-    players: [
-      { id: "A", name: "A", canFill: (slot) => slot === "S0" || slot === "S1", weekly: { score: 10 }, dynastyValue: 1 },
-      { id: "B", name: "B", canFill: (slot) => slot === "S0", weekly: { score: 9 }, dynastyValue: 1 },
-      { id: "C", name: "C", canFill: (slot) => slot === "S1", weekly: { score: 8 }, dynastyValue: 1 },
-    ],
-  });
-  const wideIds = wide.starters.map((entry) => entry.player?.id);
-  if (wideIds[0] !== "B" || wideIds[1] !== "A") return `wide lineup ${wideIds.filter(Boolean).join(",")}`;
   return "";
 });
 

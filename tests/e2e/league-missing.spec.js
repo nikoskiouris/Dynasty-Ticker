@@ -41,7 +41,7 @@ test("a bad league link has one heading, and Find my leagues returns home", asyn
 
   await find.click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page).toHaveTitle("Dynasty Ticker — Your Sleeper dynasty league");
+  await expect(page).not.toHaveTitle(/couldn't find/);
   await expect(page.locator("#landing-username")).toBeFocused();
   await expect(page.locator("#landing")).toBeVisible();
   await expect(page.locator("#league-missing")).toBeHidden();
@@ -54,7 +54,7 @@ test("a bad league link has one heading, and Find my leagues returns home", asyn
 });
 
 test("a bad league id under a room path is the missing-league state", async ({ page }) => {
-  for (const path of ["/l/x/week", "/l/not-a-league/activity", "/l/4.2/history"]) {
+  for (const path of ["/l/x/team", "/l/not-a-league/ideas", "/l/4.2/team"]) {
     const res = await page.goto(path);
     expect(res.status()).toBe(200);
     await expect(page.locator("#league-missing-title")).toBeVisible({ timeout: 30000 });

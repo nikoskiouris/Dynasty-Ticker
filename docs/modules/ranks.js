@@ -9,9 +9,10 @@ import {
 } from "./value-scale.js";
 import { sleeperAvatarUrl } from "./sleeper.js";
 import { renderPlayerFace } from "./player-face.js";
-import { ordinal } from "./season.js";
+import { ordinal } from "./standings.js";
 import { isInactivePlayerAsset, parsePickAssetId, upcomingDraftSeason } from "./values.js";
-import { playerAgeFromNfl, playerInitials, sleeperPlayerThumbUrl } from "./rather.js";
+import { playerInitials, sleeperPlayerThumbUrl } from "./player-face.js";
+import { playerAgeFromNfl } from "./player-notes.js";
 
 export const RANK_PAGE_SIZE = 48;
 export const RANK_LIST_FLOOR = 1500;
@@ -21,7 +22,6 @@ export const RANK_POSITIONS = Object.freeze(["ALL", "QB", "RB", "WR", "TE", "PIC
 export const RANK_FORMATS = Object.freeze(["sf", "oneQb"]);
 const SKILL_POSITIONS = new Set(["QB", "RB", "WR", "TE"]);
 const PICK_BUCKET_TIE = { any: 0, mid: 1, late: 2, early: 3 };
-const TAPE_TRADE_FLOOR = 0.75;
 const PICK_CLOSE_RATIO = 0.08;
 const PICK_FAR_RATIO = 1.8;
 
@@ -79,7 +79,7 @@ export function ownerLine(owner, { leagueOpen = false, kind = "player" } = {}) {
 }
 
 export function rankBoardNote({ format = "sf", leagueFormat = "", caveat = "" } = {}) {
-  const base = "Our estimate, scored with a point per catch. Same number on Trade and My League. The pick line is the closest pick.";
+  const base = "Our estimate, scored with a point per catch. Same number in every trade and on My team. The pick line is the closest pick.";
   const peek = leagueFormat && format && format !== leagueFormat
     ? ` Peeking at ${rankFormatLabel(format)}. Your league is ${rankFormatLabel(leagueFormat)}.`
     : "";
@@ -456,21 +456,6 @@ function rankMeta(row) {
   if (row?.kind === "pick") return "Pick";
   const age = Number.isFinite(Number(row?.age)) && Number(row.age) > 0 ? `${Math.round(Number(row.age))}y` : "";
   return [row?.boardRank, row?.team, age].filter(Boolean).join(" · ");
-}
-
-function pickScan(line) {
-  const text = String(line || "");
-  const more = text.match(/^Worth more than a (.+)\.$/);
-  if (more) return `More than ${more[1]}`;
-  const about = text.match(/^Worth about a (.+)\.$/);
-  if (about) return about[1];
-  const above = text.match(/^A step above a (.+)\.$/);
-  if (above) return `Above ${above[1]}`;
-  const under = text.match(/^A step under a (.+)\.$/);
-  if (under) return `Under ${under[1]}`;
-  const close = text.match(/^Closest pick is a (.+)\.$/);
-  if (close) return `Near ${close[1]}`;
-  return "";
 }
 
 function rankEyebrow(row) {

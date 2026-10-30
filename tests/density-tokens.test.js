@@ -28,8 +28,8 @@ test("density tokens load before the desk styles and the fonts stay on this orig
     const at = (file) => Math.max(html.indexOf(`href="./${file}"`), html.indexOf(`href="/${file}"`));
     const tokensAt = at("tokens.css");
     const stylesAt = at("styles.css");
-    const productAt = at("product.css");
-    assert.ok(tokensAt >= 0 && tokensAt < stylesAt && stylesAt < productAt, page);
+    assert.ok(tokensAt >= 0 && tokensAt < stylesAt, page);
+    assert.equal(html.includes("product.css"), false, page);
     assert.doesNotMatch(html, /fonts\.googleapis|fonts\.gstatic/);
   }
   const tokens = readDocs("tokens.css");
@@ -53,7 +53,7 @@ test("density tokens load before the desk styles and the fonts stay on this orig
   assert.match(styles, /\.ranks-facts dd \{[^}]*font-size:\s*var\(--fs-num\)/);
   assert.match(styles, /\.ranks-facts dd \{[^}]*font-weight:\s*700/);
   assert.doesNotMatch(styles, /font-weight:\s*(800|900)/);
-  const product = readDocs("product.css");
+  const product = readDocs("styles.css");
   assert.match(product, /min\(0px, calc\(\(100% - var\(--tap-min\)\) \/ 2\)\)/);
   assert.match(product, /\.mobile-chrome \{[^}]*background:\s*var\(--bg\)/);
   assert.match(product, /header#mobile-chrome \{[^}]*background-color:\s*var\(--bg\)/);
@@ -64,7 +64,7 @@ test("density tokens load before the desk styles and the fonts stay on this orig
   assert.match(styles, /font-size:\s*var\(--fs-body\)/);
   assert.match(styles, /font-size:\s*var\(--fs-h1\)/);
   assert.match(styles, /outline:\s*2px solid/);
-  const desk = `${styles}\n${readDocs("product.css")}`;
+  const desk = styles;
   assert.match(desk, /@supports\s*\(-webkit-touch-callout:\s*none\)/);
   assert.match(desk, /font-size:\s*16px/);
   for (const file of [
@@ -128,7 +128,6 @@ function fixtureHtml() {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="${cssHref("tokens.css")}" />
     <link rel="stylesheet" href="${cssHref("styles.css")}" />
-    <link rel="stylesheet" href="${cssHref("product.css")}" />
     <title>Density probe</title>
   </head>
   <body>
@@ -167,13 +166,6 @@ function fixtureHtml() {
       <button type="button" id="sample-banner-find">Find my leagues</button>
     </div>
     <select data-change="lens-roster" id="lens-roster"><option>Roster</option></select>
-    <button type="button" id="weekly-help-btn" class="weekly-help-btn">?</button>
-    <p class="muted small pick-mock-note">Dynasty Nerds <button type="button" class="inline-link" id="mock-link" data-action="go" data-page="league" data-room="board" data-open-mock="1">Full board</button></p>
-    <section class="workspace-panel mock-board">
-      <div class="panel-heading">
-        <p class="section-copy">Dynasty Nerds · <a class="inline-link" id="mock-article" href="https://example.com/mock">Open article</a></p>
-      </div>
-    </section>
     <p id="landing-job-hint" class="muted landing-job-hint">Type your Sleeper username. No name yet? <a id="sample-league-link" class="sample-league-link" href="./?sample=1">See the sample league</a>.</p>
     <form class="player-connect" data-player-connect>
       <input id="player-connect-user" class="player-connect-user" name="username" aria-label="Sleeper username" placeholder="Sleeper username" />
@@ -182,13 +174,6 @@ function fixtureHtml() {
     <button type="button" class="selected-token" id="offer-token">
       <span class="selected-token-label player-name"><span class="player-face player-face-sm" id="offer-headshot"><img class="player-face-photo" id="offer-photo" alt="" width="64" height="64" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" /></span><span class="player-name-text">Jahmyr Gibbs</span></span>
     </button>
-    <div class="week-chips" id="week-chips">
-      <button type="button">Wk 1</button>
-      <button type="button">Wk 2</button>
-      <button type="button">Wk 3</button>
-      <button type="button">Wk 4</button>
-      <button type="button" id="week-chip" class="active">Wk 5</button>
-    </div>
     <article class="ranks-card">
       <div class="ranks-card-main">
         <div class="ranks-headshot" id="ranks-headshot">
@@ -235,7 +220,6 @@ function fixtureHtml() {
     <select id="me-select"><option>Team</option></select>
     <button id="page-tab" class="page-tab" type="button">Players</button>
     <button id="room-tab" class="room-tab" type="button">Ranks</button>
-    <button id="team-trade" class="team-card-trade" type="button">Build a trade</button>
     <button class="ranks-row" type="button"><span>1</span><span>Jahmyr Gibbs</span><strong>8421</strong></button>
     <button class="ranks-row" id="long-name-row" type="button">
       <span class="ranks-num">12</span>
@@ -312,13 +296,8 @@ const MEASURE = `(() => {
     "me-select",
     "page-tab",
     "room-tab",
-    "team-trade",
     "sample-banner-find",
-    "weekly-help-btn",
-    "mock-link",
-    "mock-article",
     "sample-league-link",
-    "week-chip",
     "lens-roster",
     "player-search",
     "player-connect-user",
@@ -637,10 +616,10 @@ test("at 390px body, h1, number, controls, and rows use the density sizes", asyn
     }
     const desk = await measureAt(bin, htmlPath, 1280, false);
     assert.equal(desk.innerWidth, 1280);
-    for (const id of ["page-tab", "room-tab", "team-trade", "landing-find-btn", "ranks-chip", "me-select", "sample-banner-find", "weekly-help-btn", "mock-link", "mock-article", "sample-league-link", "week-chip", "lens-roster", "player-connect-user", "player-connect-find"]) {
+    for (const id of ["page-tab", "room-tab", "landing-find-btn", "ranks-chip", "me-select", "sample-banner-find", "sample-league-link", "lens-roster", "player-connect-user", "player-connect-find"]) {
       assert.ok(desk.hits[id].height >= 43.5, `${id} desk hit ${desk.hits[id].height}`);
     }
-    for (const id of ["mock-link", "mock-article", "sample-league-link", "week-chip", "player-connect-user", "player-connect-find"]) {
+    for (const id of ["sample-league-link", "player-connect-user", "player-connect-find"]) {
       for (const shot of [box, desk]) {
         assert.ok(shot.hits[id].visual >= 43.5, `${id} box ${shot.innerWidth} ${shot.hits[id].visual}`);
       }

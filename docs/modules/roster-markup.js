@@ -85,10 +85,6 @@ export function renderPowerHero({ score, managerName, grade, tierClass, badges }
   `;
 }
 
-export function renderMultiTeamPartyTitle(displayName, isMe = false) {
-  return isMe ? "You" : escapeHtml(displayName);
-}
-
 export function renderAvatar(manager, { size = "md", className = "" } = {}) {
   const name = String(manager?.displayName || manager?.name || "?");
   const initial = name.trim().charAt(0).toUpperCase() || "?";

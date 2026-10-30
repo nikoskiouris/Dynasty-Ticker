@@ -11,7 +11,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const BASE_FUNCTIONS = Object.freeze(["rather-vote", "searched-user", "collect", "analytics-stats"]);
+export const BASE_FUNCTIONS = Object.freeze(["searched-user", "collect", "analytics-stats"]);
 export const OPTIONAL = Object.freeze([
   { pr: "#164", marker: "docs/modules/trade-share.js", functions: ["trade-page", "trade-card"], edge: [], resvg: true },
   { pr: "#165", marker: "docs/modules/asset-path.js", functions: [], edge: ["asset-404"] },

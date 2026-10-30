@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 const LEAGUE = "1360686137898700800";
 const LONG_NAME = "Christopher Bartholomew Worthington-Montgomery Rodriguez Alexander Jr.";
 
-test("a very long roster name stays whole inside the row at 390", async ({ page }) => {
+test("a very long roster name wraps whole inside the row at 390", async ({ page }) => {
   test.setTimeout(90000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/l/${LEAGUE}/team`);
@@ -65,12 +65,12 @@ test("a very long roster name stays whole inside the row at 390", async ({ page 
     };
   }, LONG_NAME);
 
+  // The whole name shows: it wraps at spaces and hyphens instead of ending in "…".
   expect(report.midWord, JSON.stringify(report)).toBe(false);
-  expect(report.lines, JSON.stringify(report)).toBe(1);
-  expect(nameStartsWithVisible(LONG_NAME, report.visible), JSON.stringify(report)).toBe(true);
-  expect(report.hidden, JSON.stringify(report)).toBeGreaterThan(0);
-  expect(report.textOverflow, JSON.stringify(report)).toBe("ellipsis");
-  expect(report.whiteSpace, JSON.stringify(report)).toBe("nowrap");
+  expect(report.lines, JSON.stringify(report)).toBeGreaterThan(1);
+  expect(report.visible.replace(/\s+/g, ""), JSON.stringify(report)).toBe(LONG_NAME.replace(/\s+/g, ""));
+  expect(report.textOverflow, JSON.stringify(report)).not.toBe("ellipsis");
+  expect(report.whiteSpace, JSON.stringify(report)).toBe("normal");
   expect(report.rowOverflow, JSON.stringify(report)).toBeLessThanOrEqual(1);
   expect(report.rowClipped, JSON.stringify(report)).toBe(false);
   expect(report.nameOutsideRow, JSON.stringify(report)).toBe(false);
@@ -81,7 +81,7 @@ const FULL_NAMES = ["Nico Collins", "Marvin Harrison Jr."];
 
 async function paintRosterNames(page, names) {
   return page.evaluate((wanted) => {
-    const rows = [...document.querySelectorAll("[data-room-panel='team'] button.sheet-row .sheet-player strong")];
+    const rows = [...document.querySelectorAll("[data-room-panel='team'] .sheet-row .sheet-player strong")];
     const used = new Set();
     return wanted.map((name) => {
       let strong = rows.find((el) => (el.textContent || "").replace(/\s+/g, " ").trim().startsWith(name));
@@ -155,7 +155,7 @@ test("the value stays beside the name at 1280", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`/l/${LEAGUE}/team`);
   await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
-  const row = page.locator("#roster-sheet button.sheet-row").first();
+  const row = page.locator("#roster-sheet .sheet-row").first();
   await expect(row).toBeVisible({ timeout: 20000 });
   const layout = await row.evaluate((node) => {
     const name = node.querySelector(".sheet-player");
@@ -253,7 +253,7 @@ async function textFit(locator) {
         lastTop = rect.top;
       }
     }
-    const row = el.closest(".sheet-row, button.ranks-row, .power-board-row");
+    const row = el.closest(".sheet-row, button.ranks-row");
     return {
       text: (el.textContent || "").replace(/\s+/g, " ").trim(),
       hidden,
@@ -459,26 +459,3 @@ for (const width of [390, 1280]) {
   });
 }
 
-test("a league team line wraps at 390", async ({ page }) => {
-  test.setTimeout(90000);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/l/${LEAGUE}/league`);
-  await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
-  const line = page.locator(".power-board-row .team-identity-copy > span", { hasText: "Rebuilding well" }).first();
-  await expect(line).toBeVisible({ timeout: 20000 });
-  const report = await textFit(line);
-  expect(report.text, JSON.stringify(report)).toContain("Rebuilding well");
-  expect(report.whiteSpace, JSON.stringify(report)).toBe("normal");
-  expect(report.lines, JSON.stringify(report)).toBeGreaterThan(1);
-  expectWhole(report);
-});
-
-function nameStartsWithVisible(name, visible) {
-  let at = 0;
-  for (const char of visible) {
-    const found = name.indexOf(char, at);
-    if (found < 0) return false;
-    at = found + 1;
-  }
-  return visible.length > 0 && name.startsWith(visible);
-}
