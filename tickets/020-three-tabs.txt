@@ -1,0 +1,25 @@
+Title
+Simplify to three tabs: Check a trade, Find a trade, My team
+
+Status
+Done
+
+Shipped
+#195
+
+Priority
+P0
+
+Area
+Navigation, `docs/app.js`, `docs/modules/constants.js`, `docs/modules/history-route.js`, `docs/ui/*.html`, `docs/styles.css`
+
+Description
+Dynasty Ticker does one job: "In my Sleeper league, which trade or roster move should I make?" The menu had seven places (Players, Trade, My team, This week, League, Activity, History) plus a rather duel, a ticker tape, and a handful of Find-a-trade modes. Cut what does not serve the job.
+
+Acceptance
+- The nav shows only Check a trade, Find a trade, and My team (desktop tabs, phone menu, aria-current).
+- The player board lives under Check a trade. Board order is the plain price.
+- Find a trade shows one list of 1-for-1 and 2-for-1 ideas from trade-match.js.
+- My team shows roster value, picks, a one-line contend-or-rebuild call, standings, and playoff odds.
+- Removed routes (/l/:id/week, /league, /activity, /history) redirect to /.
+- Removed: Would-you-rather and crowd votes, This week, League board, Activity, History, live polling, ticker tape, mock-draft data, Python src/, shop/acquire/surprise/multi-team modes.

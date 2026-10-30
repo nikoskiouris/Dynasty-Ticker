@@ -144,22 +144,9 @@ test("exact lineup stays fast for a full league of deep rosters", () => {
   assert.ok(elapsed < 800, `lineup solves took ${elapsed}ms`);
 });
 
-test("past-week best lineups use that week's points, not this week's start chance", () => {
-  const body = appSource.slice(
-    appSource.indexOf("function computeOptimalPointsForSide"),
-    appSource.indexOf("function getSimulation"),
-  );
-  assert.match(body, /buildOptimalStartingLineup\([^;]*\{ thisWeek: false \}\)/);
-  assert.match(appSource, /startChance: thisWeek \? weeklyModelForAsset\(asset\)\?\.score : undefined/);
-});
-
-test("dynasty starter value ignores this week's start chance", () => {
-  const strength = appSource.slice(
-    appSource.indexOf("function evaluateRosterStrength"),
-    appSource.indexOf("function rankRosterMetrics"),
-  );
-  assert.match(strength, /thisWeek: false/);
-  assert.match(appSource, /function buildOptimalStartingLineup\(assets, starterSlots, values, \{ thisWeek = false \} = \{\}\)/);
+test("best lineups rank by value; no weekly start chance feeds them", () => {
+  assert.match(appSource, /function buildOptimalStartingLineup\(assets, starterSlots, values\) \{/);
+  assert.doesNotMatch(appSource, /startChance|weeklyModelForAsset|thisWeek:/);
 });
 
 test("deep rosters still use the exact lineup solver", () => {

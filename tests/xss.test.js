@@ -6,11 +6,9 @@ import { fileURLToPath } from "node:url";
 import { sleeperAvatarUrl } from "../docs/modules/sleeper.js";
 import { renderPlayerFace, sleeperPlayerThumbUrl } from "../docs/modules/player-face.js";
 import { renderLeaguePickerMarkup } from "../docs/modules/league-search.js";
-import { renderRatherMarkup } from "../docs/modules/rather.js";
 import { renderRanksBody } from "../docs/modules/ranks.js";
 import {
   renderAvatar,
-  renderMultiTeamPartyTitle,
   renderPowerHero,
   renderPowerStat,
   renderSleeperInsight,
@@ -31,7 +29,7 @@ function assertStaysText(html) {
   assert.doesNotMatch(tags, /<\s*script\b/i);
 }
 
-test("malicious Sleeper display names stay text in power, insight, and multi-team markup", () => {
+test("malicious Sleeper display names stay text in power and insight markup", () => {
   const hero = renderPowerHero({
     score: 88,
     managerName: EVIL,
@@ -45,9 +43,7 @@ test("malicious Sleeper display names stay text in power, insight, and multi-tea
     tone: "gold",
   });
   const stat = renderPowerStat("Pick owner", EVIL);
-  const party = `<h4>${renderMultiTeamPartyTitle(EVIL, false)}</h4>`;
-  for (const html of [hero, insight, stat, party]) assertStaysText(html);
-  assert.equal(renderMultiTeamPartyTitle(EVIL, true), "You");
+  for (const html of [hero, insight, stat]) assertStaysText(html);
   assert.doesNotMatch(hero, /<\s*img\b/i);
   assert.doesNotMatch(insight, /<\s*img\b/i);
 });
@@ -117,7 +113,7 @@ test("content security policy blocks inline script and frames", () => {
   assert.doesNotMatch(index, /<script>\s*try/);
 });
 
-test("Sleeper names, ids, and avatars stay text in league, rather, and rank markup", () => {
+test("Sleeper names, ids, and avatars stay text in league and rank markup", () => {
   const evilId = `1"><img onerror=alert(1)>`;
   const picker = renderLeaguePickerMarkup([{
     league_id: evilId,
@@ -131,35 +127,6 @@ test("Sleeper names, ids, and avatars stay text in league, rather, and rank mark
   assertStaysText(picker);
   assert.doesNotMatch(picker, /evil\.example/);
   assert.doesNotMatch(picker, /<img\b/i);
-
-  const thumb = sleeperPlayerThumbUrl("11566");
-  const rather = renderRatherMarkup({
-    left: {
-      name: EVIL,
-      meta: EVIL,
-      detail: EVIL,
-      photoUrl: thumb,
-      assetId: "player:11566",
-      initials: "EV",
-    },
-    right: {
-      name: "Safe",
-      photoUrl: "javascript:alert(1)",
-      assetId: "player:2",
-    },
-  }, "sf", { status: EVIL, matchup: `${EVIL} vs Safe` });
-  assertStaysText(rather);
-  assert.match(rather, /src="https:\/\/sleepercdn\.com\/content\/nfl\/players\/thumb\/11566\.jpg"/);
-  assert.equal([...rather.matchAll(/<img\b/gi)].length, 1);
-  assert.doesNotMatch(rather, /javascript:/i);
-
-  const foreignPhoto = renderRatherMarkup({
-    left: { name: "A", photoUrl: "https://evil.example/a.png", assetId: "player:a" },
-    right: { name: "B", photoUrl: `"><img onerror=alert(1)>`, assetId: "player:b" },
-  });
-  assert.doesNotMatch(foreignPhoto, /<img\b/i);
-  assert.doesNotMatch(foreignPhoto, /evil\.example/);
-  assert.doesNotMatch(foreignPhoto, /onerror/i);
 
   const ranks = renderRanksBody({
     card: {
@@ -196,7 +163,6 @@ test("roster ids in desk markup cannot break out of attributes", () => {
   const app = read("docs/app.js");
   assert.doesNotMatch(app, /data-roster-id="\$\{(?!escapeHtml\()/);
   assert.doesNotMatch(app, /<option value="\$\{(?!escapeHtml\()/);
-  assert.doesNotMatch(read("docs/modules/rather.js"), /escapeHtml\(player\.photoUrl\)/);
   assert.doesNotMatch(read("docs/modules/ranks.js"), /escapeHtml\(row\.photoUrl\)/);
 });
 

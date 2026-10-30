@@ -1,15 +1,5 @@
 import { escapeHtml } from "./html.js";
-import { isRoomVisible, leagueTypeId } from "./league-format.js";
-
 export const DESK_JOBS = Object.freeze([
-  {
-    id: "players",
-    page: "players",
-    room: "ranks",
-    label: "Players",
-    blurb: "What is this player worth?",
-    cta: "look up a player",
-  },
   {
     id: "trade",
     page: "trades",
@@ -23,7 +13,7 @@ export const DESK_JOBS = Object.freeze([
     page: "league",
     room: "team",
     label: "My team",
-    blurb: "Outlook, roster, and next move",
+    blurb: "Roster, picks, standings, playoff odds",
     cta: "see your team",
   },
   {
@@ -31,52 +21,14 @@ export const DESK_JOBS = Object.freeze([
     page: "trades",
     room: "find",
     label: "Find a trade",
-    blurb: "Shop, target, or a partner",
+    blurb: "1-for-1 and 2-for-1 ideas",
     cta: "find a trade",
   },
 ]);
 
-export const DESK_MORE_JOBS = Object.freeze([
-  {
-    id: "week",
-    page: "league",
-    room: "scores",
-    label: "This week",
-    blurb: "Matchups, scores, and weekly honors",
-  },
-  {
-    id: "board",
-    page: "league",
-    room: "board",
-    label: "League",
-    blurb: "Standings, season honors, and the rookie mock",
-  },
-  {
-    id: "history",
-    page: "league",
-    room: "history",
-    label: "History",
-    blurb: "Titles, records, who stayed",
-  },
-]);
+export const DESK_MORE_JOBS = Object.freeze([]);
 
 export const DEFAULT_LANDING_HINT = "Type your Sleeper username, then pick a league.";
-
-function relabelJobForLeague(job, league) {
-  if (!job || leagueTypeId(league) !== "redraft") return job;
-  if (job.id === "team") return { ...job, blurb: "This week and your outlook" };
-  return job;
-}
-
-export function deskJobsForLeague(league) {
-  const jobs = DESK_JOBS
-    .filter((job) => isRoomVisible(job.page, job.room, league))
-    .map((job) => relabelJobForLeague(job, league));
-  const more = DESK_MORE_JOBS
-    .filter((job) => isRoomVisible(job.page, job.room, league))
-    .map((job) => relabelJobForLeague(job, league));
-  return { jobs, more };
-}
 
 export function jobById(id, { includeMore = true } = {}) {
   const token = String(id || "");
@@ -102,33 +54,3 @@ export function renderJobButton(job, { selectedId = "", action = "" } = {}) {
   `;
 }
 
-export function renderDeskJobsMarkup({
-  selectedId = "",
-  heading = "What do you want to do?",
-  hint = "",
-  more = false,
-  action = "",
-  jobs = DESK_JOBS,
-  moreJobs = DESK_MORE_JOBS,
-} = {}) {
-  const jobList = Array.isArray(jobs) && jobs.length ? jobs : DESK_JOBS;
-  const extraList = Array.isArray(moreJobs) ? moreJobs : DESK_MORE_JOBS;
-  const moreBlock = more
-    ? `
-      <p class="desk-jobs-kicker">Or jump to a tool</p>
-      <div class="desk-jobs desk-jobs-more" role="group" aria-label="More tools">
-        ${extraList.map((job) => renderJobButton(job, { selectedId, action })).join("")}
-      </div>
-    `
-    : "";
-  return `
-    <div class="desk-jobs-board">
-      ${heading ? `<h2>${escapeHtml(heading)}</h2>` : ""}
-      ${hint ? `<p class="muted desk-jobs-hint">${escapeHtml(hint)}</p>` : ""}
-      <div class="desk-jobs" role="group" aria-label="What do you want to do">
-        ${jobList.map((job) => renderJobButton(job, { selectedId, action })).join("")}
-      </div>
-      ${moreBlock}
-    </div>
-  `;
-}

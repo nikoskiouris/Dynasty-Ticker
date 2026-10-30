@@ -182,14 +182,14 @@ test("back and overlay close restore the trigger, or a landmark when it is gone"
 
 test("document titles name the player or the tab", () => {
   assert.equal(ROUTE_SITE_NAME, SITE_NAME);
-  assert.equal(ROUTE_TAB_LABELS.trades, PAGE_LABELS.trades);
-  assert.equal(ROUTE_TAB_LABELS.players, PAGE_LABELS.players);
+  assert.equal(ROUTE_TAB_LABELS.trades, ROOM_LABELS.trades.calculator);
+  assert.equal(ROUTE_TAB_LABELS.players, undefined);
   assert.equal(ROUTE_TAB_LABELS.league, PAGE_LABELS.league);
   assert.equal(routeDocumentTitle({ playerName: "Jahmyr Gibbs" }), "Jahmyr Gibbs · Dynasty Ticker");
   assert.equal(routeDocumentTitle({ playerName: "  Jahmyr   Gibbs  " }), "Jahmyr Gibbs · Dynasty Ticker");
-  assert.equal(routeDocumentTitle({ tab: "trades" }), "Trade · Dynasty Ticker");
-  assert.equal(routeDocumentTitle({ tab: "players" }), "Players · Dynasty Ticker");
-  assert.equal(routeDocumentTitle({ tab: "league" }), "My League · Dynasty Ticker");
+  assert.equal(routeDocumentTitle({ tab: "trades" }), "Check a trade · Dynasty Ticker");
+  assert.equal(routeDocumentTitle({ tab: "trades", room: "find" }), "Find a trade · Dynasty Ticker");
+  assert.equal(routeDocumentTitle({ tab: "league" }), "My team · Dynasty Ticker");
   assert.equal(routeDocumentTitle({ playerName: "Jahmyr Gibbs", tab: "trades" }), "Jahmyr Gibbs · Dynasty Ticker");
   assert.equal(routeDocumentTitle({}), "");
 });
@@ -282,52 +282,36 @@ test("back and escape restore the player row, or the same player id when that no
   assert.equal(restoreTriggerFocus(tradeDoc, trade), liveTrade);
 });
 
-test("league, activity, history, and this week have distinct document titles", () => {
+test("the three tabs have distinct document titles", () => {
   assert.equal(ROUTE_ROOM_TITLES.team, ROOM_LABELS.league.team);
-  assert.equal(ROUTE_ROOM_TITLES.board, ROOM_LABELS.league.board);
-  assert.equal(ROUTE_ROOM_TITLES.scores, ROOM_LABELS.league.scores);
-  assert.equal(ROUTE_ROOM_TITLES.activity, ROOM_LABELS.league.activity);
-  assert.equal(ROUTE_ROOM_TITLES.history, ROOM_LABELS.league.history);
-  const league = routeDocumentTitle({ tab: "league", room: "board" });
-  const week = routeDocumentTitle({ tab: "league", room: "scores" });
-  const activity = routeDocumentTitle({ tab: "league", room: "activity" });
-  const history = routeDocumentTitle({ tab: "league", room: "history" });
-  assert.equal(league, "League · Dynasty Ticker");
-  assert.equal(week, "This week · Dynasty Ticker");
-  assert.equal(activity, "Activity · Dynasty Ticker");
-  assert.equal(history, "History · Dynasty Ticker");
-  assert.equal(new Set([league, week, activity, history]).size, 4);
-  assert.equal(routeDocumentTitle({ tab: "league", room: "team" }), "My team · Dynasty Ticker");
-  assert.equal(routeDocumentTitle({ playerName: "Jahmyr Gibbs", tab: "league", room: "activity" }), "Jahmyr Gibbs · Dynasty Ticker");
+  assert.equal(ROUTE_ROOM_TITLES.find, ROOM_LABELS.trades.find);
+  assert.equal(ROUTE_ROOM_TITLES.calculator, ROOM_LABELS.trades.calculator);
+  const check = routeDocumentTitle({ tab: "trades", room: "calculator" });
+  const find = routeDocumentTitle({ tab: "trades", room: "find" });
+  const team = routeDocumentTitle({ tab: "league", room: "team" });
+  assert.equal(check, "Check a trade · Dynasty Ticker");
+  assert.equal(find, "Find a trade · Dynasty Ticker");
+  assert.equal(team, "My team · Dynasty Ticker");
+  assert.equal(new Set([check, find, team]).size, 3);
+  assert.equal(routeDocumentTitle({ playerName: "Jahmyr Gibbs", tab: "league", room: "team" }), "Jahmyr Gibbs · Dynasty Ticker");
   assert.equal(headingSelectorFor({ overlay: "player", playerId: "9221" }), ".ranks-card h2, .player-week-sheet h2");
   assert.equal(headingSelectorFor({ page: "league", view: "team" }), "#power-heading");
-  assert.equal(headingSelectorFor({ page: "league", view: "board" }), "#league-heading");
-  assert.equal(headingSelectorFor({ page: "league", view: "scores" }), "#scores-heading");
-  assert.equal(headingSelectorFor({ tab: "league", view: "activity" }), "#activity-heading");
-  assert.equal(headingSelectorFor({ page: "league", view: "history" }), "#history-heading");
 });
 
 test("card words stay plain after the heading split", () => {
   const app = read("../docs/app.js");
   const ranks = read("../docs/modules/ranks.js");
-  const weekly = read("../docs/modules/weekly-value.js");
-  const sit = read("../docs/modules/sit-start.js");
   assert.match(ranks, /label: "Touches \+ targets per game"/);
   assert.doesNotMatch(ranks, /Opportunities per game/);
   assert.match(ranks, /label: "Projected points per game"/);
   assert.doesNotMatch(ranks, /Projected PPR\/G/);
-  assert.match(sit, /points per game/);
-  assert.doesNotMatch(sit, /PPR\/game/);
-  assert.match(ranks, /Our estimate, scored with a point per catch\. Same number on Trade and My League\. The pick line is the closest pick\./);
+  assert.match(ranks, /Our estimate, scored with a point per catch\. Same number in every trade and on My team\. The pick line is the closest pick\./);
   assert.match(app, /PPR · \$\{escapeHtml\(rankFormatLabel\(format\)\)\}/);
   assert.doesNotMatch(app, /Full PPR · /);
   assert.match(app, /SUPER_FLEX: "Superflex"/);
   assert.match(app, /BN: "Bench"/);
   assert.match(app, /IR: "Injured reserve"/);
-  assert.match(sit, /BN: "Bench"/);
-  assert.match(sit, /IR: "Injured reserve"/);
   assert.doesNotMatch(app, /SFlex/);
-  assert.doesNotMatch(sit, /SFlex/);
   assert.match(app, /<span>Record<\/span>/);
   assert.doesNotMatch(app, /<span>W-L<\/span>/);
   assert.match(app, /\$\{slots\.length\} starters/);
@@ -342,9 +326,6 @@ test("card words stay plain after the heading split", () => {
   assert.match(app, /class="sheet-slot-full">Superflex</);
   assert.match(app, /<abbr class="sheet-slot-short" title="Superflex">SF<\/abbr>/);
   assert.doesNotMatch(app, /sheet-slot-short" title="Superflex" aria-label/);
-  assert.match(sit, /Sit — on injured reserve/);
-  assert.match(weekly, /Players who are out or on injured reserve count as 0% until that changes\./);
-  assert.match(weekly, /SFO: "SF"/);
 });
 
 test("a cold /player load focuses the card heading", () => {
@@ -611,33 +592,29 @@ test("one polite live region announces the route", () => {
     },
   };
   const first = announceRoute(doc, "Jahmyr Gibbs");
-  const second = announceRoute(doc, "Trade");
+  const second = announceRoute(doc, "Check a trade");
   assert.equal(first, second);
   assert.equal(doc.body.children.length, 1);
   assert.equal(region.id, ROUTE_LIVE_ID);
   assert.equal(region.getAttribute("aria-live"), "polite");
   assert.equal(region.getAttribute("aria-atomic"), "true");
-  assert.equal(region.textContent, "Trade");
+  assert.equal(region.textContent, "Check a trade");
   assert.equal(ensureRouteLive(doc), region);
   assert.equal(routeAnnouncement({ overlay: "player", playerName: "Jahmyr Gibbs" }), "Jahmyr Gibbs");
-  assert.equal(routeAnnouncement({ tab: "trades" }), "Trade");
-  assert.equal(routeAnnouncement(
-    { overlay: "rail", tab: "players", view: "ranks" },
-    { tab: "players", view: "ranks", playerId: "" },
-  ), "Menu");
+  assert.equal(routeAnnouncement({ tab: "trades" }), "Check a trade");
   assert.equal(routeAnnouncement(
     { overlay: "rail", tab: "trades", view: "calculator" },
-    { tab: "players", view: "ranks", playerId: "" },
-  ), "Trade");
-  assert.equal(routeAnnouncement({ overlay: "help", playerName: "Jahmyr Gibbs" }), "Help");
-  assert.equal(routeAnnouncement({ tab: "league", view: "board" }, { tab: "league", view: "team" }), "League");
-  assert.equal(routeAnnouncement({ tab: "league", view: "scores" }, { tab: "league", view: "board" }), "This week");
-  assert.equal(routeAnnouncement({ tab: "league", view: "activity" }, { tab: "league", view: "scores" }), "Activity");
-  assert.equal(routeAnnouncement({ tab: "league", view: "history" }, { tab: "league", view: "activity" }), "History");
-  assert.equal(routeAnnouncement({ tab: "league", view: "team" }, { tab: "league", view: "history" }), "My team");
+    { tab: "trades", view: "calculator", playerId: "" },
+  ), "Menu");
   assert.equal(routeAnnouncement(
-    { tab: "league", view: "scores", overlay: "player", playerName: "Jahmyr Gibbs" },
-    { tab: "league", view: "board" },
+    { overlay: "rail", tab: "league", view: "team" },
+    { tab: "trades", view: "calculator", playerId: "" },
+  ), "My team");
+  assert.equal(routeAnnouncement({ tab: "trades", view: "find" }, { tab: "trades", view: "calculator" }), "Find a trade");
+  assert.equal(routeAnnouncement({ tab: "league", view: "team" }, { tab: "trades", view: "find" }), "My team");
+  assert.equal(routeAnnouncement(
+    { tab: "league", view: "team", overlay: "player", playerName: "Jahmyr Gibbs" },
+    { tab: "trades", view: "find" },
   ), "Jahmyr Gibbs");
 });
 
@@ -670,12 +647,12 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(app, /leagueRoomMove\(before, after\) \? "heading" : step\.focus/);
   assert.equal(index.split('id="route-announcer"').length - 1, 1);
   assert.match(index, /id="route-announcer"[^>]*aria-live="polite"/);
-  assert.match(index, /id="players-tab"[^>]*aria-current="page"/);
+  assert.match(index, /id="trades-tab"[^>]*aria-current="page"/);
   assert.match(index, /<h1 id="mobile-chrome-title">/);
   assert.match(index, /<h1 id="route-title" class="sr-only">Dynasty Ticker<\/h1>/);
   assert.match(app, /function guestRouteHeading\(\)/);
   assert.match(app, /function routeHeadingText\(\)/);
-  assert.match(app, /team: "My team"/);
+  assert.match(app, /return "My team";/);
   assert.doesNotMatch(app, /bindInPageTab\(document\)/);
   const css = read("../docs/styles.css");
   assert.match(css, /body\.launch-open #route-title/);
@@ -694,21 +671,15 @@ test("the desk calls the accessibility hooks and leaves the router alone", () =>
   assert.match(css, /\[data-room-panel\] h2\[tabindex="-1"\]:focus:not\(:focus-visible\)\s*\{[^}]*box-shadow:\s*none/s);
   assert.match(app, /message !== headingText/);
   assert.match(app, /focusVisible: roomFocusVisible\(\)/);
-  const meta = app.slice(app.indexOf("function syncDocumentMeta"), app.indexOf("async function bootLandingRather"));
+  const meta = app.slice(app.indexOf("function syncDocumentMeta"), app.indexOf("async function loadPlayerNoteContext"));
   assert.match(meta, /el\.routeTitle\.textContent = routeHeadingText\(\)/);
   const league = read("../docs/ui/league.html");
   assert.match(league, /<h2 id="power-heading" tabindex="-1">/);
-  assert.match(league, /<h2 id="league-heading" tabindex="-1">How the league ranks<\/h2>/);
-  assert.match(league, /<h2 id="scores-heading" tabindex="-1">This week<\/h2>/);
-  assert.doesNotMatch(league, /id="scores-heading"[^>]*\bsr-only\b/);
-  assert.match(league, /<h2 id="activity-heading" tabindex="-1">Activity<\/h2>/);
-  assert.doesNotMatch(league, /id="activity-heading"[^>]*\bsr-only\b/);
-  assert.match(league, /data-room-panel="history"[\s\S]*<h2 id="history-heading" tabindex="-1">Titles, records, and who stayed<\/h2>/);
+  for (const gone of ["league-heading", "scores-heading", "activity-heading", "history-heading"]) {
+    assert.doesNotMatch(league, new RegExp(`id="${gone}"`), gone);
+  }
   assert.doesNotMatch(index, /<(?:body|html)[^>]*\stabindex/);
   assert.match(index, /id="workspace"[^>]*tabindex="-1"/);
-  const honors = app.slice(app.indexOf("function renderWeeklyHonors"), app.indexOf("function renderSeasonSuperlatives"));
-  assert.match(honors, /<h2>Weekly honors<\/h2>/);
-  assert.doesNotMatch(honors, /weekStatusChip/);
   assert.doesNotMatch(router, /focusViewHeading|route-announcer|aria-current/);
   assert.match(router, /export function decideHistoryWrite/);
 });
@@ -1022,7 +993,7 @@ test("chrome covers focus, restore, title, aria-current, escape, and the live re
       tab: window.__a11y.routeDocumentTitle({ tab: "trades" }),
     }));
     assert.equal(titled.player, "Jahmyr Gibbs · Dynasty Ticker");
-    assert.equal(titled.tab, "Trade · Dynasty Ticker");
+    assert.equal(titled.tab, "Check a trade · Dynasty Ticker");
 
     const current = await pageEval(pageSocket, () => {
       window.__a11y.syncAriaCurrent(
@@ -1132,14 +1103,12 @@ function clickRoomSource(room) {
     if (phone) {
       const toggle = document.querySelector("#mobile-rail-toggle");
       if (toggle && !document.body.classList.contains("rail-open")) toggle.click();
-      const page = document.querySelector('[data-phone-page="league"]');
-      if (page && page.getAttribute("aria-expanded") !== "true") page.click();
       const button = document.querySelector('[data-phone-room="' + room + '"]');
       if (!button) return { ok: false, mode: "phone" };
       button.click();
       return { ok: true, mode: "phone" };
     }
-    const button = document.querySelector('#room-nav [data-room="' + room + '"]');
+    const button = document.querySelector('.page-tab[data-room="' + room + '"]');
     if (!button) return { ok: false, mode: "desk" };
     button.click();
     return { ok: true, mode: "desk" };
@@ -1199,13 +1168,13 @@ test("cold player and league rooms focus headings at 390 and 1280", { timeout: 4
       await waitForPage(pageSocket, `() => ({
         ok: document.body.classList.contains("league-loaded") && window.innerWidth === ${width},
       })`, 90000, `sample league ${width}`);
-      for (const room of ["board", "scores", "activity", "history"]) {
+      for (const room of ["find", "team", "calculator"]) {
         const clicked = await pageEvalSource(pageSocket, clickRoomSource(room));
         assert.equal(clicked.ok, true, `${room} click at ${width}`);
         assert.equal(clicked.mode, width <= 700 ? "phone" : "desk");
         const focused = await waitForStable(pageSocket, roomFocusSource(room), 40000, 1500, `${room} ${width}`, 4000);
         assert.equal(focused.active, "H2");
-        if (room === "scores") assert.match(focused.title, /This week/);
+        if (room === "find") assert.match(focused.title, /Find a trade/);
       }
     }
   } finally {
@@ -1280,7 +1249,7 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
         ok: Boolean(document.querySelector("#trades-tab"))
           && boot
           && history.state?.tab === "trades"
-          && title === "Trade"
+          && title === "Check a trade"
           && location.pathname === "/trade"
           && (id === "BODY" || id === "route-title"),
         id,

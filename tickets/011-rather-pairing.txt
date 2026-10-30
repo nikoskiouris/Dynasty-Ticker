@@ -29,3 +29,6 @@ Acceptance
 - Skips and recent-pair memory still work.
 - If the board has no honest close fight, show skip / “no close matchup” instead of a cliff.
 - Add a test: large value and rank gap → weight 0 and never picked.
+
+Superseded
+Cut in #195 (three tabs). The product now answers one question: which trade or roster move to make in my league. This feature was removed; the file stays for history.

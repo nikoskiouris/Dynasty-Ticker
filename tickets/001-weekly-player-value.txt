@@ -39,3 +39,6 @@ Acceptance
 - Same player, easy vs hard opponent: the score moves in the right direction.
 - Missing stats fail visibly (“no target-share data”) instead of pretending the score is complete.
 - This number is labeled as weekly, never mixed up with dynasty value on the same badge.
+
+Superseded
+Cut in #195 (three tabs). The product now answers one question: which trade or roster move to make in my league. This feature was removed; the file stays for history.

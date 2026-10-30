@@ -5,9 +5,7 @@ import {
   computeSeasonProgress,
   groupWindowCalls,
   scoreWindowAxes,
-  summarizeLeagueWindowCalls,
   windowCallInputFromDesk,
-  windowCallTeamState,
 } from "../docs/modules/window-call.js";
 
 function callFor(overrides = {}) {
@@ -294,7 +292,6 @@ test("desk snapshot maps standings, sim, and remaining games", () => {
   assert.equal(input.playoffPct, 71);
   const result = analyzeWindowCall(input);
   assert.equal(result.id, "all-in");
-  assert.equal(windowCallTeamState(result.id), "contending");
 });
 
 test("league grouping counts the three calls", () => {
@@ -303,11 +300,11 @@ test("league grouping counts the three calls", () => {
     callFor(),
     callFor({ rank: 12, powerScore: 45, starterPercentile: 0.1, playoffPct: 3, firstRoundPickCount: 4, averageAge: 24, currentWeek: 11 }),
   ];
-  const summary = summarizeLeagueWindowCalls(calls);
-  assert.equal(summary.allInCount, 1);
-  assert.equal(summary.middleCount, 1);
-  assert.equal(summary.tankCount, 1);
-  assert.equal(groupWindowCalls(calls).tank[0].id, "tank");
+  const groups = groupWindowCalls(calls);
+  assert.equal(groups["all-in"].length, 1);
+  assert.equal(groups.middle.length, 1);
+  assert.equal(groups.tank.length, 1);
+  assert.equal(groups.tank[0].id, "tank");
 });
 
 test("this-year and future scores move in the expected directions", () => {

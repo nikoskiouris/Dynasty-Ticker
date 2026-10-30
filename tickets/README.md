@@ -47,6 +47,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [015](015-trade-survives-connect.txt) | A trade you built survives connecting Sleeper | P0 | [#97](https://github.com/nikoskiouris/Dynasty-Ticker/pull/97) |
 | [016](016-one-price-every-screen.txt) | One price for a player on every screen | P0 | [#111](https://github.com/nikoskiouris/Dynasty-Ticker/pull/111) |
 | [019](019-describe-a-trade.txt) | Describe a trade in plain words and the calculator builds it | P1 | [#193](https://github.com/nikoskiouris/Dynasty-Ticker/pull/193) |
+| [020](020-three-tabs.txt) | Simplify to three tabs: Check a trade, Find a trade, My team | P0 | [#195](https://github.com/nikoskiouris/Dynasty-Ticker/pull/195) |
 
 ## Shipped before this board
 

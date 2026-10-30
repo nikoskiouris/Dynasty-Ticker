@@ -80,4 +80,4 @@ If an old ticket's product guidance conflicts with Product purpose, add a `Super
 - GitHub runs scheduled workflows only from the repository default branch. That branch must be `develop`, or the player-value and rookie-mock refreshes never start.
 - `scripts/stage_pages_preview.sh` refuses. An old Pages workflow must not publish the desk.
 - Local check: `npm run serve` (or `npm test`). Do not burn Netlify credits for preview deploys.
-- Netlify functions need site environment variables `VISIT_SALT` and `RATHER_SALT` (Functions and Runtime scope). `scripts/deploy_live_site.sh` runs `scripts/ensure_netlify_salts.py` and will not publish until both are real secrets. Do not commit the values. The old public defaults `dynasty-ticker-traffic-v1` and `dynasty-ticker-rather-v1` are rejected.
+- Netlify functions need site environment variable `VISIT_SALT` (Functions and Runtime scope). `scripts/deploy_live_site.sh` runs `scripts/ensure_netlify_salts.py` and will not publish until it is a real secret. Do not commit the values. The old public default `dynasty-ticker-traffic-v1` is rejected.

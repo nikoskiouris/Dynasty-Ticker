@@ -168,3 +168,20 @@ export function bindInfoTips(doc = globalThis.document) {
 
   return { controller };
 }
+
+const PRICE_LEGEND = {
+  model: ["Value", "Same number on Check a trade, Find a trade, and My team."],
+  package: ["Stars", "One great player is worth more than several average players that add up to the same total. This changes the trade verdict. Player prices stay the same."],
+};
+
+export function renderPriceLegend(ids = ["model"]) {
+  const rows = (Array.isArray(ids) ? ids : ["model"])
+    .map((id) => PRICE_LEGEND[id])
+    .filter(Boolean);
+  if (!rows.length) return "";
+  return `<ul class="price-legend">${rows.map(([label, text], index) => `<li><span>${escapeHtml(label)}</span>${infoTipMarkup({
+    id: `pop-legend-${String(label).toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${index}`,
+    label,
+    text,
+  })}</li>`).join("")}</ul>`;
+}

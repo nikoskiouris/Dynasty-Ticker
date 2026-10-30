@@ -116,7 +116,6 @@ test("desk uses the league loader and drops stale player refreshes", () => {
   assert.match(app, /leagueLoader\.inFlightId/);
   assert.match(app, /invalidatePlayerLoads\(\)/);
   assert.match(app, /playersLoadStale\(playersEpoch, token, leagueId\)/);
-  assert.match(app, /leagueId:\s*\(\)\s*=>\s*state\.leagueId/);
   assert.match(app, /cache:\s*"default"/);
   assert.match(app, /shouldBlankDeskForLeagueSwitch\(state\.leagueId, leagueId\)/);
   assert.match(app, /function blankDeskForLeagueSwitch\(\)/);

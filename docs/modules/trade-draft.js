@@ -327,10 +327,9 @@ export function draftSummaryLine(draft) {
 }
 
 // Where to land once a league opens: keep the page a visitor was working on.
-export function placeAfterConnect({ activePage = "", tradesRoom = "", selectedAssetId = "", pendingPlace = null } = {}) {
+export function placeAfterConnect({ activePage = "", tradesRoom = "", pendingPlace = null } = {}) {
   if (pendingPlace?.page) return pendingPlace;
   if (activePage === "trades") return { page: "trades", room: tradesRoom || "calculator" };
-  if (activePage === "players" && selectedAssetId) return { page: "players", room: "ranks" };
   return null;
 }
 

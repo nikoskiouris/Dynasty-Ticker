@@ -1,5 +1,5 @@
 import { clamp } from "./html.js";
-import { formatOddsPct } from "./season.js";
+import { formatOddsPct } from "./standings.js";
 
 export const WINDOW_CALLS = {
   "all-in": {
@@ -48,10 +48,6 @@ export function windowCallMeta(id, { horizon = "dynasty" } = {}) {
   const base = WINDOW_CALLS[id] || WINDOW_CALLS.middle;
   if (horizon !== "season") return { ...base };
   return { ...base, ...(SEASON_WINDOW_CALLS[base.id] || {}) };
-}
-
-export function windowCallTeamState(id) {
-  return WINDOW_CALLS[id]?.teamState || WINDOW_CALLS.middle.teamState;
 }
 
 export function computeSeasonProgress({
@@ -214,16 +210,6 @@ export function groupWindowCalls(calls = []) {
     groups[id].push(call);
   });
   return groups;
-}
-
-export function summarizeLeagueWindowCalls(calls = []) {
-  const groups = groupWindowCalls(calls);
-  return {
-    allInCount: groups["all-in"].length,
-    middleCount: groups.middle.length,
-    tankCount: groups.tank.length,
-    groups,
-  };
 }
 
 function pickWindowCall(input, axes) {

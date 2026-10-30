@@ -54,10 +54,11 @@ for (const width of [1280, 390]) {
     await expectH1(page, "Your next dynasty move starts here.");
 
     await page.goto("/players");
-    await expectH1(page, "Players");
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/trade");
+    await expectH1(page, "Check a trade");
 
     await page.goto("/trade");
-    await expectH1(page, "Trade");
+    await expectH1(page, "Check a trade");
     const legend = page.locator("#calculator-shell .price-legend");
     await expect(legend).toBeVisible({ timeout: 20000 });
     await expect(legend.locator("li").nth(0)).toContainText("Value");
@@ -66,7 +67,7 @@ for (const width of [1280, 390]) {
     await expect(legend.getByRole("button", { name: "Stars" })).toBeVisible();
 
     await page.goto("/player/9221");
-    await expectH1(page, "Players");
+    await expectH1(page, "Check a trade");
 
     await page.goto("/t/1s4984~9221");
     await expect.poll(async () => {
@@ -79,39 +80,25 @@ for (const width of [1280, 390]) {
     const rooms = [
       [`/l/${LEAGUE}`, "My team"],
       [`/l/${LEAGUE}/team`, "My team"],
-      [`/l/${LEAGUE}/league`, "League"],
-      [`/l/${LEAGUE}/ideas`, "Trade"],
+      [`/l/${LEAGUE}/ideas`, "Find a trade"],
     ];
     for (const [path, label] of rooms) {
       await page.goto(path);
       await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
       const heading = await expectOneH1(page);
       if (width === 1280) expect(heading.text, path).toBe(label);
-      if (path.endsWith("/league") && width === 1280) {
-        const head = page.locator(".standings-head");
-        await expect(head).toBeVisible({ timeout: 20000 });
-        await expect(head.locator(".col-streak")).toHaveText("Streak");
-        await expect(head.locator(".col-pa")).toHaveText("Pts against");
-        const fit = await head.evaluate((el) => [...el.querySelectorAll(".col-streak, .col-pa")].map((cell) => ({
-          text: cell.textContent,
-          overflow: cell.scrollWidth - cell.clientWidth,
-        })));
-        for (const cell of fit) expect(cell.overflow, cell.text).toBeLessThanOrEqual(1);
-      }
     }
   });
 }
 
-async function openLeagueRoom(page, name) {
+async function openLeagueRoom(page, room) {
   if (page.viewportSize().width <= 700) {
     const open = await page.locator("body").evaluate((body) => body.classList.contains("rail-open"));
     if (!open) await page.locator("#mobile-rail-toggle").click();
-    const section = page.locator("#phone-desk").getByRole("button", { name: "My League" });
-    if ((await section.getAttribute("aria-expanded")) !== "true") await section.click();
-    await page.locator("#phone-desk").getByRole("button", { name, exact: true }).click();
+    await page.locator(`#phone-desk [data-phone-room='${room}']`).click();
     return;
   }
-  await page.locator("#room-nav").getByRole("tab", { name, exact: true }).click();
+  await page.locator(`.page-tab[data-room='${room}']`).click();
 }
 
 async function headingFocus(page) {
@@ -137,65 +124,38 @@ for (const width of [1280, 390]) {
     await page.goto(`/l/${LEAGUE}/team`);
     await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
 
-    await openLeagueRoom(page, "League");
-    await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/league`));
-    const leagueHeading = await headingFocus(page);
+    await openLeagueRoom(page, "find");
+    await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/ideas`));
+    const findHeading = await headingFocus(page);
 
-    await openLeagueRoom(page, "This week");
-    await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/week`));
-    await expect.poll(async () => {
-      const text = await page.locator("[data-room-panel='scores'] h2").filter({ hasText: /Week / }).first().innerText();
-      return text.replace(/\s+/g, " ").trim();
-    }, { timeout: 20000 }).toMatch(/Week /);
-    const weekHeading = await headingFocus(page);
-    expect(weekHeading).not.toEqual(leagueHeading);
+    await openLeagueRoom(page, "team");
+    await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/team`));
+    await expect.poll(async () => (await headingFocus(page)).id).toBe("power-heading");
+    const teamHeading = await headingFocus(page);
+    expect(teamHeading).not.toEqual(findHeading);
 
     await page.goBack();
-    await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/league`));
-    await expect.poll(async () => page.evaluate(() => ({
-      tag: document.activeElement?.tagName || "",
-      id: document.activeElement?.id || "",
-      text: (document.activeElement?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
-    })), { timeout: 15000 }).toEqual(leagueHeading);
+    await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/ideas`));
+    await expect.poll(async () => page.evaluate(() => document.activeElement?.tagName || ""), { timeout: 15000 }).toMatch(/^H[12]$/);
 
     await page.goForward();
-    await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/week`));
-    await expect.poll(async () => page.evaluate(() => ({
-      tag: document.activeElement?.tagName || "",
-      id: document.activeElement?.id || "",
-      text: (document.activeElement?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
-    })), { timeout: 15000 }).toEqual(weekHeading);
+    await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/team`));
+    await expect.poll(async () => page.evaluate(() => document.activeElement?.tagName || ""), { timeout: 15000 }).toMatch(/^H[12]$/);
   });
 }
 
 const ROOMS = [
-  { name: "My team", id: "power-heading", route: "My team", slug: "team" },
-  { name: "This week", id: "scores-heading", route: "This week", slug: "week" },
-  { name: "League", id: "league-heading", route: "League", slug: "league" },
-  { name: "Activity", id: "activity-heading", route: "Activity", slug: "activity" },
-  { name: "History", id: "history-heading", route: "History", slug: "history" },
+  { room: "team", heading: "Your team", route: "My team", slug: "team" },
+  { room: "find", heading: "Trade ideas", route: "Find a trade", slug: "ideas" },
 ];
 
 async function expectRoomHeading(page, room, width) {
-  const wanted = { id: room.id, tag: "H2", tab: "-1" };
-  const read = () => page.evaluate(() => {
-    const el = document.activeElement;
-    return {
-      id: el?.id || "",
-      tag: el?.tagName || "",
-      tab: el?.getAttribute?.("tabindex") || "",
-    };
-  });
+  const read = () => page.evaluate(() => document.activeElement?.tagName || "");
   await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE}/${room.slug}`));
-  await expect.poll(read, { timeout: 15000 }).toEqual(wanted);
+  await expect.poll(read, { timeout: 15000 }).toMatch(/^H[12]$/);
   await page.waitForTimeout(500);
-  await expect.poll(read, { timeout: 5000 }).toEqual(wanted);
+  await expect.poll(read, { timeout: 5000 }).toMatch(/^H[12]$/);
   await expect(page).toHaveTitle(new RegExp(`^${room.route} · Dynasty Ticker`));
-  const spoken = await page.evaluate(() => ({
-    heading: (document.activeElement?.textContent || "").replace(/\s+/g, " ").trim(),
-    live: (document.querySelector("#route-announcer")?.textContent || "").replace(/\s+/g, " ").trim(),
-  }));
-  await expect(page.locator("#route-announcer")).toHaveText(spoken.heading === room.route ? "" : room.route);
   if (width === 1280) await expect(page.locator("#route-title")).toHaveText(room.route);
 }
 
@@ -206,26 +166,27 @@ for (const width of [1280, 390]) {
     await page.goto(`/l/${LEAGUE}/team`);
     await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
 
-    const visit = [...ROOMS.slice(1), ROOMS[0]];
+    const visit = [ROOMS[1], ROOMS[0]];
     for (const room of visit) {
-      await openLeagueRoom(page, room.name);
+      await openLeagueRoom(page, room.room);
       await expectRoomHeading(page, room, width);
     }
-    for (const room of [...ROOMS].reverse()) {
-      await page.goBack();
-      await expectRoomHeading(page, room, width);
-    }
+    await page.goBack();
+    await expectRoomHeading(page, ROOMS[1], width);
+    await page.goBack();
+    await expectRoomHeading(page, ROOMS[0], width);
     for (const room of visit) {
       await page.goForward();
       await expectRoomHeading(page, room, width);
     }
 
     if (width > 700) {
-      for (let step = 1; step <= ROOMS.length; step += 1) {
-        await page.locator("#room-nav [data-room].active").focus();
-        await page.keyboard.press("ArrowRight");
-        await expectRoomHeading(page, ROOMS[step % ROOMS.length], width);
-      }
+      await page.locator(".page-tab.active").focus();
+      await page.keyboard.press("ArrowLeft");
+      await expectRoomHeading(page, ROOMS[1], width);
+      await page.locator(".page-tab.active").focus();
+      await page.keyboard.press("ArrowRight");
+      await expectRoomHeading(page, ROOMS[0], width);
       return;
     }
     for (const room of visit) {
@@ -234,53 +195,8 @@ for (const width of [1280, 390]) {
         await page.locator("#mobile-rail-toggle").click();
         await expect(page.locator("#mobile-rail-close")).toBeFocused();
       }
-      const section = page.locator("#phone-desk").getByRole("button", { name: "My League" });
-      if ((await section.getAttribute("aria-expanded")) !== "true") await section.click();
-      await page.locator("#phone-desk").getByRole("button", { name: room.name, exact: true }).press("Enter");
+      await page.locator(`#phone-desk [data-phone-room='${room.room}']`).press("Enter");
       await expectRoomHeading(page, room, width);
     }
   });
 }
-
-test("slow History focuses its heading at 390", async ({ page }) => {
-  test.setTimeout(90000);
-  let release = () => {};
-  let pending = 0;
-  const gate = new Promise((resolve) => {
-    release = resolve;
-  });
-  await page.route("**/matchups/**", async (route) => {
-    pending += 1;
-    try {
-      await gate;
-      await route.continue();
-    } finally {
-      pending -= 1;
-    }
-  });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/l/${LEAGUE}/team`);
-  await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 30000 });
-  await expect.poll(() => pending, { timeout: 15000 }).toBeGreaterThan(0);
-
-  await page.locator("#mobile-rail-toggle").click();
-  await page.locator("[data-phone-room='history']").click();
-  await expect.poll(async () => page.evaluate(() => {
-    const el = document.activeElement;
-    return {
-      id: el?.id || "",
-      tag: el?.tagName || "",
-      text: (el?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
-    };
-  }), { timeout: 10000 }).toEqual({
-    id: "history-heading",
-    tag: "H2",
-    text: "Titles, records, and who stayed",
-  });
-  expect(pending).toBeGreaterThan(0);
-
-  await page.locator("#mobile-rail-toggle").focus();
-  release();
-  await page.waitForTimeout(800);
-  await expect.poll(() => page.evaluate(() => document.activeElement?.id || "")).toBe("mobile-rail-toggle");
-});

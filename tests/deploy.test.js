@@ -61,7 +61,7 @@ test("live deploy script uses Netlify CLI, not a build hook", () => {
   assert.match(script, /netlify_stop_git_builds\.sh/);
   assert.match(script, /ensure_netlify_salts\.py/);
   assert.match(script, /VISIT_SALT/);
-  assert.match(script, /RATHER_SALT/);
+  assert.doesNotMatch(script, /RATHER_SALT/);
   assert.doesNotMatch(script, /NETLIFY_BUILD_HOOK/);
   // No build hooks: the only curl is the read-only post-deploy card check.
   assert.doesNotMatch(script.slice(0, script.indexOf("# Post-deploy:")), /curl/);
@@ -112,15 +112,7 @@ test("GitHub Actions publish only from a GitHub Release", () => {
   assert.doesNotMatch(valueRefresh, /deploy_live_site/);
   assert.doesNotMatch(valueRefresh, /--prod/);
 
-  const mockRefresh = read(".github/workflows/refresh-rookie-mock.yml");
-  assert.match(mockRefresh, /schedule:/);
-  assert.match(mockRefresh, /cron:/);
-  assert.match(mockRefresh, /update_dynasty_rookie_mock\.py/);
-  assert.match(mockRefresh, /ref:\s*develop/);
-  assert.match(mockRefresh, /HEAD:develop/);
-  assert.doesNotMatch(mockRefresh, /deploy_live_site/);
-  assert.doesNotMatch(mockRefresh, /netlify/i);
-  assert.doesNotMatch(mockRefresh, /--prod/);
+  assert.equal(existsSync(join(root, ".github/workflows/refresh-rookie-mock.yml")), false);
 });
 
 test("push to prod cuts a GitHub Release", () => {

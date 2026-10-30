@@ -45,14 +45,10 @@ test("an invalid league id stays on /l and is not the landing", () => {
     "/l/x",
     "/l/not-a-league",
     "/l/4.2/team",
-    "/l/x/week",
     "/l/x/team",
     "/l/x/ideas",
-    "/l/x/league",
-    "/l/x/activity",
-    "/l/x/history",
-    "/l/4.2/week",
-    "/l/x/week/",
+    "/l/4.2/team",
+    "/l/x/team/",
   ]) {
     const route = resolveLocation(path);
     assert.equal(isSpaPath(path), true, path);
@@ -61,6 +57,9 @@ test("an invalid league id stays on /l and is not the landing", () => {
     assert.equal(route.name, "league", path);
     assert.equal(route.leagueId, "", path);
     assert.ok(route.badLeagueId, path);
+  }
+  for (const path of ["/l/abc/week", "/l/abc/league", "/l/abc/activity", "/l/abc/history"]) {
+    assert.equal(resolveLocation(path).unknown, true, path);
   }
   const unknownRoom = resolveLocation("/l/abc/not-a-room");
   assert.equal(unknownRoom.unknown, true);
@@ -171,7 +170,7 @@ test("the missing-league state has a heading, connect, and the sample league", (
   assert.match(app, /leagueMissing \|\| sleeperUnreachable/);
   assert.match(panel, /class="league-missing-primary"/);
   const css = readDocs("styles.css");
-  const product = readDocs("product.css");
+  const product = readDocs("styles.css");
   assert.match(css, /#league-missing-title:focus:not\(:focus-visible\)\s*\{\s*outline:\s*none;\s*\}/);
   assert.match(css, /#league-missing-title:focus,\s*#sleeper-down-title:focus\s*\{\s*outline:\s*none;\s*\}/);
   assert.match(product, /\.league-missing-primary::before/);
