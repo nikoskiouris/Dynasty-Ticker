@@ -5354,8 +5354,9 @@ body.league-loaded .workspace-lede { display: none; }
   }
 }
 
-body:not(.league-loaded):has(#trades-page:not(.hidden)) #landing,
-body:not(.league-loaded):has(#league-page:not(.hidden)) #landing {
+/* The landing is the guest home. While it shows, the trade desk waits below the fold. */
+body:not(.league-loaded):has(#landing:not(.hidden)) #trades-page,
+body:not(.league-loaded):has(#landing:not(.hidden)) #league-page {
   display: none;
 }
 
