@@ -1,11 +1,9 @@
-import { ordinal } from "./season.js";
+import { ordinal } from "./standings.js";
 import { normalizePriceHistory, stampsForWindow, TREND_WINDOW_DAYS } from "./value-scale.js";
 
 export const PLAYER_VALUES_PATH = "./data/player_values.json";
 export const NFL_PLAYERS_SLIM_PATH = "./data/nfl_players_slim.json";
 export const PRICE_HISTORY_INDEX_PATH = "./data/price-history/index.json";
-const PRICE_STAMP = /^20\d{10}$/;
-
 // Prefer meta.updatedAt when a bundle has it. Otherwise the file's asOf stamp.
 export function valuationUpdatedAt(bundle) {
   const meta = bundle?.meta;
@@ -532,16 +530,6 @@ export function getGlobalMaxPlayerValue(values, tradeMaxValue = 0) {
     if (Number.isFinite(value) && value > maxValue) maxValue = value;
   }
   return maxValue;
-}
-
-async function readTextIfOk(fetchImpl, path) {
-  try {
-    const response = await fetchImpl(path);
-    if (!response?.ok) return "";
-    return await response.text();
-  } catch {
-    return "";
-  }
 }
 
 async function readJsonIfOk(fetchImpl, path) {

@@ -17,28 +17,20 @@ export const HOME_PLACE = Object.freeze({
 // One line per route. Add a future section by appending a line.
 // :slug? is cosmetic. Closest current desk place is page + room.
 export const ROUTES = Object.freeze([
-  { name: "home", pattern: "/", page: "players", room: "ranks" },
-  { name: "players", pattern: "/players", page: "players", room: "ranks" },
+  { name: "home", pattern: "/", page: "trades", room: "calculator" },
+  { name: "players", pattern: "/players", page: "trades", room: "calculator" },
   { name: "trade", pattern: "/trade", page: "trades", room: "calculator" },
-  { name: "connect", pattern: "/connect", page: "players", room: "ranks" },
+  { name: "connect", pattern: "/connect", page: "trades", room: "calculator" },
   { name: "league", pattern: "/l/:leagueId", page: "league", room: "team" },
   { name: "team", pattern: "/l/:leagueId/team", page: "league", room: "team" },
   { name: "ideas", pattern: "/l/:leagueId/ideas", page: "trades", room: "find" },
-  { name: "leagueBoard", pattern: "/l/:leagueId/league", page: "league", room: "board" },
-  { name: "leagueWeek", pattern: "/l/:leagueId/week", page: "league", room: "scores" },
-  { name: "leagueActivity", pattern: "/l/:leagueId/activity", page: "league", room: "activity" },
-  { name: "leagueHistory", pattern: "/l/:leagueId/history", page: "league", room: "history" },
-  { name: "player", pattern: "/player/:sleeperId/:slug?", page: "players", room: "ranks" },
+  { name: "player", pattern: "/player/:sleeperId/:slug?", page: "trades", room: "calculator" },
   // A shared trade. The code is the trade (see trade-share.js). It opens the
   // calculator and stays /t/<code> until the trade is edited.
   { name: "sharedTrade", pattern: "/t/:shareCode", page: "trades", room: "calculator" },
 ]);
 
 const LEAGUE_ROOM_SEGMENT = Object.freeze({
-  scores: "week",
-  activity: "activity",
-  history: "history",
-  board: "league",
   team: "team",
 });
 
@@ -297,7 +289,6 @@ export function safeNext(value) {
   if (!hit || hit.name === "home" || hit.name === "connect") return "";
   if (hit.name === "player") return playerPathname(hit.playerId, hit.slug);
   if (hit.name === "trade") return tradeHref(hit.give, hit.get);
-  if (hit.name === "players") return urlPath("players");
   if (hit.name === "ideas") return urlPath("l", hit.leagueId, "ideas");
   if (hit.leagueId && LEAGUE_ROOM_SEGMENT[hit.room]) return urlPath("l", hit.leagueId, LEAGUE_ROOM_SEGMENT[hit.room]);
   return "";
@@ -363,8 +354,7 @@ export function pathForPlace({
     href = urlPath("l", leagueId, "ideas");
   } else if (leagueSegment && LEAGUE_ID.test(String(leagueId || ""))) {
     href = urlPath("l", leagueId, leagueSegment);
-  } else if (placePage === "players" && placeRoom === "ranks" && !landing) href = urlPath("players");
-  else if (placePage === "players" && placeRoom === "ranks" && landing) href = urlPath();
+  }
   return rememberLeague(href, leagueId);
 }
 
@@ -374,13 +364,11 @@ export function topOverlay({
   help = false,
   player = false,
   trade = false,
-  publicRanks = false,
 } = {}) {
   if (rail) return "rail";
   if (help) return "help";
   if (player) return "player";
   if (trade) return "trade";
-  if (publicRanks) return "public-ranks";
   return "";
 }
 
@@ -521,7 +509,6 @@ export function selectionFromLocation({
     sheetPlayerId: isPlayerRouteId(sheetId) ? sheetId : "",
     helpOpen: overlay === "help",
     railOpen: overlay === "rail",
-    publicRanks: overlay === "public-ranks",
     playerOpen: Boolean(fromPath) && !sheet && overlay !== "rail",
   };
 }

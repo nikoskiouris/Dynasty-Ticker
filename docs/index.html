@@ -225,33 +225,26 @@
 
         <div class="desk-nav" id="desk-nav">
           <nav class="workspace-tabs" id="page-tabs" role="tablist" aria-label="What you can do">
-            <button id="players-tab" aria-label="Players" class="page-tab active" type="button" role="tab" aria-selected="true" aria-current="page" aria-controls="players-page" tabindex="0" data-page="players">
-              <span class="tab-copy"><strong>Players</strong><small>What is he worth?</small></span>
+            <button id="trades-tab" aria-label="Check a trade" class="page-tab active" type="button" role="tab" aria-selected="true" aria-current="page" aria-controls="trades-page" tabindex="0" data-page="trades" data-room="calculator">
+              <span class="tab-copy"><strong>Check a trade</strong><small>Is this offer fair?</small></span>
             </button>
-            <button id="trades-tab" aria-label="Trade" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades">
-              <span class="tab-copy"><strong>Trade</strong><small>Check a trade or find a deal</small></span>
+            <button id="find-tab" aria-label="Find a trade" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades" data-room="find">
+              <span class="tab-copy"><strong>Find a trade</strong><small>Deals that fit both teams</small></span>
             </button>
-            <button id="league-tab" aria-label="My League" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="league-page" tabindex="-1" data-page="league">
-              <span class="tab-copy"><strong>My League</strong><small id="teams-tab-hint">Your team, this week, the league</small></span>
+            <button id="league-tab" aria-label="My team" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="league-page" tabindex="-1" data-page="league" data-room="team">
+              <span class="tab-copy"><strong>My team</strong><small id="teams-tab-hint">Roster, standings, playoff odds</small></span>
             </button>
           </nav>
           <nav class="room-nav" id="room-nav" role="tablist" aria-label="On this page"></nav>
         </div>
 
-        <button type="button" id="ticker" class="ticker hidden" aria-label="League ticker" aria-pressed="false" title="Tap to pause or resume. Drag to scrub.">
-          <span class="ticker-label">Live</span>
-          <span class="ticker-viewport">
-            <span class="ticker-track" id="ticker-track"></span>
-          </span>
-        </button>
-
         <div id="ui-pages">
           <section class="launch" id="landing">
   <div class="launch-wrap">
     <nav class="launch-nav" aria-label="Main navigation">
-      <a href="/players" data-launch="players">Players</a>
-      <a href="/trade" data-launch="empty">Trade</a>
-      <a href="/connect?next=/" data-launch="connect">My League</a>
+      <a href="/trade" data-launch="empty">Check a trade</a>
+      <a href="/connect?next=/" data-launch="connect">Find a trade</a>
+      <a href="/connect?next=/" data-launch="connect">My team</a>
     </nav>
     <h1 id="landing-job-hint">Your next dynasty move starts here.</h1>
     <p class="sub">Explore player values, build a trade, or connect your Sleeper league. Free. No sign-up.</p>
@@ -343,18 +336,6 @@
   </footer>
 </section>
 
-<section id="public-ranks" class="public-ranks hidden" hidden>
-  <div class="workspace-panel">
-    <div class="panel-heading">
-      <div>
-        <span class="eyebrow">Values</span>
-        <h2>Player ranks</h2>
-      </div>
-      <button type="button" class="ghost-btn" data-action="close-public-ranks">Back</button>
-    </div>
-    <div id="public-ranks-board"></div>
-  </div>
-</section>
         </div>
 
     <div id="site-dock" class="site-dock">

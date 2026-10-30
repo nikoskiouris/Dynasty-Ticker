@@ -3,13 +3,13 @@
 // the roster W-L table is complete, or the week loop has finished with no
 // roster table. A lead cannot paint from a half-loaded season.
 
-import { ordinal } from "./season.js";
+import { ordinal } from "./standings.js";
 import {
   buildCurrentPlaceLookup,
   formatPickSlotLabel,
   projectedDraftSlot,
   rosterPointsFor,
-} from "./mock-drafts.js";
+} from "./draft-order.js";
 import { bucketForProjectedSlot, formatPickBucketLabel } from "./values.js";
 
 // True when every roster already has Sleeper's cumulative wins, losses, and

@@ -26,7 +26,7 @@ import {
   pointsAgainstFromSettings,
   simulateSeason,
   sleeperPoints,
-} from "../docs/modules/season.js";
+} from "../docs/modules/standings.js";
 import { buildSitStart } from "../docs/modules/sit-start.js";
 import { utcIsoWeek } from "../netlify/lib/traffic.js";
 import { findPickCatalogValue } from "../docs/modules/values.js";

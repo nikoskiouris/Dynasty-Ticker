@@ -9,7 +9,6 @@ import { watchBootImport } from "./modules/boot-import.js";
 
 const PAGE_FILES = [
   "./ui/landing.html",
-  "./ui/players.html",
   "./ui/trades.html",
   "./ui/league.html",
 ];

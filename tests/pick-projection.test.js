@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { buildOwnedPicksByRoster } from "../docs/modules/draft-picks.js";
 import { buildCurrentPlaceLookup, currentPlaceForOwner, projectedDraftSlot, rosterPointsFor } from "../docs/modules/mock-drafts.js";
 import { renderSleeperInsight } from "../docs/modules/roster-markup.js";
-import { buildSeasonModel } from "../docs/modules/season.js";
+import { buildSeasonModel } from "../docs/modules/standings.js";
 import {
   collectProjectedLeads,
   compareTradeSearchPicks,

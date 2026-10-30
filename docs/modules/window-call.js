@@ -1,5 +1,5 @@
 import { clamp } from "./html.js";
-import { formatOddsPct } from "./season.js";
+import { formatOddsPct } from "./standings.js";
 
 export const WINDOW_CALLS = {
   "all-in": {

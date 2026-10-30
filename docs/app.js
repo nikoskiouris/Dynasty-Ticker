@@ -1,21 +1,16 @@
 import {
   buildSeasonModel,
   simulateSeason,
-  computeWeeklyAwards,
-  computeSeasonSuperlatives,
-  computeRecordBook,
-  winProbability,
-  buildTeamDistributions,
   formatPoints,
   formatOddsPct,
   ordinal,
   blendSimPrior,
-  scoreUpcomingWeekAngles,
   compareRosterRecord,
   pointsAgainstFromSettings,
   sleeperPoints,
   transactionWeekEnd,
-} from "./modules/season.js";
+  weekRowsFingerprint,
+} from "./modules/standings.js";
 import {
   PLAYERS_CACHE_TTL_MS,
   SIM_ITERATIONS,
@@ -28,16 +23,11 @@ import {
   DEFAULT_MAX_RESULTS,
   TRANSACTION_WEEK_START,
   TRANSACTION_WEEK_FALLBACK_END,
-  ANALYTICS_RECENT_TRADE_LIMIT,
-  ANALYTICS_ASSET_LEADER_LIMIT,
   MAX_HISTORY_SEASONS,
   HISTORY_TRANSACTION_SEASON_LIMIT,
   HISTORY_MATCHUP_SEASON_LIMIT,
   PHONE_LAYOUT_QUERY,
-  LIVE_POLL_INTERVAL_MS,
-  LIVE_SIM_REFRESH_MS,
   MATCHUP_FETCH_CHUNK,
-  LEAGUE_HISTORY_RECORD_IDS,
 } from "./modules/constants.js";
 import { bindMobileChromeScroll } from "./modules/mobile-chrome-scroll.js";
 import { emptyDealBoard, state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
@@ -105,7 +95,6 @@ import {
   formatGenericPickAssetLabel,
   getAssetPickBucket,
   tradablePickSeason,
-  playerPositionForRaw,
   playerPositionForAsset,
   playerAgeForAsset,
   leagueHasSuperflex,
@@ -123,18 +112,23 @@ import {
   valuesUpdatedStatus,
 } from "./modules/value-scale.js";
 import {
-  ageBucketForAsset,
-  buildLeagueBoard,
-  emptyLeagueBoard,
-  isBoomBustAsset,
-  renderLeagueBoardMarkup,
-  renderPriceLegend,
-  renderValueBoardBar,
-} from "./modules/league-board.js";
-import { createLivePoller, liveUpdateMatchesLeague, shouldPollLive, shouldRefreshSim, weekRowsFingerprint } from "./modules/live.js";
-import { copyTextToClipboard, escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, playersAndPicksLabel, renderConnectGate, renderTradeAssetLabel, renderTradeMove } from "./modules/html.js";
-import { hashHue, renderAvatar, renderMultiTeamPartyTitle, renderPositionMeter, renderPowerHero, renderPowerStat, renderSleeperInsight } from "./modules/roster-markup.js";
-import { facePlayerId, renderPlayerFace, renderPlayerLabel } from "./modules/player-face.js";
+  copyTextToClipboard,
+  escapeHtml,
+  formatNumber,
+  formatSignedNumber,
+  formatMatchIdeaCopy,
+  clamp,
+  renderConnectGate,
+} from "./modules/html.js";
+import {
+  renderAvatar,
+  renderMultiTeamPartyTitle,
+  renderPositionMeter,
+  renderPowerHero,
+  renderPowerStat,
+  renderSleeperInsight,
+} from "./modules/roster-markup.js";
+import { facePlayerId, playerIdFromAssetId, renderPlayerFace, renderPlayerLabel } from "./modules/player-face.js";
 import {
   addValueCalcItem,
   clearValueCalcSides,
@@ -194,8 +188,6 @@ import {
 } from "./modules/calc-search.js";
 import { ideaPackageKey, selectNextDiverse } from "./modules/deal-more.js";
 import { calculatePackageAdjustment, calculatePctDiff } from "./modules/package-value.js";
-import { bindTicker } from "./modules/ticker-scrub.js";
-import { leagueHistoryRecords, pickLatestCrown } from "./modules/league-crown.js";
 import { jobById, landingSearchHint } from "./modules/jobs.js";
 import {
   applyBootFieldValue,
@@ -204,12 +196,11 @@ import {
   releaseBootGate,
   scheduleBootFind,
 } from "./modules/boot-gate.js";
-import { ownerPossessive, sampleMockNote, sampleRoomHint, sampleRosterLabels } from "./modules/sample-voice.js";
+import { sampleRoomHint, sampleRosterLabels } from "./modules/sample-voice.js";
 import {
   buildTradeMatchProfile,
   countStartableAtPosition,
   packageLooksLikeFiller,
-  previewBestMatch,
   proposeMatchDeals,
   rankPartnerMatches,
 } from "./modules/trade-match.js";
@@ -219,45 +210,6 @@ import {
   buildTargetPackages as buildCappedTargetPackages,
   walkPackagePairs,
 } from "./modules/trade-packages.js";
-import {
-  buildWeeklyContext,
-  buildWeeklyPlayerModel,
-  emptyWeeklyValueState,
-  fetchNflSchedule,
-  loadWeeklyStatWeeks,
-  playerIdFromAssetId,
-  renderWeeklyPlayerSheet,
-  renderWeeklyScoreHelpButton,
-  renderWeeklyScoreHelpPop,
-  weeklyScoreChipLabel,
-  lineupFillValue,
-  DYNASTY_SCORE_LABEL,
-  WEEKLY_SCORE_HINT,
-  WEEKLY_SCORE_LABEL,
-} from "./modules/weekly-value.js";
-import {
-  buildSitStart,
-  renderSitStartCallout,
-} from "./modules/sit-start.js";
-import {
-  analyzePastTrades,
-  analyzeLeagueTradeSides,
-  biggestTradeMiss,
-  buildHallRows,
-  buildPlayerPassport,
-  decoratePassport,
-  formatSeasonSpan,
-  passportJourneyLabel,
-  buildRosterDna,
-  buildTenure,
-  formatRecordLine,
-  ironRosterShare,
-  loyaltyScore,
-  newCorePlayers,
-  pickLeagueTradeAwards,
-  summarizeCharms,
-  winPctFromRecord,
-} from "./modules/loyalty.js";
 import {
   describeUserSearchFailure,
   renderLeaguePickerMarkup,
@@ -281,12 +233,7 @@ import {
   visibleRoomFor,
   windowCallHorizon,
 } from "./modules/league-format.js";
-import {
-  buildFranchiseIndex,
-  ownerIdFromRoster,
-  resolveRosterIdentity,
-  takeoverForRoster,
-} from "./modules/franchise.js";
+import { buildFranchiseIndex, ownerIdFromRoster, resolveRosterIdentity } from "./modules/franchise.js";
 import { buildDeskHistorySnapshot, scrollTopFromHistory } from "./modules/desk-history.js";
 import {
   assetIdFromRoute,
@@ -308,7 +255,7 @@ import {
 } from "./modules/history-route.js";
 import { EVEN_UP_OFFER_ABOVE, displayMore, ideaLimitMore, oldPctToMore, STAR_PREMIUM_KEY, TIER_EXPLAINER, FEWER_BETTER_LINE, PRICE_FACTORS_LINE, UNAVAILABLE_PRICE_LINE, barLabel, creditedTotalsLine, fewerBetterOffer, verdictCopy, verdictLineNamed } from "./modules/verdict-copy.js";
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
-import { GLOSSARY, bindInfoTips, infoTipMarkup, valuesWorkText } from "./modules/info-tip.js";
+import { GLOSSARY, bindInfoTips, infoTipMarkup, renderPriceLegend, valuesWorkText } from "./modules/info-tip.js";
 import {
   EXAMPLE_GET,
   EXAMPLE_GIVE,
@@ -328,24 +275,13 @@ import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
   buildOwnedPickKey,
   buildOwnedPicksByRoster,
-  formatPickWithSelection,
   indexDraftSelections,
   isConsumedDraftPick,
-  lookupDraftedSelection,
   mergeDraftSelectionIndex,
   ownerKeyByRosterIdFromRosters,
   slotToRosterIdFromDraft,
   sortDraftsForSelectionIngest,
 } from "./modules/draft-picks.js";
-import {
-  currentPlaceForOwner,
-  fetchMockDrafts,
-  buildMockBoardModel,
-  formatPickSlotLabel,
-  mockPickDomId,
-  nextMockSeason,
-  projectedDraftSlot,
-} from "./modules/mock-drafts.js";
 import {
   compareTradeSearchPicks,
   formatPickLabel,
@@ -354,6 +290,7 @@ import {
   rosterRecordsReady,
   valuedAsMidFirstHint,
 } from "./modules/pick-projection.js";
+import { currentPlaceForOwner } from "./modules/draft-order.js";
 import {
   applyDocumentMeta,
   buildDocumentTitle,
@@ -363,7 +300,6 @@ import {
   focusAfterSampleBannerDismiss,
   sampleBannerDismissed,
   sampleConnectEntryVisible,
-  tickerDurationSeconds,
 } from "./modules/site.js";
 import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
 import { createBeaconAdapter, pageview as analyticsPageview, setAnalyticsAdapter, track as analyticsTrack, trackShareTapped, trackTradeLinkOpened } from "./modules/analytics.js";
@@ -451,7 +387,6 @@ const CUSTOM_MULTI_TEAM_PLAN_LIMIT = 18;
 
 const leagueStrengthCache = { key: "", baseline: null };
 const powerBoardCache = { key: "", profiles: null, context: null };
-const weeklyModelCache = { key: "", models: new Map() };
 let teamsPaintGeneration = 0;
 
 const el = {
@@ -535,8 +470,6 @@ const el = {
   calculatorSection: document.querySelector("#calculator-section"),
   calculatorShell: document.querySelector("#calculator-shell"),
   ranksDashboard: document.querySelector("#ranks-dashboard"),
-  publicRanks: document.querySelector("#public-ranks"),
-  publicRanksBoard: document.querySelector("#public-ranks-board"),
   homeBtn: document.querySelector("#home-btn"),
   landingFindBtn: document.querySelector("#landing-find-btn"),
   landingUsername: document.querySelector("#landing-username"),
@@ -614,8 +547,6 @@ let phoneDeskCollapsed = false;
 let managerSelectorHydrating = false;
 let managerSelectorHydrateEpoch = 0;
 let seasonStatsCache = { season: "", stats: null };
-let publicRanksOpen = false;
-let publicRanksHistory = false;
 let bootRoute = null;
 let connectNextPlace = null;
 // The draft a Review trade, a new partner, or Clear replaced, so one tap brings it back.
@@ -830,7 +761,6 @@ el.workspace?.addEventListener("focusout", () => {
   // Focus lands after focusout; a tap on another field keeps the render held.
   setTimeout(() => pageRenderQueue.release(), 0);
 });
-syncWeeklyScoreHelp();
 el.playerSearch?.addEventListener("input", () => {
   invalidateResults();
   renderPlayerSearch();
@@ -1082,12 +1012,6 @@ function invalidateResults() {
 
 function showAppPages() {
   hideLeagueNotFound();
-  publicRanksOpen = false;
-  publicRanksHistory = false;
-  if (el.publicRanks) {
-    el.publicRanks.classList.add("hidden");
-    el.publicRanks.hidden = true;
-  }
   el.deskNav?.classList.remove("hidden");
   el.homeBtn?.classList.remove("hidden");
   el.mobileHomeBtn?.classList.remove("hidden");
@@ -1197,18 +1121,17 @@ function renderActivePage() {
   renderLeagueHero();
   const page = state.activePage;
   const room = getRoom(page);
-  if (page === "players") {
-    renderRankHost(el.ranksDashboard);
-    if (state.leagueId) renderPassportDesk();
-    if (!rankValuesReady() || !playerNoteContext?.previousSeason) void ensureRankExtras();
-  } else if (page === "trades") {
+  if (page === "trades") {
     renderTradesRoom(room);
+    if (room === "calculator") {
+      renderRankHost(el.ranksDashboard);
+      if (!rankValuesReady() || !playerNoteContext?.previousSeason) void ensureRankExtras();
+    }
   } else if (state.leagueId) {
     renderLeagueRoom(room);
   } else {
-    renderLeagueGuest(room);
+    renderLeagueGuest();
   }
-  renderTicker();
 }
 
 function requestActivePageRender() {
@@ -1222,32 +1145,9 @@ function typingInActivePage() {
 }
 
 function renderLeagueRoom(room) {
-  switch (room) {
-    case "team":
-      renderTeamsPage();
-      renderWindowCallDashboard();
-      break;
-    case "board":
-      renderStandingsRoom();
-      renderPowerRoom();
-      renderTeamsGrid();
-      renderSeasonSuperlatives();
-      renderMockBoard();
-      break;
-    case "activity":
-      renderTradeLogDesk();
-      break;
-    case "history":
-      renderLeagueHistoryRoom();
-      renderLoyaltyDashboard();
-      break;
-    case "scores":
-      renderScoresRoom();
-      renderWeeklyHonors();
-      break;
-    default:
-      renderTeamsPage();
-  }
+  renderTeamsPage();
+  renderWindowCallDashboard();
+  renderStandingsRoom();
   focusLeagueRoomHeading(room);
 }
 
@@ -1427,18 +1327,12 @@ function renderRankHost(host) {
   }
 }
 
-function renderRankSurfaces() {
-  if (publicRanksOpen) renderRankHost(el.publicRanksBoard);
-  if (state.activePage === "players") {
-    renderRankHost(el.ranksDashboard);
-  }
+function ranksBoardVisible() {
+  return state.activePage === "trades" && getRoom("trades") === "calculator";
 }
 
-function syncPublicRanksUrl({ mode = "replace" } = {}) {
-  if (state.leagueId || !publicRanksOpen) return;
-  if (mode === "push") document.querySelector("#landing")?.classList.add("hidden");
-  publicRanksHistory = mode === "push" || publicRanksHistory;
-  updateUrlState({ mode });
+function renderRankSurfaces() {
+  if (ranksBoardVisible()) renderRankHost(el.ranksDashboard);
 }
 
 async function ensureRankExtras() {
@@ -1467,55 +1361,16 @@ async function ensureRankExtras() {
   }
   rankExtrasSettled = true;
   rankBoardCache = { key: "", rows: [] };
-  if (publicRanksOpen || state.activePage === "players") {
+  if (ranksBoardVisible()) {
     renderRankSurfaces();
-  } else if (state.activePage === "trades" && getRoom("trades") === "calculator") {
     renderTradeDraft();
   }
 }
 
-function openPublicRanks({ history = "push" } = {}) {
-  if (state.leagueId || document.querySelector("#players-page")) {
-    openRoom("players", "ranks", { history });
-    return;
-  }
+function openPlayerBoard({ history = "push" } = {}) {
   document.querySelector("#landing")?.classList.add("hidden");
-  const already = publicRanksOpen;
-  publicRanksOpen = true;
-  document.querySelector("#landing")?.classList.add("hidden");
-  if (el.publicRanks) {
-    el.publicRanks.classList.remove("hidden");
-    el.publicRanks.hidden = false;
-  }
-  renderRankHost(el.publicRanksBoard);
-  if (!already && history === "push") syncPublicRanksUrl({ mode: "push" });
-  else syncPublicRanksUrl({ mode: "replace" });
-  syncDocumentMeta();
-  renderSessionSnapshot();
-  syncSiteDock();
-  if (!already) window.scrollTo(0, 0);
+  openRoom("trades", "calculator", { history });
   void ensureRankExtras();
-}
-
-function closePublicRanks({ fromHistory = false } = {}) {
-  const wasOpen = publicRanksOpen;
-  publicRanksOpen = false;
-  if (el.publicRanks) {
-    el.publicRanks.classList.add("hidden");
-    el.publicRanks.hidden = true;
-  }
-  document.querySelector("#landing")?.classList.remove("hidden");
-  if (!fromHistory && wasOpen && publicRanksHistory && typeof history?.back === "function") {
-    publicRanksHistory = false;
-    history.back();
-  } else if (!fromHistory && wasOpen && !state.leagueId && typeof history?.replaceState === "function") {
-    history.replaceState({}, "", window.location.pathname);
-  } else if (fromHistory) {
-    publicRanksHistory = false;
-  }
-  syncDocumentMeta();
-  renderSessionSnapshot();
-  syncSiteDock();
 }
 
 function renderTradesRoom(room) {
@@ -1573,9 +1428,9 @@ function bootFromUrl() {
   if (leagueId) {
     void loadLeagueById(leagueId, { sample: parsed.sample });
   } else if (!routeDrivesPlace && parsed.tab === "trades" && parsed.view === "ranks") {
-    openPublicRanks({ history: "silent" });
+    openPlayerBoard({ history: "silent" });
   } else if (route.legacy === "ranks" || route.name === "players") {
-    openPublicRanks({ history: "silent" });
+    openPlayerBoard({ history: "silent" });
   }
 }
 
@@ -1583,7 +1438,7 @@ function activePlayerRouteId() {
   const sheetId = routeIdFromPlayer(state.weeklyValue?.selectedPlayerId);
   if (sheetId && state.weeklyValue?.helpOpen) return sheetId;
   if (sheetId && state.activePage === "league" && getRoom() === "team") return sheetId;
-  if (state.ranks?.selectedId && (publicRanksOpen || state.activePage === "players")) {
+  if (state.ranks?.selectedId && ranksBoardVisible()) {
     return routeIdFromAsset(state.ranks.selectedId);
   }
   return "";
@@ -1595,7 +1450,6 @@ function activeOverlay() {
     help: Boolean(state.weeklyValue?.helpOpen),
     player: Boolean(activePlayerRouteId()),
     trade: Boolean(state.selectedTradeId),
-    publicRanks: Boolean(publicRanksOpen && !state.leagueId),
   });
 }
 
@@ -1942,30 +1796,11 @@ function overlayPushed(overlay) {
 }
 
 function dismissRouteOverlay(overlay) {
-  if (overlay === "help") {
-    setWeeklyScoreHelpOpen(false);
-    return;
-  }
   if (overlay === "rail") {
     setMobileRailOpen(false);
     return;
   }
-  if (overlay === "public-ranks") {
-    closePublicRanks();
-    return;
-  }
-  if (overlay === "trade") {
-    state.selectedTradeId = "";
-    state.selectedTradeManagerKey = "";
-    renderTradeLogDesk();
-    updateUrlState({ mode: "replace" });
-    return;
-  }
   if (overlay === "player") {
-    if (state.weeklyValue) {
-      state.weeklyValue.selectedPlayerId = "";
-      state.weeklyValue.helpOpen = false;
-    }
     state.ranks.selectedId = "";
     if (state.activePage === "league" && getRoom() === "team") renderRosterSheet();
     renderRankSurfaces();
@@ -2092,9 +1927,6 @@ function applyPlayerRoute(historyState, parsed) {
     parsedAsset: parsed?.asset || "",
   });
   state.ranks.selectedId = picked.rankAssetId;
-  if (!state.weeklyValue) state.weeklyValue = emptyWeeklyValueState();
-  state.weeklyValue.selectedPlayerId = picked.sheetPlayerId;
-  state.weeklyValue.helpOpen = picked.helpOpen;
   if (picked.rankAssetId) document.querySelector("#landing")?.classList.add("hidden");
   setMobileRailOpen(picked.railOpen, { history: "silent" });
 }
@@ -2146,14 +1978,10 @@ function applyDeskPopState(historyState) {
     if (parsed.tab === "trades" && parsed.view === "ranks") {
       if (parsed.asset) state.ranks.selectedId = parsed.asset;
       else state.ranks.selectedId = "";
-      if (!publicRanksOpen) {
-        publicRanksHistory = true;
-        openPublicRanks({ history: "silent" });
-      } else renderRankSurfaces();
+      openPlayerBoard({ history: "silent" });
       restoreHistoryScroll(historyState);
       return;
     }
-    if (publicRanksOpen && route.name !== "players") closePublicRanks({ fromHistory: true });
   }
   if (route.name === "players" || route.legacy === "ranks") {
     document.querySelector("#landing")?.classList.add("hidden");
@@ -2498,7 +2326,7 @@ function handleLaunchClick(event) {
   event.preventDefault();
   if (kind === "example") openExampleTrade();
   else if (kind === "empty") openEmptyTrade();
-  else if (kind === "players") openPublicRanks({ history: "push" });
+  else if (kind === "players") openPlayerBoard({ history: "push" });
   else if (kind === "connect") openLaunchConnect();
   else if (kind === "retry") void bootLaunchSurface();
   else if (row) openLaunchPlayer(row.getAttribute("href"));
@@ -2612,7 +2440,6 @@ function buildShareUrl(overrides = {}) {
 
 function goLeagueHome() {
   if (!state.leagueId) {
-    closePublicRanks();
     document.querySelector("#landing")?.scrollIntoView({ behavior: "smooth", block: "start" });
     el.landingUsername?.focus();
     return;
@@ -2626,14 +2453,10 @@ function goSiteHome({ history = "push" } = {}) {
     state.weeklyValue.selectedPlayerId = "";
     state.weeklyValue.helpOpen = false;
   }
-  publicRanksOpen = false;
-  if (el.publicRanks) {
-    el.publicRanks.classList.add("hidden");
-    el.publicRanks.hidden = true;
-  }
   document.querySelector("#landing")?.classList.remove("hidden");
   if (history === "push") prepareDeskPush();
-  setActivePage("players", { history, scroll: "top", prepared: history === "push" });
+  setRoom("trades", "calculator");
+  setActivePage("trades", { history, scroll: "top", prepared: history === "push" });
 }
 
 function getTradeMode() {
@@ -2820,9 +2643,7 @@ function syncDeskRailOffset() {
 
 function guestRouteHeading() {
   const path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
-  if (publicRanksOpen && !state.leagueId) return "Player ranks";
-  if (path === "/trade" || state.activePage === "trades") return "Trade";
-  if (path === "/players" || (state.activePage === "players" && !landingVisible())) return "Players";
+  if (path === "/trade" || path === "/players" || state.activePage === "trades") return "Check a trade";
   return "Dynasty Ticker";
 }
 
@@ -2861,9 +2682,7 @@ function renderSessionSnapshot() {
   document.body.classList.toggle("cold-share", coldShare);
   if (el.mobileChromeTitle) el.mobileChromeTitle.hidden = coldShare;
   if (el.mobileChromeTitle && !coldShare) {
-    el.mobileChromeTitle.textContent = publicRanksOpen && !state.leagueId
-      ? "Player ranks"
-      : sampleOn
+    el.mobileChromeTitle.textContent = sampleOn
         ? (state.leagueName || "Sample league")
         : state.leagueName
           ? (you ? `${you} · ${state.leagueName}` : state.leagueName)
@@ -3544,7 +3363,6 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     const [coreData, nflState] = await Promise.all([
       loadLeagueCoreData(leagueId),
       apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => null),
-      ensureMockDraftsLoaded(),
     ]);
     if (!leagueLoader.isCurrent(token)) return;
     const { league, users, rosters, tradedPicks, drafts } = coreData;
@@ -3602,7 +3420,6 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.transactionsFailed = false;
     state.transactionWeeksLoaded = 0;
     state.transactionLoadError = "";
-    state.leagueBoard = emptyLeagueBoard();
     state.leagueHistory = [];
     state.historyTransactions = [];
     state.historyTransactionsLoaded = false;
@@ -3619,7 +3436,6 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.standingsView = "overall";
     if (!sameLeague) forgetDraftPartner();
     clearTradeMatchCache();
-    state.weeklyValue = emptyWeeklyValueState();
     if (el.playerSearch) el.playerSearch.value = "";
     if (el.resultsList) el.resultsList.innerHTML = "";
     el.resultsSection?.classList.add("hidden");
@@ -3678,14 +3494,12 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     loadLeagueHistoryTransactions(leagueHistory);
     loadLeagueHistoryMatchups(leagueHistory);
     loadDraftSelectionIndex(leagueHistory);
-    startLivePolling();
 
     const playersEpoch = playerLoadEpoch;
     loadPlayersWithCache()
       .then((players) => {
         if (playersLoadStale(playersEpoch, token, leagueId)) return;
         commitPlayerDirectory(players, { epoch: playersEpoch, leagueId, hydrate: true });
-        void ensureWeeklyValueContext();
         const me = getMyRoster();
         const missingTeam = me ? "" : noTeamInLeagueCopy(state.sleeperUser);
         setStatus(
@@ -3748,7 +3562,6 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     paintLeagueLoadError(message);
     if (state.league) {
       showAppPages();
-      startLivePolling();
     }
     setLeagueSwitchStale(failedSwitch);
     // An outage stays on /l/… Back can return to the league that already loaded.
@@ -3787,10 +3600,6 @@ function invalidateSeasonCaches() {
   state.simCache = { key: "", result: null };
 }
 
-function invalidateSeasonModelCache() {
-  state.seasonModelCache = { key: "", model: null };
-}
-
 function valuationCacheVersion() {
   const sourceVersion = state.valueBundles?.asOf
     || state.valueBundles?.modelVersion
@@ -3819,53 +3628,6 @@ function stopLivePolling() {
     document.removeEventListener("visibilitychange", handleLiveVisibility);
     liveVisibilityBound = false;
   }
-}
-
-function startLivePolling() {
-  stopLivePolling();
-  livePoller = createLivePoller({
-    intervalMs: LIVE_POLL_INTERVAL_MS,
-    simRefreshMs: LIVE_SIM_REFRESH_MS,
-    isLive: () => shouldPollLive(getSeasonModel(), state.nflState),
-    shouldPause: () => Boolean(document.hidden),
-    leagueId: () => state.leagueId,
-    fetchUpdate: async () => {
-      const leagueId = state.leagueId;
-      const model = getSeasonModel();
-      const week = model?.currentWeek || Number(state.nflState?.week) || 1;
-      const [rows, nflState] = await Promise.all([
-        apiGetWithRetry(sleeperLeaguePath(leagueId, `matchups/${week}`), { timeoutMs: 12000, retries: 1 }),
-        apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => state.nflState),
-      ]);
-      return { week, rows: Array.isArray(rows) ? rows : [], nflState, previousModel: model, leagueId };
-    },
-    onScores: ({ week, rows, nflState, previousModel, leagueId }) => {
-      if (!liveUpdateMatchesLeague(leagueId, state.leagueId)) return;
-      if (nflState) state.nflState = nflState;
-      state.seasonWeekRows.set(Number(week), rows);
-      invalidateSeasonModelCache();
-      const nextModel = getSeasonModel();
-      if (shouldRefreshSim({
-        previousFinalThroughWeek: previousModel?.finalThroughWeek,
-        nextFinalThroughWeek: nextModel?.finalThroughWeek,
-        previousRemaining: previousModel?.remainingGames?.length,
-        nextRemaining: nextModel?.remainingGames?.length,
-      })) {
-        state.simCache = { key: "", result: null };
-      }
-      state.livePolling = shouldPollLive(nextModel, state.nflState);
-      renderSessionSnapshot();
-      renderTicker();
-      if (state.activePage === "league") requestActivePageRender();
-    },
-    onSimRefresh: () => {
-      state.simCache = { key: "", result: null };
-      if (state.activePage === "league") requestActivePageRender();
-    },
-  });
-  livePoller.start();
-  document.addEventListener("visibilitychange", handleLiveVisibility, { passive: true });
-  liveVisibilityBound = true;
 }
 
 function handleLiveVisibility() {
@@ -4286,7 +4048,6 @@ function commitPlayerDirectory(players, { failed = false, epoch = playerLoadEpoc
   }
   if (!state.league || !state.rosters?.length) return;
   refreshPlayerPositionRanks();
-  rebuildWeeklyValueContext();
   state.normalizedRosters = normalizeRosters(state.league, state.rosters, state.users, state.players, {
     league: state.previousLeague,
     users: state.previousUsers,
@@ -4469,7 +4230,6 @@ async function loadLeagueTransactions(leagueId, league) {
     state.transactionsLoaded = true;
     state.transactionsFailed = loadedWeeks === 0;
     state.transactionLoadError = loadedWeeks === 0 ? "Sleeper did not return transaction weeks for this league." : "";
-    refreshLeagueBoard();
   } catch (err) {
     if (state.leagueId !== loadLeagueId) return;
     state.transactions = [];
@@ -4538,7 +4298,6 @@ async function loadLeagueHistoryTransactions(historyEntries = []) {
     state.historyTransactionLoadError = loadedLeagues === 0
       ? "Sleeper did not return archived transaction weeks for this league."
       : "";
-    refreshLeagueBoard();
   } catch (err) {
     if (state.leagueId !== activeLeagueId) return;
     state.historyTransactions = [];
@@ -4963,7 +4722,7 @@ function renderRosterDirectory(roster) {
   const loadingLabel = loadingPlayers ? `<span class="sr-only">Loading player</span>` : "";
   const failedLabel = failedPlayers ? `<span class="sr-only">Player details unavailable</span>` : "";
   const rowClass = loadingPlayers ? "sheet-row directory-row loading-row" : "sheet-row directory-row";
-  el.rosterSheet.innerHTML = `
+  writeRosterSheet(`
     ${failedNote}
     <div class="sheet-grid">
       <section class="sheet-column"${loadingPlayers ? ` aria-busy="true"` : ""}>
@@ -4995,13 +4754,12 @@ function renderRosterDirectory(roster) {
           `;
         }).join("") || `<p class="muted small">No players on this roster.</p>`}
         ${showPicks ? `
-          <h4>Pick vault</h4>
-          ${renderPickVaultIntro()}
+          <h4>Draft picks</h4>
           ${picks.map((asset) => renderPickVaultRow(asset, values)).join("") || `<p class="muted small">No draft picks owned.</p>`}
         ` : ""}
       </section>
     </div>
-  `;
+  `);
 }
 
 function renderPowerDashboard() {
@@ -5104,7 +4862,7 @@ function computeOptimalPointsForSide(side) {
     return { assetId: `player:${playerId}`, name: String(playerId), assetType: "player", raw };
   });
   // A past week's best lineup is picked by the points that week, not this week's start chance.
-  const lineup = buildOptimalStartingLineup(assets, getStarterRosterSlots(state.league), values, { thisWeek: false });
+  const lineup = buildOptimalStartingLineup(assets, getStarterRosterSlots(state.league), values);
   return lineup.starters.reduce((sum, entry) => sum + (entry.asset ? values[entry.asset.assetId] || 0 : 0), 0);
 }
 
@@ -5236,23 +4994,6 @@ function renderTeamIdentity(rosterId, { size = "sm", showTeamName = true, extra 
   `;
 }
 
-function playerNameById(playerId) {
-  const player = state.players?.[playerId];
-  if (!player) return state.valueNameMap?.[`player:${playerId}`] || `Player ${playerId}`;
-  return `${(player.first_name || "").trim()} ${(player.last_name || "").trim()}`.trim() || player.full_name || `Player ${playerId}`;
-}
-
-function playerPositionById(playerId) {
-  return playerPositionForRaw(state.players?.[playerId]) || "";
-}
-
-function weekStatusChip(entry) {
-  if (!entry) return "";
-  const cls = entry.status === "live" ? "live" : entry.status === "final" ? "final" : "upcoming";
-  const label = entry.status === "live" ? "Live" : entry.status === "final" ? "Final" : entry.status === "current" ? "This week" : "Upcoming";
-  return `<span class="status-chip ${cls}">${label}</span>`;
-}
-
 function percentLabel(value) {
   return formatOddsPct(value);
 }
@@ -5265,14 +5006,6 @@ function luckClass(luck) {
 function formatLuck(luck) {
   if (!Number.isFinite(luck)) return "—";
   return `${luck > 0 ? "+" : ""}${luck.toFixed(1)}`;
-}
-
-function seasonThroughLabel(model) {
-  if (Number.isFinite(model?.finalThroughWeek) && model.finalThroughWeek > 0) {
-    return `${model.season} through Week ${model.finalThroughWeek}`;
-  }
-  if (model?.featuredWeek) return `${model.season} · ${model.featuredWeek.label} still live`;
-  return `${model.season} · waiting on Week 1`;
 }
 
 // ---------------------------------------------------------------------------
@@ -5310,46 +5043,13 @@ function clearHost(host) {
   if (host) host.innerHTML = "";
 }
 
-function renderLeagueGuest(room) {
-  if (room === "scores") {
-    paintConnectGate(el.scoresDashboard, "Connect my league to see this week's matchups.");
-    clearHost(el.weeklyHonorsDashboard);
-    return;
-  }
-  if (room === "board") {
-    paintConnectGate(el.teamsGrid, "Connect my league to see standings and the rest of the league.");
-    clearHost(el.standingsDashboard);
-    clearHost(el.superlativesDashboard);
-    clearHost(el.powerBoardDashboard);
-    clearHost(el.mockDashboard);
-    return;
-  }
-  if (room === "activity") {
-    paintConnectGate(el.tradeLogDashboard, "Connect my league to see trades in your league.");
-    return;
-  }
-  if (room === "history") {
-    paintConnectGate(el.historyDashboard, "Connect my league to open titles and records.");
-    clearHost(el.loyaltyDashboard);
-    return;
-  }
-  paintConnectGate(el.powerDashboard, "Connect my league to see your roster, outlook, and who to start.");
+function renderLeagueGuest() {
+  paintConnectGate(el.powerDashboard, "Connect my league to see your roster, outlook, standings, and playoff odds.");
   clearHost(el.windowCallDashboard);
+  clearHost(el.standingsDashboard);
   clearHost(el.rosterSheet);
   document.querySelector("#roster-sheet-section")?.classList.add("hidden");
   if (el.rosterSheetHeading) el.rosterSheetHeading.textContent = "Roster";
-}
-
-function renderScoresRoom() {
-  if (!leagueRoomEmptyState(el.scoresDashboard, "Load a league to open the scoreboard.")) return;
-  const model = getSeasonModel();
-  const sim = getSimulation(model);
-  const profiles = buildPowerProfiles();
-  el.scoresDashboard.innerHTML = `
-    ${renderPulseStrip(model, sim, profiles)}
-    ${renderScoreboardPanel(model, sim)}
-    ${renderWeekAnglesPanel(model, sim)}
-  `;
 }
 
 function renderStandingsRoom() {
@@ -5358,114 +5058,7 @@ function renderStandingsRoom() {
   const sim = getSimulation(model);
   el.standingsDashboard.innerHTML = `
     ${renderStandingsPanel(model, sim)}
-    <details class="workspace-panel"><summary>More league numbers</summary>${renderPlayoffOddsPanel(model, sim)}${renderLuckIndexPanel(model)}</details>
-  `;
-}
-
-function renderPowerRoom() {
-  if (!leagueRoomEmptyState(el.powerBoardDashboard, "Load a league to rank the rosters.")) return;
-  const model = getSeasonModel();
-  const profiles = buildPowerProfiles();
-  el.powerBoardDashboard.innerHTML = profiles.length
-    ? renderHomePowerBoard(profiles, model)
-    : `<p class="muted">Values are still syncing. The power board appears once market values load.</p>`;
-}
-
-function renderPulseStrip(model, sim, profiles) {
-  const leader = model.standings[0] || null;
-  const hasGames = model.standings.some((team) => team.gamesPlayed > 0);
-  const favorite = sim?.results?.[0] || null;
-  const champion = model.seasonComplete ? resolveCurrentChampion() : null;
-  const deadline = Number(state.league?.settings?.trade_deadline);
-  const tradeCount = state.transactions.filter((transaction) => transaction?.type === "trade" && transaction?.status === "complete").length;
-  const hotTeam = model.standings
-    .filter((team) => team.streak?.type === "W" && team.streak.length >= 2)
-    .sort((a, b) => b.streak.length - a.streak.length)[0] || null;
-  const topPower = profiles[0] || null;
-  const matchPreview = buildTradeMatchPreview(profiles);
-  const myCall = getMyWindowCall({ profiles, model, sim });
-  const tiles = [
-    {
-      label: "Week",
-      page: "league",
-      room: "scores",
-      value: model.seasonComplete ? "Final" : `Week ${model.currentWeek}`,
-      detail: model.seasonComplete
-        ? `${model.season} season complete`
-        : !state.seasonLoaded
-          ? "syncing matchups"
-          : model.currentWeekEntry?.isLive
-            ? "games in progress"
-              : model.currentWeekEntry?.isPlayoff
-              ? "playoff round"
-              : model.scheduleIncomplete
-                ? "syncing full slate"
-                : `${model.remainingGames.length} regular-season games left`,
-      tone: model.currentWeekEntry?.isLive ? "live" : "blue",
-    },
-    {
-      label: hasGames ? "Standings leader" : "Preseason favorite",
-      page: "league",
-      room: "standings",
-      value: hasGames ? leader?.name || "TBD" : favorite?.name || topPower?.managerName || "TBD",
-      detail: hasGames ? `${leader?.recordLabel || ""} · ${formatPoints(leader?.pf || 0)} points` : favorite ? `${percentLabel(favorite.titlePct)} title odds` : "value model",
-      tone: "gold",
-    },
-    {
-      label: champion ? "Champion" : "Title favorite",
-      page: champion ? "league" : "league",
-      room: champion ? "history" : "standings",
-      value: champion ? champion.managerName : favorite?.name || "TBD",
-      detail: champion ? `${model.season} league winner` : favorite ? `${percentLabel(favorite.titlePct)} title · ${percentLabel(favorite.playoffPct)} playoffs` : "odds later",
-      tone: "green",
-    },
-    myCall
-      ? {
-        label: "Win now or rebuild?",
-        page: "league",
-        room: "call",
-        value: myCall.shortLabel,
-        detail: myCall.headline,
-        tone: myCall.tone === "gold" ? "gold" : myCall.tone === "rose" ? "rose" : "green",
-      }
-      : {
-        label: hotTeam ? "Hot hand" : "Power leader",
-        page: "league",
-        room: hotTeam ? "standings" : "roster",
-        value: hotTeam ? hotTeam.name : topPower?.managerName || "TBD",
-        detail: hotTeam ? `${hotTeam.streak.length} straight wins` : topPower ? `${topPower.score}/100 power score` : "values syncing",
-        tone: "rose",
-      },
-    matchPreview
-      ? {
-        label: "Trade match",
-        page: "trades",
-        room: "match",
-        value: `${matchPreview.need} hole`,
-        detail: `${matchPreview.managerName} · ${matchPreview.laneLabel}`,
-        tone: "gold",
-      }
-      : {
-        label: "Trade board",
-        page: "trades",
-        room: "log",
-        value: state.transactionsLoaded ? `${tradeCount} trade${tradeCount === 1 ? "" : "s"}` : "Syncing",
-        detail: Number.isFinite(deadline) && deadline > 0
-          ? model.currentWeek > deadline && !model.seasonComplete ? `deadline passed (Week ${deadline})` : `deadline Week ${deadline}`
-          : "no trade deadline",
-        tone: "blue",
-      },
-  ];
-  return `
-    <div class="pulse-grid">
-      ${tiles.map((tile) => `
-        <div class="pulse-tile ${tile.tone}">
-          <span>${escapeHtml(tile.label)}</span>
-          <strong>${escapeHtml(tile.value)}</strong>
-          <small>${escapeHtml(tile.detail)}</small>
-        </div>
-      `).join("")}
-    </div>
+    ${renderPlayoffOddsPanel(model, sim)}
   `;
 }
 
@@ -5474,125 +5067,6 @@ function resolveCurrentChampion() {
   if (!entry) return null;
   const snapshot = buildSeasonSnapshot(entry);
   return snapshot?.champion || null;
-}
-
-function resolveHomeWeekEntry(model) {
-  const candidates = model.weeks.filter((entry) => entry.games.length > 0);
-  if (candidates.length === 0) return null;
-  const requested = state.homeWeek != null ? candidates.find((entry) => entry.week === Number(state.homeWeek)) : null;
-  return requested || model.featuredWeek || candidates[0];
-}
-
-function renderScoreboardPanel(model, sim) {
-  const entry = resolveHomeWeekEntry(model);
-  if (!entry) {
-    return `
-      <section class="workspace-panel scoreboard-panel">
-        <div class="panel-heading">
-          <div>
-            <span class="eyebrow">Scoreboard</span>
-            <h2>Matchups</h2>
-          </div>
-          <p class="section-copy">${state.seasonLoaded ? escapeHtml(state.seasonLoadError || "Sleeper has not published a schedule for this league yet.") : "Syncing matchups from Sleeper…"}</p>
-        </div>
-      </section>
-    `;
-  }
-  const weeksWithGames = model.weeks.filter((item) => item.games.length > 0).map((item) => item.week);
-  const index = weeksWithGames.indexOf(entry.week);
-  const previousWeek = index > 0 ? weeksWithGames[index - 1] : null;
-  const nextWeek = index >= 0 && index < weeksWithGames.length - 1 ? weeksWithGames[index + 1] : null;
-  const distributions = sim?.distributions || buildTeamDistributions(model, buildSimPriors(model));
-  const caption = entry.status === "final"
-    ? "Final scores. Win probability shown is what the ticker had before kickoff."
-    : entry.status === "live"
-      ? "Live scores from Sleeper. Probabilities are pre-game, from each roster's scoring profile."
-      : "Pre-game win probability from each roster's scoring profile and simulated priors.";
-
-  return `
-    <section class="workspace-panel scoreboard-panel">
-      <div class="panel-heading scoreboard-heading">
-        <div>
-          <span class="eyebrow">Scoreboard</span>
-          <h2>${escapeHtml(entry.label)} ${weekStatusChip(entry)}</h2>
-        </div>
-        <div class="week-nav">
-          <button type="button" class="ghost-btn" data-action="home-week" data-week="${previousWeek ?? ""}" ${previousWeek == null ? "disabled" : ""}>Prev</button>
-          <span>${index + 1} / ${weeksWithGames.length}</span>
-          <button type="button" class="ghost-btn" data-action="home-week" data-week="${nextWeek ?? ""}" ${nextWeek == null ? "disabled" : ""}>Next</button>
-        </div>
-      </div>
-      <p class="muted small scoreboard-caption">${caption}</p>
-      <div class="game-grid">
-        ${entry.games.map((game) => renderGameCard(game, entry, model, distributions)).join("")}
-        ${entry.byes.map((side) => `
-          <article class="game-card bye">
-            ${renderTeamIdentity(side.rosterId, { showTeamName: false })}
-            <span class="muted small">Bye week</span>
-          </article>
-        `).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderWeekAnglesPanel(model, sim) {
-  const angles = scoreUpcomingWeekAngles(model, sim);
-  if (!angles.cards.length) return "";
-  return `
-    <section class="workspace-panel week-angles-panel">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">Upcoming week</span>
-          <h2>${escapeHtml(angles.label || "This week")} · dark horses</h2>
-        </div>
-        <p class="section-copy">Playoff odds from this season's scores. Open details to see how they are built.</p>
-      </div>
-      <div class="award-grid week-angles-grid">
-        ${angles.cards.map(renderAwardCard).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderGameCard(game, entry, model, distributions) {
-  const [left, right] = game.sides;
-  const leftTeam = model.teams.get(left.rosterId);
-  const rightTeam = model.teams.get(right.rosterId);
-  const leftDist = distributions.get(left.rosterId);
-  const rightDist = distributions.get(right.rosterId);
-  const leftProb = winProbability(leftDist, rightDist);
-  const rightProb = 1 - leftProb;
-  const showScores = entry.status !== "upcoming" && (game.played || entry.status === "final");
-  const isFinal = entry.status === "final";
-  const leftWon = isFinal && showScores && left.points > right.points;
-  const rightWon = isFinal && showScores && right.points > left.points;
-  const involvesMe = [left.rosterId, right.rosterId].includes(String(state.meRosterId));
-  const renderSide = (side, team, dist, prob, won) => `
-    <div class="game-side ${won ? "winner" : ""} ${String(side.rosterId) === String(state.meRosterId) ? "you" : ""}">
-      ${renderTeamIdentity(side.rosterId, { extra: team?.recordLabel || "" })}
-      <div class="game-side-score">
-        ${showScores
-          ? `<strong>${formatPoints(side.points)}</strong>`
-          : `<strong class="proj">${percentLabel(prob * 100)}</strong>`}
-        <small>${showScores ? `${percentLabel(prob * 100)} pre-game` : `proj ${formatPoints(dist?.mean || 0)}`}</small>
-      </div>
-    </div>
-  `;
-  return `
-    <article class="game-card ${involvesMe ? "featured" : ""} ${entry.status}">
-      ${renderSide(left, leftTeam, leftDist, leftProb, leftWon)}
-      <div class="prob-bar" aria-hidden="true">
-        <span class="prob-left" style="width:${Math.round(leftProb * 100)}%"></span>
-        <span class="prob-right" style="width:${Math.round(rightProb * 100)}%"></span>
-      </div>
-      ${renderSide(right, rightTeam, rightDist, rightProb, rightWon)}
-      <footer class="game-card-footer">
-        <span>${entry.status === "final" ? "Final" : entry.status === "live" ? "Live" : "Not kicked off"}</span>
-        <span>${showScores && game.margin > 0 ? `Margin ${formatPoints(game.margin)}` : `Matchup ${game.matchupId}`}</span>
-      </footer>
-    </article>
-  `;
 }
 
 function renderStandingsPanel(model, sim) {
@@ -5750,44 +5224,6 @@ function renderOddsRow(row, sim) {
   `;
 }
 
-function renderHomePowerBoard(profiles, model) {
-  if (profiles.length === 0) return "";
-  const maxStarter = Math.max(1, ...profiles.map((profile) => profile.metrics.starterValue));
-  const redraft = leagueTypeId(state.league) === "redraft";
-  const showPicks = leagueUsesFuturePicks(state.league);
-  const caveat = marketCaveat(state.league);
-  return `
-    <section class="workspace-panel power-board-panel">
-      <div class="panel-heading stack">
-        <div>
-          <span class="eyebrow">Power Rankings</span>
-          <h2>${redraft ? "This-year roster board" : "Dynasty value board"}</h2>
-        </div>
-        <p class="section-copy">${redraft
-          ? `${caveat} Tap a team to open it.`
-          : "Lineup value, depth, picks, and roster age, scored 35-99. Tap a team to open it."}</p>
-      </div>
-      <div class="power-board">
-        ${profiles.map((profile, index) => {
-          const team = model?.teams.get(String(profile.rosterId));
-          return `
-            <button type="button" class="power-board-row ${String(profile.rosterId) === String(state.meRosterId) ? "you" : ""}" data-action="set-lens-teams" data-roster-id="${escapeHtml(profile.rosterId)}">
-              <span class="rank-number">${index + 1}</span>
-              ${renderTeamIdentity(profile.rosterId, { extra: `${profile.laneLabel}${team?.gamesPlayed ? ` · ${team.recordLabel}` : ""}` })}
-              <div class="power-board-meter">
-                <div class="meter-track"><span style="width:${Math.round(profile.metrics.starterValue / maxStarter * 100)}%"></span></div>
-                <small>${formatNumber(profile.metrics.starterValue)} starters${showPicks ? ` · ${formatNumber(profile.assetSummary.pickValue)} picks` : ""} · ${profile.assetSummary.averageAgeLabel}</small>
-              </div>
-              <span class="power-tier ${profile.tierClass}">${profile.grade}</span>
-              <strong class="power-score">${profile.score}</strong>
-            </button>
-          `;
-        }).join("")}
-      </div>
-    </section>
-  `;
-}
-
 // ---------------------------------------------------------------------------
 // Teams explorer
 // ---------------------------------------------------------------------------
@@ -5797,14 +5233,11 @@ function renderTeamsPage() {
   const generation = ++teamsPaintGeneration;
   if (!peekLeaguePowerBoard()) {
     // Cold board solves every roster. Let the Teams tab paint before that work.
-    if (el.teamsGrid) el.teamsGrid.innerHTML = `<p class="muted">Ranking rosters…</p>`;
     void trackRouteSettle(finishTeamsPagePaint(generation));
     return;
   }
-  renderTeamsGrid();
   renderPowerDashboard();
   renderRosterSheet();
-  void ensureWeeklyValueContext();
 }
 
 function teamsRosterVisible() {
@@ -5817,14 +5250,10 @@ async function finishTeamsPagePaint(generation) {
   try {
     getLeaguePowerBoard();
     if (generation !== teamsPaintGeneration || !teamsRosterVisible()) return;
-    renderTeamsGrid();
     renderPowerDashboard();
     renderRosterSheet();
-    void ensureWeeklyValueContext();
   } catch (err) {
     console.warn("Teams page failed to rank rosters", err);
-    if (generation !== teamsPaintGeneration || !teamsRosterVisible()) return;
-    if (el.teamsGrid) el.teamsGrid.innerHTML = `<p class="muted">Could not rank rosters. Open Teams again.</p>`;
   }
 }
 
@@ -5843,521 +5272,6 @@ function syncLeagueFormatCopy() {
       ? "Power score, in-it-or-out call, sit/start, and one note for the selected roster."
       : "Power score, win-now or rebuild call, lineup rank, by position, and one idea for the selected roster.";
   }
-}
-
-function renderMockBoard() {
-  const host = el.mockDashboard;
-  if (!host) return;
-  void ensureMockDraftsLoaded().then(() => {
-    if (getRoom("league") !== "board") return;
-    paintMockBoard();
-  });
-  paintMockBoard();
-}
-
-function paintMockBoard() {
-  const host = el.mockDashboard;
-  if (!host) return;
-  const place = currentPlaceForOwner(state.meRosterId, currentProjectedPlaceLookup());
-  const mySlot = projectedDraftSlot(place?.rank, place?.total);
-  const board = buildMockBoardModel(state.mockDrafts, { mySlot });
-  if (board.empty) {
-    host.innerHTML = `<p class="muted">No stored rookie mock yet.</p>`;
-    return;
-  }
-  const byline = [
-    board.source,
-    board.format === "superflex" ? "Superflex" : board.format,
-    board.author,
-    board.dateLabel,
-  ].filter(Boolean).join(" · ");
-  const sourceLink = board.url
-    ? `<a class="inline-link" href="${escapeHtml(board.url)}" target="_blank" rel="noopener noreferrer">Open article</a>`
-    : "";
-  const slotLabels = mySlot
-    ? `${formatPickSlotLabel(1, mySlot)} and ${formatPickSlotLabel(2, mySlot)}`
-    : "";
-  const voice = sampleVoice();
-  const mineNote = mySlot
-    ? (voice
-      ? sampleMockNote(voice, { place: place.label, slots: slotLabels })
-      : `You sit ${place.label} now, so your names are ${slotLabels}. 3rds stay pick labels. College names have no trade value. A slot like 1.04 means round 1, 4th pick.`)
-    : "1sts and 2nds get these names from current place. 3rds stay pick labels. College names have no trade value.";
-  const focusId = state.mockFocus
-    ? mockPickDomId(state.mockFocus.round, state.mockFocus.slot)
-    : "";
-  host.innerHTML = `
-    <section class="workspace-panel mock-board">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">Rookie mock</span>
-          <h2>${escapeHtml(String(board.season || "Next"))} Superflex board</h2>
-        </div>
-        <p class="section-copy">${escapeHtml(byline)}${sourceLink ? ` · ${sourceLink}` : ""}</p>
-      </div>
-      <p class="muted mock-board-note">${escapeHtml(mineNote)}</p>
-      <div class="sheet-grid">
-        ${board.rounds.map((round) => `
-          <section class="sheet-column">
-            <h4>${escapeHtml(round.label)}</h4>
-            ${round.picks.map((pick) => {
-              const focused = Boolean(focusId && pick.id === focusId);
-              const href = board.url
-                ? ` href="${escapeHtml(board.url)}" target="_blank" rel="noopener noreferrer"`
-                : "";
-              const tag = board.url ? "a" : "div";
-              return `
-              <${tag} class="sheet-row pick mock-pick${pick.mine ? " mock-mine" : ""}${focused ? " mock-focus" : ""}"${pick.id ? ` id="${escapeHtml(pick.id)}"` : ""}${href}>
-                <span class="sheet-slot">${escapeHtml(pick.pickLabel)}</span>
-                <div class="sheet-player">
-                  <strong>${escapeHtml(pick.name)}${pick.mine ? `<em class="mock-you"> ${escapeHtml(sampleVoice()?.mockSlot || "your slot")}</em>` : ""}</strong>
-                  <span>${escapeHtml([pick.pos, pick.school].filter(Boolean).join(" · "))}</span>
-                </div>
-                <span class="sheet-value muted">${escapeHtml(pick.pos)}</span>
-              </${tag}>
-            `;
-            }).join("") || `<p class="muted small">No names this round.</p>`}
-          </section>
-        `).join("")}
-      </div>
-    </section>
-  `;
-  revealMockFocus();
-}
-
-function openMockBoardAt(round, slot) {
-  const rnd = Number(round);
-  const n = Number(slot);
-  if (!Number.isFinite(rnd) || !Number.isFinite(n) || rnd < 1 || n < 1) return;
-  state.mockFocus = { round: rnd, slot: n };
-  const onMock = state.activePage === "league" && getRoom("league") === "board";
-  if (onMock) paintMockBoard();
-  else openRoom("league", "board", { history: "push", scroll: "preserve" });
-  window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(() => {
-      const fold = document.querySelector("#mock-fold");
-      if (fold) fold.open = true;
-      revealMockFocus();
-    });
-  });
-}
-
-function revealMockFocus() {
-  const focus = state.mockFocus;
-  if (!focus) return;
-  const node = document.getElementById(mockPickDomId(focus.round, focus.slot));
-  if (!node) return;
-  node.scrollIntoView({ behavior: "smooth", block: "center" });
-}
-
-function rosterManagerKey(roster) {
-  if (!roster?.manager) return "";
-  return buildManagerKey(roster.manager.userId, state.leagueId, roster.rosterId);
-}
-
-function playerIdsFromRoster(roster) {
-  return (roster?.assets || [])
-    .filter((asset) => asset.assetType === "player")
-    .map((asset) => String(asset.assetId || "").replace(/^player:/, ""))
-    .filter(Boolean);
-}
-
-function playerValueById(playerId) {
-  const id = String(playerId || "").replace(/^player:/, "");
-  if (!id) return 0;
-  return Number(getAssetValue({
-    assetId: `player:${id}`,
-    assetType: "player",
-    name: playerNameById(id),
-    raw: state.players?.[id] || {},
-  })) || 0;
-}
-
-function playerAgeById(playerId) {
-  const id = String(playerId || "").replace(/^player:/, "");
-  const age = Number(state.players?.[id]?.age);
-  return Number.isFinite(age) ? age : null;
-}
-
-function gameResult(leftPoints, rightPoints) {
-  if (Number(leftPoints) > Number(rightPoints)) return "W";
-  if (Number(leftPoints) < Number(rightPoints)) return "L";
-  return "T";
-}
-
-function seasonPlayerSetsForManager(managerKey) {
-  const seasons = [];
-  const seen = new Set();
-  const pushSeason = (season, ids) => {
-    const key = String(season || "");
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    seasons.push({ season: key, ids: [...new Set((ids || []).map(String).filter(Boolean))] });
-  };
-
-  (state.leagueHistory || []).forEach((entry) => {
-    const roster = (entry.rosters || []).find((item) => getHistoryRosterInfo(entry.leagueId, item.roster_id)?.managerKey === managerKey);
-    if (!roster) return;
-    pushSeason(entry.season || entry.league?.season, roster.players || []);
-  });
-
-  const current = state.normalizedRosters.find((roster) => rosterManagerKey(roster) === managerKey);
-  if (current) pushSeason(state.league?.season, playerIdsFromRoster(current));
-  return seasons.sort((a, b) => Number(a.season) - Number(b.season));
-}
-
-function previousSeasonPlayerIds(managerKey) {
-  const seasons = seasonPlayerSetsForManager(managerKey);
-  const current = String(state.league?.season || seasons.at(-1)?.season || "");
-  const prev = [...seasons].reverse().find((row) => Number(row.season) < Number(current));
-  return prev?.ids || [];
-}
-
-function collectCharmAppearances(roster) {
-  const appearances = [];
-  const rosterId = String(roster?.rosterId ?? "");
-  const managerKey = rosterManagerKey(roster);
-  const model = getSeasonModel();
-  const currentSeason = String(model?.season || state.league?.season || "");
-
-  (model?.weeks || []).forEach((week) => {
-    if (!week?.hasPoints) return;
-    (week.games || []).forEach((game) => {
-      const mine = (game.sides || []).find((side) => String(side.rosterId) === rosterId);
-      const opp = (game.sides || []).find((side) => String(side.rosterId) !== rosterId);
-      if (!mine || !opp) return;
-      if (!(mine.points > 0 || opp.points > 0)) return;
-      const result = gameResult(mine.points, opp.points);
-      const starters = new Set((mine.starters || []).map(String));
-      const players = [...new Set((mine.players || mine.starters || []).map(String))];
-      players.forEach((playerId) => {
-        if (!playerId || playerId === "0") return;
-        appearances.push({ playerId, started: starters.has(playerId), result, season: currentSeason, week: week.week });
-      });
-    });
-  });
-
-  (state.historyMatchups || []).forEach((matchup) => {
-    if (String(matchup.season) === currentSeason) return;
-    const mine = matchup.left?.managerKey === managerKey
-      ? matchup.left
-      : matchup.right?.managerKey === managerKey
-        ? matchup.right
-        : null;
-    const opp = mine === matchup.left ? matchup.right : matchup.left;
-    if (!mine || !opp) return;
-    const result = gameResult(mine.points, opp.points);
-    const starters = new Set((mine.starters || []).map(String));
-    const players = [...new Set((mine.players || mine.starters || []).map(String))];
-    players.forEach((playerId) => {
-      if (!playerId || playerId === "0") return;
-      appearances.push({ playerId, started: starters.has(playerId), result, season: matchup.season, week: matchup.week });
-    });
-  });
-  return appearances;
-}
-
-function managerWinPct(roster) {
-  const team = getSeasonModel()?.teams.get(String(roster?.rosterId));
-  let wins = Number(team?.wins || 0);
-  let losses = Number(team?.losses || 0);
-  let ties = Number(team?.ties || 0);
-  const managerKey = rosterManagerKey(roster);
-  const currentSeason = String(state.league?.season || "");
-  (state.historyMatchups || []).forEach((matchup) => {
-    if (String(matchup.season) === currentSeason) return;
-    const mine = matchup.left?.managerKey === managerKey
-      ? matchup.left
-      : matchup.right?.managerKey === managerKey
-        ? matchup.right
-        : null;
-    const opp = mine === matchup.left ? matchup.right : matchup.left;
-    if (!mine || !opp) return;
-    const mark = gameResult(mine.points, opp.points);
-    if (mark === "W") wins += 1;
-    else if (mark === "L") losses += 1;
-    else ties += 1;
-  });
-  return winPctFromRecord({ wins, losses, ties });
-}
-
-function managerGamesForAnalyzer(roster) {
-  const games = [];
-  const rosterId = String(roster?.rosterId ?? "");
-  const managerKey = rosterManagerKey(roster);
-  const model = getSeasonModel();
-  const currentSeason = String(model?.season || state.league?.season || "");
-
-  (model?.weeks || []).forEach((week) => {
-    if (!week?.hasPoints) return;
-    (week.games || []).forEach((game) => {
-      const mine = (game.sides || []).find((side) => String(side.rosterId) === rosterId);
-      const opp = (game.sides || []).find((side) => String(side.rosterId) !== rosterId);
-      if (!mine || !opp) return;
-      if (!(mine.points > 0 || opp.points > 0)) return;
-      games.push({ season: currentSeason, week: week.week, result: gameResult(mine.points, opp.points) });
-    });
-  });
-
-  (state.historyMatchups || []).forEach((matchup) => {
-    if (String(matchup.season) === currentSeason) return;
-    const mine = matchup.left?.managerKey === managerKey
-      ? matchup.left
-      : matchup.right?.managerKey === managerKey
-        ? matchup.right
-        : null;
-    const opp = mine === matchup.left ? matchup.right : matchup.left;
-    if (!mine || !opp) return;
-    games.push({ season: String(matchup.season), week: Number(matchup.week) || 0, result: gameResult(mine.points, opp.points) });
-  });
-  return games;
-}
-
-function toKeyedTrade(transaction, focusKey = null) {
-  const sourceLeagueId = String(transaction?.sourceLeagueId || state.leagueId || "");
-  const movements = buildTradeMovements(transaction).map((movement) => {
-    const fromInfo = getHistoryRosterInfo(sourceLeagueId, movement.fromRosterId);
-    const toInfo = getHistoryRosterInfo(sourceLeagueId, movement.toRosterId);
-    return {
-      ...movement,
-      fromRosterId: fromInfo?.managerKey || movement.fromRosterId,
-      toRosterId: toInfo?.managerKey || movement.toRosterId,
-      fromName: fromInfo?.managerName || "",
-      toName: toInfo?.managerName || "",
-    };
-  });
-  const participantKeys = [...new Set(movements
-    .flatMap((movement) => [movement.fromRosterId, movement.toRosterId])
-    .map(String)
-    .filter(Boolean))];
-  if (focusKey && !participantKeys.includes(String(focusKey))) return null;
-  const others = participantKeys.filter((key) => key !== String(focusKey || ""));
-  return {
-    id: String(transaction.transaction_id || `${transaction.sourceSeason}-${transaction.created}`),
-    season: String(transaction.sourceSeason || state.league?.season || ""),
-    week: Number(transaction.leg || transaction.week || 0),
-    partnerName: others.map((key) => managerNameByKey(key)).filter(Boolean).join(" / ") || "Rival",
-    movements,
-    created: Number(transaction.status_updated || transaction.created || 0),
-    participantKeys,
-  };
-}
-
-function loyaltyTradesForRoster(roster) {
-  const managerKey = rosterManagerKey(roster);
-  if (!managerKey) return [];
-  return getArchiveTradeTransactions()
-    .map((transaction) => toKeyedTrade(transaction, managerKey))
-    .filter(Boolean);
-}
-
-function keyedArchiveTrades() {
-  const seen = new Set();
-  return getArchiveTradeTransactions()
-    .map((transaction) => toKeyedTrade(transaction))
-    .filter((trade) => {
-      if (!trade?.id || seen.has(trade.id)) return false;
-      seen.add(trade.id);
-      return trade.movements.length > 0;
-    });
-}
-
-function managerNameByKey(managerKey) {
-  const key = String(managerKey || "");
-  const live = state.normalizedRosters.find((roster) => rosterManagerKey(roster) === key);
-  if (live) return live.manager.displayName;
-  if (key.startsWith("user:")) {
-    const named = getFranchiseIndex().names.get(key.slice(5));
-    if (named) return named;
-  }
-  for (const entry of state.leagueHistory || []) {
-    for (const roster of entry.rosters || []) {
-      const info = getHistoryRosterInfo(entry.leagueId, roster.roster_id);
-      if (info?.managerKey === key) return info.managerName;
-    }
-  }
-  return "Manager";
-}
-
-function collectGamesByManager() {
-  const map = new Map();
-  const push = (managerKey, game) => {
-    const key = String(managerKey || "");
-    if (!key) return;
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(game);
-  };
-  const model = getSeasonModel();
-  const currentSeason = String(model?.season || state.league?.season || "");
-  const rosterKey = new Map(state.normalizedRosters.map((roster) => [String(roster.rosterId), rosterManagerKey(roster)]));
-
-  (model?.weeks || []).forEach((week) => {
-    if (!week?.hasPoints) return;
-    (week.games || []).forEach((game) => {
-      const sides = game.sides || [];
-      if (sides.length !== 2) return;
-      const [left, right] = sides;
-      if (!(left.points > 0 || right.points > 0)) return;
-      const leftKey = rosterKey.get(String(left.rosterId));
-      const rightKey = rosterKey.get(String(right.rosterId));
-      push(leftKey, { season: currentSeason, week: week.week, result: gameResult(left.points, right.points) });
-      push(rightKey, { season: currentSeason, week: week.week, result: gameResult(right.points, left.points) });
-    });
-  });
-
-  (state.historyMatchups || []).forEach((matchup) => {
-    if (String(matchup.season) === currentSeason) return;
-    if (!matchup.left || !matchup.right) return;
-    push(matchup.left.managerKey, {
-      season: String(matchup.season),
-      week: Number(matchup.week) || 0,
-      result: gameResult(matchup.left.points, matchup.right.points),
-    });
-    push(matchup.right.managerKey, {
-      season: String(matchup.season),
-      week: Number(matchup.week) || 0,
-      result: gameResult(matchup.right.points, matchup.left.points),
-    });
-  });
-  return map;
-}
-
-function collectFinishesByManager() {
-  const map = new Map();
-  (state.leagueHistory || []).forEach((entry) => {
-    const snapshot = buildSeasonSnapshot(entry);
-    (snapshot?.standings || []).forEach((row) => {
-      if (!map.has(row.managerKey)) map.set(row.managerKey, []);
-      map.get(row.managerKey).push({
-        season: snapshot.season,
-        finishRank: row.finishRank,
-        playoffFinish: row.playoffFinish,
-        isCurrent: snapshot.isCurrent,
-        label: row.playoffFinish === 1 ? "champion" : row.finishRank ? ordinal(row.finishRank) : "—",
-      });
-    });
-  });
-  return map;
-}
-
-function assetValueOf(item) {
-  return Number(item?.value) || playerValueById(item?.assetId);
-}
-
-function leagueTradeSidesCacheKey() {
-  return [
-    state.leagueId,
-    state.historyTransactions.length,
-    state.transactions.length,
-    valuationCacheVersion(),
-    (state.historyMatchups || []).length,
-    (state.leagueHistory || []).length,
-    state.draftedPickByKey?.size || 0,
-    state.seasonLoaded ? "1" : "0",
-  ].join(":");
-}
-
-function leagueTradeSides() {
-  const key = leagueTradeSidesCacheKey();
-  if (leagueTradeSideCache.key === key) return leagueTradeSideCache.sides;
-  const sides = analyzeLeagueTradeSides({
-    trades: keyedArchiveTrades(),
-    gamesByManager: collectGamesByManager(),
-    finishesByManager: collectFinishesByManager(),
-    valueOf: assetValueOf,
-    nameOf: managerNameByKey,
-  });
-  leagueTradeSideCache = { key, sides };
-  return sides;
-}
-
-function managerCareerSummary(managerKey) {
-  let wins = 0;
-  let losses = 0;
-  let ties = 0;
-  let titles = 0;
-  const finishes = [];
-  (state.leagueHistory || []).forEach((entry) => {
-    const snapshot = buildSeasonSnapshot(entry);
-    const standing = snapshot?.standings?.find((row) => row.managerKey === managerKey);
-    if (!standing) return;
-    wins += Number(standing.wins || 0);
-    losses += Number(standing.losses || 0);
-    ties += Number(standing.ties || 0);
-    if (!entry.isCurrent && standing.playoffFinish === 1) titles += 1;
-    if (Number.isFinite(Number(standing.finishRank))) finishes.push(Number(standing.finishRank));
-  });
-  return {
-    wins,
-    losses,
-    ties,
-    titles,
-    recordLabel: formatRecordLine(wins, losses, ties),
-    avgFinish: finishes.length ? finishes.reduce((sum, rank) => sum + rank, 0) / finishes.length : null,
-  };
-}
-
-function loyaltyTierLabel(score) {
-  if (score >= 78) return "Iron";
-  if (score >= 58) return "Loyal";
-  if (score >= 38) return "Core";
-  return "Fresh";
-}
-
-function gradeClassName(grade) {
-  return `grade-${String(grade || "C").replace("+", "plus").replace("-", "minus")}`;
-}
-
-function renderDnaChip(chip) {
-  return `<div class="dna-chip">${renderPlayerLabel(chip.name, chip.playerId, { size: "xs" })}<strong>${formatNumber(Math.round(chip.value || 0))}</strong></div>`;
-}
-
-function buildPassportBoard(roster, limit = 10) {
-  const playerSeasons = new Map();
-  const addStop = (playerId, season, managerKey, managerName) => {
-    const id = String(playerId || "").replace(/^player:/, "");
-    if (!id || id === "0") return;
-    if (!playerSeasons.has(id)) playerSeasons.set(id, []);
-    playerSeasons.get(id).push({ season: String(season || ""), managerKey, managerName: managerName || "Unknown" });
-  };
-
-  (state.leagueHistory || []).forEach((entry) => {
-    (entry.rosters || []).forEach((item) => {
-      const info = getHistoryRosterInfo(entry.leagueId, item.roster_id);
-      (item.players || []).forEach((playerId) => addStop(playerId, entry.season || entry.league?.season, info?.managerKey, info?.managerName));
-    });
-  });
-
-  state.normalizedRosters.forEach((entry) => {
-    playerIdsFromRoster(entry).forEach((playerId) => {
-      addStop(playerId, state.league?.season, rosterManagerKey(entry), entry.manager.displayName);
-    });
-  });
-
-  const mine = new Set(playerIdsFromRoster(roster));
-  return [...playerSeasons.entries()]
-    .map(([playerId, seasons]) => {
-      const unique = [];
-      const seen = new Set();
-      seasons
-        .filter((row) => row.season && row.managerKey)
-        .sort((a, b) => Number(a.season) - Number(b.season))
-        .forEach((row) => {
-          const stamp = `${row.season}|${row.managerKey}`;
-          if (seen.has(stamp)) return;
-          seen.add(stamp);
-          unique.push(row);
-        });
-      return buildPlayerPassport({ playerId, name: playerNameById(playerId), seasons: unique });
-    })
-    .filter((row) => row.stops.length > 0)
-    .sort((a, b) => {
-      const aMine = mine.has(a.playerId) ? 1 : 0;
-      const bMine = mine.has(b.playerId) ? 1 : 0;
-      return bMine - aMine || b.stops.length - a.stops.length || playerValueById(b.playerId) - playerValueById(a.playerId);
-    })
-    .filter((row) => row.stops.length >= 2 || mine.has(row.playerId))
-    .slice(0, limit);
 }
 
 function renderLensPicker(roster, { label = "Viewing", extra = "" } = {}) {
@@ -6545,494 +5459,15 @@ function renderWindowCallLeagueRow(call, roster) {
   `;
 }
 
-function renderLoyaltyDashboard() {
-  const host = el.loyaltyDashboard;
-  if (!host) return;
-  const roster = getLensRoster();
-  if (!roster) {
-    host.innerHTML = `<p class="muted">Pick a manager to see who stayed.</p>`;
-    return;
-  }
+let rosterSheetMarkup = "";
 
-  const currentIds = playerIdsFromRoster(roster);
-  const managerKey = rosterManagerKey(roster);
-  const takeover = getRosterTakeover(roster.rosterId);
-  const seasons = seasonPlayerSetsForManager(managerKey);
-  const dna = buildRosterDna({
-    currentIds,
-    previousIds: previousSeasonPlayerIds(managerKey),
-    nameOf: playerNameById,
-    valueOf: playerValueById,
-    ageOf: playerAgeById,
-  });
-  const tenures = buildTenure({ currentIds, seasons }).map((row) => ({
-    ...row,
-    name: playerNameById(row.playerId),
-    value: playerValueById(row.playerId),
-  }));
-  const appearances = collectCharmAppearances(roster);
-  const charms = summarizeCharms(appearances, { teamWinPct: managerWinPct(roster), minGames: 3 });
-  const trades = loyaltyTradesForRoster(roster);
-  const miss = biggestTradeMiss(trades, {
-    myRosterId: managerKey,
-    valueOf: (item) => Number(item.value) || playerValueById(item.assetId),
-  });
-  const core = newCorePlayers(dna.added, { ageOf: playerAgeById, maxAge: 25 });
-  const score = loyaltyScore({ tenures, charms, dna });
-  const career = managerCareerSummary(managerKey);
-  const iron = Math.round(ironRosterShare(tenures, 2) * 100);
-  const longest = tenures[0] || null;
-
-  host.innerHTML = `
-    ${renderLensPicker(roster)}
-    <article class="loyalty-hero">
-      <div>
-        <span class="eyebrow">Loyalty</span>
-        <h3>${escapeHtml(roster.manager.displayName)}</h3>
-        <p class="muted">${loyaltyTierLabel(score)} · ${iron}% still here from last year${longest ? ` · ${escapeHtml(longest.name)} ${longest.consecutiveSeasons} seasons` : ""}</p>
-        ${takeover ? `<p class="muted small takeover-note">Took over from ${escapeHtml(takeover.fromName)}.</p>` : ""}
-      </div>
-      <div class="loyalty-score">
-        <span>Score</span>
-        <strong>${score}</strong>
-      </div>
-    </article>
-    <div class="career-strip">
-      <div class="career-chip${career.titles ? " champ" : ""}"><span>Titles</span><strong>${career.titles}</strong></div>
-      <div class="career-chip"><span>Career</span><strong>${escapeHtml(career.recordLabel)}</strong></div>
-      <div class="career-chip"><span>Avg finish</span><strong>${career.avgFinish == null ? "—" : career.avgFinish.toFixed(1)}</strong></div>
-      <div class="career-chip"><span>Kept</span><strong>${Math.round((dna.overlap || 0) * 100)}%</strong></div>
-    </div>
-    <div class="dna-board">
-      <article class="dna-col kept">
-        <h3>Kept</h3>
-        ${dna.kept.map(renderDnaChip).join("") || `<p class="muted small">No overlap yet.</p>`}
-      </article>
-      <article class="dna-col lost">
-        <h3>Gone</h3>
-        ${dna.lost.map(renderDnaChip).join("") || `<p class="muted small">Nobody left.</p>`}
-      </article>
-      <article class="dna-col added">
-        <h3>New</h3>
-        ${dna.added.map(renderDnaChip).join("") || `<p class="muted small">No new blood.</p>`}
-      </article>
-    </div>
-    <div class="loyalty-grid">
-      <article class="loyalty-card">
-        <span>Ironmen</span>
-        ${longest ? renderPlayerLabel(longest.name, longest.playerId, { size: "md", tag: "strong" }) : "<strong>Need archive</strong>"}
-        <small>${escapeHtml(tenures.slice(0, 4).map((row) => `${row.name} ${row.consecutiveSeasons}y`).join(" · ") || "Need more seasons.")}</small>
-      </article>
-      <article class="loyalty-card">
-        <span>Luck charms</span>
-        ${charms[0] ? renderPlayerLabel(playerNameById(charms[0].playerId), charms[0].playerId, { size: "md", tag: "strong" }) : "<strong>Need starts</strong>"}
-        <small>${escapeHtml(charms.slice(0, 4).map((row) => `${playerNameById(row.playerId)} ${row.badge || row.roster.label}`).join(" · ") || "Need more weeks.")}</small>
-      </article>
-      <article class="loyalty-card">
-        <span>Biggest miss</span>
-        ${miss ? renderPlayerLabel(miss.name, facePlayerId(miss), { size: "md", tag: "strong" }) : "<strong>Clean books</strong>"}
-        <small>${escapeHtml(miss ? `Now ${formatNumber(Math.round(miss.value))} · ${miss.season || ""} W${miss.week || "?"} vs ${miss.partnerName || "rival"}` : "Nobody you shipped is a big name now.")}</small>
-      </article>
-      <article class="loyalty-card">
-        <span>New core</span>
-        ${core[0] ? renderPlayerLabel(core[0].name, core[0].playerId, { size: "md", tag: "strong" }) : "<strong>No young adds</strong>"}
-        <small>${escapeHtml(core.map((row) => `${row.name}${Number.isFinite(row.age) ? ` ${row.age}` : ""}`).join(" · ") || "Adds skew older.")}</small>
-      </article>
-    </div>
-    <div class="charm-list">
-      ${charms.slice(0, 8).map((row) => `
-        <div class="charm-row">
-          <span class="player-name">${renderPlayerFace(row.playerId, playerNameById(row.playerId), { size: "sm" })}<span class="player-name-text">${escapeHtml(playerNameById(row.playerId))}${row.badge ? ` <em class="badge-${escapeHtml(row.badge)}">${escapeHtml(row.badge)}</em>` : ""}</span></span>
-          <strong>on ${escapeHtml(row.roster.label)} · start ${escapeHtml(row.started.games ? row.started.label : "—")}</strong>
-        </div>
-      `).join("") || `<p class="muted small">Charms show once this roster logs a few games.</p>`}
-    </div>
-  `;
-}
-
-function renderTradeAssetLine(item) {
-  const valueLabel = formatNumber(Math.round(item.value || 0));
-  return `<li><span>${renderTradeAssetLabel(item, formatNumber, { faceSize: "sm" })}</span><strong>${valueLabel}</strong></li>`;
-}
-
-function renderResultPills(games = []) {
-  const shown = games.slice(-16);
-  if (!shown.length) return `<p class="muted small">No games after this deal yet.</p>`;
-  const extra = games.length - shown.length;
-  return `<div class="result-pills" aria-label="Results since the trade">${shown.map((game) => {
-    const mark = String(game.result || "").toUpperCase() || "T";
-    return `<span class="result-pill ${mark === "W" ? "win" : mark === "L" ? "loss" : "tie"}" title="${escapeHtml(`${game.season} W${game.week}`)}">${escapeHtml(mark)}</span>`;
-  }).join("")}${extra > 0 ? `<span class="muted small">+${extra} earlier</span>` : ""}</div>`;
-}
-
-function renderLaterFinishes(rows = []) {
-  return `
-    <div class="trade-later">
-      <span class="trade-later-label">Later finishes</span>
-      ${rows.length
-        ? `<div class="finish-chips" aria-label="Finishes after this trade">${rows.map((row) => `<span class="finish-chip">${escapeHtml(row.season)} ${escapeHtml(row.label)}</span>`).join("")}</div>`
-        : `<p class="muted small">No later finish locked yet.</p>`}
-    </div>
-  `;
-}
-
-function renderTradeDetail(row) {
-  return `
-    <section class="workspace-panel trade-file">
-      <div class="panel-heading">
-        <div>
-          <button type="button" class="ghost-btn" data-action="close-trade">All trades</button>
-          <span class="eyebrow">Trade file</span>
-          <h2>${escapeHtml(row.season)} Week ${row.week || "?"} vs ${escapeHtml(row.partnerName)}</h2>
-        </div>
-        <p class="section-copy">${escapeHtml(row.managerName)}'s side. Record, market value now, and later finishes from this week forward.</p>
-      </div>
-      <div class="trade-file-hero">
-        <div class="loyalty-card">
-          <span>Since</span>
-          <strong>${escapeHtml(row.since.label)}</strong>
-          <small>${row.since.games ? `${Math.round(row.since.winPct * 100)}% · ${row.since.games} games later` : "Still waiting on the next kickoff"}</small>
-        </div>
-        <div class="loyalty-card">
-          <span>Market now</span>
-          <strong>${formatSignedNumber(Math.round(row.delta))}</strong>
-          <small>Got ${formatNumber(Math.round(row.receivedNow))} · sent ${formatNumber(Math.round(row.sentNow))}</small>
-        </div>
-        <div class="loyalty-card ${gradeClassName(row.grade)}">
-          <span>Grade</span>
-          <strong class="grade-pill">${escapeHtml(row.grade)}</strong>
-          <small>${row.verdict === "won" ? "Won" : row.verdict === "lost" ? "Lost" : "Even"}</small>
-        </div>
-      </div>
-      ${renderResultPills(row.after || [])}
-      ${renderLaterFinishes(row.laterFinishes || [])}
-      <div class="dna-board trade-file-sides">
-        <article class="dna-col kept">
-          <h3>Got</h3>
-          <ul class="trade-asset-list">${row.received.map(renderTradeAssetLine).join("") || "<li class='muted'>Picks / nothing priced</li>"}</ul>
-        </article>
-        <article class="dna-col lost">
-          <h3>Sent</h3>
-          <ul class="trade-asset-list">${row.sent.map(renderTradeAssetLine).join("") || "<li class='muted'>Picks / nothing priced</li>"}</ul>
-        </article>
-      </div>
-      <p class="trade-recap">${escapeHtml(row.recap)}</p>
-    </section>
-  `;
-}
-
-function renderTradeLogDesk() {
-  const host = el.tradeLogDashboard;
-  if (!host) return;
-  const roster = getLensRoster();
-  if (!roster) {
-    host.innerHTML = `<p class="muted">Choose your team to grade past trades.</p>`;
-    return;
-  }
-
-  const managerKey = rosterManagerKey(roster);
-  const trades = loyaltyTradesForRoster(roster);
-  const analyzed = analyzePastTrades({
-    trades,
-    myRosterId: managerKey,
-    games: managerGamesForAnalyzer(roster),
-    valueOf: assetValueOf,
-    managerName: roster.manager.displayName,
-    finishes: collectFinishesByManager().get(managerKey) || [],
-  });
-  let selected = null;
-  if (state.selectedTradeId) {
-    const wantKey = state.selectedTradeManagerKey || managerKey;
-    selected = analyzed.find((row) => row.id === state.selectedTradeId && row.managerKey === wantKey)
-      || leagueTradeSides().find((row) => row.id === state.selectedTradeId && row.managerKey === wantKey)
-      || null;
-  }
-  if (selected) {
-    host.innerHTML = renderTradeDetail(selected);
-    return;
-  }
-
-  const other = isViewingOtherRoster(roster);
-  const syncNote = !state.transactionsLoaded
-    ? "Current-season trades are still syncing."
-    : state.leagueHistory.length > 1 && !state.historyTransactionsLoaded
-      ? "Archive seasons are still syncing."
-      : "";
-  host.innerHTML = `
-    ${renderLensPicker(roster, { label: "Trade file" })}
-    ${renderLeagueBoardMarkup(state.leagueBoard || emptyLeagueBoard(), {
-      applied: false,
-      formatNumber,
-    })}
-    <section class="workspace-panel trade-analyzer">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">Graded deals</span>
-          <h2>${other ? `${escapeHtml(ownerPossessive(roster.manager.displayName))} trade file` : escapeHtml(sampleVoice()?.tradeFile || "Your trade file")}</h2>
-        </div>
-        <p class="section-copy">Tap a deal for the recap, record since that week, and today's market. ${analyzed.length} in the archive.${syncNote ? ` ${syncNote}` : ""}</p>
-      </div>
-      <div class="trade-log">
-        ${analyzed.map((row) => `
-          <div class="trade-row ${gradeClassName(row.grade)} verdict-${escapeHtml(row.verdict)}" role="button" tabindex="0" data-action="open-trade" data-trade-id="${escapeHtml(row.id)}" data-manager-key="${escapeHtml(managerKey)}">
-            <div class="trade-row-inner">
-              <span class="trade-row-when">
-                <span class="trade-row-week">${escapeHtml(row.season)} W${row.week || "?"}</span>
-                <span class="trade-row-partner">${escapeHtml(row.partnerName)}</span>
-              </span>
-              ${renderTradeMove(row)}
-              <span class="trade-row-since">${escapeHtml(row.since.games ? row.since.label : "—")}</span>
-              <span class="grade-pill">${escapeHtml(row.grade)}</span>
-            </div>
-          </div>
-        `).join("") || `<p class="muted">No completed trades in the loaded archive yet.</p>`}
-      </div>
-    </section>
-    ${renderTradeWireBoard()}
-    ${renderLeagueWirePanel()}
-  `;
-}
-
-function renderLeagueWirePanel() {
-  const archive = buildArchiveTradeAnalytics(getArchiveTradeTransactions());
-  const market = getMyRoster() ? buildTradeMarketAnalytics(getMyRoster()) : null;
-  return `
-    <div class="analytics-two-col">
-      <section class="analytics-panel">
-        <div class="analytics-panel-heading">
-          <h3>Recent trades</h3>
-          <span>${archive.recentTrades.length} recent · ${escapeHtml(buildArchiveSyncLabel())}</span>
-        </div>
-        <div class="recent-trade-list">
-          ${archive.recentTrades.length > 0
-            ? archive.recentTrades.map((trade) => renderRecentTrade(trade)).join("")
-            : `<p class="muted small analytics-empty">Trades appear here as Sleeper transactions sync.</p>`}
-        </div>
-      </section>
-      ${market ? renderAssetMarketPanel(market) : ""}
-    </div>
-  `;
-}
-
-function passportStampLabel(stop) {
-  if (stop.stamp === "origin") return "Origin";
-  if (stop.stamp === "now") return "Now";
-  return `${stop.years} yr${Number(stop.years) === 1 ? "" : "s"}`;
-}
-
-function renderPassportStamp(stop) {
-  const kind = stop.stamp || "visa";
-  return `
-    <li class="passport-stamp ${escapeHtml(kind)}${stop.current ? " here" : ""}" style="--stamp-hue:${hashHue(stop.managerName)}">
-      <span class="passport-stamp-dot" aria-hidden="true"></span>
-      <span class="passport-stamp-year">${escapeHtml(formatSeasonSpan(stop.fromSeason, stop.toSeason))}</span>
-      <strong>${escapeHtml(stop.managerName)}</strong>
-      <small>${escapeHtml(passportStampLabel(stop))}</small>
-    </li>
-  `;
-}
-
-function renderPassportPage(row, { myManagerKey, currentSeason }) {
-  const passport = decoratePassport(row, { myManagerKey, currentSeason });
-  const pos = playerPositionById(row.playerId);
-  const value = Math.round(playerValueById(row.playerId) || 0);
-  const bits = [pos, passportJourneyLabel(passport)].filter(Boolean);
-  return `
-    <article class="passport-page">
-      <header class="passport-page-head">
-        <div class="passport-identity">
-          ${renderPlayerFace(passport.playerId, passport.name, { size: "md" })}
-          <div>
-            <strong>${escapeHtml(passport.name)}</strong>
-            <span>${escapeHtml(bits.join(" · "))}</span>
-          </div>
-        </div>
-        ${value > 0 ? `<em class="passport-page-value">${formatNumber(value)}</em>` : ""}
-      </header>
-      <ol class="passport-timeline" data-stops="${passport.stops.length}">
-        ${passport.stops.map(renderPassportStamp).join("")}
-      </ol>
-    </article>
-  `;
-}
-
-function renderPassportDesk() {
-  const host = el.passportDashboard;
-  if (!host) return;
-  const roster = getLensRoster();
-  if (!roster) {
-    host.innerHTML = `<p class="muted">Choose a team to open player passports.</p>`;
-    return;
-  }
-
-  const managerKey = rosterManagerKey(roster);
-  const currentSeason = String(state.league?.season || "");
-  const passports = buildPassportBoard(roster, 12);
-  const other = isViewingOtherRoster(roster);
-
-  host.innerHTML = `
-    ${renderLensPicker(roster)}
-    <section class="workspace-panel passport-card">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">Passport control</span>
-          <h2>${other ? `${escapeHtml(roster.manager.displayName)}'s player passport` : "Player passport"}</h2>
-        </div>
-        <p class="section-copy">One passport per player on this roster, plus league journeymen. Origin is the first roster that held them; Now is who has them this season.</p>
-      </div>
-      ${passports.map((row) => renderPassportPage(row, { myManagerKey: managerKey, currentSeason })).join("") || `<p class="muted small">Need roster history to stamp passports.</p>`}
-    </section>
-  `;
-}
-
-function renderTeamsGrid() {
-  if (!el.teamsGrid) return;
-  const profiles = buildPowerProfiles();
-  const model = getSeasonModel();
-  const sim = getSimulation(model);
-  const lens = getLensRoster();
-  const callsByRoster = new Map(
-    buildLeagueWindowCalls({ profiles, model, sim }).map((call) => [String(call.rosterId), call])
-  );
-  el.teamsGrid.innerHTML = profiles.map((profile) => {
-    const team = model?.teams.get(String(profile.rosterId));
-    const manager = managerForRosterId(profile.rosterId);
-    const isActive = lens && String(lens.rosterId) === String(profile.rosterId);
-    const call = callsByRoster.get(String(profile.rosterId));
-    return `
-      <article class="team-card ${isActive ? "active" : ""} ${String(profile.rosterId) === String(state.meRosterId) ? "you" : ""}">
-        <button type="button" class="team-card-main" data-action="set-lens" data-roster-id="${escapeHtml(profile.rosterId)}">
-          ${renderAvatar(manager, { size: "lg" })}
-          <span class="team-card-copy">
-            <strong>${escapeHtml(manager.displayName)}</strong>
-            <span>${escapeHtml(manager.teamName || profile.laneLabel)}</span>
-            <small>${team?.gamesPlayed ? `${escapeHtml(team.recordLabel)} · ${formatPoints(team.pf)} points` : escapeHtml(profile.laneLabel)}${call ? ` · ${escapeHtml(call.shortLabel)}` : ""}</small>
-          </span>
-          <span class="team-card-score">
-            <strong>${profile.score}</strong>
-            <span class="power-tier ${profile.tierClass}">${profile.grade}</span>
-          </span>
-        </button>
-        ${String(profile.rosterId) !== String(state.meRosterId) ? `<button type="button" class="team-card-trade" data-action="calc-with" data-roster-id="${escapeHtml(profile.rosterId)}">Build a trade</button>` : `<span class="team-card-trade muted">${state.viewingSample ? "Example roster" : "Your roster"}</span>`}
-      </article>
-    `;
-  }).join("");
-}
-
-function weeklyValueCacheKey() {
-  const season = String(state.nflState?.league_season || state.nflState?.season || "");
-  const week = Number(state.nflState?.week) || 0;
-  return `${season}:${week}`;
-}
-
-function rebuildWeeklyValueContext() {
-  if (!state.weeklyValue?.loaded) return;
-  state.weeklyValue.context = buildWeeklyContext({
-    weekRows: state.weeklyValue.weekRows,
-    schedule: state.weeklyValue.schedule,
-    players: state.players,
-    season: state.weeklyValue.season,
-    week: state.weeklyValue.week,
-  });
-}
-
-async function ensureWeeklyValueContext() {
-  const key = weeklyValueCacheKey();
-  if (!state.nflState || key.startsWith(":")) return null;
-  if (state.weeklyValue.loaded && state.weeklyValue.key === key) {
-    if (!state.weeklyValue.context) rebuildWeeklyValueContext();
-    return state.weeklyValue;
-  }
-  if (state.weeklyValue.loading && state.weeklyValue.promise) return state.weeklyValue.promise;
-  const season = String(state.nflState?.league_season || state.nflState?.season || "");
-  const week = Number(state.nflState?.week) || 0;
-  const previousSeason = String(state.nflState?.previous_season || Number(season) - 1);
-  state.weeklyValue.loading = true;
-  const promise = (async () => {
-    try {
-      const [schedule, seasonStats, weekRows] = await Promise.all([
-        fetchNflSchedule(),
-        apiGetWithRetry(`/stats/nfl/regular/${encodeURIComponent(season)}`, { timeoutMs: 20000, retries: 1 }).catch(() => ({})),
-        loadWeeklyStatWeeks({
-          apiGet: (path, options) => apiGetWithRetry(path, { retries: 1, ...options }),
-          season,
-          week,
-          previousSeason,
-        }),
-      ]);
-      if (weeklyValueCacheKey() !== key) return state.weeklyValue;
-      state.weeklyValue.schedule = schedule;
-      state.weeklyValue.seasonStats = seasonStats && typeof seasonStats === "object" ? seasonStats : {};
-      state.weeklyValue.weekRows = weekRows;
-      state.weeklyValue.season = season;
-      state.weeklyValue.week = week;
-      state.weeklyValue.previousSeason = previousSeason;
-      state.weeklyValue.key = key;
-      state.weeklyValue.loaded = true;
-      state.weeklyValue.error = "";
-      rebuildWeeklyValueContext();
-      if (state.activePage === "league" && getRoom("league") === "team") renderRosterSheet();
-      return state.weeklyValue;
-    } catch (err) {
-      state.weeklyValue.error = err?.message || "Could not load weekly stats";
-      state.weeklyValue.loaded = true;
-      if (state.activePage === "league" && getRoom("league") === "team") renderRosterSheet();
-      return state.weeklyValue;
-    } finally {
-      state.weeklyValue.loading = false;
-      state.weeklyValue.promise = null;
-    }
-  })();
-  state.weeklyValue.promise = promise;
-  return promise;
-}
-
-function setWeeklyScoreHelpOpen(open, { history = "auto" } = {}) {
-  if (!state.weeklyValue) state.weeklyValue = emptyWeeklyValueState();
-  const next = Boolean(open);
-  const prev = Boolean(state.weeklyValue.helpOpen);
-  if (!next && prev && history !== "silent" && closeHistoryOverlay("help")) return;
-  if (next && !prev && history !== "silent" && !applyingHistory) prepareDeskPush();
-  state.weeklyValue.helpOpen = next;
-  renderRosterSheet();
-  if (next) document.getElementById("weekly-help-close")?.focus();
-  if (history === "silent" || applyingHistory || next === prev) return;
-  if (next) updateUrlState({ mode: "push" });
-  else updateUrlState({ mode: "replace" });
-}
-
-function syncWeeklyScoreHelp() {
-  const open = Boolean(state.weeklyValue?.helpOpen);
-  el.weeklyHelpBtn?.setAttribute("aria-expanded", open ? "true" : "false");
-  if (el.weeklyHelpLayerHost) {
-    el.weeklyHelpLayerHost.innerHTML = renderWeeklyScoreHelpPop({ open });
-  }
-}
-
-function weeklyModelForAsset(asset) {
-  if (!asset || asset.assetType !== "player" || !state.weeklyValue?.context) return null;
-  const playerId = playerIdFromAssetId(asset.assetId);
-  if (!playerId) return null;
-  const cacheKey = `${state.weeklyValue.key || ""}:${valuationCacheVersion()}`;
-  if (weeklyModelCache.key !== cacheKey) {
-    weeklyModelCache.key = cacheKey;
-    weeklyModelCache.models = new Map();
-  }
-  const assetKey = [asset.assetId, asset.raw?.injury_status || "", asset.raw?.status || ""].join(":");
-  if (weeklyModelCache.models.has(assetKey)) return weeklyModelCache.models.get(assetKey);
-  const model = buildWeeklyPlayerModel({
-    playerId,
-    name: asset.name,
-    position: playerPositionForAsset(asset),
-    team: asset.raw?.team,
-    dynastyValue: getAssetValue(asset),
-    seasonStats: state.weeklyValue.seasonStats?.[playerId] || {},
-    context: state.weeklyValue.context,
-    injuryStatus: asset.raw?.injury_status,
-    playerStatus: asset.raw?.status,
-  });
-  weeklyModelCache.models.set(assetKey, model);
-  return model;
+// The sheet re-renders on background loads. Rewriting identical markup detaches
+// the rows under a pointer or a test, so every write goes through here.
+function writeRosterSheet(html) {
+  if (!el.rosterSheet) return;
+  if (html === rosterSheetMarkup && el.rosterSheet.innerHTML) return;
+  rosterSheetMarkup = html;
+  el.rosterSheet.innerHTML = html;
 }
 
 function renderRosterSheet() {
@@ -7040,18 +5475,13 @@ function renderRosterSheet() {
   const roster = getLensRoster();
   if (!state.leagueId || !roster) {
     section?.classList.add("hidden");
-    if (el.rosterSheet) el.rosterSheet.innerHTML = "";
-    syncWeeklyScoreHelp();
+    writeRosterSheet("");
     return;
   }
   section?.classList.remove("hidden");
-  if (!el.rosterSheet) {
-    syncWeeklyScoreHelp();
-    return;
-  }
+  if (!el.rosterSheet) return;
   if (!rosterGradeReady(roster) || !pricesReady()) {
     renderRosterDirectory(roster);
-    syncWeeklyScoreHelp();
     return;
   }
   const values = state.values;
@@ -7072,84 +5502,30 @@ function renderRosterSheet() {
   if (el.rosterSheetHeading) {
     el.rosterSheetHeading.textContent = roster.manager.displayName;
   }
-  const model = getSeasonModel();
-  const team = model?.teams.get(String(roster.rosterId));
   const summary = summarizeRosterAssets(roster, values);
-  const selectedId = String(state.weeklyValue?.selectedPlayerId || "");
-  const selectedAsset = roster.assets.find((asset) => asset.assetType === "player" && playerIdFromAssetId(asset.assetId) === selectedId) || null;
-  const weeklyByAssetId = new Map();
-  const weeklyFor = (asset) => {
-    const key = String(asset?.assetId || "");
-    if (!weeklyByAssetId.has(key)) weeklyByAssetId.set(key, weeklyModelForAsset(asset));
-    return weeklyByAssetId.get(key);
-  };
-  const selectedWeekly = selectedAsset ? weeklyFor(selectedAsset) : null;
-  const weeklyReady = Boolean(state.weeklyValue?.context);
-  const sitStart = weeklyReady
-    ? buildSitStart({
-        week: state.weeklyValue.week,
-        slots: getStarterRosterSlots(state.league),
-        players: roster.assets
-          .filter((asset) => asset.assetType === "player")
-          .map((asset) => ({
-            id: playerIdFromAssetId(asset.assetId),
-            name: asset.name,
-            position: playerPositionForAsset(asset),
-            positions: playerPositionsForAsset(asset),
-            dynastyValue: getAssetValue(asset, values),
-            injuryStatus: asset.raw?.injury_status,
-            playerStatus: asset.raw?.status,
-            weekly: weeklyFor(asset),
-            asset,
-            canFill: (slot) => assetCanFillRosterSlot(asset, slot),
-          })),
-      })
-    : null;
-  const startRows = sitStart
-    ? sitStart.starters
-    : strength.lineup.map((entry) => ({
-        slot: entry.slot,
-        slotLabel: formatRosterSlotLabel(entry.slot),
-        asset: entry.asset,
-        player: entry.asset ? { id: playerIdFromAssetId(entry.asset.assetId) } : null,
-        rowNote: "",
-      }));
-  const benchRows = sitStart
-    ? sitStart.bench
-    : roster.assets
-        .filter((asset) => asset.assetType === "player" && !strength.lineup.some((entry) => entry.asset?.assetId === asset.assetId))
-        .sort((a, b) => lineupFillValue({
-          startChance: weeklyFor(b)?.score,
-          dynastyValue: getAssetValue(b, values),
-        }) - lineupFillValue({
-          startChance: weeklyFor(a)?.score,
-          dynastyValue: getAssetValue(a, values),
-        }))
-        .map((asset) => ({ asset, rowNote: "", sitReason: "" }));
+  const startRows = strength.lineup.map((entry) => ({
+    slot: entry.slot,
+    slotLabel: formatRosterSlotLabel(entry.slot),
+    asset: entry.asset,
+  }));
+  const benchRows = roster.assets
+    .filter((asset) => asset.assetType === "player" && !strength.lineup.some((entry) => entry.asset?.assetId === asset.assetId))
+    .sort((a, b) => getAssetValue(b, values) - getAssetValue(a, values));
   const renderPlayerRow = (asset, slotLabel, extra = {}) => {
     const playerId = playerIdFromAssetId(asset.assetId);
     const nickname = roster.nicknames?.[playerId];
     const injury = plainRosterStatus(asset.raw?.injury_status);
     const team = String(asset.raw?.team || "").trim();
-    const weekly = weeklyFor(asset);
-    const weeklyLabel = state.weeklyValue?.loading && !state.weeklyValue?.context
-      ? "…"
-      : weeklyScoreChipLabel(weekly);
-    const open = selectedId && selectedId === playerId;
-    const note = String(extra.note || "").trim();
     const rowClass = [
       "sheet-row",
       isInjuryFlaggedAsset(asset) ? "flagged" : "",
-      extra.sitCause ? "sit-cause" : "",
-      extra.closeCall ? "close-call" : "",
-      open ? "open" : "",
     ].filter(Boolean).join(" ");
     const meta = [
       team ? escapeHtml(team) : "",
       injury ? `<span class="injury">${escapeHtml(injury)}</span>` : "",
     ].filter(Boolean).join(" · ");
     return `
-      <button type="button" class="${rowClass}" data-action="open-player" data-player-id="${escapeHtml(playerId)}" aria-pressed="${open ? "true" : "false"}"${note ? ` title="${escapeHtml(note)}"` : ""}>
+      <div class="${rowClass}" data-player-id="${escapeHtml(playerId)}">
         ${sheetSlotMarkup(extra.slot, slotLabel)}
         <div class="sheet-player">
           ${renderPlayerFace(playerId, asset.name, { size: "sm" })}
@@ -7157,260 +5533,48 @@ function renderRosterSheet() {
           ${meta ? `<span>${meta}</span>` : ""}
         </div>
         <span class="sheet-metrics">
-          <span class="weekly-chip"${weekly?.missing?.length ? ` title="${escapeHtml(weekly.missing.join(", "))}"` : ` title="${escapeHtml(WEEKLY_SCORE_HINT)}"`}>
-            <small>${escapeHtml(WEEKLY_SCORE_LABEL)}</small>
-            <strong>${escapeHtml(weeklyLabel)}</strong>
-          </span>
           <span class="dynasty-chip" title="Value">
-            <small>${escapeHtml(DYNASTY_SCORE_LABEL)}</small>
+            <small>Value</small>
             <strong class="mono">${formatNumber(getAssetValue(asset, values))}</strong>
             ${renderPlayerValueMarks(asset, values)}
           </span>
         </span>
-      </button>
+      </div>
     `;
   };
-  const seasonLog = team?.results?.length
-    ? `
-      <div class="season-log">
-        ${team.results.slice().sort((a, b) => a.week - b.week).map((result) => `
-          <span class="log-chip ${result.result === "W" ? "up" : result.result === "L" ? "down" : ""}" title="Week ${escapeHtml(result.week)} vs ${escapeHtml(result.opponentName)}">
-            <small>W${escapeHtml(result.week)}</small>
-            <strong>${escapeHtml(result.result)}</strong>
-            <span>${formatPoints(result.points)}-${formatPoints(result.opponentPoints)}</span>
-          </span>
-        `).join("")}
-      </div>
-    `
-    : `<p class="muted small">No finalized games yet this season.</p>`;
 
-  el.rosterSheet.innerHTML = `
+  writeRosterSheet(`
     <div class="sheet-summary">
       ${renderPowerStat("Starters", formatNumber(strength.starterValue))}
       ${renderPowerStat("Bench", formatNumber(strength.benchValue))}
       ${showPicks ? renderPowerStat("Draft picks", formatNumber(summary.pickValue)) : ""}
       ${renderPowerStat("Avg age", summary.averageAgeLabel)}
     </div>
-    ${renderPriceLegend(["week", "model", "lineup"])}
     ${renderValuesFreshness(valuesFreshness())}
     ${renderValueScaleExplainer()}
-    ${selectedWeekly
-      ? renderWeeklyPlayerSheet(selectedWeekly, { helpOpen: Boolean(state.weeklyValue?.helpOpen) })
-      : selectedAsset
-        ? `<article class="player-week-sheet" data-player-id="${escapeHtml(selectedId)}">
-            <header class="player-week-head">
-              ${renderPlayerFace(selectedId, selectedAsset.name, { size: "md" })}
-              <div class="player-week-copy">
-                <h3>${escapeHtml(selectedAsset.name)}</h3>
-              </div>
-              ${renderWeeklyScoreHelpButton({ open: Boolean(state.weeklyValue?.helpOpen) })}
-            </header>
-            <button type="button" class="ghost-btn week-sheet-close" data-action="close-player">Close</button>
-          </article>`
-        : ""}
-    ${renderSitStartCallout(sitStart, {
-      loading: Boolean(state.weeklyValue?.loading) && !weeklyReady,
-      error: weeklyReady ? "" : (state.weeklyValue?.error || ""),
-      week: state.weeklyValue?.week,
-    })}
     <div class="sheet-grid">
       <section class="sheet-column">
-        <h4>Start</h4>
+        <h4>Best lineup by value</h4>
         ${startRows.map((entry) => entry.asset
-          ? renderPlayerRow(entry.asset, entry.slotLabel || formatRosterSlotLabel(entry.slot), {
-              slot: entry.slot,
-              note: entry.rowNote,
-              closeCall: String(entry.rowNote || "").startsWith("Close vs"),
-            })
-          : `<div class="sheet-row empty">${sheetSlotMarkup(entry.slot, entry.slotLabel || formatRosterSlotLabel(entry.slot))}<div class="sheet-player"><strong>${escapeHtml(entry.rowNote || "Open")}</strong></div></div>`).join("")}
+          ? renderPlayerRow(entry.asset, entry.slotLabel, { slot: entry.slot })
+          : `<div class="sheet-row empty">${sheetSlotMarkup(entry.slot, entry.slotLabel)}<div class="sheet-player"><strong>Open</strong></div></div>`).join("")}
       </section>
       <section class="sheet-column">
-        <h4>Sit</h4>
-        ${benchRows.map((row) => renderPlayerRow(row.asset, row.sitReason ? "SIT" : (isTradeEligibleAsset(row.asset) ? "Bench" : formatPlayerPositionLabel(row.asset)), {
-          note: row.rowNote,
-          sitCause: Boolean(row.sitReason),
-          closeCall: String(row.rowNote || "").startsWith("Close vs"),
-        })).join("") || `<p class="muted small">No bench players.</p>`}
+        <h4>Bench</h4>
+        ${benchRows.map((asset) => renderPlayerRow(asset, isTradeEligibleAsset(asset) ? "Bench" : formatPlayerPositionLabel(asset))).join("") || `<p class="muted small">No bench players.</p>`}
         ${showPicks ? `
         <h4>Draft picks</h4>
-        ${renderPickVaultIntro(picks)}
         ${picks.length
           ? picks.map((asset) => renderPickVaultRow(asset, values)).join("")
           : `<p class="muted small">No draft picks owned.</p>`}` : ""}
       </section>
     </div>
-    <h4>Season log</h4>
-    ${seasonLog}
-  `;
-  syncWeeklyScoreHelp();
+  `);
 }
 
 // ---------------------------------------------------------------------------
 // Awards
 // ---------------------------------------------------------------------------
-
-function renderWeeklyHonors() {
-  const host = el.weeklyHonorsDashboard;
-  if (!host) return;
-  if (!state.league || state.normalizedRosters.length === 0) {
-    host.innerHTML = `<p class="muted">Load a league to open weekly honors.</p>`;
-    return;
-  }
-  const model = getSeasonModel();
-  const weeksWithPoints = model.weeks.filter((entry) => entry.hasPoints);
-  const requested = state.awardsWeek != null ? weeksWithPoints.find((entry) => entry.week === Number(state.awardsWeek)) : null;
-  const weekEntry = requested || model.featuredWeek || weeksWithPoints[weeksWithPoints.length - 1] || null;
-  const weekly = weekEntry ? computeWeeklyAwards(model, weekEntry.week, {
-    playerName: playerNameById,
-    playerPosition: playerPositionById,
-    optimalPoints: state.playerMetadataLoaded ? computeOptimalPointsForSide : null,
-  }) : null;
-
-  host.innerHTML = `
-    <section class="workspace-panel">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">Weekly Honors</span>
-          <h2>Weekly honors</h2>
-        </div>
-        <p class="section-copy">${weekly?.provisional ? "Games are still in progress, so these are provisional." : "Final-week honors from Sleeper box scores."}</p>
-      </div>
-      ${weeksWithPoints.length > 0 ? `
-        <div class="week-chips">
-          ${weeksWithPoints.map((entry) => `<button type="button" class="${weekEntry && entry.week === weekEntry.week ? "active" : ""}" data-action="awards-week" data-week="${entry.week}">Wk ${entry.week}</button>`).join("")}
-        </div>
-      ` : ""}
-      ${weekly?.awards?.length
-        ? `<div class="award-grid">${weekly.awards.map(renderAwardCard).join("")}</div>`
-        : `<p class="muted analytics-empty">${state.seasonLoaded ? "No scores posted yet this season. Honors appear once Week 1 kicks off." : "Syncing matchups from Sleeper…"}</p>`}
-    </section>
-  `;
-}
-
-function renderSeasonSuperlatives() {
-  const host = el.superlativesDashboard;
-  if (!host) return;
-  if (!state.league || state.normalizedRosters.length === 0) {
-    host.innerHTML = `<p class="muted">Load a league to open season superlatives.</p>`;
-    return;
-  }
-  const model = getSeasonModel();
-  const superlatives = computeSeasonSuperlatives(model);
-  host.innerHTML = `
-    <section class="workspace-panel">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">Season Superlatives</span>
-          <h2>${seasonThroughLabel(model)}</h2>
-        </div>
-        <p class="section-copy">Cumulative honors from every finalized regular-season week.</p>
-      </div>
-      ${superlatives.length
-        ? `<div class="award-grid">${superlatives.map(renderAwardCard).join("")}</div>`
-        : `<p class="muted analytics-empty">Superlatives unlock after the first finalized week.</p>`}
-    </section>
-  `;
-}
-
-function renderLuckIndexPanel(model) {
-  const luckRows = model.standings.filter((team) => team.gamesPlayed > 0).slice().sort((a, b) => b.luck - a.luck);
-  return `
-    <section class="workspace-panel">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">Luck Index</span>
-          <h2>Who the schedule loves</h2>
-        </div>
-        <p class="section-copy">Expected wins come from the all-play record: how often each team would have won against every opponent each week.</p>
-      </div>
-      ${luckRows.length ? `
-        <div class="luck-table">
-          ${luckRows.map((team) => `
-            <div class="luck-row ${String(team.rosterId) === String(state.meRosterId) ? "you" : ""}">
-              ${renderTeamIdentity(team.rosterId, { extra: `${team.recordLabel} · all-play ${team.allPlayRecord}` })}
-              <div class="luck-meter">
-                <div class="luck-track"><span class="${luckClass(team.luck) || "flat"}" style="width:${Math.min(50, Math.abs(team.luck) / 4 * 50)}%; ${team.luck >= 0 ? "left:50%" : `right:50%`}"></span></div>
-                <small>${team.expectedWins.toFixed(1)} expected wins</small>
-              </div>
-              <strong class="luck ${luckClass(team.luck)}">${formatLuck(team.luck)}</strong>
-            </div>
-          `).join("")}
-        </div>
-      ` : `<p class="muted analytics-empty">Luck needs at least one finalized week.</p>`}
-    </section>
-  `;
-}
-
-function renderAwardCard(award) {
-  const manager = award.rosterId ? managerForRosterId(award.rosterId) : { displayName: award.teamName, avatar: award.avatar };
-  const player = award.playerId && award.playerName
-    ? `<div class="award-player">${renderPlayerFace(award.playerId, award.playerName, { size: "md" })}<div><strong>${escapeHtml(award.playerName)}</strong>${award.playerPosition ? `<span>${escapeHtml(award.playerPosition)}</span>` : ""}</div></div>`
-    : "";
-  return `
-    <article class="award-card ${escapeHtml(award.tone || "")}">
-      <span class="analytics-kicker">${escapeHtml(award.title)}</span>
-      ${player}
-      <div class="award-body">
-        ${renderAvatar(manager, { size: "md" })}
-        <div>
-          <strong>${escapeHtml(award.teamName)}</strong>
-          <span class="award-value">${escapeHtml(award.valueLabel)}</span>
-        </div>
-      </div>
-      <p>${escapeHtml(award.detail)}</p>
-    </article>
-  `;
-}
-
-function buildRecordBook(model) {
-  const currentLeagueId = String(state.leagueId);
-  const archiveGames = state.historyMatchups
-    .filter((matchup) => String(matchup.leagueId) !== currentLeagueId)
-    .map((matchup) => ({
-      season: matchup.season,
-      week: matchup.week,
-      isPlayoff: matchup.isPlayoff,
-      a: { managerKey: matchup.left.managerKey, managerName: matchup.left.managerName, rosterId: matchup.left.rosterId, points: matchup.left.points, avatar: avatarForManagerKey(matchup.left.managerKey) },
-      b: { managerKey: matchup.right.managerKey, managerName: matchup.right.managerName, rosterId: matchup.right.rosterId, points: matchup.right.points, avatar: avatarForManagerKey(matchup.right.managerKey) },
-    }));
-  const currentGames = model.weeks
-    .filter((entry) => entry.isFinal)
-    .flatMap((entry) => entry.games.map((game) => {
-      const [left, right] = game.sides;
-      const leftTeam = model.teams.get(left.rosterId);
-      const rightTeam = model.teams.get(right.rosterId);
-      return {
-        season: model.season,
-        week: entry.week,
-        isPlayoff: entry.isPlayoff,
-        a: { managerKey: buildManagerKey(leftTeam?.ownerId, state.leagueId, left.rosterId), managerName: left.name, rosterId: left.rosterId, points: left.points, avatar: leftTeam?.avatar || null },
-        b: { managerKey: buildManagerKey(rightTeam?.ownerId, state.leagueId, right.rosterId), managerName: right.name, rosterId: right.rosterId, points: right.points, avatar: rightTeam?.avatar || null },
-      };
-    }));
-  const seasonRows = state.leagueHistory.flatMap((entry) => {
-    const complete = entry.isCurrent ? model.regularSeasonComplete : true;
-    const userById = new Map((entry.users || []).map((user) => [String(user.user_id), user]));
-    return buildSeasonStandings(entry).map((row) => ({
-      season: entry.season,
-      managerName: row.managerName,
-      rosterId: row.rosterId,
-      avatar: userById.get(String(row.userId))?.avatar || null,
-      wins: row.wins,
-      losses: row.losses,
-      points: row.points,
-      complete,
-    }));
-  });
-  return computeRecordBook({ games: [...archiveGames, ...currentGames], seasonRows });
-}
-
-function avatarForManagerKey(managerKey) {
-  const userId = String(managerKey || "").startsWith("user:") ? String(managerKey).slice(5) : "";
-  if (!userId) return null;
-  const user = state.users.find((entry) => String(entry.user_id) === userId)
-    || state.leagueHistory.flatMap((entry) => entry.users || []).find((entry) => String(entry.user_id) === userId);
-  return user?.avatar || null;
-}
 
 // ---------------------------------------------------------------------------
 // Trade calculator: one draft, with or without a league
@@ -7579,7 +5743,6 @@ function renderTradeDraft() {
       </div>`}
       <details class="shared-trade-about">
         <summary>About these prices</summary>
-        ${renderValueBoardBar({ marketHint: marketBoardHint() })}
         ${renderPriceLegend(["model", "package"])}
         <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
       </details>
@@ -7603,7 +5766,6 @@ function renderTradeDraft() {
     </div>
     <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
     <div class="calc-price-notes">
-      ${renderValueBoardBar({ marketHint: marketBoardHint() })}
       ${renderValueScaleExplainer()}
       ${renderPriceLegend(["model", "package"])}
     </div>
@@ -8957,95 +7119,14 @@ function settleCalcSearch(kind, side) {
 function openConnectPrompt() {
   const leaving = !state.leagueId && state.activePage !== "players";
   if (leaving) state.pendingPlace = { page: state.activePage, room: getRoom(state.activePage) };
-  if (publicRanksOpen) closePublicRanks({ fromHistory: true });
   if (leaving) setActivePage("players", { history: "push", scroll: "top" });
   document.querySelector("#landing")?.classList.remove("hidden");
   focusUsernameSearch();
 }
 
-function openTradeFile(tradeId, managerKey) {
-  const id = String(tradeId || "");
-  if (!id) return;
-  prepareDeskPush();
-  state.selectedTradeId = id;
-  state.selectedTradeManagerKey = String(managerKey || "");
-  setRoom("league", "activity");
-  if (state.activePage !== "league") {
-    setActivePage("league", { history: "push", scroll: "top", prepared: true });
-    return;
-  }
-  renderActivePage();
-  window.scrollTo(0, 0);
-  updateUrlState({ mode: "push" });
-  syncDocumentMeta();
-}
-
 // ---------------------------------------------------------------------------
 // Ticker
 // ---------------------------------------------------------------------------
-
-function renderTicker() {
-  if (!el.ticker || !el.tickerTrack) return;
-  if (!state.leagueId || !state.league || state.activePage === "trades") {
-    tickerController?.destroy();
-    tickerController = null;
-    tickerFingerprint = "";
-    el.ticker.classList.add("hidden");
-    return;
-  }
-  const model = getSeasonModel();
-  const items = [];
-  const entry = model?.featuredWeek;
-  if (entry?.games?.length) {
-    entry.games.forEach((game) => {
-      const [left, right] = game.sides;
-      if (entry.status === "upcoming" || (!game.played && entry.status !== "final")) {
-        items.push(`<span class="ticker-tag">Wk ${entry.week}</span>${escapeHtml(left.name)} vs ${escapeHtml(right.name)}`);
-      } else {
-        const leader = left.points >= right.points ? left : right;
-        const trailer = leader === left ? right : left;
-        items.push(`<span class="ticker-tag ${entry.status === "live" ? "live" : ""}">${entry.status === "live" ? "Live" : "Final"}</span>${escapeHtml(leader.name)} ${formatPoints(leader.points)} · ${escapeHtml(trailer.name)} ${formatPoints(trailer.points)}`);
-      }
-    });
-  }
-  state.transactions
-    .filter((transaction) => transaction?.type === "trade" && transaction?.status === "complete")
-    .slice(0, 4)
-    .forEach((transaction) => {
-      const summary = buildRecentTradeSummary(transaction);
-      items.push(`<span class="ticker-tag gold">Trade</span>${escapeHtml(summary.preview)}`);
-    });
-  const sim = model && !model.seasonComplete ? getSimulation(model) : null;
-  if (sim?.results?.length) {
-    const top = sim.results.slice(0, 3).map((row) => `${escapeHtml(row.name)} ${percentLabel(row.titlePct)}`).join(" · ");
-    items.push(`<span class="ticker-tag green">Title odds</span>${top}`);
-  }
-  if (items.length === 0) {
-    tickerController?.destroy();
-    tickerController = null;
-    tickerFingerprint = "";
-    el.ticker.classList.add("hidden");
-    return;
-  }
-  const markup = items.map((item) => `<span class="ticker-item">${item}</span>`).join("");
-  const fingerprint = items.join("|");
-  const durationSeconds = tickerDurationSeconds(items.length);
-  if (fingerprint === tickerFingerprint && tickerController) {
-    el.ticker.classList.remove("hidden");
-    return;
-  }
-  const paused = Boolean(tickerController?.paused);
-  tickerController?.destroy();
-  el.tickerTrack.innerHTML = `<span class="ticker-group">${markup}</span><span class="ticker-group" aria-hidden="true">${markup}</span>`;
-  el.tickerTrack.style.setProperty("--ticker-duration", `${durationSeconds}s`);
-  el.ticker.classList.remove("hidden");
-  tickerFingerprint = fingerprint;
-  tickerController = bindTicker(el.ticker, el.tickerTrack, {
-    durationSeconds,
-    paused,
-    currentTime: 0,
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Workspace event delegation
@@ -9169,7 +7250,7 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "open-public-ranks":
-      openPublicRanks();
+      openPlayerBoard();
       break;
     case "retry-player-metadata":
       retryPlayerMetadata(event);
@@ -9190,9 +7271,6 @@ function handleWorkspaceClick(event) {
       sampleBannerOff = true;
       renderSessionSnapshot();
       focusAfterSampleBannerDismiss(document);
-      break;
-    case "close-public-ranks":
-      closePublicRanks();
       break;
     case "rank-open": {
       const id = String(target.dataset.assetId || "");
@@ -9254,17 +7332,6 @@ function handleWorkspaceClick(event) {
     case "rank-calc":
       addDraftFromPlayers(target.dataset.assetId, target.dataset.name, target.dataset.kind);
       break;
-    case "open-mock-pick": {
-      openMockBoardAt(target.dataset.mockRound, target.dataset.mockSlot);
-      break;
-    }
-    case "home-week": {
-      if (target.disabled || target.dataset.week === "") return;
-      state.homeWeek = Number(target.dataset.week);
-      renderScoresRoom();
-      updateUrlState({ mode: "replace" });
-      break;
-    }
     case "standings-view": {
       state.standingsView = target.dataset.view === "division" ? "division" : "overall";
       renderStandingsRoom();
@@ -9292,69 +7359,6 @@ function handleWorkspaceClick(event) {
     }
     case "review-trade": {
       openReviewedTrade(target.dataset.trade);
-      break;
-    }
-    case "open-player": {
-      const playerId = routeIdFromPlayer(target.dataset.playerId);
-      if (!playerId) return;
-      if (!state.weeklyValue) state.weeklyValue = emptyWeeklyValueState();
-      if (state.weeklyValue.selectedPlayerId === playerId) {
-        if (!closeHistoryOverlay("player")) {
-          state.weeklyValue.selectedPlayerId = "";
-          state.weeklyValue.helpOpen = false;
-          renderRosterSheet();
-          updateUrlState({ mode: "replace" });
-        }
-        return;
-      }
-      routeFocus.remember(target);
-      prepareDeskPush();
-      state.weeklyValue.selectedPlayerId = playerId;
-      state.weeklyValue.helpOpen = false;
-      state.ranks.selectedId = "";
-      renderRosterSheet();
-      updateUrlState({ mode: "push" });
-      document.querySelector(".player-week-sheet")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      break;
-    }
-    case "close-player": {
-      if (!closeHistoryOverlay("help") && !closeHistoryOverlay("player")) {
-        if (!state.weeklyValue) state.weeklyValue = emptyWeeklyValueState();
-        state.weeklyValue.selectedPlayerId = "";
-        state.weeklyValue.helpOpen = false;
-        renderRosterSheet();
-        updateUrlState({ mode: "replace" });
-      }
-      break;
-    }
-    case "toggle-weekly-help": {
-      setWeeklyScoreHelpOpen(!state.weeklyValue?.helpOpen);
-      break;
-    }
-    case "close-weekly-help": {
-      setWeeklyScoreHelpOpen(false);
-      break;
-    }
-    case "awards-week": {
-      state.awardsWeek = Number(target.dataset.week);
-      renderWeeklyHonors();
-      break;
-    }
-    case "open-trade": {
-      if (!String(target.dataset.tradeId || "")) return;
-      routeFocus.remember(target);
-      openTradeFile(target.dataset.tradeId, target.dataset.managerKey);
-      break;
-    }
-    case "close-trade": {
-      if (typeof history.state?.selectedTradeId === "string" && history.state.selectedTradeId && typeof history.back === "function") {
-        history.back();
-        break;
-      }
-      state.selectedTradeId = "";
-      state.selectedTradeManagerKey = "";
-      renderTradeLogDesk();
-      updateUrlState({ mode: "replace" });
       break;
     }
     case "talk-example": {
@@ -9524,272 +7528,6 @@ function handleWorkspaceInput(event) {
 // History: Hall, Seasons, Records
 // ---------------------------------------------------------------------------
 
-function historyRoomRoster(host, copy) {
-  if (!host) return null;
-  const roster = getLensRoster();
-  if (!state.league || state.normalizedRosters.length === 0 || !roster) {
-    host.innerHTML = `<p class="muted">${copy}</p>`;
-    return null;
-  }
-  return roster;
-}
-
-function renderLeagueHistoryRoom() {
-  const host = el.historyDashboard;
-  if (!host) return;
-  const roster = historyRoomRoster(host, "Load a league to open league history.");
-  if (!roster) return;
-  const { history } = buildHistoryArchiveModel(roster);
-  const recordBook = buildRecordBook(getSeasonModel());
-  host.innerHTML = `
-    ${renderArchiveHero(history)}
-    ${renderHallBoard(history)}
-    ${renderChampionYears(history)}
-    ${renderSimpleRecordBook(recordBook)}
-  `;
-}
-
-function renderChampionYears(history) {
-  const crowns = [...(history?.seasonSnapshots || [])]
-    .filter((snapshot) => snapshot?.champion && (snapshot.isComplete === true || !snapshot.isCurrent))
-    .sort((a, b) => Number(b.season) - Number(a.season));
-  if (!crowns.length) {
-    return `
-      <section class="workspace-panel">
-        <div class="panel-heading">
-          <div>
-            <span class="eyebrow">Champions</span>
-            <h2>Title years</h2>
-          </div>
-          <p class="section-copy">Need a finished season. Current first place is not the crown.</p>
-        </div>
-      </section>
-    `;
-  }
-  return `
-    <section class="workspace-panel">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">Champions</span>
-          <h2>Who won the league</h2>
-        </div>
-        <p class="section-copy">Previous season champions. Not this year's standings or power leader.</p>
-      </div>
-      <div class="champion-year-list">
-        ${crowns.map((snapshot) => `
-          <div class="champion-year-row">
-            <strong>${escapeHtml(snapshot.season)}</strong>
-            <span>${escapeHtml(snapshot.champion.managerName)}</span>
-            <small>${snapshot.runnerUp
-              ? `beat ${escapeHtml(snapshot.runnerUp.managerName)}`
-              : "champion"}</small>
-          </div>
-        `).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderSimpleRecordBook(recordBook) {
-  const records = leagueHistoryRecords(recordBook, LEAGUE_HISTORY_RECORD_IDS);
-  const gameCount = Number(recordBook?.gameCount) || 0;
-  return `
-    <section class="workspace-panel">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">Record book</span>
-          <h2>A few all-time marks</h2>
-        </div>
-        <p class="section-copy">${gameCount
-          ? `${gameCount.toLocaleString()} games in the archive.`
-          : "Records fill in as old matchups load."}</p>
-      </div>
-      ${records.length
-        ? `<div class="record-list record-list-wide">${records.map((record) => `
-            <div class="record-row ${escapeHtml(record.tone || "")}">
-              <div>
-                <span class="analytics-kicker">${escapeHtml(record.title)}</span>
-                <strong>${escapeHtml(record.holder)}</strong>
-                <p>${escapeHtml(record.detail)}</p>
-              </div>
-              <strong class="record-value">${escapeHtml(record.valueLabel)}</strong>
-            </div>
-          `).join("")}</div>`
-        : `<p class="muted analytics-empty">Records populate as archive matchups load.</p>`}
-    </section>
-  `;
-}
-
-function buildHistoryArchiveModel(lensRoster) {
-  const { context, profiles } = getLeaguePowerBoard();
-  const lensProfile = profiles.find((profile) => String(profile.rosterId) === String(lensRoster.rosterId))
-    || buildTeamPowerProfile({ roster: lensRoster, values: state.values, league: state.league, context });
-  const market = buildTradeMarketAnalytics(lensRoster);
-  const leagueAnalytics = buildLeagueAnalytics(context, profiles, market);
-  const history = buildLeagueHistoryArchive({
-    meRoster: lensRoster,
-    meProfile: lensProfile,
-    profiles,
-    market,
-    leagueAnalytics,
-  });
-  return { profiles, market, history };
-}
-
-function buildLeagueHistoryArchive({ meRoster, meProfile, profiles, market, leagueAnalytics }) {
-  const historyEntries = state.leagueHistory.length > 0
-    ? state.leagueHistory
-    : [buildLeagueHistoryEntry(state.leagueId, {
-        league: state.league,
-        users: state.users,
-        rosters: state.rosters,
-        tradedPicks: state.tradedPicks,
-      }, true)];
-  const archiveTrades = buildArchiveTradeAnalytics(getArchiveTradeTransactions());
-  const seasonSnapshots = historyEntries
-    .map((entry) => buildSeasonSnapshot(entry, archiveTrades.byLeagueId.get(String(entry.leagueId))))
-    .filter(Boolean)
-    .sort((a, b) => Number(b.season) - Number(a.season) || Number(b.isCurrent) - Number(a.isCurrent));
-  const dynastyRows = buildDynastyRows(seasonSnapshots, profiles);
-  const managerLens = buildManagerHistoryLens(meRoster, meProfile, seasonSnapshots, dynastyRows, market);
-  const storylines = buildLeagueStorylines(seasonSnapshots, dynastyRows, archiveTrades, leagueAnalytics);
-  const completedSnapshots = seasonSnapshots.filter((snapshot) => !snapshot.isCurrent);
-  const championKeys = new Set(
-    completedSnapshots
-      .map((snapshot) => snapshot.champion?.managerKey)
-      .filter(Boolean)
-  );
-  const parityValues = seasonSnapshots
-    .map((snapshot) => snapshot.parityScore)
-    .filter((value) => Number.isFinite(value) && value > 0);
-  const currentPowerLeader = profiles[0] || null;
-  const archive = {
-    seasonSnapshots,
-    dynastyRows,
-    managerLens,
-    storylines,
-    archiveTrades,
-    seasonRange: formatSeasonRange(seasonSnapshots),
-    completedSeasonCount: completedSnapshots.length,
-    uniqueChampionCount: championKeys.size,
-    averageParityScore: parityValues.length ? Math.round(average(parityValues)) : 0,
-    currentPowerLeader,
-    latestSnapshot: seasonSnapshots[0] || null,
-    finishMatrixRows: dynastyRows.slice(0, Math.min(12, dynastyRows.length)),
-    syncLabel: buildArchiveSyncLabel(),
-    // Filled lazily by the Seasons room; the Hall never needs it.
-    comparison: null,
-  };
-  return archive;
-}
-
-function getArchiveTradeTransactions() {
-  const currentTransactions = state.transactions.map((transaction) => ({
-    ...transaction,
-    sourceLeagueId: state.leagueId,
-    sourceSeason: state.league?.season,
-  }));
-  return [...currentTransactions, ...state.historyTransactions]
-    .filter((transaction) => transaction?.type === "trade" && transaction?.status === "complete")
-    .sort((a, b) => Number(b.status_updated || b.created || 0) - Number(a.status_updated || a.created || 0));
-}
-
-function buildArchiveTradeAnalytics(transactions) {
-  const byLeagueId = new Map();
-  const pairMap = new Map();
-  const managerMap = new Map();
-  let movedAssetCount = 0;
-  let movedValue = 0;
-  let multiTeamTradeCount = 0;
-
-  transactions.forEach((transaction) => {
-    const sourceLeagueId = String(transaction?.sourceLeagueId || state.leagueId || "");
-    const sourceSeason = String(transaction?.sourceSeason || getHistoryEntryByLeagueId(sourceLeagueId)?.season || "");
-    if (!byLeagueId.has(sourceLeagueId)) {
-      byLeagueId.set(sourceLeagueId, {
-        leagueId: sourceLeagueId,
-        season: sourceSeason,
-        tradeCount: 0,
-        movedAssetCount: 0,
-        movedValue: 0,
-      });
-    }
-    const leagueBucket = byLeagueId.get(sourceLeagueId);
-    leagueBucket.tradeCount += 1;
-
-    const participantInfos = getTransactionParticipantIds(transaction)
-      .map((rosterId) => getHistoryRosterInfo(sourceLeagueId, rosterId))
-      .filter(Boolean);
-    if (participantInfos.length > 2) multiTeamTradeCount += 1;
-
-    participantInfos.forEach((info) => {
-      if (!managerMap.has(info.managerKey)) {
-        managerMap.set(info.managerKey, {
-          managerKey: info.managerKey,
-          managerName: info.managerName,
-          tradeCount: 0,
-          seasons: new Set(),
-        });
-      }
-      const manager = managerMap.get(info.managerKey);
-      manager.tradeCount += 1;
-      if (sourceSeason) manager.seasons.add(sourceSeason);
-    });
-
-    const movements = buildTradeMovements(transaction);
-    const transactionValue = movements.reduce((sum, movement) => sum + movement.value, 0);
-    movedAssetCount += movements.length;
-    movedValue += transactionValue;
-    leagueBucket.movedAssetCount += movements.length;
-    leagueBucket.movedValue += transactionValue;
-
-    for (let i = 0; i < participantInfos.length; i += 1) {
-      for (let j = i + 1; j < participantInfos.length; j += 1) {
-        const pairInfos = [participantInfos[i], participantInfos[j]]
-          .sort((a, b) => a.managerKey.localeCompare(b.managerKey));
-        const key = pairInfos.map((info) => info.managerKey).join("|");
-        if (!pairMap.has(key)) {
-          pairMap.set(key, {
-            managerKeys: pairInfos.map((info) => info.managerKey),
-            managerNames: pairInfos.map((info) => info.managerName),
-            count: 0,
-            valueMoved: 0,
-            seasons: new Set(),
-          });
-        }
-        const pair = pairMap.get(key);
-        pair.count += 1;
-        pair.valueMoved += transactionValue;
-        if (sourceSeason) pair.seasons.add(sourceSeason);
-      }
-    }
-  });
-
-  const pairLeaders = [...pairMap.values()]
-    .map((pair) => ({
-      ...pair,
-      seasons: [...pair.seasons].sort((a, b) => Number(b) - Number(a)),
-    }))
-    .sort((a, b) => b.count - a.count || b.valueMoved - a.valueMoved || a.managerNames.join("").localeCompare(b.managerNames.join("")));
-  const managerLeaderboard = [...managerMap.values()]
-    .map((manager) => ({
-      ...manager,
-      seasons: [...manager.seasons].sort((a, b) => Number(b) - Number(a)),
-    }))
-    .sort((a, b) => b.tradeCount - a.tradeCount || a.managerName.localeCompare(b.managerName));
-
-  return {
-    tradeCount: transactions.length,
-    movedAssetCount,
-    movedValue: Math.round(movedValue),
-    multiTeamTradeCount,
-    byLeagueId,
-    pairLeaders,
-    managerLeaderboard,
-    recentTrades: transactions.slice(0, ANALYTICS_RECENT_TRADE_LIMIT).map(buildArchiveRecentTradeSummary),
-  };
-}
-
 function buildSeasonSnapshot(entry, tradeBucket = null) {
   if (!entry?.league || !Array.isArray(entry.rosters) || entry.rosters.length === 0) return null;
   const standings = buildSeasonStandings(entry);
@@ -9912,378 +7650,6 @@ function compareSeasonFinishRows(a, b) {
     || compareRegularSeasonRows(a, b);
 }
 
-function buildDynastyRows(seasonSnapshots, profiles) {
-  const rowsByManager = new Map();
-  const ensureRow = (managerKey, managerName, userId = "") => {
-    if (!rowsByManager.has(managerKey)) {
-      rowsByManager.set(managerKey, {
-        managerKey,
-        managerName,
-        userId,
-        records: [],
-        titles: 0,
-        runnerUps: 0,
-        podiums: 0,
-        seasons: 0,
-        completedSeasons: 0,
-        totalWins: 0,
-        totalLosses: 0,
-        totalTies: 0,
-        totalPoints: 0,
-        bestFinish: null,
-        avgFinish: null,
-        volatility: 0,
-        currentScore: null,
-        currentPowerRank: null,
-        currentLaneLabel: "",
-        currentRosterId: null,
-        dynastyScore: 0,
-      });
-    }
-    return rowsByManager.get(managerKey);
-  };
-
-  seasonSnapshots.forEach((snapshot) => {
-    snapshot.standings.forEach((standing) => {
-      const row = ensureRow(standing.managerKey, standing.managerName, standing.userId);
-      const record = {
-        season: snapshot.season,
-        isCurrent: snapshot.isCurrent,
-        leagueId: snapshot.leagueId,
-        finishRank: standing.finishRank,
-        regularRank: standing.regularRank,
-        playoffFinish: standing.playoffFinish,
-        wins: standing.wins,
-        losses: standing.losses,
-        ties: standing.ties,
-        points: standing.points,
-        powerRank: null,
-        powerScore: null,
-      };
-      row.records.push(record);
-      row.seasons += 1;
-      row.totalWins += standing.wins;
-      row.totalLosses += standing.losses;
-      row.totalTies += standing.ties;
-      row.totalPoints += standing.points;
-      if (!snapshot.isCurrent) {
-        row.completedSeasons += 1;
-        if (standing.playoffFinish === 1) row.titles += 1;
-        if (standing.playoffFinish === 2) row.runnerUps += 1;
-        if (Number(standing.finishRank) <= 3) row.podiums += 1;
-      }
-    });
-  });
-
-  profiles.forEach((profile) => {
-    const roster = state.normalizedRosters.find((entry) => String(entry.rosterId) === String(profile.rosterId));
-    if (!roster) return;
-    const managerKey = buildManagerKey(roster.manager.userId, state.leagueId, roster.rosterId);
-    const row = ensureRow(managerKey, profile.managerName, roster.manager.userId);
-    row.currentScore = profile.score;
-    row.currentPowerRank = profile.rank;
-    row.currentLaneLabel = profile.laneLabel;
-    row.currentRosterId = profile.rosterId;
-    const currentRecord = row.records.find((record) => record.isCurrent);
-    if (currentRecord) {
-      currentRecord.powerRank = profile.rank;
-      currentRecord.powerScore = profile.score;
-    }
-  });
-
-  rowsByManager.forEach((row) => {
-    const finishRecords = row.records.filter((record) => Number.isFinite(record.finishRank) && !record.isCurrent);
-    const fallbackRecords = finishRecords.length ? finishRecords : row.records.filter((record) => Number.isFinite(record.finishRank));
-    const finishRanks = fallbackRecords.map((record) => record.finishRank);
-    row.bestFinish = finishRanks.length ? Math.min(...finishRanks) : null;
-    row.avgFinish = finishRanks.length ? average(finishRanks) : null;
-    row.volatility = calculateRankVolatility(finishRanks);
-    row.dynastyScore = Math.round(
-      row.titles * 120
-        + row.runnerUps * 54
-        + row.podiums * 28
-        + row.totalWins * 5
-        + row.totalPoints / 75
-        + (row.currentScore || 0) * 0.55
-        - row.volatility * 2
-    );
-  });
-
-  return [...rowsByManager.values()].sort((a, b) =>
-    b.titles - a.titles
-      || b.runnerUps - a.runnerUps
-      || b.podiums - a.podiums
-      || b.dynastyScore - a.dynastyScore
-      || (a.avgFinish || 99) - (b.avgFinish || 99)
-      || a.managerName.localeCompare(b.managerName)
-  );
-}
-
-function buildManagerHistoryLens(meRoster, meProfile, seasonSnapshots, dynastyRows, market) {
-  const managerKey = buildManagerKey(meRoster.manager.userId, state.leagueId, meRoster.rosterId);
-  const row = dynastyRows.find((entry) => entry.managerKey === managerKey)
-    || dynastyRows.find((entry) => entry.currentRosterId === meRoster.rosterId)
-    || null;
-  const records = (row?.records || []).slice().sort((a, b) => Number(b.season) - Number(a.season));
-  const previousRecord = records.find((record) => !record.isCurrent) || null;
-  const bestFinishLabel = row?.bestFinish ? ordinal(Math.round(row.bestFinish)) : "N/A";
-  const avgFinishLabel = row?.avgFinish ? `${row.avgFinish.toFixed(1)} avg` : "No archive";
-  const currentPowerLabel = `${ordinal(meProfile.rank)} power rank`;
-  const tradeLabel = market.favoritePartner
-    ? `${market.favoritePartner.otherManagerName} is the warmest trade lane`
-    : market.myTradeCount > 0
-      ? `${market.myTradeCount} current-season trade${market.myTradeCount === 1 ? "" : "s"}`
-      : "No current-season trades";
-  const nextChapter = buildManagerNextChapter(meProfile, row, market);
-
-  return {
-    managerKey,
-    managerName: meProfile.managerName,
-    headline: row?.titles
-      ? `${row.titles} title${row.titles === 1 ? "" : "s"} in the archive`
-      : previousRecord
-        ? `Best archived finish: ${bestFinishLabel}`
-        : "No completed archive season yet",
-    shortStatus: `${meProfile.score}/100 | ${currentPowerLabel}`,
-    bestFinishLabel,
-    avgFinishLabel,
-    titles: row?.titles || 0,
-    podiums: row?.podiums || 0,
-    completedSeasons: row?.completedSeasons || 0,
-    recordLabel: row ? formatManagerRecord(row) : "0-0",
-    currentPowerLabel,
-    currentLaneLabel: meProfile.laneLabel,
-    currentScore: meProfile.score,
-    tradeLabel,
-    nextChapter,
-    records: records.slice(0, 5),
-  };
-}
-
-function buildManagerNextChapter(profile, row, market) {
-  if (profile.rank <= 3 && row?.titles === 0) {
-    return "This is a real title window. The league archive says the next move should protect weekly ceiling, not just add abstract value.";
-  }
-  if (profile.assetSummary.firstRoundPickCount >= 4) {
-    return "The selected roster controls enough future capital to shape the next league era if one pick becomes a weekly starter.";
-  }
-  if (profile.weakestPosition) {
-    return `${profile.weakestPosition.position} is the cleanest pressure point if this manager wants to climb the current power board.`;
-  }
-  if (market.favoritePartner) {
-    return `The archive points back to ${market.favoritePartner.otherManagerName}; that is the first negotiation lane to reopen.`;
-  }
-  return "The selected manager is a neutral archive profile right now: useful roster, no obvious league-history lever yet.";
-}
-
-function buildLeagueStorylines(seasonSnapshots, dynastyRows, archiveTrades, leagueAnalytics) {
-  const completedSnapshots = seasonSnapshots.filter((snapshot) => !snapshot.isCurrent);
-  const titleLeader = dynastyRows.slice().sort((a, b) => b.titles - a.titles || b.runnerUps - a.runnerUps || b.dynastyScore - a.dynastyScore)[0] || null;
-  const heartbreakLeader = dynastyRows.slice().sort((a, b) => b.runnerUps - a.runnerUps || b.podiums - a.podiums)[0] || null;
-  const uniqueChampions = new Set(completedSnapshots.map((snapshot) => snapshot.champion?.managerKey).filter(Boolean)).size;
-  const parityRate = completedSnapshots.length ? Math.round(uniqueChampions / completedSnapshots.length * 100) : 0;
-  const oldestCompleted = completedSnapshots[completedSnapshots.length - 1] || null;
-  const newestCompleted = completedSnapshots[0] || null;
-  const scoringDelta = oldestCompleted && newestCompleted
-    ? newestCompleted.scoringAverage - oldestCompleted.scoringAverage
-    : 0;
-  const tradeLeader = archiveTrades.managerLeaderboard[0] || null;
-
-  return [
-    {
-      title: titleLeader?.titles ? "Dynasty Gravity" : "Open Throne",
-      body: titleLeader?.titles
-        ? `${titleLeader.managerName} owns the strongest trophy profile with ${titleLeader.titles} title${titleLeader.titles === 1 ? "" : "s"} and ${titleLeader.podiums} podium finish${titleLeader.podiums === 1 ? "" : "es"}.`
-        : "No repeat title pattern is visible in the loaded archive, so the league still reads like an open throne.",
-      tone: "blue",
-    },
-    {
-      title: "Parity Meter",
-      body: completedSnapshots.length
-        ? `${uniqueChampions} different champion${uniqueChampions === 1 ? "" : "s"} across ${completedSnapshots.length} completed season${completedSnapshots.length === 1 ? "" : "s"} (${parityRate}% title churn).`
-        : `${leagueAnalytics.parityLabel} in the current power model, with completed history still limited.`,
-      tone: parityRate >= 70 ? "green" : parityRate >= 40 ? "gold" : "rose",
-    },
-    {
-      title: scoringDelta >= 0 ? "Scoring Boom" : "Scoring Squeeze",
-      body: oldestCompleted && newestCompleted
-        ? `Average points moved ${formatSignedNumber(scoringDelta)} from ${oldestCompleted.season} to ${newestCompleted.season}.`
-        : `The current scoring spread is ${formatNumber(seasonSnapshots[0]?.scoringSpread || 0)} points across the league.`,
-      tone: scoringDelta >= 0 ? "green" : "gold",
-    },
-    {
-      title: tradeLeader ? "Market Maker" : "Quiet Market",
-      body: tradeLeader
-        ? `${tradeLeader.managerName} appears in ${tradeLeader.tradeCount} archived trade${tradeLeader.tradeCount === 1 ? "" : "s"} across ${tradeLeader.seasons.length || 1} season${tradeLeader.seasons.length === 1 ? "" : "s"}.`
-        : "No trade king yet.",
-      tone: tradeLeader ? "blue" : "gold",
-    },
-    {
-      title: heartbreakLeader?.runnerUps ? "Final Boss Scar" : "No Finals Scar Yet",
-      body: heartbreakLeader?.runnerUps
-        ? `${heartbreakLeader.managerName} has ${heartbreakLeader.runnerUps} runner-up finish${heartbreakLeader.runnerUps === 1 ? "" : "es"}, the archive's clearest near-miss profile.`
-        : "No manager has a clear runner-up pattern in the loaded seasons.",
-      tone: heartbreakLeader?.runnerUps ? "rose" : "green",
-    },
-  ];
-}
-
-function renderArchiveHero(history) {
-  const crown = pickLatestCrown(history.seasonSnapshots);
-  const championLabel = crown?.champion?.managerName || "TBD";
-  const championDetail = crown ? `${crown.season} champion` : "previous season champion";
-  const titleLeader = [...(history.dynastyRows || [])]
-    .filter((row) => row.titles > 0)
-    .sort((a, b) => b.titles - a.titles || b.podiums - a.podiums)[0] || null;
-  const titleValue = titleLeader ? titleLeader.managerName : "Open";
-  const titleDetail = titleLeader
-    ? `${titleLeader.titles} title${titleLeader.titles === 1 ? "" : "s"}`
-    : "no completed season in the archive yet";
-
-  return `
-    <div class="league-archive-hero">
-      <div class="analytics-hero-main">
-        <span class="analytics-kicker">${escapeHtml(state.leagueName || "League")} history</span>
-        <h3>League history</h3>
-        <p>${escapeHtml(history.seasonRange)} archive. Last champion, title hall, and a short record book.</p>
-        <div class="power-badge-row">
-          <span class="power-badge">${escapeHtml(`${history.seasonSnapshots.length} season${history.seasonSnapshots.length === 1 ? "" : "s"}`)}</span>
-          <span class="power-badge">${escapeHtml(`${history.uniqueChampionCount} title winner${history.uniqueChampionCount === 1 ? "" : "s"}`)}</span>
-        </div>
-      </div>
-      <div class="trophy-panel">
-        <span>Latest Crown</span>
-        <strong>${escapeHtml(championLabel)}</strong>
-        <small>${escapeHtml(championDetail)}</small>
-      </div>
-    </div>
-
-    <div class="analytics-metric-grid">
-      ${renderAnalyticsMetric("Seasons", history.seasonRange, `${history.completedSeasonCount} completed`, "blue")}
-      ${renderAnalyticsMetric("Most Titles", titleValue, titleDetail, "gold")}
-    </div>
-  `;
-}
-
-function renderHallBoard(history) {
-  const hall = buildHallRows(history.dynastyRows || []);
-  if (hall.length === 0) return "";
-  const meRoster = getMyRoster();
-  const meKey = meRoster ? rosterManagerKey(meRoster) : "";
-  return `
-    <section class="workspace-panel hall-board">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">All-time hall</span>
-          <h3>Titles, career record, playoff trips</h3>
-        </div>
-        <p class="section-copy">Who has the rings. Career record is the rest of the story.</p>
-      </div>
-      <div class="hall-table">
-        <div class="hall-head">
-          <span>#</span><span>Mgr</span><span>Titles</span><span>Record</span><span>PO</span>
-        </div>
-        ${hall.map((row, index) => `
-          <div class="hall-row ${row.managerKey === meKey ? "you" : ""}">
-            <span>${index + 1}</span>
-            <strong>${escapeHtml(row.managerName)}</strong>
-            <span>${row.titles}</span>
-            <span>${escapeHtml(row.recordLabel)}</span>
-            <span>${row.playoffApps}</span>
-          </div>
-        `).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderTradeAwardCard(title, blurb, side, tone = "") {
-  if (!side) return "";
-  return `
-    <button type="button" class="trade-award ${tone}" data-action="open-trade" data-trade-id="${escapeHtml(side.id)}" data-manager-key="${escapeHtml(side.managerKey)}">
-      <span>${escapeHtml(title)}</span>
-      <strong>${escapeHtml(side.managerName)}</strong>
-      <small>${escapeHtml(side.season)} W${side.week || "?"} vs ${escapeHtml(side.partnerName)}</small>
-      <em>Since ${escapeHtml(side.since.games ? side.since.label : "no games yet")} · now ${formatSignedNumber(Math.round(side.delta))}${side.laterFinishes?.length ? ` · later ${escapeHtml(side.laterFinishes.map((row) => `${row.season} ${row.label}`).join(", "))}` : ""}</em>
-      <p>${escapeHtml(blurb)}</p>
-    </button>
-  `;
-}
-
-function renderTradeWireBoard() {
-  const awards = pickLeagueTradeAwards(leagueTradeSides());
-  if (!awards.fleece && !awards.heater) return "";
-  return `
-    <section class="workspace-panel trade-wire" id="league-wire">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">Recent trades</span>
-          <h3>Hottest since and biggest steal</h3>
-        </div>
-        <p class="section-copy">Hottest since is the record after the deal, pulled back so a 2-0 cannot beat a longer run. Biggest steal is the price gap plus the star that moved, not a raw price dump.</p>
-      </div>
-      <div class="trade-wire-grid">
-        ${renderTradeAwardCard("Hottest since", "Best record after the deal. Needs a real sample.", awards.heater, "won")}
-        ${renderTradeAwardCard("Biggest steal", "Best price gap on today's board, even if the games have not been played yet.", awards.fleece, "won")}
-      </div>
-    </section>
-  `;
-}
-
-function buildArchiveRecentTradeSummary(transaction) {
-  const sourceLeagueId = String(transaction?.sourceLeagueId || state.leagueId || "");
-  const participantIds = getTransactionParticipantIds(transaction);
-  const participantNames = participantIds.map((rosterId) => getHistoryRosterInfo(sourceLeagueId, rosterId)?.managerName || getRosterManagerName(rosterId));
-  const movements = buildTradeMovements(transaction);
-  const byRecipient = new Map();
-  movements.forEach((movement) => {
-    if (!byRecipient.has(movement.toRosterId)) byRecipient.set(movement.toRosterId, []);
-    byRecipient.get(movement.toRosterId).push(movement);
-  });
-  const preview = participantIds
-    .map((rosterId) => {
-      const assets = byRecipient.get(rosterId) || [];
-      const names = assets.slice(0, 3).map((asset) => asset.name);
-      const suffix = assets.length > 3 ? ` +${assets.length - 3}` : "";
-      const managerName = getHistoryRosterInfo(sourceLeagueId, rosterId)?.managerName || getRosterManagerName(rosterId);
-      return `${managerName} got ${names.length ? names.join(", ") + suffix : "value"}`;
-    })
-    .join(" | ");
-  const season = transaction?.sourceSeason ? `${transaction.sourceSeason} ` : "";
-  const date = formatTransactionDate(transaction.status_updated || transaction.created);
-  return {
-    title: participantNames.join(" / "),
-    subtitle: `${season}${date} | ${playersAndPicksLabel(movements.length)} moved`,
-    preview: preview || "Trade details unavailable from Sleeper payload.",
-  };
-}
-
-function buildArchiveSyncLabel() {
-  const currentLabel = state.transactionsLoaded
-    ? state.transactionsFailed
-      ? "current trades unavailable"
-      : `${state.transactionWeeksLoaded} current weeks`
-    : "current trades syncing";
-  const archiveSeasonCount = Math.max(0, state.leagueHistory.length - 1);
-  if (archiveSeasonCount === 0) return currentLabel;
-  const historyLabel = state.historyTransactionsLoaded
-    ? state.historyTransactionsFailed
-      ? "archive trades unavailable"
-      : `${state.historyTransactionLeaguesLoaded}/${Math.min(archiveSeasonCount, HISTORY_TRANSACTION_SEASON_LIMIT)} archive seasons`
-    : "archive trades syncing";
-  return `${currentLabel}; ${historyLabel}`;
-}
-
-function formatSeasonRange(snapshots) {
-  const seasons = snapshots
-    .map((snapshot) => Number(snapshot.season))
-    .filter(Number.isFinite)
-    .sort((a, b) => a - b);
-  if (seasons.length === 0) return "Current season";
-  if (seasons.length === 1) return String(seasons[0]);
-  return `${seasons[0]}-${seasons[seasons.length - 1]}`;
-}
-
 function getHistoryEntryByLeagueId(leagueId) {
   const key = String(leagueId || "");
   return state.leagueHistory.find((entry) => String(entry.leagueId) === key) || null;
@@ -10358,10 +7724,6 @@ function getFranchiseIndex() {
   return index;
 }
 
-function getRosterTakeover(rosterId) {
-  return takeoverForRoster(getFranchiseIndex().takeovers, rosterId);
-}
-
 function buildManagerKey(userId, leagueId, rosterId) {
   return resolveRosterIdentity(getFranchiseIndex(), { userId, leagueId, rosterId }).managerKey;
 }
@@ -10371,590 +7733,10 @@ function extractRosterDecimalStat(roster, wholeKey, decimalKey) {
   return sleeperPoints(settings[wholeKey], settings[decimalKey]) ?? 0;
 }
 
-function calculateRankVolatility(ranks) {
-  const numericRanks = ranks.filter(Number.isFinite);
-  if (numericRanks.length <= 1) return 0;
-  const avg = average(numericRanks);
-  const variance = average(numericRanks.map((rank) => (rank - avg) ** 2));
-  return Math.sqrt(variance);
-}
-
 function average(values) {
   const numericValues = values.filter(Number.isFinite);
   if (numericValues.length === 0) return 0;
   return numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length;
-}
-
-function formatManagerRecord(row) {
-  if (!row) return "0-0";
-  const ties = row.totalTies ? `-${row.totalTies}` : "";
-  return `${row.totalWins}-${row.totalLosses}${ties}`;
-}
-
-function renderAnalyticsMetric(label, value, detail, tone = "") {
-  return `
-    <section class="analytics-metric ${tone}">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(String(value))}</strong>
-      <small>${escapeHtml(detail || "")}</small>
-    </section>
-  `;
-}
-
-function renderRecentTrade(trade) {
-  return `
-    <section class="recent-trade">
-      <div>
-        <strong>${escapeHtml(trade.title)}</strong>
-        <span>${escapeHtml(trade.subtitle)}</span>
-      </div>
-      <p>${escapeHtml(trade.preview)}</p>
-    </section>
-  `;
-}
-
-function renderAssetMarketPanel(market) {
-  return `
-    <section class="analytics-panel">
-      <div class="analytics-panel-heading">
-        <h3>Most moved</h3>
-        <span>${formatNumber(market.totalMovedValue)} value moved</span>
-      </div>
-      <div class="analytics-list">
-        ${market.assetLeaders.length > 0
-          ? market.assetLeaders.slice(0, ANALYTICS_ASSET_LEADER_LIMIT).map((asset) => renderAssetMarketRow(asset, market.topMovedAssetCount)).join("")
-          : `<p class="muted small analytics-empty">No traded players & picks to rank yet.</p>`}
-      </div>
-      <div class="manager-heat-list">
-        ${market.managerLeaderboard.slice(0, 5).map((manager) => renderManagerHeatRow(manager, market.maxManagerTradeCount)).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderAssetMarketRow(asset, maxCount) {
-  const width = maxCount > 0 ? clamp(Math.round(asset.count / maxCount * 100), 8, 100) : 8;
-  return `
-    <div class="analytics-row">
-      <div>
-        ${renderPlayerLabel(asset.name, asset.assetType === "player" ? facePlayerId(asset) : "", { size: "sm", tag: "strong" })}
-        <span>${escapeHtml(asset.typeLabel)} • ${formatNumber(asset.totalValue)} value</span>
-      </div>
-      <div class="row-meter" aria-hidden="true"><span style="width:${width}%"></span></div>
-      <em>${asset.count}</em>
-    </div>
-  `;
-}
-
-function renderManagerHeatRow(manager, maxTrades) {
-  const width = maxTrades > 0 ? clamp(Math.round(manager.tradeCount / maxTrades * 100), 8, 100) : 8;
-  return `
-    <div class="manager-heat-row">
-      <strong>${escapeHtml(manager.managerName)}</strong>
-      <div class="meter-track" aria-hidden="true"><span style="width:${width}%"></span></div>
-      <span>${manager.tradeCount} trades</span>
-    </div>
-  `;
-}
-
-function buildLeagueAnalytics(context, profiles, market) {
-  const scores = profiles.map((profile) => profile.score).filter(Number.isFinite);
-  const starterValues = context.starterValues.filter(Number.isFinite);
-  const pickValues = context.pickValues.filter(Number.isFinite);
-  const maxStarter = starterValues.length ? Math.max(...starterValues) : 0;
-  const minStarter = starterValues.length ? Math.min(...starterValues) : 0;
-  const powerGap = Math.max(0, maxStarter - minStarter);
-  const parityScore = maxStarter > 0 ? clamp(Math.round(100 - (powerGap / maxStarter * 100)), 1, 99) : 50;
-  const maxPick = pickValues.length ? Math.max(...pickValues) : 0;
-  const minPick = pickValues.length ? Math.min(...pickValues) : 0;
-  const pickSpread = Math.max(0, maxPick - minPick);
-  const pickSpreadScore = maxPick > 0 ? clamp(Math.round(pickSpread / maxPick * 100), 1, 99) : 0;
-  const contenderCount = profiles.filter((profile) => ["contender", "fragile-contender", "playoff-hunter"].includes(profile.lane.id)).length;
-  const rebuildCount = profiles.filter((profile) => profile.lane.id === "rebuild").length;
-  const middleCount = Math.max(0, profiles.length - contenderCount - rebuildCount);
-  const topPickProfile = profiles.slice().sort((a, b) => b.assetSummary.pickValue - a.assetSummary.pickValue)[0];
-  const youngestProfile = profiles
-    .filter((profile) => Number.isFinite(profile.assetSummary.averageAge))
-    .sort((a, b) => a.assetSummary.averageAge - b.assetSummary.averageAge)[0];
-  const oldestProfile = profiles
-    .filter((profile) => Number.isFinite(profile.assetSummary.averageAge))
-    .sort((a, b) => b.assetSummary.averageAge - a.assetSummary.averageAge)[0];
-  const medianScore = median(scores);
-
-  return {
-    contenderCount,
-    rebuildCount,
-    middleCount,
-    parityScore,
-    parityLabel: parityScore >= 72 ? "tight race" : parityScore >= 48 ? "tiered league" : "power gap",
-    powerGapLabel: `${formatNumber(powerGap)} starter gap from top to bottom`,
-    pickSpreadScore,
-    pickSpreadLabel: `${formatNumber(pickSpread)} pick-value spread`,
-    marketTempoLabel: market.tradeCount >= profiles.length ? "active trade room" : market.tradeCount > 0 ? "selective trade room" : "quiet trade room",
-    medianScore,
-    managerSpotlights: [
-      topPickProfile ? {
-        label: "Draft picks leader",
-        value: `${topPickProfile.managerName} (${formatNumber(topPickProfile.assetSummary.pickValue)})`,
-        tone: "gold",
-      } : null,
-      youngestProfile ? {
-        label: "Youngest Core",
-        value: `${youngestProfile.managerName} (${youngestProfile.assetSummary.averageAgeLabel})`,
-        tone: "green",
-      } : null,
-      oldestProfile ? {
-        label: "Oldest Core",
-        value: `${oldestProfile.managerName} (${oldestProfile.assetSummary.averageAgeLabel})`,
-        tone: "rose",
-      } : null,
-      profiles[0] ? {
-        label: "Power Leader",
-        value: `${profiles[0].managerName} (${profiles[0].score}/100)`,
-        tone: "blue",
-      } : null,
-    ].filter(Boolean),
-  };
-}
-
-function buildTradeMarketAnalytics(meRoster) {
-  const tradeTransactions = state.transactions
-    .filter((transaction) => transaction?.type === "trade" && transaction?.status === "complete")
-    .sort((a, b) => Number(b.status_updated || b.created || 0) - Number(a.status_updated || a.created || 0));
-  const allCompleteTransactions = state.transactions.filter((transaction) => transaction?.status === "complete");
-  const meRosterKey = normalizeRosterIdKey(meRoster.rosterId);
-  const pairMap = new Map();
-  const managerStats = new Map();
-  const assetMap = new Map();
-  const weeklyMap = new Map();
-  let movedAssetCount = 0;
-  let pickMovementCount = 0;
-  let playerMovementCount = 0;
-  let totalMovedValue = 0;
-  let multiTeamTradeCount = 0;
-
-  state.normalizedRosters.forEach((roster) => {
-    managerStats.set(normalizeRosterIdKey(roster.rosterId), {
-      rosterId: roster.rosterId,
-      managerName: roster.manager.displayName,
-      tradeCount: 0,
-      sentAssets: 0,
-      receivedAssets: 0,
-      sentValue: 0,
-      receivedValue: 0,
-    });
-  });
-
-  tradeTransactions.forEach((transaction) => {
-    const participantIds = getTransactionParticipantIds(transaction);
-    if (participantIds.length > 2) multiTeamTradeCount += 1;
-    const movements = buildTradeMovements(transaction);
-    const movedValue = movements.reduce((sum, movement) => sum + movement.value, 0);
-    const week = Number(transaction.leg || transaction.week || 0);
-    if (!weeklyMap.has(week)) weeklyMap.set(week, { week, count: 0, movedValue: 0 });
-    weeklyMap.get(week).count += 1;
-    weeklyMap.get(week).movedValue += movedValue;
-
-    participantIds.forEach((rosterId) => {
-      const stats = ensureManagerTradeStats(managerStats, rosterId);
-      stats.tradeCount += 1;
-    });
-
-    for (let i = 0; i < participantIds.length; i++) {
-      for (let j = i + 1; j < participantIds.length; j++) {
-        const left = participantIds[i];
-        const right = participantIds[j];
-        const key = buildRosterPairKey(left, right);
-        const pairMovements = movements.filter((movement) =>
-          buildRosterPairKey(movement.fromRosterId, movement.toRosterId) === key
-        );
-        if (!pairMap.has(key)) {
-          pairMap.set(key, {
-            rosterIds: key.split("|"),
-            count: 0,
-            assetsMoved: 0,
-            valueMoved: 0,
-          });
-        }
-        const pair = pairMap.get(key);
-        pair.count += 1;
-        pair.assetsMoved += pairMovements.length || movements.length;
-        pair.valueMoved += pairMovements.length
-          ? pairMovements.reduce((sum, movement) => sum + movement.value, 0)
-          : movedValue;
-      }
-    }
-
-    movements.forEach((movement) => {
-      movedAssetCount += 1;
-      totalMovedValue += movement.value;
-      if (movement.assetType === "pick") {
-        pickMovementCount += 1;
-      } else {
-        playerMovementCount += 1;
-      }
-
-      const fromStats = ensureManagerTradeStats(managerStats, movement.fromRosterId);
-      const toStats = ensureManagerTradeStats(managerStats, movement.toRosterId);
-      fromStats.sentAssets += 1;
-      fromStats.sentValue += movement.value;
-      toStats.receivedAssets += 1;
-      toStats.receivedValue += movement.value;
-
-      if (!assetMap.has(movement.assetId)) {
-        assetMap.set(movement.assetId, {
-          assetId: movement.assetId,
-          name: movement.name,
-          assetType: movement.assetType,
-          typeLabel: movement.assetType === "pick" ? "Pick" : movement.positionLabel || "Player",
-          count: 0,
-          totalValue: 0,
-        });
-      }
-      const assetEntry = assetMap.get(movement.assetId);
-      assetEntry.count += 1;
-      assetEntry.totalValue += movement.value;
-    });
-  });
-
-  const managerLeaderboard = [...managerStats.values()]
-    .sort((a, b) => b.tradeCount - a.tradeCount || b.sentValue + b.receivedValue - (a.sentValue + a.receivedValue) || a.managerName.localeCompare(b.managerName));
-  const myStats = managerStats.get(meRosterKey) || ensureManagerTradeStats(managerStats, meRosterKey);
-  const myTradeRank = managerLeaderboard.findIndex((manager) => String(manager.rosterId) === String(meRoster.rosterId)) + 1;
-  const pairLeaders = [...pairMap.values()]
-    .map((pair) => ({
-      ...pair,
-      managerNames: pair.rosterIds.map(getRosterManagerName),
-      sharePct: tradeTransactions.length > 0 ? Math.round(pair.count / tradeTransactions.length * 100) : 0,
-    }))
-    .sort((a, b) => b.count - a.count || b.valueMoved - a.valueMoved || a.managerNames.join("").localeCompare(b.managerNames.join("")));
-  const myPartners = pairLeaders
-    .filter((pair) => pair.rosterIds.includes(meRosterKey))
-    .map((pair) => {
-      const otherRosterId = pair.rosterIds.find((rosterId) => rosterId !== meRosterKey);
-      return {
-        ...pair,
-        otherRosterId,
-        otherManagerName: getRosterManagerName(otherRosterId),
-      };
-    });
-  const assetLeaders = [...assetMap.values()]
-    .sort((a, b) => b.count - a.count || b.totalValue - a.totalValue || a.name.localeCompare(b.name));
-  const weeklyTimeline = buildWeeklyTradeTimeline(weeklyMap);
-  const maxWeeklyTradeCount = weeklyTimeline.reduce((max, week) => Math.max(max, week.count), 0);
-  const maxManagerTradeCount = managerLeaderboard.reduce((max, manager) => Math.max(max, manager.tradeCount), 0);
-  const topMovedAssetCount = assetLeaders.reduce((max, asset) => Math.max(max, asset.count), 0);
-  const myMarketSharePct = tradeTransactions.length > 0 ? Math.round(myStats.tradeCount / tradeTransactions.length * 100) : 0;
-  const chaosScore = calculateMarketChaosScore({
-    tradeCount: tradeTransactions.length,
-    rosterCount: state.normalizedRosters.length,
-    pairCount: pairLeaders.length,
-    movedAssetCount,
-    multiTeamTradeCount,
-    totalTransactions: allCompleteTransactions.length,
-  });
-
-  return {
-    tradeCount: tradeTransactions.length,
-    transactionCount: allCompleteTransactions.length,
-    myTradeCount: myStats.tradeCount,
-    myTradeRank,
-    myTradeRankLabel: myTradeRank > 0 ? `${ordinal(myTradeRank)} of ${managerLeaderboard.length}` : "unranked",
-    myMarketSharePct,
-    favoritePartner: myPartners[0] || null,
-    topPair: pairLeaders[0] || null,
-    pairLeaders,
-    myPartners,
-    managerLeaderboard,
-    assetLeaders,
-    recentTrades: tradeTransactions.slice(0, ANALYTICS_RECENT_TRADE_LIMIT).map(buildRecentTradeSummary),
-    weeklyTimeline,
-    maxWeeklyTradeCount,
-    maxManagerTradeCount,
-    topMovedAssetCount,
-    movedAssetCount,
-    pickMovementCount,
-    playerMovementCount,
-    totalMovedValue: Math.round(totalMovedValue),
-    multiTeamTradeCount,
-    chaosScore,
-    tradeStatusLabel: state.transactionsLoaded
-      ? state.transactionsFailed ? "transactions unavailable" : `${tradeTransactions.length} completed trades`
-      : "syncing transactions",
-  };
-}
-
-function ensureManagerTradeStats(managerStats, rosterId) {
-  const rosterKey = normalizeRosterIdKey(rosterId);
-  if (!managerStats.has(rosterKey)) {
-    managerStats.set(rosterKey, {
-      rosterId,
-      managerName: getRosterManagerName(rosterId),
-      tradeCount: 0,
-      sentAssets: 0,
-      receivedAssets: 0,
-      sentValue: 0,
-      receivedValue: 0,
-    });
-  }
-  return managerStats.get(rosterKey);
-}
-
-function getTransactionParticipantIds(transaction) {
-  return [...new Set((transaction?.roster_ids || [])
-    .map(normalizeRosterIdKey)
-    .filter(Boolean))]
-    .sort((a, b) => Number(a) - Number(b) || a.localeCompare(b));
-}
-
-function buildRosterPairKey(leftRosterId, rightRosterId) {
-  return [normalizeRosterIdKey(leftRosterId), normalizeRosterIdKey(rightRosterId)]
-    .filter(Boolean)
-    .sort((a, b) => Number(a) - Number(b) || a.localeCompare(b))
-    .join("|");
-}
-
-function getRosterManagerName(rosterId) {
-  const rosterKey = normalizeRosterIdKey(rosterId);
-  const roster = state.normalizedRosters.find((entry) => normalizeRosterIdKey(entry.rosterId) === rosterKey);
-  if (roster?.manager?.displayName) return roster.manager.displayName;
-  return resolveRosterIdentity(getFranchiseIndex(), {
-    leagueId: state.leagueId,
-    rosterId: rosterKey,
-  }).managerName;
-}
-
-function buildTradeMovements(transaction) {
-  const movements = [];
-  const adds = transaction?.adds && typeof transaction.adds === "object" ? transaction.adds : {};
-  const drops = transaction?.drops && typeof transaction.drops === "object" ? transaction.drops : {};
-
-  Object.entries(adds).forEach(([playerId, toRosterId]) => {
-    const fromRosterId = drops[playerId];
-    if (fromRosterId == null || toRosterId == null || String(fromRosterId) === String(toRosterId)) return;
-    const asset = buildTransactionPlayerAsset(playerId);
-    const value = getAssetValue(asset, state.values);
-    movements.push({
-      assetId: asset.assetId,
-      assetType: "player",
-      name: asset.name,
-      fromRosterId: normalizeRosterIdKey(fromRosterId),
-      toRosterId: normalizeRosterIdKey(toRosterId),
-      value: Number.isFinite(value) ? value : 0,
-      positionLabel: formatPlayerPositionLabel(asset),
-    });
-  });
-
-  (Array.isArray(transaction?.draft_picks) ? transaction.draft_picks : []).forEach((pick) => {
-    const fromRosterId = pick?.previous_owner_id;
-    const toRosterId = pick?.owner_id;
-    if (fromRosterId == null || toRosterId == null || String(fromRosterId) === String(toRosterId)) return;
-    const asset = buildTransactionPickAsset(pick, transaction);
-    const pickValue = getAssetValue(asset, state.values);
-    const value = Number(asset.draftedPlayerValue) > 0
-      ? asset.draftedPlayerValue
-      : (Number.isFinite(pickValue) ? pickValue : 0);
-    movements.push({
-      assetId: asset.assetId,
-      assetType: "pick",
-      name: asset.name,
-      pickLabel: asset.pickLabel,
-      draftedPlayerName: asset.draftedPlayerName,
-      draftedPlayerValue: asset.draftedPlayerValue,
-      fromRosterId: normalizeRosterIdKey(fromRosterId),
-      toRosterId: normalizeRosterIdKey(toRosterId),
-      value: Number.isFinite(value) ? value : 0,
-      positionLabel: "Pick",
-    });
-  });
-
-  return movements;
-}
-
-function buildTransactionPlayerAsset(playerId) {
-  const assetId = `player:${playerId}`;
-  const existingAsset = state.normalizedRosters
-    .flatMap((roster) => roster.assets)
-    .find((asset) => asset.assetId === assetId);
-  if (existingAsset) return existingAsset;
-
-  const raw = state.players?.[String(playerId)] || {};
-  const name = raw.full_name
-    || `${(raw.first_name || "").trim()} ${(raw.last_name || "").trim()}`.trim()
-    || state.valueNameMap[assetId]
-    || `Player ${playerId}`;
-  return {
-    assetId,
-    name,
-    assetType: "player",
-    raw,
-  };
-}
-
-function resolveDraftedPlayerName(selection) {
-  if (!selection) return "";
-  const mapped = selection.playerId ? playerNameById(selection.playerId) : "";
-  if (mapped && !/^Player\s/i.test(mapped)) return mapped;
-  return String(selection.metaName || "").trim() || mapped;
-}
-
-function lookupTradePickSelection(pick, transaction = null) {
-  const season = pick?.season != null ? String(pick.season) : "";
-  const round = Number(pick?.round);
-  const originalRosterId = pick?.roster_id ?? pick?.original_owner;
-  if (!season || !Number.isFinite(round) || originalRosterId == null || originalRosterId === "any") {
-    return null;
-  }
-  const sourceLeagueId = transaction?.sourceLeagueId || state.leagueId;
-  const ownerInfo = getHistoryRosterInfo(sourceLeagueId, originalRosterId);
-  return lookupDraftedSelection(state.draftedPickByKey, {
-    season,
-    round,
-    originalRosterId,
-    ownerKey: ownerInfo?.managerKey || "",
-  });
-}
-
-function findOwnedPickAsset(season, round, originalOwner) {
-  const assetId = `pick:${season}:r${round}:${originalOwner}`;
-  for (const roster of state.normalizedRosters || []) {
-    const hit = (roster.assets || []).find((asset) => asset.assetType === "pick" && asset.assetId === assetId);
-    if (hit) return hit;
-  }
-  return null;
-}
-
-function buildTransactionPickAsset(pick, transaction = null) {
-  const season = pick?.season != null ? String(pick.season) : "";
-  const round = Number(pick?.round);
-  const originalOwner = pick?.roster_id ?? pick?.original_owner ?? "any";
-  const owned = findOwnedPickAsset(season, round, originalOwner);
-  if (owned) return owned;
-  const userById = new Map(state.users.map((user) => [String(user.user_id), user]));
-  const rosterById = new Map(state.rosters.map((roster) => [String(roster.roster_id), roster]));
-  const ownerName = resolvePickOwnerName(originalOwner, rosterById, userById);
-  const roundLabel = Number.isFinite(round) ? ordinal(round) : "pick";
-  const pickLabel = `${season} ${roundLabel}${ownerName ? ` from ${ownerName}` : ""}`.trim();
-  const selection = lookupTradePickSelection(pick, transaction);
-  const draftedPlayerName = resolveDraftedPlayerName(selection);
-  const draftedPlayerValue = selection?.playerId ? playerValueById(selection.playerId) : 0;
-  const placeLookup = currentProjectedPlaceLookup();
-  const place = currentPlaceForOwner(originalOwner, placeLookup);
-  const projection = resolvePickProjection({
-    season,
-    round,
-    leagueSeason: state.league?.season,
-    place,
-  });
-  const bucket = projection.valueBucket;
-  let name = formatPickWithSelection(pickLabel, draftedPlayerName, draftedPlayerValue, formatNumber);
-  if (!draftedPlayerName) {
-    name = formatPickLabel({
-      season,
-      round,
-      ownerName,
-      bucket: projection.nameBucket,
-      rank: projection.rank,
-      total: projection.total,
-      slot: projection.slot,
-    }) || name;
-  }
-  const normalizedPick = {
-    ...pick,
-    season,
-    round,
-    roster_id: originalOwner,
-    original_owner: originalOwner,
-    owner_id: pick?.owner_id ?? originalOwner,
-    ktcBucket: bucket,
-    projectedDraftSlot: projection.slot,
-  };
-  return {
-    assetId: `pick:${season}:r${round}:${originalOwner}`,
-    valueAssetId: buildPickValueAssetId(normalizedPick, bucket),
-    valueBucket: bucket,
-    name,
-    pickLabel,
-    draftedPlayerName,
-    draftedPlayerId: selection?.playerId ? String(selection.playerId) : "",
-    draftedPlayerValue,
-    assetType: "pick",
-    raw: normalizedPick,
-  };
-}
-
-function buildWeeklyTradeTimeline(weeklyMap) {
-  const endWeek = Math.max(
-    TRANSACTION_WEEK_FALLBACK_END,
-    ...[...weeklyMap.keys()].map((week) => Number(week)).filter(Number.isFinite)
-  );
-  const weeks = [];
-  for (let week = TRANSACTION_WEEK_START; week <= endWeek; week++) {
-    const entry = weeklyMap.get(week) || { week, count: 0, movedValue: 0 };
-    weeks.push({
-      week,
-      count: entry.count,
-      movedValue: Math.round(entry.movedValue || 0),
-    });
-  }
-  return weeks;
-}
-
-function calculateMarketChaosScore({ tradeCount, rosterCount, pairCount, movedAssetCount, multiTeamTradeCount, totalTransactions }) {
-  if (!rosterCount) return 1;
-  const tradeDensity = tradeCount / rosterCount;
-  const pairDensity = pairCount / Math.max(1, rosterCount);
-  const transactionDensity = totalTransactions / Math.max(1, rosterCount * 6);
-  return clamp(Math.round(
-    tradeDensity * 28
-      + pairDensity * 22
-      + movedAssetCount * 1.6
-      + multiTeamTradeCount * 8
-      + transactionDensity * 18
-  ), 1, 99);
-}
-
-function buildRecentTradeSummary(transaction) {
-  const participantIds = getTransactionParticipantIds(transaction);
-  const participantNames = participantIds.map(getRosterManagerName);
-  const movements = buildTradeMovements(transaction);
-  const byRecipient = new Map();
-  movements.forEach((movement) => {
-    if (!byRecipient.has(movement.toRosterId)) byRecipient.set(movement.toRosterId, []);
-    byRecipient.get(movement.toRosterId).push(movement);
-  });
-  const preview = participantIds
-    .map((rosterId) => {
-      const assets = byRecipient.get(rosterId) || [];
-      const names = assets.slice(0, 3).map((asset) => asset.name);
-      const suffix = assets.length > 3 ? ` +${assets.length - 3}` : "";
-      return `${getRosterManagerName(rosterId)} got ${names.length ? names.join(", ") + suffix : "value"}`;
-    })
-    .join(" | ");
-  const date = formatTransactionDate(transaction.status_updated || transaction.created);
-  return {
-    title: participantNames.join(" / "),
-    subtitle: `${date} • ${playersAndPicksLabel(movements.length)} moved`,
-    preview: preview || "Trade details unavailable from Sleeper payload.",
-  };
-}
-
-function formatTransactionDate(timestamp) {
-  const numeric = Number(timestamp);
-  if (!Number.isFinite(numeric) || numeric <= 0) return "Unknown date";
-  try {
-    return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(numeric));
-  } catch {
-    return "Unknown date";
-  }
-}
-
-function median(values) {
-  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
-  if (sorted.length === 0) return 0;
-  const middle = Math.floor(sorted.length / 2);
-  if (sorted.length % 2) return sorted[middle];
-  return Math.round((sorted[middle - 1] + sorted[middle]) / 2);
 }
 
 function buildLeaguePowerContext({ league, rosters, values, metricsByRosterId = null }) {
@@ -11671,19 +8453,6 @@ function buildTradeMatchProfiles(powerProfiles = null) {
       });
     })
     .filter(Boolean);
-}
-
-function buildTradeMatchPreview(powerProfiles = null) {
-  const meRoster = getMyRoster();
-  if (!meRoster || !Object.keys(state.values || {}).length) return null;
-  const matchProfiles = buildTradeMatchProfiles(powerProfiles);
-  const mine = matchProfiles.find((profile) => String(profile.rosterId) === String(meRoster.rosterId));
-  if (!mine) return null;
-  return previewBestMatch(
-    mine,
-    matchProfiles.filter((profile) => String(profile.rosterId) !== String(meRoster.rosterId)),
-    { voice: sampleVoice() },
-  );
 }
 
 function syncMatchGenerateState() {
@@ -12980,7 +9749,7 @@ function buildRosterAfterTrade(roster, incomingAssets, outgoingAssets) {
 function evaluateRosterStrength(roster, values, league) {
   const starterSlots = getStarterRosterSlots(league);
   // Starter XP is dynasty price. This week's start chance belongs to sit/start only.
-  const lineupResult = buildOptimalStartingLineup(roster.assets, starterSlots, values, { thisWeek: false });
+  const lineupResult = buildOptimalStartingLineup(roster.assets, starterSlots, values);
 
   return {
     lineup: lineupResult.starters,
@@ -13010,16 +9779,10 @@ function compareRosterStrength(left, right) {
   return right.totalValue - left.totalValue;
 }
 
-function buildOptimalStartingLineup(assets, starterSlots, values, { thisWeek = false } = {}) {
+function buildOptimalStartingLineup(assets, starterSlots, values) {
   const playerEntries = assets
     .filter((asset) => asset.assetType === "player")
-    .map((asset) => ({
-      asset,
-      value: lineupFillValue({
-        startChance: thisWeek ? weeklyModelForAsset(asset)?.score : undefined,
-        dynastyValue: getAssetValue(asset, values),
-      }),
-    }))
+    .map((asset) => ({ asset, value: getAssetValue(asset, values) }))
     .sort((a, b) => b.value - a.value);
 
   const candidates = buildLineupCandidatePool(playerEntries, starterSlots);
@@ -16030,61 +12793,6 @@ function setButtonLoading(button, isLoading, loadingText = "Loading...") {
   button.textContent = isLoading ? loadingText : button.dataset.defaultLabel;
 }
 
-function marketBoardHint() {
-  const caveat = marketCaveat(state.league);
-  const meta = state.valueBundles?.meta || {};
-  const model = state.valueBundles?.modelVersion || "football model";
-  const hint = `Independent full-PPR football forecast (${model}). League settings and local trades do not reprice players.`;
-  return caveat ? `${caveat} ${hint}` : hint;
-}
-
-function refreshLeagueBoard() {
-  const trades = [...(state.transactions || []), ...(state.historyTransactions || [])];
-  if (!Object.keys(state.values || {}).length) {
-    state.leagueBoard = emptyLeagueBoard();
-    return state.leagueBoard;
-  }
-  state.leagueBoard = buildLeagueBoard({
-    trades,
-    resolveAsset: resolveLeagueBoardAsset,
-  });
-  return state.leagueBoard;
-}
-
-function resolveLeagueBoardAsset(token) {
-  if (token?.assetType === "player" || token?.playerId) {
-    const asset = buildTransactionPlayerAsset(token.playerId);
-    const marketValue = getAssetValue(asset, state.values);
-    return {
-      ...token,
-      asset,
-      assetId: asset.assetId,
-      name: asset.name,
-      marketValue,
-      position: playerPositionForAsset(asset),
-      ageBucket: ageBucketForAsset(asset),
-      boomBust: isBoomBustAsset(asset, marketValue),
-    };
-  }
-  const asset = buildTransactionPickAsset(token.pick);
-  const marketValue = getAssetValue(asset, state.values);
-  const season = asset.raw?.season != null ? String(asset.raw.season) : "";
-  const round = Number(asset.raw?.round);
-  const pickName = Number.isFinite(round)
-    ? `${season} ${ordinal(round)}`.trim()
-    : String(token.assetId || "Pick");
-  return {
-    ...token,
-    asset,
-    assetId: token.assetId || (Number.isFinite(round) ? `pick:${season}:r${round}:any` : asset.assetId),
-    name: pickName,
-    marketValue,
-    position: "PICK",
-    ageBucket: "pick",
-    boomBust: false,
-  };
-}
-
 function valuesFreshness(now = new Date()) {
   return valuesUpdatedStatus(valuationStamp(state.valueBundles), now);
 }
@@ -16103,11 +12811,6 @@ function renderAssetValueBadge(asset, values = state.values) {
       <strong>${renderAssetValuePlain(asset, values)}</strong>
     </span>
   `;
-}
-
-function renderPickVaultIntro() {
-  if (!nextMockSeason(state.mockDrafts)) return "";
-  return `<p class="muted small pick-mock-note"><button type="button" class="inline-link" data-action="go" data-page="league" data-room="board" data-open-mock="1">Full board</button></p>`;
 }
 
 function renderPickVaultRow(asset, values) {
@@ -16265,7 +12968,6 @@ function projectedPlaceKey() {
     state.seasonLoaded ? 1 : 0,
     state.playerMetadataLoaded ? 1 : 0,
     valuationCacheVersion(),
-    nextMockSeason(state.mockDrafts),
     settings,
   ].join("|");
 }
@@ -16661,21 +13363,6 @@ function primeValuationData() {
   });
 }
 
-async function ensureMockDraftsLoaded() {
-  if (nextMockSeason(state.mockDrafts)) return state.mockDrafts;
-  if (state.mockDraftsPromise) return state.mockDraftsPromise;
-  state.mockDraftsPromise = fetchMockDrafts()
-    .then((board) => {
-      state.mockDrafts = board;
-      return board;
-    })
-    .catch(() => {
-      state.mockDraftsPromise = null;
-      return state.mockDrafts;
-    });
-  return state.mockDraftsPromise;
-}
-
 async function ensureValuesLoaded(optionalUrl = "") {
   if (optionalUrl) {
     return applyValuationBundle(await loadValues(), { rerender: false });
@@ -16715,7 +13402,6 @@ function applyValuationBundle(bundle, { rerender = true } = {}) {
   refreshPlayerPositionRanks();
   state.pickValueCatalog = buildPickValuationCatalog(state.values, state.valueNameMap);
   state.globalMaxPlayerValue = getGlobalMaxPlayerValue(state.values);
-  refreshLeagueBoard();
 
   if (state.league && state.rosters.length > 0 && state.users.length > 0) {
     state.normalizedRosters = normalizeRosters(
@@ -17055,9 +13741,7 @@ function syncDocumentMeta() {
     room: place.view,
   });
   const room = state.leagueId ? getRoom() : "";
-  const description = publicRanksOpen && !state.leagueId
-    ? "Independent full-PPR dynasty player and pick values from football production, role, age, availability, and team context."
-    : buildPageDescription({
+  const description = buildPageDescription({
       page: state.leagueId ? state.activePage : (place.titleTab || ""),
       leagueName: state.leagueName,
       loaded: Boolean(state.leagueId),

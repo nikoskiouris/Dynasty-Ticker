@@ -18,7 +18,7 @@ import {
   compareRosterRecord,
   playoffWeekCount,
   transactionWeekEnd,
-} from "../docs/modules/season.js";
+} from "../docs/modules/standings.js";
 
 function leagueFixture({
   lastScored = 1,

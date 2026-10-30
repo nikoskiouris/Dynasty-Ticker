@@ -10,7 +10,7 @@ import {
   formatPickSlotLabel,
   projectedDraftSlot,
 } from "../docs/modules/mock-drafts.js";
-import { ordinal } from "../docs/modules/season.js";
+import { ordinal } from "../docs/modules/standings.js";
 import {
   bucketForProjectedSlot,
   chooseLeadPick,
