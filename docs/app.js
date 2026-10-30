@@ -1215,6 +1215,11 @@ function renderTradesRoom(room) {
 function bootFromUrl() {
   sampleBannerOff = false;
   clearSampleBannerDismissal();
+  // Removed league rooms (week, league, activity, history) open My team before anything is reported.
+  const removedRoom = /^\/l\/(\d{1,20})\/(?:week|league|activity|history)\/?$/.exec(window.location.pathname);
+  if (removedRoom && typeof history?.replaceState === "function") {
+    history.replaceState(history.state, "", `${urlPath("l", removedRoom[1], "team")}${window.location.search}`);
+  }
   const route = resolveLocation(window.location.pathname, window.location.search);
   bootRoute = route;
   const parsed = parseShareParams(window.location.search);
