@@ -16,9 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "docs" / "data"
 MAX_VALUE_AGE_DAYS = 21
-MOCK_WARN_DAYS = 45
 POSITIONS = {"QB", "RB", "WR", "TE"}
-SKILL = POSITIONS
 
 
 def parse_stamp(value: str) -> datetime | None:
@@ -119,75 +117,6 @@ def check_player_values(
     return errors, warnings
 
 
-def check_schedule(data: dict) -> tuple[list[str], list[str]]:
-    errors: list[str] = []
-    warnings: list[str] = []
-    if not isinstance(data, dict):
-        return ["nfl_schedule.json is not an object"], warnings
-    games = data.get("games")
-    seasons = data.get("seasons")
-    if not isinstance(games, list) or not games:
-        return ["nfl_schedule.json has no games"], warnings
-    if not isinstance(seasons, list) or not seasons:
-        errors.append("nfl_schedule.json has no seasons")
-        seasons = []
-    seen = {str(season): set() for season in seasons}
-    for game in games:
-        if not isinstance(game, dict):
-            errors.append("nfl_schedule.json has a non-object game")
-            break
-        season = str(game.get("season") or "")
-        week = game.get("week")
-        home = str(game.get("home") or "")
-        away = str(game.get("away") or "")
-        if season not in seen:
-            errors.append(f"nfl_schedule game season {season} is not listed")
-            break
-        if isinstance(week, bool) or not isinstance(week, int) or not 1 <= week <= 18:
-            errors.append(f"nfl_schedule week is not 1-18: {week!r}")
-            break
-        if not home.isalpha() or not away.isalpha() or not 2 <= len(home) <= 3 or not 2 <= len(away) <= 3:
-            errors.append(f"nfl_schedule teams look wrong: {home} {away}")
-            break
-        seen[season].add(week)
-    for season, weeks in seen.items():
-        missing = [week for week in range(1, 19) if week not in weeks]
-        if missing:
-            errors.append(f"nfl_schedule {season} missing weeks {missing}")
-    if not data.get("updated"):
-        warnings.append("nfl_schedule.json has no updated stamp, so age cannot be checked")
-    return errors, warnings
-
-
-def check_mock(data: dict, now: datetime) -> tuple[list[str], list[str]]:
-    errors: list[str] = []
-    warnings: list[str] = []
-    if not isinstance(data, dict):
-        return ["nfl_mock_drafts.json is not an object"], warnings
-    mocks = data.get("mocks")
-    if not isinstance(mocks, list) or not mocks:
-        return ["nfl_mock_drafts.json has no mocks"], warnings
-    picks = mocks[0].get("picks") if isinstance(mocks[0], dict) else None
-    if not isinstance(picks, list) or len(picks) < 20:
-        errors.append("nfl_mock_drafts.json has fewer than 20 picks")
-        picks = picks if isinstance(picks, list) else []
-    for pick in picks:
-        if not isinstance(pick, dict) or pick.get("pos") not in SKILL:
-            errors.append("nfl_mock_drafts.json has a non-skill pick")
-            break
-        if not isinstance(pick.get("round"), int) or pick["round"] > 2:
-            errors.append("nfl_mock_drafts.json has a pick past round 2")
-            break
-    stamp = parse_stamp(str(data.get("updated") or ""))
-    if stamp is None:
-        errors.append("nfl_mock_drafts.json updated is not a date")
-    else:
-        days = age_days(stamp, now)
-        if days > MOCK_WARN_DAYS:
-            warnings.append(f"rookie mock article date is {days:.0f} days old")
-    return errors, warnings
-
-
 def check_draft_picks(data: dict) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -220,8 +149,6 @@ def check_files(
     warnings: list[str] = []
     specs = (
         ("player_values.json", check_player_values),
-        ("nfl_schedule.json", None),
-        ("nfl_mock_drafts.json", None),
         ("nfl_draft_picks.json", None),
     )
     loaded = {}
@@ -235,14 +162,6 @@ def check_files(
         found, warned = check_player_values(
             loaded["player_values.json"], now, max_age_days, fail_on_age=fail_on_age
         )
-        errors.extend(found)
-        warnings.extend(warned)
-    if "nfl_schedule.json" in loaded:
-        found, warned = check_schedule(loaded["nfl_schedule.json"])
-        errors.extend(found)
-        warnings.extend(warned)
-    if "nfl_mock_drafts.json" in loaded:
-        found, warned = check_mock(loaded["nfl_mock_drafts.json"], now)
         errors.extend(found)
         warnings.extend(warned)
     if "nfl_draft_picks.json" in loaded:

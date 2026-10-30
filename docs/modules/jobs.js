@@ -3,14 +3,6 @@ import { isRoomVisible, leagueTypeId } from "./league-format.js";
 
 export const DESK_JOBS = Object.freeze([
   {
-    id: "players",
-    page: "players",
-    room: "ranks",
-    label: "Players",
-    blurb: "What is this player worth?",
-    cta: "look up a player",
-  },
-  {
     id: "trade",
     page: "trades",
     room: "calculator",
@@ -23,7 +15,7 @@ export const DESK_JOBS = Object.freeze([
     page: "league",
     room: "team",
     label: "My team",
-    blurb: "Outlook, roster, and next move",
+    blurb: "Roster, picks, standings, playoff odds",
     cta: "see your team",
   },
   {
@@ -31,34 +23,12 @@ export const DESK_JOBS = Object.freeze([
     page: "trades",
     room: "find",
     label: "Find a trade",
-    blurb: "Shop, target, or a partner",
+    blurb: "1-for-1 and 2-for-1 ideas",
     cta: "find a trade",
   },
 ]);
 
-export const DESK_MORE_JOBS = Object.freeze([
-  {
-    id: "week",
-    page: "league",
-    room: "scores",
-    label: "This week",
-    blurb: "Matchups, scores, and weekly honors",
-  },
-  {
-    id: "board",
-    page: "league",
-    room: "board",
-    label: "League",
-    blurb: "Standings, season honors, and the rookie mock",
-  },
-  {
-    id: "history",
-    page: "league",
-    room: "history",
-    label: "History",
-    blurb: "Titles, records, who stayed",
-  },
-]);
+export const DESK_MORE_JOBS = Object.freeze([]);
 
 export const DEFAULT_LANDING_HINT = "Type your Sleeper username, then pick a league.";
 
