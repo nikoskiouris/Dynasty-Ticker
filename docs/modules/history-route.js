@@ -349,6 +349,7 @@ export function pathForPlace({
   }
   const leagueSegment = placePage === "league" ? LEAGUE_ROOM_SEGMENT[placeRoom] : "";
   if (sleeperId) href = playerPathname(sleeperId, playerName);
+  else if (placePage === "trades" && placeRoom === "calculator" && landing && !give.length && !get.length) href = urlPath();
   else if (placePage === "trades" && placeRoom === "calculator") href = tradeHref(give, get, leagueId);
   else if (placePage === "trades" && placeRoom === "find" && LEAGUE_ID.test(String(leagueId || ""))) {
     href = urlPath("l", leagueId, "ideas");

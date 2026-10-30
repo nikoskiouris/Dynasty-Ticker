@@ -187,8 +187,8 @@ test("add to trade puts a player on the side his owner implies", () => {
 
 test("connecting keeps the page the visitor was working on", () => {
   assert.deepEqual(placeAfterConnect({ activePage: "trades", tradesRoom: "calculator" }), { page: "trades", room: "calculator" });
-  assert.deepEqual(placeAfterConnect({ activePage: "players", selectedAssetId: "player:9509" }), { page: "players", room: "ranks" });
-  assert.equal(placeAfterConnect({ activePage: "players" }), null);
+  assert.deepEqual(placeAfterConnect({ activePage: "trades", tradesRoom: "find" }), { page: "trades", room: "find" });
+  assert.equal(placeAfterConnect({ activePage: "" }), null);
   const shared = { page: "league", room: "scores" };
   assert.equal(placeAfterConnect({ activePage: "trades", pendingPlace: shared }), shared);
 });

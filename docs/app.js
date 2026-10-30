@@ -2955,9 +2955,9 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     // Switching leagues is a new place, so Back returns to the league you left.
     const switchingLeagues = Boolean(state.leagueId) && !sameLeague && !fromHistory;
     const keepPlace = placeAfterConnect({
-      activePage: state.activePage,
+      // The landing sits over the default trades page; connecting from it opens My team.
+      activePage: landingVisible() ? "" : state.activePage,
       tradesRoom: getRoom("trades"),
-      selectedAssetId: state.ranks?.selectedId || "",
       pendingPlace: state.pendingPlace,
     });
     if (switchingLeagues && typeof history?.pushState === "function") {
