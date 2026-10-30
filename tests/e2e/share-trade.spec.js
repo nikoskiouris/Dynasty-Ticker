@@ -415,13 +415,13 @@ test("leaving a cold /t restores the app title, including back and forward", asy
   await expect(page.locator("[data-draft-side='right'] .calc-pane-total small")).toHaveAttribute("title", "2 picks");
   await page.locator("[data-action='shared-check-own']").click();
   await expect(page).toHaveURL(/\/trade$/);
-  await expect(page).toHaveTitle("Trade · Dynasty Ticker");
+  await expect(page).toHaveTitle("Check a trade · Dynasty Ticker");
   await page.goBack();
   await expect(page).toHaveURL(new RegExp(`/t/${code}/?$`));
   await expect(page).toHaveTitle(serverTitle);
   await page.goForward();
   await expect(page).toHaveURL(/\/trade$/);
-  await expect(page).toHaveTitle("Trade · Dynasty Ticker");
+  await expect(page).toHaveTitle("Check a trade · Dynasty Ticker");
 });
 
 test("cold /t at 1280 keeps the server title and the shared layout", async ({ page, request }) => {
