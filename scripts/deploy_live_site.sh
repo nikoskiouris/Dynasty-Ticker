@@ -25,7 +25,7 @@ node scripts/deploy_bundle_expect.mjs "$root"
 # Keep in step with the bundler versions netlify-cli@NETLIFY_CLI_VERSION resolves.
 NETLIFY_CLI_VERSION="27.12.1"
 
-# VISIT_SALT and RATHER_SALT must exist on the Netlify site before functions
+# VISIT_SALT must exist on the Netlify site before functions
 # boot. Missing or public defaults are replaced with a random secret.
 # Already-set secrets are left alone. Values are not printed.
 python3 scripts/ensure_netlify_salts.py

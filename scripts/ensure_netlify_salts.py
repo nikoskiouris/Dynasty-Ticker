@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Ensure Netlify function salts exist before a live deploy.
 
-VISIT_SALT and RATHER_SALT must be site environment variables available to
+VISIT_SALT must be a site environment variable available to
 Functions (and Runtime). The old public defaults are rejected. A salt that is
 already a real secret is left alone. A missing salt, a builds-only salt, or a
 known default is replaced. The value is never printed.
 
-If VISIT_SALT or RATHER_SALT is set in the environment, that value is copied
+If VISIT_SALT is set in the environment, that value is copied
 to Netlify. Otherwise a random secret is generated.
 """
 
@@ -20,11 +20,10 @@ import urllib.request
 
 REJECTED_SALTS = frozenset({
     "dynasty-ticker-traffic-v1",
-    "dynasty-ticker-rather-v1",
 })
 FUNCTION_SCOPES = frozenset({"functions", "runtime"})
 LIVE_CONTEXTS = frozenset({"all", "production"})
-SALT_KEYS = ("VISIT_SALT", "RATHER_SALT")
+SALT_KEYS = ("VISIT_SALT",)
 
 
 def salt_action(var):
@@ -136,7 +135,7 @@ def ensure_salts(token, site_id):
     account_id = site.get("account_id") if isinstance(site, dict) else ""
     if status != 200 or not account_id:
         print(
-            "Could not read the Netlify site. Refusing to deploy without VISIT_SALT and RATHER_SALT.",
+            "Could not read the Netlify site. Refusing to deploy without VISIT_SALT.",
             file=sys.stderr,
         )
         return 1
