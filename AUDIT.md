@@ -58,9 +58,9 @@ Impact is script execution on the site origin for anyone who opens a league whos
 
 ### Write APIs
 
-`netlify/lib/rather-crowd.js` checks vote shape (`player:<id>`), rejects same-player pairs, and limits a visitor to 40 votes an hour and 400 ms between votes. The visitor hash salt is the literal `dynasty-ticker-rather-v1` in that file (`RATHER_SALT`). The same pattern is `dynasty-ticker-traffic-v1` in `netlify/lib/traffic.js`. Anyone can recompute the hash from IP plus user agent.
+The rather-vote endpoint (`netlify/lib/rather-crowd.js`) and its salt were removed with "Would you rather" (PR #195). The visitor-hash salt pattern is pattern is `dynasty-ticker-traffic-v1` in `netlify/lib/traffic.js`. Anyone can recompute the hash from IP plus user agent.
 
-`isAllowedWrite` (`netlify/lib/traffic.js` line 396) allows a POST when the `Origin` or `Referer` header is `https://dynastyticker.com`. Non-browser clients can set that header. The rather endpoint still has the per-IP limit. **`searched-user` has no rate limit.** It appends Sleeper usernames to one CSV blob (`netlify/lib/searched-users.js`). Username cells are sanitized (no commas, no spreadsheet formulas). The list is not served back over HTTP. A client that spoofs `Origin` can still grow the blob.
+`isAllowedWrite` (`netlify/lib/traffic.js` line 396) allows a POST when the `Origin` or `Referer` header is `https://dynastyticker.com`. Non-browser clients can set that header. **`searched-user` has no rate limit.** It appends Sleeper usernames to one CSV blob (`netlify/lib/searched-users.js`). Username cells are sanitized (no commas, no spreadsheet formulas). The list is not served back over HTTP. A client that spoofs `Origin` can still grow the blob.
 
 Rather votes are stored forever in one JSON object. `applyRatherVote` does `votes.unshift` with no cap. `GET /api/rather-vote` returns every vote. On 2026-10-06 that payload was **10,339 bytes, 77 votes**. Fine today. The design breaks when the blob gets large: every landing view on the live domain downloads the full history, and a full blob fails the write.
 

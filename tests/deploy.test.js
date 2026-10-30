@@ -61,7 +61,7 @@ test("live deploy script uses Netlify CLI, not a build hook", () => {
   assert.match(script, /netlify_stop_git_builds\.sh/);
   assert.match(script, /ensure_netlify_salts\.py/);
   assert.match(script, /VISIT_SALT/);
-  assert.match(script, /RATHER_SALT/);
+  assert.doesNotMatch(script, /RATHER_SALT/);
   assert.doesNotMatch(script, /NETLIFY_BUILD_HOOK/);
   // No build hooks: the only curl is the read-only post-deploy card check.
   assert.doesNotMatch(script.slice(0, script.indexOf("# Post-deploy:")), /curl/);
