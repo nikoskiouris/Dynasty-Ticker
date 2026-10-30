@@ -8,7 +8,6 @@ import {
   compareRosterRecord,
   pointsAgainstFromSettings,
   sleeperPoints,
-  transactionWeekEnd,
   weekRowsFingerprint,
 } from "./modules/standings.js";
 import {
@@ -21,13 +20,8 @@ import {
   DEFAULT_ROOMS,
   HOME_ROOM,
   DEFAULT_FAIRNESS_PCT,
-  TRANSACTION_WEEK_START,
-  TRANSACTION_WEEK_FALLBACK_END,
   MAX_HISTORY_SEASONS,
-  HISTORY_TRANSACTION_SEASON_LIMIT,
-  HISTORY_MATCHUP_SEASON_LIMIT,
   PHONE_LAYOUT_QUERY,
-  MATCHUP_FETCH_CHUNK,
 } from "./modules/constants.js";
 import { bindMobileChromeScroll } from "./modules/mobile-chrome-scroll.js";
 import { state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
@@ -48,7 +42,6 @@ import {
   apiGet,
   apiGetWithRetry,
   fetchUserLeagues,
-  mapInChunks,
   loadPlayersCacheEntry,
   savePlayersCacheEntry,
   playersCacheIsFresh,
@@ -265,11 +258,7 @@ import {
   launchTrendMarkup,
 } from "./modules/launch-landing.js";
 import { decodeTradeShare, encodeTradeShare, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
-import {
-  analyzeWindowCall,
-  groupWindowCalls,
-  windowCallInputFromDesk,
-} from "./modules/window-call.js";
+import { analyzeWindowCall, windowCallInputFromDesk } from "./modules/window-call.js";
 import { chooseBestLineup } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
@@ -280,7 +269,6 @@ import {
   mergeDraftSelectionIndex,
   ownerKeyByRosterIdFromRosters,
   slotToRosterIdFromDraft,
-  sortDraftsForSelectionIngest,
 } from "./modules/draft-picks.js";
 import {
   compareTradeSearchPicks,
@@ -3076,10 +3064,6 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       missingTeam ? { error: true } : { loading: true },
     );
     loadTrendingPlayers();
-    loadLeagueTransactions(leagueId, league);
-    loadLeagueHistoryTransactions(leagueHistory);
-    loadLeagueHistoryMatchups(leagueHistory);
-    loadDraftSelectionIndex(leagueHistory);
 
     const playersEpoch = playerLoadEpoch;
     loadPlayersWithCache()
@@ -3401,62 +3385,6 @@ function ingestDraftSelections(season, draftDetails, draftPicks, rosters = []) {
   mergeDraftSelectionIndex(state.draftedPickByKey, indexed);
 }
 
-function collectDraftIngestJobs(historyEntries = []) {
-  const jobs = [];
-  const seenDraftIds = new Set();
-  (Array.isArray(historyEntries) ? historyEntries : []).forEach((entry) => {
-    const draftIds = [];
-    const drafts = [...(Array.isArray(entry?.drafts) ? entry.drafts : [])];
-    const leagueDraftId = String(entry?.league?.draft_id || "").trim();
-    if (leagueDraftId && !drafts.some((draft) => String(draft?.draft_id || "") === leagueDraftId)) {
-      drafts.push({ draft_id: leagueDraftId, settings: { rounds: 0 } });
-    }
-    sortDraftsForSelectionIngest(drafts).forEach((draft) => {
-      const draftId = String(draft?.draft_id || "").trim();
-      if (!draftId || seenDraftIds.has(draftId)) return;
-      seenDraftIds.add(draftId);
-      draftIds.push(draftId);
-    });
-    draftIds.forEach((draftId) => {
-      jobs.push({
-        draftId,
-        seasonHint: String(entry?.season || ""),
-        rosters: Array.isArray(entry?.rosters) ? entry.rosters : [],
-      });
-    });
-  });
-  return jobs;
-}
-
-async function loadDraftSelectionIndex(historyEntries = []) {
-  const activeLeagueId = state.leagueId;
-  const jobs = collectDraftIngestJobs(historyEntries);
-  if (!jobs.length) return;
-
-  const settled = await mapInChunks(jobs, MATCHUP_FETCH_CHUNK, async (job) => {
-    const [draftDetails, draftPicks] = await Promise.all([
-      apiGetWithRetry(`/draft/${job.draftId}`, { timeoutMs: 12000, retries: 1 }),
-      apiGetWithRetry(`/draft/${job.draftId}/picks`, { timeoutMs: 12000, retries: 1 }).catch(() => []),
-    ]);
-    return {
-      job,
-      draftDetails,
-      draftPicks: Array.isArray(draftPicks) ? draftPicks : [],
-    };
-  });
-
-  if (state.leagueId !== activeLeagueId) return;
-
-  settled.forEach((result) => {
-    if (result.status !== "fulfilled") return;
-    const { job, draftDetails, draftPicks } = result.value;
-    ingestDraftSelections(draftDetails?.season || job.seasonHint, draftDetails, draftPicks, job.rosters);
-  });
-
-  leagueTradeSideCache = { key: "", sides: [] };
-  requestActivePageRender();
-}
-
 async function loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts = []) {
   const candidateIds = buildCurrentDraftDetailCandidateIds(league, drafts);
   const ingested = [];
@@ -3774,127 +3702,6 @@ async function loadTrendingPlayers() {
   }
 }
 
-async function loadLeagueTransactions(leagueId, league) {
-  const loadLeagueId = String(leagueId || "");
-  state.transactions = [];
-  state.transactionsLoaded = false;
-  state.transactionsFailed = false;
-  state.transactionWeeksLoaded = 0;
-  state.transactionLoadError = "";
-  requestActivePageRender();
-
-  const weeks = buildTransactionWeeks(league);
-  try {
-    const transactions = [];
-    let loadedWeeks = 0;
-    const settled = await mapInChunks(weeks, MATCHUP_FETCH_CHUNK, (week) =>
-      apiGetWithRetry(sleeperLeaguePath(loadLeagueId, `transactions/${week}`), { timeoutMs: 10000, retries: 1 })
-        .then((weekTransactions) => ({
-          week,
-          transactions: Array.isArray(weekTransactions) ? weekTransactions : [],
-        }))
-    );
-
-    if (state.leagueId !== loadLeagueId) return;
-
-    settled.forEach((result) => {
-      if (result.status !== "fulfilled") return;
-      loadedWeeks += 1;
-      result.value.transactions.forEach((transaction) => {
-        transactions.push({
-          ...transaction,
-          leg: transaction?.leg ?? result.value.week,
-          week: result.value.week,
-        });
-      });
-    });
-
-    state.transactions = dedupeTransactions(transactions);
-    state.transactionWeeksLoaded = loadedWeeks;
-    state.transactionsLoaded = true;
-    state.transactionsFailed = loadedWeeks === 0;
-    state.transactionLoadError = loadedWeeks === 0 ? "Sleeper did not return transaction weeks for this league." : "";
-  } catch (err) {
-    if (state.leagueId !== loadLeagueId) return;
-    state.transactions = [];
-    state.transactionsLoaded = true;
-    state.transactionsFailed = true;
-    state.transactionLoadError = err.message || "Could not load Sleeper transactions.";
-  } finally {
-    if (state.leagueId === loadLeagueId) {
-      requestActivePageRender();
-    }
-  }
-}
-
-async function loadLeagueHistoryTransactions(historyEntries = []) {
-  const activeLeagueId = state.leagueId;
-  const historicalEntries = historyEntries
-    .filter((entry) => entry && !entry.isCurrent && entry.leagueId)
-    .slice(0, HISTORY_TRANSACTION_SEASON_LIMIT);
-
-  state.historyTransactions = [];
-  state.historyTransactionsLoaded = historicalEntries.length === 0;
-  state.historyTransactionsFailed = false;
-  state.historyTransactionLeaguesLoaded = 0;
-  state.historyTransactionLoadError = "";
-  requestActivePageRender();
-
-  if (historicalEntries.length === 0) return;
-
-  const transactions = [];
-  let loadedLeagues = 0;
-  try {
-    for (const entry of historicalEntries) {
-      if (state.leagueId !== activeLeagueId) return;
-      const weeks = buildTransactionWeeks(entry.league);
-      let loadedWeeks = 0;
-      const settled = await mapInChunks(weeks, MATCHUP_FETCH_CHUNK, (week) =>
-        apiGetWithRetry(sleeperLeaguePath(entry.leagueId, `transactions/${week}`), { timeoutMs: 10000, retries: 1 })
-          .then((weekTransactions) => ({
-            week,
-            transactions: Array.isArray(weekTransactions) ? weekTransactions : [],
-          }))
-      );
-
-      settled.forEach((result) => {
-        if (result.status !== "fulfilled") return;
-        loadedWeeks += 1;
-        result.value.transactions.forEach((transaction) => {
-          transactions.push({
-            ...transaction,
-            leg: transaction?.leg ?? result.value.week,
-            week: result.value.week,
-            sourceLeagueId: entry.leagueId,
-            sourceSeason: entry.season,
-          });
-        });
-      });
-
-      if (loadedWeeks > 0) loadedLeagues += 1;
-    }
-
-    if (state.leagueId !== activeLeagueId) return;
-    state.historyTransactions = dedupeTransactionsByLeague(transactions);
-    state.historyTransactionsLoaded = true;
-    state.historyTransactionsFailed = loadedLeagues === 0;
-    state.historyTransactionLeaguesLoaded = loadedLeagues;
-    state.historyTransactionLoadError = loadedLeagues === 0
-      ? "Sleeper did not return archived transaction weeks for this league."
-      : "";
-  } catch (err) {
-    if (state.leagueId !== activeLeagueId) return;
-    state.historyTransactions = [];
-    state.historyTransactionsLoaded = true;
-    state.historyTransactionsFailed = true;
-    state.historyTransactionLoadError = err.message || "Could not load archived Sleeper transactions.";
-  } finally {
-    if (state.leagueId === activeLeagueId) {
-      requestActivePageRender();
-    }
-  }
-}
-
 function resetHistoryCompareState() {
   state.historyMatchups = [];
   state.historyMatchupsLoaded = false;
@@ -3908,184 +3715,6 @@ function resetHistoryCompareState() {
     leftManagerKey: "",
     rightManagerKey: "",
   };
-}
-
-async function loadLeagueHistoryMatchups(historyEntries = []) {
-  const activeLeagueId = state.leagueId;
-  const entries = historyEntries
-    .filter((entry) => entry?.leagueId)
-    .slice(0, HISTORY_MATCHUP_SEASON_LIMIT);
-
-  state.historyMatchups = [];
-  state.historyMatchupsLoaded = entries.length === 0;
-  state.historyMatchupsFailed = false;
-  state.historyMatchupLeaguesLoaded = 0;
-  state.historyMatchupLoadError = "";
-  requestActivePageRender();
-
-  if (entries.length === 0) return;
-
-  const matchups = [];
-  let loadedLeagues = 0;
-  try {
-    for (const entry of entries) {
-      if (state.leagueId !== activeLeagueId) return;
-      const weeks = buildTransactionWeeks(entry.league);
-      const playoffStart = Number(entry.league?.settings?.playoff_week_start);
-      const currentWeek = Number(state.nflState?.week) || 1;
-      const orderedWeeks = entry.isCurrent
-        ? [...weeks].sort((a, b) => Math.abs(a - currentWeek) - Math.abs(b - currentWeek) || a - b)
-        : weeks;
-      let loadedWeeks = 0;
-      const chunkSize = MATCHUP_FETCH_CHUNK;
-      for (let i = 0; i < orderedWeeks.length; i += chunkSize) {
-        if (state.leagueId !== activeLeagueId) return;
-        const chunk = orderedWeeks.slice(i, i + chunkSize);
-        const settled = await Promise.allSettled(
-          chunk.map((week) =>
-            apiGetWithRetry(sleeperLeaguePath(entry.leagueId, `matchups/${week}`), { timeoutMs: 15000, retries: 1 })
-              .then((weekMatchups) => ({
-                week,
-                matchups: Array.isArray(weekMatchups) ? weekMatchups : [],
-              }))
-          )
-        );
-        if (state.leagueId !== activeLeagueId) return;
-        settled.forEach((result) => {
-          if (state.leagueId !== activeLeagueId) return;
-          if (result.status !== "fulfilled") return;
-          loadedWeeks += 1;
-          matchups.push(...buildWeekMatchupRecords(entry, result.value.week, result.value.matchups, playoffStart));
-          if (entry.isCurrent) {
-            state.seasonWeekRows.set(Number(result.value.week), result.value.matchups);
-          }
-        });
-        if (entry.isCurrent && loadedWeeks > 0) {
-          state.seasonLoaded = true;
-          state.seasonLoadError = "";
-          invalidateSeasonCaches();
-          renderSessionSnapshot();
-          requestActivePageRender();
-          livePoller?.resume();
-        }
-      }
-      if (loadedWeeks > 0) loadedLeagues += 1;
-      if (entry.isCurrent) {
-        state.seasonLoaded = loadedWeeks > 0;
-        state.seasonLoadError = loadedWeeks > 0 ? "" : "Sleeper did not return matchups for the current season.";
-        invalidateSeasonCaches();
-        settlePickProjection();
-        renderSessionSnapshot();
-        requestActivePageRender();
-        livePoller?.resume();
-      }
-    }
-
-    if (state.leagueId !== activeLeagueId) return;
-    state.historyMatchups = matchups;
-    state.historyMatchupsLoaded = true;
-    state.historyMatchupsFailed = loadedLeagues === 0;
-    state.historyMatchupLeaguesLoaded = loadedLeagues;
-    state.historyMatchupLoadError = loadedLeagues === 0
-      ? "Sleeper did not return archived matchup weeks for this league."
-      : "";
-  } catch (err) {
-    if (state.leagueId !== activeLeagueId) return;
-    state.historyMatchups = [];
-    state.historyMatchupsLoaded = true;
-    state.historyMatchupsFailed = true;
-    state.historyMatchupLoadError = err.message || "Could not load archived Sleeper matchups.";
-  } finally {
-    if (state.leagueId === activeLeagueId) {
-      settlePickProjection();
-      requestActivePageRender();
-    }
-  }
-}
-
-function buildWeekMatchupRecords(entry, week, weekMatchups, playoffStart) {
-  const grouped = new Map();
-  weekMatchups.forEach((row) => {
-    const matchupId = Number(row?.matchup_id);
-    if (!Number.isFinite(matchupId) || matchupId <= 0) return;
-    if (!grouped.has(matchupId)) grouped.set(matchupId, []);
-    grouped.get(matchupId).push(row);
-  });
-
-  const records = [];
-  grouped.forEach((rows, matchupId) => {
-    if (rows.length !== 2) return;
-    const leftInfo = getHistoryRosterInfo(entry.leagueId, rows[0]?.roster_id);
-    const rightInfo = getHistoryRosterInfo(entry.leagueId, rows[1]?.roster_id);
-    if (!leftInfo || !rightInfo || leftInfo.managerKey === rightInfo.managerKey) return;
-    const leftPoints = Number(rows[0]?.points || 0);
-    const rightPoints = Number(rows[1]?.points || 0);
-    if (!(leftPoints > 0 || rightPoints > 0)) return;
-    records.push({
-      season: String(entry.season || ""),
-      leagueId: String(entry.leagueId || ""),
-      week: Number(week),
-      matchupId,
-      isPlayoff: Number.isFinite(playoffStart) && Number(week) >= playoffStart,
-      left: {
-        rosterId: leftInfo.rosterId,
-        managerKey: leftInfo.managerKey,
-        managerName: leftInfo.managerName,
-        points: leftPoints,
-        ...matchupSidePlayers(rows[0]),
-      },
-      right: {
-        rosterId: rightInfo.rosterId,
-        managerKey: rightInfo.managerKey,
-        managerName: rightInfo.managerName,
-        points: rightPoints,
-        ...matchupSidePlayers(rows[1]),
-      },
-    });
-  });
-  return records;
-}
-
-function matchupSidePlayers(row) {
-  const starters = Array.isArray(row?.starters) ? row.starters.map(String).filter((id) => id && id !== "0") : [];
-  const players = Array.isArray(row?.players) ? row.players.map(String).filter((id) => id && id !== "0") : [];
-  return { starters, players: players.length ? players : starters };
-}
-
-function buildTransactionWeeks(league) {
-  const endWeek = transactionWeekEnd(league, {
-    fallbackEnd: TRANSACTION_WEEK_FALLBACK_END,
-    minWeek: TRANSACTION_WEEK_START,
-    maxWeek: 22,
-  });
-  const weeks = [];
-  for (let week = TRANSACTION_WEEK_START; week <= endWeek; week++) {
-    weeks.push(week);
-  }
-  return weeks;
-}
-
-function dedupeTransactions(transactions) {
-  const byId = new Map();
-  transactions.forEach((transaction) => {
-    const transactionId = String(transaction?.transaction_id || "");
-    if (!transactionId || byId.has(transactionId)) return;
-    byId.set(transactionId, transaction);
-  });
-  return [...byId.values()].sort((a, b) => Number(b.status_updated || b.created || 0) - Number(a.status_updated || a.created || 0));
-}
-
-function dedupeTransactionsByLeague(transactions) {
-  const byId = new Map();
-  transactions.forEach((transaction) => {
-    const transactionId = String(transaction?.transaction_id || "");
-    if (!transactionId) return;
-    const sourceLeagueId = String(transaction?.sourceLeagueId || transaction?.league_id || "");
-    const key = `${sourceLeagueId}:${transactionId}`;
-    if (byId.has(key)) return;
-    byId.set(key, transaction);
-  });
-  return [...byId.values()].sort((a, b) => Number(b.status_updated || b.created || 0) - Number(a.status_updated || a.created || 0));
 }
 
 function waitForNextPaint() {
@@ -4361,7 +3990,6 @@ function renderPowerDashboard() {
   const showPicks = leagueUsesFuturePicks(state.league) || Number(profile.assetSummary.pickValue) > 0
     || Number(profile.assetSummary.firstRoundPickCount) > 0;
   el.powerDashboard.innerHTML = `
-    ${renderWindowCallBanner(windowCall)}
     ${renderPowerHero({
       score: profile.score,
       managerName: profile.managerName,
@@ -4503,16 +4131,6 @@ function buildWindowCallForProfile(profile, { model = null, sim } = {}) {
     }),
     sampleVoice: sampleVoice(),
   });
-}
-
-function buildLeagueWindowCalls({ profiles = null, model = null, sim } = {}) {
-  const resolvedProfiles = profiles || buildPowerProfiles();
-  const resolvedModel = model || getSeasonModel();
-  const resolvedSim = sim !== undefined ? sim : getSimulation(resolvedModel);
-  return resolvedProfiles.map((profile) => buildWindowCallForProfile(profile, {
-    model: resolvedModel,
-    sim: resolvedSim,
-  })).filter(Boolean);
 }
 
 function getLensWindowCall({ profiles = null, model = null, sim } = {}) {
@@ -4853,16 +4471,6 @@ function renderLensPicker(roster, { label = "Viewing", extra = "" } = {}) {
   `;
 }
 
-function renderWindowCallBanner(call) {
-  if (!call) return "";
-  return `
-    <div class="window-call-banner ${call.tone}">
-      <strong>${escapeHtml(call.label)}</strong>
-      <span class="window-call-banner-score">${call.confidence}%</span>
-    </div>
-  `;
-}
-
 function renderWindowCallDashboard() {
   const host = el.windowCallDashboard;
   if (!host) return;
@@ -4894,122 +4502,13 @@ function renderWindowCallDashboard() {
     return;
   }
 
-  const leagueCalls = buildLeagueWindowCalls({ profiles, model, sim });
-  const groups = groupWindowCalls(leagueCalls);
-  const other = isViewingOtherRoster(roster);
-  const season = call.horizon === "season";
-  const groupMeta = season
-    ? [
-      { id: "all-in", title: "In it", empty: "Nobody is a lock yet." },
-      { id: "middle", title: "Bubble", empty: "No bubble teams." },
-      { id: "tank", title: "Out", empty: "Everybody still has a pulse." },
-    ]
-    : [
-      { id: "all-in", title: "All in", empty: "Nobody is a finished title team yet." },
-      { id: "middle", title: "Middle", empty: "No one is sitting on the fence." },
-      { id: "tank", title: "Rebuild", empty: "Nobody should be collecting firsts yet." },
-    ];
-
+  const why = call.signals?.[0];
   host.innerHTML = `
     ${renderLensPicker(roster)}
-    <article class="window-call-hero ${call.tone}">
-      <h2>${escapeHtml(call.label)}</h2>
-      <div class="window-call-confidence">
-        <strong>${call.confidence}%</strong>
-      </div>
-    </article>
-    <div class="window-call-axes">
-      ${renderWindowCallAxis("This season", call.nowScore, "pop-season", "Your playoff chances and lineup strength.")}
-      ${season ? "" : renderWindowCallAxis("Next 3 years", call.futureScore, "pop-future", "Young players and picks.")}
-    </div>
-    <div class="window-call-signals">
-      ${call.signals.map(renderWindowCallSignal).join("")}
-    </div>
-    <section class="workspace-panel">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">Next moves</span>
-          <h2>What the ticker wants</h2>
-        </div>
-        <p class="section-copy">${
-          season
-            ? (call.id === "all-in"
-              ? "Win this week. Start the studs. Stream the hole."
-              : call.id === "tank"
-                ? "This year is dead. Waivers over panic trades."
-                : "Still alive. One start/sit upgrade, not a fire sale.")
-            : (call.id === "all-in"
-              ? "Win now. Buy starters. Do not collect dart throws."
-              : call.id === "tank"
-                ? "This year is for capital. Sell vets. Keep the kids."
-                : "No fire sale, no farm sale. One clean upgrade.")
-        }</p>
-      </div>
-      <ol class="window-call-moves">
-        ${call.moves.map((move) => `<li>${escapeHtml(move)}</li>`).join("")}
-      </ol>
-      <div class="window-call-actions">
-        ${other
-          ? `<button type="button" class="ghost-btn" data-action="calc-with" data-roster-id="${escapeHtml(roster.rosterId)}">Build a trade</button>`
-          : `<button type="button" class="ghost-btn" data-action="go" data-page="trades" data-room="lab">Shop a player</button>`}
-      </div>
-    </section>
-    <section class="workspace-panel">
-      <div class="panel-heading">
-        <div>
-          <span class="eyebrow">League board</span>
-          <h2>Who else is in which lane</h2>
-        </div>
-        <p class="section-copy">${season
-          ? "Same call for every roster: playoff odds and this year's lineup. Tap a name to switch."
-          : "Same call for every roster: playoff odds, lineup rank, age, and draft picks. Tap a name to switch."}</p>
-      </div>
-      <div class="window-call-league">
-        ${groupMeta.map((group) => `
-          <article class="window-call-group">
-            <h3>${escapeHtml(group.title)} <em>${groups[group.id].length}</em></h3>
-            ${groups[group.id].length
-              ? groups[group.id].map((row) => renderWindowCallLeagueRow(row, roster)).join("")
-              : `<p class="muted small">${escapeHtml(group.empty)}</p>`}
-          </article>
-        `).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderWindowCallAxis(label, score, tipId, tipText) {
-  const tip = tipId ? infoTipMarkup({ id: tipId, label, text: tipText }) : "";
-  return `
-    <section class="window-call-axis">
-      <div class="window-call-axis-top">
-        <strong>${escapeHtml(label)}${tip}</strong>
-        <span>${score}/99</span>
-      </div>
-      <div class="meter-track" aria-hidden="true"><span style="width:${score}%"></span></div>
-    </section>
-  `;
-}
-
-function renderWindowCallSignal(signal) {
-  const odds = signal.detail === "Odds start once enough games are played.";
-  const tip = odds ? infoTipMarkup({ id: `pop-odds-${signal.id}`, label: "Odds", text: signal.detail }) : "";
-  return `
-    <section class="window-call-signal ${signal.lean || ""}"${odds ? "" : ` title="${escapeHtml(signal.detail || "")}"`}>
-      <span>${escapeHtml(signal.label)}${tip}</span>
-      <strong>${escapeHtml(signal.value)}</strong>
-    </section>
-  `;
-}
-
-function renderWindowCallLeagueRow(call, roster) {
-  const active = String(call.rosterId) === String(roster.rosterId);
-  const you = String(call.rosterId) === String(state.meRosterId ?? "");
-  return `
-    <button type="button" class="window-call-row ${active ? "active" : ""} ${you ? "you" : ""}" data-action="set-lens" data-roster-id="${escapeHtml(call.rosterId)}">
-      ${renderTeamIdentity(call.rosterId, { showTeamName: false, extra: `${call.confidence}% · ${call.nowScore} now / ${call.futureScore} later` })}
-      <span class="mini-chip ${call.tone === "green" ? "green" : call.tone === "rose" ? "rose" : "gold"}">${escapeHtml(call.shortLabel)}</span>
-    </button>
+    <p class="window-call-line ${call.tone}">
+      <strong>${escapeHtml(call.label)}</strong>
+      <span class="muted">${escapeHtml(call.horizon === "season" ? "This season" : "Contend or rebuild")}${why ? ` · ${escapeHtml(why.label)}: ${escapeHtml(why.value)}` : ""} · heuristic call, ${call.confidence}% lean</span>
+    </p>
   `;
 }
 
