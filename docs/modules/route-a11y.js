@@ -39,11 +39,9 @@ export function routeAnnouncement(place = {}, before = {}) {
   const overlay = String(place.overlay || "");
   const player = clean(place.playerName);
   const changed = placeChanged(before, place);
-  if (overlay === "help") return "Help";
   if (overlay === "trade") return "Trade";
   if (overlay === "rail" && !changed) return "Menu";
   if (overlay === "player" || player) return player || "Player";
-  if (overlay === "public-ranks") return ROUTE_TAB_LABELS.players;
   const roomLabel = ROUTE_ROOM_TITLES[place.view] || "";
   if (roomLabel) return roomLabel;
   return ROUTE_TAB_LABELS[place.tab] || "";
