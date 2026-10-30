@@ -102,12 +102,11 @@ export function focusViewHeading(root, { focusVisible = false } = {}) {
   return heading;
 }
 
-const LEAGUE_ROOM_HEADINGS = Object.freeze({
-  team: "#power-heading",
-  board: "#league-heading",
-  scores: "#scores-heading",
-  activity: "#activity-heading",
-  history: "#history-heading",
+// One heading per room. Waiting on a selector (not a node) survives re-renders.
+const ROOM_HEADINGS = Object.freeze({
+  "league:team": "#power-heading",
+  "trades:calculator": "#calculator-section .calc-heading h2, #shared-trade-title",
+  "trades:find": "#find-heading",
 });
 
 export function headingSelectorFor(place = {}) {
@@ -115,7 +114,7 @@ export function headingSelectorFor(place = {}) {
   if (overlay === "player" || place.playerId) return ".ranks-card h2, .player-week-sheet h2";
   const page = place.page || place.tab || "";
   const room = String(place.view || "");
-  if (page === "league" && LEAGUE_ROOM_HEADINGS[room]) return LEAGUE_ROOM_HEADINGS[room];
+  if (ROOM_HEADINGS[`${page}:${room}`]) return ROOM_HEADINGS[`${page}:${room}`];
   return "";
 }
 
@@ -310,6 +309,9 @@ export function announceRoute(doc, message) {
   if (!node) return null;
   const text = clean(message);
   node.textContent = "";
+  // A focused heading already speaks its name; saying it again doubles it.
+  const focused = doc.activeElement;
+  if (text && focused && /^H[1-3]$/.test(focused.tagName || "") && clean(focused.textContent) === text) return node;
   if (text) node.textContent = text;
   return node;
 }

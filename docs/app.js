@@ -767,6 +767,14 @@ bindInfoTips(document);
 void bootLaunchSurface();
 if (typeof history.scrollRestoration === "string") history.scrollRestoration = "manual";
 ensureRouteLive(document);
+// A focused heading already speaks its name. Drop a live announcement that says the same thing.
+document.addEventListener("focusin", (event) => {
+  const node = event.target;
+  if (!(node instanceof HTMLElement) || !/^H[1-3]$/.test(node.tagName)) return;
+  const live = document.getElementById("route-announcer");
+  const said = String(live?.textContent || "").replace(/\s+/g, " ").trim();
+  if (said && said === String(node.textContent || "").replace(/\s+/g, " ").trim()) live.textContent = "";
+});
 window.addEventListener("popstate", (event) => {
   // Skip to content only adds #workspace. That is not a desk move, and the
   // page-heading focus would take the workspace the link just targeted.
@@ -1592,7 +1600,9 @@ function syncRouteA11y({ focus = "none", trigger = null, before = null, settled 
   routeHeadingFocusVisible = focusVisible;
   const place = routePlaceNow();
   const message = routeAnnouncement(place, before || {});
-  const headingText = focus === "heading" ? visibleHeadingText(place) : "";
+  const headingText = focus === "heading"
+    ? visibleHeadingText(place)
+    : focus === "page" ? String(visiblePageHeading()?.textContent || "").replace(/\s+/g, " ").trim() : "";
   if (message && message !== headingText) announceRoute(document, message);
   else if (message && headingText && message === headingText) clearRouteAnnouncement();
   if (focus === "heading") {
@@ -4783,7 +4793,25 @@ function renderDroppedPlayerNotice() {
   return `<div class="share-broken" role="alert"><p>${escapeHtml(state.droppedPlayerNote)}</p></div>`;
 }
 
+// A background render (prices, player notes) rewrites the calculator. If focus
+// sat on one of its headings, put it back on the new one instead of <body>.
 function renderTradeDraft() {
+  const host = el.calculatorShell;
+  const focused = document.activeElement;
+  const heldHeading = host && focused && host.contains(focused) && /^H[1-3]$/.test(focused.tagName)
+    ? { tag: focused.tagName, id: focused.id, text: focused.textContent }
+    : null;
+  paintTradeDraft();
+  if (!heldHeading || document.activeElement !== document.body) return;
+  const next = (heldHeading.id && document.getElementById(heldHeading.id))
+    || [...host.querySelectorAll(heldHeading.tag)].find((node) => node.textContent === heldHeading.text)
+    || host.querySelector("h1, h2");
+  if (!next) return;
+  if (next.getAttribute("tabindex") == null) next.setAttribute("tabindex", "-1");
+  focusWithoutScroll(next, { focusVisible: routeHeadingFocusVisible });
+}
+
+function paintTradeDraft() {
   const host = el.calculatorShell;
   if (!host) return;
   if (!draftValuesReady()) {
