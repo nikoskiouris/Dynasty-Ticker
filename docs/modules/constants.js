@@ -175,23 +175,5 @@ export const SCOPED_ROOM_ALIASES = {
   },
 };
 export const DEFAULT_FAIRNESS_PCT = 20;
-export const DEFAULT_MAX_RESULTS = 3;
-export const TRANSACTION_WEEK_START = 1;
-export const TRANSACTION_WEEK_FALLBACK_END = 18;
-export const ANALYTICS_RECENT_TRADE_LIMIT = 6;
-export const ANALYTICS_ASSET_LEADER_LIMIT = 8;
 export const MAX_HISTORY_SEASONS = 6;
-export const HISTORY_TRANSACTION_SEASON_LIMIT = 4;
-export const HISTORY_MATCHUP_SEASON_LIMIT = 6;
-export const HISTORY_COMPARE_H2H_LIMIT = 6;
-export const HISTORY_COMPARE_ROSTER_LIMIT = 8;
 export const PHONE_LAYOUT_QUERY = "(max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse)";
-export const LIVE_POLL_INTERVAL_MS = 30000;
-export const LIVE_SIM_REFRESH_MS = 180000;
-export const MATCHUP_FETCH_CHUNK = 3;
-export const LEAGUE_HISTORY_RECORD_IDS = Object.freeze([
-  "high",
-  "blowout",
-  "win-streak",
-  "season-points",
-]);

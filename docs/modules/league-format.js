@@ -1,4 +1,4 @@
-import { HOME_ROOM, PAGE_HINTS, PAGE_ROOMS, ROOM_HINTS, ROOM_LABELS } from "./constants.js";
+import { HOME_ROOM, PAGE_ROOMS, ROOM_HINTS, ROOM_LABELS } from "./constants.js";
 
 export const LEAGUE_TYPE_IDS = Object.freeze({
   redraft: "redraft",
@@ -123,13 +123,6 @@ export function roomDescriptionFor(page, room, league) {
     return "Your outlook for this season: push, bubble, or out. Then the roster.";
   }
   return "";
-}
-
-export function pageHintForLeague(page, league) {
-  if (page === "league" && leagueTypeId(league) === "redraft") {
-    return "Your team, this week, and the league";
-  }
-  return PAGE_HINTS[page] || "";
 }
 
 export function marketCaveat(league) {

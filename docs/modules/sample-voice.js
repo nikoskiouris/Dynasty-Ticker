@@ -76,14 +76,6 @@ export function sampleRosterLabels({ viewingSample = false, ownerName = "" } = {
   };
 }
 
-export function sampleRoomHint(page, room, voice) {
-  if (!voice) return "";
-  if (page === "trades" && room === "calculator") return voice.roomHintCalculator;
-  if (page === "trades" && room === "find") return voice.roomHintFind;
-  if (page === "league" && room === "team") return voice.roomHintTeam;
-  return "";
-}
-
 export function sampleDescription({ page = "", room = "", voice = null } = {}) {
   if (!voice) return "";
   if (page === "trades" && room === "find") return voice.roomDescFind;
@@ -94,9 +86,3 @@ export function sampleDescription({ page = "", room = "", voice = null } = {}) {
   return "";
 }
 
-export function sampleMockNote(voice, { place = "", slots = "" } = {}) {
-  if (!voice) return "";
-  const where = slots ? `the names at ${slots}` : "those names";
-  const sitting = place ? `${voice.youGive} sits ${place} now, so ` : "";
-  return `${sitting}${where} belong to ${voice.youGive}. 3rds stay pick labels. College names have no trade value.`;
-}

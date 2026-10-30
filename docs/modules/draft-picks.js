@@ -84,14 +84,6 @@ export function slotToRosterIdFromDraft(draftDetails, rosters = []) {
   return inverted;
 }
 
-export function sortDraftsForSelectionIngest(drafts = []) {
-  return [...(Array.isArray(drafts) ? drafts : [])].sort((left, right) => {
-    const leftRounds = Number(left?.settings?.rounds) || 0;
-    const rightRounds = Number(right?.settings?.rounds) || 0;
-    return rightRounds - leftRounds;
-  });
-}
-
 export function indexDraftSelections({
   season,
   slotToRosterId,
@@ -135,20 +127,6 @@ export function mergeDraftSelectionIndex(target, incoming) {
     incoming.forEach((value, key) => dest.set(key, value));
   }
   return dest;
-}
-
-export function lookupDraftedSelection(index, {
-  season,
-  round,
-  originalRosterId,
-  ownerKey,
-} = {}) {
-  const source = index instanceof Map ? index : new Map();
-  const byRoster = source.get(draftedPickRosterKey(season, round, originalRosterId));
-  if (byRoster) return byRoster;
-  const owner = String(ownerKey || "").trim();
-  if (!owner) return null;
-  return source.get(draftedPickOwnerKey(season, round, owner)) || null;
 }
 
 function normalizeRosterIdKey(value) {
@@ -376,14 +354,3 @@ export function buildOwnedPicksByRoster(league, rosters, tradedPicks = [], pickV
   return ownedByRoster;
 }
 
-export function formatPickWithSelection(pickName, playerName, playerValue, formatNumber) {
-  const name = String(pickName || "").trim();
-  const player = String(playerName || "").trim();
-  if (!name || !player) return name;
-  const value = Number(playerValue) || 0;
-  if (value > 0) {
-    const formatted = typeof formatNumber === "function" ? formatNumber(value) : String(value);
-    return `${name} (${player}, ${formatted})`;
-  }
-  return `${name} (${player})`;
-}

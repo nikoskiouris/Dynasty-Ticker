@@ -242,10 +242,6 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
   };
 }
 
-export function getWeekEntry(model, week) {
-  return model?.weeks?.find((entry) => entry.week === Number(week)) || null;
-}
-
 export function blendSimPrior({ baseline, previousPpg = null, valuePercentile = 0.5 } = {}) {
   const base = Number(baseline) > 0 ? Number(baseline) : 125;
   const percentile = Number.isFinite(Number(valuePercentile)) ? Number(valuePercentile) : 0.5;
@@ -294,14 +290,6 @@ export function buildTeamDistributions(model, priors = new Map(), { priorWeight 
     });
   });
   return distributions;
-}
-
-export function winProbability(distA, distB) {
-  if (!distA || !distB) return 0.5;
-  const stdA = Number(distA.predictiveStd) || Number(distA.std) || 1;
-  const stdB = Number(distB.predictiveStd) || Number(distB.std) || 1;
-  const spread = Math.sqrt(stdA ** 2 + stdB ** 2) || 1;
-  return normalCdf((distA.mean - distB.mean) / spread);
 }
 
 export function playoffLockStatus(model) {
@@ -574,31 +562,6 @@ export function playoffWeekCount(playoffTeams, roundType) {
   if (type === 1) return base + 1;
   if (type === 2) return base * 2;
   return base;
-}
-
-export function transactionWeekEnd(league, {
-  fallbackEnd = 18,
-  minWeek = 1,
-  maxWeek = 22,
-} = {}) {
-  const settings = league?.settings || {};
-  const playoffStart = Number(settings.playoff_week_start);
-  const tradeDeadline = Number(settings.trade_deadline);
-  const playoffTeams = Number(settings.playoff_teams);
-  const roundType = Number(settings.playoff_round_type) || 0;
-  let playoffEnd = 0;
-  if (Number.isFinite(playoffStart) && playoffStart > 0) {
-    const weeks = Number.isFinite(playoffTeams) && playoffTeams >= 2
-      ? playoffWeekCount(playoffTeams, roundType)
-      : 4;
-    playoffEnd = playoffStart + weeks - 1;
-  }
-  const configuredEnd = Math.max(
-    fallbackEnd,
-    playoffEnd,
-    Number.isFinite(tradeDeadline) && tradeDeadline > 0 ? tradeDeadline + 6 : 0,
-  );
-  return Math.min(maxWeek, Math.max(minWeek, configuredEnd));
 }
 
 export function bracketOrder(size) {

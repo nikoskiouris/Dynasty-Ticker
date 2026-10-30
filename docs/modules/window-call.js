@@ -50,10 +50,6 @@ export function windowCallMeta(id, { horizon = "dynasty" } = {}) {
   return { ...base, ...(SEASON_WINDOW_CALLS[base.id] || {}) };
 }
 
-export function windowCallTeamState(id) {
-  return WINDOW_CALLS[id]?.teamState || WINDOW_CALLS.middle.teamState;
-}
-
 export function computeSeasonProgress({
   currentWeek,
   playoffStart,
@@ -214,16 +210,6 @@ export function groupWindowCalls(calls = []) {
     groups[id].push(call);
   });
   return groups;
-}
-
-export function summarizeLeagueWindowCalls(calls = []) {
-  const groups = groupWindowCalls(calls);
-  return {
-    allInCount: groups["all-in"].length,
-    middleCount: groups.middle.length,
-    tankCount: groups.tank.length,
-    groups,
-  };
 }
 
 function pickWindowCall(input, axes) {

@@ -1,4 +1,4 @@
-import { DEFAULT_ROOMS, PAGE_HINTS, PAGE_LABELS } from "./constants.js";
+import { DEFAULT_ROOMS, PAGE_LABELS } from "./constants.js";
 import { roomDescriptionFor, roomHintFor, roomLabelFor } from "./league-format.js";
 import { normalizeDeskTab, normalizeRoom } from "./parse.js";
 import { sampleDescription, sampleRosterLabels } from "./sample-voice.js";
@@ -16,11 +16,6 @@ export const SAMPLE_BANNER_KEY = "dynasty_ticker_sample_banner_off";
 export const DEFAULT_TITLE = "Dynasty Ticker — Your Sleeper dynasty league";
 export const DEFAULT_DESCRIPTION =
   "See what your players are worth, check a trade, and find your team's next move.";
-
-export function tickerDurationSeconds(itemCount) {
-  const count = Math.max(0, Number(itemCount) || 0);
-  return Math.max(50, count * 9);
-}
 
 export const PAGE_META = {
   players: {
@@ -69,10 +64,6 @@ function pageMetaFor({ page = "", room = "", league = null } = {}) {
     };
   }
   return base;
-}
-
-export function pageHintFor(page) {
-  return PAGE_HINTS[normalizeDeskTab(page)] || "";
 }
 
 export function buildDocumentTitle({ page = "", leagueName = "", loaded = false, room = "", league = null } = {}) {

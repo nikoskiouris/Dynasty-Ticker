@@ -57,20 +57,6 @@ export function projectPickSlots(league, standings) {
   return slots;
 }
 
-// Snapshots that are not settled contribute nothing. The returned list is the
-// leads that actually published, in order.
-export function collectProjectedLeads(league, snapshots, toLead) {
-  const leads = [];
-  (Array.isArray(snapshots) ? snapshots : []).forEach((standings) => {
-    const slots = projectPickSlots(league, standings);
-    if (!slots) return;
-    const lead = typeof toLead === "function" ? toLead(slots) : null;
-    if (lead == null || lead === "") return;
-    leads.push(lead);
-  });
-  return leads;
-}
-
 // The season after the league's current season is the only year we project.
 export function nextDraftSeason(leagueSeason) {
   const season = Number(leagueSeason);
@@ -162,31 +148,6 @@ export function formatPickLabel(pick = {}) {
   const basis = hasPlace ? `, projected to finish ${ordinal(rank)} of ${total}` : "";
   const whose = ownerName ? ` from ${ownerName}` : "";
   return `${head}${slotBit}${basis}${whose}`;
-}
-
-export function formatProjectedFirstLabel({
-  season,
-  round = 1,
-  bucket,
-  ownerName = "",
-  rank = null,
-  total = null,
-  slot = null,
-} = {}) {
-  const placeRank = Number(rank);
-  const teamCount = Number(total);
-  const derived = Number.isFinite(placeRank) && Number.isFinite(teamCount)
-    ? projectedDraftSlot(placeRank, teamCount)
-    : null;
-  return formatPickLabel({
-    season,
-    round,
-    bucket,
-    ownerName,
-    rank,
-    total,
-    slot: Number(slot) > 0 ? slot : derived,
-  });
 }
 
 function slotRank(row) {
