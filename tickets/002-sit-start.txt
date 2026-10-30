@@ -31,3 +31,6 @@ Acceptance
 - My team, this week: recommended starters vs bench, matching league roster slots.
 - Close calls have a reason tied to matchup or usage, not “higher dynasty value.”
 - Bye / missing opponent data does not silently start someone.
+
+Superseded
+Cut in #195 (three tabs). The product now answers one question: which trade or roster move to make in my league. This feature was removed; the file stays for history.
