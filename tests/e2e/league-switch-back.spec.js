@@ -57,9 +57,9 @@ for (const width of [390, 1280]) {
     test.setTimeout(90000);
     await stubLeagues(page);
     await page.setViewportSize({ width, height: width === 390 ? 844 : 800 });
-    await page.goto(`/l/${FROM}/week`);
+    await page.goto(`/l/${FROM}/team`);
     await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 20000 });
-    await expect(page).toHaveURL(new RegExp(`/l/${FROM}/week`));
+    await expect(page).toHaveURL(new RegExp(`/l/${FROM}/team`));
 
     await page.locator("#league-id").evaluate((el, id) => {
       el.value = id;
@@ -69,8 +69,10 @@ for (const width of [390, 1280]) {
     await expect(page.locator("body")).toHaveClass(/league-loaded/);
 
     await page.goBack();
-    await expect.poll(() => new URL(page.url()).pathname).toBe(`/l/${FROM}/week`);
-    await expect.poll(() => page.evaluate(() => document.activeElement?.id || ""), { timeout: 15000 }).toBe("scores-heading");
+    await expect.poll(() => new URL(page.url()).pathname).toBe(`/l/${FROM}/team`);
+    await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 20000 });
+    await expect(page).toHaveTitle(/^My team · Dynasty Ticker/);
+    await expect.poll(() => page.evaluate(() => document.activeElement?.id || ""), { timeout: 15000 }).toBe("power-heading");
     await page.waitForTimeout(750);
     const snap = await page.evaluate(() => {
       const el = document.activeElement;
@@ -83,7 +85,7 @@ for (const width of [390, 1280]) {
         srOnly: Boolean(el?.classList?.contains("sr-only")),
       };
     });
-    expect(snap.id).toBe("scores-heading");
+    expect(snap.id).toBe("power-heading");
     expect(snap.tag).toBe("H2");
     expect(snap.srOnly).toBe(false);
     expect(snap.width).toBeGreaterThan(0);

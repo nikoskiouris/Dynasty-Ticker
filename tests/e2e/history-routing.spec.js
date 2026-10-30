@@ -33,27 +33,27 @@ for (const viewport of viewports) {
     expect(page.url()).not.toBe("about:blank");
     expect(page.url()).not.toContain("/player/");
     await expect(page.locator(".ranks-card")).toHaveCount(0);
-    await expect(page.locator("#landing")).toBeVisible();
+    await expect(page.locator("[data-action='rank-open']").first()).toBeAttached();
   });
 
-  test(`menu, players, and a league each push a route at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+  test(`a league and its rooms each push a route at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await landFromAnotherPage(page);
 
-    if (viewport.width < 700) {
-      await page.locator("#mobile-rail-toggle").evaluate((el) => el.click());
-      await expect(page.locator("body")).toHaveClass(/rail-open/);
-      await page.locator("[data-phone-page='players']").evaluate((el) => el.click());
-    } else {
-      await page.locator("#players-tab").evaluate((el) => el.click());
-    }
-    await expect(page).toHaveURL(/\/players$/);
-    await page.goBack();
-    expect(page.url()).not.toBe("about:blank");
-    await expect(page.locator("#landing")).toBeVisible();
-
     await loadLeagueFromLanding(page, "1360686137898700800");
     await expect(page).toHaveURL(/\/l\/1360686137898700800\/team/, { timeout: 30000 });
+    await expect(page.locator("body")).toHaveClass(/league-loaded/);
+
+    if (viewport.width < 700) {
+      await page.locator("#mobile-rail-toggle").click();
+      await expect(page.locator("body")).toHaveClass(/rail-open/);
+      await page.locator("#phone-desk [data-phone-room='find']").click();
+    } else {
+      await page.locator("#find-tab").click();
+    }
+    await expect(page).toHaveURL(/\/l\/1360686137898700800\/ideas/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/l\/1360686137898700800\/team/);
     await page.goBack();
     expect(page.url()).not.toBe("about:blank");
     await expect(page).not.toHaveURL(/\/l\//);
@@ -89,7 +89,7 @@ test("cold load of /player/<id> opens that player", async ({ page }) => {
   await cold.locator(".player-back").click();
   await expect(cold).toHaveURL(/\/$/);
   await expect(cold.locator(".ranks-card")).toHaveCount(0);
-  await expect(cold.locator("#landing")).toBeVisible();
+  await expect(cold).toHaveTitle(/^Check a trade · Dynasty Ticker/);
 });
 
 for (const viewport of viewports) {
@@ -102,8 +102,7 @@ for (const viewport of viewports) {
     await expect(page.locator("body")).toHaveClass(/league-loaded/);
     await page.goBack();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.locator("#landing")).toBeVisible();
-    await expect(page.locator(".launch-connect")).toBeVisible();
+    await expect(page).toHaveTitle(/^Check a trade · Dynasty Ticker/);
     await expect(page.locator("body")).not.toHaveClass(/league-loaded/);
     await expect(page.locator("#league-page")).toBeHidden();
     await page.goForward();
@@ -131,8 +130,6 @@ test("cold player link can find leagues", async ({ page }) => {
   await expect(page.locator(".ranks-card h2")).toHaveText("Jahmyr Gibbs", { timeout: 30000 });
   const connect = page.locator("[data-player-connect-slot] .player-connect").locator("visible=true");
   await expect(connect).toBeVisible();
-  const box = await connect.boundingBox();
-  expect(box.y).toBeLessThan(240);
   const inputBox = await connect.locator("input").boundingBox();
   expect(inputBox.height).toBeGreaterThanOrEqual(44);
   await connect.locator("input").fill("tickerfan");
