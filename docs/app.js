@@ -110,7 +110,6 @@ import {
   playerAgeForAsset,
   leagueHasSuperflex,
   tepLevel,
-  crowdShiftsFromVotes,
   getGlobalMaxPlayerValue,
 } from "./modules/values.js";
 import {
@@ -369,26 +368,12 @@ import {
 import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
 import { createBeaconAdapter, pageview as analyticsPageview, setAnalyticsAdapter, track as analyticsTrack, trackShareTapped, trackTradeLinkOpened } from "./modules/analytics.js";
 import {
-  DEFAULT_RATHER_FORMAT,
-  buildRatherBoard,
-  decorateRatherPlayer,
-  fetchRatherDraftPicks,
-  formatRatherDetail,
-  listRatherPlayers,
-  pickRatherPair,
-  pushRatherRecentKey,
-  readRatherRecentKeys,
-  readRatherVotes,
-  recordRatherVote,
-  formatRatherPlayerDetail,
-  isRatherRookie,
-  lookupRatherDraftPick,
-  playerAgeFromNfl,
-  renderRatherMarkup,
-  createRatherBootGate,
-  ratherBootPaints,
-  shouldStartLandingRather,
-} from "./modules/rather.js";
+  buildPositionBoard,
+  fetchNflDraftPicks,
+  formatPlayerDetail,
+  isRookiePlayer,
+  lookupNflDraftPick,
+} from "./modules/player-notes.js";
 import {
   buildRankBoard,
   isRankAssetId,
@@ -400,7 +385,6 @@ import {
   renderRanksMarkup,
   renderRanksToolbar,
 } from "./modules/ranks.js";
-import { fetchRatherCrowdVotes, submitRatherCrowdVote } from "./modules/rather-crowd.js";
 import {
   announceRoute,
   applyEscape,
@@ -562,7 +546,6 @@ const el = {
   landingJobs: document.querySelector("#landing-jobs"),
   landingJobHint: document.querySelector("#landing-job-hint"),
   landingLeaguePicker: document.querySelector("#landing-league-picker"),
-  landingRather: document.querySelector("#landing-rather"),
   landingLoading: document.querySelector("#landing-loading"),
   landingLoadingText: document.querySelector("#landing-loading-text"),
   usernameError: document.querySelector("#username-error"),
@@ -630,8 +613,7 @@ let applyingHistory = false;
 let phoneDeskCollapsed = false;
 let managerSelectorHydrating = false;
 let managerSelectorHydrateEpoch = 0;
-let ratherPromptPair = null;
-let ratherSeasonStatsCache = { season: "", stats: null };
+let seasonStatsCache = { season: "", stats: null };
 let publicRanksOpen = false;
 let publicRanksHistory = false;
 let bootRoute = null;
@@ -650,7 +632,7 @@ let ranksSearchTimer = 0;
 let draftBasisCache = { bundles: null, format: "", basis: null };
 let rankBoardCache = { key: "", rows: [] };
 let rankContextPromise = null;
-let ratherPromptContext = {
+let playerNoteContext = {
   nflPlayers: {},
   seasonStats: {},
   draftPicks: {},
@@ -776,7 +758,6 @@ document.addEventListener("keydown", (event) => {
     el.deskBoardOpen?.focus();
   }
 });
-el.landingRather?.addEventListener("click", handleLandingRatherClick);
 document.addEventListener("click", handleLaunchClick);
 document.addEventListener("click", (event) => {
   const home = event.target.closest("[data-action='league-home']");
@@ -898,7 +879,6 @@ let sampleBannerOff = false;
 let leagueMissing = false;
 let sleeperUnreachable = false;
 let connectAsked = false;
-const ratherBootGate = createRatherBootGate();
 setDeskBoardShut(readDeskBoardShut());
 state.valueCalc = readStoredDraft(globalThis.sessionStorage, globalThis.localStorage) || state.valueCalc;
 renderSessionSnapshot();
@@ -986,18 +966,8 @@ if (bootRoute?.badLeague) {
   document.querySelector("#landing")?.classList.add("hidden");
   setActivePage(bootRoute.page || "players", { history: "silent" });
 }
-void bootLandingRather();
 bindInfoTips(document);
 void bootLaunchSurface();
-void hydrateCrowdVotes().then((ok) => {
-  if (!ok) return;
-  refreshCrowdShifts();
-  refreshPlayerPositionRanks();
-  if (state.leagueId) {
-    requestActivePageRender();
-    renderSessionSnapshot();
-  }
-});
 if (typeof history.scrollRestoration === "string") history.scrollRestoration = "manual";
 ensureRouteLive(document);
 window.addEventListener("popstate", (event) => {
@@ -1230,8 +1200,7 @@ function renderActivePage() {
   if (page === "players") {
     renderRankHost(el.ranksDashboard);
     if (state.leagueId) renderPassportDesk();
-    if (!rankValuesReady() || !ratherPromptContext?.previousSeason) void ensureRankExtras();
-    void bootLandingRather({ playersTab: true });
+    if (!rankValuesReady() || !playerNoteContext?.previousSeason) void ensureRankExtras();
   } else if (page === "trades") {
     renderTradesRoom(room);
   } else if (state.leagueId) {
@@ -1295,7 +1264,7 @@ function rankValuesReady() {
 
 function rankNflPlayers() {
   if (state.players && Object.keys(state.players).length) return state.players;
-  return ratherPromptContext?.nflPlayers || {};
+  return playerNoteContext?.nflPlayers || {};
 }
 
 function rankOwners() {
@@ -1314,14 +1283,14 @@ function rankOwners() {
 }
 
 function rankPlayerNote(playerId, raw) {
-  if (!ratherPromptContext?.previousSeason && !ratherPromptContext?.seasonStats) return "";
+  if (!playerNoteContext?.previousSeason && !playerNoteContext?.seasonStats) return "";
   const position = String(raw?.position || raw?.fantasy_positions?.[0] || "").toUpperCase();
-  const line = formatRatherPlayerDetail({
-    isRookie: isRatherRookie(raw, ratherPromptContext.currentSeason),
-    draft: lookupRatherDraftPick(playerId, ratherPromptContext.draftPicks, raw),
-    stats: ratherPromptContext.seasonStats?.[playerId] || ratherPromptContext.seasonStats?.[String(playerId)] || null,
+  const line = formatPlayerDetail({
+    isRookie: isRookiePlayer(raw, playerNoteContext.currentSeason),
+    draft: lookupNflDraftPick(playerId, playerNoteContext.draftPicks, raw),
+    stats: playerNoteContext.seasonStats?.[playerId] || playerNoteContext.seasonStats?.[String(playerId)] || null,
     position,
-    previousSeason: ratherPromptContext.previousSeason,
+    previousSeason: playerNoteContext.previousSeason,
   });
   if (!line || /^No \d{4} stats/.test(line)) return "";
   return line;
@@ -1337,7 +1306,7 @@ function cachedRankRows() {
     state.valuationRevision || 0,
     Object.keys(values).length,
     Object.keys(players).length,
-    ratherPromptContext?.previousSeason || "",
+    playerNoteContext?.previousSeason || "",
     state.leagueId || "",
     state.normalizedRosters?.length || 0,
     state.meRosterId || "",
@@ -1450,7 +1419,7 @@ function renderRankHost(host) {
   const body = host.querySelector("[data-ranks-body]");
   if (body && !view.loading) body.innerHTML = renderRanksBody(view);
   syncPlayerConnectSlot(host, view);
-  bindRatherPhotos(host);
+  bindPlayerPhotos(host);
   if (view.card?.kind === "player" && view.card?.name) {
     canonicalizePlayerUrl(view.card.playerId || view.card.assetId, view.card.name);
     syncDocumentMeta();
@@ -1484,10 +1453,10 @@ async function ensureRankExtras() {
         state.valueFormat = activeRankFormat();
       }
     }
-    if (!ratherPromptContext?.previousSeason && !rankContextPromise) {
-      rankContextPromise = loadRatherPromptContext()
+    if (!playerNoteContext?.previousSeason && !rankContextPromise) {
+      rankContextPromise = loadPlayerNoteContext()
         .then((ctx) => {
-          if (ctx) ratherPromptContext = ctx;
+          if (ctx) playerNoteContext = ctx;
           return ctx;
         })
         .catch(() => null);
@@ -2504,7 +2473,7 @@ function openLaunchPlayer(href) {
     }
     document.querySelector("#landing")?.classList.add("hidden");
     renderRankSurfaces();
-    if (!rankValuesReady() || !ratherPromptContext?.previousSeason) void ensureRankExtras();
+    if (!rankValuesReady() || !playerNoteContext?.previousSeason) void ensureRankExtras();
     updateUrlState({ mode: "push" });
     syncLaunchChrome();
     syncDocumentMeta();
@@ -7508,7 +7477,7 @@ function draftAssetFor(item, context) {
   const id = String(item.assetId || "");
   if (id.startsWith("player:")) {
     const playerId = id.slice("player:".length);
-    const raw = state.players?.[playerId] || ratherPromptContext?.nflPlayers?.[playerId] || {};
+    const raw = state.players?.[playerId] || playerNoteContext?.nflPlayers?.[playerId] || {};
     return { assetId: id, name: item.name, assetType: "player", raw };
   }
   return { assetId: id, name: item.name, assetType: "pick", raw: {} };
@@ -16186,11 +16155,11 @@ function formatPlayerPositionLabel(asset) {
 }
 
 function refreshPlayerPositionRanks() {
-  const values = state.values && Object.keys(state.values).length ? state.values : ratherMarketValues();
+  const values = state.values && Object.keys(state.values).length ? state.values : formatMarketValues();
   const names = state.valueNameMap || state.valueBundles?.names || {};
   const nflPlayers = state.players && Object.keys(state.players).length
     ? state.players
-    : (ratherPromptContext.nflPlayers || {});
+    : (playerNoteContext.nflPlayers || {});
   const listed = [];
   Object.entries(values || {}).forEach(([assetId, value]) => {
     if (!String(assetId).startsWith("player:") || !Number.isFinite(value)) return;
@@ -16203,7 +16172,7 @@ function refreshPlayerPositionRanks() {
     listed.push({ assetId, playerId, name, value });
   });
   const nextRankMap = {};
-  buildRatherBoard(listed, nflPlayers, null).forEach((row) => {
+  buildPositionBoard(listed, nflPlayers).forEach((row) => {
     if (row.position && row.positionRank) nextRankMap[row.assetId] = row.boardRank;
   });
   state.playerPositionRankByAssetId = nextRankMap;
@@ -16743,7 +16712,6 @@ function applyValuationBundle(bundle, { rerender = true } = {}) {
     state.playerMetadataLoaded = true;
     state.playerMetadataFailed = false;
   }
-  refreshCrowdShifts();
   refreshPlayerPositionRanks();
   state.pickValueCatalog = buildPickValuationCatalog(state.values, state.valueNameMap);
   state.globalMaxPlayerValue = getGlobalMaxPlayerValue(state.values);
@@ -17111,253 +17079,47 @@ function syncDocumentMeta() {
   if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
 }
 
-async function bootLandingRather({ playersTab = false } = {}) {
-  if (!el.landingRather) return;
-  const parsed = parseShareParams(window.location.search);
-  if (!shouldStartLandingRather({
-    leagueId: parsed.leagueId,
-    sample: Boolean(parsed.sample || state.viewingSample),
-    playersTab,
-  })) return;
-  if (!ratherBootGate.claim()) return;
-  try {
-    await ensureValuesLoaded("");
-    const cachedEntry = await loadPlayersCacheEntry(playersCacheAdapters()).catch(() => null);
-    const cachedPlayers = cachedEntry?.players || getPlayersCache()?.players || {};
-    if (Object.keys(cachedPlayers).length) {
-      ratherPromptContext = { ...ratherPromptContext, nflPlayers: cachedPlayers };
-    }
-    await hydrateCrowdVotes();
-    refreshCrowdShifts();
-    refreshPlayerPositionRanks();
-    showNextRatherMatchup();
-  } catch (err) {
-    console.warn("Could not open rather matchup", err);
-    writeRatherSlot("", { failed: true });
-  }
-}
-
-function writeRatherSlot(html, { failed = false } = {}) {
-  if (!el.landingRather) return 0;
-  const frames = ratherBootPaints({ matchupHtml: failed ? "" : html, failed });
-  for (const frame of frames) el.landingRather.innerHTML = frame;
-  return frames.length;
-}
-
-async function loadRatherPromptContext() {
+async function loadPlayerNoteContext() {
   const nflState = state.nflState || await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => null);
   if (nflState) state.nflState = nflState;
   const currentSeason = String(nflState?.league_season || nflState?.season || new Date().getUTCFullYear());
   const previousSeason = String(nflState?.previous_season || Number(currentSeason) - 1 || new Date().getUTCFullYear() - 1);
   const cachedEntry = await loadPlayersCacheEntry(playersCacheAdapters()).catch(() => getPlayersCache());
   const cachedPlayers = cachedEntry?.players || state.players || {};
-  const ratherPlayersEpoch = playerLoadEpoch;
+  const notePlayersEpoch = playerLoadEpoch;
   const [nflPlayers, seasonStats, draftPicks] = await Promise.all([
     Object.keys(cachedPlayers).length
       ? Promise.resolve(cachedPlayers)
       : loadPlayersWithCache().then((players) => {
-        if (ratherPlayersEpoch !== playerLoadEpoch) return state.players || {};
+        if (notePlayersEpoch !== playerLoadEpoch) return state.players || {};
         if (players && Object.keys(players).length) state.players = players;
         return players || {};
       }).catch(() => ({})),
-    loadRatherSeasonStats(previousSeason).catch(() => ({})),
-    fetchRatherDraftPicks().catch(() => ({})),
+    loadSeasonStats(previousSeason).catch(() => ({})),
+    fetchNflDraftPicks().catch(() => ({})),
   ]);
   return { nflPlayers, seasonStats, draftPicks, currentSeason, previousSeason };
 }
 
-async function loadRatherSeasonStats(season) {
+async function loadSeasonStats(season) {
   const year = String(season || "").trim();
   if (!year) return {};
-  if (ratherSeasonStatsCache.season === year && ratherSeasonStatsCache.stats) {
-    return ratherSeasonStatsCache.stats;
+  if (seasonStatsCache.season === year && seasonStatsCache.stats) {
+    return seasonStatsCache.stats;
   }
   const stats = await apiGet(`/stats/nfl/regular/${encodeURIComponent(year)}`, { timeoutMs: 20000 });
   const payload = stats && typeof stats === "object" ? stats : {};
-  ratherSeasonStatsCache = { season: year, stats: payload };
+  seasonStatsCache = { season: year, stats: payload };
   return payload;
 }
 
-function ratherMarketValues() {
+function formatMarketValues() {
   const format = state.valueFormat === "oneQb" ? "oneQb" : "sf";
   const selected = state.valueBundles?.[format]?.values;
   return selected && Object.keys(selected).length ? selected : state.values;
 }
 
-function crowdVoteSource() {
-  if (state.crowdVotesLive && Array.isArray(state.crowdVotes)) return state.crowdVotes;
-  return readRatherVotes();
-}
-
-function refreshCrowdShifts() {
-  state.crowdShifts = crowdShiftsFromVotes(crowdVoteSource(), ratherMarketValues(), {
-    format: state.valueFormat || "sf",
-  });
-}
-
-let crowdRefreshTimer = null;
-
-function applyRemoteCrowdVotes(remote, { rerender = true } = {}) {
-  if (!Array.isArray(remote)) return false;
-  const currentFingerprint = (state.crowdVotes || [])
-    .map((vote) => vote.eventId || `${vote.winnerId}|${vote.loserId}|${vote.at}|${vote.format}`)
-    .join(";");
-  const nextFingerprint = remote
-    .map((vote) => vote.eventId || `${vote.winnerId}|${vote.loserId}|${vote.at}|${vote.format}`)
-    .join(";");
-  state.crowdVotes = remote;
-  state.crowdVotesLive = true;
-  if (currentFingerprint === nextFingerprint) return true;
-  refreshCrowdShifts();
-  refreshPlayerPositionRanks();
-  if (rerender && state.leagueId) {
-    requestActivePageRender();
-    renderSessionSnapshot();
-  }
-  return true;
-}
-
-function ensureCrowdRefreshTimer() {
-  if (crowdRefreshTimer || typeof globalThis.setInterval !== "function") return;
-  crowdRefreshTimer = globalThis.setInterval(async () => {
-    if (document.hidden) return;
-    const remote = await fetchRatherCrowdVotes();
-    applyRemoteCrowdVotes(remote);
-  }, 60_000);
-}
-
-async function hydrateCrowdVotes() {
-  if (state.crowdVotesLive && Array.isArray(state.crowdVotes)) {
-    ensureCrowdRefreshTimer();
-    return true;
-  }
-  const remote = await fetchRatherCrowdVotes();
-  if (!Array.isArray(remote)) return false;
-  applyRemoteCrowdVotes(remote, { rerender: false });
-  ensureCrowdRefreshTimer();
-  return true;
-}
-
-function showNextRatherMatchup({ status = "" } = {}) {
-  if (!el.landingRather) return;
-  const names = state.valueBundles?.names || state.valueNameMap || {};
-  const values = ratherMarketValues();
-  const nflPlayers = Object.keys(ratherPromptContext.nflPlayers || {}).length
-    ? ratherPromptContext.nflPlayers
-    : (getPlayersCache()?.players || state.players || {});
-  const listed = listRatherPlayers(values, names);
-  const boarded = buildRatherBoard(
-    listRatherPlayers(values, names, { minValue: 1 }),
-    nflPlayers,
-    null
-  );
-  const rankById = new Map(boarded.map((row) => [row.assetId, row]));
-  const pairPool = listed.map((row) => {
-    const rankedRow = rankById.get(row.assetId) || {};
-    const raw = nflPlayers?.[row.playerId] || nflPlayers?.[String(row.playerId)] || {};
-    return {
-      ...row,
-      ...rankedRow,
-      age: rankedRow.age ?? playerAgeFromNfl(raw),
-      isRookie: rankedRow.isRookie || isRatherRookie(raw, ratherPromptContext.currentSeason),
-    };
-  });
-  const picked = pickRatherPair(pairPool, {
-    recentKeys: readRatherRecentKeys(),
-    shifts: state.crowdShifts,
-  });
-  if (!picked) {
-    writeRatherSlot("", { failed: true });
-    ratherPromptPair = null;
-    return;
-  }
-  const extras = {
-    currentSeason: ratherPromptContext.currentSeason,
-    previousSeason: ratherPromptContext.previousSeason,
-    seasonStats: ratherPromptContext.seasonStats,
-    draftPicks: ratherPromptContext.draftPicks,
-  };
-  ratherPromptPair = {
-    left: decorateRatherPlayer(picked.left, nflPlayers, extras),
-    right: decorateRatherPlayer(picked.right, nflPlayers, extras),
-    key: picked.key,
-  };
-  writeRatherSlot(renderRatherMarkup(ratherPromptPair, DEFAULT_RATHER_FORMAT, { status }));
-  bindRatherPhotos(el.landingRather);
-}
-
-function skipRatherMatchup() {
-  if (ratherPromptPair?.key) pushRatherRecentKey(ratherPromptPair.key);
-  showNextRatherMatchup({ status: "Skipped." });
-}
-
-async function chooseRatherPlayer(winnerId) {
-  const pair = ratherPromptPair;
-  if (!pair) {
-    showNextRatherMatchup();
-    return;
-  }
-  const ids = [pair.left?.assetId, pair.right?.assetId].filter(Boolean);
-  const loserId = ids.find((id) => id !== winnerId) || "";
-  const winnerName = winnerId === pair.left?.assetId ? pair.left?.name : pair.right?.name;
-  if (!winnerId || !loserId) return;
-
-  const vote = {
-    winnerId,
-    loserId,
-    format: formatRatherDetail(DEFAULT_RATHER_FORMAT),
-  };
-  el.landingRather.innerHTML = renderRatherMarkup(pair, DEFAULT_RATHER_FORMAT, { status: "Saving vote…" });
-  bindRatherPhotos(el.landingRather);
-  el.landingRather.querySelectorAll?.("[data-rather-pick], #rather-skip").forEach((button) => {
-    button.disabled = true;
-  });
-
-  const remote = await submitRatherCrowdVote(vote);
-  if (!Array.isArray(remote)) {
-    el.landingRather.innerHTML = renderRatherMarkup(pair, DEFAULT_RATHER_FORMAT, {
-      status: "Vote not saved. Try again.",
-    });
-    bindRatherPhotos(el.landingRather);
-    return;
-  }
-
-  recordRatherVote({ ...vote, at: Date.now(), format: DEFAULT_RATHER_FORMAT });
-  applyRemoteCrowdVotes(remote);
-  if (pair.key) pushRatherRecentKey(pair.key);
-
-  const names = state.valueBundles?.names || state.valueNameMap || {};
-  const nflPlayers = Object.keys(ratherPromptContext.nflPlayers || {}).length
-    ? ratherPromptContext.nflPlayers
-    : (getPlayersCache()?.players || state.players || {});
-  const winnerRow = buildRatherBoard(
-    listRatherPlayers(ratherMarketValues(), names, { minValue: 1 }),
-    nflPlayers,
-    state.crowdShifts
-  ).find((row) => row.assetId === winnerId);
-  const status = winnerName && winnerRow?.boardRank
-    ? `Saved. ${winnerName} is ${winnerRow.boardRank} on the ticker.`
-    : winnerName
-      ? `Saved. ${winnerName}.`
-      : "Saved.";
-  showNextRatherMatchup({ status });
-}
-
-function handleLandingRatherClick(event) {
-  const skip = event.target.closest?.("#rather-skip");
-  const pick = event.target.closest?.("[data-rather-pick]");
-  if (!skip && !pick) return;
-  event.preventDefault();
-  event.stopPropagation();
-  if (skip) {
-    skipRatherMatchup();
-    return;
-  }
-  const winnerId = pick?.getAttribute("data-rather-pick");
-  if (winnerId) chooseRatherPlayer(winnerId);
-}
-
-function bindRatherPhotos(root) {
+function bindPlayerPhotos(root) {
   root?.querySelectorAll?.("img.rather-photo, img.player-face-photo").forEach((img) => {
     img.addEventListener("error", () => {
       img.classList.add("is-broken");

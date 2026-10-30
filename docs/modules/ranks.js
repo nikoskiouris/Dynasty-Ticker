@@ -11,7 +11,7 @@ import { sleeperAvatarUrl } from "./sleeper.js";
 import { renderPlayerFace } from "./player-face.js";
 import { ordinal } from "./season.js";
 import { isInactivePlayerAsset, parsePickAssetId, upcomingDraftSeason } from "./values.js";
-import { playerAgeFromNfl, playerInitials, sleeperPlayerThumbUrl } from "./rather.js";
+import { playerAgeFromNfl, playerInitials, sleeperPlayerThumbUrl } from "./player-notes.js";
 
 export const RANK_PAGE_SIZE = 48;
 export const RANK_LIST_FLOOR = 1500;

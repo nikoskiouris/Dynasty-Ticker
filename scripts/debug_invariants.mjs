@@ -16,7 +16,6 @@ import {
   parseShareParams,
   resolveDeskPlace,
 } from "../docs/modules/parse.js";
-import { pairKey, pickRatherPair, RATHER_MAX_VALUE_RATIO } from "../docs/modules/rather.js";
 import {
   bracketOrder,
   buildSeasonModel,
@@ -30,11 +29,7 @@ import {
 } from "../docs/modules/season.js";
 import { buildSitStart } from "../docs/modules/sit-start.js";
 import { utcIsoWeek } from "../netlify/lib/traffic.js";
-import {
-  CROWD_MAX_ABS_SHIFT,
-  crowdShiftsFromVotes,
-  findPickCatalogValue,
-} from "../docs/modules/values.js";
+import { findPickCatalogValue } from "../docs/modules/values.js";
 import { indexNflSchedule, weeksForWeeklyValue, buildWeeklyPlayerModel } from "../docs/modules/weekly-value.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -296,40 +291,6 @@ check("weekly lookback does not repeat a slate", () => {
   if (weeks[0].season !== "2026" || weeks[0].week !== 2) return `starts at ${weeks[0].season} week ${weeks[0].week}`;
   const keys = weeks.map((row) => `${row.season}-${row.week}`);
   if (new Set(keys).size !== keys.length) return `duplicate ${keys.join(",")}`;
-  return "";
-});
-
-check("crowd shifts stay inside the cap", () => {
-  const now = Date.UTC(2026, 8, 16);
-  const votes = Array.from({ length: 40 }, (_, index) => ({
-    eventId: `vote-${index}`,
-    winnerId: "player:a",
-    loserId: "player:b",
-    format: "sf",
-    at: now - index * 3600000,
-  }));
-  const shifts = crowdShiftsFromVotes(votes, { "player:a": 5000, "player:b": 4900 }, { format: "sf", now });
-  for (const [id, shift] of Object.entries(shifts)) {
-    if (Math.abs(shift) - CROWD_MAX_ABS_SHIFT > 1e-9) return `${id} shift ${shift}`;
-  }
-  return "";
-});
-
-check("rather picks a close fight when one exists", () => {
-  const players = [
-    { assetId: "player:a", playerId: "a", name: "Ace", value: 9000, position: "WR" },
-    { assetId: "player:b", playerId: "b", name: "Bee", value: 1000, position: "RB" },
-    { assetId: "player:c", playerId: "c", name: "Cee", value: 980, position: "TE" },
-  ];
-  const close = pairKey("player:b", "player:c");
-  for (let seed = 1; seed <= 12; seed += 1) {
-    const pair = pickRatherPair(players, { random: mulberry32(seed) });
-    if (!pair) return "no pair";
-    if (pair.key !== close) return `seed ${seed} picked ${pair.key}`;
-    const hi = Math.max(pair.left.value, pair.right.value);
-    const lo = Math.min(pair.left.value, pair.right.value);
-    if (hi / lo > RATHER_MAX_VALUE_RATIO) return `ratio ${hi / lo}`;
-  }
   return "";
 });
 
