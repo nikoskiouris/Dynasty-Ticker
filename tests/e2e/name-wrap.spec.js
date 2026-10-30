@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 const LEAGUE = "1360686137898700800";
 const LONG_NAME = "Christopher Bartholomew Worthington-Montgomery Rodriguez Alexander Jr.";
 
-test("a very long roster name stays whole inside the row at 390", async ({ page }) => {
+test("a very long roster name wraps whole inside the row at 390", async ({ page }) => {
   test.setTimeout(90000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/l/${LEAGUE}/team`);
@@ -65,12 +65,12 @@ test("a very long roster name stays whole inside the row at 390", async ({ page 
     };
   }, LONG_NAME);
 
+  // The whole name shows: it wraps at spaces and hyphens instead of ending in "…".
   expect(report.midWord, JSON.stringify(report)).toBe(false);
-  expect(report.lines, JSON.stringify(report)).toBe(1);
-  expect(nameStartsWithVisible(LONG_NAME, report.visible), JSON.stringify(report)).toBe(true);
-  expect(report.hidden, JSON.stringify(report)).toBeGreaterThan(0);
-  expect(report.textOverflow, JSON.stringify(report)).toBe("ellipsis");
-  expect(report.whiteSpace, JSON.stringify(report)).toBe("nowrap");
+  expect(report.lines, JSON.stringify(report)).toBeGreaterThan(1);
+  expect(report.visible.replace(/\s+/g, ""), JSON.stringify(report)).toBe(LONG_NAME.replace(/\s+/g, ""));
+  expect(report.textOverflow, JSON.stringify(report)).not.toBe("ellipsis");
+  expect(report.whiteSpace, JSON.stringify(report)).toBe("normal");
   expect(report.rowOverflow, JSON.stringify(report)).toBeLessThanOrEqual(1);
   expect(report.rowClipped, JSON.stringify(report)).toBe(false);
   expect(report.nameOutsideRow, JSON.stringify(report)).toBe(false);
@@ -459,12 +459,3 @@ for (const width of [390, 1280]) {
   });
 }
 
-function nameStartsWithVisible(name, visible) {
-  let at = 0;
-  for (const char of visible) {
-    const found = name.indexOf(char, at);
-    if (found < 0) return false;
-    at = found + 1;
-  }
-  return visible.length > 0 && name.startsWith(visible);
-}

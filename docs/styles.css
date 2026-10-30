@@ -7894,3 +7894,133 @@ button.talk-chip {
     font-weight: 400;
   }
 }
+
+/* My team roster: one compact row per player. Full names wrap; they never clip. */
+#roster-sheet .sheet-row {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.3rem 0.55rem;
+}
+
+#roster-sheet .sheet-player {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 0.5rem;
+  row-gap: 1px;
+  align-items: center;
+  min-width: 0;
+}
+
+#roster-sheet .sheet-player .player-face {
+  grid-row: span 2;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  min-height: 28px;
+  max-height: 28px;
+  flex-basis: 28px;
+}
+
+#roster-sheet .sheet-player .player-face img,
+#roster-sheet .sheet-player .player-face-initials {
+  width: 28px;
+  height: 28px;
+}
+
+#roster-sheet .sheet-player strong {
+  min-width: 0;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+#roster-sheet .sheet-player > span:not(.player-face) {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+#roster-sheet .sheet-metrics {
+  justify-self: end;
+}
+
+#roster-sheet .dynasty-chip {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+}
+
+#roster-sheet .dynasty-chip small {
+  display: none;
+}
+
+#roster-sheet .dynasty-chip strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+#roster-sheet .dynasty-chip .value-tier,
+#roster-sheet .dynasty-chip .value-trend {
+  font-size: var(--fs-xs);
+}
+
+#roster-sheet .sheet-column h4 {
+  margin: 0.75rem 0 0.35rem;
+  font-size: var(--fs-xs);
+}
+
+#roster-sheet .sheet-row > * {
+  grid-area: auto;
+  grid-column: auto;
+  grid-row: auto;
+}
+
+#roster-sheet .sheet-row {
+  grid-template-areas: none;
+}
+
+#roster-sheet .dynasty-chip {
+  grid-template-columns: auto auto;
+  column-gap: 0.35rem;
+}
+
+#roster-sheet .dynasty-chip strong {
+  grid-column: 1 / -1;
+}
+
+#roster-sheet .sheet-row {
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
+}
+
+#roster-sheet .sheet-slot {
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+#roster-sheet .sheet-row.pick .sheet-player {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#roster-sheet .sheet-row.pick .sheet-player strong {
+  overflow-wrap: normal;
+  font-size: 14px;
+}
+
+#roster-sheet .pick-value-hint {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+#roster-sheet .sheet-row.pick .sheet-value {
+  font-size: 14px;
+  font-weight: 700;
+}

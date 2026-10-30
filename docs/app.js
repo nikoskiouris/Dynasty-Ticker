@@ -4603,6 +4603,7 @@ function renderRosterSheet() {
       isInjuryFlaggedAsset(asset) ? "flagged" : "",
     ].filter(Boolean).join(" ");
     const meta = [
+      escapeHtml(formatPlayerPositionLabel(asset)),
       team ? escapeHtml(team) : "",
       injury ? `<span class="injury">${escapeHtml(injury)}</span>` : "",
     ].filter(Boolean).join(" · ");
