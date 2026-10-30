@@ -30,6 +30,7 @@ import {
   topOverlay,
   tradeHref,
   urlPath,
+  removedRoomRedirect,
 } from "../docs/modules/history-route.js";
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -364,7 +365,19 @@ test("spa fallback lists placeholder routes then a 404 catch-all, after the api 
   // Only the removed league rooms redirect; live /l/ routes stay on the SPA.
   const leagueRules = redirects.split("\n").filter((line) => line.startsWith("/l/"));
   for (const line of leagueRules) {
-    assert.match(line, /^\/l\/:id\/(week|league|activity|history)\/?\s+\S+\s+301!$/, line);
+    assert.match(line, /^\/l\/:id\/(week|league|activity|history)\/?\s+\/l\/:id\/team\s+301!$/, line);
   }
   assert.equal(leagueRules.length, 8);
+});
+
+test("removed league rooms send their league to My team", () => {
+  const id = "1360686137898700800";
+  for (const room of ["week", "league", "activity", "history"]) {
+    assert.equal(removedRoomRedirect(`/l/${id}/${room}`), `/l/${id}/team`);
+    assert.equal(removedRoomRedirect(`/l/${id}/${room}/`), `/l/${id}/team`);
+    assert.equal(removedRoomRedirect(`/l/${id}/${room}?sample=1`), `/l/${id}/team`);
+  }
+  for (const kept of [`/l/${id}`, `/l/${id}/team`, `/l/${id}/ideas`, "/trade", "/", "/l/abc/week", "/l/1/week/extra"]) {
+    assert.equal(removedRoomRedirect(kept), "", kept);
+  }
 });

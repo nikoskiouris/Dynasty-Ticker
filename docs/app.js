@@ -232,6 +232,7 @@ import {
   sleeperIdFrom,
   topOverlay,
   urlPath,
+  removedRoomRedirect,
 } from "./modules/history-route.js";
 import {
   EVEN_UP_OFFER_ABOVE,
@@ -1215,10 +1216,10 @@ function renderTradesRoom(room) {
 function bootFromUrl() {
   sampleBannerOff = false;
   clearSampleBannerDismissal();
-  // Removed league rooms (week, league, activity, history) open My team before anything is reported.
-  const removedRoom = /^\/l\/(\d{1,20})\/(?:week|league|activity|history)\/?$/.exec(window.location.pathname);
-  if (removedRoom && typeof history?.replaceState === "function") {
-    history.replaceState(history.state, "", `${urlPath("l", removedRoom[1], "team")}${window.location.search}`);
+  // Rewrite before anything is reported, so a cold removed-room link counts one visit.
+  const removedRoomTarget = removedRoomRedirect(window.location.pathname);
+  if (removedRoomTarget && typeof history?.replaceState === "function") {
+    history.replaceState(history.state, "", `${removedRoomTarget}${window.location.search}`);
   }
   const route = resolveLocation(window.location.pathname, window.location.search);
   bootRoute = route;

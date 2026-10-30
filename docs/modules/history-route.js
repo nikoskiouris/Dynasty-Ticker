@@ -294,6 +294,15 @@ export function safeNext(value) {
   return "";
 }
 
+// Removed league rooms (This week, League, Activity, History) open that league's
+// My team. Netlify 301s the same paths in docs/_redirects; this covers the SPA.
+const REMOVED_LEAGUE_ROOM = /^\/l\/(\d{1,20})\/(?:week|league|activity|history)\/?$/;
+
+export function removedRoomRedirect(pathname) {
+  const hit = REMOVED_LEAGUE_ROOM.exec(String(pathname || "").split("?")[0]);
+  return hit ? urlPath("l", hit[1], "team") : "";
+}
+
 // Legacy `?ranks=1` opens /players. Anything else unknown opens home.
 export function resolveLocation(pathname = "/", search = "") {
   const [pathOnly, inline = ""] = String(pathname || "/").split("?");
