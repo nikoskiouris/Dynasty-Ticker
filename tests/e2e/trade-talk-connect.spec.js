@@ -80,6 +80,8 @@ for (const viewport of viewports) {
     await expect(tokens(page, "left")).toHaveText(["Jahmyr Gibbs", /^2028 2nd .+/]);
     await expect(use).toHaveCount(0);
     await expect(page.locator("#draft-team")).not.toContainText("does not fit");
-    await expect(page.locator("#draft-meter .meter-label")).toHaveText(await page.locator("#value-calc-verdict h3").innerText());
+    // One verdict on the page (report 2026-10-31): no second meter pill.
+    await expect(page.locator("#draft-meter")).toHaveCount(0);
+    await expect(page.locator("#value-calc-verdict h3")).toHaveText(/ · /);
   });
 }

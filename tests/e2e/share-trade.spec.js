@@ -149,7 +149,7 @@ for (const viewport of viewports) {
 
   test(`disclaimers sit behind an accessible info button on a shared link at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    // Bijan for Nabers + a 1st gets the extra for fewer, better players, so there is fine print to hide.
+    // Bijan for Nabers + a 1st gets the extra for fewer, better pieces, so there is fine print to hide.
     await page.goto(`/t/2s${STAMP}9509~11632.p27r1e`);
     const toggle = page.locator("[data-action='verdict-info']");
     await expect(toggle).toBeVisible({ timeout: 30000 });
@@ -160,9 +160,9 @@ for (const viewport of viewports) {
     await expect(page.locator("#value-calc-verdict")).not.toContainText("Package credit");
     // RECHECK3: the detail line leads with the credited totals, and a public
     // link colours only the tier (no green/red by side).
-    // "Give 19,224 (11,811 + 7,413 for fewer, better players). Get 14,457." with the ⓘ inline at its end.
+    // "Give 19,224 (11,811 + 7,413 for fewer, better pieces). Get 14,457." with the ⓘ inline at its end.
     const subline = page.locator(".calc-summary-main > p.calc-subline");
-    await expect(subline).toHaveText(/^Give [\d,]+ \([\d,]+ \+ [\d,]+ for fewer, better players\)\. Get [\d,]+\.\s*ⓘ\s*How this verdict works\s*$/);
+    await expect(subline).toHaveText(/^Give [\d,]+ \([\d,]+ \+ [\d,]+ for fewer, better pieces\)\. Get [\d,]+\.\s*ⓘ\s*How this verdict works\s*$/);
     await expect(subline.locator("[data-action='verdict-info']")).toHaveCount(1);
     const lineBox = await subline.boundingBox();
     const infoBox = await subline.locator("[data-action='verdict-info']").boundingBox();
@@ -170,8 +170,8 @@ for (const viewport of viewports) {
     expect(infoBox.y + infoBox.height / 2).toBeLessThan(lineBox.y + lineBox.height);
     // Stars legend: a visible hatch key, and the bar names the premium for screen readers.
     await expect(page.locator(".calc-legend")).toBeVisible();
-    await expect(page.locator(".calc-legend")).toHaveText("Fewer, better players");
-    await expect(page.locator(".calc-bar.team-a .meter-track")).toHaveAttribute("aria-label", /^Give [\d,]+ including [\d,]+ for fewer, better players$/);
+    await expect(page.locator(".calc-legend")).toHaveText("Fewer, better pieces");
+    await expect(page.locator(".calc-bar.team-a .meter-track")).toHaveAttribute("aria-label", /^Give [\d,]+ including [\d,]+ for fewer, better pieces$/);
     // The verdict dot has visible space on both sides.
     const gaps = await page.evaluate(() => {
       const dot = document.querySelector("#value-calc-verdict h3 .verdict-dot");
@@ -283,8 +283,9 @@ test("a bad code with a saved trade still shows the notice and keeps the trade",
 test("the /trade headline carries the % like the card", async ({ page }) => {
   await page.goto("/trade?give=player:9221&get=pick:2027:r1:early,pick:2028:r1:any");
   const heading = page.locator("#value-calc-verdict h3");
-  // Gibbs for two 1sts: credited 21,031 vs 11,112 -> 89.3% more, shown as 89.
-  await expect(heading).toHaveText("Lopsided · Give side worth 89% more", { timeout: 30000 });
+  // Gibbs for two 1sts. Private /trade names the reader's side (report 2026-10-31);
+  // the % follows today's board, so only the shape is pinned.
+  await expect(heading).toHaveText(/^Lopsided · You give \d+% more$/, { timeout: 30000 });
 });
 
 test("Esc closes the info panel and returns focus to its button", async ({ page }) => {

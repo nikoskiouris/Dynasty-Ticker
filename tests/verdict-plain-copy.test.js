@@ -85,21 +85,21 @@ const explanation = [
 
 test("the verdict explanation is plain English and keeps the numbers", () => {
   for (const pattern of BANNED) assert.doesNotMatch(explanation, pattern, String(pattern));
-  assert.match(paragraph, /<strong>Fewer, better players:<\/strong> Bijan Robinson is the best player in this deal\. One great player is worth more than several smaller ones adding up to the same total, so we add 7,413 to what you give\. Player prices don&#39;t change\.<\/p>/);
+  assert.match(paragraph, /<strong>Fewer, better pieces:<\/strong> Bijan Robinson is the best player in this deal\. One great player is worth more than several smaller ones adding up to the same total, so we add 7,413 to what you give\. Player prices don&#39;t change\.<\/p>/);
   assert.doesNotMatch(paragraph, /After that|getting fewer|adds 7,413 to You give/);
   assert.match(paragraphGet, /Ja&#39;Marr Chase is the best player in this deal\. .*so we add 1,500 to what you get\./);
   assert.match(paragraphNoName, /The best player in this deal is on the get side\. .*so we add 1,500 to what you get\./);
-  assert.equal(FEWER_BETTER_LINE, "Fewer, better players are worth extra compared with the same total split into smaller pieces. That extra changes the trade verdict, not any player's listed price.");
-  assert.match(TIER_EXPLAINER, /including the extra for fewer, better players/);
+  assert.equal(FEWER_BETTER_LINE, "Fewer, better pieces are worth extra compared with the same total split into smaller pieces. That extra changes the trade verdict, not any player's listed price.");
+  assert.match(TIER_EXPLAINER, /including the extra for fewer, better pieces/);
   assert.match(TIER_EXPLAINER, /Within 5% is a fair trade, up to 14% more is a fair, slight edge, up to 28% more favors one side, and more than 28% is lopsided\./);
-  assert.equal(detail, "Give 19,224 (11,811 + 7,413 for fewer, better players). Get 14,457.");
-  assert.equal(label, "Give 21,472 including 8,561 for fewer, better players");
-  assert.equal(STAR_PREMIUM_KEY, "Fewer, better players");
-  assert.equal(creditLine({ credit: { amount: 7413 } }), "Fewer, better players +7,413");
-  assert.equal(offer, "Extra for fewer, better players +7,413 to my side.");
-  assert.match(description, /Give 11,811 \+ 7,413 for fewer, better players = 19,224/);
-  assert.match(card, />Fewer, better players</);
-  assert.match(hatch, /title="Fewer, better players"/);
+  assert.equal(detail, "Give 19,224 (11,811 + 7,413 for fewer, better pieces). Get 14,457.");
+  assert.equal(label, "Give 21,472 including 8,561 for fewer, better pieces");
+  assert.equal(STAR_PREMIUM_KEY, "Fewer, better pieces");
+  assert.equal(creditLine({ credit: { amount: 7413 } }), "Fewer, better pieces +7,413");
+  assert.equal(offer, "Extra for fewer, better pieces +7,413 to my side.");
+  assert.match(description, /Give 11,811 \+ 7,413 for fewer, better pieces = 19,224/);
+  assert.match(card, />Fewer, better pieces</);
+  assert.match(hatch, /title="Fewer, better pieces"/);
   assert.match(PRICE_FACTORS_LINE, /how long players at that position usually stay good/);
   assert.match(UNAVAILABLE_PRICE_LINE, /we do not have a price for that player or pick right now/);
 

@@ -8140,3 +8140,5 @@ button.talk-chip {
 .next-move-line { margin: 0; }
 .league-format-details { margin-top: 0.75rem; }
 .league-format-details summary { cursor: pointer; }
+.calc-why { margin-top: 0.5rem; }
+.calc-why > summary { cursor: pointer; font-weight: 600; }

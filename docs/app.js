@@ -147,7 +147,6 @@ import {
   describeDraftItem,
   draftFromReview,
   draftMarketPrice,
-  draftMeterValues,
   draftNoticeText,
   evenUpTradePick,
   draftVerdictModel,
@@ -4953,9 +4952,8 @@ function paintTradeDraft() {
     </div>
     ${renderTradeTalk()}
     <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
-    <div class="calc-grid has-meter">
+    <div class="calc-grid">
       ${renderDraftPane("left", view)}
-      <div id="draft-meter" class="draft-meter">${renderDraftMeter(view)}</div>
       ${renderDraftPane("right", view)}
     </div>
     <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
@@ -5351,8 +5349,6 @@ function patchTradeDraft(listSides = []) {
   if (notice) notice.innerHTML = `${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}`;
   const verdict = host.querySelector("#value-calc-verdict");
   if (verdict) verdict.innerHTML = renderDraftVerdict(view);
-  const meter = host.querySelector("#draft-meter");
-  if (meter) meter.innerHTML = renderDraftMeter(view);
   const team = host.querySelector("#draft-team");
   if (team) team.innerHTML = renderDraftTeam(view);
 }
@@ -5574,40 +5570,7 @@ function draftItemMeta(item) {
   return [record.position, record.team].filter(Boolean).join(" · ");
 }
 
-let draftMeterOpen = false;
-
-// One slim bar for the verdict: the split is the credited totals the verdict
-// compares, so the bar, the label and the full breakdown always agree.
-function renderDraftMeter(view) {
-  const { draft, model } = view;
-  if (!draft.left.length || !draft.right.length) {
-    return `
-      <div class="meter-head"><span class="meter-label muted">Add to both sides to see the verdict</span></div>
-      <div class="meter-bar is-empty" aria-hidden="true"></div>
-    `;
-  }
-  const { verdict } = model;
-  const copy = verdictCopy(verdict);
-  const give = Math.max(0, Number(verdict.left) || 0);
-  const get = Math.max(0, Number(verdict.right) || 0);
-  const giveShare = give + get > 0 ? (give / (give + get)) * 100 : 50;
-  const tone = copy.tier === "even" ? "good" : copy.tier === "edge" ? "fair" : (copy.tone || "fair");
-  const voice = sampleVoice();
-  const giveLabel = voice?.giveLabel || "You give";
-  const getLabel = voice?.getLabel || "You get";
-  return `
-    <button type="button" class="meter-head" data-action="meter-why" aria-expanded="${draftMeterOpen ? "true" : "false"}" aria-controls="meter-why">
-      <strong class="meter-label tone-${tone}">${escapeHtml(copy.line)}</strong>
-      <span class="meter-why-link">${draftMeterOpen ? "Hide" : "See why"} <span aria-hidden="true">›</span></span>
-    </button>
-    <div class="meter-bar tone-${tone}" role="img" aria-label="${escapeHtml(`${giveLabel} ${formatNumber(give)}, ${getLabel} ${formatNumber(get)}`)}">
-      <span class="meter-give" style="width:${giveShare.toFixed(1)}%"></span>
-      <span class="meter-get"></span>
-    </div>
-    ${draftMeterOpen ? renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) : ""}
-  `;
-}
-
+// Per-piece breakdown, shown under the verdict's "Why?".
 function renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) {
   const { draft, model } = view;
   const rowsFor = (side) => (draft[side] || []).map((item) => {
@@ -5635,14 +5598,13 @@ function renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) {
           `).join("")}
           ${adjustment?.side === side.key && adjustment.amount > 0 ? `
             <div class="meter-why-row is-credit">
-              <span class="meter-why-name">Fewer, better players</span>
+              <span class="meter-why-name">Fewer, better pieces</span>
               <span class="meter-why-track"></span>
               <span class="meter-why-num">+${formatNumber(adjustment.amount)}</span>
             </div>
           ` : ""}
         </div>
       `).join("")}
-      <button type="button" class="inline-link meter-full" data-action="meter-full">Full breakdown</button>
     </div>
   `;
 }
@@ -5877,13 +5839,13 @@ function evenUpCopy(choice, side) {
   const near = Number(choice.value) > 0 && Number(choice.gap) > 0
     && choice.value <= choice.gap * 1.5 && choice.value >= choice.gap * 0.67;
   if (choice.closes && !near) {
-    return `${side} ${verb} about ${formatNumber(choice.gap)} to even it up. No single pick is close to that.`;
+    return `${side} ${verb} about ${formatNumber(choice.gap)}. No single pick is close to that.`;
   }
   if (choice.closes) {
     return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
   }
   if (Number.isFinite(Number(choice.pct))) {
-    const after = choice.verdict ? verdictLineNamed(choice.verdict) : "";
+    const after = choice.verdict ? verdictLineNamed(choice.verdict, sampleVoice() ? {} : { Give: "You give", Get: "You get" }) : "";
     return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}).${after ? ` After that pick: ${after}.` : ""}`;
   }
   const short = choice.value < choice.gap;
@@ -5922,22 +5884,27 @@ function noteTradeChecked(draft) {
 function renderDraftVerdict(view) {
   const { draft, model } = view;
   if (!draft.left.length && !draft.right.length) {
-    return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. The verdict uses the same prices as the player list below.</p>`;
+    return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. Every player is priced the same way everywhere on the site.</p>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (bothSides) noteTradeChecked(draft);
   const them = view.partner?.manager?.displayName || "them";
   const voice = sampleVoice();
   const { verdict, adjustment } = model;
-  const meters = draftMeterValues(model);
   // One verdict wording everywhere (verdict-copy.js): app, /t, card, meta, share text.
   const copy = verdictCopy(verdict);
   // The headline is the full line ("Lopsided · Give side worth 89% more"), like the card.
-  const label = bothSides ? copy.line : copy.label;
+  // Private /trade names the sides as the reader: "You give 136% more".
+  const label = bothSides
+    ? (voice ? copy.line : verdictLineNamed(verdict, { Give: "You give", Get: "You get" }))
+    : copy.label;
   const sharedView = bothSides ? sharedVerdictFor(view) : null;
   // RECHECK4: on a cold /t the bars are sized on the credited totals the
   // verdict compares, with the stars credit as its own segment.
-  const bars = sharedBarSegments(model, sharedView ? null : meters);
+  // The bars show what the verdict compares: listed prices plus the extra for
+  // fewer, better pieces as its own labeled segment, so "You give 63% more"
+  // never sits beside two bars that look even.
+  const bars = sharedBarSegments(model, null);
   const maxSide = Math.max(bars.give.total, bars.get.total, 1);
   // Same metric and bands as the headline (verdict-copy.js).
   const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpPick(view) : null;
@@ -5960,11 +5927,17 @@ function renderDraftVerdict(view) {
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
-        <p>${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}</p>
-        ${starsPremiumMarkup(model, { best, pick: bestPick })}
+        ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
-        <details class="calc-method">
-          <summary>How this number works</summary>
+        <details class="calc-method calc-why">
+          <summary>Why?</summary>
+          ${bothSides ? renderDraftMeterWhy(view, {
+            giveLabel,
+            getLabel,
+            give: Math.max(0, Number(verdict.left) || 0),
+            get: Math.max(0, Number(verdict.right) || 0),
+          }) : ""}
+          ${starsPremiumMarkup(model, { best, pick: bestPick })}
           ${renderDraftMethod(view)}
         </details>`}
       </div>
@@ -6004,7 +5977,7 @@ function sharedBarSegments(model, meters = null) {
 }
 
 // A bar with an extra segment carries a text label for screen readers
-// ("Give 21,472 including 8,561 for fewer, better players"); the hatch has a visible key.
+// ("Give 21,472 including 8,561 for fewer, better pieces"); the hatch has a visible key.
 function meterTrack(seg, maxSide, label = "") {
   const pct = (value) => Math.round((value / maxSide) * 1000) / 10;
   if (!seg.stars) return `<div class="meter-track"><span style="width:${pct(seg.listed)}%"></span></div>`;
@@ -6017,7 +5990,7 @@ function calcPointer(arrow) {
   return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
 }
 
-// Cold /t detail line: "Give 19,224 (11,811 + 7,413 for fewer, better players). Get 14,457."
+// Cold /t detail line: "Give 19,224 (11,811 + 7,413 for fewer, better pieces). Get 14,457."
 function sharedTotalsLine(model) {
   const adj = model.adjustment;
   return creditedTotalsLine({
@@ -6196,17 +6169,8 @@ function buildDraftOfferText(view) {
 }
 
 function renderDraftTeam(view) {
-  if (!view.basis.connected) {
-    return `
-      <section class="draft-team-card">
-        <div>
-          <span class="analytics-kicker">Your team</span>
-          <p>Connect my league to see who owns each piece and what this trade does to both rosters. This trade stays here.</p>
-        </div>
-        <button type="button" data-action="draft-connect">Connect my league</button>
-      </section>
-    `;
-  }
+  // No league: no roster-impact box. Connecting is offered in the header and on home.
+  if (!view.basis.connected) return "";
   const { context, draft } = view;
   const partnerName = view.partner?.manager?.displayName || "";
   const splitNames = (context?.partnerIds || []).map((id) => findNormalizedRoster(id)?.manager?.displayName).filter(Boolean);
@@ -6578,16 +6542,6 @@ function handleWorkspaceClick(event) {
     }
     case "talk-add": {
       addTalkChip(target);
-      break;
-    }
-    case "meter-why": {
-      draftMeterOpen = !draftMeterOpen;
-      const meter = el.calculatorShell?.querySelector("#draft-meter");
-      if (meter) meter.innerHTML = renderDraftMeter(buildDraftView());
-      break;
-    }
-    case "meter-full": {
-      el.calculatorShell?.querySelector("#value-calc-verdict")?.scrollIntoView({ behavior: "smooth", block: "start" });
       break;
     }
     case "value-add": {
