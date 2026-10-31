@@ -4054,35 +4054,55 @@ function renderPowerDashboard() {
       context,
     });
   const insights = buildSleeperInsightCards(profile, context);
-  const windowCall = buildWindowCallForProfile(profile);
-  const showPicks = leagueUsesFuturePicks(state.league) || Number(profile.assetSummary.pickValue) > 0
-    || Number(profile.assetSummary.firstRoundPickCount) > 0;
+  // Order (report 2026-10-31): verdict, next move, position ranks, lineup,
+  // bench and picks (roster sheet), then team score and league format.
+  // Starters/Bench/Picks/Age appear once, on the roster sheet.
   el.powerDashboard.innerHTML = `
-    ${renderPowerHero({
-      score: profile.score,
-      managerName: profile.managerName,
-      grade: profile.grade,
-      tierClass: profile.tierClass,
-      badges: profile.badges,
-    })}
-    <div class="power-stat-grid">
-      ${renderPowerStat("Starters", formatNumber(profile.metrics.starterValue), infoTipMarkup({ id: "pop-starters", label: "Starters", text: "Value of your best lineup." }))}
-      ${renderPowerStat("Bench", formatNumber(profile.metrics.benchValue))}
-      ${showPicks ? renderPowerStat("Draft picks", formatNumber(profile.assetSummary.pickValue)) : ""}
-      ${renderPowerStat("Avg age", profile.assetSummary.averageAgeLabel)}
-    </div>
-    <div class="power-lanes">
-      <section class="power-lane">
-        <h4>By position</h4>
-        <div class="position-meter-list">
-          ${profile.positionSummaries.map(renderPositionMeter).join("")}
-        </div>
-      </section>
-      ${insights[0] ? `<section class="power-lane"><div class="insight-list">${renderSleeperInsight(insights[0])}</div></section>` : ""}
-    </div>
+    <section class="power-lane">
+      <h3>Position ranks</h3>
+      <div class="position-meter-list">
+        ${profile.positionSummaries.map(renderPositionMeter).join("")}
+      </div>
+    </section>
   `;
+  renderNextMove(profile);
+  const scoreHost = document.querySelector("#team-score");
+  if (scoreHost) {
+    scoreHost.innerHTML = `
+      ${renderPowerHero({
+        score: profile.score,
+        managerName: profile.managerName,
+        grade: profile.grade,
+        tierClass: profile.tierClass,
+        badges: profile.badges,
+      })}
+      ${insights[0] ? `<details class="league-format-details"><summary>League format</summary><div class="insight-list">${renderSleeperInsight(insights[0])}</div></details>` : ""}
+    `;
+    document.querySelector("#team-score-section")?.classList.remove("hidden");
+  }
 }
 
+// "Your next move": the weakest group, with a button into Find a trade.
+function renderNextMove(profile) {
+  const host = document.querySelector("#next-move");
+  if (!host) return;
+  const rows = (profile?.positionSummaries || []).filter((row) => row.rankLabel);
+  if (!rows.length) {
+    host.innerHTML = "";
+    return;
+  }
+  const weakest = rows.reduce((low, row) => (Number(row.percentile) < Number(low.percentile) ? row : low));
+  const strongest = rows.reduce((top, row) => (Number(row.percentile) > Number(top.percentile) ? row : top));
+  const rank = String(weakest.rankLabel).replace(" / ", " of ");
+  const sample = Boolean(sampleVoice());
+  host.innerHTML = `
+    <section class="next-move-card" aria-labelledby="next-move-title">
+      <p class="eyebrow" id="next-move-title">${sample ? "Next move" : "Your next move"}</p>
+      <p class="next-move-line"><strong>Upgrade ${escapeHtml(weakest.position)}</strong> <span class="muted">${escapeHtml(weakest.position)} ranks ${escapeHtml(rank)}${strongest && strongest.position !== weakest.position ? `; ${escapeHtml(strongest.position)} is the deepest group to trade from` : ""}.</span></p>
+      <button type="button" data-action="find-position" data-position="${escapeHtml(weakest.position)}">Find a ${escapeHtml(weakest.position)}</button>
+    </section>
+  `;
+}
 // ---------------------------------------------------------------------------
 // Season engine glue: model, priors, simulation, and shared helpers
 // ---------------------------------------------------------------------------
@@ -4577,7 +4597,6 @@ function renderWindowCallDashboard() {
   }
   if (!rosterGradeReady(roster) || !pricesReady()) {
     host.innerHTML = `
-      ${renderLensPicker(roster)}
       <p class="muted small meta-pending">${state.playerMetadataFailed ? "Player metadata unavailable" : "…"}</p>
     `;
     return;
@@ -4589,20 +4608,30 @@ function renderWindowCallDashboard() {
   const call = getLensWindowCall({ profiles, model, sim });
   if (!call) {
     host.innerHTML = `
-      ${renderLensPicker(roster)}
       <p class="muted">Values still syncing. Call shows once the power board loads.</p>
     `;
     return;
   }
 
-  const why = call.signals?.[0];
+  const odds = playoffOddsText(roster, sim);
+  const confidence = call.confidence >= 80 ? "high" : call.confidence >= 65 ? "medium" : "low";
   host.innerHTML = `
-    ${renderLensPicker(roster)}
-    <p class="window-call-line ${call.tone}">
-      <strong>${escapeHtml(call.label)}</strong>
-      <span class="muted">${escapeHtml(call.horizon === "season" ? "This season" : "Contend or rebuild")}${why ? ` · ${escapeHtml(why.label)}: ${escapeHtml(why.value)}` : ""} · heuristic call, ${call.confidence}% lean</span>
-    </p>
+    <section class="team-verdict" aria-labelledby="team-verdict-title">
+      <p class="eyebrow" id="team-verdict-title">${escapeHtml(call.horizon === "season" ? "This season" : "Contend or rebuild")}</p>
+      <p class="window-call-line ${call.tone}"><strong>${escapeHtml(call.label)}</strong>${odds ? ` <span class="team-verdict-odds">· Playoff odds ${escapeHtml(odds)}</span>` : ""}</p>
+      <p class="muted small">Confidence: ${confidence}. An estimate from roster value, record and schedule, not a probability of being right.</p>
+    </section>
   `;
+}
+
+function playoffOddsText(roster, sim) {
+  const row = sim?.byRosterId?.get(String(roster?.rosterId));
+  if (!row || row.playoffPct == null) return "";
+  const pct = Number(row.playoffPct);
+  if (!Number.isFinite(pct)) return "";
+  if (pct > 99) return ">99%";
+  if (pct < 1) return "<1%";
+  return `${Math.round(pct)}%`;
 }
 
 let rosterSheetMarkup = "";
@@ -6518,6 +6547,17 @@ function handleWorkspaceClick(event) {
       openCalculatorWith(target.dataset.rosterId);
       break;
     }
+    case "find-position": {
+      state.tradeMatch.focusPosition = String(target.dataset.position || "");
+      state.tradeMatch.showAll = false;
+      openRoom("trades", "find");
+      break;
+    }
+    case "clear-find-focus": {
+      state.tradeMatch.focusPosition = "";
+      renderTradeMatchDashboard();
+      break;
+    }
     case "match-more": {
       state.tradeMatch.showAll = true;
       renderTradeMatchDashboard();
@@ -7431,6 +7471,7 @@ function tradeMatchCacheKey(rosterId = state.meRosterId) {
     rosterId || "",
     valuationCacheVersion(),
     state.playerMetadataLoaded ? "players" : "names",
+    state.tradeMatch?.focusPosition || "",
   ].join(":");
 }
 
@@ -7571,15 +7612,26 @@ function renderTradeMatchDashboard() {
     renderMatchPartners();
     return;
   }
-  const ideas = payload.ideas || [];
+  const focus = String(state.tradeMatch.focusPosition || "");
+  const ideas = (payload.ideas || []).filter((idea) => !focus
+    || (idea.theirAssets || []).some((asset) => playerPositionsForAsset(asset).includes(focus)));
+  const focusNote = focus
+    ? `<p class="small find-focus">Showing ideas that add a ${escapeHtml(focus)}. <button type="button" class="link-btn" data-action="clear-find-focus">Show all ideas</button></p>`
+    : "";
+  if (!ideas.length && focus) {
+    el.tradeMatchDashboard.innerHTML = `${focusNote}${renderPositionBuys(focus)}`;
+    renderMatchPartners();
+    return;
+  }
   if (!ideas.length) {
-    el.tradeMatchDashboard.innerHTML = `<p class="muted">${escapeHtml(payload.emptyText || "No fair deal that helps your lineup yet.")} ${shopLink}</p>`;
+    el.tradeMatchDashboard.innerHTML = `${focusNote}<p class="muted">${escapeHtml(payload.emptyText || "No fair deal that helps your lineup yet.")} ${shopLink}</p>`;
     renderMatchPartners();
     return;
   }
   const shown = state.tradeMatch.showAll ? ideas : ideas.slice(0, IDEAS_SHOWN_FIRST);
   const more = ideas.length - shown.length;
   el.tradeMatchDashboard.innerHTML = `
+    ${focusNote}
     <div class="match-idea-list">${shown.map((idea) => renderMatchTradeCard(idea)).join("")}</div>
     ${more > 0 ? `<button type="button" class="ghost-btn match-more" data-action="match-more">Show ${more} more idea${more === 1 ? "" : "s"}</button>` : ""}
   `;
@@ -7721,6 +7773,32 @@ function renderShopResults(result) {
   return `<p class="small">${head}</p>${cards}`;
 }
 
+// Focused on a position with no partner idea: price the best players at that
+// position on other rosters and show a fair offer for each.
+function renderPositionBuys(position) {
+  const me = getMyRoster();
+  if (!me) return "";
+  const candidates = (state.normalizedRosters || [])
+    .filter((roster) => String(roster.rosterId) !== String(me.rosterId))
+    .flatMap((roster) => (roster.assets || []).filter((asset) => asset.assetType === "player"
+      && playerPositionsForAsset(asset).includes(position)))
+    .map((asset) => ({ asset, value: Number(getAssetValue(asset, state.values)) || 0 }))
+    .filter((row) => row.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 12);
+  const cards = [];
+  for (const row of candidates) {
+    const result = shopResult(row.asset.assetId);
+    if (!result?.offers?.length) continue;
+    cards.push(renderShopResults({ ...result, offers: result.offers.slice(0, 1) }));
+    if (cards.length >= 3) break;
+  }
+  if (!cards.length) {
+    return `<p class="muted">No fair deal that adds a ${escapeHtml(position)} yet. <button type="button" class="link-btn" data-action="focus-shop">Shop a player →</button></p>`;
+  }
+  return `<p class="small"><strong>${escapeHtml(position)}s you could get at a fair price</strong></p><div class="match-idea-list">${cards.join("")}</div>`;
+}
+
 function openShop(assetId) {
   state.shopAssetId = String(assetId || "");
   if (state.activePage !== "trades" || getRoom("trades") !== "find") openRoom("trades", "find");
@@ -7804,7 +7882,7 @@ async function generateTradeMatches({ userRequested = false } = {}) {
         cheapIdeas.push({ deal, packageResult, pctDiff });
       });
       cheapIdeas.sort((a, b) => {
-        const loudest = myProfile.weakestPosition?.position;
+        const loudest = state.tradeMatch.focusPosition || myProfile.weakestPosition?.position;
         if (loudest) {
           const aHit = (a.deal.myHelp?.patchedNeeds || []).some((row) => row.position === loudest) ? 1 : 0;
           const bHit = (b.deal.myHelp?.patchedNeeds || []).some((row) => row.position === loudest) ? 1 : 0;
