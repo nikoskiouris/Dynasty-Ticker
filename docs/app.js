@@ -4812,7 +4812,9 @@ function renderRosterSheet() {
 // Trade calculator: one draft, with or without a league
 // ---------------------------------------------------------------------------
 
-function setDraft(next) {
+function setDraft(next, { keepNotice = false } = {}) {
+  // "Restore draft / Keep new" goes away on the next change to the trade.
+  if (!keepNotice) draftReplaced = null;
   state.valueCalc = next;
   writeStoredDraft(next);
   if (state.activePage === "trades" && getRoom("trades") === "calculator") {
@@ -4830,7 +4832,7 @@ function replaceDraft(next, note) {
   draftReplaced = !isDraftEmpty(current) && draftAssetKey(current) !== draftAssetKey(next)
     ? { draft: current, note }
     : null;
-  setDraft(next);
+  setDraft(next, { keepNotice: true });
 }
 
 // Roster ids repeat across leagues, so a browse preference from one league means nothing in another.
@@ -5253,6 +5255,28 @@ function runTradeTalk(text) {
   const view = buildDraftView();
   const ctx = tradeTalkContext(view);
   const plan = parseTradeTalk(say, ctx);
+  // "What could I get for Bijan?" never replaces the trade being built. In a
+  // league it opens Shop a player; without one it lists returns priced near him.
+  if (plan.intent === "shop" && plan.adds.length && !isDraftEmpty(state.valueCalc)) {
+    const target = plan.adds[0].asset;
+    if (state.leagueId && getMyRoster() && /^player:/.test(String(target.assetId))) {
+      openShop(target.assetId);
+      return;
+    }
+    const value = draftMarketPrice(target, view.basis).value;
+    const neighbors = priceNeighbors(ctx.catalog, value, {
+      exclude: [target, ...state.valueCalc.left, ...state.valueCalc.right].map((item) => item.assetId),
+    });
+    tradeTalkLog = [{
+      say,
+      lines: [`${target.name} is worth ${formatNumber(value)} on our board. Your trade is unchanged.`],
+      groups: neighbors.length ? [{ title: "Single players priced near that", chips: neighbors.map((row) => ({ ...row, side: "right" })) }] : [],
+      next: [],
+      sticky: true,
+    }];
+    renderTradeDraft();
+    return;
+  }
   const result = applyTradeTalk(state.valueCalc, plan);
   const voice = sampleVoice();
   const giveLabel = voice?.giveLabel || "You give";
@@ -6677,7 +6701,7 @@ function handleWorkspaceClick(event) {
       if (!draftReplaced) return;
       const previous = draftReplaced.draft;
       draftReplaced = isDraftEmpty(state.valueCalc) ? null : { draft: state.valueCalc, note: "Switched drafts." };
-      setDraft(previous);
+      setDraft(previous, { keepNotice: true });
       renderTradeDraft();
       break;
     }

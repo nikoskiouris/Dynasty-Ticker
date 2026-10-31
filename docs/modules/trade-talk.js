@@ -319,10 +319,30 @@ function resolvePick(pick, { side, ownerRosterId, ctx }) {
         return { reason: `${who} no ${pickLabel({ ...pick, bucket: "" })}.` };
       }
       rows = [...rows].sort((a, b) => Number(String(b.originalRosterId) === String(wanted)) - Number(String(a.originalRosterId) === String(wanted)));
-      return { picks: rows.slice(0, pick.count) };
+      const picks = rows.slice(0, pick.count);
+      // "Two 2nds" adds two. When the team holds fewer, the rest are generic
+      // picks of that round at market price, and the reply says so.
+      if (picks.length < pick.count) {
+        const generic = genericPickAsset(pick, ctx.pickIds);
+        if (generic) {
+          const missing = pick.count - picks.length;
+          const who = String(wanted) === String(ctx.meRosterId) ? "You hold" : `${managerName(ctx.managers, wanted) || "That team"} holds`;
+          return {
+            picks: [...picks, ...Array.from({ length: missing }, () => generic)],
+            note: `${who} ${picks.length} ${pickLabel({ ...pick, bucket: "" })}; the other ${missing === 1 ? "is" : "are"} priced as ${generic.name}.`,
+          };
+        }
+      }
+      return { picks };
     }
     rows = rows.filter((row) => String(row.ownerRosterId) !== String(ctx.meRosterId ?? ""));
     if (rows.length === 1 && pick.count === 1) return { picks: rows };
+    // Several picks of a round with no owner named: take generic picks for the
+    // count asked, never fewer.
+    if (pick.count > 1) {
+      const generic = genericPickAsset(pick, ctx.pickIds);
+      if (generic) return { picks: Array.from({ length: pick.count }, () => generic) };
+    }
     if (rows.length > 1) {
       return {
         options: rows.slice(0, 6).map((row) => ({ ...row, name: `${row.name} · ${managerName(ctx.managers, row.ownerRosterId) || "?"}` })),
