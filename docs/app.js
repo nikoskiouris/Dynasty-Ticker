@@ -259,6 +259,7 @@ import {
   launchExampleMarkup,
   launchTrendMarkup,
 } from "./modules/launch-landing.js";
+import { inventSampleCore } from "./modules/sample-league.js";
 import { decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
 import { analyzeWindowCall, windowCallInputFromDesk } from "./modules/window-call.js";
 import { chooseBestLineup } from "./modules/lineup.js";
@@ -2484,7 +2485,7 @@ function renderLeagueHero() {
           : model
             ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
             : "Matchups are syncing.";
-  const sampleNote = state.viewingSample ? (sampleVoice()?.accountNote || "Public sample — not this account. ") : "";
+  const sampleNote = state.viewingSample ? (sampleVoice()?.accountNote || "Sample league — invented managers. ") : "";
   const formatTip = tepLevel(league) > 0
     ? ` ${infoTipMarkup({ id: "pop-hero-format", label: "Scoring", text: "Values use 1 point per catch at every position, even with the TE bonus." })}`
     : "";
@@ -3275,7 +3276,7 @@ async function loadLeagueCoreData(leagueId) {
     throw new Error(`Failed to load: ${failures.join("; ")}`);
   }
 
-  return {
+  const core = {
     league: byKey.league,
     users: byKey.users,
     rosters: byKey.rosters,
@@ -3284,6 +3285,8 @@ async function loadLeagueCoreData(leagueId) {
     winnersBracket: Array.isArray(byKey.winnersBracket) ? byKey.winnersBracket : [],
     losersBracket: Array.isArray(byKey.losersBracket) ? byKey.losersBracket : [],
   };
+  // The sample league's people are invented; only its structure is real.
+  return state.viewingSample ? inventSampleCore(core) : core;
 }
 
 function rankDraftCandidateStatus(status) {
