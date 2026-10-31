@@ -163,6 +163,9 @@ const MEASURE = `(async () => {
     const pos = getComputedStyle(el).position;
     if (pos !== "fixed" && pos !== "sticky") continue;
     if (el.classList.contains("is-away")) continue;
+    // The bottom tab bar is fixed on purpose (report 2026-10-31); the body pad
+    // below lets every card scroll clear of it.
+    if (el.id === "desk-nav" || el.closest?.("#desk-nav")) continue;
     const box = rect(el);
     if (box.bottom <= 1) continue;
     const hit = overlapArea(cardBox, box);
@@ -362,7 +365,8 @@ test("at 390px the Find bar is not sticky or fixed and does not cover the player
         assert.equal(box.transitionDuration, "0.18s");
         assert.ok(Number.parseFloat(box.scrollPadding) >= 40, `scroll padding ${box.scrollPadding}`);
         assert.equal(box.buttonTag, "BUTTON");
-        assert.equal(box.bodyPad, "0px");
+        // The fixed three-item tab bar (report 2026-10-31) needs room at the bottom.
+        assert.equal(box.bodyPad, "64px");
         assert.ok(Number.parseFloat(box.workspacePad) < 48, `workspace pad ${box.workspacePad}`);
         assert.ok(box.overflow <= 1, `overflow ${box.overflow} at ${width}`);
         assert.deepEqual(box.overlaps, [], `sticky overlap at ${width}: ${JSON.stringify(box.overlaps)}`);
@@ -370,7 +374,8 @@ test("at 390px the Find bar is not sticky or fixed and does not cover the player
 
       const phone = await measure(390, 844, true);
       assert.ok(phone.chromeHeight > 0 && phone.chromeHeight <= 48, `top bar ${phone.chromeHeight}px`);
-      assert.equal(phone.chromeDisplay, "grid");
+      // The top bar is a row: wordmark and title, then the team · league chip.
+      assert.equal(phone.chromeDisplay, "flex");
 
       const reduced = await measure(390, 844, true, [
         { name: "prefers-reduced-motion", value: "reduce" },

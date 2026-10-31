@@ -25,12 +25,7 @@ async function loadLeague(page) {
 }
 
 async function openRoom(page, room) {
-  if (page.viewportSize().width <= 700) {
-    const open = await page.locator("body").evaluate((body) => body.classList.contains("rail-open"));
-    if (!open) await page.locator("#mobile-rail-toggle").click();
-    await page.locator(`#phone-desk [data-phone-room='${room}']`).click();
-    return;
-  }
+  // One tab bar at every width: a bottom bar on phones (report 2026-10-31).
   await page.locator(`.page-tab[data-room='${room}']`).click();
 }
 
