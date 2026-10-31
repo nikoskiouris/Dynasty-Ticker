@@ -458,6 +458,8 @@ let bootRoute = null;
 let connectNextPlace = null;
 // The draft a Review trade, a new partner, or Clear replaced, so one tap brings it back.
 let draftReplaced = null;
+// The full players board is open (Look up a player / All players).
+let playersBoardOpen = false;
 // Describe-a-trade box: the last message and its reply (memory only), and a
 // sentence typed before prices loaded.
 let tradeTalkLog = [];
@@ -534,7 +536,9 @@ el.leagueId?.addEventListener("keydown", (event) => {
 el.pageTabButtons?.forEach((button) => {
   button.addEventListener("click", () => {
     document.querySelector("#landing")?.classList.add("hidden");
+    playersBoardOpen = false;
     openRoom(button.dataset.page, button.dataset.room);
+    syncPlayersBoardFlag();
   });
 });
 el.pageTabs?.addEventListener("keydown", handlePageTabKeydown);
@@ -956,8 +960,19 @@ function handlePageTabKeydown(event) {
   openRoom(nextTab.dataset.page, nextTab.dataset.room, { history: "push", scroll: "top" });
 }
 
+function syncPlayersBoardFlag() {
+  document.documentElement.toggleAttribute("data-players-board", playersBoardOpen || /^\/players\/?$/.test(window.location.pathname));
+  // /player/<id> is the player page: the card alone, no calculator or board list.
+  document.documentElement.toggleAttribute("data-player-page",
+    /^\/player\//.test(window.location.pathname) && Boolean(state.ranks?.selectedId));
+}
+window.addEventListener("popstate", () => syncPlayersBoardFlag());
+
 function renderActivePage() {
   pageRenderQueue.settle();
+  // The full players board lives on /players only. Check a trade adds players
+  // from each side's own search, so no 48-row list sits under the calculator.
+  syncPlayersBoardFlag();
   if (state.leagueSwitching) {
     renderLeagueHero();
     hideAppPages();
@@ -1178,8 +1193,15 @@ function ranksBoardVisible() {
   return state.activePage === "trades" && getRoom("trades") === "calculator";
 }
 
+// A selected player is a page of its own: the player card, no calculator and
+// no board list. /player/<id> keeps that address.
+function syncPlayerPageFlag() {
+  syncPlayersBoardFlag();
+}
+
 function renderRankSurfaces() {
   if (ranksBoardVisible()) renderRankHost(el.ranksDashboard);
+  syncPlayerPageFlag();
 }
 
 async function ensureRankExtras() {
@@ -1215,11 +1237,15 @@ async function ensureRankExtras() {
 }
 
 function openPlayerBoard({ history = "push" } = {}) {
+  playersBoardOpen = true;
   openRoom("trades", "calculator", { history });
+  syncPlayersBoardFlag();
   void ensureRankExtras();
 }
 
 function renderTradesRoom(room) {
+  // The full players board lives on /players only. Check a trade adds players
+  // from each side's own search, so no 48-row list sits under the calculator.
   if (room === "find") {
     renderTradeMatchRoom();
     return;
@@ -1660,7 +1686,13 @@ function escapeRouteOverlay(event) {
   return true;
 }
 
-function updateUrlState({ mode = "replace", force = false } = {}) {
+function updateUrlState(options = {}) {
+  const result = updateUrlStateInner(options);
+  syncPlayersBoardFlag();
+  return result;
+}
+
+function updateUrlStateInner({ mode = "replace", force = false } = {}) {
   // A broken /t/ link keeps its address: never rewrite it to the saved draft.
   if (mode === "replace" && state.badShareLink && /^\/t\//.test(window.location.pathname || "")) {
     routeFocus.forget();
@@ -2116,6 +2148,31 @@ function openEmptyTrade() {
   requestAnimationFrame(() => {
     document.querySelector("[data-input='value-search'][data-side='left']")?.focus();
   });
+}
+
+// Every player name (idea cards, Shop results, trade sides, roster rows)
+// opens that player's own page. The trade draft is untouched.
+function openPlayerPage(assetId) {
+  const id = String(assetId || "");
+  if (!/^player:\d+$/.test(id)) return;
+  prepareDeskPush();
+  state.ranks.selectedId = id;
+  document.querySelector("#landing")?.classList.add("hidden");
+  setRoom("trades", "calculator");
+  setActivePage("trades", { history: "silent", scroll: "top" });
+  renderRankSurfaces();
+  if (!rankValuesReady() || !playerNoteContext?.previousSeason) void ensureRankExtras();
+  updateUrlState({ mode: "push" });
+  syncLaunchChrome();
+  syncDocumentMeta();
+  window.scrollTo(0, 0);
+}
+
+function playerLinkHtml(asset) {
+  const id = String(asset?.assetId || "");
+  const name = escapeHtml(asset?.name || "");
+  if (!/^player:\d+$/.test(id)) return name;
+  return `<button type="button" class="link-btn player-link" data-action="open-player" data-asset-id="${escapeHtml(id)}">${name}</button>`;
 }
 
 function openLaunchPlayer(href) {
@@ -4704,7 +4761,7 @@ function renderRosterSheet() {
         ${sheetSlotMarkup(extra.slot, slotLabel)}
         <div class="sheet-player">
           ${renderPlayerFace(playerId, asset.name, { size: "sm" })}
-          <strong>${escapeHtml(asset.name)}${nickname ? ` <em class="nickname">“${escapeHtml(nickname)}”</em>` : ""}</strong>
+          <strong>${playerLinkHtml(asset)}${nickname ? ` <em class="nickname">“${escapeHtml(nickname)}”</em>` : ""}</strong>
           ${meta ? `<span>${meta}</span>` : ""}
         </div>
         <span class="sheet-metrics">
@@ -5495,7 +5552,11 @@ function renderDraftPartnerPicker(view) {
 function renderSelectedTokenLabel(asset) {
   const face = renderPlayerFace(facePlayerId(asset), asset?.name, { size: "sm" });
   if (!face) return `<span class="selected-token-label">${escapeHtml(asset?.name || "")}</span>`;
-  return `<span class="selected-token-label player-name">${face}<span class="player-name-text">${escapeHtml(asset.name)}</span></span>`;
+  const id = String(asset?.assetId || "");
+  const name = /^player:\d+$/.test(id)
+    ? `<button type="button" class="link-btn player-link player-name-text" data-action="open-player" data-asset-id="${escapeHtml(id)}">${escapeHtml(asset.name)}</button>`
+    : `<span class="player-name-text">${escapeHtml(asset.name)}</span>`;
+  return `<span class="selected-token-label player-name">${face}${name}</span>`;
 }
 
 function draftItemMismatch(view, item) {
@@ -6219,6 +6280,7 @@ function addDraftAsset(side, asset) {
 
 function addDraftFromPlayers(assetId, name, kind) {
   if (!assetId) return;
+  playersBoardOpen = false;
   const me = state.leagueId ? getMyRoster() : null;
   const placement = state.leagueId
     ? draftSideForAsset(assetId, { rosters: state.normalizedRosters, meRosterId: me ? me.rosterId : null })
@@ -6408,6 +6470,7 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "open-public-ranks":
+      state.ranks.selectedId = "";
       openPlayerBoard();
       break;
     case "retry-player-metadata":
@@ -6484,8 +6547,21 @@ function handleWorkspaceClick(event) {
       updateUrlState({ mode: "replace" });
       break;
     case "rank-calc":
+      state.ranks.selectedId = "";
+      syncPlayerPageFlag();
       addDraftFromPlayers(target.dataset.assetId, target.dataset.name, target.dataset.kind);
       break;
+    case "open-player": {
+      openPlayerPage(target.dataset.assetId);
+      break;
+    }
+    case "player-shop": {
+      const id = String(target.dataset.assetId || "");
+      state.ranks.selectedId = "";
+      syncPlayerPageFlag();
+      openShop(id);
+      break;
+    }
     case "standings-view": {
       state.standingsView = target.dataset.view === "division" ? "division" : "overall";
       renderStandingsRoom();
@@ -7713,8 +7789,8 @@ function renderShopResults(result) {
     const idea = result.selling
       ? { counterpartyRosterId: offer.rosterId, myAssets: [result.asset], theirAssets: offer.assets }
       : { counterpartyRosterId: result.owner.rosterId, myAssets: offer.assets, theirAssets: [result.asset] };
-    const pieces = offer.assets.map((a) => a.name).join(" + ");
-    const line = result.selling ? `${escapeHtml(offer.teamName)}: ${escapeHtml(pieces)}` : escapeHtml(pieces);
+    const pieces = offer.assets.map(playerLinkHtml).join(" + ");
+    const line = result.selling ? `${escapeHtml(offer.teamName)}: ${pieces}` : pieces;
     return `
       <article class="match-trade-card shop-offer">
         <p class="match-trade-offer">${line}</p>
@@ -7976,13 +8052,11 @@ function formatAssetNameList(assets) {
 }
 
 function renderMatchTradeCard(idea) {
-  const send = (idea.myAssets || []).map((asset) => asset.name);
-  const receive = (idea.theirAssets || []).map((asset) => asset.name);
   const partner = idea.counterpartyName || "";
   return `
     <article class="match-trade-card">
       ${partner ? `<p class="match-trade-partner muted small">With ${escapeHtml(partner)}</p>` : ""}
-      <p class="match-trade-offer">Send ${escapeHtml(send.join(" + "))} for ${escapeHtml(receive.join(" + "))}</p>
+      <p class="match-trade-offer">Send ${(idea.myAssets || []).map(playerLinkHtml).join(" + ")} for ${(idea.theirAssets || []).map(playerLinkHtml).join(" + ")}</p>
       ${idea.gainLine ? `<p class="match-trade-gain">${escapeHtml(idea.gainLine)}</p>` : ""}
       ${idea.bandLine ? `<p class="match-trade-band">${escapeHtml(idea.bandLine)}</p>` : ""}
       ${renderReviewTradeButton(idea)}

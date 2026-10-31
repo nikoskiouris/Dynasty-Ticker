@@ -72,7 +72,8 @@ export function pickEqualLine(value, pick, best) {
 }
 
 export function ownerLine(owner, { leagueOpen = false, kind = "player" } = {}) {
-  if (!leagueOpen || kind !== "player") return "";
+  if (kind !== "player") return "";
+  if (!leagueOpen) return "Connect your league to see who owns him.";
   if (owner?.mine) return "You have him.";
   if (owner?.name) return `${owner.name} has him.`;
   return "Nobody in this league has him.";
@@ -243,6 +244,8 @@ export function rankView({
     rows: visible.slice(0, pageCount),
     hidden: Math.max(0, visible.length - pageCount),
     card,
+    // A /player/<id> link to a player we have no price for.
+    missing: Boolean(selectedId) && !selected && rows.length > 0 && !loading,
     emptyLabel,
     leagueOpen: Boolean(leagueOpen),
     history,
@@ -289,7 +292,15 @@ export function renderRanksMarkup(view) {
 }
 
 export function renderRanksBody(view) {
-  const card = view?.card ? renderRankCard(view.card, view) : "";
+  const card = view?.card
+    ? renderRankCard(view.card, view)
+    : view?.missing
+      ? `<article class="ranks-card ranks-missing" role="status">
+          <h2>We can't find that player</h2>
+          <p class="muted">The link may be old, or we have no price for him right now. Dynasty Ticker does not guess one.</p>
+          <div class="ranks-card-actions"><button type="button" data-action="open-public-ranks">Search players</button></div>
+        </article>`
+      : "";
   const rows = Array.isArray(view?.rows) ? view.rows : [];
   const list = rows.length
     ? `<div class="ranks-list">${rows.map((row) => renderRankRow(row, row.assetId === view?.card?.assetId, view)).join("")}</div>`
@@ -399,7 +410,11 @@ function renderRankCard(row, view = {}) {
   const photo = photoSrc
     ? `<img class="rather-photo" src="${escapeHtml(photoSrc)}" alt="" />`
     : "";
-  const calc = `<button type="button" class="ghost-btn" data-action="rank-calc" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-value="${escapeHtml(String(row.value))}" data-kind="${escapeHtml(row.kind)}">Add to trade</button>`;
+  const calc = `<button type="button" data-action="rank-calc" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-value="${escapeHtml(String(row.value))}" data-kind="${escapeHtml(row.kind)}">Check a trade with ${escapeHtml(row.kind === "pick" ? "this pick" : row.name)}</button>`;
+  const shop = row.kind === "player" && leagueOpen && row.owner
+    ? `<button type="button" class="ghost-btn" data-action="player-shop" data-asset-id="${escapeHtml(row.assetId)}">Shop ${escapeHtml(row.name)}</button>`
+    : "";
+  const role = roleLine(row);
   return `
     <article class="ranks-card">
       <button type="button" class="ghost-btn player-back" data-action="player-back" aria-label="Back"><span aria-hidden="true">←</span> Back</button>
@@ -412,6 +427,7 @@ function renderRankCard(row, view = {}) {
           <p class="eyebrow">${escapeHtml(rankEyebrow(row))}</p>
           <h2>${escapeHtml(row.name)}</h2>
           <p class="ranks-card-meta">${escapeHtml(rankMeta(row))}</p>
+          ${role ? `<p class="ranks-card-role">${escapeHtml(role)}</p>` : ""}
           ${row.note ? `<p class="ranks-card-note">${escapeHtml(row.note)}</p>` : ""}
           ${row.pickLine ? `<p class="ranks-pick-line">${escapeHtml(row.pickLine)}</p>` : ""}
           ${spread ? `<p class="ranks-spread">${escapeHtml(spread)}</p>` : ""}
@@ -433,6 +449,7 @@ function renderRankCard(row, view = {}) {
       ` : ""}
       <div class="ranks-card-actions">
         ${calc}
+        ${shop}
         <button type="button" class="ghost-btn" data-action="rank-close">Close</button>
       </div>
     </article>
@@ -450,6 +467,25 @@ function renderRankNeighbor(row, view) {
       ${renderRankValue(row, view)}
     </button>
   `;
+}
+
+// Role and age context in plain words: position rank and prime years left.
+const PRIME_END = Object.freeze({ QB: 33, RB: 27, WR: 29, TE: 30 });
+export function roleLine(row) {
+  if (row?.kind !== "player") return "";
+  const pos = String(row?.position || "").toUpperCase();
+  const posRank = Number(row?.positionRank);
+  const parts = [];
+  if (pos && Number.isFinite(posRank) && posRank > 0) parts.push(`${ordinal(posRank)}-best ${pos} by value`);
+  const age = Number(row?.age);
+  const end = PRIME_END[pos];
+  if (end && Number.isFinite(age) && age > 0) {
+    const left = Math.floor(end - age);
+    parts.push(left >= 1 ? `about ${left} prime year${left === 1 ? "" : "s"} left at ${pos}` : `past the usual ${pos} prime`);
+  }
+  if (!parts.length) return "";
+  const text = parts.join(", ");
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
 }
 
 function rankMeta(row) {

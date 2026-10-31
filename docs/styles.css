@@ -8142,3 +8142,21 @@ button.talk-chip {
 .league-format-details summary { cursor: pointer; }
 .calc-why { margin-top: 0.5rem; }
 .calc-why > summary { cursor: pointer; font-weight: 600; }
+
+/* The full players board opens from Look up a player, not under the calculator. */
+html:not([data-players-board]) #ranks-section { display: none !important; }
+
+/* Player page: a selected player is its own page (report 2026-10-31). */
+html[data-player-page] #calculator-section { display: none !important; }
+html[data-player-page] #ranks-section { display: block !important; }
+html[data-player-page] #ranks-section .panel-heading,
+html[data-player-page] #ranks-section .ranks-toolbar,
+html[data-player-page] #ranks-section .ranks-shelf,
+html[data-player-page] #ranks-section .ranks-list,
+html[data-player-page] #ranks-section .ranks-more,
+html[data-player-page] #ranks-section .values-freshness { display: none !important; }
+.ranks-card-role { margin: 0.25rem 0; }
+.player-link { text-align: left; font-weight: inherit; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.selected-token-label .player-link { display: inline; text-decoration: none; }
+.selected-token-label .player-link:hover,
+.selected-token-label .player-link:focus-visible { text-decoration: underline; }
