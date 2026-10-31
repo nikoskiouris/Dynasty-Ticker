@@ -244,6 +244,8 @@ export function rankView({
     rows: visible.slice(0, pageCount),
     hidden: Math.max(0, visible.length - pageCount),
     card,
+    // A /player/<id> link to a player we have no price for.
+    missing: Boolean(selectedId) && !selected && rows.length > 0 && !loading,
     emptyLabel,
     leagueOpen: Boolean(leagueOpen),
     history,
@@ -290,7 +292,15 @@ export function renderRanksMarkup(view) {
 }
 
 export function renderRanksBody(view) {
-  const card = view?.card ? renderRankCard(view.card, view) : "";
+  const card = view?.card
+    ? renderRankCard(view.card, view)
+    : view?.missing
+      ? `<article class="ranks-card ranks-missing" role="status">
+          <h2>We can't find that player</h2>
+          <p class="muted">The link may be old, or we have no price for him right now. Dynasty Ticker does not guess one.</p>
+          <div class="ranks-card-actions"><button type="button" data-action="open-public-ranks">Search players</button></div>
+        </article>`
+      : "";
   const rows = Array.isArray(view?.rows) ? view.rows : [];
   const list = rows.length
     ? `<div class="ranks-list">${rows.map((row) => renderRankRow(row, row.assetId === view?.card?.assetId, view)).join("")}</div>`

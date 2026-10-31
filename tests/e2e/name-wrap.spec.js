@@ -94,7 +94,15 @@ async function paintRosterNames(page, names) {
       const style = getComputedStyle(strong);
       const box = strong.getBoundingClientRect();
       const row = strong.closest(".sheet-row");
-      const textNode = [...strong.childNodes].find((node) => node.nodeType === Node.TEXT_NODE && (node.textContent || "").includes(name.slice(0, 4)));
+      // The name may sit inside the player-page link (report 2026-10-31).
+      const walker = document.createTreeWalker(strong, NodeFilter.SHOW_TEXT);
+      let textNode = null;
+      while (walker.nextNode()) {
+        if ((walker.currentNode.textContent || "").includes(name.slice(0, 4))) {
+          textNode = walker.currentNode;
+          break;
+        }
+      }
       const range = document.createRange();
       let hidden = 0;
       const source = textNode ? textNode.textContent || "" : "";

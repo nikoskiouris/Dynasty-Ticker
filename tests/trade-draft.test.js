@@ -501,7 +501,8 @@ test("league load keeps the draft and there is one calculator", () => {
   assert.ok(start > 0 && end > start, "runLeagueLoad not found");
   assert.doesNotMatch(body, /state\.valueCalc\s*=/, "league load must not replace the trade draft");
   assert.match(app, /draftNoticeText\(/);
-  assert.match(app, /draftMeterValues\(/);
+  // One verdict (report 2026-10-31): no separate meter pill; the bars show the credited totals.
+  assert.match(app, /sharedBarSegments\(model, null\)/);
   assert.doesNotMatch(app, /weights stars above the market/);
   assert.doesNotMatch(body, /emptyValueCalcState\(\)|resetCalculatorState/, "league load must not clear the trade draft");
   assert.doesNotMatch(app, /state\.calc\./, "the roster-only calculator state is gone");

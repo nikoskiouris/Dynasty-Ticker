@@ -147,7 +147,6 @@ import {
   describeDraftItem,
   draftFromReview,
   draftMarketPrice,
-  draftMeterValues,
   draftNoticeText,
   evenUpTradePick,
   draftVerdictModel,
@@ -963,9 +962,9 @@ function handlePageTabKeydown(event) {
 
 function syncPlayersBoardFlag() {
   document.documentElement.toggleAttribute("data-players-board", playersBoardOpen || /^\/players\/?$/.test(window.location.pathname));
-  if (!/^\/player\//.test(window.location.pathname) && state.activePage === "league") {
-    document.documentElement.removeAttribute("data-player-page");
-  }
+  // /player/<id> is the player page: the card alone, no calculator or board list.
+  document.documentElement.toggleAttribute("data-player-page",
+    /^\/player\//.test(window.location.pathname) && Boolean(state.ranks?.selectedId));
 }
 window.addEventListener("popstate", () => syncPlayersBoardFlag());
 
@@ -1197,8 +1196,7 @@ function ranksBoardVisible() {
 // A selected player is a page of its own: the player card, no calculator and
 // no board list. /player/<id> keeps that address.
 function syncPlayerPageFlag() {
-  const on = Boolean(state.ranks?.selectedId) && state.activePage !== "league" && ranksBoardVisible();
-  document.documentElement.toggleAttribute("data-player-page", on);
+  syncPlayersBoardFlag();
 }
 
 function renderRankSurfaces() {
@@ -5432,8 +5430,6 @@ function patchTradeDraft(listSides = []) {
   if (notice) notice.innerHTML = `${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}`;
   const verdict = host.querySelector("#value-calc-verdict");
   if (verdict) verdict.innerHTML = renderDraftVerdict(view);
-  const meter = host.querySelector("#draft-meter");
-  if (meter) meter.innerHTML = renderDraftMeter(view);
   const team = host.querySelector("#draft-team");
   if (team) team.innerHTML = renderDraftTeam(view);
 }
@@ -5659,40 +5655,7 @@ function draftItemMeta(item) {
   return [record.position, record.team].filter(Boolean).join(" · ");
 }
 
-let draftMeterOpen = false;
-
-// One slim bar for the verdict: the split is the credited totals the verdict
-// compares, so the bar, the label and the full breakdown always agree.
-function renderDraftMeter(view) {
-  const { draft, model } = view;
-  if (!draft.left.length || !draft.right.length) {
-    return `
-      <div class="meter-head"><span class="meter-label muted">Add to both sides to see the verdict</span></div>
-      <div class="meter-bar is-empty" aria-hidden="true"></div>
-    `;
-  }
-  const { verdict } = model;
-  const copy = verdictCopy(verdict);
-  const give = Math.max(0, Number(verdict.left) || 0);
-  const get = Math.max(0, Number(verdict.right) || 0);
-  const giveShare = give + get > 0 ? (give / (give + get)) * 100 : 50;
-  const tone = copy.tier === "even" ? "good" : copy.tier === "edge" ? "fair" : (copy.tone || "fair");
-  const voice = sampleVoice();
-  const giveLabel = voice?.giveLabel || "You give";
-  const getLabel = voice?.getLabel || "You get";
-  return `
-    <button type="button" class="meter-head" data-action="meter-why" aria-expanded="${draftMeterOpen ? "true" : "false"}" aria-controls="meter-why">
-      <strong class="meter-label tone-${tone}">${escapeHtml(copy.line)}</strong>
-      <span class="meter-why-link">${draftMeterOpen ? "Hide" : "See why"} <span aria-hidden="true">›</span></span>
-    </button>
-    <div class="meter-bar tone-${tone}" role="img" aria-label="${escapeHtml(`${giveLabel} ${formatNumber(give)}, ${getLabel} ${formatNumber(get)}`)}">
-      <span class="meter-give" style="width:${giveShare.toFixed(1)}%"></span>
-      <span class="meter-get"></span>
-    </div>
-    ${draftMeterOpen ? renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) : ""}
-  `;
-}
-
+// Per-piece breakdown, shown under the verdict's "Why?".
 function renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) {
   const { draft, model } = view;
   const rowsFor = (side) => (draft[side] || []).map((item) => {
@@ -6013,7 +5976,6 @@ function renderDraftVerdict(view) {
   const them = view.partner?.manager?.displayName || "them";
   const voice = sampleVoice();
   const { verdict, adjustment } = model;
-  const meters = draftMeterValues(model);
   // One verdict wording everywhere (verdict-copy.js): app, /t, card, meta, share text.
   const copy = verdictCopy(verdict);
   // The headline is the full line ("Lopsided · Give side worth 89% more"), like the card.
@@ -6532,6 +6494,7 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "open-public-ranks":
+      state.ranks.selectedId = "";
       openPlayerBoard();
       break;
     case "retry-player-metadata":
@@ -6679,16 +6642,6 @@ function handleWorkspaceClick(event) {
     }
     case "talk-add": {
       addTalkChip(target);
-      break;
-    }
-    case "meter-why": {
-      draftMeterOpen = !draftMeterOpen;
-      const meter = el.calculatorShell?.querySelector("#draft-meter");
-      if (meter) meter.innerHTML = renderDraftMeter(buildDraftView());
-      break;
-    }
-    case "meter-full": {
-      el.calculatorShell?.querySelector("#value-calc-verdict")?.scrollIntoView({ behavior: "smooth", block: "start" });
       break;
     }
     case "value-add": {
