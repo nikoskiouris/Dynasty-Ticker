@@ -197,7 +197,8 @@ test("parity: app, /t page, card, og:title, og:description and share text say th
   const BANNED = /in favor of|\bwins?\b|overpay|leans|\byou\b|\bthem\b/i;
   const app = readFileSync(join(root, "../docs/app.js"), "utf8");
   // The app's verdict heading and tone come from verdictCopy(model.verdict).
-  assert.match(app, /const copy = verdictCopy\(verdict\);[\s\S]{0,120}const label = bothSides \? copy\.line : copy\.label;/);
+  // Private /trade reads "You give X% more" (verdictLineNamed over the same verdict); /t and the card keep Give/Get side.
+  assert.match(app, /const copy = verdictCopy\(verdict\);[\s\S]{0,240}voice \? copy\.line : verdictLineNamed\(verdict, \{ Give: "You give", Get: "You get" \}\)/);
   assert.match(app, /calc-summary \$\{bothSides \? \(sharedView \? copy\.publicTone : copy\.tone\) : ""\}/);
   // Cold /t leads with the credited totals the verdict compares.
   assert.match(app, /sharedView \? renderVerdictFinePrint\(escapeHtml\(sharedTotalsLine\(model\)\)/);

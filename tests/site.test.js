@@ -43,8 +43,8 @@ test("document titles and descriptions change with tab and league", () => {
   assert.equal(title("trades", "lab"), "Find a trade · Try Hard or Die Hard — Dynasty Ticker");
   assert.equal(title("trades", "match"), "Find a trade · Try Hard or Die Hard — Dynasty Ticker");
   assert.equal(title("trades", "find"), "Find a trade · Try Hard or Die Hard — Dynasty Ticker");
-  assert.equal(title("trader"), "Trade · Try Hard or Die Hard — Dynasty Ticker");
-  assert.equal(title("players"), "Trade · Try Hard or Die Hard — Dynasty Ticker");
+  assert.equal(title("trader"), "Check a trade · Try Hard or Die Hard — Dynasty Ticker");
+  assert.equal(title("players"), "Check a trade · Try Hard or Die Hard — Dynasty Ticker");
   assert.match(
     buildPageDescription({ page: "home", leagueName: name, loaded: true }),
     /Now open: Try Hard or Die Hard/
@@ -125,15 +125,15 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /Open demo/);
   assert.match(index, /id="sample-league-link"/);
   assert.match(index, /href="\.\/\?sample=1"/);
-  assert.match(index, /See the sample league/);
+  assert.match(index, /Try the sample league/);
   assert.match(index, /Connect my league/);
   assert.match(index, /class="empty-cta"/);
   assert.equal(existsSync(join(docs, "modules/recap.js")), false);
   assert.equal(existsSync(join(docs, "modules/recap-card.js")), false);
   assert.doesNotMatch(index, /id="landing-rather"/);
-  assert.match(index, /Build a trade/);
-  assert.match(index, /Your next dynasty move starts here\./);
-  assert.match(index, /Explore player values, build a trade, or connect your Sleeper league\. Free\. No sign-up\./);
+  assert.doesNotMatch(index, /Build a trade/);
+  assert.match(index, /Is your trade fair\? What should you trade for\?/);
+  assert.match(index, /Free\. No sign-up\./);
   assert.doesNotMatch(index, /Find your league/);
   assert.match(index, /id="sample-league-chip"/);
   assert.match(index, />Sample league · Connect yours</);
@@ -223,13 +223,16 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
     ["calculator", "find"],
   );
   assert.doesNotMatch(index, /id="history-dashboard"/);
-  assert.match(index, /id="mobile-home-btn"/);
-  assert.match(index, /data-action="league-home"/);
+  // League home led to the same page as My team; it is cut (report 2026-10-31).
+  // The header chip and Disconnect replace it.
+  assert.doesNotMatch(index, /id="mobile-home-btn"/);
+  assert.doesNotMatch(index, /data-action="league-home"/);
+  assert.match(index, /id="team-league-chip-text"/);
+  assert.match(index, /data-action="disconnect-league"/);
   assert.doesNotMatch(index, /id="mobile-chrome-title"[^>]*data-action/);
   assert.doesNotMatch(index, /id="hero-title"[^>]*data-action/);
   assert.doesNotMatch(index, /id="league-avatar"[^>]*data-action/);
   assert.doesNotMatch(index, /brand-lockup[^>]*data-action/);
-  assert.match(index, /class="home-glyph"/);
   assert.doesNotMatch(index, /id="records-dashboard"/);
   assert.doesNotMatch(index, /id="mobile-share-btn"/);
   assert.doesNotMatch(index, /id="recap-dashboard"/);
@@ -334,7 +337,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(app, /Add player or pick, like \$\{nextRookieDraftSeason\(\)\} early 1st/);
   assert.match(app, /listValueCalcAssets/);
   assert.doesNotMatch(readDocs("styles.css"), /value-pick-board/);
-  assert.match(app, /function goLeagueHome/);
+  assert.doesNotMatch(app, /function goLeagueHome/);
   assert.doesNotMatch(app, /from "\.\/modules\/recap/);
   assert.doesNotMatch(readDocs("styles.css"), /--ticker-duration|\.ticker-track/);
   assert.match(app, /shouldOpen = Boolean\(open\) && isPhoneLayout\(\)/);

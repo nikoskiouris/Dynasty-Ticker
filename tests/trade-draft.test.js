@@ -360,7 +360,8 @@ test("the trade heading is verdictCopy output for both sides", () => {
   assert.ok(copies.every((copy) => copy.line));
   const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../docs/app.js"), "utf8");
   assert.match(app, /const copy = verdictCopy\(verdict\);/);
-  assert.match(app, /bothSides \? copy\.line : copy\.label/);
+  // Private /trade names the sides as the reader ("You give 12% more"); same tier and %.
+  assert.match(app, /voice \? copy\.line : verdictLineNamed\(verdict, \{ Give: "You give", Get: "You get" \}\)/);
 });
 
 test("the verdict reads from the manager's seat", () => {

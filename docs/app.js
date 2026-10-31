@@ -459,6 +459,8 @@ let bootRoute = null;
 let connectNextPlace = null;
 // The draft a Review trade, a new partner, or Clear replaced, so one tap brings it back.
 let draftReplaced = null;
+// The full players board is open (Look up a player / All players).
+let playersBoardOpen = false;
 // Describe-a-trade box: the last message and its reply (memory only), and a
 // sentence typed before prices loaded.
 let tradeTalkLog = [];
@@ -535,7 +537,9 @@ el.leagueId?.addEventListener("keydown", (event) => {
 el.pageTabButtons?.forEach((button) => {
   button.addEventListener("click", () => {
     document.querySelector("#landing")?.classList.add("hidden");
+    playersBoardOpen = false;
     openRoom(button.dataset.page, button.dataset.room);
+    syncPlayersBoardFlag();
   });
 });
 el.pageTabs?.addEventListener("keydown", handlePageTabKeydown);
@@ -958,7 +962,7 @@ function handlePageTabKeydown(event) {
 }
 
 function syncPlayersBoardFlag() {
-  document.documentElement.toggleAttribute("data-players-board", /^\/players\/?$/.test(window.location.pathname));
+  document.documentElement.toggleAttribute("data-players-board", playersBoardOpen || /^\/players\/?$/.test(window.location.pathname));
   if (!/^\/player\//.test(window.location.pathname) && state.activePage === "league") {
     document.documentElement.removeAttribute("data-player-page");
   }
@@ -1235,7 +1239,9 @@ async function ensureRankExtras() {
 }
 
 function openPlayerBoard({ history = "push" } = {}) {
+  playersBoardOpen = true;
   openRoom("trades", "calculator", { history });
+  syncPlayersBoardFlag();
   void ensureRankExtras();
 }
 
@@ -6328,6 +6334,7 @@ function addDraftAsset(side, asset) {
 
 function addDraftFromPlayers(assetId, name, kind) {
   if (!assetId) return;
+  playersBoardOpen = false;
   const me = state.leagueId ? getMyRoster() : null;
   const placement = state.leagueId
     ? draftSideForAsset(assetId, { rosters: state.normalizedRosters, meRosterId: me ? me.rosterId : null })
