@@ -259,7 +259,7 @@ import {
   launchExampleMarkup,
   launchTrendMarkup,
 } from "./modules/launch-landing.js";
-import { decodeTradeShare, encodeTradeShare, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
+import { decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
 import { analyzeWindowCall, windowCallInputFromDesk } from "./modules/window-call.js";
 import { chooseBestLineup } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
@@ -5980,9 +5980,9 @@ function renderVerdictFinePrint(leadHtml, inner) {
   `;
 }
 
-// Ids and scoring only. A league pick shares as that round's generic pick.
+// Ids and scoring only. A league pick shares as the generic pick it was priced as.
 function draftShareCode(view) {
-  const ids = (items) => items.map((item) => String(item.assetId || ""));
+  const ids = (items) => items.map((item) => shareAssetIdFor(item, view.priced));
   return encodeTradeShare({
     give: ids(view.draft.left),
     get: ids(view.draft.right),
