@@ -5727,7 +5727,6 @@ function renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) {
           ` : ""}
         </div>
       `).join("")}
-      <button type="button" class="inline-link meter-full" data-action="meter-full">Full breakdown</button>
     </div>
   `;
 }
@@ -6025,7 +6024,10 @@ function renderDraftVerdict(view) {
   const sharedView = bothSides ? sharedVerdictFor(view) : null;
   // RECHECK4: on a cold /t the bars are sized on the credited totals the
   // verdict compares, with the stars credit as its own segment.
-  const bars = sharedBarSegments(model, sharedView ? null : meters);
+  // The bars show what the verdict compares: listed prices plus the extra for
+  // fewer, better pieces as its own labeled segment, so "You give 63% more"
+  // never sits beside two bars that look even.
+  const bars = sharedBarSegments(model, null);
   const maxSide = Math.max(bars.give.total, bars.get.total, 1);
   // Same metric and bands as the headline (verdict-copy.js).
   const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpPick(view) : null;
@@ -6052,6 +6054,12 @@ function renderDraftVerdict(view) {
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method calc-why">
           <summary>Why?</summary>
+          ${bothSides ? renderDraftMeterWhy(view, {
+            giveLabel,
+            getLabel,
+            give: Math.max(0, Number(verdict.left) || 0),
+            get: Math.max(0, Number(verdict.right) || 0),
+          }) : ""}
           ${starsPremiumMarkup(model, { best, pick: bestPick })}
           ${renderDraftMethod(view)}
         </details>`}

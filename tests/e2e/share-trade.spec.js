@@ -283,8 +283,9 @@ test("a bad code with a saved trade still shows the notice and keeps the trade",
 test("the /trade headline carries the % like the card", async ({ page }) => {
   await page.goto("/trade?give=player:9221&get=pick:2027:r1:early,pick:2028:r1:any");
   const heading = page.locator("#value-calc-verdict h3");
-  // Gibbs for two 1sts: credited 21,031 vs 11,112 -> 89.3% more, shown as 89.
-  await expect(heading).toHaveText("Lopsided · Give side worth 89% more", { timeout: 30000 });
+  // Gibbs for two 1sts. Private /trade names the reader's side (report 2026-10-31);
+  // the % follows today's board, so only the shape is pinned.
+  await expect(heading).toHaveText(/^Lopsided · You give \d+% more$/, { timeout: 30000 });
 });
 
 test("Esc closes the info panel and returns focus to its button", async ({ page }) => {

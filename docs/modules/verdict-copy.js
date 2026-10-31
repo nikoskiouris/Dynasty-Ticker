@@ -152,7 +152,8 @@ export function verdictLineNamed(verdict, names = {}) {
   const copy = verdictCopy(verdict);
   if (!copy.tier || copy.tier === "even" || !copy.side) return copy.line;
   const name = String(names[copy.side] || `${copy.side} side`);
-  const label = copy.tier === "favors" ? `Favors ${name}` : copy.label;
+  // "Favors You give" does not read; a verb name keeps the plain tier label.
+  const label = copy.tier === "favors" ? (VERB_NAME.test(name) ? LABEL.favors : `Favors ${name}`) : copy.label;
   return `${label} · ${worthMorePhrase(name, copy.more)}`;
 }
 

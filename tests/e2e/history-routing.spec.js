@@ -44,13 +44,7 @@ for (const viewport of viewports) {
     await expect(page).toHaveURL(/\/l\/1360686137898700800\/team/, { timeout: 30000 });
     await expect(page.locator("body")).toHaveClass(/league-loaded/);
 
-    if (viewport.width < 700) {
-      await page.locator("#mobile-rail-toggle").click();
-      await expect(page.locator("body")).toHaveClass(/rail-open/);
-      await page.locator("#phone-desk [data-phone-room='find']").click();
-    } else {
-      await page.locator("#find-tab").click();
-    }
+    await page.locator("#find-tab").click();
     await expect(page).toHaveURL(/\/l\/1360686137898700800\/ideas/);
     await page.goBack();
     await expect(page).toHaveURL(/\/l\/1360686137898700800\/team/);
@@ -96,7 +90,7 @@ for (const viewport of viewports) {
   test(`back from a league restores the picker at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
-    await expect(page.locator(".launch-nav")).toBeVisible({ timeout: 30000 });
+    await expect(page.locator("#landing-job-hint")).toBeVisible({ timeout: 30000 });
     await loadLeagueFromLanding(page, "1360686137898700800");
     await expect(page).toHaveURL(/\/l\/1360686137898700800\/team/, { timeout: 30000 });
     await expect(page.locator("body")).toHaveClass(/league-loaded/);

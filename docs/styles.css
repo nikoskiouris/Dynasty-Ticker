@@ -8155,3 +8155,7 @@ html[data-player-page] #ranks-section .ranks-more,
 html[data-player-page] #ranks-section .values-freshness { display: none !important; }
 .ranks-card-role { margin: 0.25rem 0; }
 .launch-action.launch-primary { border-color: var(--text); }
+.player-link { text-align: left; font-weight: inherit; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.selected-token-label .player-link { display: inline; text-decoration: none; }
+.selected-token-label .player-link:hover,
+.selected-token-label .player-link:focus-visible { text-decoration: underline; }
