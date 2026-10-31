@@ -209,11 +209,13 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(index, /id="trade-match-dashboard"/);
   assert.match(index, /id="calculator-shell"/);
   assert.doesNotMatch(index, /id="value-calculator-shell"/);
-  assert.match(index, /id="match-generate-btn"/);
+  // Ideas run on their own; there is no "Find partners" button (report 2026-10-31).
+  assert.doesNotMatch(index, /id="match-generate-btn"/);
+  assert.match(index, /id="shop-panel"/);
   assert.doesNotMatch(index, /id="find-more-btn"/);
-  assert.match(index, />Find partners</);
+  assert.doesNotMatch(index, />Find partners</);
   assert.match(index, /data-page="trades" data-room="find"/);
-  assert.match(index, /Review trade opens it in Check a trade/);
+  assert.doesNotMatch(index, /Review trade opens it in Check a trade/);
   assert.doesNotMatch(index, /Got an offer\?/);
   const tradesPage = index.slice(index.indexOf('id="trades-page"'), index.indexOf('id="league-page"'));
   assert.deepEqual(

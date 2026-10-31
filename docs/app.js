@@ -109,7 +109,6 @@ import {
   copyTextToClipboard,
   escapeHtml,
   formatNumber,
-  formatMatchIdeaCopy,
   clamp,
   renderConnectGate,
 } from "./modules/html.js";
@@ -190,6 +189,7 @@ import { sampleRosterLabels } from "./modules/sample-voice.js";
 import {
   buildTradeMatchProfile,
   countStartableAtPosition,
+  describePartnerMatch,
   packageLooksLikeFiller,
   proposeMatchDeals,
   rankPartnerMatches,
@@ -260,6 +260,7 @@ import {
   launchTrendMarkup,
 } from "./modules/launch-landing.js";
 import { inventSampleCore } from "./modules/sample-league.js";
+import { shopOffers } from "./modules/shop-player.js";
 import { decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
 import { analyzeWindowCall, windowCallInputFromDesk } from "./modules/window-call.js";
 import { chooseBestLineup } from "./modules/lineup.js";
@@ -380,9 +381,6 @@ const el = {
   windowCallDashboard: document.querySelector("#window-call-dashboard"),
   tradeMatchNeeds: document.querySelector("#trade-match-needs"),
   tradeMatchDashboard: document.querySelector("#trade-match-dashboard"),
-  matchGenerateBtn: document.querySelector("#match-generate-btn"),
-  matchGenerateHelp: document.querySelector("#match-generate-help"),
-  matchGenerateError: document.querySelector("#match-generate-error"),
   calculatorSection: document.querySelector("#calculator-section"),
   calculatorShell: document.querySelector("#calculator-shell"),
   ranksDashboard: document.querySelector("#ranks-dashboard"),
@@ -670,8 +668,12 @@ el.meSelect?.addEventListener("change", () => {
   renderSessionSnapshot();
   updateUrlState({ mode: "replace" });
 });
-el.matchGenerateBtn?.addEventListener("click", () => {
-  void generateTradeMatches({ userRequested: true });
+document.addEventListener("change", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLSelectElement) || target.dataset.input !== "shop-player") return;
+  state.shopAssetId = target.value;
+  renderShopPanel();
+  document.querySelector("#shop-select")?.focus();
 });
 
 let sampleBannerOff = false;
@@ -6457,6 +6459,16 @@ function handleWorkspaceClick(event) {
       openCalculatorWith(target.dataset.rosterId);
       break;
     }
+    case "match-more": {
+      state.tradeMatch.showAll = true;
+      renderTradeMatchDashboard();
+      break;
+    }
+    case "focus-shop": {
+      openShop(state.shopAssetId || "");
+      document.querySelector("#shop-select")?.focus();
+      break;
+    }
     case "review-trade": {
       openReviewedTrade(target.dataset.trade);
       break;
@@ -7352,7 +7364,6 @@ function clearTradeMatchCache() {
     error: "",
     payload: null,
   };
-  syncMatchGenerateState();
 }
 
 function tradeMatchCacheKey(rosterId = state.meRosterId) {
@@ -7391,26 +7402,13 @@ function buildTradeMatchProfiles(powerProfiles = null) {
     .filter(Boolean);
 }
 
-function syncMatchGenerateState() {
-  const ready = Boolean(state.meRosterId && state.leagueId);
-  if (el.matchGenerateBtn && !el.matchGenerateBtn.classList.contains("loading")) {
-    el.matchGenerateBtn.disabled = !ready;
-  }
-  if (el.matchGenerateHelp) {
-    el.matchGenerateHelp.textContent = !state.leagueId
-      ? "Connect my league and pick your team."
-      : !state.meRosterId
-        ? "Choose your team first."
-        : "Looks at holes, surplus, and contend vs rebuild. No leftover thirds.";
-  }
-}
-
 function setMatchGenerateError(message) {
-  setFieldError(null, el.matchGenerateError, message);
+  if (message) state.tradeMatch.error = message;
 }
 
 function syncFindGuestChrome(guest) {
-  document.querySelector("#match-action-panel")?.classList.toggle("hidden", guest);
+  document.querySelector("#shop-section")?.classList.toggle("hidden", guest);
+  document.querySelector("#partners-section")?.classList.toggle("hidden", guest);
   document.querySelector("#player-section")?.classList.toggle("hidden", guest);
   document.querySelector("#settings-section")?.classList.toggle("hidden", guest);
 }
@@ -7423,7 +7421,6 @@ function renderTradeMatchRoom() {
     return;
   }
   syncFindGuestChrome(false);
-  syncMatchGenerateState();
   renderTradeMatchNeeds();
   const key = tradeMatchCacheKey();
   if (state.tradeMatch.loading) {
@@ -7451,7 +7448,7 @@ function renderTradeMatchNeeds() {
   if (!el.tradeMatchNeeds) return;
   const meRoster = getMyRoster();
   if (!meRoster) {
-    el.tradeMatchNeeds.innerHTML = `<p class="muted">${escapeHtml(sampleVoice()?.matchNeedsEmpty || "Pick your team. We find a partner who has your holes. Calculator is one tap away.")}</p>`;
+    el.tradeMatchNeeds.innerHTML = `<p class="muted">${escapeHtml(sampleVoice()?.matchNeedsEmpty || "Pick your team to see trade ideas.")}</p>`;
     return;
   }
   if (!Object.keys(state.values || {}).length) {
@@ -7464,61 +7461,212 @@ function renderTradeMatchNeeds() {
   }
   const mine = buildTradeMatchProfiles().find((profile) => String(profile.rosterId) === String(meRoster.rosterId));
   if (!mine) {
-    el.tradeMatchNeeds.innerHTML = `<p class="muted">Need roster values before match can grade holes.</p>`;
+    el.tradeMatchNeeds.innerHTML = `<p class="muted">Roster values are still loading.</p>`;
     return;
   }
-  const chips = [
-    mine.laneLabel,
-    mine.weakestPosition ? `Need ${mine.weakestPosition.position}` : "",
-    mine.strongestPosition ? `Extra ${mine.strongestPosition.position}` : "",
-    mine.timeline === "contending" ? "Contending" : mine.timeline === "rebuilding" ? "Rebuilding" : "In between",
-  ].filter(Boolean);
-  const needLine = mine.needs.length
-    ? `Holes: ${mine.needs.map((row) => `${row.position} (${row.rankLabel || row.grade})`).join(", ")}.`
-    : "No loud positional hole. Match will look for a contend/rebuild window instead.";
-  const spareWho = sampleVoice()?.youGive || "You";
-  const surplusLine = mine.surplus.length
-    ? `${spareWho} can spare ${mine.surplus.map((row) => row.position).join(", ")}.`
-    : (sampleVoice()?.surplusFallback || "No obvious surplus; any deal still has to help your starters.");
-  el.tradeMatchNeeds.innerHTML = `
-    <div class="match-need-card">
-      <div class="power-badge-row">
-        ${chips.map((chip) => `<span class="power-badge">${escapeHtml(chip)}</span>`).join("")}
-      </div>
-      <p>${escapeHtml(needLine)} ${escapeHtml(surplusLine)}</p>
-    </div>
-  `;
+  el.tradeMatchNeeds.innerHTML = `<p class="match-situation" id="find-situation">${escapeHtml(findSituationLine(mine))}</p>`;
 }
+
+// "Your situation", in one plain sentence.
+function findSituationLine(mine) {
+  const who = sampleVoice() ? `${mine.managerName} is` : "You're";
+  const timeline = mine.timeline === "contending" ? `${who} contending.` : mine.timeline === "rebuilding" ? `${who} rebuilding.` : `${who} in between.`;
+  const hole = mine.weakestPosition;
+  const spare = mine.strongestPosition;
+  const lowest = !hole ? lowestRankedGroup(mine.rosterId) : null;
+  const holeText = hole
+    ? ` Biggest hole: ${hole.position}${hole.rankLabel ? ` (${hole.rankLabel})` : ""}.`
+    : lowest
+      ? ` ${sampleVoice() ? "Every starting spot is covered" : "Your starters cover every spot"}; lowest-ranked group: ${lowest.position} (${String(lowest.rankLabel).replace(" / ", " of ")}).`
+      : " No big holes. We'll look for teams on the opposite timeline.";
+  const spareText = spare ? ` Most to spare: ${spare.position}.` : "";
+  return `${timeline}${holeText}${spareText}`;
+}
+
+function lowestRankedGroup(rosterId) {
+  const profile = buildPowerProfiles().find((row) => String(row.rosterId) === String(rosterId));
+  const rows = (profile?.positionSummaries || []).filter((row) => row.rankLabel);
+  if (!rows.length) return null;
+  return rows.reduce((low, row) => (Number(row.percentile) < Number(low.percentile) ? row : low));
+}
+
+const IDEAS_SHOWN_FIRST = 3;
 
 function renderTradeMatchDashboard() {
   if (!el.tradeMatchDashboard) return;
+  renderShopPanel();
   if (state.tradeMatch.loading) {
-    el.tradeMatchDashboard.innerHTML = `<p class="muted">Matching holes against the rest of the league…</p>`;
+    el.tradeMatchDashboard.innerHTML = `<p class="muted">Looking for trades that help your lineup…</p>`;
+    renderMatchPartners();
     return;
   }
   if (state.tradeMatch.error) {
     el.tradeMatchDashboard.innerHTML = `<p class="muted">${escapeHtml(state.tradeMatch.error)}</p>`;
+    renderMatchPartners();
     return;
   }
   const payload = state.tradeMatch.payload;
+  const shopLink = `<button type="button" class="link-btn" data-action="focus-shop">Shop a player →</button>`;
   if (!payload) {
-    el.tradeMatchDashboard.innerHTML = `<p class="muted">${escapeHtml(sampleVoice()?.matchDashboardEmpty || "Find a partner who has your holes, or open Find deals to shop a name. Calculator is one tap away.")}</p>`;
+    el.tradeMatchDashboard.innerHTML = `<p class="muted">Pick your team to see ideas. ${shopLink}</p>`;
+    renderMatchPartners();
     return;
   }
-  if (!payload.groups?.length) {
-    el.tradeMatchDashboard.innerHTML = `<p class="muted">${escapeHtml(payload.emptyText || "No complementary teams turned up a real roster-fit trade.")}</p>`;
+  const ideas = payload.ideas || [];
+  if (!ideas.length) {
+    el.tradeMatchDashboard.innerHTML = `<p class="muted">${escapeHtml(payload.emptyText || "No fair deal that helps your lineup yet.")} ${shopLink}</p>`;
+    renderMatchPartners();
     return;
   }
-  el.tradeMatchDashboard.innerHTML = payload.groups.map((group) => `
-    <article class="match-partner-card">
-      <h3>${escapeHtml(group.title)}</h3>
-      ${
-        group.ideas.length > 0
-          ? group.ideas.map((idea) => renderMatchTradeCard(idea)).join("")
-          : `<p class="muted small idea-group-empty">${escapeHtml(group.emptyText || "Need fit is there, but no package stayed fair without filler.")}</p>`
-      }
-    </article>
-  `).join("");
+  const shown = state.tradeMatch.showAll ? ideas : ideas.slice(0, IDEAS_SHOWN_FIRST);
+  const more = ideas.length - shown.length;
+  el.tradeMatchDashboard.innerHTML = `
+    <div class="match-idea-list">${shown.map((idea) => renderMatchTradeCard(idea)).join("")}</div>
+    ${more > 0 ? `<button type="button" class="ghost-btn match-more" data-action="match-more">Show ${more} more idea${more === 1 ? "" : "s"}</button>` : ""}
+  `;
+  renderMatchPartners();
+}
+
+function renderMatchPartners() {
+  const host = document.querySelector("#match-partners");
+  if (!host) return;
+  const partners = state.tradeMatch.payload?.partners || [];
+  if (state.tradeMatch.loading) {
+    host.innerHTML = `<p class="muted small">Ranking partners…</p>`;
+    return;
+  }
+  if (!partners.length) {
+    host.innerHTML = `<p class="muted small">No team lines up on needs or timeline yet.</p>`;
+    return;
+  }
+  host.innerHTML = `<ol class="match-partner-list">${partners.map((row) => `
+    <li><strong>${escapeHtml(row.name)}</strong>${row.why ? ` <span class="muted small">${escapeHtml(row.why)}</span>` : ""}</li>
+  `).join("")}</ol>`;
+}
+
+// The verdict Check a trade will show for these assets: same prices, same model.
+function checkerModelFor(myAssets, theirAssets) {
+  const basis = draftBasis();
+  const price = (asset) => draftMarketPrice(asset, basis).value;
+  return draftVerdictModel((myAssets || []).map(price), (theirAssets || []).map(price), {
+    globalMaxValue: getGlobalMaxPlayerValue(basis.values),
+  });
+}
+
+// What an idea improves for me, in words. "" when it improves nothing.
+function ideaGainLine(idea) {
+  const parts = [];
+  const patched = (idea.myHelp?.patchedNeeds || []).map((row) => row.position).filter(Boolean);
+  if (patched.length) parts.push(`+1 ${[...new Set(patched)].join("/")} starter`);
+  const side = idea.impactAnalysis?.mySide;
+  const before = Number(side?.before?.rank);
+  const after = Number(side?.after?.rank);
+  if (Number.isFinite(before) && Number.isFinite(after) && after < before) {
+    parts.push(`lineup ${ordinal(before)}→${ordinal(after)}`);
+  }
+  return parts.join(", ");
+}
+
+// --- Shop a player -------------------------------------------------------
+
+function shopChoices() {
+  const me = getMyRoster();
+  if (!me) return { mine: [], theirs: [] };
+  const row = (asset, roster) => ({
+    assetId: String(asset.assetId),
+    name: asset.name,
+    value: Math.round(Number(getAssetValue(asset, state.values)) || 0),
+    rosterId: roster.rosterId,
+    owner: roster.manager?.displayName || "",
+  });
+  const players = (roster) => (roster.assets || []).filter((asset) => asset.assetType === "player");
+  const mine = players(me).map((asset) => row(asset, me)).filter((r) => r.value > 0).sort((a, b) => b.value - a.value);
+  const theirs = (state.normalizedRosters || [])
+    .filter((roster) => String(roster.rosterId) !== String(me.rosterId))
+    .flatMap((roster) => players(roster).map((asset) => row(asset, roster)))
+    .filter((r) => r.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 120);
+  return { mine, theirs };
+}
+
+function shopResult(assetId) {
+  const me = getMyRoster();
+  if (!me || !assetId) return null;
+  const owner = (state.normalizedRosters || []).find((roster) => (roster.assets || []).some((asset) => String(asset.assetId) === String(assetId)));
+  if (!owner) return { missing: true };
+  const asset = owner.assets.find((a) => String(a.assetId) === String(assetId));
+  const basis = draftBasis();
+  const price = (a) => draftMarketPrice(a, basis).value;
+  const globalMaxValue = getGlobalMaxPlayerValue(basis.values);
+  const model = (give, get) => draftVerdictModel(give, get, { globalMaxValue });
+  const priced = (roster) => (roster.assets || []).map((a) => ({ asset: a, value: price(a) })).filter((r) => r.value > 0);
+  const selling = String(owner.rosterId) === String(me.rosterId);
+  const target = { asset, value: price(asset) };
+  const payers = selling
+    ? (state.normalizedRosters || []).filter((r) => String(r.rosterId) !== String(me.rosterId))
+      .map((r) => ({ rosterId: r.rosterId, name: r.manager?.displayName || "Team", assets: priced(r) }))
+    : [{ rosterId: me.rosterId, name: me.manager?.displayName || "You", assets: priced(me) }];
+  const offers = shopOffers({ target, payers, model, perTeam: selling ? 1 : 3, limit: selling ? 6 : 3 });
+  return { selling, asset, owner, value: target.value, offers };
+}
+
+function renderShopPanel() {
+  const host = document.querySelector("#shop-panel");
+  if (!host) return;
+  const me = getMyRoster();
+  if (!me || !Object.keys(state.values || {}).length) {
+    host.innerHTML = `<p class="muted small">Pick your team to shop a player.</p>`;
+    return;
+  }
+  const { mine, theirs } = shopChoices();
+  const selected = String(state.shopAssetId || "");
+  const option = (r, label) => `<option value="${escapeHtml(r.assetId)}"${r.assetId === selected ? " selected" : ""}>${escapeHtml(label)}</option>`;
+  const result = selected ? shopResult(selected) : null;
+  host.innerHTML = `
+    <label class="shop-label" for="shop-select">Pick a player</label>
+    <select id="shop-select" class="shop-select" data-input="shop-player">
+      <option value="">Choose a player…</option>
+      <optgroup label="Sell one of mine">${mine.map((r) => option(r, `${r.name} · ${formatNumber(r.value)}`)).join("")}</optgroup>
+      <optgroup label="Price one of theirs">${theirs.map((r) => option(r, `${r.name} · ${r.owner} · ${formatNumber(r.value)}`)).join("")}</optgroup>
+    </select>
+    <div id="shop-results" class="shop-results" aria-live="polite">${renderShopResults(result)}</div>
+  `;
+}
+
+function renderShopResults(result) {
+  if (!result) return "";
+  if (result.missing) return `<p class="muted small">That player isn't on a roster in this league.</p>`;
+  const name = result.asset?.name || "him";
+  if (!result.offers.length) {
+    return `<p class="muted small">No fair offer for ${escapeHtml(name)} turned up. Try a different player, or build one in Check a trade.</p>`;
+  }
+  const head = result.selling
+    ? `Teams that could pay a fair price for ${escapeHtml(name)} (${formatNumber(result.value)}):`
+    : `What you could offer ${escapeHtml(result.owner.manager?.displayName || "them")} for ${escapeHtml(name)} (${formatNumber(result.value)}):`;
+  const cards = result.offers.map((offer) => {
+    const idea = result.selling
+      ? { counterpartyRosterId: offer.rosterId, myAssets: [result.asset], theirAssets: offer.assets }
+      : { counterpartyRosterId: result.owner.rosterId, myAssets: offer.assets, theirAssets: [result.asset] };
+    const pieces = offer.assets.map((a) => a.name).join(" + ");
+    const line = result.selling ? `${escapeHtml(offer.teamName)}: ${escapeHtml(pieces)}` : escapeHtml(pieces);
+    return `
+      <article class="match-trade-card shop-offer">
+        <p class="match-trade-offer">${line}</p>
+        <p class="match-trade-band">${escapeHtml(result.selling
+          ? verdictLineNamed(offer.verdict, { Give: "You give", Get: "You get" })
+          : verdictLineNamed(offer.verdict, { Give: "They give", Get: "You give" }))}</p>
+        ${renderReviewTradeButton(idea)}
+      </article>`;
+  }).join("");
+  return `<p class="small">${head}</p>${cards}`;
+}
+
+function openShop(assetId) {
+  state.shopAssetId = String(assetId || "");
+  if (state.activePage !== "trades" || getRoom("trades") !== "find") openRoom("trades", "find");
+  else renderShopPanel();
+  requestAnimationFrame(() => document.querySelector("#shop-section")?.scrollIntoView({ block: "start" }));
 }
 
 async function generateTradeMatches({ userRequested = false } = {}) {
@@ -7535,7 +7683,6 @@ async function generateTradeMatches({ userRequested = false } = {}) {
   renderTradeMatchDashboard();
 
   try {
-    setButtonLoading(el.matchGenerateBtn, true, "Matching teams...");
     await ensureValuesLoaded("");
     await waitForNextPaint();
     if (!state.playerMetadataLoaded && !state.playerMetadataFailed) {
@@ -7628,31 +7775,43 @@ async function generateTradeMatches({ userRequested = false } = {}) {
           includePowerUpgrade: false,
         });
         if (!tradeMatchIdeaHelps(idea, myProfile, row.deal)) continue;
+        // Never suggest a deal the checker itself would call more than a slight edge.
+        const checked = checkerModelFor(idea.myAssets, idea.theirAssets);
+        const copy = verdictCopy(checked.verdict);
+        if (copy.tier !== "even" && copy.tier !== "edge") continue;
+        idea.bandLine = verdictLineNamed(checked.verdict, { Give: "You give", Get: "You get" });
+        idea.gainLine = ideaGainLine(idea);
+        // An idea that improves nothing is not shown.
+        if (!idea.gainLine) continue;
         ideas.push(idea);
-        if (ideas.length >= 1) break;
+        if (ideas.length >= 2) break;
       }
 
-      groups.push({
-        title: theirProfile.managerName,
-        ideas,
-        emptyText: "The rosters fit, but every fair package still looked like filler. Try Find deals on a specific name.",
-      });
+      groups.push({ title: theirProfile.managerName, ideas, match, rosterId: theirProfile.rosterId });
     }
 
-    const withDeals = groups.filter((group) => group.ideas.length > 0);
+    const allIdeas = groups.flatMap((group) => group.ideas);
+    const rankGain = (idea) => {
+      const side = idea.impactAnalysis?.mySide;
+      const gain = Number(side?.before?.rank) - Number(side?.after?.rank);
+      return (Number.isFinite(gain) ? gain : 0) + (idea.myHelp?.patchedNeeds?.length ? 1 : 0);
+    };
+    allIdeas.sort((a, b) => rankGain(b) - rankGain(a) || Math.abs(a.pctDiff) - Math.abs(b.pctDiff));
     state.tradeMatch.payload = {
-      groups: withDeals.length ? withDeals : groups.slice(0, 3),
+      ideas: allIdeas,
+      partners: groups.slice(0, 5).map((group) => ({
+        name: group.title,
+        why: describePartnerMatch(group.match, myProfile, { voice: sampleVoice() }),
+      })),
       emptyText: ranked.length === 0
-        ? (sampleVoice()?.matchEmptyBalanced || "No complementary windows jumped out. Your roster may already be balanced, or the league is clustered the same way.")
-        : (sampleVoice()?.matchEmptyLineup || "Those complementary teams showed up, but no package helped your lineup without leftover thirds."),
+        ? "No team lines up on needs or timeline yet."
+        : "No fair deal that helps your lineup yet.",
     };
   } catch (err) {
     state.tradeMatch.error = `Could not build matches. ${err.message}`;
     state.tradeMatch.payload = null;
   } finally {
     state.tradeMatch.loading = false;
-    setButtonLoading(el.matchGenerateBtn, false);
-    syncMatchGenerateState();
     if (state.activePage === "trades" && getRoom("trades") === "find") {
       renderTradeMatchNeeds();
       renderTradeMatchDashboard();
@@ -7726,20 +7885,15 @@ function formatAssetNameList(assets) {
 }
 
 function renderMatchTradeCard(idea) {
-  const copy = formatMatchIdeaCopy({
-    sendNames: (idea.myAssets || []).map((asset) => asset.name),
-    receiveNames: (idea.theirAssets || []).map((asset) => asset.name),
-    beforeRank: idea.impactAnalysis?.mySide?.before?.rank,
-    afterRank: idea.impactAnalysis?.mySide?.after?.rank,
-    totalTeams: idea.impactAnalysis?.mySide?.before?.totalTeams
-      || idea.impactAnalysis?.mySide?.after?.totalTeams,
-    benefit: idea.pitch || idea.summary || "",
-  });
+  const send = (idea.myAssets || []).map((asset) => asset.name);
+  const receive = (idea.theirAssets || []).map((asset) => asset.name);
+  const partner = idea.counterpartyName || "";
   return `
     <article class="match-trade-card">
-      <p class="match-trade-offer">${escapeHtml(copy.offer)}</p>
-      ${copy.why ? `<p class="match-trade-rank">${escapeHtml(copy.why)}</p>` : ""}
-      ${copy.rank ? `<p class="match-trade-rank">${escapeHtml(copy.rank)}</p>` : ""}
+      ${partner ? `<p class="match-trade-partner muted small">With ${escapeHtml(partner)}</p>` : ""}
+      <p class="match-trade-offer">Send ${escapeHtml(send.join(" + "))} for ${escapeHtml(receive.join(" + "))}</p>
+      ${idea.gainLine ? `<p class="match-trade-gain">${escapeHtml(idea.gainLine)}</p>` : ""}
+      ${idea.bandLine ? `<p class="match-trade-band">${escapeHtml(idea.bandLine)}</p>` : ""}
       ${renderReviewTradeButton(idea)}
     </article>
   `;
