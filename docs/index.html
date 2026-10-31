@@ -39,13 +39,12 @@
         <button
           type="button"
           id="mobile-rail-toggle"
-          class="mobile-icon-btn"
+          class="team-league-chip"
           aria-expanded="false"
           aria-controls="control-rail"
-          title="Sections"
         >
-          <span class="menu-bars" aria-hidden="true"></span>
-          <span class="sr-only">Sections</span>
+          <span id="team-league-chip-text">Connect my league</span>
+          <span class="chip-caret" aria-hidden="true">▾</span>
         </button>
         <div class="mobile-chrome-copy">
           <span class="brand-lockup brand-lockup--header">
@@ -59,19 +58,6 @@
           <p id="mobile-chrome-viewing" class="mobile-chrome-viewing" hidden></p>
         </div>
         <a class="launch-header-link" href="/connect?next=/" data-launch="connect">Connect my league</a>
-        <div class="mobile-chrome-actions">
-          <button
-            type="button"
-            id="mobile-home-btn"
-            class="mobile-icon-btn hidden"
-            title="League home"
-            data-action="league-home"
-          >
-            <span class="home-glyph" aria-hidden="true"></span>
-            <span class="sr-only">League home</span>
-          </button>
-        </div>
-        <span id="mobile-home-feedback" class="feedback-chip mobile-share-feedback hidden" role="status">Home</span>
       </header>
       <div class="rail-backdrop" id="rail-backdrop" hidden></div>
       <aside class="control-rail" id="control-rail" aria-label="League controls">
@@ -166,7 +152,7 @@
             <span class="step-badge">02</span>
             <div>
               <span class="eyebrow">Manager</span>
-              <h2>You are</h2>
+              <h2>Your team</h2>
             </div>
           </div>
           <label for="me-select">Team</label>
@@ -174,10 +160,7 @@
         </section>
 
         <div class="rail-footer">
-          <button id="home-btn" type="button" class="ghost-btn hidden" title="League home" data-action="league-home">
-            <span class="home-glyph" aria-hidden="true"></span>
-            <span class="sr-only">League home</span>
-          </button>
+          <button id="disconnect-btn" type="button" class="ghost-btn hidden" data-action="disconnect-league">Disconnect league</button>
         </div>
       </aside>
 
@@ -239,11 +222,6 @@
         <div id="ui-pages">
           <section class="launch" id="landing">
   <div class="launch-wrap">
-    <nav class="launch-nav" aria-label="Main navigation">
-      <a href="/trade" data-launch="empty">Check a trade</a>
-      <a href="/connect?next=/" data-launch="connect">Find a trade</a>
-      <a href="/connect?next=/" data-launch="connect">My team</a>
-    </nav>
     <h1 id="landing-job-hint">Your next dynasty move starts here.</h1>
     <p class="sub">Explore player values, build a trade, or connect your Sleeper league. Free. No sign-up.</p>
     <form id="landing-talk-form" class="landing-talk" action="/trade" method="get">

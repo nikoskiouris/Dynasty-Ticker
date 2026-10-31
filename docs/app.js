@@ -384,7 +384,6 @@ const el = {
   calculatorSection: document.querySelector("#calculator-section"),
   calculatorShell: document.querySelector("#calculator-shell"),
   ranksDashboard: document.querySelector("#ranks-dashboard"),
-  homeBtn: document.querySelector("#home-btn"),
   landingFindBtn: document.querySelector("#landing-find-btn"),
   landingUsername: document.querySelector("#landing-username"),
   landingUsernameForm: document.querySelector("#landing-username-form"),
@@ -407,7 +406,6 @@ const el = {
   deskBoardOpen: document.querySelector("#desk-board-open"),
   boardTools: document.querySelector("#board-tools"),
   boardToolsSlot: document.querySelector("#board-tools-slot"),
-  mobileHomeBtn: document.querySelector("#mobile-home-btn"),
   railBackdrop: document.querySelector("#rail-backdrop"),
   controlRail: document.querySelector("#control-rail"),
   phoneDesk: document.querySelector("#phone-desk"),
@@ -586,23 +584,17 @@ document.addEventListener("keydown", (event) => {
 });
 document.addEventListener("click", handleLaunchClick);
 document.addEventListener("click", (event) => {
-  const home = event.target.closest("[data-action='league-home']");
-  if (!home) return;
+  const button = event.target.closest("[data-action='disconnect-league']");
+  if (!button) return;
   event.preventDefault();
-  goLeagueHome();
+  // The trade draft is stored, so it survives. Back to the no-league desk.
+  window.location.assign("/");
 });
 document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-sample-find]");
   if (!button || el.workspace?.contains(button)) return;
   event.preventDefault();
   openSampleConnect();
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" && event.key !== " ") return;
-  const home = event.target.closest("[data-action='league-home']");
-  if (!home || event.target !== home) return;
-  event.preventDefault();
-  goLeagueHome();
 });
 window.matchMedia(PHONE_LAYOUT_QUERY).addEventListener("change", () => {
   setMobileRailOpen(false);
@@ -667,6 +659,20 @@ el.meSelect?.addEventListener("change", () => {
   renderActivePage();
   renderSessionSnapshot();
   updateUrlState({ mode: "replace" });
+});
+document.addEventListener("submit", (event) => {
+  const form = event.target.closest?.("[data-preview-connect]");
+  if (!form) return;
+  event.preventDefault();
+  const name = String(form.querySelector("input")?.value || "").trim();
+  // Come back to this tab once the league opens.
+  state.pendingPlace = { page: state.activePage, room: getRoom(state.activePage) };
+  if (el.landingUsername) el.landingUsername.value = name;
+  syncUsernameFields(el.landingUsername);
+  document.querySelector("#landing")?.classList.remove("hidden");
+  const box = document.querySelector("#landing-connect");
+  if (box) box.hidden = false;
+  requestFindLeagues();
 });
 document.addEventListener("change", (event) => {
   const target = event.target;
@@ -880,8 +886,7 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
 function showAppPages() {
   hideLeagueNotFound();
   el.deskNav?.classList.remove("hidden");
-  el.homeBtn?.classList.remove("hidden");
-  el.mobileHomeBtn?.classList.remove("hidden");
+  document.querySelector("#disconnect-btn")?.classList.remove("hidden");
   const pending = state.pendingPlace || connectNextPlace;
   connectNextPlace = null;
   state.pendingPlace = null;
@@ -899,8 +904,7 @@ function showAppPages() {
 
 function hideAppPages() {
   el.deskNav?.classList.add("hidden");
-  el.homeBtn?.classList.add("hidden");
-  el.mobileHomeBtn?.classList.add("hidden");
+  document.querySelector("#disconnect-btn")?.classList.add("hidden");
   PAGE_IDS.forEach((page) => {
     const pageEl = el.pages[page];
     pageEl?.classList.add("hidden");
@@ -941,7 +945,7 @@ function stepTabIndex(event, count, currentIndex) {
 }
 
 function handlePageTabKeydown(event) {
-  const tabs = [...(el.pageTabButtons || [])];
+  const tabs = [...(el.pageTabs?.querySelectorAll(".page-tab") || el.pageTabButtons || [])];
   if (tabs.length === 0) return;
   const currentIndex = Math.max(0, tabs.findIndex((button) => button.classList.contains("active")));
   const nextIndex = stepTabIndex(event, tabs.length, currentIndex);
@@ -2261,13 +2265,17 @@ function buildShareUrl(overrides = {}) {
   });
 }
 
-function goLeagueHome() {
-  if (!state.leagueId) {
-    document.querySelector("#landing")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    el.landingUsername?.focus();
-    return;
+// "(you)" and the You chip mark the person who connected, never whichever
+// team is being viewed. A direct league link with no connected user marks
+// the team they picked themselves, and nothing until they pick.
+function connectedRosterId() {
+  const userId = String(state.sleeperUser?.user_id || "");
+  if (userId) {
+    const raw = (state.rosters || []).find((roster) => String(roster?.owner_id || "") === userId
+      || (Array.isArray(roster?.co_owners) && roster.co_owners.map(String).includes(userId)));
+    return raw ? String(raw.roster_id) : "";
   }
-  openRoom("league", "team");
+  return state.mePickedByUser && state.meRosterId != null ? String(state.meRosterId) : "";
 }
 
 function goSiteHome({ history = "push" } = {}) {
@@ -2406,6 +2414,13 @@ function renderSessionSnapshot() {
           : guestRouteHeading();
   }
   if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
+  const chipText = document.querySelector("#team-league-chip-text");
+  if (chipText) {
+    chipText.textContent = state.leagueName
+      ? `${you || "Pick your team"} · ${state.leagueName}`
+      : "Connect my league";
+  }
+  el.mobileRailToggle?.setAttribute("aria-label", state.leagueName ? `Team and league: ${chipText?.textContent || ""}. Switch team, switch league, or disconnect.` : "Connect my league");
   if (el.mobileChromeViewing) {
     el.mobileChromeViewing.hidden = !sampleOn;
     el.mobileChromeViewing.textContent = sampleOn ? sampleViewingLine(you) : "";
@@ -2471,10 +2486,7 @@ function renderLeagueHero() {
   const format = describeLeagueFormat(league);
   const seasonLabel = `${league.season} season`;
   const trophy = String(league?.metadata?.trophy_winner_banner_text || "").trim();
-  const pageLabel = PAGE_LABELS[state.activePage] || "League";
-  const room = getRoom();
-  const roomLabel = room === HOME_ROOM ? "" : deskRoomLabel(state.activePage, room);
-  el.heroEyebrow.textContent = `${pageLabel}${roomLabel ? ` / ${roomLabel}` : ""} · ${seasonLabel} · ${state.normalizedRosters.length} teams · ${model?.playoffTeams || league?.settings?.playoff_teams || "?"} playoff spots`;
+  el.heroEyebrow.textContent = `${seasonLabel} · ${state.normalizedRosters.length} teams · ${model?.playoffTeams || league?.settings?.playoff_teams || "?"} make playoffs`;
   el.heroTitle.textContent = state.leagueName;
   const status = model?.seasonComplete
     ? "Season complete. The archive, awards, and record book are final."
@@ -2521,7 +2533,23 @@ function isActiveNavTab(button) {
   return button.dataset.page === state.activePage && button.dataset.room === getRoom(state.activePage);
 }
 
+// No league: Check a trade · Find a trade · My team (checking works without a
+// league). League connected: My team · Find a trade · Check a trade, the
+// decision order (diagnose, find, validate).
+function orderNavTabs() {
+  const nav = el.pageTabs;
+  if (!nav) return;
+  const ids = state.leagueId ? ["league-tab", "find-tab", "trades-tab"] : ["trades-tab", "find-tab", "league-tab"];
+  const current = [...nav.querySelectorAll(".page-tab")].map((button) => button.id).join(",");
+  if (current === ids.join(",")) return;
+  ids.forEach((id) => {
+    const button = nav.querySelector(`#${id}`);
+    if (button) nav.appendChild(button);
+  });
+}
+
 function renderRoomNav() {
+  orderNavTabs();
   el.pageTabButtons?.forEach((button) => {
     const isActive = isActiveNavTab(button);
     button.classList.toggle("active", isActive);
@@ -4192,7 +4220,7 @@ function managerForRosterId(rosterId) {
 
 function renderTeamIdentity(rosterId, { size = "sm", showTeamName = true, extra = "" } = {}) {
   const manager = managerForRosterId(rosterId);
-  const isMe = String(rosterId) === String(state.meRosterId);
+  const isMe = state.viewingSample ? String(rosterId) === String(state.meRosterId) : String(rosterId) === connectedRosterId();
   const teamName = showTeamName ? (manager.teamName || "") : "";
   const subtitle = [teamName, extra].filter(Boolean).join(" · ");
   return `
@@ -4251,12 +4279,43 @@ function paintConnectGate(host, copy) {
   host.innerHTML = renderConnectGate({ copy });
 }
 
+// No league: the tab stays selected and shows what it does, a username box,
+// and the sample league. It never redirects.
+const NO_LEAGUE_PREVIEW = Object.freeze({
+  find: {
+    title: "Trade ideas that fit your league",
+    points: ["Ideas that fill your weakest spot, each with a fairness check", "Shop a player: who pays a fair price for him", "The teams most likely to say yes"],
+  },
+  team: {
+    title: "Your team, read in one line",
+    points: ["Contend or rebuild, with playoff odds", "Your next move: the spot to upgrade", "Position ranks, best lineup, bench and picks"],
+  },
+});
+
+function renderNoLeaguePreview(kind) {
+  const copy = NO_LEAGUE_PREVIEW[kind] || NO_LEAGUE_PREVIEW.team;
+  return `
+    <section class="no-league-preview" data-preview="${escapeHtml(kind)}">
+      <p class="no-league-title"><strong>${escapeHtml(copy.title)}</strong></p>
+      <ul class="no-league-points">${copy.points.map((point) => `<li>${escapeHtml(point)}</li>`).join("")}</ul>
+      <form class="no-league-connect" data-preview-connect novalidate>
+        <label for="preview-username-${escapeHtml(kind)}">Sleeper username</label>
+        <div class="no-league-row">
+          <input id="preview-username-${escapeHtml(kind)}" name="username" maxlength="40" placeholder="username" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
+          <button type="submit">Connect my league</button>
+        </div>
+      </form>
+      <p class="no-league-sample">No league? <a class="sample-league-link" href="./?sample=1">Try the sample league</a></p>
+    </section>
+  `;
+}
+
 function clearHost(host) {
   if (host) host.innerHTML = "";
 }
 
 function renderLeagueGuest() {
-  paintConnectGate(el.powerDashboard, "Connect my league to see your roster, outlook, standings, and playoff odds.");
+  if (el.powerDashboard) el.powerDashboard.innerHTML = renderNoLeaguePreview("team");
   clearHost(el.windowCallDashboard);
   clearHost(el.standingsDashboard);
   clearHost(el.rosterSheet);
@@ -4481,7 +4540,7 @@ function syncLeagueFormatCopy() {
 }
 
 function renderLensPicker(roster, { label = "Viewing", extra = "" } = {}) {
-  const meId = String(state.meRosterId ?? "");
+  const meId = state.viewingSample ? String(state.meRosterId ?? "") : connectedRosterId();
   const options = state.normalizedRosters
     .slice()
     .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName))
@@ -7416,7 +7475,7 @@ function syncFindGuestChrome(guest) {
 function renderTradeMatchRoom() {
   if (!state.leagueId) {
     syncFindGuestChrome(true);
-    paintConnectGate(el.tradeMatchNeeds, "Connect your league to see trade partners. The trade checker works without it.");
+    if (el.tradeMatchNeeds) el.tradeMatchNeeds.innerHTML = renderNoLeaguePreview("find");
     clearHost(el.tradeMatchDashboard);
     return;
   }
