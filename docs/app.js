@@ -4763,7 +4763,7 @@ function renderRosterSheet() {
         ${sheetSlotMarkup(extra.slot, slotLabel)}
         <div class="sheet-player">
           ${renderPlayerFace(playerId, asset.name, { size: "sm" })}
-          <strong>${escapeHtml(asset.name)}${nickname ? ` <em class="nickname">“${escapeHtml(nickname)}”</em>` : ""}</strong>
+          <strong>${playerLinkHtml(asset)}${nickname ? ` <em class="nickname">“${escapeHtml(nickname)}”</em>` : ""}</strong>
           ${meta ? `<span>${meta}</span>` : ""}
         </div>
         <span class="sheet-metrics">
