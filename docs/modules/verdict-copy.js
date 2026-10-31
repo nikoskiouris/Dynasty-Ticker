@@ -97,11 +97,16 @@ export function displayMore(more, { band = true } = {}) {
 // 10× the smaller side is 900% more. Anything past that, or a zero side, caps.
 const TEN_X_MORE = 900;
 
+// "You give" / "You get" / "They give" read as a sentence without "worth":
+// "You give 136% more". A side name ("Give side") keeps "worth".
+const VERB_NAME = /^(?:you|they) (?:give|get)$/i;
+
 function worthMorePhrase(name, more) {
-  if (more == null || more > TEN_X_MORE) return `${name} worth over 10× as much`;
+  const worth = VERB_NAME.test(String(name)) ? "" : "worth ";
+  if (more == null || more > TEN_X_MORE) return `${name} ${worth}over 10× as much`;
   const shown = displayMore(more);
   const amount = shown == null ? "" : `${shown}% `;
-  return `${name} worth ${amount}more`;
+  return `${name} ${worth}${amount}more`;
 }
 
 // verdict: valueCalcVerdict(...) output ({ label, pct, gap, left, right }),
