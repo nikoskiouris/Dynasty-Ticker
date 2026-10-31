@@ -8140,3 +8140,17 @@ button.talk-chip {
 .next-move-line { margin: 0; }
 .league-format-details { margin-top: 0.75rem; }
 .league-format-details summary { cursor: pointer; }
+html:not([data-players-board]) #ranks-section { display: none !important; }
+.calc-why { margin-top: 0.5rem; }
+.calc-why > summary { cursor: pointer; font-weight: 600; }
+
+/* Player page: a selected player is its own page (report 2026-10-31). */
+html[data-player-page] #calculator-section { display: none !important; }
+html[data-player-page] #ranks-section { display: block !important; }
+html[data-player-page] #ranks-section .panel-heading,
+html[data-player-page] #ranks-section .ranks-toolbar,
+html[data-player-page] #ranks-section .ranks-shelf,
+html[data-player-page] #ranks-section .ranks-list,
+html[data-player-page] #ranks-section .ranks-more,
+html[data-player-page] #ranks-section .values-freshness { display: none !important; }
+.ranks-card-role { margin: 0.25rem 0; }

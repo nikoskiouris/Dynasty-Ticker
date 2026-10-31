@@ -26,7 +26,7 @@ export function calcPointer(arrow) {
   return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
 }
 
-// Why the verdict moved: fewer, better players are worth extra. Listed prices stay in the rows.
+// Why the verdict moved: fewer, better pieces are worth extra. Listed prices stay in the rows.
 // best: the name of the most valuable player on the credited side, when known.
 export function starsPremiumMarkup(model, { best = "", pick = false, shared = false } = {}) {
   const adj = model?.adjustment;

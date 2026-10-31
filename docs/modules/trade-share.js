@@ -183,7 +183,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     get,
     giveTotal: model.give,
     getTotal: model.get,
-    // Credited totals: the listed prices plus the extra for fewer, better players.
+    // Credited totals: the listed prices plus the extra for fewer, better pieces.
     // The gap, % and verdict all come from these, so the card's math adds up.
     giveCredited: model.compareGive,
     getCredited: model.compareGet,
@@ -217,7 +217,7 @@ export function shareMessage(summary) {
   return `${verdictCopy(summary?.verdict).line}. Check it on Dynasty Ticker.`;
 }
 
-// "Fewer, better players +7,413" on the side that gets the extra.
+// "Fewer, better pieces +7,413" on the side that gets the extra.
 export function creditLine(summary) {
   if (!summary?.credit?.amount) return "";
   return `${FEWER_BETTER_LABEL} +${formatCount(summary.credit.amount)}`;

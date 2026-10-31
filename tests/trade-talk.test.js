@@ -214,3 +214,10 @@ test("in a league, a bare name only counts rostered players", () => {
   };
   assert.deepEqual(names(converse(["Gibbs for Jefferson"], ctx).draft.right), ["Justin Jefferson"]);
 });
+
+// Report 2026-10-31: in league mode "Nabers and two 1sts for Gibbs" must add two picks.
+test("in a league, 'two 1sts' adds two picks, generic when the team holds fewer", () => {
+  const { draft } = converse(["Nabers and two 2027 1sts for Gibbs"], league);
+  const firsts = [...draft.left, ...draft.right].filter((item) => /1st/.test(item.name));
+  assert.equal(firsts.length, 2);
+});

@@ -118,7 +118,7 @@ test("pick line and tape stay one sentence", () => {
   assert.equal(ownerLine({ mine: true }, { leagueOpen: true }), "You have him.");
   assert.equal(ownerLine({ name: "Demetri" }, { leagueOpen: true }), "Demetri has him.");
   assert.equal(ownerLine(null, { leagueOpen: true }), "Nobody in this league has him.");
-  assert.equal(ownerLine({ name: "Demetri" }, { leagueOpen: false }), "");
+  assert.equal(ownerLine({ name: "Demetri" }, { leagueOpen: false }), "Connect your league to see who owns him.");
 });
 
 test("filters keep the tradable board and search finds the cheap name", () => {

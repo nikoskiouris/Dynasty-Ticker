@@ -957,8 +957,19 @@ function handlePageTabKeydown(event) {
   openRoom(nextTab.dataset.page, nextTab.dataset.room, { history: "push", scroll: "top" });
 }
 
+function syncPlayersBoardFlag() {
+  document.documentElement.toggleAttribute("data-players-board", /^\/players\/?$/.test(window.location.pathname));
+  if (!/^\/player\//.test(window.location.pathname) && state.activePage === "league") {
+    document.documentElement.removeAttribute("data-player-page");
+  }
+}
+window.addEventListener("popstate", () => syncPlayersBoardFlag());
+
 function renderActivePage() {
   pageRenderQueue.settle();
+  // The full players board lives on /players only. Check a trade adds players
+  // from each side's own search, so no 48-row list sits under the calculator.
+  syncPlayersBoardFlag();
   if (state.leagueSwitching) {
     renderLeagueHero();
     hideAppPages();
@@ -1179,8 +1190,16 @@ function ranksBoardVisible() {
   return state.activePage === "trades" && getRoom("trades") === "calculator";
 }
 
+// A selected player is a page of its own: the player card, no calculator and
+// no board list. /player/<id> keeps that address.
+function syncPlayerPageFlag() {
+  const on = Boolean(state.ranks?.selectedId) && state.activePage !== "league" && ranksBoardVisible();
+  document.documentElement.toggleAttribute("data-player-page", on);
+}
+
 function renderRankSurfaces() {
   if (ranksBoardVisible()) renderRankHost(el.ranksDashboard);
+  syncPlayerPageFlag();
 }
 
 async function ensureRankExtras() {
@@ -1221,6 +1240,8 @@ function openPlayerBoard({ history = "push" } = {}) {
 }
 
 function renderTradesRoom(room) {
+  // The full players board lives on /players only. Check a trade adds players
+  // from each side's own search, so no 48-row list sits under the calculator.
   if (room === "find") {
     renderTradeMatchRoom();
     return;
@@ -1661,7 +1682,13 @@ function escapeRouteOverlay(event) {
   return true;
 }
 
-function updateUrlState({ mode = "replace", force = false } = {}) {
+function updateUrlState(options = {}) {
+  const result = updateUrlStateInner(options);
+  syncPlayersBoardFlag();
+  return result;
+}
+
+function updateUrlStateInner({ mode = "replace", force = false } = {}) {
   // A broken /t/ link keeps its address: never rewrite it to the saved draft.
   if (mode === "replace" && state.badShareLink && /^\/t\//.test(window.location.pathname || "")) {
     routeFocus.forget();
@@ -2117,6 +2144,31 @@ function openEmptyTrade() {
   requestAnimationFrame(() => {
     document.querySelector("[data-input='value-search'][data-side='left']")?.focus();
   });
+}
+
+// Every player name (idea cards, Shop results, trade sides, roster rows)
+// opens that player's own page. The trade draft is untouched.
+function openPlayerPage(assetId) {
+  const id = String(assetId || "");
+  if (!/^player:\d+$/.test(id)) return;
+  prepareDeskPush();
+  state.ranks.selectedId = id;
+  document.querySelector("#landing")?.classList.add("hidden");
+  setRoom("trades", "calculator");
+  setActivePage("trades", { history: "silent", scroll: "top" });
+  renderRankSurfaces();
+  if (!rankValuesReady() || !playerNoteContext?.previousSeason) void ensureRankExtras();
+  updateUrlState({ mode: "push" });
+  syncLaunchChrome();
+  syncDocumentMeta();
+  window.scrollTo(0, 0);
+}
+
+function playerLinkHtml(asset) {
+  const id = String(asset?.assetId || "");
+  const name = escapeHtml(asset?.name || "");
+  if (!/^player:\d+$/.test(id)) return name;
+  return `<button type="button" class="link-btn player-link" data-action="open-player" data-asset-id="${escapeHtml(id)}">${name}</button>`;
 }
 
 function openLaunchPlayer(href) {
@@ -4756,7 +4808,9 @@ function renderRosterSheet() {
 // Trade calculator: one draft, with or without a league
 // ---------------------------------------------------------------------------
 
-function setDraft(next) {
+function setDraft(next, { keepNotice = false } = {}) {
+  // "Restore draft / Keep new" goes away on the next change to the trade.
+  if (!keepNotice) draftReplaced = null;
   state.valueCalc = next;
   writeStoredDraft(next);
   if (state.activePage === "trades" && getRoom("trades") === "calculator") {
@@ -4774,7 +4828,7 @@ function replaceDraft(next, note) {
   draftReplaced = !isDraftEmpty(current) && draftAssetKey(current) !== draftAssetKey(next)
     ? { draft: current, note }
     : null;
-  setDraft(next);
+  setDraft(next, { keepNotice: true });
 }
 
 // Roster ids repeat across leagues, so a browse preference from one league means nothing in another.
@@ -4953,9 +5007,8 @@ function paintTradeDraft() {
     </div>
     ${renderTradeTalk()}
     <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
-    <div class="calc-grid has-meter">
+    <div class="calc-grid">
       ${renderDraftPane("left", view)}
-      <div id="draft-meter" class="draft-meter">${renderDraftMeter(view)}</div>
       ${renderDraftPane("right", view)}
     </div>
     <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
@@ -5198,6 +5251,28 @@ function runTradeTalk(text) {
   const view = buildDraftView();
   const ctx = tradeTalkContext(view);
   const plan = parseTradeTalk(say, ctx);
+  // "What could I get for Bijan?" never replaces the trade being built. In a
+  // league it opens Shop a player; without one it lists returns priced near him.
+  if (plan.intent === "shop" && plan.adds.length && !isDraftEmpty(state.valueCalc)) {
+    const target = plan.adds[0].asset;
+    if (state.leagueId && getMyRoster() && /^player:/.test(String(target.assetId))) {
+      openShop(target.assetId);
+      return;
+    }
+    const value = draftMarketPrice(target, view.basis).value;
+    const neighbors = priceNeighbors(ctx.catalog, value, {
+      exclude: [target, ...state.valueCalc.left, ...state.valueCalc.right].map((item) => item.assetId),
+    });
+    tradeTalkLog = [{
+      say,
+      lines: [`${target.name} is worth ${formatNumber(value)} on our board. Your trade is unchanged.`],
+      groups: neighbors.length ? [{ title: "Single players priced near that", chips: neighbors.map((row) => ({ ...row, side: "right" })) }] : [],
+      next: [],
+      sticky: true,
+    }];
+    renderTradeDraft();
+    return;
+  }
   const result = applyTradeTalk(state.valueCalc, plan);
   const voice = sampleVoice();
   const giveLabel = voice?.giveLabel || "You give";
@@ -5499,7 +5574,11 @@ function renderDraftPartnerPicker(view) {
 function renderSelectedTokenLabel(asset) {
   const face = renderPlayerFace(facePlayerId(asset), asset?.name, { size: "sm" });
   if (!face) return `<span class="selected-token-label">${escapeHtml(asset?.name || "")}</span>`;
-  return `<span class="selected-token-label player-name">${face}<span class="player-name-text">${escapeHtml(asset.name)}</span></span>`;
+  const id = String(asset?.assetId || "");
+  const name = /^player:\d+$/.test(id)
+    ? `<button type="button" class="link-btn player-link player-name-text" data-action="open-player" data-asset-id="${escapeHtml(id)}">${escapeHtml(asset.name)}</button>`
+    : `<span class="player-name-text">${escapeHtml(asset.name)}</span>`;
+  return `<span class="selected-token-label player-name">${face}${name}</span>`;
 }
 
 function draftItemMismatch(view, item) {
@@ -5635,7 +5714,7 @@ function renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) {
           `).join("")}
           ${adjustment?.side === side.key && adjustment.amount > 0 ? `
             <div class="meter-why-row is-credit">
-              <span class="meter-why-name">Fewer, better players</span>
+              <span class="meter-why-name">Fewer, better pieces</span>
               <span class="meter-why-track"></span>
               <span class="meter-why-num">+${formatNumber(adjustment.amount)}</span>
             </div>
@@ -5877,13 +5956,13 @@ function evenUpCopy(choice, side) {
   const near = Number(choice.value) > 0 && Number(choice.gap) > 0
     && choice.value <= choice.gap * 1.5 && choice.value >= choice.gap * 0.67;
   if (choice.closes && !near) {
-    return `${side} ${verb} about ${formatNumber(choice.gap)} to even it up. No single pick is close to that.`;
+    return `${side} ${verb} about ${formatNumber(choice.gap)}. No single pick is close to that.`;
   }
   if (choice.closes) {
     return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
   }
   if (Number.isFinite(Number(choice.pct))) {
-    const after = choice.verdict ? verdictLineNamed(choice.verdict) : "";
+    const after = choice.verdict ? verdictLineNamed(choice.verdict, sampleVoice() ? {} : { Give: "You give", Get: "You get" }) : "";
     return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}).${after ? ` After that pick: ${after}.` : ""}`;
   }
   const short = choice.value < choice.gap;
@@ -5922,7 +6001,7 @@ function noteTradeChecked(draft) {
 function renderDraftVerdict(view) {
   const { draft, model } = view;
   if (!draft.left.length && !draft.right.length) {
-    return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. The verdict uses the same prices as the player list below.</p>`;
+    return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. Every player is priced the same way everywhere on the site.</p>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (bothSides) noteTradeChecked(draft);
@@ -5933,7 +6012,10 @@ function renderDraftVerdict(view) {
   // One verdict wording everywhere (verdict-copy.js): app, /t, card, meta, share text.
   const copy = verdictCopy(verdict);
   // The headline is the full line ("Lopsided · Give side worth 89% more"), like the card.
-  const label = bothSides ? copy.line : copy.label;
+  // Private /trade names the sides as the reader: "You give 136% more".
+  const label = bothSides
+    ? (voice ? copy.line : verdictLineNamed(verdict, { Give: "You give", Get: "You get" }))
+    : copy.label;
   const sharedView = bothSides ? sharedVerdictFor(view) : null;
   // RECHECK4: on a cold /t the bars are sized on the credited totals the
   // verdict compares, with the stars credit as its own segment.
@@ -5960,11 +6042,11 @@ function renderDraftVerdict(view) {
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
-        <p>${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}</p>
-        ${starsPremiumMarkup(model, { best, pick: bestPick })}
+        ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
-        <details class="calc-method">
-          <summary>How this number works</summary>
+        <details class="calc-method calc-why">
+          <summary>Why?</summary>
+          ${starsPremiumMarkup(model, { best, pick: bestPick })}
           ${renderDraftMethod(view)}
         </details>`}
       </div>
@@ -6004,7 +6086,7 @@ function sharedBarSegments(model, meters = null) {
 }
 
 // A bar with an extra segment carries a text label for screen readers
-// ("Give 21,472 including 8,561 for fewer, better players"); the hatch has a visible key.
+// ("Give 21,472 including 8,561 for fewer, better pieces"); the hatch has a visible key.
 function meterTrack(seg, maxSide, label = "") {
   const pct = (value) => Math.round((value / maxSide) * 1000) / 10;
   if (!seg.stars) return `<div class="meter-track"><span style="width:${pct(seg.listed)}%"></span></div>`;
@@ -6017,7 +6099,7 @@ function calcPointer(arrow) {
   return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
 }
 
-// Cold /t detail line: "Give 19,224 (11,811 + 7,413 for fewer, better players). Get 14,457."
+// Cold /t detail line: "Give 19,224 (11,811 + 7,413 for fewer, better pieces). Get 14,457."
 function sharedTotalsLine(model) {
   const adj = model.adjustment;
   return creditedTotalsLine({
@@ -6196,17 +6278,8 @@ function buildDraftOfferText(view) {
 }
 
 function renderDraftTeam(view) {
-  if (!view.basis.connected) {
-    return `
-      <section class="draft-team-card">
-        <div>
-          <span class="analytics-kicker">Your team</span>
-          <p>Connect my league to see who owns each piece and what this trade does to both rosters. This trade stays here.</p>
-        </div>
-        <button type="button" data-action="draft-connect">Connect my league</button>
-      </section>
-    `;
-  }
+  // No league: no roster-impact box. Connecting is offered in the header and on home.
+  if (!view.basis.connected) return "";
   const { context, draft } = view;
   const partnerName = view.partner?.manager?.displayName || "";
   const splitNames = (context?.partnerIds || []).map((id) => findNormalizedRoster(id)?.manager?.displayName).filter(Boolean);
@@ -6520,8 +6593,21 @@ function handleWorkspaceClick(event) {
       updateUrlState({ mode: "replace" });
       break;
     case "rank-calc":
+      state.ranks.selectedId = "";
+      syncPlayerPageFlag();
       addDraftFromPlayers(target.dataset.assetId, target.dataset.name, target.dataset.kind);
       break;
+    case "open-player": {
+      openPlayerPage(target.dataset.assetId);
+      break;
+    }
+    case "player-shop": {
+      const id = String(target.dataset.assetId || "");
+      state.ranks.selectedId = "";
+      syncPlayerPageFlag();
+      openShop(id);
+      break;
+    }
     case "standings-view": {
       state.standingsView = target.dataset.view === "division" ? "division" : "overall";
       renderStandingsRoom();
@@ -6647,7 +6733,7 @@ function handleWorkspaceClick(event) {
       if (!draftReplaced) return;
       const previous = draftReplaced.draft;
       draftReplaced = isDraftEmpty(state.valueCalc) ? null : { draft: state.valueCalc, note: "Switched drafts." };
-      setDraft(previous);
+      setDraft(previous, { keepNotice: true });
       renderTradeDraft();
       break;
     }
@@ -7759,8 +7845,8 @@ function renderShopResults(result) {
     const idea = result.selling
       ? { counterpartyRosterId: offer.rosterId, myAssets: [result.asset], theirAssets: offer.assets }
       : { counterpartyRosterId: result.owner.rosterId, myAssets: offer.assets, theirAssets: [result.asset] };
-    const pieces = offer.assets.map((a) => a.name).join(" + ");
-    const line = result.selling ? `${escapeHtml(offer.teamName)}: ${escapeHtml(pieces)}` : escapeHtml(pieces);
+    const pieces = offer.assets.map(playerLinkHtml).join(" + ");
+    const line = result.selling ? `${escapeHtml(offer.teamName)}: ${pieces}` : pieces;
     return `
       <article class="match-trade-card shop-offer">
         <p class="match-trade-offer">${line}</p>
@@ -8022,13 +8108,11 @@ function formatAssetNameList(assets) {
 }
 
 function renderMatchTradeCard(idea) {
-  const send = (idea.myAssets || []).map((asset) => asset.name);
-  const receive = (idea.theirAssets || []).map((asset) => asset.name);
   const partner = idea.counterpartyName || "";
   return `
     <article class="match-trade-card">
       ${partner ? `<p class="match-trade-partner muted small">With ${escapeHtml(partner)}</p>` : ""}
-      <p class="match-trade-offer">Send ${escapeHtml(send.join(" + "))} for ${escapeHtml(receive.join(" + "))}</p>
+      <p class="match-trade-offer">Send ${(idea.myAssets || []).map(playerLinkHtml).join(" + ")} for ${(idea.theirAssets || []).map(playerLinkHtml).join(" + ")}</p>
       ${idea.gainLine ? `<p class="match-trade-gain">${escapeHtml(idea.gainLine)}</p>` : ""}
       ${idea.bandLine ? `<p class="match-trade-band">${escapeHtml(idea.bandLine)}</p>` : ""}
       ${renderReviewTradeButton(idea)}

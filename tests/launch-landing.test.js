@@ -121,7 +121,7 @@ test("the example trade is the calculator verdict, and a new price changes it", 
   assert.match(html, new RegExp(`meter-get" style="flex:${bars.get.total} 1 0"`));
   if (model.adjustment) {
     assert.match(html, /meter-stars/);
-    assert.match(html, /Fewer, better players/);
+    assert.match(html, /Fewer, better pieces/);
     assert.match(html, /is the best player in this deal\. One great player is worth more than several smaller ones adding up to the same total, so we add [\d,]+ to what you (give|get)\./);
     assert.match(html, new RegExp(formatNumber(model.adjustment.amount)));
   }
