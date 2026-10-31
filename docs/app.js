@@ -7627,8 +7627,8 @@ function renderShopPanel() {
     <label class="shop-label" for="shop-select">Pick a player</label>
     <select id="shop-select" class="shop-select" data-input="shop-player">
       <option value="">Choose a player…</option>
-      <optgroup label="Sell one of mine">${mine.map((r) => option(r, `${r.name} · ${formatNumber(r.value)}`)).join("")}</optgroup>
-      <optgroup label="Price one of theirs">${theirs.map((r) => option(r, `${r.name} · ${r.owner} · ${formatNumber(r.value)}`)).join("")}</optgroup>
+      <optgroup label="${sampleVoice() ? "Sell from this team" : "Sell one of mine"}">${mine.map((r) => option(r, `${r.name} · ${formatNumber(r.value)}`)).join("")}</optgroup>
+      <optgroup label="${sampleVoice() ? "Price one from another team" : "Price one of theirs"}">${theirs.map((r) => option(r, `${r.name} · ${r.owner} · ${formatNumber(r.value)}`)).join("")}</optgroup>
     </select>
     <div id="shop-results" class="shop-results" aria-live="polite">${renderShopResults(result)}</div>
   `;
