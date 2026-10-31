@@ -20,7 +20,7 @@ export const NAV_TABS = Object.freeze([
   { id: "team", page: "league", room: "team", label: "My team", hint: "Roster, standings, playoff odds" },
 ]);
 export const PAGE_LABELS = {
-  trades: "Trade",
+  trades: "Check a trade",
   league: "My team",
 };
 export const PAGE_HINTS = {
