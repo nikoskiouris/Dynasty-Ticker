@@ -78,7 +78,7 @@ function sideColumn(summary, key, x, measure, bigger = "") {
     parts.push(`<text x="${x + PAD_X}" y="${y}" font-family="${SANS}" font-size="22" fill="${C.muted}">+${more} more</text>`);
   }
   if (summary.credit?.side === key) {
-    // The extra for fewer, better players is part of this side's total, so say so on the card.
+    // The extra for fewer, better pieces is part of this side's total, so say so on the card.
     y += 32;
     parts.push(
       `<text x="${x + PAD_X}" y="${y}" font-family="${SANS}" font-size="22" fill="${C.muted}">${escapeMarkup(FEWER_BETTER_LABEL)}</text>`,
@@ -101,7 +101,7 @@ function wordmarkMarkup(wordmark) {
 }
 
 // OG-CARD.md: the verdict (48px bold sans, colored by tier only) is the boldest thing.
-// Totals include the extra, so the rows plus "Fewer, better players" add up to the header,
+// Totals include the extra, so the rows plus "Fewer, better pieces" add up to the header,
 // and the verdict compares those two numbers.
 export function renderCardSvg(summary, { measure = roughMeasure, wordmark = "" } = {}) {
   const verdict = cardVerdict(summary);
