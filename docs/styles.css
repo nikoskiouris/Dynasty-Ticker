@@ -8134,3 +8134,9 @@ button.talk-chip {
   #mobile-rail-toggle.team-league-chip { order: 2; flex: 0 1 auto; max-width: 58vw; margin-left: auto; }
   .no-league-row { flex-direction: column; }
 }
+.team-verdict { margin-bottom: 0.75rem; }
+.team-verdict .window-call-line { font-size: 1.15rem; margin: 0.15rem 0; }
+.next-move-card { display: grid; gap: 0.4rem; justify-items: start; padding: 0.85rem 1rem; margin: 0 0 1rem; border: 1px solid var(--line); border-radius: var(--r-md, 10px); background: var(--panel-soft, var(--panel)); }
+.next-move-line { margin: 0; }
+.league-format-details { margin-top: 0.75rem; }
+.league-format-details summary { cursor: pointer; }
