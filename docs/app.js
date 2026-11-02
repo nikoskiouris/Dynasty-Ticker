@@ -2025,7 +2025,9 @@ function syncLaunchChrome() {
   // A missing league and a Sleeper outage are still the no-league screen:
   // one h1, and no "Your Sleeper league" subtitle.
   const bare = (landingVisible() || leagueMissing || sleeperUnreachable) && !state.leagueId;
-  const open = bare && !onOther;
+  // Without a league the trade and team pages are CSS-hidden behind the
+  // landing, so the landing owns the chrome at every width.
+  const open = bare && (landingVisible() || !onOther);
   document.body.classList.toggle("launch-open", open);
 }
 
@@ -2068,7 +2070,6 @@ function paintLaunchTrend(failed = false) {
 function revealLaunchConnect() {
   const box = document.querySelector("#landing-connect");
   if (box) box.hidden = false;
-  document.querySelector(".launch-connect")?.setAttribute("hidden", "");
   connectAsked = true;
   document.querySelector("#landing-username")?.focus();
 }
@@ -2100,7 +2101,7 @@ function openExampleTrade() {
 }
 
 function openEmptyTrade() {
-  // "Build a trade" starts fresh. An older draft stays one tap away (Restore draft).
+  // Landing "Check a trade" starts fresh. An older draft stays one tap away (Restore draft).
   state.sharedTrade = null;
   state.badShareLink = false;
   state.droppedPlayerNote = "";
@@ -2450,16 +2451,16 @@ function brandMarkAvatarHtml() {
 function renderLeagueHero() {
   if (!el.heroTitle) return;
   if (state.leagueSwitching) {
-    el.heroEyebrow.textContent = "Sleeper";
+    el.heroEyebrow.textContent = "";
     el.heroTitle.textContent = "Loading league…";
-    el.heroLede.textContent = "Pulling this league from Sleeper.";
+    el.heroLede.textContent = "";
     if (el.leagueAvatar) el.leagueAvatar.innerHTML = brandMarkAvatarHtml();
     return;
   }
   if (!state.leagueId || !state.league) {
-    el.heroEyebrow.textContent = "Sleeper dynasty league";
+    el.heroEyebrow.textContent = "";
     el.heroTitle.textContent = "Your Sleeper league";
-    el.heroLede.textContent = "Type a username. Scores open first.";
+    el.heroLede.textContent = "";
     if (el.leagueAvatar) el.leagueAvatar.innerHTML = brandMarkAvatarHtml();
     return;
   }
@@ -4308,14 +4309,10 @@ function renderStandingsPanel(model, sim) {
           </div>
         ` : ""}
       </div>
-      <div class="standings-legend muted small">
-        <span>All-play: record against every team each week.</span>
-        <span>Luck: real wins minus all-play expected wins.</span>
-        ${model.medianGames ? "<span>Includes weekly median games.</span>" : ""}
-      </div>
+      ${model.medianGames ? `<div class="standings-legend muted small"><span>Includes weekly median games.</span></div>` : ""}
       <div class="standings-table">
         <div class="standings-head">
-          <span>#</span><span>Team</span><span>Record</span><span class="col-pf">Points</span><span class="col-pa">Pts against</span><span class="col-streak">Streak</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
+          <span>#</span><span>Team</span><span>Record</span><span class="col-pf">Points</span><span class="col-pa">Pts against</span><span class="col-streak">Streak</span><span class="col-allplay" title="Record against every team each week">All-play</span><span class="col-luck" title="Real wins minus all-play expected wins">Luck</span>
         </div>
         ${rowsHtml}
       </div>
@@ -4465,8 +4462,6 @@ async function finishTeamsPagePaint(generation) {
 }
 
 function syncLeagueFormatCopy() {
-  const teamsHint = document.querySelector("#teams-tab-hint");
-  if (teamsHint) teamsHint.textContent = "Roster, standings, playoff odds";
   const powerCopy = document.querySelector("#power-section-copy");
   if (powerCopy) {
     powerCopy.textContent = leagueTypeId(state.league) === "redraft"
@@ -4584,7 +4579,6 @@ function renderRosterSheet() {
   if (el.rosterSheetHeading) {
     el.rosterSheetHeading.textContent = roster.manager.displayName;
   }
-  const summary = summarizeRosterAssets(roster, values);
   const startRows = strength.lineup.map((entry) => ({
     slot: entry.slot,
     slotLabel: formatRosterSlotLabel(entry.slot),
@@ -4627,12 +4621,6 @@ function renderRosterSheet() {
   };
 
   writeRosterSheet(`
-    <div class="sheet-summary">
-      ${renderPowerStat("Starters", formatNumber(strength.starterValue))}
-      ${renderPowerStat("Bench", formatNumber(strength.benchValue))}
-      ${showPicks ? renderPowerStat("Draft picks", formatNumber(summary.pickValue)) : ""}
-      ${renderPowerStat("Avg age", summary.averageAgeLabel)}
-    </div>
     ${renderValuesFreshness(valuesFreshness())}
     ${renderValueScaleExplainer()}
     <div class="sheet-grid">
@@ -5829,7 +5817,7 @@ function noteTradeChecked(draft) {
 function renderDraftVerdict(view) {
   const { draft, model } = view;
   if (!draft.left.length && !draft.right.length) {
-    return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. The verdict uses the same prices as the player list below.</p>`;
+    return "";
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (bothSides) noteTradeChecked(draft);
@@ -6108,7 +6096,6 @@ function renderDraftTeam(view) {
       <section class="draft-team-card">
         <div>
           <span class="analytics-kicker">Your team</span>
-          <p>Connect my league to see who owns each piece and what this trade does to both rosters. This trade stays here.</p>
         </div>
         <button type="button" data-action="draft-connect">Connect my league</button>
       </section>
@@ -9084,7 +9071,6 @@ function openLandingFromMissingLeague() {
   setActivePage("players", { history: "silent", landing: "show", scroll: "top" });
   const box = document.querySelector("#landing-connect");
   if (box) box.hidden = false;
-  document.querySelector(".launch-connect")?.setAttribute("hidden", "");
   connectAsked = true;
   syncLaunchChrome();
   syncDocumentMeta();

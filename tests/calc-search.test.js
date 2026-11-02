@@ -287,7 +287,6 @@ test("shared keyboard focus ring is one outline and trade rows are not outline n
   assert.match(rule[0], /\.page-tab:focus-visible/);
   assert.match(rule[0], /#open-public-ranks:focus-visible/);
   assert.match(rule[0], /\.ranks-chip:focus-visible/);
-  assert.match(rule[0], /\.ranks-shelf-item:focus-visible/);
   assert.match(rule[0], /\.ranks-row:focus-visible/);
   assert.match(rule[0], /\.trade-row:focus-visible/);
   assert.match(rule[0], /outline:\s*2px solid var\(--text\);/);

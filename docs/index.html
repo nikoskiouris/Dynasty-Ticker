@@ -105,11 +105,7 @@
 
         <section class="rail-module league-module">
           <div class="module-heading">
-            <span class="step-badge">01</span>
-            <div>
-              <span class="eyebrow">Sleeper</span>
-              <h2>League source</h2>
-            </div>
+            <h2>League</h2>
           </div>
 
           <form id="username-search-form" class="league-load-form" novalidate>
@@ -134,7 +130,7 @@
           <div id="league-picker" class="league-picker hidden" data-league-picker></div>
 
           <details id="league-id-fallback" class="league-id-fallback">
-            <summary>Have a league ID or URL instead?</summary>
+            <summary>League ID</summary>
             <form id="league-load-form" class="league-load-form" novalidate>
               <label for="league-id">League ID</label>
               <input
@@ -156,18 +152,14 @@
 
           <div id="league-status" class="status muted" aria-live="polite">
             <span id="league-status-loader" class="status-loader hidden" aria-hidden="true"></span>
-            <span id="league-status-text">Search your Sleeper username to pick a league.</span>
+            <span id="league-status-text"></span>
             <button type="button" id="league-status-retry" class="ghost-btn status-retry hidden">Retry</button>
           </div>
         </section>
 
         <section class="rail-module hidden" id="identity-section">
           <div class="module-heading">
-            <span class="step-badge">02</span>
-            <div>
-              <span class="eyebrow">Manager</span>
-              <h2>You are</h2>
-            </div>
+            <h2>Team</h2>
           </div>
           <label for="me-select">Team</label>
           <select id="me-select" aria-label="Team"></select>
@@ -195,9 +187,9 @@
               <img class="league-mark" src="./brand/mark.svg" width="148" height="132" alt="" decoding="async" />
             </div>
             <div class="league-hero-copy">
-              <span class="eyebrow" id="hero-eyebrow">Sleeper dynasty league</span>
+              <span class="eyebrow" id="hero-eyebrow"></span>
               <p id="hero-title">Your Sleeper league</p>
-              <p class="workspace-lede" id="hero-lede">Type a username. Scores open first.</p>
+              <p class="workspace-lede" id="hero-lede"></p>
             </div>
           </div>
           <dl class="state-grid" aria-label="Current session">
@@ -225,13 +217,13 @@
         <div class="desk-nav" id="desk-nav">
           <nav class="workspace-tabs" id="page-tabs" role="tablist" aria-label="What you can do">
             <button id="trades-tab" aria-label="Check a trade" class="page-tab active" type="button" role="tab" aria-selected="true" aria-current="page" aria-controls="trades-page" tabindex="0" data-page="trades" data-room="calculator">
-              <span class="tab-copy"><strong>Check a trade</strong><small>Is this offer fair?</small></span>
+              <span class="tab-copy"><strong>Check a trade</strong></span>
             </button>
             <button id="find-tab" aria-label="Find a trade" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades" data-room="find">
-              <span class="tab-copy"><strong>Find a trade</strong><small>Deals that fit both teams</small></span>
+              <span class="tab-copy"><strong>Find a trade</strong></span>
             </button>
             <button id="league-tab" aria-label="My team" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="league-page" tabindex="-1" data-page="league" data-room="team">
-              <span class="tab-copy"><strong>My team</strong><small id="teams-tab-hint">Roster, standings, playoff odds</small></span>
+              <span class="tab-copy"><strong>My team</strong></span>
             </button>
           </nav>
         </div>
@@ -244,17 +236,14 @@
       <a href="/connect?next=/" data-launch="connect">Find a trade</a>
       <a href="/connect?next=/" data-launch="connect">My team</a>
     </nav>
-    <h1 id="landing-job-hint">Your next dynasty move starts here.</h1>
-    <p class="sub">Explore player values, build a trade, or connect your Sleeper league. Free. No sign-up.</p>
+    <h1 id="landing-job-hint">Check a trade</h1>
     <form id="landing-talk-form" class="landing-talk" action="/trade" method="get">
-      <label for="landing-talk">Check a trade in plain words</label>
-      <p class="landing-talk-hint">Type it like you’d text it. We build the trade, price it, and you keep going: add, swap, remove.</p>
+      <label class="sr-only" for="landing-talk">Describe a trade</label>
       <div class="landing-talk-row">
         <input id="landing-talk" name="say" type="text" maxlength="300" placeholder="Gibbs and a 1st for Nabers" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send" />
         <button type="submit">Check it</button>
       </div>
       <div class="landing-talk-try" role="group" aria-label="Try one">
-        <span>Try</span>
         <button type="submit" name="try" value="I got offered JSN and two 2nds for CMC">I got offered JSN and two 2nds for CMC</button>
         <button type="submit" name="try" value="Gibbs and a 1st for Nabers">Gibbs and a 1st for Nabers</button>
         <button type="submit" name="try" value="What could I get for Bijan?">What could I get for Bijan?</button>
@@ -262,21 +251,7 @@
     </form>
     <div class="launch-main">
       <div class="launch-start-col">
-        <div class="launch-start" aria-label="Get started">
-          <a class="launch-action" href="/players" data-launch="players">
-            <strong>Explore players <span aria-hidden="true">›</span></strong>
-            <span>Find a player, check his value, and see how he compares.</span>
-          </a>
-          <a class="launch-action" href="/trade" data-launch="empty">
-            <strong>Build a trade <span aria-hidden="true">›</span></strong>
-            <span>Add your players and picks to compare both sides.</span>
-          </a>
-          <a class="launch-action launch-connect" href="/connect?next=/" data-launch="connect">
-            <strong>Connect my league <span aria-hidden="true">›</span></strong>
-            <span>Bring in your Sleeper rosters for moves that fit your team.</span>
-          </a>
-        </div>
-        <p class="launch-sample">No league yet? <a class="sample-league-link" href="./?sample=1">See the sample league</a></p>
+        <p class="launch-sample"><a class="sample-league-link" href="./?sample=1">See the sample league</a></p>
         <div id="landing-connect" hidden>
           <form id="landing-username-form" class="landing-search" novalidate>
             <label for="landing-username">Sleeper username</label>
@@ -315,7 +290,7 @@
       </div>
       <div class="launch-trend-col">
         <div class="launch-lab">
-          <span>Hot on Sleeper</span>
+          <span>Trending</span>
           <a href="/players" data-launch="players">All players ›</a>
         </div>
         <div id="launch-trend" class="launch-box launch-trend" aria-busy="true">
@@ -329,7 +304,6 @@
     </div>
   </div>
   <footer class="launch-footer">
-    <span>Free, no sign-up.</span>
     <nav aria-label="Legal"><a href="/privacy">Privacy</a> <span aria-hidden="true">·</span> <a href="/terms">Terms</a></nav>
   </footer>
 </section>

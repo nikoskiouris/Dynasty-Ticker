@@ -79,7 +79,6 @@ function paintSampleDesk() {
     tradesHtml,
     leagueHtml.replace(/<div class="empty-cta">[\s\S]*?<\/div>/g, ""),
     indexHtml.match(/<div id="sample-banner"[\s\S]*?<\/div>/)?.[0] || "",
-    indexHtml.match(/<small id="teams-tab-hint">[\s\S]*?<\/small>/)?.[0] || "",
   ].join("\n");
   return html;
 }

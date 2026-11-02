@@ -223,11 +223,13 @@ test("a pre-league landing exposes all three starting tasks", () => {
     '<h1 id="route-title" class="sr-only">',
     '<h1 id="landing-job-hint">',
   ]);
-  assert.match(index, /<h1 id="landing-job-hint">Your next dynasty move starts here\./);
+  assert.match(index, /<h1 id="landing-job-hint">Check a trade</);
   assert.match(index, /<p id="hero-title">/);
   assert.doesNotMatch(index, /<h1 id="hero-title"/);
-  assert.match(index, /Build a trade/);
   assert.match(index, /aria-label="Main navigation"/);
+  // The nav is the only list of tasks: no duplicate action cards, no taglines.
+  assert.doesNotMatch(index, /class="launch-action/);
+  assert.doesNotMatch(index, /class="sub"|landing-talk-hint/);
   assert.match(index, /See the sample league/);
   assert.match(index, /href="\/trade" data-launch="empty">Check a trade</);
   assert.match(index, /href="\/connect\?next=\/" data-launch="connect">Find a trade</);

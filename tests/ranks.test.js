@@ -177,7 +177,9 @@ test("markup escapes names and opens the selected card", () => {
   const row = html.slice(html.indexOf('class="ranks-row'), html.indexOf('class="ranks-row', html.indexOf('class="ranks-row') + 1) || html.length);
   assert.match(html, /class="value-tier"/);
   assert.match(html, /class="sr-only">Value tier: /);
-  assert.match(html, /Our estimate, scored with a point per catch/);
+  // The board explains itself; uncertainty is labeled only on rows that are uncertain.
+  assert.doesNotMatch(html, /Our estimate, scored with a point per catch/);
+  assert.doesNotMatch(html, /class="ranks-tag">Estimate based on several NFL seasons/);
   assert.doesNotMatch(html, /Model price, full PPR/);
   assert.match(html, /aria-hidden="true">—<\/span><span class="sr-only">No trend yet/);
   assert.match(row, /class="ranks-value-num"/);

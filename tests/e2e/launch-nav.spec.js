@@ -13,9 +13,9 @@ async function openLanding(page, viewport) {
 }
 
 for (const viewport of viewports) {
-  test(`landing Explore players opens the board under the calculator and Back returns at ${viewport.width}`, async ({ page }) => {
+  test(`landing All players opens the board under the calculator and Back returns at ${viewport.width}`, async ({ page }) => {
     await openLanding(page, viewport);
-    await page.locator(".launch-action[data-launch='players']").click();
+    await page.locator(".launch-lab [data-launch='players']").click();
     await expect(page).toHaveURL(/\/trade$/);
     await expect(page.locator("#calculator-shell")).toBeVisible();
     await expect(page.locator("#ranks-section")).toBeVisible();
@@ -44,10 +44,10 @@ for (const viewport of viewports) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 
-  // QA 2026-10-18 #6 (owner): landing "Build a trade" starts fresh; the old draft is one tap away.
+  // QA 2026-10-18 #6 (owner): landing "Check a trade" starts fresh; the old draft is one tap away.
   test(`home Trade starts fresh and offers the old draft back at ${viewport.width}`, async ({ page }) => {
     await openLanding(page, viewport);
-    await page.locator(".launch-action[data-launch='players']").click();
+    await page.locator(".launch-lab [data-launch='players']").click();
     await expect(page).toHaveURL(/\/trade$/);
     // A shared draft is also an editable trade; returning home must not clear it.
     await page.goto("/trade?give=player:9509&get=player:11632");
@@ -61,7 +61,7 @@ for (const viewport of viewports) {
     await expect(page.locator("#calculator-shell")).toContainText("Malik Nabers");
   });
 
-  test(`Back from a Hot on Sleeper player returns to the landing at ${viewport.width}`, async ({ page }) => {
+  test(`Back from a trending player returns to the landing at ${viewport.width}`, async ({ page }) => {
     await openLanding(page, viewport);
     const row = page.locator("#launch-trend a.launch-row").first();
     await expect(row).toBeVisible({ timeout: 20000 });

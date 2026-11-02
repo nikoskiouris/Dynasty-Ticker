@@ -131,9 +131,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.equal(existsSync(join(docs, "modules/recap.js")), false);
   assert.equal(existsSync(join(docs, "modules/recap-card.js")), false);
   assert.doesNotMatch(index, /id="landing-rather"/);
-  assert.match(index, /Build a trade/);
-  assert.match(index, /Your next dynasty move starts here\./);
-  assert.match(index, /Explore player values, build a trade, or connect your Sleeper league\. Free\. No sign-up\./);
+  assert.match(index, /<h1 id="landing-job-hint">Check a trade</);
   assert.doesNotMatch(index, /Find your league/);
   assert.match(index, /id="sample-league-chip"/);
   assert.match(index, />Sample league · Connect yours</);
@@ -213,7 +211,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /id="find-more-btn"/);
   assert.match(index, />Find partners</);
   assert.match(index, /data-page="trades" data-room="find"/);
-  assert.match(index, /Review trade opens it in Check a trade/);
+  assert.doesNotMatch(index, /id="find-trade-intro"/);
   assert.doesNotMatch(index, /Got an offer\?/);
   const tradesPage = index.slice(index.indexOf('id="trades-page"'), index.indexOf('id="league-page"'));
   assert.deepEqual(
@@ -255,7 +253,6 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /terms\.html/);
   // QA 2026-10-18 (#10, owner): the landing footer links /privacy and /terms.
   assert.match(index, /class="launch-footer"[\s\S]*href="\/privacy">Privacy<[\s\S]*href="\/terms">Terms</);
-  assert.match(index, /Free, no sign-up\./);
   assert.doesNotMatch(index, />Contact</);
   assert.doesNotMatch(index, /workspace-footer/);
 

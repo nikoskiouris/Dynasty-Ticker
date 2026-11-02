@@ -44,7 +44,7 @@ export function marketTape({ confidence = "", kind = "player" } = {}) {
     return { tone: "model", line: "Historical rookie-outcome estimate." };
   }
   if (confidence === "established") {
-    return { tone: "model", line: "Estimate based on several NFL seasons." };
+    return { tone: "model", line: "Estimate based on several NFL seasons.", settled: true };
   }
   if (confidence === "developing") {
     return { tone: "model", line: "Estimate still settling: limited NFL games." };
@@ -79,12 +79,11 @@ export function ownerLine(owner, { leagueOpen = false, kind = "player" } = {}) {
 }
 
 export function rankBoardNote({ format = "sf", leagueFormat = "", caveat = "" } = {}) {
-  const base = "Our estimate, scored with a point per catch. Same number in every trade and on My team. The pick line is the closest pick.";
+  // Only say something when it changes how to read the board.
   const peek = leagueFormat && format && format !== leagueFormat
-    ? ` Peeking at ${rankFormatLabel(format)}. Your league is ${rankFormatLabel(leagueFormat)}.`
+    ? `Peeking at ${rankFormatLabel(format)}. Your league is ${rankFormatLabel(leagueFormat)}.`
     : "";
-  const extra = caveat ? ` ${caveat}` : "";
-  return `${base}${peek}${extra}`;
+  return [peek, caveat].filter(Boolean).join(" ");
 }
 
 export function buildRankBoard({
@@ -268,7 +267,7 @@ export function renderRanksToolbar(view) {
       <div class="ranks-filters" role="group" aria-label="Format">
         ${RANK_FORMATS.map((format) => renderRankChip("rank-format", "format", format, rankFormatLabel(format), view?.format)).join("")}
       </div>
-      <p class="ranks-note muted">${escapeHtml(view?.note || "")}</p>
+      ${view?.note ? `<p class="ranks-note muted">${escapeHtml(view.note)}</p>` : ""}
       ${renderValueScaleExplainer()}
     </div>
   `;
@@ -298,26 +297,9 @@ export function renderRanksBody(view) {
     ? `<button type="button" class="ghost-btn ranks-more" data-action="ranks-more">Show more</button>`
     : "";
   const freshness = renderValuesFreshness(view?.updated, { align: "end" });
-  return `${renderRanksShelf(rows)}${card}${freshness}${list}${more}`;
+  return `${card}${freshness}${list}${more}`;
 }
 
-function renderRanksShelf(rows) {
-  const faces = (Array.isArray(rows) ? rows : [])
-    .filter((row) => row?.kind === "player" && row.playerId)
-    .slice(0, 8);
-  if (faces.length < 4) return "";
-  return `
-    <div class="ranks-shelf" aria-label="Top names">
-      ${faces.map((row) => `
-        <button type="button" class="ranks-shelf-item" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}" aria-label="${escapeHtml(row.name)}">
-          ${renderPlayerFace(row.playerId, row.name, { size: "md" })}
-          <span class="ranks-shelf-name">${escapeHtml(row.name)}</span>
-          <strong>${escapeHtml(formatNumber(row.value))}</strong>
-        </button>
-      `).join("")}
-    </div>
-  `;
-}
 
 function renderRankChip(action, key, value, label, activeValue) {
   const on = value === activeValue;
@@ -359,7 +341,7 @@ function renderRankValue(row, view) {
 function renderRankRow(row, active, view) {
   const you = row.owner?.mine ? " you" : "";
   const meta = rankMeta(row);
-  const tag = row.kind !== "pick" && row.tape?.line ? `<small class="ranks-tag">${escapeHtml(row.tape.line)}</small>` : "";
+  const tag = row.kind !== "pick" && row.tape?.line && !row.tape.settled ? `<small class="ranks-tag">${escapeHtml(row.tape.line)}</small>` : "";
   return `
     <button type="button" class="ranks-row${active ? " active" : ""}${you}" data-action="rank-open" data-asset-id="${escapeHtml(row.assetId)}" aria-pressed="${active ? "true" : "false"}">
       <span class="ranks-num">${escapeHtml(String(shownRankNumber(row)))}</span>
