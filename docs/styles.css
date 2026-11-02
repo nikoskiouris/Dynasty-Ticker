@@ -4997,6 +4997,15 @@ button.ranks-row.you:hover {
   display: none;
 }
 
+[data-player-connect-slot] {
+  margin: var(--sp-2) 0 var(--sp-4);
+}
+
+/* Opening a player lands on his card, clear of the sticky header. */
+.ranks-card {
+  scroll-margin-top: calc(var(--sp-4) + 4.2rem + env(safe-area-inset-top));
+}
+
 .player-back {
   width: auto;
   justify-self: start;

@@ -17,8 +17,9 @@ test("a cold player card puts Find at the top and one submit opens the league li
   assert.doesNotMatch(card, /data-player-connect|find-my-leagues/);
 
   const app = readFileSync(join(root, "../docs/app.js"), "utf8");
-  assert.match(app, /#ranks-section, #public-ranks/);
-  assert.match(app, /anchor\.prepend\(slot\)/);
+  // The form sits right under the open card, not above the board heading.
+  assert.match(app, /card\.after\(playerConnectSlot\)/);
+  assert.doesNotMatch(app, /anchor\.prepend\(slot\)/);
   assert.match(app, /async function openPlayerLeagueList\(form\)/);
   assert.match(app, /\[data-player-connect\]/);
   assert.match(app, /\[data-player-league-list\]/);

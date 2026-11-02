@@ -676,6 +676,11 @@ el.matchGenerateBtn?.addEventListener("click", () => {
 });
 
 let sampleBannerOff = false;
+// One connect form, kept across board repaints so a half-typed username
+// survives, and placed right under the open player card it is about.
+let playerConnectSlot = null;
+// A /player link opened cold lands on the card once, then scrolling is the user's.
+let coldPlayerScrollPending = false;
 let leagueMissing = false;
 let sleeperUnreachable = false;
 let connectAsked = false;
@@ -713,6 +718,7 @@ setAnalyticsAdapter(createBeaconAdapter());
 bootFromUrl();
 if (bootRoute?.leagueId) void loadSlimPlayersFile();
 coldPlayerHeading = bootRoute?.name === "player";
+coldPlayerScrollPending = coldPlayerHeading;
 document.addEventListener("focusin", (event) => {
   const target = event.target;
   if (!target || target === document.body || target === document.documentElement) return;
@@ -1166,6 +1172,10 @@ function renderRankHost(host) {
   if (view.card?.kind === "player" && view.card?.name) {
     canonicalizePlayerUrl(view.card.playerId || view.card.assetId, view.card.name);
     syncDocumentMeta();
+    if (coldPlayerScrollPending && host.querySelector(".ranks-card")) {
+      coldPlayerScrollPending = false;
+      requestAnimationFrame(scrollToPlayerCard);
+    }
     focusColdPlayerHeading();
   }
 }
@@ -2140,7 +2150,7 @@ function openLaunchPlayer(href) {
     updateUrlState({ mode: "push" });
     syncLaunchChrome();
     syncDocumentMeta();
-    window.scrollTo(0, 0);
+    scrollToPlayerCard();
     return;
   }
   if (route?.name === "trade") {
@@ -2151,7 +2161,7 @@ function openLaunchPlayer(href) {
 }
 
 function handleLaunchClick(event) {
-  const row = event.target?.closest?.("a.launch-row");
+  const row = event.target?.closest?.("a.launch-row, a.launch-face");
   const hit = event.target?.closest?.("[data-launch]");
   const node = hit || row;
   if (!node) return;
@@ -2712,21 +2722,24 @@ function requestFindLeagues(event) {
 }
 
 function syncPlayerConnectSlot(host, view) {
-  const anchor = host?.closest?.("#ranks-section, #public-ranks") || host;
-  if (!anchor) return;
-  let slot = anchor.querySelector(":scope > [data-player-connect-slot]");
-  if (!slot) {
-    slot = document.createElement("div");
-    slot.setAttribute("data-player-connect-slot", "");
-    anchor.prepend(slot);
-  }
-  const want = Boolean(view?.card && !view.leagueOpen && !view.loading);
+  const card = host?.querySelector?.(".ranks-card");
+  const want = Boolean(card && view?.card && !view.leagueOpen && !view.loading);
   if (!want) {
-    if (slot.childElementCount) slot.replaceChildren();
+    playerConnectSlot?.remove();
     return;
   }
-  if (slot.querySelector("[data-player-connect]")) return;
-  slot.innerHTML = renderPlayerConnect();
+  if (!playerConnectSlot) {
+    playerConnectSlot = document.createElement("div");
+    playerConnectSlot.setAttribute("data-player-connect-slot", "");
+    playerConnectSlot.innerHTML = renderPlayerConnect();
+  }
+  if (card.nextElementSibling !== playerConnectSlot) card.after(playerConnectSlot);
+}
+
+function scrollToPlayerCard() {
+  const card = document.querySelector(".ranks-card");
+  if (card) card.scrollIntoView({ block: "start", behavior: "instant" });
+  else window.scrollTo(0, 0);
 }
 
 async function openPlayerLeagueList(form) {
@@ -6395,7 +6408,7 @@ function handleWorkspaceClick(event) {
       renderRankSurfaces();
       updateUrlState({ mode: "push" });
       syncLaunchChrome();
-      document.querySelector(".ranks-card")?.scrollIntoView({ block: "nearest" });
+      scrollToPlayerCard();
       break;
     }
     case "rank-close":
