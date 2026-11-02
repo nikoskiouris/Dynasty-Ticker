@@ -66,3 +66,28 @@ test("og/meta text for a lone 2nd no longer reads 'get 0'", () => {
   const html = injectShareMeta(indexHtml, { summary, code });
   assert.doesNotMatch(html, /get 0\b/);
 });
+
+// Report 2026-10-31: a league trade with a projected "mid 1st" showed 75% to the
+// sender and 83% on the shared link, because the link shared a plain 1st.
+test("a league pick priced as a mid 1st shares as a mid 1st, so the link shows the sender's numbers", async () => {
+  const { shareAssetIdFor } = await import("../docs/modules/trade-share.js");
+  const { values, nameMap } = pickValueBundle(payload, "sf");
+  const leaguePick = { uid: "2", assetId: "pick:2027:r1:7", assetType: "pick", valueAssetId: "pick:2027:r1:mid", season: "2027", round: 1 };
+  const player = { uid: "1", assetId: "player:9221", assetType: "player" };
+  const priced = new Map([["1", { asset: player }], ["2", { asset: leaguePick }]]);
+  const sender = draftVerdictModel(
+    [draftMarketPrice(player, { values, nameMap }).value],
+    [draftMarketPrice(leaguePick, { values, nameMap }).value, values["player:11632"]],
+    { globalMaxValue: getGlobalMaxPlayerValue(values) },
+  );
+  const code = encodeTradeShare({
+    give: [shareAssetIdFor(player, priced)],
+    get: [shareAssetIdFor(leaguePick, priced), "player:11632"],
+    format: "sf",
+  });
+  assert.match(code, /p27r1m/);
+  const shared = shareSummary(decodeTradeShare(code), payload);
+  assert.equal(shared.giveTotal, sender.give);
+  assert.equal(shared.getTotal, sender.get);
+  assert.equal(shared.pct, sender.verdict.pct);
+});

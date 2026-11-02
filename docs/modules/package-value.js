@@ -104,29 +104,32 @@ export function calculatePackageAdjustment({ myValues, theirValues, globalMaxVal
     };
   }
 
-  if (myRawValue > theirRawValue) {
-    const evenValue = findEvenValueForRawGap(myRawValue - theirRawValue, tradeMaxValue, globalMaxValue);
-    const packageAdjustment = Math.max(0, Math.round(theirBaseValue + evenValue - myBaseValue));
-    return {
-      myBaseValue,
-      theirBaseValue,
-      myAdjustedValue: myBaseValue + packageAdjustment,
-      theirAdjustedValue: theirBaseValue,
-      packageAdjustment,
-      packageAdjustmentSide: packageAdjustment > 0 ? "my" : null,
-      evenValue,
-    };
-  }
-
-  const evenValue = findEvenValueForRawGap(theirRawValue - myRawValue, tradeMaxValue, globalMaxValue);
-  const packageAdjustment = Math.max(0, Math.round(myBaseValue + evenValue - theirBaseValue));
+  // The side ahead on the stud curve leads by evenValue. When that side also
+  // holds the trade's best piece, its listed total may already lead by more;
+  // keep the bigger lead. When the other side holds the best piece, it is
+  // credited up to evenValue behind, so the verdict slides smoothly through
+  // the point where the curve tips. Without that, one step past the tie
+  // dropped the stud credit to 0 and "Fair" jumped straight to "Lopsided".
+  const myLeads = myRawValue > theirRawValue;
+  const evenValue = findEvenValueForRawGap(Math.abs(myRawValue - theirRawValue), tradeMaxValue, globalMaxValue);
+  const leadBase = myLeads ? myBaseValue : theirBaseValue;
+  const trailBase = myLeads ? theirBaseValue : myBaseValue;
+  const myBest = Math.max(...mine);
+  const theirBest = Math.max(...theirs);
+  const trailHoldsBest = myLeads ? theirBest > myBest : myBest > theirBest;
+  let creditLead = Math.max(0, Math.round(trailBase + evenValue - leadBase));
+  let creditTrail = 0;
+  if (trailHoldsBest) creditTrail = Math.max(0, Math.round(leadBase - evenValue - trailBase));
+  const packageAdjustment = creditLead || creditTrail;
+  const creditMine = myLeads ? creditLead > 0 : creditTrail > 0;
+  const side = packageAdjustment > 0 ? (creditMine ? "my" : "their") : null;
   return {
     myBaseValue,
     theirBaseValue,
-    myAdjustedValue: myBaseValue,
-    theirAdjustedValue: theirBaseValue + packageAdjustment,
+    myAdjustedValue: myBaseValue + (side === "my" ? packageAdjustment : 0),
+    theirAdjustedValue: theirBaseValue + (side === "their" ? packageAdjustment : 0),
     packageAdjustment,
-    packageAdjustmentSide: packageAdjustment > 0 ? "their" : null,
+    packageAdjustmentSide: side,
     evenValue,
   };
 }
