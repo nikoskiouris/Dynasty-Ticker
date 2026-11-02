@@ -227,11 +227,9 @@ test("a pre-league landing exposes all three starting tasks", () => {
   assert.match(index, /<p id="hero-title">/);
   assert.doesNotMatch(index, /<h1 id="hero-title"/);
   assert.match(index, /Build a trade/);
-  assert.match(index, /aria-label="Main navigation"/);
+  // One tab row at every width (report 2026-10-31): no second launch nav.
+  assert.doesNotMatch(index, /aria-label="Main navigation"/);
   assert.match(index, /See the sample league/);
-  assert.match(index, /href="\/trade" data-launch="empty">Check a trade</);
-  assert.match(index, /href="\/connect\?next=\/" data-launch="connect">Find a trade</);
-  assert.match(index, /href="\/connect\?next=\/" data-launch="connect">My team</);
   assert.match(css, /body\.launch-open \.launch-header-link,/);
   assert.match(css, /body\.launch-open \.mobile-chrome-title-row,/);
   assert.match(css, /body\.launch-open #workspace-header,/);

@@ -43,8 +43,8 @@ test("document titles and descriptions change with tab and league", () => {
   assert.equal(title("trades", "lab"), "Find a trade · Try Hard or Die Hard — Dynasty Ticker");
   assert.equal(title("trades", "match"), "Find a trade · Try Hard or Die Hard — Dynasty Ticker");
   assert.equal(title("trades", "find"), "Find a trade · Try Hard or Die Hard — Dynasty Ticker");
-  assert.equal(title("trader"), "Trade · Try Hard or Die Hard — Dynasty Ticker");
-  assert.equal(title("players"), "Trade · Try Hard or Die Hard — Dynasty Ticker");
+  assert.equal(title("trader"), "Check a trade · Try Hard or Die Hard — Dynasty Ticker");
+  assert.equal(title("players"), "Check a trade · Try Hard or Die Hard — Dynasty Ticker");
   assert.match(
     buildPageDescription({ page: "home", leagueName: name, loaded: true }),
     /Now open: Try Hard or Die Hard/
@@ -223,13 +223,16 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
     ["calculator", "find"],
   );
   assert.doesNotMatch(index, /id="history-dashboard"/);
-  assert.match(index, /id="mobile-home-btn"/);
-  assert.match(index, /data-action="league-home"/);
+  // League home led to the same page as My team; it is cut (report 2026-10-31).
+  // The header chip and Disconnect replace it.
+  assert.doesNotMatch(index, /id="mobile-home-btn"/);
+  assert.doesNotMatch(index, /data-action="league-home"/);
+  assert.match(index, /id="team-league-chip-text"/);
+  assert.match(index, /data-action="disconnect-league"/);
   assert.doesNotMatch(index, /id="mobile-chrome-title"[^>]*data-action/);
   assert.doesNotMatch(index, /id="hero-title"[^>]*data-action/);
   assert.doesNotMatch(index, /id="league-avatar"[^>]*data-action/);
   assert.doesNotMatch(index, /brand-lockup[^>]*data-action/);
-  assert.match(index, /class="home-glyph"/);
   assert.doesNotMatch(index, /id="records-dashboard"/);
   assert.doesNotMatch(index, /id="mobile-share-btn"/);
   assert.doesNotMatch(index, /id="recap-dashboard"/);
@@ -334,7 +337,7 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(app, /Add player or pick, like \$\{nextRookieDraftSeason\(\)\} early 1st/);
   assert.match(app, /listValueCalcAssets/);
   assert.doesNotMatch(readDocs("styles.css"), /value-pick-board/);
-  assert.match(app, /function goLeagueHome/);
+  assert.doesNotMatch(app, /function goLeagueHome/);
   assert.doesNotMatch(app, /from "\.\/modules\/recap/);
   assert.doesNotMatch(readDocs("styles.css"), /--ticker-duration|\.ticker-track/);
   assert.match(app, /shouldOpen = Boolean\(open\) && isPhoneLayout\(\)/);
