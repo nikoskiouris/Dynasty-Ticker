@@ -25,14 +25,6 @@ export function formatSignedNumber(value) {
   return `${numericValue > 0 ? "+" : ""}${formatNumber(numericValue)}`;
 }
 
-function joinNameList(names) {
-  const list = (names || []).map((name) => String(name || "").trim()).filter(Boolean);
-  if (!list.length) return "nothing";
-  if (list.length === 1) return list[0];
-  if (list.length === 2) return `${list[0]} and ${list[1]}`;
-  return `${list.slice(0, -1).join(", ")}, and ${list[list.length - 1]}`;
-}
-
 function ordinalLabel(rank) {
   const value = Number(rank);
   if (!Number.isFinite(value)) return "";
@@ -49,17 +41,6 @@ export function formatStarterRankLabel(rank, totalTeams) {
   const total = Number(totalTeams);
   if (!Number.isFinite(total) || total <= 0) return label;
   return `${label}/${total}`;
-}
-
-export function formatMatchIdeaCopy({ sendNames, receiveNames, beforeRank, afterRank, totalTeams, benefit = "" } = {}) {
-  const offer = `Send ${joinNameList(sendNames)} for ${joinNameList(receiveNames)}`;
-  const before = formatStarterRankLabel(beforeRank, totalTeams);
-  const after = formatStarterRankLabel(afterRank, totalTeams);
-  const rankMoved = before && after && before !== after;
-  const rank = rankMoved ? `Starting lineup rank moves from ${before} to ${after}.` : "";
-  const why = String(benefit || "").trim()
-    || (rankMoved ? "" : "Lineup rank stays put. Check depth, age, and picks in the calculator.");
-  return { offer, rank, why };
 }
 
 export function clamp(value, min, max) {

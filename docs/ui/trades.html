@@ -19,25 +19,30 @@
       <div class="panel-heading">
         <div>
           <span class="eyebrow">Find a trade</span>
-          <h2 id="find-heading">Trade ideas</h2>
+          <h2 id="find-heading">Ideas for you</h2>
         </div>
-        <p id="find-trade-intro" class="section-copy">1-for-1 and 2-for-1 ideas that fill a need on both rosters. Review trade opens it in Check a trade.</p>
       </div>
       <div id="trade-match-needs" class="match-needs"></div>
+      <div id="trade-match-dashboard" class="trade-match-dashboard" aria-live="polite"></div>
     </section>
-    <section class="action-panel" id="match-action-panel">
-      <div>
-        <span class="eyebrow">Partners</span>
-        <h2>Best partners</h2>
-        <p id="match-generate-help" class="muted small">Connect my league to see partners.</p>
+    <section class="workspace-panel" id="shop-section" aria-labelledby="shop-heading">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">Shop a player</span>
+          <h2 id="shop-heading">What is he worth to this league?</h2>
+        </div>
+        <p class="section-copy">Pick a player to sell or to price. Fair offers from teams in this league.</p>
       </div>
-      <div class="action-panel-cta">
-        <button id="match-generate-btn" type="button" disabled>Find partners</button>
-        <p id="match-generate-error" class="field-error" hidden role="alert"></p>
-      </div>
+      <div id="shop-panel"></div>
     </section>
-    <section class="workspace-panel results-shell" id="trade-match-results">
-      <div id="trade-match-dashboard" class="trade-match-dashboard"></div>
+    <section class="workspace-panel" id="partners-section" aria-labelledby="partners-heading">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">Partners</span>
+          <h2 id="partners-heading">Best partners</h2>
+        </div>
+      </div>
+      <div id="match-partners"></div>
     </section>
   </div>
 </div>

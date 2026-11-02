@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { escapeHtml, formatNumber, formatSignedNumber, formatMatchIdeaCopy, clamp, copyTextToClipboard, playersAndPicksLabel, renderConnectGate, renderTradeAssetLabel, renderTradeMove } from "../docs/modules/html.js";
+import { escapeHtml, formatNumber, formatSignedNumber, clamp, copyTextToClipboard, playersAndPicksLabel, renderConnectGate, renderTradeAssetLabel, renderTradeMove } from "../docs/modules/html.js";
 
 test("escapeHtml encodes markup", () => {
   assert.equal(escapeHtml(`<img src="x" alt='y'>`), "&lt;img src=&quot;x&quot; alt=&#39;y&#39;&gt;");
@@ -15,27 +15,6 @@ test("number helpers keep signs and locale digits", () => {
   assert.equal(formatNumber(undefined), "—");
   assert.equal(playersAndPicksLabel(1), "1 player or pick");
   assert.equal(playersAndPicksLabel(4), "4 players & picks");
-});
-
-test("partner idea copy is send/receive plus a starter rank line", () => {
-  const copy = formatMatchIdeaCopy({
-    sendNames: ["Ja'Marr Chase", "2027 1st"],
-    receiveNames: ["Bijan Robinson"],
-    beforeRank: 8,
-    afterRank: 4,
-    totalTeams: 12,
-  });
-  assert.equal(copy.offer, "Send Ja'Marr Chase and 2027 1st for Bijan Robinson");
-  assert.equal(copy.rank, "Starting lineup rank moves from 8th/12 to 4th/12.");
-  const same = formatMatchIdeaCopy({
-    sendNames: ["A"],
-    receiveNames: ["B"],
-    beforeRank: 6,
-    afterRank: 6,
-    totalTeams: 12,
-  });
-  assert.equal(same.rank, "");
-  assert.match(same.why, /stays put/);
 });
 
 test("trade move chips keep pick names, players, and the swap arrow apart", () => {
