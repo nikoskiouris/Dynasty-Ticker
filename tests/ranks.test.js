@@ -118,7 +118,7 @@ test("pick line and tape stay one sentence", () => {
   assert.equal(ownerLine({ mine: true }, { leagueOpen: true }), "You have him.");
   assert.equal(ownerLine({ name: "Demetri" }, { leagueOpen: true }), "Demetri has him.");
   assert.equal(ownerLine(null, { leagueOpen: true }), "Nobody in this league has him.");
-  assert.equal(ownerLine({ name: "Demetri" }, { leagueOpen: false }), "");
+  assert.equal(ownerLine({ name: "Demetri" }, { leagueOpen: false }), "Connect your league to see who owns him.");
 });
 
 test("filters keep the tradable board and search finds the cheap name", () => {
@@ -168,7 +168,7 @@ test("markup escapes names and opens the selected card", () => {
   assert.match(html, /data-ranks-root/);
   assert.match(html, /data-action="rank-open"/);
   assert.match(html, /Worth about a|A step|Closest pick/);
-  assert.match(html, /Add to trade/);
+  assert.match(html, /Check a trade with /);
   assert.match(html, /Similar value/);
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /&lt;script&gt;/);
