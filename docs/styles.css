@@ -7045,8 +7045,74 @@ button.info {
   max-width: none;
   border-radius: var(--r-md) var(--r-md) 0 0;
 }
-/* One column, as wide as the trade box above it. */
-.launch-main { max-width: 640px; }
+/* One centered column: trade box, top-player faces, trending. */
+.launch-wrap > *, .launch .launch-nav { max-width: 720px; margin-inline: auto; }
+/* Trending first; the sample-league link and connect form follow it. */
+.launch-main { display: flex; flex-direction: column; }
+.launch-trend-col { order: -1; }
+.launch .landing-talk { max-width: 720px; margin-inline: auto; margin-bottom: var(--section-gap); }
+.launch h1 { max-width: 720px; margin-inline: auto; }
+
+/* Faces strip: the same look as the Players board, and the fun part of home. */
+.launch-top {
+  display: flex;
+  gap: var(--sp-3);
+  min-height: 112px;
+  margin-bottom: var(--section-gap);
+  padding: 2px 2px var(--sp-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+.launch-top::-webkit-scrollbar { display: none; }
+.launch-face {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  width: 4.8rem;
+  color: var(--text);
+  text-decoration: none;
+  scroll-snap-align: start;
+}
+.launch-face .player-face.player-face-md,
+.launch-face .player-face-md > .player-face-photo {
+  width: 4.4rem;
+  height: 4.4rem;
+  min-width: 4.4rem;
+  max-width: 4.4rem;
+  min-height: 4.4rem;
+  max-height: 4.4rem;
+  flex-basis: 4.4rem;
+  transition: transform 160ms ease;
+}
+.launch-face:hover .player-face,
+.launch-face:focus-visible .player-face { transform: translateY(-3px) scale(1.04); }
+.launch-face:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; border-radius: var(--r-sm); }
+.launch-face-name {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted-strong);
+  font-size: var(--fs-xs);
+  line-height: 1.15;
+  text-align: center;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.launch-face strong {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.launch-row .player-face.player-face-sm,
+.launch-row .player-face-sm > .player-face-photo { flex: 0 0 32px; width: 32px; height: 32px; min-width: 32px; max-width: 32px; min-height: 32px; max-height: 32px; }
+a.launch-row { min-height: 48px; }
+.launch-row .v { display: inline-flex; align-items: baseline; gap: var(--sp-1); margin-left: auto; }
+@media (prefers-reduced-motion: reduce) {
+  .launch-face .player-face { transition: none; }
+}
 
 /* The home page is a starting point for every public task. */
 .launch-nav {

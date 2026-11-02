@@ -258,6 +258,8 @@ import {
   launchErrorMarkup,
   launchExampleMarkup,
   launchTrendMarkup,
+  launchTopMarkup,
+  topPlayerRows,
 } from "./modules/launch-landing.js";
 import { decodeTradeShare, encodeTradeShare, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
 import { analyzeWindowCall, windowCallInputFromDesk } from "./modules/window-call.js";
@@ -2063,8 +2065,20 @@ function paintLaunchTrend(failed = false) {
     names: bundle?.nameMap || state.valueNameMap || {},
     players: state.valueBundles?.players || {},
   });
-  host.innerHTML = launchTrendMarkup(rows, { failed });
+  host.innerHTML = launchTrendMarkup(rows, {
+    failed,
+    trendFor: (assetId) => renderValueTrend(playerValueTrend(state.valueHistory, assetId, "sf")),
+  });
   host.setAttribute("aria-busy", "false");
+}
+
+function paintLaunchTop() {
+  const host = document.querySelector("#launch-top");
+  if (!host) return;
+  const bundle = launchValueBundle();
+  const rows = topPlayerRows(bundle?.values || {}, { names: bundle?.nameMap || state.valueNameMap || {} });
+  host.innerHTML = launchTopMarkup(rows);
+  host.hidden = !rows.length;
 }
 
 function revealLaunchConnect() {
@@ -2191,6 +2205,7 @@ async function loadLaunchSurface() {
     }
     relabelDraftNames();
     paintLaunchExample();
+    paintLaunchTop();
   } catch (err) {
     console.warn("Launch values did not load", err);
     const host = document.querySelector("#launch-example");

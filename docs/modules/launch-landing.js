@@ -6,11 +6,13 @@ import { verdictCopy } from "./verdict-copy.js";
 import { calcPointer, compareMetersMarkup, sharedBarSegments, starsPremiumMarkup, bestRowName } from "./verdict-bars.js";
 import { tradeHref } from "./history-route.js";
 import { playerSlug } from "./history-route.js";
+import { renderPlayerFace } from "./player-face.js";
 
 export const EXAMPLE_GIVE = Object.freeze(["player:9509"]);
 export const EXAMPLE_GET = Object.freeze(["player:11632", "pick:2027:r1:early"]);
 export const LAUNCH_ROW_HEIGHT = 40;
 export const LAUNCH_TREND_COUNT = 5;
+export const LAUNCH_TOP_COUNT = 9;
 export const LAUNCH_EXAMPLE_MIN_HEIGHT = 360;
 export const LAUNCH_TREND_MIN_HEIGHT = LAUNCH_ROW_HEIGHT * LAUNCH_TREND_COUNT;
 
@@ -63,12 +65,13 @@ function assetMeta(assetId, { names = {}, players = {} } = {}) {
   };
 }
 
-function rowMarkup(row, { href = "" } = {}) {
-  const meta = [row.team, row.age ? String(row.age) : ""].filter(Boolean).join(" · ");
+function rowMarkup(row, { href = "", trend = "" } = {}) {
+  const meta = [row.pos, row.team, row.age ? String(row.age) : ""].filter(Boolean).join(" · ");
+  const face = row.playerId ? renderPlayerFace(row.playerId, row.name, { size: "sm" }) : "";
   const inner = `
-    <span class="pos">${escapeHtml(row.pos || "")}</span>
+    ${face || `<span class="pos">${escapeHtml(row.pos || "")}</span>`}
     <span class="nm">${escapeHtml(row.name || "Player")}${meta ? ` <span class="meta">${escapeHtml(meta)}</span>` : ""}</span>
-    <span class="v">${escapeHtml(formatNumber(row.value))}</span>
+    <span class="v">${escapeHtml(formatNumber(row.value))}${trend}</span>
   `;
   if (!href) return `<div class="launch-row">${inner}</div>`;
   return `<a class="launch-row" href="${escapeHtml(href)}">${inner}</a>`;
@@ -127,6 +130,7 @@ export function hotSleeperRows(adds = [], { values = {}, names = {}, players = {
     if (!meta.name) continue;
     rows.push({
       ...meta,
+      playerId: id,
       value: Math.round(value),
       href: launchPlayerHref(id, meta.name),
     });
@@ -145,12 +149,35 @@ export function launchTrendErrorMarkup() {
   `;
 }
 
-export function launchTrendMarkup(rows = [], { failed = false } = {}) {
+export function launchTrendMarkup(rows = [], { failed = false, trendFor = null } = {}) {
   if (failed) return launchTrendErrorMarkup();
   if (!rows.length) {
     return `<p class="meta launch-empty">Nothing's moving yet this week. Check back after Sunday's games.</p>`;
   }
-  return rows.map((row) => rowMarkup(row, { href: row.href })).join("");
+  return rows.map((row) => rowMarkup(row, { href: row.href, trend: trendFor ? trendFor(row.assetId) : "" })).join("");
+}
+
+// The most valuable players, highest first: the faces strip on the home page.
+export function topPlayerRows(values = {}, { names = {}, limit = LAUNCH_TOP_COUNT } = {}) {
+  return Object.entries(values || {})
+    .filter(([id, value]) => /^player:\d+$/.test(id) && Number(value) > 0 && String(names?.[id] || "").trim())
+    .sort((a, b) => Number(b[1]) - Number(a[1]))
+    .slice(0, limit)
+    .map(([id, value]) => {
+      const playerId = id.slice("player:".length);
+      const name = String(names[id]).trim();
+      return { assetId: id, playerId, name, value: Math.round(Number(value)), href: launchPlayerHref(playerId, name) };
+    });
+}
+
+export function launchTopMarkup(rows = []) {
+  return rows.map((row) => `
+    <a class="launch-face" href="${escapeHtml(row.href)}">
+      ${renderPlayerFace(row.playerId, row.name, { size: "md" })}
+      <span class="launch-face-name">${escapeHtml(row.name)}</span>
+      <strong>${escapeHtml(formatNumber(row.value))}</strong>
+    </a>
+  `).join("");
 }
 
 export function launchSkeletonRows(count) {

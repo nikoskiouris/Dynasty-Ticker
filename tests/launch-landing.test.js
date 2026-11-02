@@ -254,3 +254,17 @@ test("a failed trending fetch is an error with Retry, not the empty week", () =>
   const app = readFileSync(join(root, "../docs/app.js"), "utf8");
   assert.match(app, /paintLaunchTrend\(trendFailed\)/);
 });
+
+test("home faces strip lists the highest-valued named players, best first, linking to player pages", async () => {
+  const { topPlayerRows, launchTopMarkup, launchTrendMarkup } = await import("../docs/modules/launch-landing.js");
+  const values = { "player:1": 900, "player:2": 1500, "player:3": 1200, "pick:2027:r1:early": 5000, "player:4": 2000 };
+  const names = { "player:1": "One", "player:2": "Two", "player:3": "Three" };
+  const rows = topPlayerRows(values, { names, limit: 2 });
+  assert.deepEqual(rows.map((row) => row.assetId), ["player:2", "player:3"]);
+  const html = launchTopMarkup(rows);
+  assert.match(html, /href="\/player\/2\/two"/);
+  assert.match(html, /class="player-face player-face-md"/);
+  const trend = launchTrendMarkup([{ assetId: "player:2", playerId: "2", name: "Two", pos: "WR", value: 1500, href: "/player/2" }], { trendFor: () => '<span class="value-trend up">↑5</span>' });
+  assert.match(trend, /player-face-sm/);
+  assert.match(trend, /value-trend up/);
+});
