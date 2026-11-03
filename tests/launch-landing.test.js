@@ -121,7 +121,7 @@ test("the example trade is the calculator verdict, and a new price changes it", 
   assert.match(html, new RegExp(`meter-get" style="flex:${bars.get.total} 1 0"`));
   if (model.adjustment) {
     assert.match(html, /meter-stars/);
-    assert.match(html, /Fewer, better players/);
+    assert.match(html, /Fewer, better pieces/);
     assert.match(html, /is the best player in this deal\. One great player is worth more than several smaller ones adding up to the same total, so we add [\d,]+ to what you (give|get)\./);
     assert.match(html, new RegExp(formatNumber(model.adjustment.amount)));
   }
@@ -223,15 +223,15 @@ test("a pre-league landing exposes all three starting tasks", () => {
     '<h1 id="route-title" class="sr-only">',
     '<h1 id="landing-job-hint">',
   ]);
-  assert.match(index, /<h1 id="landing-job-hint">Your next dynasty move starts here\./);
+  assert.match(index, /<h1 id="landing-job-hint">Is your trade fair\? What should you trade for\?/);
   assert.match(index, /<p id="hero-title">/);
   assert.doesNotMatch(index, /<h1 id="hero-title"/);
-  assert.match(index, /Build a trade/);
-  assert.match(index, /aria-label="Main navigation"/);
-  assert.match(index, /See the sample league/);
-  assert.match(index, /href="\/trade" data-launch="empty">Check a trade</);
-  assert.match(index, /href="\/connect\?next=\/" data-launch="connect">Find a trade</);
-  assert.match(index, /href="\/connect\?next=\/" data-launch="connect">My team</);
+  // Report 2026-10-31: one tab bar (no second launch nav), and home reads
+  // plain-words box, Connect, sample league, Look up a player. No "Build a trade".
+  assert.doesNotMatch(index, /Build a trade/);
+  assert.doesNotMatch(index, /aria-label="Main navigation"/);
+  const order = ["landing-talk-form", "Connect my Sleeper league", "Try the sample league", "Look up a player"].map((text) => index.indexOf(text));
+  assert.ok(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1])), order.join(","));
   assert.match(css, /body\.launch-open \.launch-header-link,/);
   assert.match(css, /body\.launch-open \.mobile-chrome-title-row,/);
   assert.match(css, /body\.launch-open #workspace-header,/);

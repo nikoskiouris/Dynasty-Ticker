@@ -1,12 +1,7 @@
 <section class="launch" id="landing">
   <div class="launch-wrap">
-    <nav class="launch-nav" aria-label="Main navigation">
-      <a href="/trade" data-launch="empty">Check a trade</a>
-      <a href="/connect?next=/" data-launch="connect">Find a trade</a>
-      <a href="/connect?next=/" data-launch="connect">My team</a>
-    </nav>
-    <h1 id="landing-job-hint">Your next dynasty move starts here.</h1>
-    <p class="sub">Explore player values, build a trade, or connect your Sleeper league. Free. No sign-up.</p>
+    <h1 id="landing-job-hint">Is your trade fair? What should you trade for?</h1>
+    <p class="sub">Type a trade to check it, or connect your Sleeper league for moves that fit your team. Free. No sign-up.</p>
     <form id="landing-talk-form" class="landing-talk" action="/trade" method="get">
       <label for="landing-talk">Check a trade in plain words</label>
       <p class="landing-talk-hint">Type it like you’d text it. We build the trade, price it, and you keep going: add, swap, remove.</p>
@@ -24,20 +19,19 @@
     <div class="launch-main">
       <div class="launch-start-col">
         <div class="launch-start" aria-label="Get started">
+          <a class="launch-action launch-connect launch-primary" href="/connect?next=/" data-launch="connect">
+            <strong>Connect my Sleeper league <span aria-hidden="true">›</span></strong>
+            <span>Your roster, your next move, and trades that fit your team.</span>
+          </a>
+          <a class="launch-action sample-league-link" href="./?sample=1">
+            <strong>Try the sample league <span aria-hidden="true">›</span></strong>
+            <span>An invented league, so you can see every tab first.</span>
+          </a>
           <a class="launch-action" href="/players" data-launch="players">
-            <strong>Explore players <span aria-hidden="true">›</span></strong>
-            <span>Find a player, check his value, and see how he compares.</span>
-          </a>
-          <a class="launch-action" href="/trade" data-launch="empty">
-            <strong>Build a trade <span aria-hidden="true">›</span></strong>
-            <span>Add your players and picks to compare both sides.</span>
-          </a>
-          <a class="launch-action launch-connect" href="/connect?next=/" data-launch="connect">
-            <strong>Connect my league <span aria-hidden="true">›</span></strong>
-            <span>Bring in your Sleeper rosters for moves that fit your team.</span>
+            <strong>Look up a player <span aria-hidden="true">›</span></strong>
+            <span>His value, his trend, and what he’s worth in a trade.</span>
           </a>
         </div>
-        <p class="launch-sample">No league yet? <a class="sample-league-link" href="./?sample=1">See the sample league</a></p>
         <div id="landing-connect" hidden>
           <form id="landing-username-form" class="landing-search" novalidate>
             <label for="landing-username">Sleeper username</label>
@@ -76,7 +70,7 @@
       </div>
       <div class="launch-trend-col">
         <div class="launch-lab">
-          <span>Hot on Sleeper</span>
+          <span>Most added on Sleeper this week</span>
           <a href="/players" data-launch="players">All players ›</a>
         </div>
         <div id="launch-trend" class="launch-box launch-trend" aria-busy="true">

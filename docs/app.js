@@ -109,7 +109,6 @@ import {
   copyTextToClipboard,
   escapeHtml,
   formatNumber,
-  formatMatchIdeaCopy,
   clamp,
   renderConnectGate,
 } from "./modules/html.js";
@@ -148,7 +147,6 @@ import {
   describeDraftItem,
   draftFromReview,
   draftMarketPrice,
-  draftMeterValues,
   draftNoticeText,
   evenUpTradePick,
   draftVerdictModel,
@@ -190,6 +188,7 @@ import { sampleRosterLabels } from "./modules/sample-voice.js";
 import {
   buildTradeMatchProfile,
   countStartableAtPosition,
+  describePartnerMatch,
   packageLooksLikeFiller,
   proposeMatchDeals,
   rankPartnerMatches,
@@ -259,7 +258,9 @@ import {
   launchExampleMarkup,
   launchTrendMarkup,
 } from "./modules/launch-landing.js";
-import { decodeTradeShare, encodeTradeShare, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
+import { inventSampleCore } from "./modules/sample-league.js";
+import { shopOffers } from "./modules/shop-player.js";
+import { decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
 import { analyzeWindowCall, windowCallInputFromDesk } from "./modules/window-call.js";
 import { chooseBestLineup } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
@@ -379,13 +380,9 @@ const el = {
   windowCallDashboard: document.querySelector("#window-call-dashboard"),
   tradeMatchNeeds: document.querySelector("#trade-match-needs"),
   tradeMatchDashboard: document.querySelector("#trade-match-dashboard"),
-  matchGenerateBtn: document.querySelector("#match-generate-btn"),
-  matchGenerateHelp: document.querySelector("#match-generate-help"),
-  matchGenerateError: document.querySelector("#match-generate-error"),
   calculatorSection: document.querySelector("#calculator-section"),
   calculatorShell: document.querySelector("#calculator-shell"),
   ranksDashboard: document.querySelector("#ranks-dashboard"),
-  homeBtn: document.querySelector("#home-btn"),
   landingFindBtn: document.querySelector("#landing-find-btn"),
   landingUsername: document.querySelector("#landing-username"),
   landingUsernameForm: document.querySelector("#landing-username-form"),
@@ -408,7 +405,6 @@ const el = {
   deskBoardOpen: document.querySelector("#desk-board-open"),
   boardTools: document.querySelector("#board-tools"),
   boardToolsSlot: document.querySelector("#board-tools-slot"),
-  mobileHomeBtn: document.querySelector("#mobile-home-btn"),
   railBackdrop: document.querySelector("#rail-backdrop"),
   controlRail: document.querySelector("#control-rail"),
   phoneDesk: document.querySelector("#phone-desk"),
@@ -462,6 +458,8 @@ let bootRoute = null;
 let connectNextPlace = null;
 // The draft a Review trade, a new partner, or Clear replaced, so one tap brings it back.
 let draftReplaced = null;
+// The full players board is open (Look up a player / All players).
+let playersBoardOpen = false;
 // Describe-a-trade box: the last message and its reply (memory only), and a
 // sentence typed before prices loaded.
 let tradeTalkLog = [];
@@ -538,7 +536,9 @@ el.leagueId?.addEventListener("keydown", (event) => {
 el.pageTabButtons?.forEach((button) => {
   button.addEventListener("click", () => {
     document.querySelector("#landing")?.classList.add("hidden");
+    playersBoardOpen = false;
     openRoom(button.dataset.page, button.dataset.room);
+    syncPlayersBoardFlag();
   });
 });
 el.pageTabs?.addEventListener("keydown", handlePageTabKeydown);
@@ -587,23 +587,17 @@ document.addEventListener("keydown", (event) => {
 });
 document.addEventListener("click", handleLaunchClick);
 document.addEventListener("click", (event) => {
-  const home = event.target.closest("[data-action='league-home']");
-  if (!home) return;
+  const button = event.target.closest("[data-action='disconnect-league']");
+  if (!button) return;
   event.preventDefault();
-  goLeagueHome();
+  // The trade draft is stored, so it survives. Back to the no-league desk.
+  window.location.assign("/");
 });
 document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-sample-find]");
   if (!button || el.workspace?.contains(button)) return;
   event.preventDefault();
   openSampleConnect();
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" && event.key !== " ") return;
-  const home = event.target.closest("[data-action='league-home']");
-  if (!home || event.target !== home) return;
-  event.preventDefault();
-  goLeagueHome();
 });
 window.matchMedia(PHONE_LAYOUT_QUERY).addEventListener("change", () => {
   setMobileRailOpen(false);
@@ -669,8 +663,26 @@ el.meSelect?.addEventListener("change", () => {
   renderSessionSnapshot();
   updateUrlState({ mode: "replace" });
 });
-el.matchGenerateBtn?.addEventListener("click", () => {
-  void generateTradeMatches({ userRequested: true });
+document.addEventListener("submit", (event) => {
+  const form = event.target.closest?.("[data-preview-connect]");
+  if (!form) return;
+  event.preventDefault();
+  const name = String(form.querySelector("input")?.value || "").trim();
+  // Come back to this tab once the league opens.
+  state.pendingPlace = { page: state.activePage, room: getRoom(state.activePage) };
+  if (el.landingUsername) el.landingUsername.value = name;
+  syncUsernameFields(el.landingUsername);
+  document.querySelector("#landing")?.classList.remove("hidden");
+  const box = document.querySelector("#landing-connect");
+  if (box) box.hidden = false;
+  requestFindLeagues();
+});
+document.addEventListener("change", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLSelectElement) || target.dataset.input !== "shop-player") return;
+  state.shopAssetId = target.value;
+  renderShopPanel();
+  document.querySelector("#shop-select")?.focus();
 });
 
 let sampleBannerOff = false;
@@ -877,8 +889,7 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
 function showAppPages() {
   hideLeagueNotFound();
   el.deskNav?.classList.remove("hidden");
-  el.homeBtn?.classList.remove("hidden");
-  el.mobileHomeBtn?.classList.remove("hidden");
+  document.querySelector("#disconnect-btn")?.classList.remove("hidden");
   const pending = state.pendingPlace || connectNextPlace;
   connectNextPlace = null;
   state.pendingPlace = null;
@@ -896,8 +907,7 @@ function showAppPages() {
 
 function hideAppPages() {
   el.deskNav?.classList.add("hidden");
-  el.homeBtn?.classList.add("hidden");
-  el.mobileHomeBtn?.classList.add("hidden");
+  document.querySelector("#disconnect-btn")?.classList.add("hidden");
   PAGE_IDS.forEach((page) => {
     const pageEl = el.pages[page];
     pageEl?.classList.add("hidden");
@@ -938,7 +948,7 @@ function stepTabIndex(event, count, currentIndex) {
 }
 
 function handlePageTabKeydown(event) {
-  const tabs = [...(el.pageTabButtons || [])];
+  const tabs = [...(el.pageTabs?.querySelectorAll(".page-tab") || el.pageTabButtons || [])];
   if (tabs.length === 0) return;
   const currentIndex = Math.max(0, tabs.findIndex((button) => button.classList.contains("active")));
   const nextIndex = stepTabIndex(event, tabs.length, currentIndex);
@@ -950,8 +960,19 @@ function handlePageTabKeydown(event) {
   openRoom(nextTab.dataset.page, nextTab.dataset.room, { history: "push", scroll: "top" });
 }
 
+function syncPlayersBoardFlag() {
+  document.documentElement.toggleAttribute("data-players-board", playersBoardOpen || /^\/players\/?$/.test(window.location.pathname));
+  // /player/<id> is the player page: the card alone, no calculator or board list.
+  document.documentElement.toggleAttribute("data-player-page",
+    /^\/player\//.test(window.location.pathname) && Boolean(state.ranks?.selectedId));
+}
+window.addEventListener("popstate", () => syncPlayersBoardFlag());
+
 function renderActivePage() {
   pageRenderQueue.settle();
+  // The full players board lives on /players only. Check a trade adds players
+  // from each side's own search, so no 48-row list sits under the calculator.
+  syncPlayersBoardFlag();
   if (state.leagueSwitching) {
     renderLeagueHero();
     hideAppPages();
@@ -1172,8 +1193,15 @@ function ranksBoardVisible() {
   return state.activePage === "trades" && getRoom("trades") === "calculator";
 }
 
+// A selected player is a page of its own: the player card, no calculator and
+// no board list. /player/<id> keeps that address.
+function syncPlayerPageFlag() {
+  syncPlayersBoardFlag();
+}
+
 function renderRankSurfaces() {
   if (ranksBoardVisible()) renderRankHost(el.ranksDashboard);
+  syncPlayerPageFlag();
 }
 
 async function ensureRankExtras() {
@@ -1209,11 +1237,15 @@ async function ensureRankExtras() {
 }
 
 function openPlayerBoard({ history = "push" } = {}) {
+  playersBoardOpen = true;
   openRoom("trades", "calculator", { history });
+  syncPlayersBoardFlag();
   void ensureRankExtras();
 }
 
 function renderTradesRoom(room) {
+  // The full players board lives on /players only. Check a trade adds players
+  // from each side's own search, so no 48-row list sits under the calculator.
   if (room === "find") {
     renderTradeMatchRoom();
     return;
@@ -1654,7 +1686,13 @@ function escapeRouteOverlay(event) {
   return true;
 }
 
-function updateUrlState({ mode = "replace", force = false } = {}) {
+function updateUrlState(options = {}) {
+  const result = updateUrlStateInner(options);
+  syncPlayersBoardFlag();
+  return result;
+}
+
+function updateUrlStateInner({ mode = "replace", force = false } = {}) {
   // A broken /t/ link keeps its address: never rewrite it to the saved draft.
   if (mode === "replace" && state.badShareLink && /^\/t\//.test(window.location.pathname || "")) {
     routeFocus.forget();
@@ -2112,6 +2150,31 @@ function openEmptyTrade() {
   });
 }
 
+// Every player name (idea cards, Shop results, trade sides, roster rows)
+// opens that player's own page. The trade draft is untouched.
+function openPlayerPage(assetId) {
+  const id = String(assetId || "");
+  if (!/^player:\d+$/.test(id)) return;
+  prepareDeskPush();
+  state.ranks.selectedId = id;
+  document.querySelector("#landing")?.classList.add("hidden");
+  setRoom("trades", "calculator");
+  setActivePage("trades", { history: "silent", scroll: "top" });
+  renderRankSurfaces();
+  if (!rankValuesReady() || !playerNoteContext?.previousSeason) void ensureRankExtras();
+  updateUrlState({ mode: "push" });
+  syncLaunchChrome();
+  syncDocumentMeta();
+  window.scrollTo(0, 0);
+}
+
+function playerLinkHtml(asset) {
+  const id = String(asset?.assetId || "");
+  const name = escapeHtml(asset?.name || "");
+  if (!/^player:\d+$/.test(id)) return name;
+  return `<button type="button" class="link-btn player-link" data-action="open-player" data-asset-id="${escapeHtml(id)}">${name}</button>`;
+}
+
 function openLaunchPlayer(href) {
   const raw = String(href || "");
   const route = matchRoute(raw.split("?")[0], raw.includes("?") ? raw.slice(raw.indexOf("?")) : "");
@@ -2258,13 +2321,17 @@ function buildShareUrl(overrides = {}) {
   });
 }
 
-function goLeagueHome() {
-  if (!state.leagueId) {
-    document.querySelector("#landing")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    el.landingUsername?.focus();
-    return;
+// "(you)" and the You chip mark the person who connected, never whichever
+// team is being viewed. A direct league link with no connected user marks
+// the team they picked themselves, and nothing until they pick.
+function connectedRosterId() {
+  const userId = String(state.sleeperUser?.user_id || "");
+  if (userId) {
+    const raw = (state.rosters || []).find((roster) => String(roster?.owner_id || "") === userId
+      || (Array.isArray(roster?.co_owners) && roster.co_owners.map(String).includes(userId)));
+    return raw ? String(raw.roster_id) : "";
   }
-  openRoom("league", "team");
+  return state.mePickedByUser && state.meRosterId != null ? String(state.meRosterId) : "";
 }
 
 function goSiteHome({ history = "push" } = {}) {
@@ -2403,6 +2470,13 @@ function renderSessionSnapshot() {
           : guestRouteHeading();
   }
   if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
+  const chipText = document.querySelector("#team-league-chip-text");
+  if (chipText) {
+    chipText.textContent = state.leagueName
+      ? `${you || "Pick your team"} · ${state.leagueName}`
+      : "Connect my league";
+  }
+  el.mobileRailToggle?.setAttribute("aria-label", state.leagueName ? `Team and league: ${chipText?.textContent || ""}. Switch team, switch league, or disconnect.` : "Connect my league");
   if (el.mobileChromeViewing) {
     el.mobileChromeViewing.hidden = !sampleOn;
     el.mobileChromeViewing.textContent = sampleOn ? sampleViewingLine(you) : "";
@@ -2468,10 +2542,7 @@ function renderLeagueHero() {
   const format = describeLeagueFormat(league);
   const seasonLabel = `${league.season} season`;
   const trophy = String(league?.metadata?.trophy_winner_banner_text || "").trim();
-  const pageLabel = PAGE_LABELS[state.activePage] || "League";
-  const room = getRoom();
-  const roomLabel = room === HOME_ROOM ? "" : deskRoomLabel(state.activePage, room);
-  el.heroEyebrow.textContent = `${pageLabel}${roomLabel ? ` / ${roomLabel}` : ""} · ${seasonLabel} · ${state.normalizedRosters.length} teams · ${model?.playoffTeams || league?.settings?.playoff_teams || "?"} playoff spots`;
+  el.heroEyebrow.textContent = `${seasonLabel} · ${state.normalizedRosters.length} teams · ${model?.playoffTeams || league?.settings?.playoff_teams || "?"} make playoffs`;
   el.heroTitle.textContent = state.leagueName;
   const status = model?.seasonComplete
     ? "Season complete. The archive, awards, and record book are final."
@@ -2484,7 +2555,7 @@ function renderLeagueHero() {
           : model
             ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
             : "Matchups are syncing.";
-  const sampleNote = state.viewingSample ? (sampleVoice()?.accountNote || "Public sample — not this account. ") : "";
+  const sampleNote = state.viewingSample ? (sampleVoice()?.accountNote || "Sample league — invented managers. ") : "";
   const formatTip = tepLevel(league) > 0
     ? ` ${infoTipMarkup({ id: "pop-hero-format", label: "Scoring", text: "Values use 1 point per catch at every position, even with the TE bonus." })}`
     : "";
@@ -2518,7 +2589,23 @@ function isActiveNavTab(button) {
   return button.dataset.page === state.activePage && button.dataset.room === getRoom(state.activePage);
 }
 
+// No league: Check a trade · Find a trade · My team (checking works without a
+// league). League connected: My team · Find a trade · Check a trade, the
+// decision order (diagnose, find, validate).
+function orderNavTabs() {
+  const nav = el.pageTabs;
+  if (!nav) return;
+  const ids = state.leagueId ? ["league-tab", "find-tab", "trades-tab"] : ["trades-tab", "find-tab", "league-tab"];
+  const current = [...nav.querySelectorAll(".page-tab")].map((button) => button.id).join(",");
+  if (current === ids.join(",")) return;
+  ids.forEach((id) => {
+    const button = nav.querySelector(`#${id}`);
+    if (button) nav.appendChild(button);
+  });
+}
+
 function renderRoomNav() {
+  orderNavTabs();
   el.pageTabButtons?.forEach((button) => {
     const isActive = isActiveNavTab(button);
     button.classList.toggle("active", isActive);
@@ -3275,7 +3362,7 @@ async function loadLeagueCoreData(leagueId) {
     throw new Error(`Failed to load: ${failures.join("; ")}`);
   }
 
-  return {
+  const core = {
     league: byKey.league,
     users: byKey.users,
     rosters: byKey.rosters,
@@ -3284,6 +3371,8 @@ async function loadLeagueCoreData(leagueId) {
     winnersBracket: Array.isArray(byKey.winnersBracket) ? byKey.winnersBracket : [],
     losersBracket: Array.isArray(byKey.losersBracket) ? byKey.losersBracket : [],
   };
+  // The sample league's people are invented; only its structure is real.
+  return state.viewingSample ? inventSampleCore(core) : core;
 }
 
 function rankDraftCandidateStatus(status) {
@@ -4021,35 +4110,55 @@ function renderPowerDashboard() {
       context,
     });
   const insights = buildSleeperInsightCards(profile, context);
-  const windowCall = buildWindowCallForProfile(profile);
-  const showPicks = leagueUsesFuturePicks(state.league) || Number(profile.assetSummary.pickValue) > 0
-    || Number(profile.assetSummary.firstRoundPickCount) > 0;
+  // Order (report 2026-10-31): verdict, next move, position ranks, lineup,
+  // bench and picks (roster sheet), then team score and league format.
+  // Starters/Bench/Picks/Age appear once, on the roster sheet.
   el.powerDashboard.innerHTML = `
-    ${renderPowerHero({
-      score: profile.score,
-      managerName: profile.managerName,
-      grade: profile.grade,
-      tierClass: profile.tierClass,
-      badges: profile.badges,
-    })}
-    <div class="power-stat-grid">
-      ${renderPowerStat("Starters", formatNumber(profile.metrics.starterValue), infoTipMarkup({ id: "pop-starters", label: "Starters", text: "Value of your best lineup." }))}
-      ${renderPowerStat("Bench", formatNumber(profile.metrics.benchValue))}
-      ${showPicks ? renderPowerStat("Draft picks", formatNumber(profile.assetSummary.pickValue)) : ""}
-      ${renderPowerStat("Avg age", profile.assetSummary.averageAgeLabel)}
-    </div>
-    <div class="power-lanes">
-      <section class="power-lane">
-        <h4>By position</h4>
-        <div class="position-meter-list">
-          ${profile.positionSummaries.map(renderPositionMeter).join("")}
-        </div>
-      </section>
-      ${insights[0] ? `<section class="power-lane"><div class="insight-list">${renderSleeperInsight(insights[0])}</div></section>` : ""}
-    </div>
+    <section class="power-lane">
+      <h3>Position ranks</h3>
+      <div class="position-meter-list">
+        ${profile.positionSummaries.map(renderPositionMeter).join("")}
+      </div>
+    </section>
   `;
+  renderNextMove(profile);
+  const scoreHost = document.querySelector("#team-score");
+  if (scoreHost) {
+    scoreHost.innerHTML = `
+      ${renderPowerHero({
+        score: profile.score,
+        managerName: profile.managerName,
+        grade: profile.grade,
+        tierClass: profile.tierClass,
+        badges: profile.badges,
+      })}
+      ${insights[0] ? `<details class="league-format-details"><summary>League format</summary><div class="insight-list">${renderSleeperInsight(insights[0])}</div></details>` : ""}
+    `;
+    document.querySelector("#team-score-section")?.classList.remove("hidden");
+  }
 }
 
+// "Your next move": the weakest group, with a button into Find a trade.
+function renderNextMove(profile) {
+  const host = document.querySelector("#next-move");
+  if (!host) return;
+  const rows = (profile?.positionSummaries || []).filter((row) => row.rankLabel);
+  if (!rows.length) {
+    host.innerHTML = "";
+    return;
+  }
+  const weakest = rows.reduce((low, row) => (Number(row.percentile) < Number(low.percentile) ? row : low));
+  const strongest = rows.reduce((top, row) => (Number(row.percentile) > Number(top.percentile) ? row : top));
+  const rank = String(weakest.rankLabel).replace(" / ", " of ");
+  const sample = Boolean(sampleVoice());
+  host.innerHTML = `
+    <section class="next-move-card" aria-labelledby="next-move-title">
+      <p class="eyebrow" id="next-move-title">${sample ? "Next move" : "Your next move"}</p>
+      <p class="next-move-line"><strong>Upgrade ${escapeHtml(weakest.position)}</strong> <span class="muted">${escapeHtml(weakest.position)} ranks ${escapeHtml(rank)}${strongest && strongest.position !== weakest.position ? `; ${escapeHtml(strongest.position)} is the deepest group to trade from` : ""}.</span></p>
+      <button type="button" data-action="find-position" data-position="${escapeHtml(weakest.position)}">Find a ${escapeHtml(weakest.position)}</button>
+    </section>
+  `;
+}
 // ---------------------------------------------------------------------------
 // Season engine glue: model, priors, simulation, and shared helpers
 // ---------------------------------------------------------------------------
@@ -4187,7 +4296,7 @@ function managerForRosterId(rosterId) {
 
 function renderTeamIdentity(rosterId, { size = "sm", showTeamName = true, extra = "" } = {}) {
   const manager = managerForRosterId(rosterId);
-  const isMe = String(rosterId) === String(state.meRosterId);
+  const isMe = state.viewingSample ? String(rosterId) === String(state.meRosterId) : String(rosterId) === connectedRosterId();
   const teamName = showTeamName ? (manager.teamName || "") : "";
   const subtitle = [teamName, extra].filter(Boolean).join(" · ");
   return `
@@ -4246,12 +4355,43 @@ function paintConnectGate(host, copy) {
   host.innerHTML = renderConnectGate({ copy });
 }
 
+// No league: the tab stays selected and shows what it does, a username box,
+// and the sample league. It never redirects.
+const NO_LEAGUE_PREVIEW = Object.freeze({
+  find: {
+    title: "Trade ideas that fit your league",
+    points: ["Ideas that fill your weakest spot, each with a fairness check", "Shop a player: who pays a fair price for him", "The teams most likely to say yes"],
+  },
+  team: {
+    title: "Your team, read in one line",
+    points: ["Contend or rebuild, with playoff odds", "Your next move: the spot to upgrade", "Position ranks, best lineup, bench and picks"],
+  },
+});
+
+function renderNoLeaguePreview(kind) {
+  const copy = NO_LEAGUE_PREVIEW[kind] || NO_LEAGUE_PREVIEW.team;
+  return `
+    <section class="no-league-preview" data-preview="${escapeHtml(kind)}">
+      <p class="no-league-title"><strong>${escapeHtml(copy.title)}</strong></p>
+      <ul class="no-league-points">${copy.points.map((point) => `<li>${escapeHtml(point)}</li>`).join("")}</ul>
+      <form class="no-league-connect" data-preview-connect novalidate>
+        <label for="preview-username-${escapeHtml(kind)}">Sleeper username</label>
+        <div class="no-league-row">
+          <input id="preview-username-${escapeHtml(kind)}" name="username" maxlength="40" placeholder="username" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
+          <button type="submit">Connect my league</button>
+        </div>
+      </form>
+      <p class="no-league-sample">No league? <a class="sample-league-link" href="./?sample=1">Try the sample league</a></p>
+    </section>
+  `;
+}
+
 function clearHost(host) {
   if (host) host.innerHTML = "";
 }
 
 function renderLeagueGuest() {
-  paintConnectGate(el.powerDashboard, "Connect my league to see your roster, outlook, standings, and playoff odds.");
+  if (el.powerDashboard) el.powerDashboard.innerHTML = renderNoLeaguePreview("team");
   clearHost(el.windowCallDashboard);
   clearHost(el.standingsDashboard);
   clearHost(el.rosterSheet);
@@ -4476,7 +4616,7 @@ function syncLeagueFormatCopy() {
 }
 
 function renderLensPicker(roster, { label = "Viewing", extra = "" } = {}) {
-  const meId = String(state.meRosterId ?? "");
+  const meId = state.viewingSample ? String(state.meRosterId ?? "") : connectedRosterId();
   const options = state.normalizedRosters
     .slice()
     .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName))
@@ -4513,7 +4653,6 @@ function renderWindowCallDashboard() {
   }
   if (!rosterGradeReady(roster) || !pricesReady()) {
     host.innerHTML = `
-      ${renderLensPicker(roster)}
       <p class="muted small meta-pending">${state.playerMetadataFailed ? "Player metadata unavailable" : "…"}</p>
     `;
     return;
@@ -4525,20 +4664,30 @@ function renderWindowCallDashboard() {
   const call = getLensWindowCall({ profiles, model, sim });
   if (!call) {
     host.innerHTML = `
-      ${renderLensPicker(roster)}
       <p class="muted">Values still syncing. Call shows once the power board loads.</p>
     `;
     return;
   }
 
-  const why = call.signals?.[0];
+  const odds = playoffOddsText(roster, sim);
+  const confidence = call.confidence >= 80 ? "high" : call.confidence >= 65 ? "medium" : "low";
   host.innerHTML = `
-    ${renderLensPicker(roster)}
-    <p class="window-call-line ${call.tone}">
-      <strong>${escapeHtml(call.label)}</strong>
-      <span class="muted">${escapeHtml(call.horizon === "season" ? "This season" : "Contend or rebuild")}${why ? ` · ${escapeHtml(why.label)}: ${escapeHtml(why.value)}` : ""} · heuristic call, ${call.confidence}% lean</span>
-    </p>
+    <section class="team-verdict" aria-labelledby="team-verdict-title">
+      <p class="eyebrow" id="team-verdict-title">${escapeHtml(call.horizon === "season" ? "This season" : "Contend or rebuild")}</p>
+      <p class="window-call-line ${call.tone}"><strong>${escapeHtml(call.label)}</strong>${odds ? ` <span class="team-verdict-odds">· Playoff odds ${escapeHtml(odds)}</span>` : ""}</p>
+      <p class="muted small">Confidence: ${confidence}. An estimate from roster value, record and schedule, not a probability of being right.</p>
+    </section>
   `;
+}
+
+function playoffOddsText(roster, sim) {
+  const row = sim?.byRosterId?.get(String(roster?.rosterId));
+  if (!row || row.playoffPct == null) return "";
+  const pct = Number(row.playoffPct);
+  if (!Number.isFinite(pct)) return "";
+  if (pct > 99) return ">99%";
+  if (pct < 1) return "<1%";
+  return `${Math.round(pct)}%`;
 }
 
 let rosterSheetMarkup = "";
@@ -4612,7 +4761,7 @@ function renderRosterSheet() {
         ${sheetSlotMarkup(extra.slot, slotLabel)}
         <div class="sheet-player">
           ${renderPlayerFace(playerId, asset.name, { size: "sm" })}
-          <strong>${escapeHtml(asset.name)}${nickname ? ` <em class="nickname">“${escapeHtml(nickname)}”</em>` : ""}</strong>
+          <strong>${playerLinkHtml(asset)}${nickname ? ` <em class="nickname">“${escapeHtml(nickname)}”</em>` : ""}</strong>
           ${meta ? `<span>${meta}</span>` : ""}
         </div>
         <span class="sheet-metrics">
@@ -4663,7 +4812,9 @@ function renderRosterSheet() {
 // Trade calculator: one draft, with or without a league
 // ---------------------------------------------------------------------------
 
-function setDraft(next) {
+function setDraft(next, { keepNotice = false } = {}) {
+  // "Restore draft / Keep new" goes away on the next change to the trade.
+  if (!keepNotice) draftReplaced = null;
   state.valueCalc = next;
   writeStoredDraft(next);
   if (state.activePage === "trades" && getRoom("trades") === "calculator") {
@@ -4681,7 +4832,7 @@ function replaceDraft(next, note) {
   draftReplaced = !isDraftEmpty(current) && draftAssetKey(current) !== draftAssetKey(next)
     ? { draft: current, note }
     : null;
-  setDraft(next);
+  setDraft(next, { keepNotice: true });
 }
 
 // Roster ids repeat across leagues, so a browse preference from one league means nothing in another.
@@ -4860,9 +5011,8 @@ function paintTradeDraft() {
     </div>
     ${renderTradeTalk()}
     <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
-    <div class="calc-grid has-meter">
+    <div class="calc-grid">
       ${renderDraftPane("left", view)}
-      <div id="draft-meter" class="draft-meter">${renderDraftMeter(view)}</div>
       ${renderDraftPane("right", view)}
     </div>
     <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
@@ -5105,6 +5255,28 @@ function runTradeTalk(text) {
   const view = buildDraftView();
   const ctx = tradeTalkContext(view);
   const plan = parseTradeTalk(say, ctx);
+  // "What could I get for Bijan?" never replaces the trade being built. In a
+  // league it opens Shop a player; without one it lists returns priced near him.
+  if (plan.intent === "shop" && plan.adds.length && !isDraftEmpty(state.valueCalc)) {
+    const target = plan.adds[0].asset;
+    if (state.leagueId && getMyRoster() && /^player:/.test(String(target.assetId))) {
+      openShop(target.assetId);
+      return;
+    }
+    const value = draftMarketPrice(target, view.basis).value;
+    const neighbors = priceNeighbors(ctx.catalog, value, {
+      exclude: [target, ...state.valueCalc.left, ...state.valueCalc.right].map((item) => item.assetId),
+    });
+    tradeTalkLog = [{
+      say,
+      lines: [`${target.name} is worth ${formatNumber(value)} on our board. Your trade is unchanged.`],
+      groups: neighbors.length ? [{ title: "Single players priced near that", chips: neighbors.map((row) => ({ ...row, side: "right" })) }] : [],
+      next: [],
+      sticky: true,
+    }];
+    renderTradeDraft();
+    return;
+  }
   const result = applyTradeTalk(state.valueCalc, plan);
   const voice = sampleVoice();
   const giveLabel = voice?.giveLabel || "You give";
@@ -5258,8 +5430,6 @@ function patchTradeDraft(listSides = []) {
   if (notice) notice.innerHTML = `${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}`;
   const verdict = host.querySelector("#value-calc-verdict");
   if (verdict) verdict.innerHTML = renderDraftVerdict(view);
-  const meter = host.querySelector("#draft-meter");
-  if (meter) meter.innerHTML = renderDraftMeter(view);
   const team = host.querySelector("#draft-team");
   if (team) team.innerHTML = renderDraftTeam(view);
 }
@@ -5406,7 +5576,11 @@ function renderDraftPartnerPicker(view) {
 function renderSelectedTokenLabel(asset) {
   const face = renderPlayerFace(facePlayerId(asset), asset?.name, { size: "sm" });
   if (!face) return `<span class="selected-token-label">${escapeHtml(asset?.name || "")}</span>`;
-  return `<span class="selected-token-label player-name">${face}<span class="player-name-text">${escapeHtml(asset.name)}</span></span>`;
+  const id = String(asset?.assetId || "");
+  const name = /^player:\d+$/.test(id)
+    ? `<button type="button" class="link-btn player-link player-name-text" data-action="open-player" data-asset-id="${escapeHtml(id)}">${escapeHtml(asset.name)}</button>`
+    : `<span class="player-name-text">${escapeHtml(asset.name)}</span>`;
+  return `<span class="selected-token-label player-name">${face}${name}</span>`;
 }
 
 function draftItemMismatch(view, item) {
@@ -5481,40 +5655,7 @@ function draftItemMeta(item) {
   return [record.position, record.team].filter(Boolean).join(" · ");
 }
 
-let draftMeterOpen = false;
-
-// One slim bar for the verdict: the split is the credited totals the verdict
-// compares, so the bar, the label and the full breakdown always agree.
-function renderDraftMeter(view) {
-  const { draft, model } = view;
-  if (!draft.left.length || !draft.right.length) {
-    return `
-      <div class="meter-head"><span class="meter-label muted">Add to both sides to see the verdict</span></div>
-      <div class="meter-bar is-empty" aria-hidden="true"></div>
-    `;
-  }
-  const { verdict } = model;
-  const copy = verdictCopy(verdict);
-  const give = Math.max(0, Number(verdict.left) || 0);
-  const get = Math.max(0, Number(verdict.right) || 0);
-  const giveShare = give + get > 0 ? (give / (give + get)) * 100 : 50;
-  const tone = copy.tier === "even" ? "good" : copy.tier === "edge" ? "fair" : (copy.tone || "fair");
-  const voice = sampleVoice();
-  const giveLabel = voice?.giveLabel || "You give";
-  const getLabel = voice?.getLabel || "You get";
-  return `
-    <button type="button" class="meter-head" data-action="meter-why" aria-expanded="${draftMeterOpen ? "true" : "false"}" aria-controls="meter-why">
-      <strong class="meter-label tone-${tone}">${escapeHtml(copy.line)}</strong>
-      <span class="meter-why-link">${draftMeterOpen ? "Hide" : "See why"} <span aria-hidden="true">›</span></span>
-    </button>
-    <div class="meter-bar tone-${tone}" role="img" aria-label="${escapeHtml(`${giveLabel} ${formatNumber(give)}, ${getLabel} ${formatNumber(get)}`)}">
-      <span class="meter-give" style="width:${giveShare.toFixed(1)}%"></span>
-      <span class="meter-get"></span>
-    </div>
-    ${draftMeterOpen ? renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) : ""}
-  `;
-}
-
+// Per-piece breakdown, shown under the verdict's "Why?".
 function renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) {
   const { draft, model } = view;
   const rowsFor = (side) => (draft[side] || []).map((item) => {
@@ -5542,14 +5683,13 @@ function renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) {
           `).join("")}
           ${adjustment?.side === side.key && adjustment.amount > 0 ? `
             <div class="meter-why-row is-credit">
-              <span class="meter-why-name">Fewer, better players</span>
+              <span class="meter-why-name">Fewer, better pieces</span>
               <span class="meter-why-track"></span>
               <span class="meter-why-num">+${formatNumber(adjustment.amount)}</span>
             </div>
           ` : ""}
         </div>
       `).join("")}
-      <button type="button" class="inline-link meter-full" data-action="meter-full">Full breakdown</button>
     </div>
   `;
 }
@@ -5784,13 +5924,13 @@ function evenUpCopy(choice, side) {
   const near = Number(choice.value) > 0 && Number(choice.gap) > 0
     && choice.value <= choice.gap * 1.5 && choice.value >= choice.gap * 0.67;
   if (choice.closes && !near) {
-    return `${side} ${verb} about ${formatNumber(choice.gap)} to even it up. No single pick is close to that.`;
+    return `${side} ${verb} about ${formatNumber(choice.gap)}. No single pick is close to that.`;
   }
   if (choice.closes) {
     return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
   }
   if (Number.isFinite(Number(choice.pct))) {
-    const after = choice.verdict ? verdictLineNamed(choice.verdict) : "";
+    const after = choice.verdict ? verdictLineNamed(choice.verdict, sampleVoice() ? {} : { Give: "You give", Get: "You get" }) : "";
     return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}).${after ? ` After that pick: ${after}.` : ""}`;
   }
   const short = choice.value < choice.gap;
@@ -5829,22 +5969,27 @@ function noteTradeChecked(draft) {
 function renderDraftVerdict(view) {
   const { draft, model } = view;
   if (!draft.left.length && !draft.right.length) {
-    return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. The verdict uses the same prices as the player list below.</p>`;
+    return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. Every player is priced the same way everywhere on the site.</p>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (bothSides) noteTradeChecked(draft);
   const them = view.partner?.manager?.displayName || "them";
   const voice = sampleVoice();
   const { verdict, adjustment } = model;
-  const meters = draftMeterValues(model);
   // One verdict wording everywhere (verdict-copy.js): app, /t, card, meta, share text.
   const copy = verdictCopy(verdict);
   // The headline is the full line ("Lopsided · Give side worth 89% more"), like the card.
-  const label = bothSides ? copy.line : copy.label;
+  // Private /trade names the sides as the reader: "You give 136% more".
+  const label = bothSides
+    ? (voice ? copy.line : verdictLineNamed(verdict, { Give: "You give", Get: "You get" }))
+    : copy.label;
   const sharedView = bothSides ? sharedVerdictFor(view) : null;
   // RECHECK4: on a cold /t the bars are sized on the credited totals the
   // verdict compares, with the stars credit as its own segment.
-  const bars = sharedBarSegments(model, sharedView ? null : meters);
+  // The bars show what the verdict compares: listed prices plus the extra for
+  // fewer, better pieces as its own labeled segment, so "You give 63% more"
+  // never sits beside two bars that look even.
+  const bars = sharedBarSegments(model, null);
   const maxSide = Math.max(bars.give.total, bars.get.total, 1);
   // Same metric and bands as the headline (verdict-copy.js).
   const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpPick(view) : null;
@@ -5867,11 +6012,17 @@ function renderDraftVerdict(view) {
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
-        <p>${escapeHtml(giveLabel)} ${formatNumber(model.give)}. ${escapeHtml(getLabel)} ${formatNumber(model.get)}.${!bothSides ? " One side is empty, so this is not a trade yet." : ""}</p>
-        ${starsPremiumMarkup(model, { best, pick: bestPick })}
+        ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
-        <details class="calc-method">
-          <summary>How this number works</summary>
+        <details class="calc-method calc-why">
+          <summary>Why?</summary>
+          ${bothSides ? renderDraftMeterWhy(view, {
+            giveLabel,
+            getLabel,
+            give: Math.max(0, Number(verdict.left) || 0),
+            get: Math.max(0, Number(verdict.right) || 0),
+          }) : ""}
+          ${starsPremiumMarkup(model, { best, pick: bestPick })}
           ${renderDraftMethod(view)}
         </details>`}
       </div>
@@ -5911,7 +6062,7 @@ function sharedBarSegments(model, meters = null) {
 }
 
 // A bar with an extra segment carries a text label for screen readers
-// ("Give 21,472 including 8,561 for fewer, better players"); the hatch has a visible key.
+// ("Give 21,472 including 8,561 for fewer, better pieces"); the hatch has a visible key.
 function meterTrack(seg, maxSide, label = "") {
   const pct = (value) => Math.round((value / maxSide) * 1000) / 10;
   if (!seg.stars) return `<div class="meter-track"><span style="width:${pct(seg.listed)}%"></span></div>`;
@@ -5924,7 +6075,7 @@ function calcPointer(arrow) {
   return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
 }
 
-// Cold /t detail line: "Give 19,224 (11,811 + 7,413 for fewer, better players). Get 14,457."
+// Cold /t detail line: "Give 19,224 (11,811 + 7,413 for fewer, better pieces). Get 14,457."
 function sharedTotalsLine(model) {
   const adj = model.adjustment;
   return creditedTotalsLine({
@@ -5980,9 +6131,9 @@ function renderVerdictFinePrint(leadHtml, inner) {
   `;
 }
 
-// Ids and scoring only. A league pick shares as that round's generic pick.
+// Ids and scoring only. A league pick shares as the generic pick it was priced as.
 function draftShareCode(view) {
-  const ids = (items) => items.map((item) => String(item.assetId || ""));
+  const ids = (items) => items.map((item) => shareAssetIdFor(item, view.priced));
   return encodeTradeShare({
     give: ids(view.draft.left),
     get: ids(view.draft.right),
@@ -6103,17 +6254,8 @@ function buildDraftOfferText(view) {
 }
 
 function renderDraftTeam(view) {
-  if (!view.basis.connected) {
-    return `
-      <section class="draft-team-card">
-        <div>
-          <span class="analytics-kicker">Your team</span>
-          <p>Connect my league to see who owns each piece and what this trade does to both rosters. This trade stays here.</p>
-        </div>
-        <button type="button" data-action="draft-connect">Connect my league</button>
-      </section>
-    `;
-  }
+  // No league: no roster-impact box. Connecting is offered in the header and on home.
+  if (!view.basis.connected) return "";
   const { context, draft } = view;
   const partnerName = view.partner?.manager?.displayName || "";
   const splitNames = (context?.partnerIds || []).map((id) => findNormalizedRoster(id)?.manager?.displayName).filter(Boolean);
@@ -6162,6 +6304,7 @@ function addDraftAsset(side, asset) {
 
 function addDraftFromPlayers(assetId, name, kind) {
   if (!assetId) return;
+  playersBoardOpen = false;
   const me = state.leagueId ? getMyRoster() : null;
   const placement = state.leagueId
     ? draftSideForAsset(assetId, { rosters: state.normalizedRosters, meRosterId: me ? me.rosterId : null })
@@ -6351,6 +6494,7 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "open-public-ranks":
+      state.ranks.selectedId = "";
       openPlayerBoard();
       break;
     case "retry-player-metadata":
@@ -6427,8 +6571,21 @@ function handleWorkspaceClick(event) {
       updateUrlState({ mode: "replace" });
       break;
     case "rank-calc":
+      state.ranks.selectedId = "";
+      syncPlayerPageFlag();
       addDraftFromPlayers(target.dataset.assetId, target.dataset.name, target.dataset.kind);
       break;
+    case "open-player": {
+      openPlayerPage(target.dataset.assetId);
+      break;
+    }
+    case "player-shop": {
+      const id = String(target.dataset.assetId || "");
+      state.ranks.selectedId = "";
+      syncPlayerPageFlag();
+      openShop(id);
+      break;
+    }
     case "standings-view": {
       state.standingsView = target.dataset.view === "division" ? "division" : "overall";
       renderStandingsRoom();
@@ -6454,6 +6611,27 @@ function handleWorkspaceClick(event) {
       openCalculatorWith(target.dataset.rosterId);
       break;
     }
+    case "find-position": {
+      state.tradeMatch.focusPosition = String(target.dataset.position || "");
+      state.tradeMatch.showAll = false;
+      openRoom("trades", "find");
+      break;
+    }
+    case "clear-find-focus": {
+      state.tradeMatch.focusPosition = "";
+      renderTradeMatchDashboard();
+      break;
+    }
+    case "match-more": {
+      state.tradeMatch.showAll = true;
+      renderTradeMatchDashboard();
+      break;
+    }
+    case "focus-shop": {
+      openShop(state.shopAssetId || "");
+      document.querySelector("#shop-select")?.focus();
+      break;
+    }
     case "review-trade": {
       openReviewedTrade(target.dataset.trade);
       break;
@@ -6464,16 +6642,6 @@ function handleWorkspaceClick(event) {
     }
     case "talk-add": {
       addTalkChip(target);
-      break;
-    }
-    case "meter-why": {
-      draftMeterOpen = !draftMeterOpen;
-      const meter = el.calculatorShell?.querySelector("#draft-meter");
-      if (meter) meter.innerHTML = renderDraftMeter(buildDraftView());
-      break;
-    }
-    case "meter-full": {
-      el.calculatorShell?.querySelector("#value-calc-verdict")?.scrollIntoView({ behavior: "smooth", block: "start" });
       break;
     }
     case "value-add": {
@@ -6533,7 +6701,7 @@ function handleWorkspaceClick(event) {
       if (!draftReplaced) return;
       const previous = draftReplaced.draft;
       draftReplaced = isDraftEmpty(state.valueCalc) ? null : { draft: state.valueCalc, note: "Switched drafts." };
-      setDraft(previous);
+      setDraft(previous, { keepNotice: true });
       renderTradeDraft();
       break;
     }
@@ -7349,7 +7517,6 @@ function clearTradeMatchCache() {
     error: "",
     payload: null,
   };
-  syncMatchGenerateState();
 }
 
 function tradeMatchCacheKey(rosterId = state.meRosterId) {
@@ -7358,6 +7525,7 @@ function tradeMatchCacheKey(rosterId = state.meRosterId) {
     rosterId || "",
     valuationCacheVersion(),
     state.playerMetadataLoaded ? "players" : "names",
+    state.tradeMatch?.focusPosition || "",
   ].join(":");
 }
 
@@ -7388,26 +7556,13 @@ function buildTradeMatchProfiles(powerProfiles = null) {
     .filter(Boolean);
 }
 
-function syncMatchGenerateState() {
-  const ready = Boolean(state.meRosterId && state.leagueId);
-  if (el.matchGenerateBtn && !el.matchGenerateBtn.classList.contains("loading")) {
-    el.matchGenerateBtn.disabled = !ready;
-  }
-  if (el.matchGenerateHelp) {
-    el.matchGenerateHelp.textContent = !state.leagueId
-      ? "Connect my league and pick your team."
-      : !state.meRosterId
-        ? "Choose your team first."
-        : "Looks at holes, surplus, and contend vs rebuild. No leftover thirds.";
-  }
-}
-
 function setMatchGenerateError(message) {
-  setFieldError(null, el.matchGenerateError, message);
+  if (message) state.tradeMatch.error = message;
 }
 
 function syncFindGuestChrome(guest) {
-  document.querySelector("#match-action-panel")?.classList.toggle("hidden", guest);
+  document.querySelector("#shop-section")?.classList.toggle("hidden", guest);
+  document.querySelector("#partners-section")?.classList.toggle("hidden", guest);
   document.querySelector("#player-section")?.classList.toggle("hidden", guest);
   document.querySelector("#settings-section")?.classList.toggle("hidden", guest);
 }
@@ -7415,12 +7570,11 @@ function syncFindGuestChrome(guest) {
 function renderTradeMatchRoom() {
   if (!state.leagueId) {
     syncFindGuestChrome(true);
-    paintConnectGate(el.tradeMatchNeeds, "Connect your league to see trade partners. The trade checker works without it.");
+    if (el.tradeMatchNeeds) el.tradeMatchNeeds.innerHTML = renderNoLeaguePreview("find");
     clearHost(el.tradeMatchDashboard);
     return;
   }
   syncFindGuestChrome(false);
-  syncMatchGenerateState();
   renderTradeMatchNeeds();
   const key = tradeMatchCacheKey();
   if (state.tradeMatch.loading) {
@@ -7448,7 +7602,7 @@ function renderTradeMatchNeeds() {
   if (!el.tradeMatchNeeds) return;
   const meRoster = getMyRoster();
   if (!meRoster) {
-    el.tradeMatchNeeds.innerHTML = `<p class="muted">${escapeHtml(sampleVoice()?.matchNeedsEmpty || "Pick your team. We find a partner who has your holes. Calculator is one tap away.")}</p>`;
+    el.tradeMatchNeeds.innerHTML = `<p class="muted">${escapeHtml(sampleVoice()?.matchNeedsEmpty || "Pick your team to see trade ideas.")}</p>`;
     return;
   }
   if (!Object.keys(state.values || {}).length) {
@@ -7461,61 +7615,249 @@ function renderTradeMatchNeeds() {
   }
   const mine = buildTradeMatchProfiles().find((profile) => String(profile.rosterId) === String(meRoster.rosterId));
   if (!mine) {
-    el.tradeMatchNeeds.innerHTML = `<p class="muted">Need roster values before match can grade holes.</p>`;
+    el.tradeMatchNeeds.innerHTML = `<p class="muted">Roster values are still loading.</p>`;
     return;
   }
-  const chips = [
-    mine.laneLabel,
-    mine.weakestPosition ? `Need ${mine.weakestPosition.position}` : "",
-    mine.strongestPosition ? `Extra ${mine.strongestPosition.position}` : "",
-    mine.timeline === "contending" ? "Contending" : mine.timeline === "rebuilding" ? "Rebuilding" : "In between",
-  ].filter(Boolean);
-  const needLine = mine.needs.length
-    ? `Holes: ${mine.needs.map((row) => `${row.position} (${row.rankLabel || row.grade})`).join(", ")}.`
-    : "No loud positional hole. Match will look for a contend/rebuild window instead.";
-  const spareWho = sampleVoice()?.youGive || "You";
-  const surplusLine = mine.surplus.length
-    ? `${spareWho} can spare ${mine.surplus.map((row) => row.position).join(", ")}.`
-    : (sampleVoice()?.surplusFallback || "No obvious surplus; any deal still has to help your starters.");
-  el.tradeMatchNeeds.innerHTML = `
-    <div class="match-need-card">
-      <div class="power-badge-row">
-        ${chips.map((chip) => `<span class="power-badge">${escapeHtml(chip)}</span>`).join("")}
-      </div>
-      <p>${escapeHtml(needLine)} ${escapeHtml(surplusLine)}</p>
-    </div>
-  `;
+  el.tradeMatchNeeds.innerHTML = `<p class="match-situation" id="find-situation">${escapeHtml(findSituationLine(mine))}</p>`;
 }
+
+// "Your situation", in one plain sentence.
+function findSituationLine(mine) {
+  const who = sampleVoice() ? `${mine.managerName} is` : "You're";
+  const timeline = mine.timeline === "contending" ? `${who} contending.` : mine.timeline === "rebuilding" ? `${who} rebuilding.` : `${who} in between.`;
+  const hole = mine.weakestPosition;
+  const spare = mine.strongestPosition;
+  const lowest = !hole ? lowestRankedGroup(mine.rosterId) : null;
+  const holeText = hole
+    ? ` Biggest hole: ${hole.position}${hole.rankLabel ? ` (${hole.rankLabel})` : ""}.`
+    : lowest
+      ? ` ${sampleVoice() ? "Every starting spot is covered" : "Your starters cover every spot"}; lowest-ranked group: ${lowest.position} (${String(lowest.rankLabel).replace(" / ", " of ")}).`
+      : " No big holes. We'll look for teams on the opposite timeline.";
+  const spareText = spare ? ` Most to spare: ${spare.position}.` : "";
+  return `${timeline}${holeText}${spareText}`;
+}
+
+function lowestRankedGroup(rosterId) {
+  const profile = buildPowerProfiles().find((row) => String(row.rosterId) === String(rosterId));
+  const rows = (profile?.positionSummaries || []).filter((row) => row.rankLabel);
+  if (!rows.length) return null;
+  return rows.reduce((low, row) => (Number(row.percentile) < Number(low.percentile) ? row : low));
+}
+
+const IDEAS_SHOWN_FIRST = 3;
 
 function renderTradeMatchDashboard() {
   if (!el.tradeMatchDashboard) return;
+  renderShopPanel();
   if (state.tradeMatch.loading) {
-    el.tradeMatchDashboard.innerHTML = `<p class="muted">Matching holes against the rest of the league…</p>`;
+    el.tradeMatchDashboard.innerHTML = `<p class="muted">Looking for trades that help your lineup…</p>`;
+    renderMatchPartners();
     return;
   }
   if (state.tradeMatch.error) {
     el.tradeMatchDashboard.innerHTML = `<p class="muted">${escapeHtml(state.tradeMatch.error)}</p>`;
+    renderMatchPartners();
     return;
   }
   const payload = state.tradeMatch.payload;
+  const shopLink = `<button type="button" class="link-btn" data-action="focus-shop">Shop a player →</button>`;
   if (!payload) {
-    el.tradeMatchDashboard.innerHTML = `<p class="muted">${escapeHtml(sampleVoice()?.matchDashboardEmpty || "Find a partner who has your holes, or open Find deals to shop a name. Calculator is one tap away.")}</p>`;
+    el.tradeMatchDashboard.innerHTML = `<p class="muted">Pick your team to see ideas. ${shopLink}</p>`;
+    renderMatchPartners();
     return;
   }
-  if (!payload.groups?.length) {
-    el.tradeMatchDashboard.innerHTML = `<p class="muted">${escapeHtml(payload.emptyText || "No complementary teams turned up a real roster-fit trade.")}</p>`;
+  const focus = String(state.tradeMatch.focusPosition || "");
+  const ideas = (payload.ideas || []).filter((idea) => !focus
+    || (idea.theirAssets || []).some((asset) => playerPositionsForAsset(asset).includes(focus)));
+  const focusNote = focus
+    ? `<p class="small find-focus">Showing ideas that add a ${escapeHtml(focus)}. <button type="button" class="link-btn" data-action="clear-find-focus">Show all ideas</button></p>`
+    : "";
+  if (!ideas.length && focus) {
+    el.tradeMatchDashboard.innerHTML = `${focusNote}${renderPositionBuys(focus)}`;
+    renderMatchPartners();
     return;
   }
-  el.tradeMatchDashboard.innerHTML = payload.groups.map((group) => `
-    <article class="match-partner-card">
-      <h3>${escapeHtml(group.title)}</h3>
-      ${
-        group.ideas.length > 0
-          ? group.ideas.map((idea) => renderMatchTradeCard(idea)).join("")
-          : `<p class="muted small idea-group-empty">${escapeHtml(group.emptyText || "Need fit is there, but no package stayed fair without filler.")}</p>`
-      }
-    </article>
-  `).join("");
+  if (!ideas.length) {
+    el.tradeMatchDashboard.innerHTML = `${focusNote}<p class="muted">${escapeHtml(payload.emptyText || "No fair deal that helps your lineup yet.")} ${shopLink}</p>`;
+    renderMatchPartners();
+    return;
+  }
+  const shown = state.tradeMatch.showAll ? ideas : ideas.slice(0, IDEAS_SHOWN_FIRST);
+  const more = ideas.length - shown.length;
+  el.tradeMatchDashboard.innerHTML = `
+    ${focusNote}
+    <div class="match-idea-list">${shown.map((idea) => renderMatchTradeCard(idea)).join("")}</div>
+    ${more > 0 ? `<button type="button" class="ghost-btn match-more" data-action="match-more">Show ${more} more idea${more === 1 ? "" : "s"}</button>` : ""}
+  `;
+  renderMatchPartners();
+}
+
+function renderMatchPartners() {
+  const host = document.querySelector("#match-partners");
+  if (!host) return;
+  const partners = state.tradeMatch.payload?.partners || [];
+  if (state.tradeMatch.loading) {
+    host.innerHTML = `<p class="muted small">Ranking partners…</p>`;
+    return;
+  }
+  if (!partners.length) {
+    host.innerHTML = `<p class="muted small">No team lines up on needs or timeline yet.</p>`;
+    return;
+  }
+  host.innerHTML = `<ol class="match-partner-list">${partners.map((row) => `
+    <li><strong>${escapeHtml(row.name)}</strong>${row.why ? ` <span class="muted small">${escapeHtml(row.why)}</span>` : ""}</li>
+  `).join("")}</ol>`;
+}
+
+// The verdict Check a trade will show for these assets: same prices, same model.
+function checkerModelFor(myAssets, theirAssets) {
+  const basis = draftBasis();
+  const price = (asset) => draftMarketPrice(asset, basis).value;
+  return draftVerdictModel((myAssets || []).map(price), (theirAssets || []).map(price), {
+    globalMaxValue: getGlobalMaxPlayerValue(basis.values),
+  });
+}
+
+// What an idea improves for me, in words. "" when it improves nothing.
+function ideaGainLine(idea) {
+  const parts = [];
+  const patched = (idea.myHelp?.patchedNeeds || []).map((row) => row.position).filter(Boolean);
+  if (patched.length) parts.push(`+1 ${[...new Set(patched)].join("/")} starter`);
+  const side = idea.impactAnalysis?.mySide;
+  const before = Number(side?.before?.rank);
+  const after = Number(side?.after?.rank);
+  if (Number.isFinite(before) && Number.isFinite(after) && after < before) {
+    parts.push(`lineup ${ordinal(before)}→${ordinal(after)}`);
+  }
+  return parts.join(", ");
+}
+
+// --- Shop a player -------------------------------------------------------
+
+function shopChoices() {
+  const me = getMyRoster();
+  if (!me) return { mine: [], theirs: [] };
+  const row = (asset, roster) => ({
+    assetId: String(asset.assetId),
+    name: asset.name,
+    value: Math.round(Number(getAssetValue(asset, state.values)) || 0),
+    rosterId: roster.rosterId,
+    owner: roster.manager?.displayName || "",
+  });
+  const players = (roster) => (roster.assets || []).filter((asset) => asset.assetType === "player");
+  const mine = players(me).map((asset) => row(asset, me)).filter((r) => r.value > 0).sort((a, b) => b.value - a.value);
+  const theirs = (state.normalizedRosters || [])
+    .filter((roster) => String(roster.rosterId) !== String(me.rosterId))
+    .flatMap((roster) => players(roster).map((asset) => row(asset, roster)))
+    .filter((r) => r.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 120);
+  return { mine, theirs };
+}
+
+function shopResult(assetId) {
+  const me = getMyRoster();
+  if (!me || !assetId) return null;
+  const owner = (state.normalizedRosters || []).find((roster) => (roster.assets || []).some((asset) => String(asset.assetId) === String(assetId)));
+  if (!owner) return { missing: true };
+  const asset = owner.assets.find((a) => String(a.assetId) === String(assetId));
+  const basis = draftBasis();
+  const price = (a) => draftMarketPrice(a, basis).value;
+  const globalMaxValue = getGlobalMaxPlayerValue(basis.values);
+  const model = (give, get) => draftVerdictModel(give, get, { globalMaxValue });
+  const priced = (roster) => (roster.assets || []).map((a) => ({ asset: a, value: price(a) })).filter((r) => r.value > 0);
+  const selling = String(owner.rosterId) === String(me.rosterId);
+  const target = { asset, value: price(asset) };
+  const payers = selling
+    ? (state.normalizedRosters || []).filter((r) => String(r.rosterId) !== String(me.rosterId))
+      .map((r) => ({ rosterId: r.rosterId, name: r.manager?.displayName || "Team", assets: priced(r) }))
+    : [{ rosterId: me.rosterId, name: me.manager?.displayName || "You", assets: priced(me) }];
+  const offers = shopOffers({ target, payers, model, perTeam: selling ? 1 : 3, limit: selling ? 6 : 3 });
+  return { selling, asset, owner, value: target.value, offers };
+}
+
+function renderShopPanel() {
+  const host = document.querySelector("#shop-panel");
+  if (!host) return;
+  const me = getMyRoster();
+  if (!me || !Object.keys(state.values || {}).length) {
+    host.innerHTML = `<p class="muted small">Pick your team to shop a player.</p>`;
+    return;
+  }
+  const { mine, theirs } = shopChoices();
+  const selected = String(state.shopAssetId || "");
+  const option = (r, label) => `<option value="${escapeHtml(r.assetId)}"${r.assetId === selected ? " selected" : ""}>${escapeHtml(label)}</option>`;
+  const result = selected ? shopResult(selected) : null;
+  host.innerHTML = `
+    <label class="shop-label" for="shop-select">Pick a player</label>
+    <select id="shop-select" class="shop-select" data-input="shop-player">
+      <option value="">Choose a player…</option>
+      <optgroup label="${sampleVoice() ? "Sell from this team" : "Sell one of mine"}">${mine.map((r) => option(r, `${r.name} · ${formatNumber(r.value)}`)).join("")}</optgroup>
+      <optgroup label="${sampleVoice() ? "Price one from another team" : "Price one of theirs"}">${theirs.map((r) => option(r, `${r.name} · ${r.owner} · ${formatNumber(r.value)}`)).join("")}</optgroup>
+    </select>
+    <div id="shop-results" class="shop-results" aria-live="polite">${renderShopResults(result)}</div>
+  `;
+}
+
+function renderShopResults(result) {
+  if (!result) return "";
+  if (result.missing) return `<p class="muted small">That player isn't on a roster in this league.</p>`;
+  const name = result.asset?.name || "him";
+  if (!result.offers.length) {
+    return `<p class="muted small">No fair offer for ${escapeHtml(name)} turned up. Try a different player, or build one in Check a trade.</p>`;
+  }
+  const head = result.selling
+    ? `Teams that could pay a fair price for ${escapeHtml(name)} (${formatNumber(result.value)}):`
+    : `What you could offer ${escapeHtml(result.owner.manager?.displayName || "them")} for ${escapeHtml(name)} (${formatNumber(result.value)}):`;
+  const cards = result.offers.map((offer) => {
+    const idea = result.selling
+      ? { counterpartyRosterId: offer.rosterId, myAssets: [result.asset], theirAssets: offer.assets }
+      : { counterpartyRosterId: result.owner.rosterId, myAssets: offer.assets, theirAssets: [result.asset] };
+    const pieces = offer.assets.map(playerLinkHtml).join(" + ");
+    const line = result.selling ? `${escapeHtml(offer.teamName)}: ${pieces}` : pieces;
+    return `
+      <article class="match-trade-card shop-offer">
+        <p class="match-trade-offer">${line}</p>
+        <p class="match-trade-band">${escapeHtml(result.selling
+          ? verdictLineNamed(offer.verdict, { Give: "You give", Get: "You get" })
+          : verdictLineNamed(offer.verdict, { Give: "They give", Get: "You give" }))}</p>
+        ${renderReviewTradeButton(idea)}
+      </article>`;
+  }).join("");
+  return `<p class="small">${head}</p>${cards}`;
+}
+
+// Focused on a position with no partner idea: price the best players at that
+// position on other rosters and show a fair offer for each.
+function renderPositionBuys(position) {
+  const me = getMyRoster();
+  if (!me) return "";
+  const candidates = (state.normalizedRosters || [])
+    .filter((roster) => String(roster.rosterId) !== String(me.rosterId))
+    .flatMap((roster) => (roster.assets || []).filter((asset) => asset.assetType === "player"
+      && playerPositionsForAsset(asset).includes(position)))
+    .map((asset) => ({ asset, value: Number(getAssetValue(asset, state.values)) || 0 }))
+    .filter((row) => row.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 12);
+  const cards = [];
+  for (const row of candidates) {
+    const result = shopResult(row.asset.assetId);
+    if (!result?.offers?.length) continue;
+    cards.push(renderShopResults({ ...result, offers: result.offers.slice(0, 1) }));
+    if (cards.length >= 3) break;
+  }
+  if (!cards.length) {
+    return `<p class="muted">No fair deal that adds a ${escapeHtml(position)} yet. <button type="button" class="link-btn" data-action="focus-shop">Shop a player →</button></p>`;
+  }
+  return `<p class="small"><strong>${escapeHtml(position)}s you could get at a fair price</strong></p><div class="match-idea-list">${cards.join("")}</div>`;
+}
+
+function openShop(assetId) {
+  state.shopAssetId = String(assetId || "");
+  if (state.activePage !== "trades" || getRoom("trades") !== "find") openRoom("trades", "find");
+  else renderShopPanel();
+  requestAnimationFrame(() => document.querySelector("#shop-section")?.scrollIntoView({ block: "start" }));
 }
 
 async function generateTradeMatches({ userRequested = false } = {}) {
@@ -7532,7 +7874,6 @@ async function generateTradeMatches({ userRequested = false } = {}) {
   renderTradeMatchDashboard();
 
   try {
-    setButtonLoading(el.matchGenerateBtn, true, "Matching teams...");
     await ensureValuesLoaded("");
     await waitForNextPaint();
     if (!state.playerMetadataLoaded && !state.playerMetadataFailed) {
@@ -7595,7 +7936,7 @@ async function generateTradeMatches({ userRequested = false } = {}) {
         cheapIdeas.push({ deal, packageResult, pctDiff });
       });
       cheapIdeas.sort((a, b) => {
-        const loudest = myProfile.weakestPosition?.position;
+        const loudest = state.tradeMatch.focusPosition || myProfile.weakestPosition?.position;
         if (loudest) {
           const aHit = (a.deal.myHelp?.patchedNeeds || []).some((row) => row.position === loudest) ? 1 : 0;
           const bHit = (b.deal.myHelp?.patchedNeeds || []).some((row) => row.position === loudest) ? 1 : 0;
@@ -7625,31 +7966,43 @@ async function generateTradeMatches({ userRequested = false } = {}) {
           includePowerUpgrade: false,
         });
         if (!tradeMatchIdeaHelps(idea, myProfile, row.deal)) continue;
+        // Never suggest a deal the checker itself would call more than a slight edge.
+        const checked = checkerModelFor(idea.myAssets, idea.theirAssets);
+        const copy = verdictCopy(checked.verdict);
+        if (copy.tier !== "even" && copy.tier !== "edge") continue;
+        idea.bandLine = verdictLineNamed(checked.verdict, { Give: "You give", Get: "You get" });
+        idea.gainLine = ideaGainLine(idea);
+        // An idea that improves nothing is not shown.
+        if (!idea.gainLine) continue;
         ideas.push(idea);
-        if (ideas.length >= 1) break;
+        if (ideas.length >= 2) break;
       }
 
-      groups.push({
-        title: theirProfile.managerName,
-        ideas,
-        emptyText: "The rosters fit, but every fair package still looked like filler. Try Find deals on a specific name.",
-      });
+      groups.push({ title: theirProfile.managerName, ideas, match, rosterId: theirProfile.rosterId });
     }
 
-    const withDeals = groups.filter((group) => group.ideas.length > 0);
+    const allIdeas = groups.flatMap((group) => group.ideas);
+    const rankGain = (idea) => {
+      const side = idea.impactAnalysis?.mySide;
+      const gain = Number(side?.before?.rank) - Number(side?.after?.rank);
+      return (Number.isFinite(gain) ? gain : 0) + (idea.myHelp?.patchedNeeds?.length ? 1 : 0);
+    };
+    allIdeas.sort((a, b) => rankGain(b) - rankGain(a) || Math.abs(a.pctDiff) - Math.abs(b.pctDiff));
     state.tradeMatch.payload = {
-      groups: withDeals.length ? withDeals : groups.slice(0, 3),
+      ideas: allIdeas,
+      partners: groups.slice(0, 5).map((group) => ({
+        name: group.title,
+        why: describePartnerMatch(group.match, myProfile, { voice: sampleVoice() }),
+      })),
       emptyText: ranked.length === 0
-        ? (sampleVoice()?.matchEmptyBalanced || "No complementary windows jumped out. Your roster may already be balanced, or the league is clustered the same way.")
-        : (sampleVoice()?.matchEmptyLineup || "Those complementary teams showed up, but no package helped your lineup without leftover thirds."),
+        ? "No team lines up on needs or timeline yet."
+        : "No fair deal that helps your lineup yet.",
     };
   } catch (err) {
     state.tradeMatch.error = `Could not build matches. ${err.message}`;
     state.tradeMatch.payload = null;
   } finally {
     state.tradeMatch.loading = false;
-    setButtonLoading(el.matchGenerateBtn, false);
-    syncMatchGenerateState();
     if (state.activePage === "trades" && getRoom("trades") === "find") {
       renderTradeMatchNeeds();
       renderTradeMatchDashboard();
@@ -7723,20 +8076,13 @@ function formatAssetNameList(assets) {
 }
 
 function renderMatchTradeCard(idea) {
-  const copy = formatMatchIdeaCopy({
-    sendNames: (idea.myAssets || []).map((asset) => asset.name),
-    receiveNames: (idea.theirAssets || []).map((asset) => asset.name),
-    beforeRank: idea.impactAnalysis?.mySide?.before?.rank,
-    afterRank: idea.impactAnalysis?.mySide?.after?.rank,
-    totalTeams: idea.impactAnalysis?.mySide?.before?.totalTeams
-      || idea.impactAnalysis?.mySide?.after?.totalTeams,
-    benefit: idea.pitch || idea.summary || "",
-  });
+  const partner = idea.counterpartyName || "";
   return `
     <article class="match-trade-card">
-      <p class="match-trade-offer">${escapeHtml(copy.offer)}</p>
-      ${copy.why ? `<p class="match-trade-rank">${escapeHtml(copy.why)}</p>` : ""}
-      ${copy.rank ? `<p class="match-trade-rank">${escapeHtml(copy.rank)}</p>` : ""}
+      ${partner ? `<p class="match-trade-partner muted small">With ${escapeHtml(partner)}</p>` : ""}
+      <p class="match-trade-offer">Send ${(idea.myAssets || []).map(playerLinkHtml).join(" + ")} for ${(idea.theirAssets || []).map(playerLinkHtml).join(" + ")}</p>
+      ${idea.gainLine ? `<p class="match-trade-gain">${escapeHtml(idea.gainLine)}</p>` : ""}
+      ${idea.bandLine ? `<p class="match-trade-band">${escapeHtml(idea.bandLine)}</p>` : ""}
       ${renderReviewTradeButton(idea)}
     </article>
   `;

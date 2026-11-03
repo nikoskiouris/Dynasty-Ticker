@@ -79,22 +79,22 @@ test("the ⓘ sits inline at the end of the /t subline", () => {
   assert.match(app, /How this verdict works<\/span>\s*<\/button><\/p>/);
 });
 
-test("/t detail line: credited Give with the extra for fewer, better players in brackets", () => {
+test("/t detail line: credited Give with the extra for fewer, better pieces in brackets", () => {
   assert.equal(
     creditedTotalsLine({ giveListed: 11811, getListed: 14457, stars: 7413, starSide: "give" }),
-    "Give 19,224 (11,811 + 7,413 for fewer, better players). Get 14,457.",
+    "Give 19,224 (11,811 + 7,413 for fewer, better pieces). Get 14,457.",
   );
   assert.equal(
     creditedTotalsLine({ giveListed: 9000, getListed: 8000, stars: 1500, starSide: "get" }),
-    "Give 9,000. Get 9,500 (8,000 + 1,500 for fewer, better players).",
+    "Give 9,000. Get 9,500 (8,000 + 1,500 for fewer, better pieces).",
   );
   assert.equal(creditedTotalsLine({ giveListed: 9000, getListed: 8000 }), "Give 9,000. Get 8,000.");
 });
 
 test("stars legend: visible hatch key and a text label on the bar", () => {
-  assert.equal(barLabel("Give", 12911, 8561), "Give 21,472 including 8,561 for fewer, better players");
+  assert.equal(barLabel("Give", 12911, 8561), "Give 21,472 including 8,561 for fewer, better pieces");
   assert.equal(barLabel("Get", 11112, 0), "Get 11,112");
-  assert.equal(STAR_PREMIUM_KEY, "Fewer, better players");
+  assert.equal(STAR_PREMIUM_KEY, "Fewer, better pieces");
   assert.match(app, /<p class="calc-legend"><span class="calc-legend-swatch" aria-hidden="true"><\/span>\$\{escapeHtml\(STAR_PREMIUM_KEY\)\}<\/p>/);
   assert.match(app, /class="meter-track meter-split" role="img" aria-label="\$\{escapeHtml\(label\)\}"/);
   const css = readFileSync(new URL("../docs/styles.css", import.meta.url), "utf8");

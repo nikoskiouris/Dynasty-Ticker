@@ -26,37 +26,38 @@ for (const viewport of viewports) {
     await expect(page.locator("#ranks-section")).toBeHidden();
   });
 
-  test(`home offers a blank trade and league connection at ${viewport.width}`, async ({ page }) => {
+  // Report 2026-10-31: one tab row at every width (the home's second nav row is
+  // gone), and a tab with no league stays selected and previews instead of redirecting.
+  test(`home has one tab row; tabs open a trade and a no-league preview at ${viewport.width}`, async ({ page }) => {
     await openLanding(page, viewport);
     await expect(page.locator("#launch-example")).toHaveCount(0);
-    const nav = page.getByRole("navigation", { name: "Main navigation" });
-    await expect(nav.getByRole("link", { name: "My team", exact: true })).toBeInViewport();
-    await nav.getByRole("link", { name: "Check a trade", exact: true }).click();
-    await expect(page).toHaveURL(/\/trade$/);
-    await expect(page.locator("#calculator-shell")).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Main navigation" })).toHaveCount(0);
+    const tabs = page.locator("#page-tabs .page-tab");
+    await expect(tabs).toHaveCount(3);
+    await expect(page.locator("#league-tab")).toBeInViewport();
+    // The tab can be pressed before the app module finishes booting; press until it lands.
+    await expect(async () => {
+      await page.locator("#trades-tab").click();
+      await expect(page.locator("#calculator-shell")).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30000 });
     await expect(page.locator("#calculator-shell")).not.toContainText("Bijan Robinson");
-    await page.goBack();
-    await expect(page).toHaveURL(/\/$/);
-    await expect(nav).toBeVisible();
-    await nav.getByRole("link", { name: "My team", exact: true }).click();
-    await expect(page.locator("#landing-username")).toBeVisible();
-    await expect(page.locator("#landing-username")).toBeFocused();
+    await page.locator("#league-tab").click();
+    await expect(page.locator("#league-tab")).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("[data-preview='team'] input")).toBeVisible();
+    await expect(page.locator("[data-preview='team'] .sample-league-link")).toBeVisible();
+    await page.locator("#find-tab").click();
+    await expect(page.locator("#find-tab")).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("[data-preview='find'] input")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 
-  // QA 2026-10-18 #6 (owner): landing "Build a trade" starts fresh; the old draft is one tap away.
-  test(`home Trade starts fresh and offers the old draft back at ${viewport.width}`, async ({ page }) => {
+  // Never erase work: going home and back to Check a trade keeps the trade.
+  test(`home and back to Check a trade keeps the trade at ${viewport.width}`, async ({ page }) => {
     await openLanding(page, viewport);
-    await page.locator(".launch-action[data-launch='players']").click();
-    await expect(page).toHaveURL(/\/trade$/);
-    // A shared draft is also an editable trade; returning home must not clear it.
     await page.goto("/trade?give=player:9509&get=player:11632");
     await expect(page.locator("#calculator-shell")).toContainText("Bijan Robinson", { timeout: 30000 });
     await page.goto("/");
-    await page.locator('.launch-nav [data-launch="empty"]').click();
-    await expect(page.locator("[data-action='draft-restore']")).toBeVisible({ timeout: 30000 });
-    await expect(page.locator(".calc-grid")).not.toContainText("Bijan Robinson");
-    await page.locator("[data-action='draft-restore']").click();
+    await page.locator("#trades-tab").click();
     await expect(page.locator("#calculator-shell")).toContainText("Bijan Robinson", { timeout: 30000 });
     await expect(page.locator("#calculator-shell")).toContainText("Malik Nabers");
   });

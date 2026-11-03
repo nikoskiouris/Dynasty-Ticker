@@ -48,10 +48,10 @@ for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 800 });
 
     await page.goto("/");
-    await expectH1(page, "Your next dynasty move starts here.");
+    await expectH1(page, "Is your trade fair? What should you trade for?");
 
     await page.goto("/connect");
-    await expectH1(page, "Your next dynasty move starts here.");
+    await expectH1(page, "Is your trade fair? What should you trade for?");
 
     await page.goto("/players");
     await expect.poll(() => new URL(page.url()).pathname).toBe("/trade");
@@ -92,12 +92,7 @@ for (const width of [1280, 390]) {
 }
 
 async function openLeagueRoom(page, room) {
-  if (page.viewportSize().width <= 700) {
-    const open = await page.locator("body").evaluate((body) => body.classList.contains("rail-open"));
-    if (!open) await page.locator("#mobile-rail-toggle").click();
-    await page.locator(`#phone-desk [data-phone-room='${room}']`).click();
-    return;
-  }
+  // One tab bar at every width: a bottom bar on phones (report 2026-10-31).
   await page.locator(`.page-tab[data-room='${room}']`).click();
 }
 
@@ -146,7 +141,7 @@ for (const width of [1280, 390]) {
 
 const ROOMS = [
   { room: "team", heading: "Your team", route: "My team", slug: "team" },
-  { room: "find", heading: "Trade ideas", route: "Find a trade", slug: "ideas" },
+  { room: "find", heading: "Ideas for you", route: "Find a trade", slug: "ideas" },
 ];
 
 async function expectRoomHeading(page, room, width) {
@@ -181,21 +176,17 @@ for (const width of [1280, 390]) {
     }
 
     if (width > 700) {
-      await page.locator(".page-tab.active").focus();
-      await page.keyboard.press("ArrowLeft");
-      await expectRoomHeading(page, ROOMS[1], width);
+      // With a league the tabs read My team · Find a trade · Check a trade.
       await page.locator(".page-tab.active").focus();
       await page.keyboard.press("ArrowRight");
+      await expectRoomHeading(page, ROOMS[1], width);
+      await page.locator(".page-tab.active").focus();
+      await page.keyboard.press("ArrowLeft");
       await expectRoomHeading(page, ROOMS[0], width);
       return;
     }
     for (const room of visit) {
-      const open = await page.locator("body").evaluate((body) => body.classList.contains("rail-open"));
-      if (!open) {
-        await page.locator("#mobile-rail-toggle").click();
-        await expect(page.locator("#mobile-rail-close")).toBeFocused();
-      }
-      await page.locator(`#phone-desk [data-phone-room='${room.room}']`).press("Enter");
+      await page.locator(`.page-tab[data-room='${room.room}']`).press("Enter");
       await expectRoomHeading(page, room, width);
     }
   });

@@ -33,6 +33,16 @@ export function encodeShareAsset(assetId) {
   return "";
 }
 
+// A league pick shares as the generic pick it was priced as in the league (a
+// projected "mid 1st" shares as a mid 1st, not a plain 1st), so the recipient
+// sees the same totals and % the sender saw. priced: Map uid -> { asset }.
+export function shareAssetIdFor(item, priced) {
+  const id = String(item?.assetId || "");
+  if (!/^pick:\d{4}:r\d+:\d+$/.test(id)) return id;
+  const valueId = String(priced?.get?.(String(item.uid))?.asset?.valueAssetId || "");
+  return /^pick:\d{4}:r\d+:(?:any|early|mid|late)$/.test(valueId) ? valueId : id;
+}
+
 export function decodeShareAsset(item) {
   const text = String(item || "");
   if (PLAYER_ITEM.test(text)) return `player:${text}`;
@@ -173,7 +183,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     get,
     giveTotal: model.give,
     getTotal: model.get,
-    // Credited totals: the listed prices plus the extra for fewer, better players.
+    // Credited totals: the listed prices plus the extra for fewer, better pieces.
     // The gap, % and verdict all come from these, so the card's math adds up.
     giveCredited: model.compareGive,
     getCredited: model.compareGet,
@@ -207,7 +217,7 @@ export function shareMessage(summary) {
   return `${verdictCopy(summary?.verdict).line}. Check it on Dynasty Ticker.`;
 }
 
-// "Fewer, better players +7,413" on the side that gets the extra.
+// "Fewer, better pieces +7,413" on the side that gets the extra.
 export function creditLine(summary) {
   if (!summary?.credit?.amount) return "";
   return `${FEWER_BETTER_LABEL} +${formatCount(summary.credit.amount)}`;

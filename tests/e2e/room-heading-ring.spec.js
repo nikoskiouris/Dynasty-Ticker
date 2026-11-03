@@ -4,35 +4,18 @@ const LEAGUE = "1360686137898700800";
 
 const ROOMS = [
   { name: "My team", room: "team", heading: "Your team", path: `/l/${LEAGUE}/team` },
-  { name: "Find a trade", room: "find", heading: "Trade ideas", path: `/l/${LEAGUE}/ideas` },
+  { name: "Find a trade", room: "find", heading: "Ideas for you", path: `/l/${LEAGUE}/ideas` },
   { name: "Check a trade", room: "calculator", heading: "Trade", path: "/trade" },
 ];
 
 const roomBy = Object.fromEntries(ROOMS.map((room) => [room.room, room]));
 
-async function openPhoneMenu(page) {
-  const open = await page.locator("body").evaluate((body) => body.classList.contains("rail-open"));
-  if (!open) await page.locator("#mobile-rail-toggle").click();
-}
-
+// One tab bar at every width (report 2026-10-31): a bottom bar on phones, no menu.
 async function openRoom(page, room) {
-  if (page.viewportSize().width <= 700) {
-    await openPhoneMenu(page);
-    await page.locator(`#phone-desk [data-phone-room='${room.room}']`).click();
-    return;
-  }
   await page.locator(`.page-tab[data-room='${room.room}']`).click();
 }
 
 async function keyboardOpenRoom(page, room) {
-  if (page.viewportSize().width <= 700) {
-    await openPhoneMenu(page);
-    await expect(page.locator("#mobile-rail-close")).toBeFocused({ timeout: 2000 });
-    const button = page.locator(`#phone-desk [data-phone-room='${room.room}']`);
-    await button.focus();
-    await button.press("Enter");
-    return;
-  }
   const tabs = page.locator(".page-tab");
   const active = page.locator(".page-tab.active");
   for (let step = 0; step < 3; step += 1) {

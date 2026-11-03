@@ -28,7 +28,10 @@ VALIDATION = ROOT / "validation.json"
 POSITIONS = ("QB", "RB", "WR", "TE")
 SLIM_POSITIONS = {"QB", "RB", "WR", "TE", "FB", "K", "DEF"}
 TWO_WAY_POSITIONS = {"CB", "DB", "S", "FS", "SS", "LB", "ILB", "OLB", "DE", "DT", "EDGE", "DL", "NB"}
-RETIRED_STATUSES = {"retired", "inactive", "reserve_retired", "reserve/did_not_report", "did_not_report"}
+RETIRED_STATUSES = {"retired", "reserve_retired"}
+# Sleeper marks reserve-list players (IR, PUP, NFI, suspended) "Inactive" while they keep a team.
+# Those statuses mean gone only when the player has no team.
+UNROSTERED_GONE_STATUSES = {"inactive", "reserve/did_not_report", "did_not_report"}
 REQUIRED_ASSETS = {
     "player:6794": "Justin Jefferson",
     "player:8151": "Kenneth Walker",
@@ -102,10 +105,14 @@ def offensive_position(player):
 
 
 def player_is_listable(player):
+    status = str(player.get("status") or "").strip().lower()
+    if status in RETIRED_STATUSES:
+        return False
+    if str(player.get("team") or "").strip():
+        return True
     if player.get("active") is False:
         return False
-    status = str(player.get("status") or "").strip().lower()
-    return status not in RETIRED_STATUSES
+    return status not in UNROSTERED_GONE_STATUSES
 
 
 def played_recently(last_season, current_season):
