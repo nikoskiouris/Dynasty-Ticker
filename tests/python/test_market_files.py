@@ -5,7 +5,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,14 +25,19 @@ class MarketFileTests(unittest.TestCase):
     def setUpClass(cls):
         cls.mod = load_module()
 
+    def shipped_as_of(self):
+        data = json.loads((ROOT / "docs" / "data" / "player_values.json").read_text(encoding="utf-8"))
+        return self.mod.parse_stamp(str(data["asOf"]))
+
     def test_shipped_files_match_the_desk_schema(self):
-        now = datetime(2026, 10, 28, 21, tzinfo=timezone.utc)
+        # Pin "now" to the shipped snapshot so the daily refresh never reads as future or stale.
+        now = self.shipped_as_of() + timedelta(hours=1)
         errors, warnings = self.mod.check_files(now=now)
         self.assertEqual(errors, [], warnings)
         self.assertTrue(any("nfl_draft_picks" in warning for warning in warnings))
 
     def test_old_player_values_warn_unless_publish_mode(self):
-        now = datetime(2026, 12, 1, tzinfo=timezone.utc)
+        now = self.shipped_as_of() + timedelta(days=40)
         errors, warnings = self.mod.check_files(now=now, max_age_days=21, fail_on_age=False)
         self.assertFalse(any("player_values.json is" in error for error in errors))
         self.assertTrue(any("player_values.json is" in warning for warning in warnings))

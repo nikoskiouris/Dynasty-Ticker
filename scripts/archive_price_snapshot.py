@@ -29,9 +29,9 @@ HISTORY = ROOT / "docs/data/price-history"
 RETENTION_DAYS = 90
 SCHEMA_VERSION = 1
 INDEX_NAME = "index.json"
-# The live board is about 37 KB. Ninety of those stay under about 3.3 MB.
-MAX_SNAPSHOT_BYTES = 40 * 1024
-MAX_ARCHIVE_BYTES = int(3.3 * 1024 * 1024)
+# The live board is about 40 KB with IR/reserve players kept. Ninety stay under about 4.2 MB.
+MAX_SNAPSHOT_BYTES = 48 * 1024
+MAX_ARCHIVE_BYTES = int(4.2 * 1024 * 1024)
 STAMP = re.compile(r"^20\d{10}\.json$")
 
 
