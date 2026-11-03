@@ -201,10 +201,27 @@ class PlayerValueBuildTests(unittest.TestCase):
     def test_inactive_and_stale_players_are_not_listable(self):
         self.assertFalse(build.player_is_listable({"active": False, "status": "Active"}))
         self.assertFalse(build.player_is_listable({"active": True, "status": "Inactive"}))
+        self.assertFalse(build.player_is_listable({"active": True, "status": "Inactive", "team": ""}))
+        self.assertFalse(build.player_is_listable({"active": False, "status": "Retired", "team": "NO"}))
         self.assertTrue(build.player_is_listable({"active": True, "status": "Active"}))
         self.assertFalse(build.played_recently(2022, 2026))
         self.assertTrue(build.played_recently(2025, 2026))
         self.assertTrue(build.played_recently(None, 2026))
+
+    def test_rostered_reserve_list_players_stay_listable(self):
+        # Sleeper's record for an IR player: status "Inactive", injury "IR", still on a team.
+        etienne = {
+            "full_name": "Travis Etienne Jr.",
+            "position": "RB",
+            "team": "NO",
+            "active": True,
+            "status": "Inactive",
+            "injury_status": "IR",
+        }
+        self.assertTrue(build.player_is_listable(etienne))
+        for suffixed in ("Michael Pittman Jr.", "Calvin Austin III", "Chris Brazzell II"):
+            self.assertTrue(build.player_is_listable({**etienne, "full_name": suffixed}))
+        self.assertTrue(build.player_is_listable({**etienne, "status": "Reserve/Did_Not_Report"}))
 
     def test_two_way_receiving_charts_as_a_receiver(self):
         self.assertEqual(build.chart_position({"position": "CB", "targets": 8, "carries": 0}), "WR")
