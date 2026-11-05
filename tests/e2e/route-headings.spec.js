@@ -48,10 +48,10 @@ for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 800 });
 
     await page.goto("/");
-    await expectH1(page, "Is your trade fair? What should you trade for?");
+    await expectH1(page, "Is your trade fair?");
 
     await page.goto("/connect");
-    await expectH1(page, "Is your trade fair? What should you trade for?");
+    await expectH1(page, "Is your trade fair?");
 
     await page.goto("/players");
     await expect.poll(() => new URL(page.url()).pathname).toBe("/trade");

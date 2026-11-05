@@ -2062,8 +2062,9 @@ function syncLaunchChrome() {
   const onOther = (trades && !trades.classList.contains("hidden")) || (league && !league.classList.contains("hidden"));
   // A missing league and a Sleeper outage are still the no-league screen:
   // one h1, and no "Your Sleeper league" subtitle.
-  const bare = (landingVisible() || leagueMissing || sleeperUnreachable) && !state.leagueId;
-  const open = bare && !onOther;
+  // With no league, a visible landing hides both pages in CSS even though
+  // #trades-page has no "hidden" class, so the landing alone decides.
+  const open = !state.leagueId && (landingVisible() || ((leagueMissing || sleeperUnreachable) && !onOther));
   document.body.classList.toggle("launch-open", open);
 }
 

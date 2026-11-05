@@ -132,7 +132,8 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.equal(existsSync(join(docs, "modules/recap-card.js")), false);
   assert.doesNotMatch(index, /id="landing-rather"/);
   assert.doesNotMatch(index, /Build a trade/);
-  assert.match(index, /Is your trade fair\? What should you trade for\?/);
+  assert.match(index, /<h1 id="landing-job-hint">Is your trade fair\?<\/h1>/);
+  assert.match(index, /What should you trade for\?/);
   assert.match(index, /Free\. No sign-up\./);
   assert.doesNotMatch(index, /Find your league/);
   assert.match(index, /id="sample-league-chip"/);
@@ -260,7 +261,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(index, /terms\.html/);
   // QA 2026-10-18 (#10, owner): the landing footer links /privacy and /terms.
   assert.match(index, /class="launch-footer"[\s\S]*href="\/privacy">Privacy<[\s\S]*href="\/terms">Terms</);
-  assert.match(index, /Free, no sign-up\./);
+  // "Free. No sign-up." is said once, under the trade box, not again in the footer.
+  assert.match(index, /<p class="launch-free">Free\. No sign-up\.<\/p>/);
+  assert.doesNotMatch(index, /Free, no sign-up\./);
   assert.doesNotMatch(index, />Contact</);
   assert.doesNotMatch(index, /workspace-footer/);
 

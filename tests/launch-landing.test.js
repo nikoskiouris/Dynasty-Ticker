@@ -223,7 +223,10 @@ test("a pre-league landing exposes all three starting tasks", () => {
     '<h1 id="route-title" class="sr-only">',
     '<h1 id="landing-job-hint">',
   ]);
-  assert.match(index, /<h1 id="landing-job-hint">Is your trade fair\? What should you trade for\?/);
+  assert.match(index, /<h1 id="landing-job-hint">Is your trade fair\?<\/h1>/);
+  // One question per block (owner feedback 2026-11-05): trade, league, player.
+  const questions = ["Is your trade fair?", "What should you trade for?", "What is a player worth?"].map((text) => index.indexOf(text));
+  assert.ok(questions.every((at, i) => at > 0 && (i === 0 || at > questions[i - 1])), questions.join(","));
   assert.match(index, /<p id="hero-title">/);
   assert.doesNotMatch(index, /<h1 id="hero-title"/);
   // Report 2026-10-31: one tab bar (no second launch nav), and home reads

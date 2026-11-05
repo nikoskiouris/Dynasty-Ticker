@@ -6931,19 +6931,49 @@ a.inline-link {
 
 /* Launch landing. Heights match the loaded rows so the first paint does not jump. */
 .launch-wrap {
-  max-width: var(--content-max);
+  max-width: 960px;
   margin: 0 auto;
-  padding: var(--sp-4) var(--page-x) 60px;
+  padding: var(--sp-6) 16px 40px;
+}
+/* One question per block: the trade check leads, league and players follow. */
+.launch-hero {
+  padding-bottom: var(--sp-8);
+  border-bottom: 1px solid var(--line);
 }
 .launch h1 {
-  font-size: var(--fs-h1);
+  font-size: 28px;
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--sp-2);
+}
+.launch .sub {
+  color: var(--muted-strong);
+  font-size: 15px;
+  line-height: var(--lh-body);
+  margin: 0 0 var(--sp-5);
+  max-width: 34em;
+}
+.launch-free {
+  margin: var(--sp-4) 0 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.launch-main {
+  display: grid;
+  gap: var(--sp-8);
+  padding-top: var(--sp-6);
+}
+.launch-h2 {
+  font-size: 19px;
   font-weight: var(--fw-semi);
   line-height: var(--lh-tight);
   margin: 0 0 var(--sp-1);
 }
-.launch .sub {
+.launch-h2-sub {
   color: var(--muted);
-  font-size: var(--fs-sm2);
+  font-size: var(--fs-body-lg);
+  line-height: var(--lh-body);
   margin: 0 0 var(--sp-4);
 }
 .launch-lab {
@@ -6951,7 +6981,8 @@ a.inline-link {
   justify-content: space-between;
   align-items: baseline;
   gap: var(--sp-2);
-  margin: var(--sp-4) 0 var(--sp-1);
+  margin: var(--sp-5) 0 var(--sp-2);
+  padding: 0 var(--card-pad);
   font-size: var(--fs-xs);
   letter-spacing: var(--ls-label);
   text-transform: uppercase;
@@ -7133,7 +7164,6 @@ body.launch-open #sticky-find-btn,
 body.launch-open #sample-find-btn,
 body.launch-open .sample-find-btn,
 body.launch-open #ranks-section,
-body.launch-open .desk-nav,
 body.launch-open #workspace-header,
 body.launch-open #sample-banner,
 body.launch-open .phone-desk,
@@ -7201,18 +7231,15 @@ button.info {
   border-radius: var(--r-md) var(--r-md) 0 0;
 }
 @media (min-width: 900px) {
+  .launch-wrap { padding-top: var(--sp-8); }
+  .launch h1 { font-size: 36px; }
+  .launch .sub { font-size: 16px; }
+  .launch-hero { padding-bottom: 40px; }
   .launch-main {
-    display: grid;
-    grid-template-columns: 1.2fr 1fr;
-    gap: var(--section-gap);
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
     align-items: start;
-  }
-  .launch-trend-col {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .launch-trend-col .launch-lab {
-    margin-top: 0;
+    padding-top: var(--sp-8);
   }
 }
 
@@ -7233,27 +7260,50 @@ button.info {
   text-decoration: none;
   font-weight: 600;
 }
-.launch-start { display: grid; gap: var(--sp-2); }
+.launch-start { display: grid; gap: var(--sp-3); }
 .launch-action {
-  display: grid;
-  gap: var(--sp-1);
-  padding: var(--card-pad);
-  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 48px;
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-md);
-  background: var(--panel);
+  background: transparent;
   color: var(--text);
+  font-size: 15px;
   text-decoration: none;
 }
-.launch-action strong { display: flex; justify-content: space-between; gap: var(--sp-2); }
-.launch-action > span { color: var(--muted-strong); font-size: var(--fs-sm2); }
-.launch-action.launch-connect { height: auto; margin-top: 0; }
+.launch-action strong { font-weight: var(--fw-semi); }
+.launch-action.launch-connect { height: auto; margin-top: 0; justify-content: center; }
 .launch-action[hidden] { display: none; }
 .launch-action:hover, .launch-nav a:hover { background: var(--panel-soft); }
+/* The sample league is a quiet text link under the main button. */
+.launch-action.launch-sample {
+  display: block;
+  min-height: 44px;
+  padding: var(--sp-1) 0;
+  border: 0;
+  font-size: var(--fs-body-lg);
+  line-height: var(--lh-body);
+}
+.launch-action.launch-sample strong { text-decoration: underline; text-underline-offset: 3px; }
+.launch-action.launch-sample span { display: block; color: var(--muted); font-size: var(--fs-sm2); }
+.launch-action.launch-sample:hover { background: none; }
+.launch-start + #landing-connect[hidden] + .launch-sample,
+.launch-start-col > .launch-sample { margin-top: var(--sp-3); text-align: center; }
+/* Looks like a search field because it opens the player search. */
+.launch-action.launch-lookup {
+  background: var(--panel);
+  border-color: var(--line-strong);
+  color: var(--muted-strong);
+}
+.launch-action.launch-lookup strong { font-weight: var(--fw-reg); }
+.launch-lookup-icon { flex: 0 0 auto; color: var(--muted); }
 .launch-action:focus-visible, .launch-nav a:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
 
 /* Describe-a-trade box (calculator and landing). */
-.talk-box,
-.landing-talk {
+.talk-box {
   display: grid;
   gap: var(--sp-2);
   padding: var(--card-pad);
@@ -7262,6 +7312,7 @@ button.info {
   background: var(--panel);
   margin-bottom: var(--section-gap);
 }
+.landing-talk { display: grid; gap: var(--sp-3); }
 .talk-form { display: grid; gap: var(--sp-2); }
 .talk-label { display: grid; gap: 2px; }
 .landing-talk-hint {
@@ -7269,20 +7320,14 @@ button.info {
   font-size: var(--fs-sm2);
   margin: 0;
 }
-.talk-box,
-.landing-talk { border-color: var(--muted); }
-.landing-talk label {
-  font-size: var(--fs-body);
-  font-weight: var(--fw-semi);
-  color: var(--text);
-}
+.talk-box { border-color: var(--muted); }
 .landing-talk-try {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
 }
-.landing-talk-try span { color: var(--muted); font-size: var(--fs-sm2); }
+.landing-talk-try span { flex-basis: 100%; color: var(--muted); font-size: var(--fs-sm2); }
 .landing-talk-try { row-gap: calc(var(--tap-min) - var(--chip-h) + 2px); }
 .landing-talk-try button {
   position: relative;
@@ -7353,7 +7398,40 @@ button.talk-chip:hover { background: var(--panel-tint); }
   font-variant-numeric: var(--num);
   margin-left: 4px;
 }
-.landing-talk { max-width: 640px; margin: 0 0 var(--sp-4); }
+.landing-talk { max-width: 640px; margin: 0; }
+.landing-talk-row input {
+  min-height: 52px;
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  font-size: 17px;
+}
+.landing-talk-row input:focus { border-color: var(--text); }
+.landing-talk-row input,
+#landing-connect .landing-search-row input { box-shadow: none; }
+#landing-connect .landing-search-row input,
+#landing-connect .landing-search-row button { min-height: 48px; font-size: 16px; border-radius: var(--r-md); }
+#landing-connect { margin-bottom: var(--sp-3); }
+/* Examples: real 40px chips, so rows sit close without hidden hit areas. */
+.landing-talk-try { row-gap: var(--sp-2); }
+.landing-talk-try button {
+  min-height: 40px;
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-body);
+}
+.landing-talk-try button::before { content: none; }
+@media (max-width: 520px) {
+  .landing-talk-row { flex-direction: column; }
+  .landing-talk-row button { width: 100%; }
+}
+.landing-talk-row button {
+  min-height: 52px;
+  padding: 0 var(--sp-5);
+  border-radius: var(--r-md);
+  font-size: 15px;
+  font-weight: var(--fw-semi);
+}
 
 /* Trade page ------------------------------------------------------------- */
 /* One surface: whitespace and small gray labels group things, not borders. */
@@ -8154,7 +8232,15 @@ html[data-player-page] #ranks-section .ranks-list,
 html[data-player-page] #ranks-section .ranks-more,
 html[data-player-page] #ranks-section .values-freshness { display: none !important; }
 .ranks-card-role { margin: 0.25rem 0; }
-.launch-action.launch-primary { border-color: var(--text); }
+.launch-action.launch-primary {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--on-accent);
+}
+.launch-action.launch-primary:hover { background: var(--muted-strong); }
+/* Home is not a tab: no tab reads as selected while it shows. */
+body.launch-open .desk-nav .page-tab.active { box-shadow: none !important; }
+body.launch-open .desk-nav .page-tab.active strong { color: var(--muted); }
 .player-link { text-align: left; font-weight: inherit; text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .selected-token-label .player-link { display: inline; text-decoration: none; }
 .selected-token-label .player-link:hover,

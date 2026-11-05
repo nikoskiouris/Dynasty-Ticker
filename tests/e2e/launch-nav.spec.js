@@ -51,6 +51,19 @@ for (const viewport of viewports) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 
+  // Owner feedback 2026-11-05: after the app booted, home lost its landing
+  // chrome, so the phone header read "Check a trade" with a second Connect chip.
+  test(`home stays home after boot: no tab title, one Connect at ${viewport.width}`, async ({ page }) => {
+    await openLanding(page, viewport);
+    await expect(page.locator(".launch-trend a.launch-row").first()).toBeVisible({ timeout: 20000 });
+    await expect(page.locator("body")).toHaveClass(/launch-open/);
+    await expect(page.locator("#mobile-chrome-title")).toBeHidden();
+    await expect(page.locator("#mobile-rail-toggle")).toBeHidden();
+    await expect(page.getByRole("link", { name: "Connect my Sleeper league" })).toBeVisible();
+    await expect(page.locator("#page-tabs")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+
   // Never erase work: going home and back to Check a trade keeps the trade.
   test(`home and back to Check a trade keeps the trade at ${viewport.width}`, async ({ page }) => {
     await openLanding(page, viewport);
