@@ -494,7 +494,14 @@ function isEstimatedAsset(asset, values = state.values) {
   });
 }
 
-el.usernameSearchForm?.addEventListener("submit", requestFindLeagues);
+el.usernameSearchForm?.addEventListener("submit", (event) => {
+  // Connecting from the phone drawer comes back to the room you were in, so a
+  // trade being checked reopens with your team's impact instead of My team.
+  if (!state.leagueId && document.body.classList.contains("rail-open") && state.activePage) {
+    state.pendingPlace = { page: state.activePage, room: getRoom(state.activePage) };
+  }
+  requestFindLeagues(event);
+});
 el.leagueStatusRetry?.addEventListener("click", retryUserLeagueSearch);
 el.landingSearchRetry?.addEventListener("click", retryUserLeagueSearch);
 document.getElementById("landing-league-retry")?.addEventListener("click", retryFailedLeagueLoad);
@@ -548,6 +555,11 @@ el.mobileRailToggle?.addEventListener("click", () => {
   if (nextOpen) {
     requestAnimationFrame(() => {
       if (!document.body.classList.contains("rail-open")) return;
+      // No league yet: the drawer is the connect form, so start in it.
+      if (!state.leagueId && !state.viewingSample && el.sleeperUsername && el.sleeperUsername.offsetParent) {
+        el.sleeperUsername.focus();
+        return;
+      }
       el.mobileRailClose?.focus();
     });
   }
