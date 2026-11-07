@@ -27,7 +27,6 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [004](004-buy-low-sell-high.txt) | Buy-low / sell-high targets | P0 |
 | [005](005-win-now-targets.txt) | Win-now targets from this league | P1 |
 | [006](006-late-season-win-now.txt) | Late-season win-now value | P2 |
-| [007](007-assets-to-move-on.txt) | Assets to move on from for capital | P1 |
 | [008](008-aging-stars-on-bad-teams.txt) | Target aging stars on tanking teams | P1 |
 | [014](014-redraft-values.txt) | Redraft rest-of-season values | P1 |
 | [017](017-ideas-explain-why.txt) | Trade ideas say what they do and why the other team says yes | P1 |
@@ -49,6 +48,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [016](016-one-price-every-screen.txt) | One price for a player on every screen | P0 | [#111](https://github.com/nikoskiouris/Dynasty-Ticker/pull/111) |
 | [019](019-describe-a-trade.txt) | Describe a trade in plain words and the calculator builds it | P1 | [#193](https://github.com/nikoskiouris/Dynasty-Ticker/pull/193) |
 | [020](020-three-tabs.txt) | Simplify to three tabs: Check a trade, Find a trade, My team | P0 | [#195](https://github.com/nikoskiouris/Dynasty-Ticker/pull/195) |
+| [007](007-assets-to-move-on.txt) | Assets to move on from for capital | P1 | [#222](https://github.com/nikoskiouris/Dynasty-Ticker/pull/222) |
 
 ## Shipped before this board
 
