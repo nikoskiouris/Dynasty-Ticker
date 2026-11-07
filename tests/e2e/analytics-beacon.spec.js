@@ -20,7 +20,7 @@ const visits = (sent) => sent.filter((row) => row.e === "visit");
 
 const COLD = [
   ["/", "/"],
-  ["/players", "/trade"],
+  ["/players", "/players"],
   ["/trade", "/trade"],
   ["/trade?give=player:4046&get=player:9509", "/trade"],
   ["/player/9509/bijan-robinson", "/player/:id"],

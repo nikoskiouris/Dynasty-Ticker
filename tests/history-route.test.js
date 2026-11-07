@@ -381,3 +381,14 @@ test("removed league rooms send their league to My team", () => {
     assert.equal(removedRoomRedirect(kept), "", kept);
   }
 });
+
+test("the open players board keeps /players while the trade is empty", () => {
+  assert.equal(pathForPlace({ page: "trades", room: "calculator", playersBoard: true }), "/players");
+  // A trade in progress keeps its own address; the board never drops it.
+  assert.equal(
+    pathForPlace({ page: "trades", room: "calculator", playersBoard: true, give: ["9509"] }),
+    "/trade?give=9509",
+  );
+  assert.equal(pathForPlace({ page: "trades", room: "calculator" }), "/trade");
+  assert.equal(pathForPlace({ page: "trades", room: "calculator", playersBoard: true, playerId: "9509", playerName: "Bijan Robinson" }), "/player/9509/bijan-robinson");
+});

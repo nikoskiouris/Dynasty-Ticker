@@ -13,13 +13,26 @@ async function openLanding(page, viewport) {
 }
 
 for (const viewport of viewports) {
-  test(`landing Explore players opens the board under the calculator and Back returns at ${viewport.width}`, async ({ page }) => {
+  test(`landing Look up a player opens the board at /players, first on screen, and Back returns at ${viewport.width}`, async ({ page }) => {
     await openLanding(page, viewport);
     await page.locator(".launch-action[data-launch='players']").click();
-    await expect(page).toHaveURL(/\/trade$/);
+    await expect(page).toHaveURL(/\/players$/);
+    await expect(page).toHaveTitle(/^Players · Dynasty Ticker/);
     await expect(page.locator("#calculator-shell")).toBeVisible();
     await expect(page.locator("#ranks-section")).toBeVisible();
+    await expect(page.locator("#ranks-section h2")).toBeInViewport();
     await expect(page.locator("[data-action='rank-open']").first()).toBeVisible({ timeout: 20000 });
+    // A reload keeps the board: /players is its own address.
+    await page.reload();
+    await expect(page).toHaveURL(/\/players$/);
+    await expect(page.locator("#ranks-section")).toBeVisible();
+    // Check a trade leaves the board, and Back comes back to it.
+    await page.locator("#trades-tab").click();
+    await expect(page).toHaveURL(/\/trade$/);
+    await expect(page.locator("#ranks-section")).toBeHidden();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/players$/);
+    await expect(page.locator("#ranks-section")).toBeVisible();
     await page.goBack();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("#landing-job-hint")).toBeVisible();

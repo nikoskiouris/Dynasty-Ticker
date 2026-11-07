@@ -346,6 +346,7 @@ export function pathForPlace({
   get = [],
   shareCode = "",
   landing = false,
+  playersBoard = false,
 } = {}) {
   const placePage = page || tab;
   const placeRoom = room || view;
@@ -359,6 +360,9 @@ export function pathForPlace({
   const leagueSegment = placePage === "league" ? LEAGUE_ROOM_SEGMENT[placeRoom] : "";
   if (sleeperId) href = playerPathname(sleeperId, playerName);
   else if (placePage === "trades" && placeRoom === "calculator" && landing && !give.length && !get.length) href = urlPath();
+  // The players board has its own address while the trade is empty, so a
+  // reload, Back, or a copied link opens the board, not a blank calculator.
+  else if (placePage === "trades" && placeRoom === "calculator" && playersBoard && !give.length && !get.length) href = urlPath("players");
   else if (placePage === "trades" && placeRoom === "calculator") href = tradeHref(give, get, leagueId);
   else if (placePage === "trades" && placeRoom === "find" && LEAGUE_ID.test(String(leagueId || ""))) {
     href = urlPath("l", leagueId, "ideas");
