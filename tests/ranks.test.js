@@ -206,3 +206,23 @@ test("ranks open with one page and a show-more control", () => {
   assert.equal(rest.hidden, 0);
   assert.doesNotMatch(renderRanksBody(rest), /ranks-more/);
 });
+
+test("an injured-reserve star keeps his place on the board; retired players drop", async () => {
+  const { buildRankBoard } = await import("../docs/modules/ranks.js");
+  const { isInactivePlayerAsset } = await import("../docs/modules/values.js");
+  const ir = { player_id: "4881", full_name: "Lamar Jackson", position: "QB", team: "BAL", age: 29, injury_status: "IR", status: "Inactive" };
+  assert.equal(isInactivePlayerAsset({ assetType: "player", raw: ir }), false);
+  assert.equal(isInactivePlayerAsset({ assetType: "player", raw: { ...ir, team: null } }), true);
+  assert.equal(isInactivePlayerAsset({ assetType: "player", raw: { ...ir, status: "Retired" } }), true);
+  const rows = buildRankBoard({
+    values: { "player:4881": 8331, "player:9758": 5847, "player:1": 7000 },
+    names: { "player:4881": "Lamar Jackson", "player:9758": "C.J. Stroud", "player:1": "Retired QB" },
+    nflPlayers: {
+      4881: ir,
+      9758: { full_name: "C.J. Stroud", position: "QB", team: "HOU", age: 25, status: "Active" },
+      1: { full_name: "Retired QB", position: "QB", team: null, age: 38, status: "Inactive" },
+    },
+  });
+  const qbs = rows.filter((row) => row.position === "QB").map((row) => `${row.name} ${row.boardRank}`);
+  assert.deepEqual(qbs, ["Lamar Jackson QB1", "C.J. Stroud QB2"]);
+});
