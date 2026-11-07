@@ -149,8 +149,9 @@ for (const viewport of viewports) {
 
   test(`disclaimers sit behind an accessible info button on a shared link at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    // Bijan for Nabers + a 1st gets the extra for fewer, better pieces, so there is fine print to hide.
-    await page.goto(`/t/2s${STAMP}9509~11632.p27r1e`);
+    // Bijan for Nabers + a late 2nd gets the extra for fewer, better pieces, so there is fine print to hide.
+    // (Nabers + an early 1st is now within 5%: Fair, with no bigger side to point at.)
+    await page.goto(`/t/2s${STAMP}9509~11632.p27r2l`);
     const toggle = page.locator("[data-action='verdict-info']");
     await expect(toggle).toBeVisible({ timeout: 30000 });
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
