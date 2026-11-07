@@ -1879,6 +1879,7 @@ body:not(.league-loaded) .workspace-header {
 }
 
 .sheet-column h4,
+.sheet-column h3.sheet-heading,
 .roster-sheet > h4 {
   margin: 0.4rem 0 0.2rem;
   color: var(--muted);
@@ -7972,7 +7973,8 @@ button.talk-chip {
   font-size: var(--fs-xs);
 }
 
-#roster-sheet .sheet-column h4 {
+#roster-sheet .sheet-column h4,
+#roster-sheet .sheet-column h3.sheet-heading {
   margin: 0.75rem 0 0.35rem;
   font-size: var(--fs-xs);
 }
