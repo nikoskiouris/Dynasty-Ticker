@@ -51,12 +51,8 @@ for (const viewport of viewports) {
     await page.waitForFunction(() => document.querySelectorAll("[data-action='rank-open']").length > 0);
     await expect.poll(() => events(page)).toEqual(["pageview /", "landing_view {}"]);
 
-    if (viewport.width < 700) {
-      await page.locator("#mobile-rail-toggle").evaluate((el) => el.click());
-      await page.locator("[data-phone-page='players']").evaluate((el) => el.click());
-    } else {
-      await page.locator("#players-tab").evaluate((el) => el.click());
-    }
+    // Home's "Look up a player" opens the board at its own address.
+    await page.locator(".launch-action[data-launch='players']").click();
     await expect(page).toHaveURL(/\/players$/);
     await page.goBack();
     await expect(page.locator("#landing")).toBeVisible();
