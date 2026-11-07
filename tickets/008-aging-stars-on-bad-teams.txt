@@ -2,10 +2,13 @@ Title
 Target aging stars on tanking teams in this league
 
 Status
-Open
+Done
 
 Priority
 P1
+
+Shipped
+#223
 
 Area
 Trades → Partners / win-now board
