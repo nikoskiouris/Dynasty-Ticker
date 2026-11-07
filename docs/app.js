@@ -5320,6 +5320,14 @@ function runTradeTalk(text) {
   if (!bothSides && plan.intent === "verdict") {
     lines.push("Add pieces to both sides first, like “Gibbs for Nabers.”");
   }
+  // "Is this fair?" gets the answer in the reply, the same line the verdict shows.
+  if (bothSides && plan.asked && after.model?.verdict) {
+    const voice = sampleVoice();
+    const verdictLine = voice
+      ? verdictCopy(after.model.verdict).line
+      : verdictLineNamed(after.model.verdict, { Give: "You give", Get: "You get" });
+    if (verdictLine) lines.push(`${verdictLine}. The reason is under “Why?” below.`);
+  }
   // A question needs an answer, so its reply stays on screen instead of a toast over it.
   const sticky = !changed || plan.misses.length > 0 || plan.notes.length > 0 || plan.asks.length > 0
     || Boolean(plan.unknownPartner) || plan.intent === "shop" || plan.intent === "verdict";

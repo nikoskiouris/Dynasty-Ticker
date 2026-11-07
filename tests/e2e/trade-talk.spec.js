@@ -108,3 +108,15 @@ for (const viewport of viewports) {
     await expect(page.locator("#value-calc-verdict h3")).toHaveText(/ · /);
   });
 }
+
+test("'is this fair?' answers with the verdict line in the reply", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/trade?give=6794&get=9509");
+  const verdict = page.locator("#value-calc-verdict h3");
+  await expect(verdict).toBeVisible({ timeout: 30000 });
+  const line = (await verdict.textContent()).replace(/\s+/g, " ").trim();
+  const box = page.locator("#calculator-shell .talk-box input").first();
+  await box.fill("is this fair?");
+  await box.press("Enter");
+  await expect(page.locator("#calculator-shell .talk-box")).toContainText(`${line}. The reason is under “Why?” below.`);
+});

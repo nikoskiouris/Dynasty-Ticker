@@ -221,3 +221,16 @@ test("in a league, 'two 1sts' adds two picks, generic when the team holds fewer"
   const firsts = [...draft.left, ...draft.right].filter((item) => /1st/.test(item.name));
   assert.equal(firsts.length, 2);
 });
+
+test("a pick from a draft that already happened says so, not 'no price yet'", () => {
+  const { turns } = converse(["Gibbs for Nabers", "add a 2026 1st"]);
+  assert.deepEqual(turns[1].reply, ["“a 2026 1st”: The 2026 draft already happened. Try 2027."]);
+  const future = converse(["add a 2040 1st"]);
+  assert.match(future.turns[0].reply[0], /No price for 2040 1st picks yet\./);
+});
+
+test("asking 'is this fair' is read as a question about the trade", () => {
+  const { turns } = converse(["Gibbs for Nabers", "is this fair?"]);
+  assert.equal(turns[1].plan.intent, "verdict");
+  assert.equal(turns[1].plan.asked, true);
+});
