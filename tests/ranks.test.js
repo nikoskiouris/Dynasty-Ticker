@@ -206,3 +206,25 @@ test("ranks open with one page and a show-more control", () => {
   assert.equal(rest.hidden, 0);
   assert.doesNotMatch(renderRanksBody(rest), /ranks-more/);
 });
+
+test("a low published price still has a page and is found by name", async () => {
+  const { buildRankBoard, filterRankRows } = await import("../docs/modules/ranks.js");
+  const rows = buildRankBoard({
+    values: { "player:9230": 131, "player:11256": 0, "player:9758": 5847 },
+    names: { "player:9230": "Tanner McKee", "player:11256": "Tyson Bagent", "player:9758": "C.J. Stroud" },
+    nflPlayers: {
+      9230: { full_name: "Tanner McKee", position: "QB", team: "PHI", age: 26 },
+      11256: { full_name: "Tyson Bagent", position: "QB", team: "CHI", age: 26 },
+      9758: { full_name: "C.J. Stroud", position: "QB", team: "HOU", age: 25 },
+    },
+  });
+  const byName = Object.fromEntries(rows.map((row) => [row.name, row]));
+  assert.equal(byName["Tanner McKee"].value, 131);
+  assert.equal(byName["Tyson Bagent"].value, 0);
+  assert.equal(byName["Tyson Bagent"].boardRank, "");
+  assert.equal(byName["Tanner McKee"].boardRank, "QB2");
+  assert.equal(byName["C.J. Stroud"].boardRank, "QB1");
+  assert.deepEqual(filterRankRows(rows, { query: "mckee" }).map((row) => row.name), ["Tanner McKee"]);
+  // Browsing all players keeps its floor.
+  assert.deepEqual(filterRankRows(rows, {}).map((row) => row.name), ["C.J. Stroud"]);
+});

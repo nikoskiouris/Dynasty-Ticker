@@ -17,7 +17,8 @@ import { playerAgeFromNfl } from "./player-notes.js";
 export const RANK_PAGE_SIZE = 48;
 export const RANK_LIST_FLOOR = 1500;
 export const RANK_POSITION_FLOOR = 700;
-export const RANK_SEARCH_FLOOR = 200;
+// A typed name finds any priced player; browsing lists keep their floors.
+export const RANK_SEARCH_FLOOR = 0;
 export const RANK_POSITIONS = Object.freeze(["ALL", "QB", "RB", "WR", "TE", "PICK"]);
 export const RANK_FORMATS = Object.freeze(["sf", "oneQb"]);
 const SKILL_POSITIONS = new Set(["QB", "RB", "WR", "TE"]);
@@ -105,7 +106,9 @@ export function buildRankBoard({
   for (const [assetId, rawValue] of Object.entries(values || {})) {
     if (!String(assetId).startsWith("player:")) continue;
     const value = Number(rawValue);
-    if (!Number.isFinite(value) || value < RANK_SEARCH_FLOOR) continue;
+    // Every published price gets a row, even a low one, so his page opens with
+    // that price. The lists below apply their own floors.
+    if (!Number.isFinite(value) || value < 0) continue;
     const playerId = assetId.slice("player:".length);
     const raw = nflPlayers?.[playerId] || nflPlayers?.[String(playerId)] || null;
     if (raw && isInactivePlayerAsset({ assetType: "player", raw })) continue;
@@ -166,14 +169,16 @@ export function buildRankBoard({
   const positionCounts = Object.create(null);
   let playerOverall = 0;
   return rows.map((row, index) => {
-    const positionRank = row.kind === "player" && row.position
+    // A zero price ties with hundreds of others; a rank there means nothing.
+    const ranked = row.kind === "player" && Number(row.value) > 0;
+    const positionRank = ranked && row.position
       ? (positionCounts[row.position] = (positionCounts[row.position] || 0) + 1)
       : null;
-    if (row.kind === "player") playerOverall += 1;
+    if (ranked) playerOverall += 1;
     return {
       ...row,
       positionRank,
-      overallRank: row.kind === "player" ? playerOverall : null,
+      overallRank: ranked ? playerOverall : null,
       boardRank: positionRank ? `${row.position}${positionRank}` : "",
       listIndex: index,
     };
@@ -491,7 +496,7 @@ export function roleLine(row) {
 function rankMeta(row) {
   if (row?.kind === "pick") return "Pick";
   const age = Number.isFinite(Number(row?.age)) && Number(row.age) > 0 ? `${Math.round(Number(row.age))}y` : "";
-  return [row?.boardRank, row?.team, age].filter(Boolean).join(" · ");
+  return [row?.boardRank || (row?.kind === "player" ? row?.position : ""), row?.team, age].filter(Boolean).join(" · ");
 }
 
 function rankEyebrow(row) {
