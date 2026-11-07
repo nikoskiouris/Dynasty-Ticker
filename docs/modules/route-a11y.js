@@ -51,6 +51,10 @@ export function focusWithoutScroll(el, { focusVisible = false } = {}) {
   if (!el || typeof el.focus !== "function") return false;
   const opts = { preventScroll: true };
   if (focusVisible) opts.focusVisible = true;
+  // A page that just loaded has no pointer input yet, so the browser treats a
+  // scripted heading focus as keyboard focus and draws a ring around it. A
+  // heading is never a control: say "no ring" outright unless a key moved us.
+  else if (/^H[1-6]$/.test(String(el.tagName || ""))) opts.focusVisible = false;
   try {
     el.focus(opts);
   } catch {
