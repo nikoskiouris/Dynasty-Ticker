@@ -35,7 +35,7 @@ test("sample mode drops first-person roster copy", () => {
   assert.equal(named.shopSearch, "Search Ada's roster for the player or pick to move");
   assert.equal(named.draftSearchLeft, "Ada's players and picks");
   assert.equal(named.favor, "Ada's");
-  assert.equal(named.giveGetHeading, "Ada gives / They get");
+  assert.equal(named.giveGetHeading, "Ada gives / Ada gets");
   assert.match(named.strengthens, /Ada's starting lineup/);
   assert.equal(named.tradeFile, "Ada's trade file");
   const trailing = sampleRosterLabels({ viewingSample: true, ownerName: "chrisalberts" });
@@ -48,7 +48,7 @@ test("sample mode drops first-person roster copy", () => {
   assert.equal(trailing.tradeFile, "chrisalberts' trade file");
   assert.equal(trailing.draftSearchLeft, "chrisalberts' players and picks");
   assert.equal(trailing.shopSearch, "Search chrisalberts' roster for the player or pick to move");
-  assert.equal(trailing.giveGetHeading, "chrisalberts gives / They get");
+  assert.equal(trailing.giveGetHeading, "chrisalberts gives / chrisalberts gets");
   assert.doesNotMatch(trailing.roster + trailing.shopPick + trailing.shopChoose + trailing.tradeFile + trailing.giveGetHeading + trailing.strengthens, /chrisalberts's|\byour\b|You give|You get|\bMine\b/);
   const anon = sampleRosterLabels({ viewingSample: true, ownerName: "  " });
   assert.equal(anon.roster, "This team's roster");
@@ -198,7 +198,7 @@ test("rendered sample mode has no your, yours, mine, or you give", () => {
   assert.doesNotMatch(ada, SAMPLE_BANNED_VOICE);
   assert.match(ada, /Search Ada's roster for the player or pick to move/);
   assert.match(ada, /Ada's outlook, roster, standings, and playoff odds/);
-  assert.match(ada, /Ada gives and they get/);
+  assert.match(ada, /What Ada gives and gets/);
   assert.doesNotMatch(ada, /Search your roster|one of yours|Your outlook|You give and you get/i);
 
   const trailing = renderSampleMode("chrisalberts");
@@ -211,6 +211,6 @@ test("rendered sample mode has no your, yours, mine, or you give", () => {
   assert.doesNotMatch(anon, SAMPLE_BANNED_VOICE);
   assert.match(anon, /Search this team's roster/);
   assert.match(anon, /this team's outlook, roster, standings/);
-  assert.match(anon, /This team gives and they get/);
+  assert.match(anon, /What this team gives and gets/);
   assert.match(anon, /one from this team/);
 });

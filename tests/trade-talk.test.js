@@ -53,7 +53,7 @@ test("follow-ups edit the same draft instead of starting over", () => {
   assert.deepEqual(names(draft.left), ["Jahmyr Gibbs", "2027 1st"]);
   assert.deepEqual(names(draft.right), ["Puka Nacua", "2029 Early 1st"]);
   assert.equal(turns[1].plan.replace, false);
-  assert.match(turns[1].reply.join(" "), /Added 2028 2nd to You give/);
+  assert.match(turns[1].reply.join(" "), /You give: added 2028 2nd\./);
 });
 
 test("'I got offered X for Y' puts the offer on the get side", () => {

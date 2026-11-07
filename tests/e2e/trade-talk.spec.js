@@ -76,7 +76,7 @@ test("the verdict shows once and Why? lists every piece", async ({ page }) => {
   await expect(page.locator(".meter-why .side-right .meter-why-row:not(.is-credit)")).toHaveCount(3);
   await page.fill("#trade-talk-input", "add my 2028 2nd");
   await page.press("#trade-talk-input", "Enter");
-  await expect(page.locator("#talk-toast")).toHaveText(/Added 2028 2nd/);
+  await expect(page.locator("#talk-toast")).toHaveText(/You give: added 2028 2nd/);
   await expect(page.locator(".meter-why .side-left .meter-why-row")).toHaveCount(2);
 });
 
