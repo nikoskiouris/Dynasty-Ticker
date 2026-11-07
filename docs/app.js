@@ -1,3 +1,4 @@
+import { buildMoveOnList } from "./modules/move-on.js";
 import {
   buildSeasonModel,
   simulateSeason,
@@ -4122,6 +4123,7 @@ function renderPowerDashboard() {
     </section>
   `;
   renderNextMove(profile);
+  renderMoveOn(profile, profiles);
   const scoreHost = document.querySelector("#team-score");
   if (scoreHost) {
     scoreHost.innerHTML = `
@@ -4136,6 +4138,66 @@ function renderPowerDashboard() {
     `;
     document.querySelector("#team-score-section")?.classList.remove("hidden");
   }
+}
+
+// Ticket 007: named players to move on from for capital, by My team's call.
+function renderMoveOn(profile, profiles) {
+  const host = document.querySelector("#move-on");
+  if (!host) return;
+  const me = getMyRoster();
+  const seasonReady = state.seasonLoaded || Boolean(state.seasonLoadError);
+  if (!me || !profile || String(profile.rosterId) !== String(me.rosterId) || !seasonReady) {
+    host.innerHTML = "";
+    return;
+  }
+  const model = getSeasonModel();
+  const sim = getSimulation(model);
+  const call = buildWindowCallForProfile(profile, { model, sim });
+  if (!call) {
+    host.innerHTML = "";
+    return;
+  }
+  const lineup = buildOptimalStartingLineup(me.assets || [], getStarterRosterSlots(state.league), state.values);
+  const starterIds = new Set(lineup.starters.filter((entry) => entry.asset).map((entry) => entry.asset.assetId));
+  const players = (me.assets || []).filter((asset) => asset.assetType === "player").map((asset) => ({
+    assetId: asset.assetId,
+    name: asset.name,
+    position: playerPositionForAsset(asset),
+    value: Math.round(Number(getAssetValue(asset, state.values)) || 0),
+    age: playerAgeForAsset(asset),
+    starter: starterIds.has(asset.assetId),
+  }));
+  const matchProfiles = buildTradeMatchProfiles(profiles);
+  const buyers = (profiles || [])
+    .filter((row) => String(row.rosterId) !== String(me.rosterId))
+    .map((row) => {
+      const other = buildWindowCallForProfile(row, { model, sim });
+      const match = matchProfiles.find((entry) => String(entry.rosterId) === String(row.rosterId));
+      return {
+        name: findNormalizedRoster(row.rosterId)?.manager?.displayName || row.managerName || "",
+        teamState: other?.teamState || "middle",
+        needs: (match?.needs || []).map((need) => need.position),
+      };
+    });
+  const list = buildMoveOnList({ players, teamState: call.teamState, buyers });
+  if (!list.length) {
+    host.innerHTML = "";
+    return;
+  }
+  host.innerHTML = `
+    <section class="move-on-card" aria-labelledby="move-on-title">
+      <p class="eyebrow" id="move-on-title">Move on from</p>
+      <ul class="move-on-list">
+        ${list.map((row) => `
+          <li class="move-on-row">
+            <div class="move-on-name">${playerLinkHtml({ assetId: row.assetId, name: row.name, assetType: "player" })} <span class="muted small">${escapeHtml(row.position)} · ${escapeHtml(formatNumber(row.value))}</span></div>
+            <p class="small move-on-why">${escapeHtml(row.why)}</p>
+            <p class="small"><strong>Ask for:</strong> ${escapeHtml(row.ask)}${row.buyers.length ? `. <strong>Likely buyers:</strong> ${escapeHtml(row.buyers.join(", "))}` : ""}.</p>
+            <button type="button" class="link-btn" data-action="player-shop" data-asset-id="${escapeHtml(row.assetId)}">See offers →</button>
+          </li>`).join("")}
+      </ul>
+    </section>
+  `;
 }
 
 // "Your next move": the weakest group, with a button into Find a trade.
