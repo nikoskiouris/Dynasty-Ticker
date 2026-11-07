@@ -8159,3 +8159,12 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
 .selected-token-label .player-link { display: inline; text-decoration: none; }
 .selected-token-label .player-link:hover,
 .selected-token-label .player-link:focus-visible { text-decoration: underline; }
+
+/* Phone with a league: everything in the workspace header is hidden (the app
+   bar names the league), so its double rule drew a stray line over the page. */
+@media (max-width: 700px) {
+  body.league-loaded .workspace-header {
+    padding: 0;
+    border-bottom: 0;
+  }
+}
