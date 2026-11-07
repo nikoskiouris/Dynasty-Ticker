@@ -184,3 +184,20 @@ test("Retry-After waits at most 10s and 1s when the header is missing", async ()
   assert.deepEqual(await delaysFor({}), [1000]);
   assert.deepEqual(await delaysFor({ "retry-after": "0" }), [1000]);
 });
+
+test("the username box opens a pasted league id or a full league link", () => {
+  assert.deepEqual(
+    [classifyUsernameField("1360686137898700800").kind, classifyUsernameField("1360686137898700800").leagueId],
+    ["league", "1360686137898700800"],
+  );
+  assert.equal(classifyUsernameField("https://sleeper.com/leagues/1360686137898700800/team").leagueId, "1360686137898700800");
+  // Short numbers stay usernames.
+  assert.equal(classifyUsernameField("12345").kind, "username");
+  // The fields are long enough for a full league link.
+  for (const file of ["docs/index.html", "docs/ui/landing.html"]) {
+    const html = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+    for (const [, length] of html.matchAll(/id="(?:sleeper-username|landing-username)"[\s\S]*?maxlength="(\d+)"/g)) {
+      assert.ok(Number(length) >= 80, `${file} maxlength ${length}`);
+    }
+  }
+});
