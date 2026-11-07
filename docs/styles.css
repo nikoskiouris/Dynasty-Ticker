@@ -8159,3 +8159,11 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
 .selected-token-label .player-link { display: inline; text-decoration: none; }
 .selected-token-label .player-link:hover,
 .selected-token-label .player-link:focus-visible { text-decoration: underline; }
+
+/* Ticket 018: reopen the last league from home. */
+.launch-resume { display: grid; gap: var(--sp-1, 0.25rem); justify-items: start; margin-bottom: var(--sp-2); }
+.launch-resume[hidden] { display: none; }
+.launch-resume .launch-resume-open { justify-self: stretch; }
+.launch-resume-forget { min-height: 44px; padding: 0 0.25rem; font-size: var(--fs-sm, 0.875rem); color: var(--muted); }
+/* One primary at a time: with a league to reopen, Connect is a normal choice. */
+.launch-resume:not([hidden]) + .launch-start .launch-action.launch-primary { border-color: var(--line); }
