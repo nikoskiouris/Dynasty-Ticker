@@ -95,3 +95,16 @@ test("an empty league room has one connect button and no demo league", () => {
   assert.doesNotMatch(html, /demo league/i);
   assert.match(renderConnectGate({ copy: `<script>` }), /&lt;script&gt;/);
 });
+
+test("position articles follow how they are said: an RB, a QB", async () => {
+  const { withArticle } = await import("../docs/modules/html.js");
+  assert.equal(withArticle("RB"), "an RB");
+  assert.equal(withArticle("QB"), "a QB");
+  assert.equal(withArticle("WR"), "a WR");
+  assert.equal(withArticle("TE"), "a TE");
+  assert.equal(withArticle("LB"), "an LB");
+  assert.equal(withArticle("DL"), "a DL");
+  assert.equal(withArticle("K"), "a K");
+  assert.equal(withArticle("edge rusher"), "an edge rusher");
+  assert.equal(withArticle(""), "");
+});

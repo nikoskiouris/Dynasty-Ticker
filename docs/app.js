@@ -111,6 +111,7 @@ import {
   formatNumber,
   clamp,
   renderConnectGate,
+  withArticle,
 } from "./modules/html.js";
 import {
   renderAvatar,
@@ -4155,7 +4156,7 @@ function renderNextMove(profile) {
     <section class="next-move-card" aria-labelledby="next-move-title">
       <p class="eyebrow" id="next-move-title">${sample ? "Next move" : "Your next move"}</p>
       <p class="next-move-line"><strong>Upgrade ${escapeHtml(weakest.position)}</strong> <span class="muted">${escapeHtml(weakest.position)} ranks ${escapeHtml(rank)}${strongest && strongest.position !== weakest.position ? `; ${escapeHtml(strongest.position)} is the deepest group to trade from` : ""}.</span></p>
-      <button type="button" data-action="find-position" data-position="${escapeHtml(weakest.position)}">Find a ${escapeHtml(weakest.position)}</button>
+      <button type="button" data-action="find-position" data-position="${escapeHtml(weakest.position)}">Find ${escapeHtml(withArticle(weakest.position))}</button>
     </section>
   `;
 }
@@ -7670,7 +7671,7 @@ function renderTradeMatchDashboard() {
   const ideas = (payload.ideas || []).filter((idea) => !focus
     || (idea.theirAssets || []).some((asset) => playerPositionsForAsset(asset).includes(focus)));
   const focusNote = focus
-    ? `<p class="small find-focus">Showing ideas that add a ${escapeHtml(focus)}. <button type="button" class="link-btn" data-action="clear-find-focus">Show all ideas</button></p>`
+    ? `<p class="small find-focus">Showing ideas that add ${escapeHtml(withArticle(focus))}. <button type="button" class="link-btn" data-action="clear-find-focus">Show all ideas</button></p>`
     : "";
   if (!ideas.length && focus) {
     el.tradeMatchDashboard.innerHTML = `${focusNote}${renderPositionBuys(focus)}`;
@@ -7848,7 +7849,7 @@ function renderPositionBuys(position) {
     if (cards.length >= 3) break;
   }
   if (!cards.length) {
-    return `<p class="muted">No fair deal that adds a ${escapeHtml(position)} yet. <button type="button" class="link-btn" data-action="focus-shop">Shop a player →</button></p>`;
+    return `<p class="muted">No fair deal that adds ${escapeHtml(withArticle(position))} yet. <button type="button" class="link-btn" data-action="focus-shop">Shop a player →</button></p>`;
   }
   return `<p class="small"><strong>${escapeHtml(position)}s you could get at a fair price</strong></p><div class="match-idea-list">${cards.join("")}</div>`;
 }

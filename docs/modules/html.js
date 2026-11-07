@@ -120,3 +120,12 @@ export async function copyTextToClipboard(text, clipboard = globalThis.navigator
     return false;
   }
 }
+
+// "a QB", "a WR", "a TE", but "an RB": the article follows how it is said.
+export function withArticle(word) {
+  const text = String(word || "").trim();
+  if (!text) return "";
+  // Letters read by name that start with a vowel sound: A, E, F, H, I, L, M, N, O, R, S, X.
+  const spelled = /^[A-Z]{2,}$/.test(text) ? /^[AEFHILMNORSX]/.test(text) : /^[aeiou]/i.test(text);
+  return `${spelled ? "an" : "a"} ${text}`;
+}
