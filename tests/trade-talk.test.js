@@ -221,3 +221,20 @@ test("in a league, 'two 1sts' adds two picks, generic when the team holds fewer"
   const firsts = [...draft.left, ...draft.right].filter((item) => /1st/.test(item.name));
   assert.equal(firsts.length, 2);
 });
+
+test("in a league, a shared last name on my side means my player", () => {
+  const taylors = {
+    ...league,
+    catalog: [
+      ...league.catalog,
+      { assetId: "player:6813", name: "Jonathan Taylor", assetType: "player", value: 7800, ownerRosterId: 1 },
+      { assetId: "player:12", name: "Mason Taylor", assetType: "player", value: 2200, ownerRosterId: 3 },
+    ],
+  };
+  const { draft, turns } = converse(["my Gibbs and Taylor for Nabers"], taylors);
+  assert.deepEqual(names(draft.left), ["Jahmyr Gibbs", "Jonathan Taylor"]);
+  assert.equal(turns[0].plan.asks.length, 0);
+  // Without a league there is no roster to go by, so it still asks.
+  const open = converse(["Gibbs and Taylor for Nabers"]);
+  assert.ok(open.turns[0].plan.asks.some((ask) => /Taylor/.test(ask.question)));
+});
