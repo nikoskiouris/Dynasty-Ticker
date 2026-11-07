@@ -5089,6 +5089,30 @@ button.ranks-row.you:hover {
   .ranks-who strong.player-name {
     align-items: flex-start;
   }
+
+  /* Face on the left; name, position · team · age, and the tag stack beside
+     it. Sharing one line squeezed the meta to a few pixels ("QB1·…", "Esti…"). */
+  .ranks-who {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 0.45rem;
+    row-gap: 0.05rem;
+    align-items: start;
+  }
+
+  .ranks-who strong.player-name {
+    display: contents;
+  }
+
+  .ranks-who .player-name > .player-face {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+  }
+
+  .ranks-who .player-name > .player-name-text,
+  .ranks-who small {
+    grid-column: 2;
+  }
 }
 
 .ranks-value {

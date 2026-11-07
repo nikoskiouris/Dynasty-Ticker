@@ -367,16 +367,22 @@ test("Jacory Croskey-Merritt is whole on the phone players list", async ({ page 
   await expect(name).toBeVisible({ timeout: 20000 });
   const report = await textFit(name);
   expect(report.text, JSON.stringify(report)).toBe("Jacory Croskey-Merritt");
-  expect(report.lines, JSON.stringify(report)).toBeGreaterThan(1);
+  // One line or two, the name is whole; the meta line under it is readable too.
   expectWhole(report);
+  const meta = await name.evaluate((el) => {
+    const small = el.closest(".ranks-who").querySelector("small");
+    return { width: small.clientWidth, scroll: small.scrollWidth, text: small.textContent.trim() };
+  });
+  expect(meta.scroll, JSON.stringify(meta)).toBeLessThanOrEqual(meta.width + 1);
 });
 
-test("Christian McCaffrey stays whole behind his open card at 390", async ({ page }) => {
+// /player/<id> is the card alone (ticket 021), so the name to check is its heading.
+test("Christian McCaffrey stays whole on his player page at 390", async ({ page }) => {
   test.setTimeout(90000);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/player/12533");
+  await page.goto("/player/4034");
   await expect(page.locator(".ranks-card h2")).toBeVisible({ timeout: 30000 });
-  const name = page.locator(".ranks-list .player-name-text", { hasText: "Christian McCaffrey" });
+  const name = page.locator(".ranks-card h2", { hasText: "Christian McCaffrey" });
   await expect(name).toBeVisible({ timeout: 20000 });
   const report = await textFit(name);
   expect(report.text, JSON.stringify(report)).toBe("Christian McCaffrey");
