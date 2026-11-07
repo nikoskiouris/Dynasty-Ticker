@@ -313,11 +313,17 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.match(privacy, /localStorage/);
   assert.match(privacy, /No accounts/);
   assert.match(privacy, /GitHub issues/);
-  assert.match(privacy, /who would you rather have/);
-  assert.match(privacy, /Public rather votes/);
-  assert.match(privacy, /salted hash/);
-  assert.match(privacy, /two days/);
-  assert.match(privacy, /not sent to a third-party counter/);
+  // The rather duel and the league-trade board are gone (#195, one price).
+  // The policy describes what the site does today.
+  assert.doesNotMatch(privacy, /rather/i);
+  assert.doesNotMatch(privacy, /league board/i);
+  assert.match(privacy, /Page counts/);
+  assert.match(privacy, /never the words/);
+  assert.match(privacy, /Do Not Track or Global Privacy Control/);
+  assert.match(privacy, /third-party tracker/);
+  const termsPage = readDocs("terms.html");
+  assert.doesNotMatch(termsPage, /rather|league board|overlay/i);
+  assert.match(termsPage, /same number on every screen/);
   assert.doesNotMatch(privacy, /GitHub Pages/);
   assert.doesNotMatch(privacy, /visit count/i);
   assert.doesNotMatch(privacy, /page-views-api/);
