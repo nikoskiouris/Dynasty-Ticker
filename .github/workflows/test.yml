@@ -31,3 +31,26 @@ jobs:
       # Pin the committed snapshot. A live rebuild would hide a bad player_values.json.
       - name: Run tests
         run: npm test
+
+  # Browser journeys (tests/e2e). They load the sample league from the public
+  # Sleeper API, so a Sleeper outage can fail this job without a code change.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.12.0"
+
+      - name: Install
+        run: npm install
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser tests
+        run: npx playwright test --trace off
