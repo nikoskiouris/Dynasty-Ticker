@@ -49,7 +49,10 @@ test("even-up uses the shown % and the bands: offered above 5% more, closes at <
   // The source no longer reads the old pct for the even-up gate or copy.
   assert.doesNotMatch(app, /verdict\.pct > 5/);
   assert.doesNotMatch(app, /still \$\{choice\.pct\}% apart/);
-  assert.match(app, /After that pick: \$\{after\}\./);
+  // The copy lives in verdict-copy.js; the app passes the verdict line after the pick.
+  const copySrc = readFileSync(new URL("../docs/modules/verdict-copy.js", import.meta.url), "utf8");
+  assert.match(copySrc, /After that pick: \$\{afterLine\}\./);
+  assert.match(app, /evenUpCopy\(choice, side, \{ afterLine: after \}\)/);
   const draft = readFileSync(new URL("../docs/modules/trade-draft.js", import.meta.url), "utf8");
   assert.doesNotMatch(draft, /const EVEN_UP_FAIR_PCT = 12;/);
   assert.match(draft, /percentMore\(model\.verdict\.left, model\.verdict\.right\)/);
