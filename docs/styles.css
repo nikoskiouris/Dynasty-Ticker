@@ -8159,3 +8159,6 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
 .selected-token-label .player-link { display: inline; text-decoration: none; }
 .selected-token-label .player-link:hover,
 .selected-token-label .player-link:focus-visible { text-decoration: underline; }
+
+/* Redraft / keeper leagues: the one price is the dynasty market. Say so where prices show. */
+.calc-market-caveat { margin: 0.15rem 0 0; max-width: 60ch; }
