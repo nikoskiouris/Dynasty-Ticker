@@ -326,3 +326,36 @@ test("a third-for-third does not count as help", () => {
   assert.equal(help.helped, false);
   assert.equal(help.patchedNeeds.length, 0);
 });
+
+test("each idea gets one supported reason the partner says yes (ticket 017)", async () => {
+  const { partnerReasonLine } = await import("../docs/modules/trade-match.js");
+  const values = { "pick:2028:r1:1": 4496, p1: 6000 };
+  const getAssetValue = (asset) => values[asset.assetId] || 0;
+  const pick = { assetId: "pick:2028:r1:1", assetType: "pick", name: "2028 1st from avery_r" };
+  const vet = { assetId: "p1", assetType: "player", name: "Stefon Diggs" };
+  const hole = partnerReasonLine({
+    theirHelp: { patchedNeeds: [{ position: "RB" }] },
+    theirProfile: { timeline: "middle", needs: [{ position: "RB", rankLabel: "11th / 12" }] },
+    myAssets: [vet], values, getAssetValue,
+  });
+  assert.equal(hole, "it fills their RB hole (11th of 12)");
+  const rebuild = partnerReasonLine({
+    theirHelp: { patchedNeeds: [], pickDelta: 4496 },
+    theirProfile: { timeline: "rebuilding", needs: [] },
+    myAssets: [pick], values, getAssetValue,
+  });
+  assert.equal(rebuild, "they're rebuilding and get 2028 1st from avery_r (4,496)");
+  const contend = partnerReasonLine({
+    theirHelp: { patchedNeeds: [], pickDelta: -3000 },
+    theirProfile: { timeline: "contending", needs: [] },
+    myAssets: [vet, pick], values, getAssetValue,
+  });
+  assert.equal(contend, "they're contending and get Stefon Diggs (6,000) to play now");
+  // Nothing supports a reason: no line, and the caller drops the idea.
+  assert.equal(partnerReasonLine({
+    theirHelp: { patchedNeeds: [], pickDelta: 0, youthDelta: 0 },
+    theirProfile: { timeline: "rebuilding", needs: [] },
+    myAssets: [vet], values, getAssetValue,
+  }), "");
+  assert.equal(partnerReasonLine({ theirHelp: { patchedNeeds: [] }, theirProfile: { timeline: "middle" }, myAssets: [vet] }), "");
+});

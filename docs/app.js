@@ -190,6 +190,7 @@ import {
   countStartableAtPosition,
   describePartnerMatch,
   packageLooksLikeFiller,
+  partnerReasonLine,
   proposeMatchDeals,
   rankPartnerMatches,
 } from "./modules/trade-match.js";
@@ -7974,6 +7975,15 @@ async function generateTradeMatches({ userRequested = false } = {}) {
         idea.gainLine = ideaGainLine(idea);
         // An idea that improves nothing is not shown.
         if (!idea.gainLine) continue;
+        // Ticket 017: and one supported reason the partner says yes.
+        idea.whyThem = partnerReasonLine({
+          theirHelp: row.deal.theirHelp,
+          theirProfile,
+          myAssets: idea.myAssets,
+          values: state.values,
+          getAssetValue,
+        });
+        if (!idea.whyThem) continue;
         ideas.push(idea);
         if (ideas.length >= 2) break;
       }
@@ -8081,7 +8091,8 @@ function renderMatchTradeCard(idea) {
     <article class="match-trade-card">
       ${partner ? `<p class="match-trade-partner muted small">With ${escapeHtml(partner)}</p>` : ""}
       <p class="match-trade-offer">Send ${(idea.myAssets || []).map(playerLinkHtml).join(" + ")} for ${(idea.theirAssets || []).map(playerLinkHtml).join(" + ")}</p>
-      ${idea.gainLine ? `<p class="match-trade-gain">${escapeHtml(idea.gainLine)}</p>` : ""}
+      ${idea.gainLine ? `<p class="match-trade-gain"><strong>For you:</strong> ${escapeHtml(idea.gainLine)}</p>` : ""}
+      ${idea.whyThem ? `<p class="match-trade-why"><strong>Why ${escapeHtml(partner || "they")} says yes:</strong> ${escapeHtml(idea.whyThem)}</p>` : ""}
       ${idea.bandLine ? `<p class="match-trade-band">${escapeHtml(idea.bandLine)}</p>` : ""}
       ${renderReviewTradeButton(idea)}
     </article>
