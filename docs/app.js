@@ -7526,8 +7526,11 @@ function tradeMatchCacheKey(rosterId = state.meRosterId) {
     valuationCacheVersion(),
     state.playerMetadataLoaded ? "players" : "names",
     state.tradeMatch?.focusPosition || "",
+    state.seasonLoaded ? "season" : "roster",
   ].join(":");
 }
+
+const CALL_STATE_LANE = Object.freeze({ contending: "contender", middle: "middle", rebuilding: "rebuild" });
 
 function buildTradeMatchProfiles(powerProfiles = null) {
   const profiles = powerProfiles || buildPowerProfiles();
@@ -7538,13 +7541,20 @@ function buildTradeMatchProfiles(powerProfiles = null) {
       demand[entry.position] = getPositionStarterDemand(state.league, entry.position);
     });
   });
+  // Contending or rebuilding is My team's call (record, odds, roster), not the
+  // power board's value-only lane, so Find a trade never contradicts it.
+  const seasonReady = state.seasonLoaded || Boolean(state.seasonLoadError);
+  const model = seasonReady ? getSeasonModel() : null;
+  const sim = seasonReady ? getSimulation(model) : null;
   return profiles
     .map((powerProfile) => {
       const roster = findNormalizedRoster(powerProfile.rosterId);
       if (!roster) return null;
+      const call = seasonReady ? buildWindowCallForProfile(powerProfile, { model, sim }) : null;
+      const laneId = CALL_STATE_LANE[call?.teamState] || "";
       return buildTradeMatchProfile({
         roster,
-        powerProfile,
+        powerProfile: laneId ? { ...powerProfile, lane: { ...(powerProfile.lane || {}), id: laneId } } : powerProfile,
         values: state.values,
         getAssetValue,
         playerPositionForAsset,
@@ -7624,7 +7634,11 @@ function renderTradeMatchNeeds() {
 // "Your situation", in one plain sentence.
 function findSituationLine(mine) {
   const who = sampleVoice() ? `${mine.managerName} is` : "You're";
-  const timeline = mine.timeline === "contending" ? `${who} contending.` : mine.timeline === "rebuilding" ? `${who} rebuilding.` : `${who} in between.`;
+  // Contending or rebuilding is My team's call; it needs this season's scores.
+  const seasonReady = state.seasonLoaded || Boolean(state.seasonLoadError);
+  const timeline = !seasonReady
+    ? ""
+    : mine.timeline === "contending" ? `${who} contending.` : mine.timeline === "rebuilding" ? `${who} rebuilding.` : `${who} in between.`;
   const hole = mine.weakestPosition;
   const spare = mine.strongestPosition;
   const lowest = !hole ? lowestRankedGroup(mine.rosterId) : null;
@@ -7634,7 +7648,7 @@ function findSituationLine(mine) {
       ? ` ${sampleVoice() ? "Every starting spot is covered" : "Your starters cover every spot"}; lowest-ranked group: ${lowest.position} (${String(lowest.rankLabel).replace(" / ", " of ")}).`
       : " No big holes. We'll look for teams on the opposite timeline.";
   const spareText = spare ? ` Most to spare: ${spare.position}.` : "";
-  return `${timeline}${holeText}${spareText}`;
+  return `${timeline}${holeText}${spareText}`.trim();
 }
 
 function lowestRankedGroup(rosterId) {
