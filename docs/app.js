@@ -4658,6 +4658,19 @@ function renderWindowCallDashboard() {
     return;
   }
 
+  // The call weighs this season's record and playoff odds. Until the weekly
+  // scores arrive, a call from roster value alone can read "Hold steady,
+  // confidence high" and then flip to "Go win it now". Say it is pending.
+  if (state.leagueId && !state.seasonLoaded && !state.seasonLoadError) {
+    host.innerHTML = `
+      <section class="team-verdict" aria-labelledby="team-verdict-title" aria-busy="true">
+        <p class="eyebrow" id="team-verdict-title">${escapeHtml(seasonCall ? "This season" : "Contend or rebuild")}</p>
+        <p class="muted small call-pending" role="status">Loading this season's scores to make the call…</p>
+      </section>
+    `;
+    return;
+  }
+
   const profiles = buildPowerProfiles();
   const model = getSeasonModel();
   const sim = getSimulation(model);
