@@ -70,6 +70,17 @@ for (const width of [1280, 390]) {
     expect(snap.outlineWidth, JSON.stringify(snap)).toBeGreaterThan(0);
   });
 
+  test(`a fresh page load shows no ring on the room heading at ${width}`, async ({ page }) => {
+    test.setTimeout(90000);
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 800 });
+    await page.goto(`/l/${LEAGUE}/team`);
+    await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
+    await expect.poll(async () => (await readRoom(page)).heading, { timeout: 8000 }).toBe("Your team");
+    await page.waitForTimeout(750);
+    const snap = await readRoom(page);
+    expect(snap.outlineWidth, JSON.stringify(snap)).toBe(0);
+  });
+
   test(`a mouse room change shows no ring at ${width}`, async ({ page }) => {
     test.setTimeout(90000);
     await page.setViewportSize({ width, height: width === 390 ? 844 : 800 });

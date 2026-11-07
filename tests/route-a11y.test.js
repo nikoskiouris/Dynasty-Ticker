@@ -1317,3 +1317,17 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
     }
   }
 });
+
+test("focusWithoutScroll asks for no ring on a heading unless a key moved focus", async () => {
+  const { focusWithoutScroll } = await import("../docs/modules/route-a11y.js");
+  const calls = [];
+  const make = (tagName) => ({ tagName, focus(opts) { calls.push({ tagName, opts }); } });
+  focusWithoutScroll(make("H2"));
+  focusWithoutScroll(make("H2"), { focusVisible: true });
+  focusWithoutScroll(make("BUTTON"));
+  assert.deepEqual(calls, [
+    { tagName: "H2", opts: { preventScroll: true, focusVisible: false } },
+    { tagName: "H2", opts: { preventScroll: true, focusVisible: true } },
+    { tagName: "BUTTON", opts: { preventScroll: true } },
+  ]);
+});
