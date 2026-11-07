@@ -37,7 +37,7 @@
       <main class="legal-card legal-prose">
         <p class="eyebrow">Privacy</p>
         <h1>What this ticker stores, and what it never sees.</h1>
-        <p class="muted">Last updated October 7, 2026. Dynasty Ticker is a static website at <a href="https://dynastyticker.com/">dynastyticker.com</a>. It talks to Sleeper from your browser. There is no Dynasty Ticker account.</p>
+        <p class="muted">Last updated November 7, 2026. Dynasty Ticker is a static website at <a href="https://dynastyticker.com/">dynastyticker.com</a>. It talks to Sleeper from your browser. There is no Dynasty Ticker account.</p>
 
         <h2>Who we are</h2>
         <p>Dynasty Ticker is the open-source project at <a href="https://github.com/nikoskiouris/Dynasty-Ticker">github.com/nikoskiouris/Dynasty-Ticker</a>. Contact is GitHub issues on that repo, not a mailbox or street address.</p>
@@ -49,25 +49,22 @@
         <p>The ticker uses <strong>browser localStorage</strong>, not cookies:</p>
         <ul>
           <li>Whether the left board is open or closed</li>
-          <li>A short-lived cache of Sleeper NFL player metadata</li>
-          <li>A local copy of “who would you rather have” picks if the public vote host is unreachable. Live votes are stored on the site host, not only in this browser.</li>
-          <li>Whether you turned on the optional league board, which prices players from this league’s own completed trades.</li>
+          <li>A short-lived cache of Sleeper NFL player metadata (in IndexedDB when it is too big for localStorage)</li>
         </ul>
         <p>The trade you are building (player and pick ids, names, and the team you picked to browse) sits in <strong>session storage</strong> for this tab only, so a reload or connecting Sleeper does not erase it. It is gone when you close the tab. It is never sent anywhere.</p>
         <p>Clear site data in your browser to wipe the local copy.</p>
 
-        <h2>Public rather votes</h2>
-        <p>Landing-page “who would you rather have” picks are stored anonymously on the site host so they can slightly nudge player values for everyone. A vote is two Sleeper player ids, a format label, and a timestamp. To slow spam, the host keeps a salted hash of the IP address and browser on a rate-limit record for two days, then drops that record. The hash is not kept on the vote. The public list is a recent capped window, not every pick ever made. Votes do not overwrite the bundled rankings or Sleeper trade-market files.</p>
-
         <h2>Cookies and ads</h2>
         <p>This app does not set cookies, does not show ads, and does not install Google Analytics or any other third-party tracker.</p>
-        <p>Page views are not sent to a third-party counter. When the host counts a page view, it uses a separate salted hash of the IP address and browser so one person is not counted many times. The raw address is not stored. That tally is not shown on the page. The host and the Sleeper API may still log ordinary request metadata on their side.</p>
+        <h2>Page counts</h2>
+        <p>The live site sends a small cookieless note to its own host for each page you open and for a few actions: a trade checked, a share link copied or opened, a league connected, and a trade typed into the describe box (only what kind of message it was, never the words). Pages are sent as patterns such as <code>/l/:id</code> or <code>/player/:id</code>. League ids, player ids, share codes, usernames, and query strings are not sent. The first note of a visit also says where you came from, reduced to the website’s host name (for example <code>reddit.com</code>), and a <code>utm_source</code> tag if the link had one.</p>
+        <p>The host adds these to per-day totals. To count unique visitors for a day, it may keep a shortened hash of a secret, the date, your IP address, and your browser. The date is part of the hash, so you are a different hash the next day. The raw address is not stored. The totals are not shown on the site. Do Not Track or Global Privacy Control in your browser turns these notes off. The host and the Sleeper API may still log ordinary request metadata on their side.</p>
 
         <h2>Searched usernames</h2>
         <p>When you search a Sleeper username and one of that user's leagues actually opens, the live site adds that username to a list on the site host. Next to it the host keeps the public Sleeper user id, when it was first and last opened, and how many times. A later open updates that same row. Every other username already on the list stays. A typo never opens a league, so it is not saved. The saved name is the one Sleeper returns, so a misspelling stays the same person instead of a new one. The league id is not saved. The list is not shown anywhere on the site.</p>
 
         <h2>Share links</h2>
-        <p>Share URLs are ordinary query strings (<code>league</code>, <code>me</code>, <code>tab</code>, <code>week</code>, <code>tone</code>). Anyone with the link can open the same public Sleeper league view. Do not put secrets in the URL. There are none to put.</p>
+        <p>A shared trade link (<code>/t/…</code>) holds the trade itself: Sleeper player and pick ids, the scoring format, and the date the prices were taken. Trade and league addresses (<code>/trade?give=…&amp;get=…</code>, <code>/l/&lt;league id&gt;/team?me=&lt;team&gt;</code>) name public Sleeper ids the same way. Anyone with a link sees the same public view. There are no secrets to put in a URL.</p>
 
         <h2>Children</h2>
         <p>This is a fantasy-football tool. It is not directed at children under 13, and it does not ask for personal profiles beyond a public Sleeper username you type yourself.</p>
