@@ -221,3 +221,9 @@ test("in a league, 'two 1sts' adds two picks, generic when the team holds fewer"
   const firsts = [...draft.left, ...draft.right].filter((item) => /1st/.test(item.name));
   assert.equal(firsts.length, 2);
 });
+
+test("a slot like 1.05 reads as that round's tier", async () => {
+  const { parsePickPhrase } = await import("../docs/modules/trade-talk.js");
+  assert.deepEqual(parsePickPhrase("2027 1.05"), { season: 2027, round: 1, bucket: "mid", count: 1 });
+  assert.deepEqual(parsePickPhrase("a 2028 2.11"), { season: 2028, round: 2, bucket: "late", count: 1 });
+});

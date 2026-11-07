@@ -166,3 +166,25 @@ test("published snapshot names survive the format wrapper", () => {
   const firsts = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "2027 1st", limit: 8, minSeason: 2027 });
   assert.ok(firsts.some((row) => row.assetType === "pick" && row.season === "2027"));
 });
+
+test("pick search finds tiered and slot queries, and says when a round has one price", async () => {
+  const { listValueCalcAssets, expandPickSlotQuery, wholeRoundPickHint } = await import("../docs/modules/value-calc.js");
+  const values = {
+    "pick:2027:r1:early": 6667,
+    "pick:2027:r1:mid": 5290,
+    "pick:2027:r1:late": 4234,
+    "pick:2027:r1:any": 5491,
+    "pick:2027:r2:any": 1745,
+  };
+  const names = { "pick:2027:r2:any": "2027 Round 2" };
+  const ids = (query) => listValueCalcAssets(values, names, { query, minSeason: 2027 }).map((row) => row.assetId);
+  assert.deepEqual(ids("2027 early 2nd"), ["pick:2027:r2:any"]);
+  assert.deepEqual(ids("27 mid 2nd"), ["pick:2027:r2:any"]);
+  assert.deepEqual(ids("2027 1.05"), ["pick:2027:r1:mid"]);
+  assert.deepEqual(ids("2027 1.11"), ["pick:2027:r1:late"]);
+  assert.deepEqual(ids("2027 late 1st"), ["pick:2027:r1:late"]);
+  assert.equal(expandPickSlotQuery("2027 2.03"), "2027 r2 early");
+  const [second] = listValueCalcAssets(values, names, { query: "2027 early 2nd", minSeason: 2027 });
+  assert.equal(wholeRoundPickHint(second, "2027 early 2nd"), "One price for every 2nd");
+  assert.equal(wholeRoundPickHint(second, "2027 2nd"), "");
+});
