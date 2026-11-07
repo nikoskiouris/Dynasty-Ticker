@@ -1,3 +1,4 @@
+import { buildWinNowTargets } from "./modules/win-now.js";
 import {
   buildSeasonModel,
   simulateSeason,
@@ -7563,8 +7564,72 @@ function setMatchGenerateError(message) {
 function syncFindGuestChrome(guest) {
   document.querySelector("#shop-section")?.classList.toggle("hidden", guest);
   document.querySelector("#partners-section")?.classList.toggle("hidden", guest);
+  document.querySelector("#win-now-section")?.classList.toggle("hidden", guest);
   document.querySelector("#player-section")?.classList.toggle("hidden", guest);
   document.querySelector("#settings-section")?.classList.toggle("hidden", guest);
+}
+
+// Tickets 005 and 008: win-now names on rebuilding teams in this league.
+function renderWinNowTargets() {
+  const host = document.querySelector("#win-now-dashboard");
+  if (!host) return;
+  const me = getMyRoster();
+  if (!me) {
+    host.innerHTML = `<p class="muted small">Pick your team to see names.</p>`;
+    return;
+  }
+  if (!state.seasonLoaded && !state.seasonLoadError) {
+    host.innerHTML = `<p class="muted small" role="status">Loading this season's scores to see who is rebuilding…</p>`;
+    return;
+  }
+  const profiles = buildPowerProfiles();
+  const model = getSeasonModel();
+  const sim = getSimulation(model);
+  const callFor = (profile) => buildWindowCallForProfile(profile, { model, sim });
+  const mine = profiles.find((row) => String(row.rosterId) === String(me.rosterId));
+  const myCall = mine ? callFor(mine) : null;
+  const teams = profiles.map((profile) => ({
+    rosterId: profile.rosterId,
+    name: findNormalizedRoster(profile.rosterId)?.manager?.displayName || profile.managerName || "",
+    teamState: callFor(profile)?.teamState || "middle",
+    record: model?.teams?.get(String(profile.rosterId))?.recordLabel || "",
+  }));
+  const players = (state.normalizedRosters || []).flatMap((roster) => (roster.assets || [])
+    .filter((asset) => asset.assetType === "player")
+    .map((asset) => ({
+      assetId: asset.assetId,
+      name: asset.name,
+      position: playerPositionForAsset(asset),
+      value: Math.round(Number(getAssetValue(asset, state.values)) || 0),
+      age: playerAgeForAsset(asset),
+      rosterId: roster.rosterId,
+    })));
+  const holes = (mine?.positionSummaries || [])
+    .filter((row) => row.rankLabel)
+    .slice()
+    .sort((a, b) => Number(a.percentile) - Number(b.percentile))
+    .slice(0, 2)
+    .map((row) => ({ position: row.position, rankLabel: row.rankLabel }));
+  const result = buildWinNowTargets({ teams, players, myRosterId: me.rosterId, myTeamState: myCall?.teamState || "middle", holes });
+  if (result.hidden) {
+    host.innerHTML = `<p class="muted small">${escapeHtml(result.reason)}</p>`;
+    return;
+  }
+  if (!result.targets.length) {
+    host.innerHTML = `<p class="muted small">No rebuilding team in this league holds an older starter worth calling about.</p>`;
+    return;
+  }
+  host.innerHTML = `
+    <ul class="win-now-list">
+      ${result.targets.map((row) => `
+        <li class="win-now-row">
+          <div class="win-now-name">${playerLinkHtml({ assetId: row.assetId, name: row.name, assetType: "player" })} <span class="muted small">${escapeHtml(row.position)} · ${escapeHtml(row.owner)} · ${escapeHtml(formatNumber(row.value))}</span></div>
+          ${row.fills ? `<p class="small win-now-fills"><strong>${escapeHtml(row.fills)}.</strong></p>` : ""}
+          <p class="small win-now-why">${escapeHtml(row.why)}</p>
+          <button type="button" class="link-btn" data-action="player-shop" data-asset-id="${escapeHtml(row.assetId)}">Price an offer →</button>
+        </li>`).join("")}
+    </ul>
+  `;
 }
 
 function renderTradeMatchRoom() {
@@ -7576,6 +7641,7 @@ function renderTradeMatchRoom() {
   }
   syncFindGuestChrome(false);
   renderTradeMatchNeeds();
+  renderWinNowTargets();
   const key = tradeMatchCacheKey();
   if (state.tradeMatch.loading) {
     renderTradeMatchDashboard();

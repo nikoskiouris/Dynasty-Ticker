@@ -8159,3 +8159,10 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
 .selected-token-label .player-link { display: inline; text-decoration: none; }
 .selected-token-label .player-link:hover,
 .selected-token-label .player-link:focus-visible { text-decoration: underline; }
+
+/* Tickets 005/008: win-now targets. */
+.win-now-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.win-now-row { display: grid; gap: 0.15rem; padding: 0.55rem 0.7rem; border: 1px solid var(--line); border-radius: var(--r-md, 10px); background: var(--panel-soft, var(--panel)); }
+.win-now-row p { margin: 0; }
+.win-now-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
+.win-now-row .link-btn[data-action="player-shop"] { justify-self: start; min-height: 44px; }
