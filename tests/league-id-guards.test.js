@@ -184,3 +184,11 @@ test("Retry-After waits at most 10s and 1s when the header is missing", async ()
   assert.deepEqual(await delaysFor({}), [1000]);
   assert.deepEqual(await delaysFor({ "retry-after": "0" }), [1000]);
 });
+
+test("profile links on sleeper.com (Sleeper's current domain) read as usernames", () => {
+  for (const link of ["https://sleeper.com/user/kingshaw9", "sleeper.com/user/kingshaw9", "https://sleeper.app/u/kingshaw9", "https://sleeper.com/user/KingShaw9?tab=leagues"]) {
+    const out = classifyUsernameField(link);
+    assert.equal(out.kind, "username", link);
+    assert.equal(out.username.toLowerCase(), "kingshaw9", link);
+  }
+});
