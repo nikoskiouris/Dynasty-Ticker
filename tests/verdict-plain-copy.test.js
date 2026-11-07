@@ -152,3 +152,23 @@ test("a draft pick as the best asset reads as a piece, not a player", async () =
     "The best player in this deal is on the Give side. One great player is worth more than several smaller ones adding up to the same total, so we add 1,500 to the Give side. Player prices don't change.");
   assert.match(fewerBetterBody("1,500", "give", ""), /^The best player in this deal is on the give side\./);
 });
+
+test("even-it-up copy always says who adds the pick", async () => {
+  const { evenUpCopy } = await import("../docs/modules/verdict-copy.js");
+  const closes = { closes: true, gap: 2500, value: 2400, name: "2027 Late 1st" };
+  assert.equal(evenUpCopy(closes, "They"), "They add about 2,500, roughly a 2027 Late 1st (2,400).");
+  assert.equal(evenUpCopy(closes, "kingshaw9"), "kingshaw9 adds about 2,500, roughly a 2027 Late 1st (2,400).");
+  assert.equal(evenUpCopy(closes, "Give"), "The Give side adds about 2,500, roughly a 2027 Late 1st (2,400).");
+  const short = { closes: false, gap: 9000, value: 6667, name: "2027 Early 1st", pct: 40 };
+  assert.equal(
+    evenUpCopy(short, "They", { afterLine: "Lopsided · You give 36% more" }),
+    "No single pick closes this gap. Closest: they add a 2027 Early 1st (6,667). After that pick: Lopsided · You give 36% more.",
+  );
+  assert.equal(
+    evenUpCopy(short, "Get"),
+    "No single pick closes this gap. Closest: the Get side adds a 2027 Early 1st (6,667).",
+  );
+  const over = { closes: false, gap: 1000, value: 6667, name: "2027 Early 1st" };
+  assert.match(evenUpCopy(over, "You"), /^No single pick closes this gap\. Closest: you add a 2027 Early 1st \(6,667\)\. It is 5,667 more than the 1,000 gap\.$/);
+  assert.equal(evenUpCopy(null, "They"), "");
+});
