@@ -3972,6 +3972,18 @@ function rosterGradeReady(roster) {
   });
 }
 
+// A roster with no players (most often before the league's draft) has nothing
+// to score. Say so instead of "Scoring your roster…" forever.
+function rosterHasNoPlayers(roster) {
+  return Boolean(roster) && !(roster.assets || []).some((asset) => asset.assetType === "player");
+}
+
+function emptyRosterLine() {
+  return state.league?.status === "pre_draft"
+    ? "No players yet: this league hasn't drafted. Nothing to score until it does. Check a trade still works."
+    : "No players on this roster, so there is nothing to score.";
+}
+
 function pricesReady() {
   return Boolean(state.values && Object.keys(state.values).length > 0);
 }
@@ -4085,6 +4097,15 @@ function renderPowerDashboard() {
   }
   if (!meRoster || state.normalizedRosters.length === 0) {
     el.powerDashboard.innerHTML = `<p class="muted">Choose your team to generate a power score.</p>`;
+    return;
+  }
+  if (rosterHasNoPlayers(meRoster)) {
+    const ammo = draftAmmoInsightForRoster(meRoster);
+    el.powerDashboard.innerHTML = `
+      ${ammo ? `<div class="insight-list">${renderSleeperInsight(ammo)}</div>` : ""}
+      <p class="power-empty muted" role="status">${escapeHtml(emptyRosterLine())}</p>
+    `;
+    clearHost(document.querySelector("#next-move"));
     return;
   }
   if (!rosterGradeReady(meRoster) || !pricesReady()) {
@@ -4649,6 +4670,10 @@ function renderWindowCallDashboard() {
     host.innerHTML = `<p class="muted">${seasonCall
       ? "Pick a manager. Desk says in it, bubble, or out."
       : "Pick a manager. Desk says rebuild, win now, or hold."}</p>`;
+    return;
+  }
+  if (rosterHasNoPlayers(roster)) {
+    host.innerHTML = "";
     return;
   }
   if (!rosterGradeReady(roster) || !pricesReady()) {
@@ -7611,6 +7636,10 @@ function renderTradeMatchNeeds() {
   }
   if (!state.playerMetadataLoaded && !state.playerMetadataFailed) {
     el.tradeMatchNeeds.innerHTML = `<p class="muted">Player names are still syncing.</p>`;
+    return;
+  }
+  if (rosterHasNoPlayers(meRoster)) {
+    el.tradeMatchNeeds.innerHTML = `<p class="muted" role="status">${escapeHtml(emptyRosterLine())}</p>`;
     return;
   }
   const mine = buildTradeMatchProfiles().find((profile) => String(profile.rosterId) === String(meRoster.rosterId));
