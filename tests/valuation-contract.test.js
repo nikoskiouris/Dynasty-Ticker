@@ -43,3 +43,38 @@ test("valuation-dependent caches key off a valuation revision instead of map siz
   const simEnd = app.indexOf("function stopLivePolling", simStart);
   assert.doesNotMatch(app.slice(simStart, simEnd), /Object\.keys\(state\.values\)\.length/);
 });
+
+test("a throw-in never makes the side that receives it look worse", () => {
+  const lead = (mine, theirs) => {
+    const r = calculatePackageAdjustment({ myValues: mine, theirValues: theirs, globalMaxValue: 15000 });
+    return r.myAdjustedValue - r.theirAdjustedValue;
+  };
+  // Bijan for Nabers is a straight swap at listed prices. A late 2nd for me
+  // used to switch the stud curve on and grow my overpay from 28% to 58%.
+  const swap = lead([11487], [8979]);
+  assert.equal(swap, 11487 - 8979);
+  let before = swap;
+  for (const extra of [100, 500, 1000, 1745, 3000, 5000, 6667, 8000, 11000]) {
+    const now = lead([11487], [8979, extra]);
+    assert.ok(now <= before, `adding ${extra} to their side raised my lead ${before} -> ${now}`);
+    before = now;
+  }
+  // The same holds when I add the throw-in to my own side.
+  const base = lead([8979], [11487]);
+  for (const extra of [100, 500, 1745, 5000]) {
+    assert.ok(lead([8979, extra], [11487]) >= base, `adding ${extra} to my side lowered my lead`);
+  }
+  // Mirrors stay mirrors.
+  for (const [a, b] of [[[11487], [8979, 500]], [[9000, 1000], [5000, 5000]], [[7055, 5023], [11735, 1305]]]) {
+    assert.equal(lead(a, b), -lead(b, a));
+  }
+  // A random walk of throw-ins never moves the verdict the wrong way.
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let k = 0; k < 300; k++) {
+    const mine = Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => Math.round(500 + rnd() * 12000));
+    const theirs = Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => Math.round(500 + rnd() * 12000));
+    const extra = Math.round(50 + rnd() * Math.min(...theirs));
+    assert.ok(lead(mine, [...theirs, extra]) <= lead(mine, theirs) + 1, JSON.stringify({ mine, theirs, extra }));
+  }
+});
