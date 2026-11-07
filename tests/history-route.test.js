@@ -381,3 +381,14 @@ test("removed league rooms send their league to My team", () => {
     assert.equal(removedRoomRedirect(kept), "", kept);
   }
 });
+
+test("a 1QB board rides in a /trade link without a league", () => {
+  assert.equal(tradeHref(["player:4984"], ["player:9509"], "", { format: "oneQb" }), "/trade?give=4984&get=9509&fmt=1qb");
+  assert.equal(tradeHref(["player:4984"], ["player:9509"], "", { format: "sf" }), "/trade?give=4984&get=9509");
+  // A league sets its own format.
+  assert.equal(tradeHref(["player:4984"], [], "1360686137898700800", { format: "oneQb" }), "/trade?give=4984&league=1360686137898700800");
+  // An empty trade has nothing to price.
+  assert.equal(tradeHref([], [], "", { format: "oneQb" }), "/trade");
+  assert.equal(resolveLocation("/trade", "?give=4984&fmt=1qb").format, "oneQb");
+  assert.equal(resolveLocation("/trade", "?give=4984").format, "");
+});
