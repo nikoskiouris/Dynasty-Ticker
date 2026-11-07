@@ -54,8 +54,8 @@ for (const width of [1280, 390]) {
     await expectH1(page, "Is your trade fair? What should you trade for?");
 
     await page.goto("/players");
-    await expect.poll(() => new URL(page.url()).pathname).toBe("/trade");
-    await expectH1(page, "Check a trade");
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/players");
+    await expectH1(page, "Players");
 
     await page.goto("/trade");
     await expectH1(page, "Check a trade");

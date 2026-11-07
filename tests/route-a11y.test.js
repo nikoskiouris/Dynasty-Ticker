@@ -1317,3 +1317,12 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
     }
   }
 });
+
+test("the players board is titled and announced as Players", async () => {
+  const { routeDocumentTitle, routeAnnouncement, headingSelectorFor } = await import("../docs/modules/route-a11y.js");
+  assert.equal(routeDocumentTitle({ tab: "trades", room: "calculator", playersBoard: true }), "Players · Dynasty Ticker");
+  assert.equal(routeDocumentTitle({ tab: "trades", room: "calculator" }), "Check a trade · Dynasty Ticker");
+  assert.equal(routeDocumentTitle({ playerName: "Bijan Robinson", room: "calculator", playersBoard: true }), "Bijan Robinson · Dynasty Ticker");
+  assert.equal(routeAnnouncement({ tab: "trades", view: "calculator", playersBoard: true }), "Players");
+  assert.equal(headingSelectorFor({ page: "trades", view: "calculator", playersBoard: true }), "#ranks-section .panel-heading h2");
+});
