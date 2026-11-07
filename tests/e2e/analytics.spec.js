@@ -91,6 +91,9 @@ for (const viewport of viewports) {
     await expect.poll(() => events(page)).toEqual(["pageview /trade", 'trade_checked {"mode":"public"}']);
 
     await page.goto("/");
+    // The load button only works once the app has booted; the landing list
+    // paints after boot. Clicking earlier is a no-op and the test never lands.
+    await page.waitForFunction(() => document.querySelectorAll("[data-action='rank-open']").length > 0);
     await page.locator("#league-id").evaluate((el, id) => { el.value = id; }, LEAGUE_ID);
     await page.locator("#load-league-btn").evaluate((el) => el.click());
     await expect(page).toHaveURL(new RegExp(`/l/${LEAGUE_ID}/team`), { timeout: 30000 });
