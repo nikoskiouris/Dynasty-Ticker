@@ -1,3 +1,4 @@
+import { BUY_SELL_MIN_GAMES, buildBuySellLists } from "./modules/buy-sell.js";
 import {
   buildSeasonModel,
   simulateSeason,
@@ -7562,9 +7563,63 @@ function setMatchGenerateError(message) {
 
 function syncFindGuestChrome(guest) {
   document.querySelector("#shop-section")?.classList.toggle("hidden", guest);
+  document.querySelector("#buy-sell-section")?.classList.toggle("hidden", guest);
   document.querySelector("#partners-section")?.classList.toggle("hidden", guest);
   document.querySelector("#player-section")?.classList.toggle("hidden", guest);
   document.querySelector("#settings-section")?.classList.toggle("hidden", guest);
+}
+
+// Ticket 004: buy-low / sell-high from price vs this season's points.
+function renderBuySell() {
+  const host = document.querySelector("#buy-sell-dashboard");
+  if (!host) return;
+  const me = getMyRoster();
+  if (!me) {
+    host.innerHTML = `<p class="muted small">Pick your team to see names.</p>`;
+    return;
+  }
+  if (!state.seasonLoaded) {
+    host.innerHTML = `<p class="muted small" role="status">${state.seasonLoadError ? "No games scored yet this season, so there is nothing to compare." : "Loading this season's scores…"}</p>`;
+    return;
+  }
+  const profile = buildPowerProfiles().find((row) => String(row.rosterId) === String(me.rosterId));
+  const call = profile ? buildWindowCallForProfile(profile) : null;
+  const lists = buildBuySellLists({
+    rosters: state.normalizedRosters,
+    meRosterId: me.rosterId,
+    weekRows: state.seasonWeekRows,
+    valueOf: (asset) => getAssetValue(asset, state.values),
+    positionOf: (asset) => playerPositionForAsset(asset),
+    ageOf: (asset) => playerAgeForAsset(asset),
+    teamState: call?.teamState || "middle",
+  });
+  const row = (entry, side) => `
+    <li class="buy-sell-row">
+      <div class="buy-sell-name">
+        ${playerLinkHtml({ assetId: entry.assetId, name: entry.name, assetType: "player" })}
+        <span class="muted small">${escapeHtml(entry.position)}${side === "buy" && entry.owner ? ` · ${escapeHtml(entry.owner)}` : ""} · ${escapeHtml(formatNumber(entry.value))}</span>
+      </div>
+      <p class="small buy-sell-why">${escapeHtml(entry.why)}</p>
+      <button type="button" class="link-btn" data-action="player-shop" data-asset-id="${escapeHtml(entry.assetId)}">${side === "buy" ? "Price an offer" : "See offers"} →</button>
+    </li>`;
+  const windowNote = call?.teamState === "rebuilding"
+    ? "You're rebuilding, so buys skip players past their prime."
+    : call?.teamState === "contending"
+      ? "You're contending, so sells skip young players in a slump."
+      : "";
+  host.innerHTML = `
+    <div class="buy-sell-grid">
+      <section aria-labelledby="buy-low-title">
+        <h3 id="buy-low-title">Buy low</h3>
+        ${lists.buy.length ? `<ul class="buy-sell-list">${lists.buy.map((entry) => row(entry, "buy")).join("")}</ul>` : `<p class="muted small">No one on another roster is scoring far above his price.</p>`}
+      </section>
+      <section aria-labelledby="sell-high-title">
+        <h3 id="sell-high-title">Sell high</h3>
+        ${lists.sell.length ? `<ul class="buy-sell-list">${lists.sell.map((entry) => row(entry, "sell")).join("")}</ul>` : `<p class="muted small">No one on your roster is priced far above how he scores.</p>`}
+      </section>
+    </div>
+    <p class="muted small">Ranks are among rostered players with ${BUY_SELL_MIN_GAMES}+ games scored in this league, using its scoring. ${escapeHtml(windowNote)}</p>
+  `;
 }
 
 function renderTradeMatchRoom() {
@@ -7576,6 +7631,7 @@ function renderTradeMatchRoom() {
   }
   syncFindGuestChrome(false);
   renderTradeMatchNeeds();
+  renderBuySell();
   const key = tradeMatchCacheKey();
   if (state.tradeMatch.loading) {
     renderTradeMatchDashboard();
