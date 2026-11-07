@@ -7811,8 +7811,8 @@ function renderShopResults(result) {
     : `What you could offer ${escapeHtml(result.owner.manager?.displayName || "them")} for ${escapeHtml(name)} (${formatNumber(result.value)}):`;
   const cards = result.offers.map((offer) => {
     const idea = result.selling
-      ? { counterpartyRosterId: offer.rosterId, myAssets: [result.asset], theirAssets: offer.assets }
-      : { counterpartyRosterId: result.owner.rosterId, myAssets: offer.assets, theirAssets: [result.asset] };
+      ? { counterpartyRosterId: offer.rosterId, counterpartyName: offer.teamName || "", myAssets: [result.asset], theirAssets: offer.assets }
+      : { counterpartyRosterId: result.owner.rosterId, counterpartyName: result.owner.manager?.displayName || "", myAssets: offer.assets, theirAssets: [result.asset] };
     const pieces = offer.assets.map(playerLinkHtml).join(" + ");
     const line = result.selling ? `${escapeHtml(offer.teamName)}: ${pieces}` : pieces;
     return `
@@ -8090,7 +8090,13 @@ function renderMatchTradeCard(idea) {
 
 function renderReviewTradeButton(idea) {
   const payload = encodeURIComponent(JSON.stringify(reviewPayloadFor(idea)));
-  return `<button type="button" class="ghost-btn" data-action="review-trade" data-trade="${payload}">Review trade</button>`;
+  // Every card has this button. Its accessible name says which trade it opens.
+  const names = (items) => (items || []).map((asset) => asset?.name).filter(Boolean).join(" + ");
+  const give = names(idea.myAssets);
+  const get = names(idea.theirAssets);
+  const partner = idea.counterpartyName ? ` with ${idea.counterpartyName}` : "";
+  const label = give && get ? `Review trade${partner}: ${give} for ${get}` : "";
+  return `<button type="button" class="ghost-btn" data-action="review-trade" data-trade="${payload}"${label ? ` aria-label="${escapeHtml(label)}"` : ""}>Review trade</button>`;
 }
 
 function renderImpactAnalysis(impactAnalysis, values) {
