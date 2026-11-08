@@ -301,7 +301,7 @@ test("the three tabs have distinct document titles", () => {
 test("card words stay plain after the heading split", () => {
   const app = read("../docs/app.js");
   const ranks = read("../docs/modules/ranks.js");
-  assert.match(ranks, /label: "Touches \+ targets per game"/);
+  assert.match(ranks, /"Pass attempts \+ carries per game" : "Carries \+ targets per game"/);
   assert.doesNotMatch(ranks, /Opportunities per game/);
   assert.match(ranks, /label: "Projected points per game"/);
   assert.doesNotMatch(ranks, /Projected PPR\/G/);
