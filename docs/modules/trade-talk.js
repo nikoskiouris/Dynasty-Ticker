@@ -176,6 +176,10 @@ function cleanText(text) {
     .replace(/[’‘`]/g, "'")
     .replace(/[“”]/g, "\"")
     .replace(/\s*(?:\+|&)\s*/g, " and ")
+    // "Gibbs straight up for Bijan", "Gibbs for Bijan, even up": filler, not a
+    // name. "Gibbs 1 for 1 Bijan" is a plain swap.
+    .replace(/\s+(?:1|one)[ -]for[ -](?:1|one)\s+/g, " for ")
+    .replace(/[,\s]+(?:straight[ -]up|straight|even[ -]up|1[ -]for[ -]1|one[ -]for[ -]one)\b/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }

@@ -221,3 +221,11 @@ test("in a league, 'two 1sts' adds two picks, generic when the team holds fewer"
   const firsts = [...draft.left, ...draft.right].filter((item) => /1st/.test(item.name));
   assert.equal(firsts.length, 2);
 });
+
+test("'straight up' and '1 for 1' are filler around a plain swap", () => {
+  for (const line of ["Gibbs straight up for Nabers", "Gibbs for Nabers straight up", "Gibbs for Nabers, even up", "Gibbs 1 for 1 Nabers", "Gibbs for Nabers 1-for-1"]) {
+    const { draft, turns } = converse([line]);
+    assert.deepEqual([names(draft.left), names(draft.right)], [["Jahmyr Gibbs"], ["Malik Nabers"]], line);
+    assert.equal(turns[0].plan.misses.length, 0, line);
+  }
+});
