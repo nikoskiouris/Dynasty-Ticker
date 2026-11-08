@@ -184,7 +184,7 @@ import {
   releaseBootGate,
   scheduleBootFind,
 } from "./modules/boot-gate.js";
-import { sampleRosterLabels } from "./modules/sample-voice.js";
+import { ownerPossessive, sampleRosterLabels } from "./modules/sample-voice.js";
 import {
   buildTradeMatchProfile,
   countStartableAtPosition,
@@ -4081,7 +4081,11 @@ function renderPowerDashboard() {
   if (!el.powerDashboard) return;
   const meRoster = getLensRoster();
   if (el.powerHeading) {
-    el.powerHeading.textContent = "Your team";
+    // Viewing another manager from the standings: say whose team this is.
+    const lens = getLensRoster();
+    const mine = getMyRoster();
+    const other = lens && mine && String(lens.rosterId) !== String(mine.rosterId);
+    el.powerHeading.textContent = other ? `${ownerPossessive(lens.manager?.displayName || "This team")} team` : "Your team";
   }
   if (!meRoster || state.normalizedRosters.length === 0) {
     el.powerDashboard.innerHTML = `<p class="muted">Choose your team to generate a power score.</p>`;
@@ -4151,11 +4155,17 @@ function renderNextMove(profile) {
   const strongest = rows.reduce((top, row) => (Number(row.percentile) > Number(top.percentile) ? row : top));
   const rank = String(weakest.rankLabel).replace(" / ", " of ");
   const sample = Boolean(sampleVoice());
+  // Another manager's team (standings lens): name them, and no Find button,
+  // since Find a trade looks for deals for your team.
+  const mine = getMyRoster();
+  const lensName = mine && String(profile.rosterId) !== String(mine.rosterId)
+    ? (findNormalizedRoster(profile.rosterId)?.manager?.displayName || profile.managerName || "")
+    : "";
   host.innerHTML = `
     <section class="next-move-card" aria-labelledby="next-move-title">
-      <p class="eyebrow" id="next-move-title">${sample ? "Next move" : "Your next move"}</p>
+      <p class="eyebrow" id="next-move-title">${lensName ? `${escapeHtml(ownerPossessive(lensName))} next move` : sample ? "Next move" : "Your next move"}</p>
       <p class="next-move-line"><strong>Upgrade ${escapeHtml(weakest.position)}</strong> <span class="muted">${escapeHtml(weakest.position)} ranks ${escapeHtml(rank)}${strongest && strongest.position !== weakest.position ? `; ${escapeHtml(strongest.position)} is the deepest group to trade from` : ""}.</span></p>
-      <button type="button" data-action="find-position" data-position="${escapeHtml(weakest.position)}">Find a ${escapeHtml(weakest.position)}</button>
+      ${lensName ? "" : `<button type="button" data-action="find-position" data-position="${escapeHtml(weakest.position)}">Find a ${escapeHtml(weakest.position)}</button>`}
     </section>
   `;
 }
