@@ -18,6 +18,7 @@ import {
   isSpaPath,
   SPA_REWRITES,
   matchRoute,
+  parseAssetList,
   pathForPlace,
   playerIdFromPathname,
   playerPathname,
@@ -380,4 +381,15 @@ test("removed league rooms send their league to My team", () => {
   for (const kept of [`/l/${id}`, `/l/${id}/team`, `/l/${id}/ideas`, "/trade", "/", "/l/abc/week", "/l/1/week/extra"]) {
     assert.equal(removedRoomRedirect(kept), "", kept);
   }
+});
+
+test("a league pick rides in a /trade link so a reload keeps it", () => {
+  assert.deepEqual(parseAssetList("9221,pick:2028:r1:3"), ["player:9221", "pick:2028:r1:3"]);
+  assert.equal(
+    tradeHref(["player:9221", "pick:2028:r1:3"], ["player:4984"], "1360686137898700800"),
+    "/trade?give=9221,pick:2028:r1:3&get=4984&league=1360686137898700800",
+  );
+  assert.deepEqual(resolveLocation("/trade", "?give=9221,pick:2028:r1:3&league=1360686137898700800").give, ["player:9221", "pick:2028:r1:3"]);
+  // Junk is still dropped.
+  assert.deepEqual(parseAssetList("pick:2028:r1:abc,pick:28:r1:1"), []);
 });

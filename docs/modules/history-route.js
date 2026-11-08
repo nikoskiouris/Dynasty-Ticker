@@ -38,7 +38,9 @@ const ROUTE_ID = /^(?:\d{1,12}|player:\d+|pick:\d{4}:r\d+:(?:any|early|mid|late)
 // "0" is not a Sleeper player. Faces already skip it.
 const SLEEPER_ID = /^(?!0$)\d{1,12}$/;
 const LEAGUE_ID = /^\d{1,20}$/;
-const ASSET_ID = /^(?:player:\d{1,12}|pick:\d{4}:r\d+:(?:any|early|mid|late))$/;
+// A league pick is keyed by its original owner's roster id (pick:2028:r1:3).
+// It rides in a /trade link with ?league= so a reload keeps it.
+const ASSET_ID = /^(?:player:\d{1,12}|pick:\d{4}:r\d+:(?:any|early|mid|late|\d{1,3}))$/;
 
 export function urlPath(...segments) {
   const base = String(BASE).replace(/\/+$/g, "");
