@@ -206,3 +206,14 @@ test("ranks open with one page and a show-more control", () => {
   assert.equal(rest.hidden, 0);
   assert.doesNotMatch(renderRanksBody(rest), /ranks-more/);
 });
+
+test("the player card names the opportunities it counted, by position", async () => {
+  const { renderRanksBody } = await import("../docs/modules/ranks.js");
+  const card = (position) => renderRanksBody({
+    card: { assetId: "player:1", kind: "player", name: "X", value: 5000, position, model: { components: { roleOppPerGame: 36 } }, neighbors: [] },
+    rows: [],
+  });
+  assert.match(card("QB"), /Pass attempts \+ carries per game/);
+  assert.match(card("RB"), /Carries \+ targets per game/);
+  assert.doesNotMatch(card("WR"), /Touches/);
+});
