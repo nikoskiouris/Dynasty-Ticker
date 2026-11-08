@@ -212,6 +212,7 @@ export function rankView({
   caveat = "",
   leagueOpen = false,
   loading = false,
+  failed = false,
   leagueValueFor = null,
   shown = RANK_PAGE_SIZE,
   history = null,
@@ -237,6 +238,7 @@ export function rankView({
   }
   return {
     loading: Boolean(loading),
+    failed: Boolean(failed),
     query,
     position: RANK_POSITIONS.includes(position) ? position : "ALL",
     format: format === "oneQb" ? "oneQb" : "sf",
@@ -278,6 +280,9 @@ export function renderRanksToolbar(view) {
 }
 
 export function renderRanksMarkup(view) {
+  if (view?.failed) {
+    return `<div class="ranks" data-ranks-root><p class="muted" role="status">Couldn't load player values. <button type="button" class="ghost-btn" data-action="retry-values">Try again</button></p></div>`;
+  }
   if (view?.loading) {
     return `<div class="ranks" data-ranks-root><p class="muted">Loading player values…</p></div>`;
   }
