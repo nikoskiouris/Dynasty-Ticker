@@ -221,3 +221,14 @@ test("in a league, 'two 1sts' adds two picks, generic when the team holds fewer"
   const firsts = [...draft.left, ...draft.right].filter((item) => /1st/.test(item.name));
   assert.equal(firsts.length, 2);
 });
+
+test("plain value questions about one player read as a price check", () => {
+  for (const line of ["how much is Gibbs worth", "Gibbs value", "Gibbs worth?", "is Gibbs good", "value of Gibbs", "price on Gibbs"]) {
+    const { turns } = converse([line]);
+    assert.equal(turns[0].plan.intent, "shop", line);
+    assert.deepEqual(turns[0].plan.adds.map((add) => add.asset.name), ["Jahmyr Gibbs"], line);
+  }
+  // A trade is still a trade.
+  const { turns } = converse(["Gibbs for Nabers good?"]);
+  assert.equal(turns[0].plan.intent, "trade");
+});
