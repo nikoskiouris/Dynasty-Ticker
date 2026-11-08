@@ -111,6 +111,16 @@ export function coerceValueMap(payload) {
   };
 }
 
+// The value file names a whole-round pick "2027 Round 2". Everywhere else
+// (Describe a trade, the panes, share text) it is "2027 2nd". One name.
+export function plainPickNames(names = {}) {
+  const out = { ...names };
+  for (const assetId of Object.keys(out)) {
+    if (/^pick:\d{4}:r\d+:any$/.test(assetId)) out[assetId] = formatGenericPickAssetLabel(assetId);
+  }
+  return out;
+}
+
 function nameMapFrom(source) {
   return source && typeof source === "object" && !Array.isArray(source) ? source : {};
 }
@@ -572,9 +582,9 @@ async function loadValuationBundles(fetchImpl) {
   }
   const sf = coerceValueMap(payload.sf || {});
   const oneQb = coerceValueMap(payload.oneQb || {});
-  const names = payload.names && typeof payload.names === "object"
+  const names = plainPickNames(payload.names && typeof payload.names === "object"
     ? payload.names
-    : { ...sf.nameMap, ...oneQb.nameMap };
+    : { ...sf.nameMap, ...oneQb.nameMap });
   const lastModified = response?.headers?.get?.("last-modified") || "";
   return {
     sf: { values: sf.values, nameMap: { ...names, ...sf.nameMap } },

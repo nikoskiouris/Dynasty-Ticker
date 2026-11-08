@@ -410,3 +410,11 @@ test("value snapshot players carry name, position, and team", () => {
     years_exp: 6,
   });
 });
+
+test("whole-round picks get one plain name everywhere", async () => {
+  const { plainPickNames } = await import("../docs/modules/values.js");
+  assert.deepEqual(
+    plainPickNames({ "pick:2027:r2:any": "2027 Round 2", "pick:2028:r1:any": "2028 Round 1", "pick:2027:r1:early": "2027 Early 1st", "player:9509": "Bijan Robinson" }),
+    { "pick:2027:r2:any": "2027 2nd", "pick:2028:r1:any": "2028 1st", "pick:2027:r1:early": "2027 Early 1st", "player:9509": "Bijan Robinson" },
+  );
+});
