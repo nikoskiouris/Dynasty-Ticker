@@ -8159,3 +8159,9 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
 .selected-token-label .player-link { display: inline; text-decoration: none; }
 .selected-token-label .player-link:hover,
 .selected-token-label .player-link:focus-visible { text-decoration: underline; }
+
+/* The roster sheet's slot column is a fixed 3rem, so "Superflex" was cut to
+   "SUPERFLE" on wide screens. Use the SF abbreviation there too (its title
+   spells it out), as phones already do. */
+#roster-sheet .sheet-slot-superflex .sheet-slot-full { display: none; }
+#roster-sheet .sheet-slot-superflex .sheet-slot-short { display: inline; }
