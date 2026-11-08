@@ -7386,6 +7386,8 @@ button.draft-format-btn {
   font-weight: var(--fw-semi);
 }
 button.draft-format-btn.active { background: var(--text); color: var(--on-accent); }
+.draft-format-fixed { margin: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--text); }
+.draft-format-fixed span { font-weight: 400; color: var(--muted); }
 button.draft-format-btn::before {
   content: "";
   position: absolute;
