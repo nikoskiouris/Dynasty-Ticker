@@ -1,7 +1,7 @@
 {
   "name": "Dynasty Ticker",
   "short_name": "Dynasty Ticker",
-  "description": "Your Sleeper dynasty league. Scores, trades, roster scout, and history.",
+  "description": "See what your players are worth, check a trade, and find your team's next move.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

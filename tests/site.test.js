@@ -366,6 +366,9 @@ test("ship-ready files exist with titles, robots, sitemap, and a compressed OG i
   assert.doesNotMatch(readDocs("app.js"), /applyTheme|readStoredTheme|THEME_STORAGE_KEY/);
   assert.doesNotMatch(readDocs("styles.css"), /data-theme="light"|:root\[data-theme="dark"\]/);
   assert.match(readDocs("site.webmanifest"), /"theme_color": "#0c0c0e"/);
+  // The install sheet describes the site as it is (History and the scout are gone).
+  const manifest = JSON.parse(readDocs("site.webmanifest"));
+  assert.equal(manifest.description, readDocs("index.html").match(/<meta name="description" content="([^"]*)"/)[1].replace("&#39;", "'"));
   assert.match(readDocs("styles.css"), /burgundy ink/);
   assert.match(readDocs("styles.css"), /Phone landing: search first/);
   assert.match(readDocs("styles.css"), /Phone desk nav: /);
