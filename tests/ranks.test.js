@@ -206,3 +206,9 @@ test("ranks open with one page and a show-more control", () => {
   assert.equal(rest.hidden, 0);
   assert.doesNotMatch(renderRanksBody(rest), /ranks-more/);
 });
+
+test("the top player at a position reads 'Best', not '1st-best'", async () => {
+  const { roleLine } = await import("../docs/modules/ranks.js");
+  assert.equal(roleLine({ kind: "player", position: "TE", positionRank: 1, age: 23 }), "Best TE by value, about 7 prime years left at TE.");
+  assert.equal(roleLine({ kind: "player", position: "QB", positionRank: 16, age: 25 }), "16th-best QB by value, about 8 prime years left at QB.");
+});
