@@ -15,6 +15,7 @@ import { playerInitials, sleeperPlayerThumbUrl } from "./player-face.js";
 import { playerAgeFromNfl } from "./player-notes.js";
 
 export const RANK_PAGE_SIZE = 48;
+export const ZERO_PRICE_LINE = "Priced at 0: our forecast has him producing no more than a replacement player.";
 export const RANK_LIST_FLOOR = 1500;
 export const RANK_POSITION_FLOOR = 700;
 export const RANK_SEARCH_FLOOR = 200;
@@ -105,7 +106,9 @@ export function buildRankBoard({
   for (const [assetId, rawValue] of Object.entries(values || {})) {
     if (!String(assetId).startsWith("player:")) continue;
     const value = Number(rawValue);
-    if (!Number.isFinite(value) || value < RANK_SEARCH_FLOOR) continue;
+    // Every published price gets a card, 0 included: My team links to its
+    // bench. The list and search floors live in filterRankRows.
+    if (!Number.isFinite(value) || value < 0) continue;
     const playerId = assetId.slice("player:".length);
     const raw = nflPlayers?.[playerId] || nflPlayers?.[String(playerId)] || null;
     if (raw && isInactivePlayerAsset({ assetType: "player", raw })) continue;
@@ -166,14 +169,16 @@ export function buildRankBoard({
   const positionCounts = Object.create(null);
   let playerOverall = 0;
   return rows.map((row, index) => {
-    const positionRank = row.kind === "player" && row.position
+    // Players priced at 0 are all tied. Ranking them would invent an order.
+    const ranked = row.kind === "player" && Number(row.value) > 0;
+    const positionRank = ranked && row.position
       ? (positionCounts[row.position] = (positionCounts[row.position] || 0) + 1)
       : null;
-    if (row.kind === "player") playerOverall += 1;
+    if (ranked) playerOverall += 1;
     return {
       ...row,
       positionRank,
-      overallRank: row.kind === "player" ? playerOverall : null,
+      overallRank: ranked ? playerOverall : null,
       boardRank: positionRank ? `${row.position}${positionRank}` : "",
       listIndex: index,
     };
@@ -430,6 +435,7 @@ function renderRankCard(row, view = {}) {
           ${role ? `<p class="ranks-card-role">${escapeHtml(role)}</p>` : ""}
           ${row.note ? `<p class="ranks-card-note">${escapeHtml(row.note)}</p>` : ""}
           ${row.pickLine ? `<p class="ranks-pick-line">${escapeHtml(row.pickLine)}</p>` : ""}
+          ${row.kind === "player" && Number(row.value) === 0 ? `<p class="ranks-pick-line">${escapeHtml(ZERO_PRICE_LINE)}</p>` : ""}
           ${spread ? `<p class="ranks-spread">${escapeHtml(spread)}</p>` : ""}
         </div>
         <div class="ranks-card-price">

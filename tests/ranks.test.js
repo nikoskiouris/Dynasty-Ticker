@@ -206,3 +206,36 @@ test("ranks open with one page and a show-more control", () => {
   assert.equal(rest.hidden, 0);
   assert.doesNotMatch(renderRanksBody(rest), /ranks-more/);
 });
+
+test("every published price gets a card; 0s are unranked and say why", () => {
+  const low = {
+    "player:1": 9000,
+    "player:20": 131,
+    "player:21": 0,
+    "player:22": 0,
+  };
+  const lowNames = { "player:1": "Jahmyr Gibbs", "player:20": "Tanner McKee", "player:21": "Tyson Bagent", "player:22": "Other Zero" };
+  const lowNfl = {
+    1: { full_name: "Jahmyr Gibbs", position: "RB", team: "DET", age: 23, active: true },
+    20: { full_name: "Tanner McKee", position: "QB", team: "PHI", age: 26, active: true },
+    21: { full_name: "Tyson Bagent", position: "QB", team: "CHI", age: 26, active: true },
+    22: { full_name: "Other Zero", position: "QB", team: "CHI", age: 26, active: true },
+  };
+  const rows = buildRankBoard({ values: low, names: lowNames, nflPlayers: lowNfl, minPickSeason: 2027 });
+  const byId = Object.fromEntries(rows.map((row) => [row.assetId, row]));
+  // A 131 player has a card (My team links to him) and a real rank.
+  assert.equal(byId["player:20"].positionRank, 1);
+  assert.equal(byId["player:20"].overallRank, 2);
+  // 0s have a card but no invented order.
+  assert.equal(byId["player:21"].value, 0);
+  assert.equal(byId["player:21"].positionRank, null);
+  assert.equal(byId["player:21"].overallRank, null);
+  const html = renderRanksBody(rankView({ rows, selectedId: "player:21" }));
+  assert.match(html, /Tyson Bagent/);
+  assert.match(html, /Priced at 0: our forecast has him producing no more than a replacement player\./);
+  assert.doesNotMatch(html, /best QB by value/);
+  assert.doesNotMatch(html, /We can't find that player/);
+  // Lists and search still hide them.
+  assert.deepEqual(filterRankRows(rows, { query: "bagent" }), []);
+  assert.deepEqual(filterRankRows(rows).map((row) => row.assetId), ["player:1"]);
+});
