@@ -8461,7 +8461,8 @@ function buildTradeImpactSummary({ beforeRank, afterRank, starterDelta, benchDel
   notes.push(buildDeltaPhrase("bench", benchDelta));
   notes.push(buildDeltaPhrase("total value", totalDelta));
 
-  return `${notes.slice(0, 3).join(", ")}.`;
+  const text = notes.slice(0, 3).join(", ");
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
 }
 
 function buildDeltaPhrase(label, delta) {
