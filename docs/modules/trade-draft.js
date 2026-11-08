@@ -1,3 +1,4 @@
+import { safeStorage } from "./safe-storage.js";
 import {
   addValueCalcItem,
   emptyValueCalcState,
@@ -417,7 +418,7 @@ function readDraftText(storage) {
   return "";
 }
 
-export function readStoredDraft(storage = globalThis.sessionStorage, legacyStorage = undefined) {
+export function readStoredDraft(storage = safeStorage("sessionStorage"), legacyStorage = undefined) {
   try {
     const text = readDraftText(storage);
     if (text) {
@@ -435,7 +436,7 @@ export function readStoredDraft(storage = globalThis.sessionStorage, legacyStora
   }
 }
 
-export function writeStoredDraft(draft, storage = globalThis.sessionStorage) {
+export function writeStoredDraft(draft, storage = safeStorage("sessionStorage")) {
   try {
     if (isDraftEmpty(draft)) storage?.removeItem?.(TRADE_DRAFT_STORAGE_KEY);
     else storage?.setItem?.(TRADE_DRAFT_STORAGE_KEY, serializeDraft(draft));
