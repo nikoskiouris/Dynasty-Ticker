@@ -1612,7 +1612,11 @@ async function focusAfterPopstate({ focus, trigger, before, token }) {
   if (pendingPopstateFocus === token) pendingPopstateFocus = 0;
   const place = routePlaceNow();
   const selector = headingSelectorFor(place);
-  const mode = selector ? "heading" : ((!place.overlay && !place.playerId) ? "page" : focus);
+  // Back from a player card returns to the row or link that opened it, so a
+  // keyboard or screen-reader user keeps their place in a long roster. The
+  // scroll position is restored to that spot too.
+  const fromCard = focus === "restore" && Boolean(before?.playerId) && !place.playerId && Boolean(trigger);
+  const mode = fromCard ? "restore" : selector ? "heading" : ((!place.overlay && !place.playerId) ? "page" : focus);
   if (mode === "heading") holdRouteFocus(token, () => shownQuery(selector), focusVisible);
   else if (mode === "page") holdRouteFocus(token, () => visiblePageHeading(), focusVisible);
   historyFocusTakeover = mode === "heading";

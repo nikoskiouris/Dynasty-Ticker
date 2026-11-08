@@ -1317,3 +1317,11 @@ test("trade tab order skips the body and the workspace", { timeout: 60000 }, asy
     }
   }
 });
+
+test("a player link (data-asset-id) is found again after a re-render", async () => {
+  const { invokerKey } = await import("../docs/modules/route-a11y.js");
+  const link = { getAttribute: (name) => ({ "data-action": "open-player", "data-asset-id": "player:8131" })[name] ?? null };
+  assert.equal(invokerKey(link), "player:player:8131");
+  const app = readFileSync(new URL("../docs/modules/route-a11y.js", import.meta.url), "utf8");
+  assert.match(app, /\[data-action="open-player"\]\[data-asset-id=/);
+});

@@ -231,7 +231,9 @@ function cssAttr(value) {
 export function invokerKey(el) {
   const action = el?.getAttribute?.("data-action") || "";
   const asset = el?.getAttribute?.("data-asset-id") || "";
-  const player = el?.getAttribute?.("data-player-id") || "";
+  const playerAttr = el?.getAttribute?.("data-player-id") || "";
+  // Player links (playerLinkHtml) carry data-asset-id="player:<id>".
+  const player = playerAttr || (el?.getAttribute?.("data-action") === "open-player" ? asset : "");
   const trade = el?.getAttribute?.("data-trade-id") || "";
   const manager = el?.getAttribute?.("data-manager-key") || "";
   if (action === "rank-open" && asset) return `asset:${asset}`;
@@ -246,7 +248,7 @@ export function findInvokerRow(doc, trigger) {
   const kind = key.startsWith("trade\n") ? "trade" : key.slice(0, key.indexOf(":"));
   const rest = kind === "trade" ? "" : key.slice(kind.length + 1);
   let selector = "";
-  if (kind === "player") selector = `[data-action="open-player"][data-player-id="${cssAttr(rest)}"]`;
+  if (kind === "player") selector = `[data-action="open-player"][data-player-id="${cssAttr(rest)}"], [data-action="open-player"][data-asset-id="${cssAttr(rest)}"]`;
   if (kind === "asset") selector = `[data-action="rank-open"][data-asset-id="${cssAttr(rest)}"]`;
   if (kind === "trade") {
     const [, trade, manager] = key.split("\n");
