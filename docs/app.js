@@ -4081,7 +4081,9 @@ function renderPowerDashboard() {
   if (!el.powerDashboard) return;
   const meRoster = getLensRoster();
   if (el.powerHeading) {
-    el.powerHeading.textContent = "Your team";
+    // The sample is someone else's team; its copy never says "your".
+    const voice = sampleVoice();
+    el.powerHeading.textContent = voice?.favor ? `${voice.favor} team` : "Your team";
   }
   if (!meRoster || state.normalizedRosters.length === 0) {
     el.powerDashboard.innerHTML = `<p class="muted">Choose your team to generate a power score.</p>`;
