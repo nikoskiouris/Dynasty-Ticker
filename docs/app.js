@@ -460,6 +460,8 @@ let connectNextPlace = null;
 let draftReplaced = null;
 // The full players board is open (Look up a player / All players).
 let playersBoardOpen = false;
+// One prices load for the calculator alone (see ensureCalcPrices).
+let calcPricesPromise = null;
 // Describe-a-trade box: the last message and its reply (memory only), and a
 // sentence typed before prices loaded.
 let tradeTalkLog = [];
@@ -987,7 +989,14 @@ function renderActivePage() {
     renderTradesRoom(room);
     if (room === "calculator") {
       renderRankHost(el.ranksDashboard);
-      if (!rankValuesReady() || !playerNoteContext?.previousSeason) void ensureRankExtras();
+      // Last season's stat lines (a 1.2MB Sleeper file) are for the players
+      // board and player cards. The calculator alone needs only prices.
+      const showsPlayers = playersBoardOpen || /^\/players\/?$/.test(window.location.pathname) || Boolean(state.ranks?.selectedId);
+      if (showsPlayers) {
+        if (!rankValuesReady() || !playerNoteContext?.previousSeason) void ensureRankExtras();
+      } else if (!rankValuesReady() && !state.leagueId) {
+        void ensureCalcPrices();
+      }
     }
   } else if (state.leagueId) {
     renderLeagueRoom(room);
@@ -1234,6 +1243,30 @@ async function ensureRankExtras() {
     renderRankSurfaces();
     renderTradeDraft();
   }
+}
+
+async function ensureCalcPrices() {
+  if (rankValuesReady()) return;
+  if (!calcPricesPromise) {
+    calcPricesPromise = (async () => {
+      try {
+        await ensureValuesLoaded("");
+        if (!state.leagueId) {
+          const bundle = pickValueBundle(state.valueBundles, activeRankFormat());
+          state.values = bundle.values || {};
+          state.valueNameMap = bundle.nameMap || {};
+          state.valueFormat = activeRankFormat();
+        }
+      } catch (err) {
+        console.warn("Could not load market prices", err);
+      } finally {
+        calcPricesPromise = null;
+      }
+    })();
+  }
+  await calcPricesPromise;
+  rankBoardCache = { key: "", rows: [] };
+  if (state.activePage === "trades" && getRoom("trades") === "calculator") renderTradeDraft();
 }
 
 function openPlayerBoard({ history = "push" } = {}) {
@@ -4968,7 +5001,9 @@ function paintTradeDraft() {
   if (!host) return;
   if (!draftValuesReady()) {
     host.innerHTML = `${renderBadShareNotice()}<p class="muted">Loading market prices…</p>`;
-    if (!state.leagueId) void ensureRankExtras();
+    // The calculator needs prices, not last season's stat lines (a 1.2MB
+    // Sleeper file). Player cards and the board still load those.
+    if (!state.leagueId) void ensureCalcPrices();
     return;
   }
   dropUnknownDraftPlayers();
