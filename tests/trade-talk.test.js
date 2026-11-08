@@ -221,3 +221,14 @@ test("in a league, 'two 1sts' adds two picks, generic when the team holds fewer"
   const firsts = [...draft.left, ...draft.right].filter((item) => /1st/.test(item.name));
   assert.equal(firsts.length, 2);
 });
+
+test("a comparison is checked as a straight swap", () => {
+  for (const line of ["Gibbs or Nabers?", "Gibbs vs Nabers", "who's better Gibbs or Nabers", "would you rather have Gibbs or Nabers", "compare Gibbs vs Nabers"]) {
+    const { draft, turns } = converse([line]);
+    assert.deepEqual([names(draft.left), names(draft.right)], [["Jahmyr Gibbs"], ["Malik Nabers"]], line);
+    assert.match(turns[0].reply.join(" "), /straight swap/, line);
+  }
+  // A real trade with "for" is untouched.
+  const { draft } = converse(["Gibbs or Nabers for Puka"]);
+  assert.ok(draft.right.some((item) => item.name === "Puka Nacua"));
+});
