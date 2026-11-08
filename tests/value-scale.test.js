@@ -479,3 +479,26 @@ test("selected ranks down trend clears 4.5 against the painted row", () => {
     }
   }
 });
+
+test("a trend starts at the first real price, not an unpriced 0", () => {
+  const now = new Date("2026-11-07T18:00:00Z");
+  const history = {
+    schemaVersion: 1,
+    snapshots: [
+      { asOf: "2026-10-14T19:17:17+00:00", stamp: "202610141917", sf: { "player:13269": 0 } },
+      { asOf: "2026-10-28T20:53:00+00:00", stamp: "202610282053", sf: { "player:13269": 6301 } },
+      { asOf: "2026-11-07T16:53:00+00:00", stamp: "202611071653", sf: { "player:13269": 6365 } },
+    ],
+  };
+  const trend = playerValueTrend(history, "player:13269", "sf", now);
+  assert.equal(trend.delta, 64);
+  assert.equal(trend.fromDate, "2026-10-28");
+  assert.match(renderValueTrend(trend, { now }), /up 64 since Oct 28/);
+  // One real price is not a trend yet.
+  const once = { schemaVersion: 1, snapshots: history.snapshots.slice(0, 2) };
+  assert.equal(playerValueTrend(once, "player:13269", "sf", now), null);
+  // A fall to 0 is still a fall.
+  const fell = valueTrend([{ date: "2026-10-28", value: 500 }, { date: "2026-11-07", value: 0 }], { now });
+  assert.equal(fell.direction, "down");
+  assert.equal(fell.delta, -500);
+});
