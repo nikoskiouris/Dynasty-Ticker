@@ -9,6 +9,10 @@ test("sample My team heading names the manager", async ({ page }) => {
   await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
   await expect(page.locator("#power-heading")).toHaveText(/^\S+'s? team$/);
   await expect(page.locator("#power-heading")).not.toHaveText(/your/i);
+  // Find a trade's empty line follows the same rule.
+  await page.locator(".page-tab[data-room='find']").click();
+  await expect(page.locator("#trade-match-dashboard")).not.toContainText("Looking for trades", { timeout: 30000 });
+  await expect(page.locator("#trade-match-dashboard")).not.toContainText(/\byour\b/i);
   await page.goto("/l/1360686137898700800/team");
   await expect(page.locator("body")).toHaveClass(/league-loaded/, { timeout: 45000 });
   await expect(page.locator("#power-heading")).toHaveText("Your team");

@@ -7998,7 +7998,7 @@ async function generateTradeMatches({ userRequested = false } = {}) {
       })),
       emptyText: ranked.length === 0
         ? "No team lines up on needs or timeline yet."
-        : "No fair deal that helps your lineup yet.",
+        : `No fair deal that helps ${sampleVoice()?.favor || "your"} lineup yet.`,
     };
   } catch (err) {
     state.tradeMatch.error = `Could not build matches. ${err.message}`;
