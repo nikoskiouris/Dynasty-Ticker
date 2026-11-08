@@ -14,10 +14,14 @@ export function inferPickSeasonSpan({
     .filter((season) => Number.isFinite(season));
   const base = Number(leagueSeason);
   const baseSeason = Number.isFinite(base) ? base : new Date().getUTCFullYear();
-  let startSeason = observed.length ? Math.min(...observed) : baseSeason;
-  if (startSeason < baseSeason) startSeason = baseSeason;
   const openSeason = Number(minOpenSeason);
-  if (Number.isFinite(openSeason) && startSeason < openSeason) startSeason = openSeason;
+  // A finished draft says exactly which year is next. Traded picks only push
+  // the window later in time, never past an untraded year: a league whose
+  // only trades are 2028/2029 picks still owns its 2027 picks.
+  let startSeason = Number.isFinite(openSeason) && openSeason > 0
+    ? Math.max(openSeason, baseSeason)
+    : (observed.length ? Math.min(...observed) : baseSeason);
+  if (startSeason < baseSeason) startSeason = baseSeason;
   const inWindow = observed.filter((season) => season >= startSeason);
   const endSeason = Math.max(
     startSeason + (inWindow.length > 0 ? 1 : 2),

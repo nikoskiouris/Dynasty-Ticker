@@ -112,6 +112,12 @@ test("the price board does not mint owned picks through its last year", () => {
     inferPickSeasonSpan({ leagueSeason: 2026, explicitSeasons: [], tradedSeasons: [2024], minOpenSeason: 2027 }),
     ["2027", "2028", "2029"],
   );
+  // The 2026 draft is done and the only trades are 2028/2029 picks: the 2027
+  // picks still exist (the sample league lost them).
+  assert.deepEqual(
+    inferPickSeasonSpan({ leagueSeason: 2026, tradedSeasons: [2028, 2029], minOpenSeason: 2027 }),
+    ["2027", "2028", "2029"],
+  );
 });
 
 test("league pick years come from the span helper, not the value catalog", () => {
