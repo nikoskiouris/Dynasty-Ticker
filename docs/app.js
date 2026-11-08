@@ -2459,7 +2459,8 @@ function renderSessionSnapshot() {
     return;
   }
   // Cold /t/<code>: no "Your Sleeper league" subtitle under the wordmark.
-  const coldShare = !state.leagueId && /^\/t\//.test(window.location.pathname);
+  // A broken /t link has no shared-trade title to stand in for the page h1.
+  const coldShare = !state.leagueId && !state.badShareLink && /^\/t\//.test(window.location.pathname);
   document.body.classList.toggle("cold-share", coldShare);
   if (el.mobileChromeTitle) el.mobileChromeTitle.hidden = coldShare;
   if (el.mobileChromeTitle && !coldShare) {
