@@ -8,6 +8,8 @@ import {
 
 export const VALUE_CALC_SIDES = Object.freeze(["left", "right"]);
 export const VALUE_CALC_BUCKETS = Object.freeze(["early", "mid", "late"]);
+const TIER_WORD = /\b(?:early|mid|middle|late)\b/i;
+export const WHOLE_ROUND_HINT = "No early, mid or late price for this round.";
 
 const ROUND_WORD_NAMES = {
   1: "first",
@@ -185,11 +187,19 @@ export function listValueCalcAssets(values = {}, names = {}, { query = "", limit
   const rows = [];
   if (want.has("player")) rows.push(...listValueCalcPlayerRows(values, names));
   if (want.has("pick")) rows.push(...listGenericPicks(values, names, { minSeason }));
-  return sliceValueCalcRows(
-    rows.filter((row) => valueCalcAssetMatchesQuery(row, query)).sort(sortValueCalcRows),
-    limit
-  );
+  const matched = rows.filter((row) => valueCalcAssetMatchesQuery(row, query));
+  // "2027 early 2nd": rounds after the 1st have one price for the whole round.
+  // Offer that round instead of "No matching", and say why.
+  if (!matched.length && want.has("pick") && TIER_WORD.test(String(query || ""))) {
+    const loose = String(query).replace(TIER_WORD, " ");
+    const whole = rows.filter((row) => row.assetType === "pick"
+      && !VALUE_CALC_BUCKETS.includes(parsePickAssetId(row.assetId)?.bucket)
+      && valueCalcAssetMatchesQuery(row, loose));
+    return sliceValueCalcRows(whole.map((row) => ({ ...row, hint: WHOLE_ROUND_HINT })).sort(sortValueCalcRows), limit);
+  }
+  return sliceValueCalcRows(matched.sort(sortValueCalcRows), limit);
 }
+
 
 export function listValueCalcPlayers(values = {}, names = {}, options = {}) {
   return listValueCalcAssets(values, names, { ...options, kinds: ["player"] });

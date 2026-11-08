@@ -221,3 +221,11 @@ test("in a league, 'two 1sts' adds two picks, generic when the team holds fewer"
   const firsts = [...draft.left, ...draft.right].filter((item) => /1st/.test(item.name));
   assert.equal(firsts.length, 2);
 });
+
+test("a tier the round has no price for is named, not dropped", () => {
+  const { draft, turns } = converse(["Gibbs for a 2027 early 2nd"]);
+  assert.deepEqual(names(draft.right), ["2027 2nd"]);
+  assert.match(turns[0].reply.join(" "), /There is no separate early price for a 2027 2nd, so it is priced as 2027 2nd\./);
+  // A priced tier says nothing extra.
+  assert.doesNotMatch(converse(["Gibbs for a 2027 early 1st"]).turns[0].reply.join(" "), /no separate/);
+});

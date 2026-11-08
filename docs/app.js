@@ -5785,6 +5785,7 @@ function draftSuggestionRows(side, view) {
       value: Math.round(row.value),
       estimated: false,
       context: "",
+      hint: row.hint || "",
       leagueId: "",
     }));
   }
@@ -5837,6 +5838,7 @@ function draftSuggestionRows(side, view) {
         value: Math.round(row.value),
         estimated: false,
         context: row.assetType === "pick" ? "Generic pick" : "Not on a roster here",
+        hint: row.hint || "",
         leagueId: "",
         group: 3,
       });

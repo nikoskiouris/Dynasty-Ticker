@@ -166,3 +166,20 @@ test("published snapshot names survive the format wrapper", () => {
   const firsts = listValueCalcAssets(bundle.values, bundle.nameMap, { query: "2027 1st", limit: 8, minSeason: 2027 });
   assert.ok(firsts.some((row) => row.assetType === "pick" && row.season === "2027"));
 });
+
+test("'2027 early 2nd' offers the whole-round 2nd and says there is no tier price", async () => {
+  const { listValueCalcAssets: list, WHOLE_ROUND_HINT: hint } = await import("../docs/modules/value-calc.js");
+  const values = {
+    "pick:2027:r1:early": 6667,
+    "pick:2027:r1:mid": 5290,
+    "pick:2027:r1:late": 4234,
+    "pick:2027:r2:any": 1745,
+  };
+  const rows = list(values, {}, { query: "2027 early 2nd", minSeason: 2027 });
+  assert.deepEqual(rows.map((row) => row.assetId), ["pick:2027:r2:any"]);
+  assert.equal(rows[0].hint, hint);
+  // A priced tier still matches itself, with no hint.
+  const late = list(values, {}, { query: "2027 late 1st", minSeason: 2027 });
+  assert.deepEqual(late.map((row) => row.assetId), ["pick:2027:r1:late"]);
+  assert.equal(late[0].hint, undefined);
+});
