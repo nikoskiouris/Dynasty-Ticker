@@ -2424,7 +2424,9 @@ function sampleViewingLine() {
 function syncDeskRailOffset() {
   const rail = el.controlRail;
   if (!rail || isPhoneLayout()) return;
-  const height = Math.ceil(rail.getBoundingClientRect().height);
+  // Round down: the sticky tabs tuck under the rail's last fraction of a pixel
+  // instead of leaving a sliver where scrolled content shows through.
+  const height = Math.floor(rail.getBoundingClientRect().height);
   if (height > 0) document.documentElement.style.setProperty("--desk-rail-height", `${height}px`);
 }
 
