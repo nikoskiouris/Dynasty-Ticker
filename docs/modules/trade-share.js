@@ -165,8 +165,10 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
       ? draftMarketPrice({ assetType: "pick", assetId }, { values, nameMap: bundle.nameMap || {} }).value
       : values[assetId];
     const value = Math.max(0, Math.round(Number(raw) || 0));
+    // No price at all (an old link, a player since dropped) is not a price of 0.
+    const unpriced = !Number.isFinite(Number(raw)) || raw === null || raw === "";
     const position = isPick ? "PICK" : String((payload?.players || directory?.players)?.[assetId]?.position || "").toUpperCase().slice(0, 4);
-    return { assetId, name: name.slice(0, 40), value, position };
+    return { assetId, name: name.slice(0, 40), value, position, unpriced };
   };
   const give = decoded.give.map(row);
   const get = decoded.get.map(row);
@@ -193,6 +195,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     tone: model.verdict.tone,
     verdict: model.verdict,
     stamp: priceStamp(payload?.asOf),
+    unpriced: [...give, ...get].filter((piece) => piece.unpriced).map((piece) => piece.name),
   };
   summary.label = neutralVerdict(summary);
   return summary;
@@ -202,19 +205,30 @@ const formatCount = (value) => Math.round(Math.abs(Number(value) || 0)).toLocale
 
 // All wording comes from verdictCopy (verdict-copy.js), same as the app.
 export function neutralVerdict(summary) {
-  return summary ? verdictCopy(summary.verdict).line : "";
+  return summary ? cardVerdict(summary).line : "";
+}
+
+// "No verdict: Player 123 has no price". A missing price never becomes a 0
+// that makes the other side look "worth over 10× as much".
+export function unpricedLine(summary) {
+  const names = Array.isArray(summary?.unpriced) ? summary.unpriced : [];
+  if (!names.length) return "";
+  const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0];
+  return `No verdict: ${list} ${names.length > 1 ? "have" : "has"} no price`;
 }
 
 // text: the 48px tier; pctText: "Give side worth 15% more" / "within 5%";
 // tone: fair | strong (public surfaces colour only the tier); side: Give | Get | "".
 export function cardVerdict(summary) {
+  const missing = unpricedLine(summary);
+  if (missing) return { text: "No verdict", pctText: missing.replace(/^No verdict: /, ""), tone: "fair", side: "", line: missing };
   const copy = verdictCopy(summary?.verdict);
   return { text: copy.label, pctText: copy.pctText, tone: copy.publicTone || "fair", side: copy.side, line: copy.line };
 }
 
 // The share sheet text (sentence case, no exclamation marks).
 export function shareMessage(summary) {
-  return `${verdictCopy(summary?.verdict).line}. Check it on Dynasty Ticker.`;
+  return `${cardVerdict(summary).line}. Check it on Dynasty Ticker.`;
 }
 
 // "Fewer, better pieces +7,413" on the side that gets the extra.

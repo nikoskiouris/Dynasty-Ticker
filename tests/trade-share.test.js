@@ -338,3 +338,24 @@ test("meta and card say as of the snapshot date", async () => {
   assert.equal(svg.headers.get("location"), "/og/t/2s2026100711174984~9221.png");
   assert.doesNotMatch(await svg.text(), /<svg/);
 });
+
+test("a shared piece with no price gives no verdict, not a lopsided one", async () => {
+  const summary = shareSummary(decodeTradeShare("1s123456789~9221"), values, NAMES);
+  assert.deepEqual(summary.unpriced, ["Player 123456789"]);
+  assert.equal(summary.label, "No verdict: Player 123456789 has no price");
+  const svg = renderCardSvg(summary);
+  assert.match(svg, />No verdict</);
+  assert.match(svg, />No price</);
+  assert.doesNotMatch(svg, /Lopsided|worth over/);
+  const page = await createSharePageHandler(deps)(new Request("https://dynastyticker.com/t/1s123456789~9221"));
+  const html = await page.text();
+  assert.match(html, /og:title" content="Player 123456789 for Jahmyr Gibbs: No verdict: Player 123456789 has no price"/);
+  assert.match(html, /og:description" content="Player 123456789 has no price on Dynasty Ticker/);
+  assert.doesNotMatch(html, /og:description" content="Give 0/);
+  // A real price of 0 is still a price.
+  const zero = Object.entries(values.sf).find(([id, value]) => id.startsWith("player:") && value === 0)?.[0];
+  if (zero) {
+    const code = `1s${zero.slice("player:".length)}~9221`;
+    assert.deepEqual(shareSummary(decodeTradeShare(code), values, NAMES).unpriced, []);
+  }
+});
