@@ -5293,7 +5293,21 @@ function runTradeTalk(text) {
   const groups = plan.asks.map((ask) => ({
     ask: true,
     title: ask.question || `Which one for “${ask.text}”?`,
-    chips: ask.options.map((option) => ({ ...option, side: ask.side || "left" })),
+    // "Which Chase?" choices carry position, team and price so the two read apart.
+    chips: ask.options.map((option) => {
+      const id = String(option.assetId || "");
+      const record = id.startsWith("player:")
+        ? (state.valueBundles?.players?.[id] || state.players?.[id.slice("player:".length)] || {})
+        : {};
+      const meta = [record.position, record.team].filter(Boolean).join(" · ");
+      const value = Number(after.basis.values?.[id]);
+      return {
+        ...option,
+        side: ask.side || "left",
+        label: meta ? `${option.name} · ${meta}` : option.name,
+        value: Number.isFinite(value) && value > 0 ? value : option.value,
+      };
+    }),
   }));
   const bothSides = after.draft.left.length > 0 && after.draft.right.length > 0;
   const connectLine = plan.unknownPartner && !after.basis.connected
