@@ -221,3 +221,10 @@ test("in a league, 'two 1sts' adds two picks, generic when the team holds fewer"
   const firsts = [...draft.left, ...draft.right].filter((item) => /1st/.test(item.name));
   assert.equal(firsts.length, 2);
 });
+
+test("a neutral 'A for B' marks its sides as a guess; a lead word or a league does not", () => {
+  assert.equal(converse(["London for Puka"]).turns[0].plan.sidesGuessed, true);
+  assert.equal(converse(["I give London for Puka"]).turns[0].plan.sidesGuessed, false);
+  assert.equal(converse(["I got offered London for Puka"]).turns[0].plan.sidesGuessed, false);
+  assert.equal(converse(["Gibbs for Nabers"], league).turns[0].plan.sidesGuessed, false);
+});

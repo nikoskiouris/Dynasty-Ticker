@@ -588,6 +588,9 @@ export function parseTradeTalk(message, ctx = {}) {
     absorb(plan, a);
     absorb(plan, b);
     if (leadPartner) plan.partnerRosterId = leadPartner.rosterId;
+    // "London and a 2nd for Puka" with no "I give" / "they offer" and no league
+    // to read ownership from: the sides are a guess. The reply offers a flip.
+    plan.sidesGuessed = !getLead && !lead && !context.connected;
     if (!getLead && !lead && ownershipFlip(plan, context)) {
       plan.adds = plan.adds.map((add) => ({ ...add, side: add.side === "left" ? "right" : "left" }));
       plan.asks = plan.asks.map((ask) => ({ ...ask, side: ask.side === "left" ? "right" : "left" }));
