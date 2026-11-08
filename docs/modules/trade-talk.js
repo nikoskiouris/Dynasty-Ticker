@@ -529,7 +529,16 @@ export function parseTradeTalk(message, ctx = {}) {
   // worth more. Anything with "for" is already a trade.
   let compared = false;
   const cmp = !/\bfor\b/.test(body) && body.match(/^(?:(?:who(?:'s|s| is)|which(?: one)? is)\s+(?:better|worth more)[,:]?\s+|(?:would you\s+)?rather(?:\s+have)?\s+|compare\s+)?(.+?)\s+(?:or|vs\.?|versus)\s+(.+)$/);
-  if (cmp && cmp[1].trim() && cmp[2].trim()) {
+  // "is Bowers worth a 2027 1st", "is Gibbs worth more than Bijan", "Bowers
+  // worth more than a 1st?": the same comparison, said as a value question.
+  const worth = !cmp && !/\bfor\b/.test(body) && (
+    body.match(/^(?:(?:is|are)\s+)?(.+?)\s+(?:is\s+)?worth\s+(?:more than\s+|as much as\s+|less than\s+|about\s+)?(.+)$/)
+  );
+  const worthPair = worth && !/^(?:it|anything|something|much|a lot|that|this|keeping|holding|buying|selling)$/.test(worth[2].trim()) ? worth : null;
+  if (worthPair && worthPair[1].trim() && worthPair[2].trim()) {
+    body = `${worthPair[1].trim()} for ${worthPair[2].trim()}`;
+    compared = true;
+  } else if (cmp && cmp[1].trim() && cmp[2].trim()) {
     body = `${cmp[1].trim()} for ${cmp[2].trim()}`;
     compared = true;
   }

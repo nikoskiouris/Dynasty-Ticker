@@ -232,3 +232,13 @@ test("a comparison is checked as a straight swap", () => {
   const { draft } = converse(["Gibbs or Nabers for Puka"]);
   assert.ok(draft.right.some((item) => item.name === "Puka Nacua"));
 });
+
+test("'is Gibbs worth a 2027 1st' compares him with the pick", () => {
+  for (const line of ["is Gibbs worth a 2027 1st", "is Gibbs worth a 2027 1st?", "is Gibbs worth more than a 2027 1st", "Gibbs worth more than a 2027 1st?"]) {
+    const { draft, turns } = converse([line]);
+    assert.deepEqual([names(draft.left), names(draft.right)], [["Jahmyr Gibbs"], ["2027 1st"]], line);
+    assert.match(turns[0].reply.join(" "), /straight swap/, line);
+  }
+  // "worth it" is not a comparison.
+  assert.equal(converse(["is Gibbs worth it"]).draft.right.length, 0);
+});
