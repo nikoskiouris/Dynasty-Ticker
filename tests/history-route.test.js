@@ -381,3 +381,16 @@ test("removed league rooms send their league to My team", () => {
     assert.equal(removedRoomRedirect(kept), "", kept);
   }
 });
+
+test("the sample league keeps ?sample=1 so a reload stays the sample", () => {
+  const id = "1360686137898700800";
+  assert.equal(pathForPlace({ page: "league", room: "team", leagueId: id, sample: true }), `/l/${id}/team?sample=1`);
+  assert.equal(pathForPlace({ page: "trades", room: "find", leagueId: id, sample: true }), `/l/${id}/ideas?sample=1`);
+  assert.equal(
+    pathForPlace({ page: "trades", room: "calculator", leagueId: id, give: ["player:9221"], get: ["player:4984"], sample: true }),
+    `/trade?give=9221&get=4984&league=${id}&sample=1`,
+  );
+  // A real league, or no league, never gets the flag.
+  assert.equal(pathForPlace({ page: "league", room: "team", leagueId: id }), `/l/${id}/team`);
+  assert.equal(pathForPlace({ page: "trades", room: "calculator", landing: true, sample: true }), "/");
+});
