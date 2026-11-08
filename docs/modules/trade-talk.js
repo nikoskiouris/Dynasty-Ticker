@@ -176,11 +176,13 @@ function cleanText(text) {
     .replace(/[’‘`]/g, "'")
     .replace(/[“”]/g, "\"")
     .replace(/\s*(?:\+|&)\s*/g, " and ")
+    // "Gibbs -> Chase": an arrow reads as "for".
+    .replace(/\s*(?:->|=>|→)\s*/g, " for ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-const ASK_TAIL = /(?:^|[\s,.;:!?-]+)(?:what do you think|what do u think|wdyt|thoughts|is (?:this|that|it) (?:fair|good|even|bad|a win|a fleece|a rip ?off|worth it)|should i (?:do|take|accept|make) (?:it|this|that)|would you (?:do|take|accept) (?:it|this|that)|good deal|fair|win or loss|who wins)\s*\??$/;
+const ASK_TAIL = /(?:^|[\s,.;:!?-]+)(?:what do you think|what do u think|wdyt|thoughts|is (?:this|that|it) (?:fair|good|even|bad|a win|a fleece|a rip ?off|worth it)|should i (?:do|take|accept|make) (?:it|this|that)|would you (?:do|take|accept) (?:it|this|that)|good deal|fair|win or loss|who wins|who won|did i win|did i lose|did i get (?:fleeced|robbed|ripped off)|was (?:it|that|this) (?:fair|good|a win|bad)|good trade|bad trade)\s*\??$/;
 const LEAD_FILLER = /^(?:hey|so|ok|okay|yo|hmm|um|lol)[,!.\s]+|^(?:would you do|would you take|should i do|should i take|should i accept|should i|would you|is|how about|what about|what if|lets do|let's do|try|check|rate)\s+/;
 
 function stripChatter(text) {
@@ -404,8 +406,8 @@ function inferPartner(plan, ctx) {
   return ctx.managers.find((manager) => String(manager.rosterId) === id)?.rosterId ?? null;
 }
 
-const GET_LEAD = /\b(?:got offered|was offered|been offered|offered me|offers me|offering me|offer me|gives me|give me|giving me|i get|i'd get|id get|i receive|i'm getting|im getting|getting|receiving|receive)\b\s*/;
-const GIVE_LEAD = /^(?:[a-z0-9@_.,']+\s+){0,3}?(?:i give|i'd give|id give|i trade|i'm trading|im trading|trading|trade|i offer|i offered|offering|offer|sell|selling|send|sending|give|giving|i do|do)\b\s*/;
+const GET_LEAD = /\b(?:got offered|was offered|been offered|being offered|i'm offered|im offered|am offered|(?:they|he|she|someone|somebody)(?:\s+(?:offered|offers|is offering|are offering)|(?:'s|s|'re|re) offering)|offered me|offers me|offering me|offer me|gives me|give me|giving me|i get|i'd get|id get|i receive|i'm getting|im getting|getting|receiving|receive)\b\s*/;
+const GIVE_LEAD = /^(?:[a-z0-9@_.,']+\s+){0,3}?(?:i traded|traded|i gave up|gave up|i gave|gave|i sold|sold|i give|i'd give|id give|i trade|i'm trading|im trading|trading|trade|i offer|i offered|offering|offer|sell|selling|send|sending|give|giving|i do|do)\b\s*/;
 const RIGHT_VERB = /^(?:add|adds|throw in|throws in|toss in|include|includes|give|gives|kick in|kicks in)\b\s*/;
 const RIGHT_ADD = /^(?:(?:they|he|she|them)\s+(?:add|adds|throw in|throws in|toss in|include|includes|give|gives|kick in|kicks in)|ask for|ask them for|have them add|make them add|i want|i get|get|request|and they add)\b\s*/;
 const PRONOUNS = new Set(["me", "him", "her", "them", "my", "his", "their", "us", "it"]);

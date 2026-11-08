@@ -221,3 +221,21 @@ test("in a league, 'two 1sts' adds two picks, generic when the team holds fewer"
   const firsts = [...draft.left, ...draft.right].filter((item) => /1st/.test(item.name));
   assert.equal(firsts.length, 2);
 });
+
+test("offers, past trades and arrows put each side where it belongs", () => {
+  const cases = [
+    ["they offered Nabers and a 2nd for Gibbs", ["Jahmyr Gibbs"], ["Malik Nabers", "2027 2nd"]],
+    ["he's offering Nabers for Gibbs", ["Jahmyr Gibbs"], ["Malik Nabers"]],
+    ["I'm being offered Nabers for Gibbs", ["Jahmyr Gibbs"], ["Malik Nabers"]],
+    ["I traded Gibbs for Nabers, did I win?", ["Jahmyr Gibbs"], ["Malik Nabers"]],
+    ["I gave up Gibbs for Nabers", ["Jahmyr Gibbs"], ["Malik Nabers"]],
+    ["I offered Gibbs for Nabers", ["Jahmyr Gibbs"], ["Malik Nabers"]],
+    ["Gibbs -> Nabers", ["Jahmyr Gibbs"], ["Malik Nabers"]],
+  ];
+  for (const [line, give, get] of cases) {
+    const { draft, turns } = converse([line]);
+    assert.deepEqual([names(draft.left), names(draft.right)], [give, get], line);
+    assert.equal(turns[0].plan.misses.length, 0, line);
+  }
+  assert.equal(converse(["I traded Gibbs for Nabers, did I win?"]).turns[0].plan.asked, true);
+});
