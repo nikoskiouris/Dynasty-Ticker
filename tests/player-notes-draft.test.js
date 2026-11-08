@@ -34,3 +34,13 @@ test("stat numbers keep their format", () => {
   assert.equal(formatStatNumber(7), "7");
   assert.equal(formatStatNumber("x"), "");
 });
+
+test("price history is normalized once per history, and a new snapshot is seen", async () => {
+  const { normalizePriceHistory, playerSeries } = await import("../docs/modules/value-scale.js");
+  const history = { schemaVersion: 1, snapshots: [{ asOf: "2026-11-01T00:00:00Z", stamp: "a", sf: { "player:1": 10 } }] };
+  const first = normalizePriceHistory(history);
+  assert.equal(normalizePriceHistory(history), first, "same object, same answer, no redo");
+  history.snapshots.push({ asOf: "2026-11-02T00:00:00Z", stamp: "b", sf: { "player:1": 12 } });
+  assert.equal(normalizePriceHistory(history).snapshots.length, 2, "an added snapshot is not hidden by the cache");
+  assert.deepEqual(playerSeries(history, "player:1").map((p) => p.value), [10, 12]);
+});
