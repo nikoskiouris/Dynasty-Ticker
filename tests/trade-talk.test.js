@@ -221,3 +221,23 @@ test("in a league, 'two 1sts' adds two picks, generic when the team holds fewer"
   const firsts = [...draft.left, ...draft.right].filter((item) => /1st/.test(item.name));
   assert.equal(firsts.length, 2);
 });
+
+test("in a league, a shared name on your side means your player; on theirs, theirs", () => {
+  const ctx = {
+    ...league,
+    catalog: [
+      ...league.catalog,
+      { assetId: "player:t1", name: "Jonathan Taylor", assetType: "player", value: 7800, ownerRosterId: 1 },
+      { assetId: "player:t2", name: "Mason Taylor", assetType: "player", value: 2000, ownerRosterId: 2 },
+      { assetId: "player:t3", name: "Tyrod Taylor", assetType: "player", value: 100, ownerRosterId: 3 },
+    ],
+  };
+  const mine = converse(["Taylor for Nabers"], ctx);
+  assert.deepEqual(names(mine.draft.left), ["Jonathan Taylor"]);
+  assert.equal(mine.turns[0].plan.asks.length, 0);
+  // Get side, partner known from Nabers: Chris's Taylor.
+  const theirs = converse(["Gibbs for Nabers", "they add Taylor"], ctx);
+  assert.deepEqual(names(theirs.draft.right), ["Malik Nabers", "Mason Taylor"]);
+  // Without a league it still asks.
+  assert.equal(converse(["Taylor for Nabers"], { ...ctx, connected: false, meRosterId: null }).turns[0].plan.asks.length, 1);
+});

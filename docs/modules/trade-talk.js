@@ -382,7 +382,13 @@ function resolvePiece(raw, { side, ctx, partner, index }) {
     if (hit.options) return { ask: { text: raw, side: pieceSide || "right", options: hit.options.map(asDraftAsset), question: hit.question } };
     return { adds: hit.picks.map((row) => ({ side: pieceSide || "left", asset: asDraftAsset(row) })), partner: owned.manager || null, note: hit.note || "" };
   }
-  const found = resolvePlayer(owned.text, index, { ownerRosterId, preferRostered: ctx.connected });
+  // In a league, a bare name on your side means your player ("Taylor and
+  // Stroud for Allen": you own Jonathan Taylor), and on their side means the
+  // partner's. Picks already work this way. No match there still asks.
+  const sideOwner = ctx.connected
+    ? (pieceSide === "left" ? ctx.meRosterId : pieceSide === "right" ? (partner?.rosterId ?? ctx.partnerRosterId) : null)
+    : null;
+  const found = resolvePlayer(owned.text, index, { ownerRosterId: ownerRosterId ?? sideOwner ?? null, preferRostered: ctx.connected });
   if (found.options) {
     return { ask: { text: raw, side: pieceSide, options: found.options.map(asDraftAsset), question: `Which ${owned.text.replace(/\b\w/g, (c) => c.toUpperCase())}?` } };
   }
