@@ -25,3 +25,15 @@ test("spa rewrite serves index for desk routes and 404 for a missing asset", () 
   assert.equal(classifyRequest("/site.webmanifest").status, 200);
   assert.equal(classifyRequest("/robots.txt").status, 200);
 });
+
+test("local serve answers /privacy and /terms like Netlify's pretty URLs", async () => {
+  const { classifyRequest } = await import("../scripts/serve_site.mjs");
+  for (const path of ["/privacy", "/terms"]) {
+    const hit = classifyRequest(path);
+    assert.equal(hit.status, 200, path);
+    assert.match(hit.file, new RegExp(`${path.slice(1)}\\.html$`));
+  }
+  // A missing page is still a 404, and a dotted path is not rewritten.
+  assert.equal(classifyRequest("/nope").status, 404);
+  assert.equal(classifyRequest("/privacy.html.html").status, 404);
+});

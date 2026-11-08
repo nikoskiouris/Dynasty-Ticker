@@ -51,7 +51,9 @@ export function classifyRequest(pathname) {
   // Same as netlify.toml: shared trades and their cards go to the functions.
   if (/^\/t\/[^/]+\/?$/.test(clean)) return { status: 200, file: fileAt("/index.html"), fn: "trade-page" };
   if (/^\/og\/t\/[^/]+$/.test(clean)) return { status: 200, file: null, fn: "trade-card" };
-  const staticFile = clean === "/" ? null : fileAt(clean);
+  // Netlify's pretty URLs serve /privacy from privacy.html. The footer links
+  // /privacy and /terms, so the local server does the same.
+  const staticFile = clean === "/" ? null : (fileAt(clean) || (/^\/[a-z0-9-]+$/i.test(clean) ? fileAt(`${clean}.html`) : null));
   if (staticFile) return { status: 200, file: staticFile };
   if (clean === "/" || isSpaPath(clean)) return { status: 200, file: fileAt("/index.html") };
   return { status: 404, file: fileAt("/404.html") };
