@@ -18,13 +18,15 @@ export function inferPickSeasonSpan({
   // A finished draft says exactly which year is next. Traded picks only push
   // the window later in time, never past an untraded year: a league whose
   // only trades are 2028/2029 picks still owns its 2027 picks.
-  let startSeason = Number.isFinite(openSeason) && openSeason > 0
+  const draftDone = Number.isFinite(openSeason) && openSeason > 0;
+  let startSeason = draftDone
     ? Math.max(openSeason, baseSeason)
     : (observed.length ? Math.min(...observed) : baseSeason);
   if (startSeason < baseSeason) startSeason = baseSeason;
   const inWindow = observed.filter((season) => season >= startSeason);
+  // After a finished draft, Sleeper holds three future drafts of picks.
   const endSeason = Math.max(
-    startSeason + (inWindow.length > 0 ? 1 : 2),
+    startSeason + (draftDone || inWindow.length === 0 ? 2 : 1),
     ...(inWindow.length ? inWindow : [startSeason]),
   );
   const seasons = [];
