@@ -5671,6 +5671,11 @@ body.cold-share #mobile-chrome-title {
   gap: 0.5rem;
   margin: 0;
 }
+.power-score-note {
+  margin: 0.4rem 0 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
 .power-badge-help {
   margin-top: 0.5rem;
   font-size: var(--fs-sm);

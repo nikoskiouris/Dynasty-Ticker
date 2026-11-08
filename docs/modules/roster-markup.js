@@ -52,6 +52,11 @@ export function renderSleeperInsight(insight) {
   `;
 }
 
+// The score and its tag ("Middle of the pack") rank roster value only. Say so,
+// or an 8-0 team reads "Middle of the pack" as a judgment of its season.
+export const POWER_SCORE_NOTE =
+  "Dynasty roster value against this league: starters, bench, picks, position balance and age. It ignores your record. A rough score, not a probability.";
+
 export function renderPowerHero({ score, managerName, grade, tierClass, badges } = {}) {
   const numeric = Number(score);
   const safeScore = Number.isFinite(numeric) ? Math.max(0, Math.min(100, Math.round(numeric))) : 0;
@@ -79,6 +84,7 @@ export function renderPowerHero({ score, managerName, grade, tierClass, badges }
         <div class="power-badge-row">
           ${badgeHtml}
         </div>
+        <p class="power-score-note">${escapeHtml(POWER_SCORE_NOTE)}</p>
         ${meanings.length ? `<details class="power-badge-help"><summary>What these tags mean</summary><ul>${meanings.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul></details>` : ""}
       </div>
     </div>

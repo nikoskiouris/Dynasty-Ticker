@@ -214,3 +214,11 @@ test("docs pages have no inline handlers, inline scripts, eval, or third-party s
     assert.doesNotMatch(src, /import\s+["']https?:/i, relative(root, path));
   }
 });
+
+test("the roster value score says it ignores the record", () => {
+  const hero = renderPowerHero({ score: 75, managerName: "kingshaw9", grade: "B", tierClass: "good", badges: ["Middle of the pack"] });
+  assert.match(hero, /Dynasty roster value against this league/);
+  assert.match(hero, /It ignores your record\./);
+  assert.match(hero, /not a probability/);
+  assert.match(readFileSync(join(root, "docs/ui/league.html"), "utf8"), /<h2 id="team-score-heading">Roster value score<\/h2>/);
+});
