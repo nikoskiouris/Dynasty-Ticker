@@ -8159,3 +8159,220 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
 .selected-token-label .player-link { display: inline; text-decoration: none; }
 .selected-token-label .player-link:hover,
 .selected-token-label .player-link:focus-visible { text-decoration: underline; }
+
+/* Crowd call (trade-poll.js): one slider, results after you vote. */
+.trade-poll {
+  margin-top: var(--sp-3);
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-soft);
+}
+
+.trade-poll .poll-head h3 {
+  margin: 2px 0 var(--sp-1);
+  font-size: var(--fs-h2);
+}
+
+.trade-poll .poll-sub {
+  margin: 0 0 var(--sp-3);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.poll-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semi);
+  color: var(--muted-strong);
+}
+
+.poll-ends span:last-child {
+  text-align: right;
+}
+
+.poll-range {
+  --poll-pos: 50%;
+  width: 100%;
+  height: var(--tap-min);
+  margin: var(--sp-1) 0 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+.poll-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background:
+    linear-gradient(var(--text), var(--text)) 50% 50% / 2px 14px no-repeat,
+    linear-gradient(90deg, var(--green-soft), var(--line) 50%, var(--green-soft));
+}
+
+.poll-range::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--green-soft), var(--line) 50%, var(--green-soft));
+}
+
+.poll-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg, #0c0c0e);
+  background: var(--text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.poll-range::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--bg, #0c0c0e);
+  background: var(--text);
+}
+
+.poll-range:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+/* Each label sits under its stop. The thumb travels 13px in from each edge. */
+.poll-ticks {
+  position: relative;
+  height: 1.4em;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-tight);
+  color: var(--muted);
+}
+
+.poll-ticks span {
+  position: absolute;
+  top: 0;
+  left: calc(13px + (100% - 26px) * var(--i) / 8);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.poll-ticks span:first-child {
+  left: 0;
+  transform: none;
+}
+
+.poll-ticks span:last-child {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.poll-ticks .is-on {
+  color: var(--text);
+  font-weight: var(--fw-semi);
+}
+
+.poll-ticks .is-even {
+  font-weight: var(--fw-semi);
+}
+
+.poll-readout {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-bold);
+  text-align: center;
+}
+
+.poll-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin-top: var(--sp-3);
+}
+
+.poll-vote-btn {
+  min-height: var(--tap-min);
+  min-width: 96px;
+  padding: 0 1.1rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--bg, #0c0c0e);
+  font: inherit;
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+}
+
+.poll-vote-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.poll-count,
+.poll-mine,
+.poll-split {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.poll-result {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-body-lg);
+}
+
+.poll-hist {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  align-items: end;
+  gap: 4px;
+  height: 72px;
+  margin: var(--sp-2) 0 0;
+  padding: 0 0 2px;
+  list-style: none;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.poll-hist li {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+}
+
+.poll-bar {
+  display: block;
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: var(--line-strong);
+}
+
+.poll-hist li.is-mine .poll-bar {
+  background: var(--text);
+}
+
+.poll-split {
+  margin: var(--sp-2) 0 0;
+}
+
+.poll-note {
+  margin: var(--sp-2) 0 0;
+  color: var(--amber);
+  font-size: var(--fs-sm);
+}
+
+.trade-poll .poll-note.muted {
+  color: var(--muted);
+}
+
+@media (max-width: 620px) {
+  /* Nine labels do not fit a phone. The readout under the slider says the stop. */
+  .poll-ticks span:not(.is-even) {
+    visibility: hidden;
+  }
+}

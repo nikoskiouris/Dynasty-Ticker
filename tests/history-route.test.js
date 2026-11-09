@@ -346,6 +346,7 @@ test("spa fallback lists placeholder routes then a 404 catch-all, after the api 
     "/api/searched-user",
     "/api/collect",
     "/api/analytics-stats",
+    "/api/trade-poll",
   ]);
   assert.ok(blocks.findIndex((rule) => rule.from === "/api/searched-user") < blocks.findIndex((rule) => rule.from === SPA_REWRITES[0]));
   const catchAll = blocks.at(-1);

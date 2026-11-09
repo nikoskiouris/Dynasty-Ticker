@@ -33,6 +33,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [017](017-ideas-explain-why.txt) | Trade ideas say what they do and why the other team says yes | P1 |
 | [018](018-returning-manager-resume.txt) | Returning manager lands back on their league and team | P1 |
 | [021](021-navigation-decision-tree.txt) | Navigation decision tree: trustworthy verdict, Find a trade that answers, one nav, a player page | P0 |
+| [022](022-crowd-trade-call.txt) | Crowd call: other managers drag one slider to say who a trade favors | P1 |
 ## Done
 
 | ID | Ticket | Priority | Shipped |
