@@ -26,7 +26,6 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | --- | --- | --- |
 | [005](005-win-now-targets.txt) | Win-now targets from this league | P1 |
 | [006](006-late-season-win-now.txt) | Late-season win-now value | P2 |
-| [007](007-assets-to-move-on.txt) | Assets to move on from for capital | P1 |
 | [008](008-aging-stars-on-bad-teams.txt) | Target aging stars on tanking teams | P1 |
 | [014](014-redraft-values.txt) | Redraft rest-of-season values | P1 |
 | [021](021-navigation-decision-tree.txt) | Navigation decision tree: trustworthy verdict, Find a trade that answers, one nav, a player page | P0 |
@@ -50,6 +49,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [022](022-player-values-backtested.txt) | Player values are a forecast that is checked against history | P0 | [#284](https://github.com/nikoskiouris/Dynasty-Ticker/pull/284) |
 | [017](017-ideas-explain-why.txt) | Trade ideas say what they do and why the other team says yes | P1 | [#220](https://github.com/nikoskiouris/Dynasty-Ticker/pull/220) |
 | [004](004-buy-low-sell-high.txt) | Buy-low / sell-high targets | P0 | [#221](https://github.com/nikoskiouris/Dynasty-Ticker/pull/221) |
+| [007](007-assets-to-move-on.txt) | Assets to move on from for capital | P1 | [#222](https://github.com/nikoskiouris/Dynasty-Ticker/pull/222) |
 
 ## Shipped before this board
 

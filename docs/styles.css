@@ -8226,3 +8226,9 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
 .buy-sell-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
 .buy-sell-why { margin: 0; }
 .buy-sell-row .link-btn[data-action="player-shop"] { justify-self: start; min-height: 44px; }
+/* Ticket 007: move on from. */
+.move-on-card { display: grid; gap: 0.4rem; padding: 0.85rem 1rem; margin: 0 0 1rem; border: 1px solid var(--line); border-radius: var(--r-md, 10px); background: var(--panel-soft, var(--panel)); }
+.move-on-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.move-on-row { display: grid; gap: 0.15rem; }
+.move-on-row p { margin: 0; }
+.move-on-row .link-btn[data-action="player-shop"] { justify-self: start; min-height: 44px; }
