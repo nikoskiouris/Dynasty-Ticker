@@ -46,8 +46,9 @@ export function classifyLeagueInput(raw, { digitsAreLeague = true } = {}) {
     return { kind: "league", leagueId: leaguePathMatch[1], username: "" };
   }
 
-  // The league-id box treats a bare number as an id. The username box never does.
-  if (digitsAreLeague && /^\d+$/.test(value)) {
+  // The league-id box treats a bare number as an id. The username box does
+  // only for a Sleeper-length id (15+ digits); "12345" stays a username.
+  if ((digitsAreLeague && /^\d+$/.test(value)) || /^\d{15,}$/.test(value)) {
     return { kind: "league", leagueId: value, username: "" };
   }
 

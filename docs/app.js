@@ -4432,7 +4432,7 @@ function renderNoLeaguePreview(kind) {
       <form class="no-league-connect" data-preview-connect novalidate>
         <label for="preview-username-${escapeHtml(kind)}">Sleeper username</label>
         <div class="no-league-row">
-          <input id="preview-username-${escapeHtml(kind)}" name="username" maxlength="40" placeholder="username" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
+          <input id="preview-username-${escapeHtml(kind)}" name="username" maxlength="120" placeholder="username" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
           <button type="submit">Connect my league</button>
         </div>
       </form>
