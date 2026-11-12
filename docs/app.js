@@ -2432,6 +2432,19 @@ function setMobileRailOpen(open, { history = "auto" } = {}) {
   }
   if (shouldOpen) el.mobileRailClose?.removeAttribute("tabindex");
   else el.mobileRailClose?.setAttribute("tabindex", "-1");
+  // The open drawer is a modal layer over the page. Tab must stay inside it,
+  // so the page behind (header, board button, workspace with the tab bar) is
+  // inert until it closes.
+  const behind = [
+    document.querySelector(".skip-link"),
+    document.querySelector("#mobile-chrome"),
+    document.querySelector("#desk-board-open"),
+    el.workspace,
+  ].filter(Boolean);
+  behind.forEach((node) => {
+    if (shouldOpen) node.setAttribute("inert", "");
+    else node.removeAttribute("inert");
+  });
   syncSiteDock();
   if (history === "silent" || applyingHistory) return;
   if (shouldOpen && !wasOpen) updateUrlState({ mode: "push" });
