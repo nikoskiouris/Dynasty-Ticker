@@ -694,6 +694,13 @@ document.addEventListener("submit", (event) => {
   document.querySelector("#landing")?.classList.remove("hidden");
   const box = document.querySelector("#landing-connect");
   if (box) box.hidden = false;
+  // The preview form goes away with the tab, which dropped focus to <body>.
+  // Land on the connect box that holds the name, the league list and any
+  // error. Not the input: on a phone that would keep the keyboard over the list.
+  if (box) {
+    box.setAttribute("tabindex", "-1");
+    box.focus({ preventScroll: true });
+  }
   requestFindLeagues();
 });
 document.addEventListener("change", (event) => {
