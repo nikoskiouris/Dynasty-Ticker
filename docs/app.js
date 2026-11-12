@@ -267,6 +267,7 @@ import { inventSampleCore } from "./modules/sample-league.js";
 import { shopOffers } from "./modules/shop-player.js";
 import { decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
 import { analyzeWindowCall, windowCallInputFromDesk } from "./modules/window-call.js";
+import { pickNextMove } from "./modules/next-move.js";
 import { chooseBestLineup } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
@@ -4270,20 +4271,25 @@ function renderPowerDashboard() {
 function renderNextMove(profile) {
   const host = document.querySelector("#next-move");
   if (!host) return;
-  const rows = (profile?.positionSummaries || []).filter((row) => row.rankLabel);
-  if (!rows.length) {
+  const move = pickNextMove(profile?.positionSummaries, profile?.totalTeams);
+  if (!move) {
     host.innerHTML = "";
     return;
   }
-  const weakest = rows.reduce((low, row) => (Number(row.percentile) < Number(low.percentile) ? row : low));
-  const strongest = rows.reduce((top, row) => (Number(row.percentile) > Number(top.percentile) ? row : top));
+  const { weakest, strongest } = move;
   const rank = String(weakest.rankLabel).replace(" / ", " of ");
   const sample = Boolean(sampleVoice());
+  const line = move.kind === "hold"
+    ? `<strong>No weak spot</strong> <span class="muted">Every group ranks in the top half. The lowest, ${escapeHtml(weakest.position)}, is ${escapeHtml(rank)}. A trade has to beat what you have.</span>`
+    : `<strong>Upgrade ${escapeHtml(weakest.position)}</strong> <span class="muted">${escapeHtml(weakest.position)} ranks ${escapeHtml(rank)}${strongest && strongest.position !== weakest.position ? `; ${escapeHtml(strongest.position)} is the deepest group to trade from` : ""}.</span>`;
+  const button = move.kind === "hold"
+    ? `<button type="button" class="ghost-btn" data-action="find-position" data-position="${escapeHtml(weakest.position)}">Look for ${escapeHtml(weakest.position)} upgrades anyway</button>`
+    : `<button type="button" data-action="find-position" data-position="${escapeHtml(weakest.position)}">Find a ${escapeHtml(weakest.position)}</button>`;
   host.innerHTML = `
     <section class="next-move-card" aria-labelledby="next-move-title">
       <p class="eyebrow" id="next-move-title">${sample ? "Next move" : "Your next move"}</p>
-      <p class="next-move-line"><strong>Upgrade ${escapeHtml(weakest.position)}</strong> <span class="muted">${escapeHtml(weakest.position)} ranks ${escapeHtml(rank)}${strongest && strongest.position !== weakest.position ? `; ${escapeHtml(strongest.position)} is the deepest group to trade from` : ""}.</span></p>
-      <button type="button" data-action="find-position" data-position="${escapeHtml(weakest.position)}">Find a ${escapeHtml(weakest.position)}</button>
+      <p class="next-move-line">${line}</p>
+      ${button}
     </section>
   `;
 }
