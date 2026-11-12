@@ -5032,6 +5032,7 @@ function renderRosterSheet() {
       ${renderPowerStat("Avg age", summary.averageAgeLabel)}
     </div>
     ${renderValuesFreshness(valuesFreshness())}
+    ${state.league && marketCaveat(state.league) ? `<p class="muted small calc-market-caveat">${escapeHtml(marketCaveat(state.league))}</p>` : ""}
     ${renderValueScaleExplainer()}
     <div class="sheet-grid">
       <section class="sheet-column">
@@ -5291,6 +5292,7 @@ function paintTradeDraft() {
       <h2>${escapeHtml(sampleVoice()?.giveGetHeading || "Trade")}</h2>
       <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
       ${renderValuesFreshness(valuesFreshness())}
+      ${state.leagueId && state.league && marketCaveat(state.league) ? `<p class="muted small calc-market-caveat">${escapeHtml(marketCaveat(state.league))}</p>` : ""}
     </div>
     ${renderTradeTalk()}
     <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
