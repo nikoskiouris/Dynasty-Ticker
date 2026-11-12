@@ -2,10 +2,13 @@ Title
 Trade ideas say what they do for you and why the other team would say yes
 
 Status
-Open
+Done
 
 Priority
 P1
+
+Shipped
+#220
 
 Area
 Find a trade → partners and shop/target cards (`renderMatchTradeCard`, `renderTradeCard`, `docs/modules/trade-match.js`)

@@ -833,3 +833,33 @@ function hasAssetOverlap(left, right) {
   const ids = new Set(left.map((asset) => asset.assetId));
   return right.some((asset) => ids.has(asset.assetId));
 }
+
+// Ticket 017: one reason the partner says yes, traceable to what the
+// calculator shows. Their filled hole first, then their window and what they
+// get for it. "" when nothing supports one; the caller drops that idea.
+export function partnerReasonLine({ theirHelp, theirProfile, myAssets = [], values, getAssetValue } = {}) {
+  if (!theirHelp || !theirProfile) return "";
+  const patch = (theirHelp.patchedNeeds || [])[0];
+  if (patch) {
+    const need = (theirProfile.needs || []).find((row) => row.position === patch.position);
+    const rank = String(need?.rankLabel || "").replace(" / ", " of ");
+    return `it fills their ${patch.position} hole${rank ? ` (${rank})` : ""}`;
+  }
+  const best = (type) => (myAssets || [])
+    .filter((asset) => asset?.assetType === type)
+    .map((asset) => ({ asset, value: Math.round(Number(getValue(asset, values, getAssetValue)) || 0) }))
+    .sort((a, b) => b.value - a.value)[0];
+  const priced = (row) => `${row.asset.name}${row.value > 0 ? ` (${row.value.toLocaleString("en-US")})` : ""}`;
+  if (theirProfile.timeline === "rebuilding") {
+    const pick = best("pick");
+    if (pick && Number(theirHelp.pickDelta) > 0) return `they're rebuilding and get ${priced(pick)}`;
+    const young = best("player");
+    if (young && Number(theirHelp.youthDelta) > 0) return `they're rebuilding and get younger with ${priced(young)}`;
+    return "";
+  }
+  if (theirProfile.timeline === "contending") {
+    const starter = best("player");
+    if (starter) return `they're contending and get ${priced(starter)} to play now`;
+  }
+  return "";
+}
