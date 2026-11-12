@@ -60,16 +60,22 @@ function roundSearchWords(round) {
   return [`${n}${suffix}`, `r${n}`, ROUND_WORD_NAMES[n]].filter(Boolean);
 }
 
+// A round priced as a whole (usually 2nd and later) has one price for every
+// slot, so "2027 early 2nd" finds that round's pick instead of nothing.
+const WHOLE_ROUND_ALIASES = Object.freeze(["early", "mid", "middle", "late"]);
+
 export function valueCalcAssetSearchText(row) {
   if (row?.assetType === "pick") {
+    const season = String(row.season || "");
     return [
       row.name,
       row.assetId,
       row.season,
+      /^\d{4}$/.test(season) ? season.slice(2) : "",
       "pick",
       `round${row.round}`,
       ...roundSearchWords(row.round),
-      ...getPickBucketAliases(row.bucket),
+      ...(row.bucket === "any" ? WHOLE_ROUND_ALIASES : getPickBucketAliases(row.bucket)),
       row.bucketLabel,
     ].filter(Boolean).join(" ");
   }
@@ -85,8 +91,27 @@ function wordMatchesToken(word, token) {
   return word.startsWith(token);
 }
 
+// "1.05" is round 1, slot 5. Slots 1-4 read as early, 5-8 mid, 9+ late.
+export function expandPickSlotQuery(query) {
+  return String(query || "").replace(/\b(\d{1,2})\.(\d{1,2})\b/g, (match, round, slot) => {
+    const r = Number(round);
+    const n = Number(slot);
+    if (!r || !n) return match;
+    const bucket = n <= 4 ? "early" : n <= 8 ? "mid" : "late";
+    return `r${r} ${bucket}`;
+  });
+}
+
+// The query asked for a slot tier, but this round has one price for every slot.
+export function wholeRoundPickHint(row, query) {
+  if (row?.assetType !== "pick" || row.bucket !== "any") return "";
+  if (!/\b(?:early|mid|middle|late)\b|\b\d{1,2}\.\d{1,2}\b/i.test(String(query || ""))) return "";
+  const words = roundSearchWords(row.round);
+  return words[0] ? `One price for every ${words[0]}` : "";
+}
+
 export function valueCalcAssetMatchesQuery(row, query) {
-  const tokens = searchWords(query);
+  const tokens = searchWords(expandPickSlotQuery(query));
   // Emoji or punctuation only: nothing to match, so show "No matching".
   if (!tokens.length) return !String(query || "").trim();
   const words = searchWords(valueCalcAssetSearchText(row));

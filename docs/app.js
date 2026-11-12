@@ -133,6 +133,7 @@ import {
   removeValueCalcItem,
   swapValueCalcSides,
   valueCalcAssetMatchesQuery,
+  wholeRoundPickHint,
   tradeRowName,
   withPlayerDirectoryNames,
 } from "./modules/value-calc.js";
@@ -5802,6 +5803,7 @@ function draftSuggestionRows(side, view) {
       value: Math.round(row.value),
       estimated: false,
       context: "",
+      hint: wholeRoundPickHint(row, query),
       leagueId: "",
     }));
   }

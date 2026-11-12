@@ -1,5 +1,6 @@
 import { formatGenericPickAssetLabel, parsePickAssetId } from "./values.js";
 import {
+  expandPickSlotQuery,
   addValueCalcItem,
   clearValueCalcSides,
   emptyValueCalcState,
@@ -251,7 +252,7 @@ function pullOwner(piece, managers, meRosterId) {
 }
 
 export function parsePickPhrase(text, { season = new Date().getUTCFullYear() + 1 } = {}) {
-  const words = String(text || "").toLowerCase().replace(/'/g, "").split(/[^a-z0-9]+/).filter(Boolean);
+  const words = expandPickSlotQuery(text).toLowerCase().replace(/'/g, "").split(/[^a-z0-9]+/).filter(Boolean);
   if (!words.length) return null;
   const pick = { season: null, round: null, bucket: "", count: 1 };
   for (let i = 0; i < words.length; i += 1) {
