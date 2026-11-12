@@ -4072,7 +4072,7 @@ function renderRosterDirectory(roster) {
     ${failedNote}
     <div class="sheet-grid">
       <section class="sheet-column"${loadingPlayers ? ` aria-busy="true"` : ""}>
-        <h4>Roster</h4>
+        <h3 class="sheet-heading">Roster</h3>
         ${loadingLabel}
         ${failedLabel}
         ${players.map((asset) => {
@@ -4100,7 +4100,7 @@ function renderRosterDirectory(roster) {
           `;
         }).join("") || `<p class="muted small">No players on this roster.</p>`}
         ${showPicks ? `
-          <h4>Draft picks</h4>
+          <h3 class="sheet-heading">Draft picks</h3>
           ${picks.map((asset) => renderPickVaultRow(asset, values)).join("") || `<p class="muted small">No draft picks owned.</p>`}
         ` : ""}
       </section>
@@ -4830,16 +4830,16 @@ function renderRosterSheet() {
     ${renderValueScaleExplainer()}
     <div class="sheet-grid">
       <section class="sheet-column">
-        <h4>Best lineup by value</h4>
+        <h3 class="sheet-heading">Best lineup by value</h3>
         ${startRows.map((entry) => entry.asset
           ? renderPlayerRow(entry.asset, entry.slotLabel, { slot: entry.slot })
           : `<div class="sheet-row empty">${sheetSlotMarkup(entry.slot, entry.slotLabel)}<div class="sheet-player"><strong>Open</strong></div></div>`).join("")}
       </section>
       <section class="sheet-column">
-        <h4>Bench</h4>
+        <h3 class="sheet-heading">Bench</h3>
         ${benchRows.map((asset) => renderPlayerRow(asset, isTradeEligibleAsset(asset) ? "Bench" : formatPlayerPositionLabel(asset))).join("") || `<p class="muted small">No bench players.</p>`}
         ${showPicks ? `
-        <h4>Draft picks</h4>
+        <h3 class="sheet-heading">Draft picks</h3>
         ${picks.length
           ? picks.map((asset) => renderPickVaultRow(asset, values)).join("")
           : `<p class="muted small">No draft picks owned.</p>`}` : ""}
