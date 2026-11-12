@@ -529,7 +529,7 @@ export function parseTradeTalk(message, ctx = {}) {
   };
   const index = indexPlayers(context.catalog);
   const { body: chatter, asked } = stripChatter(cleanText(message));
-  const { body, partner, unknown } = pullPartner(chatter, context.managers, context.meRosterId);
+  let { body, partner, unknown } = pullPartner(chatter, context.managers, context.meRosterId);
   if (partner) context.partnerRosterId = partner.rosterId;
   const finish = (plan) => {
     plan.asked = asked;
@@ -544,6 +544,25 @@ export function parseTradeTalk(message, ctx = {}) {
   if (!body) return finish(blankPlan(asked ? "verdict" : "empty"));
   if (/^(?:clear|reset|start over|new trade|empty)(?: it| the trade| everything| all| both sides)?$/.test(body)) return finish(blankPlan("clear"));
   if (/^(?:flip|swap|switch|reverse)(?: it| the trade| sides| the sides| them)?$/.test(body)) return finish(blankPlan("flip"));
+
+  // "Gibbs or Bijan?", "Gibbs vs Bijan", "who's better, Gibbs or Bijan": a
+  // comparison is checked as a straight swap, so the verdict says which side is
+  // worth more. Anything with "for" is already a trade.
+  let compared = false;
+  const cmp = !/\bfor\b/.test(body) && body.match(/^(?:(?:who(?:'s|s| is)|which(?: one)? is)\s+(?:better|worth more)[,:]?\s+|(?:would you\s+)?rather(?:\s+have)?\s+|compare\s+)?(.+?)\s+(?:or|vs\.?|versus)\s+(.+)$/);
+  // "is Bowers worth a 2027 1st", "is Gibbs worth more than Bijan", "Bowers
+  // worth more than a 1st?": the same comparison, said as a value question.
+  const worth = !cmp && !/\bfor\b/.test(body) && (
+    body.match(/^(?:(?:is|are)\s+)?(.+?)\s+(?:is\s+)?worth\s+(?:more than\s+|as much as\s+|less than\s+|about\s+)?(.+)$/)
+  );
+  const worthPair = worth && !/^(?:it|anything|something|much|a lot|that|this|keeping|holding|buying|selling)$/.test(worth[2].trim()) ? worth : null;
+  if (worthPair && worthPair[1].trim() && worthPair[2].trim()) {
+    body = `${worthPair[1].trim()} for ${worthPair[2].trim()}`;
+    compared = true;
+  } else if (cmp && cmp[1].trim() && cmp[2].trim()) {
+    body = `${cmp[1].trim()} for ${cmp[2].trim()}`;
+    compared = true;
+  }
 
   const replace = body.match(/^(?:swap|replace|change|sub|switch|trade)\s+(?:out\s+)?(.+?)\s+(?:for|with|to|into)\s+(.+)$/);
   if (replace && findInDraft(replace[1], context.draft, context).length) {
@@ -620,6 +639,7 @@ export function parseTradeTalk(message, ctx = {}) {
       plan.adds = plan.adds.map((add) => ({ ...add, side: add.side === "left" ? "right" : "left" }));
       plan.asks = plan.asks.map((ask) => ({ ...ask, side: ask.side === "left" ? "right" : "left" }));
     }
+    if (compared && plan.adds.length >= 2) plan.notes.push("Checked as a straight swap, so the verdict says which side is worth more.");
     return finish(plan);
   }
 
