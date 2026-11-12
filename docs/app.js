@@ -5504,7 +5504,9 @@ function runTradeTalk(text) {
     sticky,
     groups,
     connectLine,
-    next: tradeTalkNext(after),
+    next: plan.sidesGuessed && bothSides
+      ? [...tradeTalkNext(after).filter((text) => text !== "clear").slice(0, 2), "flip sides"]
+      : tradeTalkNext(after),
   }];
   analyticsTrack("trade_described", { intent: plan.intent });
   patchTradeDraft(["left", "right"]);
