@@ -7885,7 +7885,7 @@ function renderMatchPartners() {
     return;
   }
   host.innerHTML = `<ol class="match-partner-list">${partners.map((row) => `
-    <li><strong>${escapeHtml(row.name)}</strong>${row.why ? ` <span class="muted small">${escapeHtml(row.why)}</span>` : ""}</li>
+    <li><strong>${escapeHtml(row.name)}</strong>${row.why ? ` <span class="muted small">${escapeHtml(row.why)}</span>` : ""}${row.rosterId != null ? ` <button type="button" class="ghost-btn match-partner-go" data-action="calc-with" data-roster-id="${escapeHtml(String(row.rosterId))}">Build a trade with ${escapeHtml(row.name)}</button>` : ""}</li>
   `).join("")}</ol>`;
 }
 
@@ -8173,6 +8173,7 @@ async function generateTradeMatches({ userRequested = false } = {}) {
       ideas: allIdeas,
       partners: groups.slice(0, 5).map((group) => ({
         name: group.title,
+        rosterId: group.rosterId,
         why: describePartnerMatch(group.match, myProfile, { voice: sampleVoice() }),
       })),
       emptyText: ranked.length === 0

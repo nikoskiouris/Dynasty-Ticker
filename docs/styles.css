@@ -8107,6 +8107,7 @@ button.talk-chip {
 .match-idea-list { display: grid; gap: 0.75rem; }
 .match-more { margin-top: 0.75rem; }
 .match-partner-list { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+#match-partners .match-partner-go { display: block; margin-top: 0.3rem; min-height: 44px; }
 .shop-select { width: 100%; max-width: 32rem; }
 .shop-results { display: grid; gap: 0.75rem; margin-top: 0.75rem; }
 .link-btn { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; font: inherit; cursor: pointer; min-height: 0; }
