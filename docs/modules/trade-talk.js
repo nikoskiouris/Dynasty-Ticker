@@ -352,7 +352,12 @@ function resolvePick(pick, { side, ownerRosterId, ctx }) {
     }
   }
   const generic = genericPickAsset(pick, ctx.pickIds);
-  if (!generic) return { reason: `No price for ${pickLabel(pick)} picks yet.` };
+  if (!generic) {
+    // A season that already drafted has no picks left to trade.
+    const next = Number(ctx?.season) || 0;
+    if (next && Number(pick.season) < next) return { reason: `The ${pick.season} draft already happened. Try ${next}.` };
+    return { reason: `No price for ${pickLabel(pick)} picks yet.` };
+  }
   const note = ctx.connected && !seasonKnown
     ? `No ${pick.season} picks on rosters here, so ${generic.name} is a generic pick at market price.`
     : "";
