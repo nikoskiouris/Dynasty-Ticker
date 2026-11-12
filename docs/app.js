@@ -7695,6 +7695,17 @@ function renderTradeMatchDashboard() {
     return;
   }
   if (!ideas.length) {
+    // No two-way idea. My team's "Your next move" already names the lowest-ranked
+    // group, so price fair buys there instead of ending on "no deal".
+    const low = lowestRankedGroup(getMyRoster()?.rosterId);
+    const buys = low ? renderPositionBuys(low.position, { quietWhenEmpty: true }) : "";
+    if (buys) {
+      el.tradeMatchDashboard.innerHTML = `
+        <p class="small find-fallback">No two-way idea fits yet, so here is what a ${escapeHtml(low.position)} costs. ${shopLink}</p>
+        ${buys}`;
+      renderMatchPartners();
+      return;
+    }
     el.tradeMatchDashboard.innerHTML = `${focusNote}<p class="muted">${escapeHtml(payload.emptyText || "No fair deal that helps your lineup yet.")} ${shopLink}</p>`;
     renderMatchPartners();
     return;
@@ -7846,7 +7857,7 @@ function renderShopResults(result) {
 
 // Focused on a position with no partner idea: price the best players at that
 // position on other rosters and show a fair offer for each.
-function renderPositionBuys(position) {
+function renderPositionBuys(position, { quietWhenEmpty = false } = {}) {
   const me = getMyRoster();
   if (!me) return "";
   const candidates = (state.normalizedRosters || [])
@@ -7865,6 +7876,7 @@ function renderPositionBuys(position) {
     if (cards.length >= 3) break;
   }
   if (!cards.length) {
+    if (quietWhenEmpty) return "";
     return `<p class="muted">No fair deal that adds a ${escapeHtml(position)} yet. <button type="button" class="link-btn" data-action="focus-shop">Shop a player →</button></p>`;
   }
   return `<p class="small"><strong>${escapeHtml(position)}s you could get at a fair price</strong></p><div class="match-idea-list">${cards.join("")}</div>`;
