@@ -5336,6 +5336,13 @@ body.league-loaded #landing,
 body.league-loaded .state-grid {
   display: none;
 }
+/* Phone: the header's "Connect my league" opens the rail. With no landing
+   on screen, the rail's own form is the way in, or the drawer is empty. */
+@media (max-width: 700px) {
+  body.rail-open:not(.league-loaded):not(.viewing-sample) .control-rail .league-module {
+    display: grid;
+  }
+}
 body.league-loaded .league-hero { padding-block: 0.35rem; }
 body.league-loaded .workspace-lede { display: none; }
 
