@@ -5659,9 +5659,12 @@ function renderDraftBasis(view) {
   const { basis } = view;
   return `
     <div class="draft-basis-row" role="group" aria-label="Scoring format">
-      <div class="draft-format-toggle">
+      ${basis.connected
+        // A league's prices follow its format. A toggle here did nothing.
+        ? `<p class="draft-format-fixed" title="Prices use your league's format: ${escapeHtml(rankFormatLabel(basis.format))}.">${basis.format === "oneQb" ? "1QB" : "SF"} <span>· your league</span></p>`
+        : `<div class="draft-format-toggle">
         ${["sf", "oneQb"].map((format) => `<button type="button" class="draft-format-btn${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}" aria-label="PPR · ${escapeHtml(rankFormatLabel(format))}" title="PPR · ${escapeHtml(rankFormatLabel(format))}">${format === "sf" ? "SF" : "1QB"}</button>`).join("")}
-      </div>
+      </div>`}
       ${infoTipMarkup({ id: "pop-format-trade", label: "Scoring and how values work", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${GLOSSARY["1QB"]} ${valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10))}` })}
     </div>
   `;
