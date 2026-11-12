@@ -713,6 +713,7 @@ document.addEventListener("change", (event) => {
 });
 
 let sampleBannerOff = false;
+let valuesLoadFailed = false;
 let leagueMissing = false;
 let sleeperUnreachable = false;
 let connectAsked = false;
@@ -1143,7 +1144,7 @@ function leagueLoadBlocksPlayer() {
 
 function rankViewModel() {
   if (!rankValuesReady() || leagueLoadBlocksPlayer()) {
-    return rankView({ loading: true, format: activeRankFormat() });
+    return rankView({ loading: true, failed: valuesLoadFailed && !rankValuesReady(), format: activeRankFormat() });
   }
   return rankView({
     rows: cachedRankRows(),
@@ -1272,6 +1273,9 @@ async function ensureRankExtras() {
     if (rankContextPromise) await rankContextPromise;
   } catch (err) {
     console.warn("Could not load player ranks", err);
+    // Remember the miss so the next paint shows it instead of fetching again.
+    // Without this, paint -> fetch -> fail -> paint ran hundreds of times a second.
+    if (!rankValuesReady()) valuesLoadFailed = true;
   }
   rankExtrasSettled = true;
   rankBoardCache = { key: "", rows: [] };
@@ -5135,6 +5139,11 @@ function paintTradeDraft() {
   const host = el.calculatorShell;
   if (!host) return;
   if (!draftValuesReady()) {
+    if (valuesLoadFailed) {
+      const kept = state.valueCalc?.left?.length || state.valueCalc?.right?.length ? " Your trade is kept." : "";
+      host.innerHTML = `${renderBadShareNotice()}<p class="muted" role="status">Couldn't load market prices.${kept} <button type="button" class="ghost-btn" data-action="retry-values">Try again</button></p>`;
+      return;
+    }
     host.innerHTML = `${renderBadShareNotice()}<p class="muted">Loading market prices…</p>`;
     // The calculator needs prices, not last season's stat lines (a 1.2MB
     // Sleeper file). Player cards and the board still load those.
@@ -6782,6 +6791,13 @@ function handleWorkspaceClick(event) {
       setLensRoster(target.dataset.rosterId);
       openRoom("league", "team");
       el.powerSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      break;
+    }
+    case "retry-values": {
+      valuesLoadFailed = false;
+      paintTradeDraft();
+      if (ranksBoardVisible()) renderRankSurfaces();
+      void ensureRankExtras();
       break;
     }
     case "calc-with": {
@@ -9569,6 +9585,7 @@ async function ensureValuesLoaded(optionalUrl = "") {
 }
 
 function applyValuationBundle(bundle, { rerender = true } = {}) {
+  valuesLoadFailed = false;
   state.valueFormat = selectValueFormat(state.league);
   state.valuationRevision = Number(state.valuationRevision || 0) + 1;
   state.values = bundle?.values && typeof bundle.values === "object" ? bundle.values : {};
