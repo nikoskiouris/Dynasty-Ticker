@@ -18,9 +18,12 @@ function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-export function routeDocumentTitle({ playerName = "", tab = "", room = "", siteName = ROUTE_SITE_NAME } = {}) {
+export const ROUTE_PLAYERS_TITLE = "Players";
+
+export function routeDocumentTitle({ playerName = "", tab = "", room = "", playersBoard = false, siteName = ROUTE_SITE_NAME } = {}) {
   const player = clean(playerName);
   if (player) return `${player} · ${siteName}`;
+  if (playersBoard && room === "calculator") return `${ROUTE_PLAYERS_TITLE} · ${siteName}`;
   const roomLabel = ROUTE_ROOM_TITLES[room] || "";
   if (roomLabel) return `${roomLabel} · ${siteName}`;
   const label = ROUTE_TAB_LABELS[tab] || "";
@@ -42,6 +45,7 @@ export function routeAnnouncement(place = {}, before = {}) {
   if (overlay === "trade") return "Trade";
   if (overlay === "rail" && !changed) return "Menu";
   if (overlay === "player" || player) return player || "Player";
+  if (place.playersBoard && place.view === "calculator") return ROUTE_PLAYERS_TITLE;
   const roomLabel = ROUTE_ROOM_TITLES[place.view] || "";
   if (roomLabel) return roomLabel;
   return ROUTE_TAB_LABELS[place.tab] || "";
@@ -118,6 +122,7 @@ export function headingSelectorFor(place = {}) {
   if (overlay === "player" || place.playerId) return ".ranks-card h2, .player-week-sheet h2";
   const page = place.page || place.tab || "";
   const room = String(place.view || "");
+  if (place.playersBoard && page === "trades" && room === "calculator") return "#ranks-section .panel-heading h2";
   if (ROOM_HEADINGS[`${page}:${room}`]) return ROOM_HEADINGS[`${page}:${room}`];
   return "";
 }

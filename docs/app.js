@@ -866,6 +866,7 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
       give: draftSideIds("left"),
       get: draftSideIds("right"),
       shareCode: activeShareCode(),
+      playersBoard: playersBoardOpen,
     });
     if (!href || href === window.location.pathname) return;
   }
@@ -958,6 +959,13 @@ function handlePageTabKeydown(event) {
   nextTab.focus();
   if (isActiveNavTab(nextTab)) return;
   openRoom(nextTab.dataset.page, nextTab.dataset.room, { history: "push", scroll: "top" });
+}
+
+// The board is open and the trades calculator room is the one on screen.
+function playersBoardShown() {
+  return playersBoardOpen
+    && state.activePage === "trades"
+    && getRoom("trades") === "calculator";
 }
 
 function syncPlayersBoardFlag() {
@@ -1388,6 +1396,7 @@ function routePlaceNow() {
     view: getRoom(),
     overlay,
     page: state.activePage,
+    playersBoard: playersBoardShown() && !showPlayer && !onLanding,
   };
 }
 
@@ -1721,7 +1730,10 @@ function updateUrlStateInner({ mode = "replace", force = false } = {}) {
   // Leaving a cold /t stays on the trade calculator, so the place key does not
   // change and a normal push is downgraded to replace. Force one history entry
   // so Back and Forward can restore the shared title and the app title.
-  const write = force && mode === "push" && pathChanged ? "push" : placeWrite;
+  // Opening or leaving the players board stays in the calculator room too, so
+  // the place key matches. It is still a new screen: Back must return to it.
+  const boardFlip = /^\/players\/?$/.test(here) !== /^\/players\/?$/.test(nextPath);
+  const write = (force || boardFlip) && mode === "push" && pathChanged ? "push" : placeWrite;
   const pushed = write === "push" ? true : (write === "replace" && sameHistoryPlace(history.state || {}, snapshot) && Boolean(history.state?.pushed));
   const entry = { ...snapshot, pushed };
   // The history entry keeps whatever document.title is right now. Set the
@@ -1799,6 +1811,9 @@ function applyPlayerRoute(historyState, parsed) {
 }
 
 function applyDeskPopState(historyState) {
+  // Back and Forward decide from the address: /players opens the board,
+  // anything else closes it.
+  playersBoardOpen = /^\/players\/?$/.test(window.location.pathname);
   const route = resolveLocation(window.location.pathname, window.location.search);
   const parsed = parseShareParams(window.location.search);
   const leagueId = route.leagueId || parsed.leagueId || "";
@@ -2306,6 +2321,7 @@ function buildShareUrl(overrides = {}) {
     get: draftSideIds("right"),
     shareCode: activeShareCode(),
     landing: landingVisible(),
+    playersBoard: playersBoardShown(),
   });
   if (href) return `${overrides.origin ?? window.location.origin}${href}`;
   return buildShareUrlFromParts({
@@ -2431,6 +2447,7 @@ function syncDeskRailOffset() {
 function guestRouteHeading() {
   const path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
   if (state.activePage === "trades" && getRoom("trades") === "find") return "Find a trade";
+  if (playersBoardShown()) return "Players";
   if (path === "/trade" || path === "/players" || state.activePage === "trades") return "Check a trade";
   return "Dynasty Ticker";
 }
@@ -9695,6 +9712,7 @@ function syncDocumentMeta() {
     playerName: place.playerName,
     tab: place.titleTab,
     room: place.view,
+    playersBoard: place.playersBoard,
   });
   const room = state.leagueId ? getRoom() : "";
   const description = buildPageDescription({
@@ -9717,6 +9735,10 @@ function syncDocumentMeta() {
     description,
   });
   if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
+  // The guest header names the screen. Opening or leaving the board changes it.
+  if (el.mobileChromeTitle && !state.leagueId && !state.viewingSample && !document.body.classList.contains("cold-share")) {
+    el.mobileChromeTitle.textContent = guestRouteHeading();
+  }
 }
 
 async function loadPlayerNoteContext() {
