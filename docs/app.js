@@ -248,6 +248,7 @@ import {
   fewerBetterOffer,
   verdictCopy,
   verdictLineNamed,
+  evenUpCopy,
 } from "./modules/verdict-copy.js";
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import { GLOSSARY, bindInfoTips, infoTipMarkup, renderPriceLegend, valuesWorkText } from "./modules/info-tip.js";
@@ -5936,27 +5937,9 @@ function findEvenUpPick(view) {
   });
 }
 
-function evenUpCopy(choice, side) {
-  if (!choice) return "";
-  const verb = side === "You" || side === "They" ? "add" : "adds";
-  // Cite a pick only when its price is close to the gap.
-  const near = Number(choice.value) > 0 && Number(choice.gap) > 0
-    && choice.value <= choice.gap * 1.5 && choice.value >= choice.gap * 0.67;
-  if (choice.closes && !near) {
-    return `${side} ${verb} about ${formatNumber(choice.gap)}. No single pick is close to that.`;
-  }
-  if (choice.closes) {
-    return `${side} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
-  }
-  if (Number.isFinite(Number(choice.pct))) {
-    const after = choice.verdict ? verdictLineNamed(choice.verdict, sampleVoice() ? {} : { Give: "You give", Get: "You get" }) : "";
-    return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}).${after ? ` After that pick: ${after}.` : ""}`;
-  }
-  const short = choice.value < choice.gap;
-  const why = short
-    ? `It covers ${formatNumber(choice.value)} of a ${formatNumber(choice.gap)} gap, so it does not close.`
-    : `It is ${formatNumber(choice.value - choice.gap)} more than the ${formatNumber(choice.gap)} gap.`;
-  return `No single pick closes this gap. Closest is a ${choice.name} (${formatNumber(choice.value)}). ${why}`;
+function evenUpLine(choice, side) {
+  const after = choice?.verdict ? verdictLineNamed(choice.verdict, sampleVoice() ? {} : { Give: "You give", Get: "You get" }) : "";
+  return evenUpCopy(choice, side, { afterLine: after });
 }
 
 function renderDraftMethod(view) {
@@ -6028,11 +6011,11 @@ function renderDraftVerdict(view) {
         ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${verdictLineHtml(label)}</h3>`}
         ${sharedView ? renderVerdictFinePrint(escapeHtml(sharedTotalsLine(model)), `
           ${starsPremiumMarkup(model, { best, pick: bestPick, shared: true })}
-          ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpCopy(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
+          ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpLine(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
         ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
-        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpCopy(evenUp, evenSide))}</p>` : ""}
+        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpLine(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method calc-why">
           <summary>Why?</summary>
           ${bothSides ? renderDraftMeterWhy(view, {

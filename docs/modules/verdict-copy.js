@@ -20,6 +20,7 @@
 // public card and cold /t; direction is shown by placement and a pointer.
 import { valueCalcVerdict } from "./value-calc.js";
 import { DEFAULT_FAIRNESS_PCT } from "./constants.js";
+import { formatNumber } from "./html.js";
 
 // Labels valueCalcVerdict gives when both sides are filled in.
 const BOTH_SIDES = new Set(["Dead even", "Fair, leans Get", "Fair, leans Give", "Favors Get", "Favors Give", "Lopsided for Get", "Lopsided for Give"]);
@@ -216,4 +217,33 @@ export function ideaGapMore(a, b) {
   const more = percentMore(a, b);
   if (more == null || !(Number(a) > 0) || !(Number(b) > 0)) return 1000;
   return displayMore(more);
+}
+
+// "Even it up" / "To make it fair". side names who adds: "You", "They", a
+// manager's name, or "Give" / "Get" on a shared link. Every branch says who
+// adds, including when no single pick closes the gap.
+// afterLine: the verdict line after the closest pick, when it does not close.
+export function evenUpCopy(choice, side, { afterLine = "" } = {}) {
+  if (!choice) return "";
+  const who = side === "Give" || side === "Get" ? `The ${side} side` : String(side || "They");
+  const verb = who === "You" || who === "They" ? "add" : "adds";
+  // Cite a pick only when its price is close to the gap.
+  const near = Number(choice.value) > 0 && Number(choice.gap) > 0
+    && choice.value <= choice.gap * 1.5 && choice.value >= choice.gap * 0.67;
+  if (choice.closes && !near) {
+    return `${who} ${verb} about ${formatNumber(choice.gap)}. No single pick is close to that.`;
+  }
+  if (choice.closes) {
+    return `${who} ${verb} about ${formatNumber(choice.gap)}, roughly a ${choice.name} (${formatNumber(choice.value)}).`;
+  }
+  const mid = /^(?:You|They|The) /.test(`${who} `) ? who.charAt(0).toLowerCase() + who.slice(1) : who;
+  const closest = `No single pick closes this gap. Closest: ${mid} ${verb} a ${choice.name} (${formatNumber(choice.value)}).`;
+  if (Number.isFinite(Number(choice.pct))) {
+    return `${closest}${afterLine ? ` After that pick: ${afterLine}.` : ""}`;
+  }
+  const short = choice.value < choice.gap;
+  const why = short
+    ? `It covers ${formatNumber(choice.value)} of a ${formatNumber(choice.gap)} gap, so it does not close.`
+    : `It is ${formatNumber(choice.value - choice.gap)} more than the ${formatNumber(choice.gap)} gap.`;
+  return `${closest} ${why}`;
 }
