@@ -364,10 +364,14 @@ function resolvePick(pick, { side, ownerRosterId, ctx }) {
     if (next && Number(pick.season) < next) return { reason: `The ${pick.season} draft already happened. Try ${next}.` };
     return { reason: `No price for ${pickLabel(pick)} picks yet.` };
   }
-  const note = ctx.connected && !seasonKnown
-    ? `No ${pick.season} picks on rosters here, so ${generic.name} is a generic pick at market price.`
-    : "";
-  return { picks: Array.from({ length: pick.count }, () => generic), note };
+  const notes = [];
+  if (ctx.connected && !seasonKnown) notes.push(`No ${pick.season} picks on rosters here, so ${generic.name} is a generic pick at market price.`);
+  // "2027 early 2nd": only some rounds have early/mid/late prices. Say so
+  // instead of quietly dropping the word.
+  if (pick.bucket && !generic.assetId.endsWith(`:${pick.bucket}`)) {
+    notes.push(`There is no separate ${pick.bucket} price for a ${pickLabel({ ...pick, bucket: "" })}, so it is priced as ${generic.name}.`);
+  }
+  return { picks: Array.from({ length: pick.count }, () => generic), note: notes.join(" ") };
 }
 
 function ownerFor(owned, ctx, partner) {
