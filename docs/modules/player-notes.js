@@ -42,14 +42,35 @@ export async function fetchNflDraftPicks(fetchImpl = globalThis.fetch) {
   }
 }
 
+// Name -> draft rows, built once per draft file. The board looks up hundreds of
+// players; scanning and re-normalizing every row each time froze /players for
+// most of a second on a phone.
+const draftNameIndexes = new WeakMap();
+
+function draftNameIndex(draftPicks) {
+  if (!draftPicks || typeof draftPicks !== "object") return new Map();
+  let index = draftNameIndexes.get(draftPicks);
+  if (!index) {
+    index = new Map();
+    for (const row of Object.values(draftPicks)) {
+      if (!isDraftRow(row)) continue;
+      const key = normalizeName(row.name);
+      if (!key) continue;
+      const list = index.get(key);
+      if (list) list.push(row);
+      else index.set(key, [row]);
+    }
+    draftNameIndexes.set(draftPicks, index);
+  }
+  return index;
+}
+
 export function lookupNflDraftPick(playerId, draftPicks = {}, nflPlayer = {}) {
   const direct = draftPicks?.[String(playerId || "")];
   if (isDraftRow(direct)) return normalizeDraftRow(direct);
   const want = normalizeName(nflPlayer?.full_name || `${nflPlayer?.first_name || ""} ${nflPlayer?.last_name || ""}`);
   if (!want) return null;
-  const matches = Object.values(draftPicks || {}).filter((row) => (
-    isDraftRow(row) && normalizeName(row.name) === want
-  ));
+  const matches = draftNameIndex(draftPicks).get(want) || [];
   return matches.length === 1 ? normalizeDraftRow(matches[0]) : null;
 }
 
@@ -62,13 +83,17 @@ export function formatDraftLine(draft) {
   return "Rookie";
 }
 
+// toLocaleString builds a formatter per call; the board formats thousands.
+const WHOLE_FORMAT = new Intl.NumberFormat("en-US");
+const TENTHS_FORMAT = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1, minimumFractionDigits: 0 });
+
 export function formatStatNumber(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return "";
   if (Math.abs(numeric - Math.round(numeric)) < 1e-9) {
-    return Math.round(numeric).toLocaleString("en-US");
+    return WHOLE_FORMAT.format(Math.round(numeric));
   }
-  return numeric.toLocaleString("en-US", { maximumFractionDigits: 1, minimumFractionDigits: 0 });
+  return TENTHS_FORMAT.format(numeric);
 }
 
 export function formatSeasonStats(stats, position) {

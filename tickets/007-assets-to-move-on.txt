@@ -2,10 +2,13 @@ Title
 Assets to move on from for capital
 
 Status
-Open
+Done
 
 Priority
 P1
+
+Shipped
+#222
 
 Area
 Teams → Call / Trades

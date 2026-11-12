@@ -61,7 +61,7 @@ function sideColumn(summary, key, x, measure, bigger = "") {
     if (i > 0) parts.push(`<line x1="${x + PAD_X}" y1="${y}" x2="${right}" y2="${y}" stroke="${C.line}" stroke-width="1"/>`);
     const mid = y + ROW_H / 2;
     const pill = row.position === "PICK" ? "PK" : (row.position || "—");
-    const valueText = count(row.value);
+    const valueText = row.unpriced ? "No price" : count(row.value);
     const valueW = measure(valueText, NAME_SIZE);
     const nameX = x + PAD_X + PILL_W + 12;
     const nameMax = right - valueW - 16 - nameX;

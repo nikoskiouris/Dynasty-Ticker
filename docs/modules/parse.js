@@ -11,7 +11,7 @@ import {
 import { isRankAssetId } from "./ranks.js";
 
 const SLEEPER_LEAGUE_PATH = /leagues\/(\d+)/i;
-const SLEEPER_USER_PATH = /sleeper\.app\/(?:u|user)\/([^/?#]+)/i;
+const SLEEPER_USER_PATH = /sleeper\.(?:app|com)\/(?:u|user)\/([^/?#]+)/i;
 const LONG_NUMERIC_ID = /(\d{8,})/;
 
 export function parseLeagueId(raw) {
@@ -46,8 +46,9 @@ export function classifyLeagueInput(raw, { digitsAreLeague = true } = {}) {
     return { kind: "league", leagueId: leaguePathMatch[1], username: "" };
   }
 
-  // The league-id box treats a bare number as an id. The username box never does.
-  if (digitsAreLeague && /^\d+$/.test(value)) {
+  // The league-id box treats a bare number as an id. The username box does
+  // only for a Sleeper-length id (15+ digits); "12345" stays a username.
+  if ((digitsAreLeague && /^\d+$/.test(value)) || /^\d{15,}$/.test(value)) {
     return { kind: "league", leagueId: value, username: "" };
   }
 
@@ -57,7 +58,7 @@ export function classifyLeagueInput(raw, { digitsAreLeague = true } = {}) {
   }
 
   const embeddedId = value.match(LONG_NUMERIC_ID);
-  if (embeddedId && /sleeper\.app/i.test(value)) {
+  if (embeddedId && /sleeper\.(?:app|com)/i.test(value)) {
     return { kind: "league", leagueId: embeddedId[1], username: "" };
   }
 

@@ -24,14 +24,8 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 
 | ID | Ticket | Priority |
 | --- | --- | --- |
-| [004](004-buy-low-sell-high.txt) | Buy-low / sell-high targets | P0 |
-| [005](005-win-now-targets.txt) | Win-now targets from this league | P1 |
 | [006](006-late-season-win-now.txt) | Late-season win-now value | P2 |
-| [007](007-assets-to-move-on.txt) | Assets to move on from for capital | P1 |
-| [008](008-aging-stars-on-bad-teams.txt) | Target aging stars on tanking teams | P1 |
 | [014](014-redraft-values.txt) | Redraft rest-of-season values | P1 |
-| [017](017-ideas-explain-why.txt) | Trade ideas say what they do and why the other team says yes | P1 |
-| [018](018-returning-manager-resume.txt) | Returning manager lands back on their league and team | P1 |
 | [021](021-navigation-decision-tree.txt) | Navigation decision tree: trustworthy verdict, Find a trade that answers, one nav, a player page | P0 |
 ## Done
 
@@ -40,16 +34,23 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [001](001-weekly-player-value.txt) | Weekly player value from matchup + usage | P0 | [#57](https://github.com/nikoskiouris/Dynasty-Ticker/pull/57) |
 | [002](002-sit-start.txt) | Sit / start | P0 | [#60](https://github.com/nikoskiouris/Dynasty-Ticker/pull/60) |
 | [003](003-future-dynasty-rankings.txt) | Future dynasty rankings (one year out, names not picks) | P0 | [#61](https://github.com/nikoskiouris/Dynasty-Ticker/pull/61) |
+| [004](004-buy-low-sell-high.txt) | Buy-low / sell-high targets | P0 | [#221](https://github.com/nikoskiouris/Dynasty-Ticker/pull/221) |
+| [005](005-win-now-targets.txt) | Win-now targets from this league | P1 | [#223](https://github.com/nikoskiouris/Dynasty-Ticker/pull/223) |
+| [007](007-assets-to-move-on.txt) | Assets to move on from for capital | P1 | [#222](https://github.com/nikoskiouris/Dynasty-Ticker/pull/222) |
+| [008](008-aging-stars-on-bad-teams.txt) | Target aging stars on tanking teams | P1 | [#223](https://github.com/nikoskiouris/Dynasty-Ticker/pull/223) |
 | [009](009-trade-match-false-needs.txt) | Trade match invents positional needs | P0 | [#77](https://github.com/nikoskiouris/Dynasty-Ticker/pull/77) |
-| [012](012-trades-first-run.txt) | Trades page first-run is confusing | P0 | [#77](https://github.com/nikoskiouris/Dynasty-Ticker/pull/77) |
-| [013](013-trade-desk-freeze.txt) | Deal finder / calculator freeze | P0 | [#64](https://github.com/nikoskiouris/Dynasty-Ticker/pull/64) |
 | [010](010-league-first-landing.txt) | League is the product; rather is not the homepage | P0 | [#81](https://github.com/nikoskiouris/Dynasty-Ticker/pull/81) |
 | [011](011-rather-pairing.txt) | Rather pairing still produces no-brainers | P1 | [#81](https://github.com/nikoskiouris/Dynasty-Ticker/pull/81) |
+| [012](012-trades-first-run.txt) | Trades page first-run is confusing | P0 | [#77](https://github.com/nikoskiouris/Dynasty-Ticker/pull/77) |
+| [013](013-trade-desk-freeze.txt) | Deal finder / calculator freeze | P0 | [#64](https://github.com/nikoskiouris/Dynasty-Ticker/pull/64) |
 | [015](015-trade-survives-connect.txt) | A trade you built survives connecting Sleeper | P0 | [#97](https://github.com/nikoskiouris/Dynasty-Ticker/pull/97) |
 | [016](016-one-price-every-screen.txt) | One price for a player on every screen | P0 | [#111](https://github.com/nikoskiouris/Dynasty-Ticker/pull/111) |
+| [017](017-ideas-explain-why.txt) | Trade ideas say what they do and why the other team says yes | P1 | [#220](https://github.com/nikoskiouris/Dynasty-Ticker/pull/220) |
+| [018](018-returning-manager-resume.txt) | Returning manager lands back on their league and team | P1 | [#213](https://github.com/nikoskiouris/Dynasty-Ticker/pull/213) |
 | [019](019-describe-a-trade.txt) | Describe a trade in plain words and the calculator builds it | P1 | [#193](https://github.com/nikoskiouris/Dynasty-Ticker/pull/193) |
 | [020](020-three-tabs.txt) | Simplify to three tabs: Check a trade, Find a trade, My team | P0 | [#195](https://github.com/nikoskiouris/Dynasty-Ticker/pull/195) |
 | [022](022-player-values-backtested.txt) | Player values are a forecast that is checked against history | P0 | [#284](https://github.com/nikoskiouris/Dynasty-Ticker/pull/284) |
+| [023](023-crowd-trade-call.txt) | Crowd call: other managers drag one slider to say who a trade favors | P1 | [#282](https://github.com/nikoskiouris/Dynasty-Ticker/pull/282) |
 
 ## Shipped before this board
 

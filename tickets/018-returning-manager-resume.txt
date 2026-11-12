@@ -2,10 +2,13 @@ Title
 A returning manager lands back on their league and team
 
 Status
-Open
+Done
 
 Priority
 P1
+
+Shipped
+#213
 
 Area
 Landing, league search, local storage (`docs/modules/parse.js` `bootSearchFieldValues`, `docs/privacy.html`)

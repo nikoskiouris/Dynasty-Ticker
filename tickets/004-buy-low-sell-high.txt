@@ -2,10 +2,13 @@ Title
 Buy-low and sell-high targets
 
 Status
-Open
+Done
 
 Priority
 P0 — starred in the note
+
+Shipped
+#221
 
 Area
 Trades / Teams
