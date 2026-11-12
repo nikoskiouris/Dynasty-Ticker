@@ -248,6 +248,11 @@ export function valueTrend(points, { now = new Date(), windowDays = TREND_WINDOW
     })
     .filter(Boolean)
     .sort((a, b) => a.day - b.day || a.value - b.value);
+  // A leading 0 means the model had no price for him yet (a rookie before
+  // rookie pricing was fixed), not that he was worth nothing. Start the trend at
+  // his first real price so a new price never reads as "up 6,365".
+  const firstPriced = series.findIndex((point) => point.value > 0);
+  if (firstPriced > 0) series.splice(0, firstPriced);
   if (series.length < 2) return null;
   const first = series[0];
   const last = series[series.length - 1];
