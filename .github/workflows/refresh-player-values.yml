@@ -63,17 +63,6 @@ jobs:
           fi
           python3 scripts/archive_price_snapshot.py
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22.12.0"
-          cache: npm
-
-      - name: Install
-        run: npm ci
-
-      - name: Validate repository
-        run: npm test
-
       - name: Commit refreshed snapshot
         run: |
           git add docs/data/player_values.json player-values/validation.json docs/data/price-history docs/data/nfl_players_slim.json

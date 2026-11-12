@@ -34,22 +34,29 @@ What follows from that:
 - **Keep capabilities, give each a clear home.** Consolidate duplicate implementations. Explain any removal in the PR. Old links keep working.
 - **Feedback names a problem, not a fix.** "I don't understand this page" is a comprehension problem. Moving a button is one guess; check that it solved the problem.
 
+## Owner policy: no unit tests or automated test suites
+
+- Do not write unit tests or add any automated test suite, snapshots, mocks, fixtures, test-only dependencies, or test CI jobs unless the owner explicitly asks to reverse this policy.
+- Do not recreate the removed Node, Python, or browser tests. Read `.cursor/skills/no-unit-tests/SKILL.md` before coding.
+- Verify changes manually in a browser or CLI as appropriate. Syntax checks, build checks, data-integrity validation, and deployment safeguards remain allowed; never claim automated tests passed.
+- Describe what was and was not manually checked in each PR.
+
 ## Proving a change
 
 - Write acceptance criteria as observable user behavior before building.
 - Walk the journey in a real browser at desktop, phone, and iPad sizes: find a player, add him to a trade, build the other side, read the verdict, connect Sleeper, see the same trade with team impact, adjust it. Review trade opens the same editable trade. Back stays on the site.
-- Regression tests pin behavior (draft kept, one verdict, correct ownership, durable saves), not labels or tab counts.
+- During manual regression review, check behavior (draft kept, one verdict, correct ownership, durable saves), not labels or tab counts.
 - A developer walkthrough is not usability evidence. First-visit tasks live in `research/first-visit-tasks.md`. Never invent results.
 
 ## Shipping a change
 
 These apply to every agent (Cursor, Claude Code, or any other). How to record: `.cursor/skills/ship-with-demo/SKILL.md`.
 
-- Test changes yourself.
+- Manually verify changes yourself without creating or running automated test suites.
 - Every change ships with a demo video that shows what changed and how it works, including changes with nothing on screen (docs, tests, scripts, data jobs): show the diff, the terminal, or the page that proves the result. After you put up or update a PR, show the owner the video. Embed it in the PR when your tools can upload it; otherwise send it in the final reply.
 - A demo video is not usability evidence (see Proving a change).
 - A launch video, only when the owner asks for one, follows `.cursor/skills/brag/SKILL.md`.
-- After tests pass and the demo is recorded, commit, push, and update the PR.
+- After manual verification and the demo are recorded, commit, push, and update the PR.
 
 ## Git branches
 
@@ -66,7 +73,7 @@ When a ticket is done:
 1. Set `Status` to `Done` in the ticket file. Keep the rest of the file.
 2. Add a `Shipped` line with the PR (`#57`).
 3. Move the README row from Open to Done and link the PR.
-4. Run `npm test` so `tests/tickets.test.js` agrees.
+4. Manually confirm the ticket status and README row agree; do not add a ticket test.
 
 If an old ticket's product guidance conflicts with Product purpose, add a `Superseded` note to that ticket. Do not delete it or rewrite its history.
 
@@ -79,5 +86,5 @@ If an old ticket's product guidance conflicts with Product purpose, add a `Super
 - Do not run a scheduled Netlify production deploy. Market files refresh when a release is cut. The weekly Dynasty Nerds mock scrape may commit JSON to `develop`; that must not publish the live site.
 - GitHub runs scheduled workflows only from the repository default branch. That branch must be `develop`, or the player-value and rookie-mock refreshes never start.
 - `scripts/stage_pages_preview.sh` refuses. An old Pages workflow must not publish the desk.
-- Local check: `npm run serve` (or `npm test`). Do not burn Netlify credits for preview deploys.
+- Local check: `npm run serve` plus focused manual verification. No automated test suite. Do not burn Netlify credits for preview deploys.
 - Netlify functions need site environment variable `VISIT_SALT` (Functions and Runtime scope). `scripts/deploy_live_site.sh` runs `scripts/ensure_netlify_salts.py` and will not publish until it is a real secret. Do not commit the values. The old public default `dynasty-ticker-traffic-v1` is rejected.
