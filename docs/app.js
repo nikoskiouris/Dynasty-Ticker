@@ -2429,6 +2429,7 @@ function buildShareUrl(overrides = {}) {
     shareCode: activeShareCode(),
     landing: landingVisible(),
     playersBoard: playersBoardShown(),
+    format: state.leagueId ? "" : activeRankFormat(),
   });
   if (href) return `${overrides.origin ?? window.location.origin}${href}`;
   return buildShareUrlFromParts({
@@ -7031,6 +7032,7 @@ function handleWorkspaceClick(event) {
       state.ranks.format = target.dataset.format === "oneQb" ? "oneQb" : "sf";
       rankBoardCache = { key: "", rows: [] };
       patchTradeDraft(["left", "right"]);
+      updateUrlState({ mode: "replace" });
       break;
     }
     case "calc-copy": {

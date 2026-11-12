@@ -108,13 +108,16 @@ function publicTradeId(id) {
   return String(id || "").replace(/^player:/, "");
 }
 
-export function tradeHref(give = [], get = [], leagueId = "") {
+export function tradeHref(give = [], get = [], leagueId = "", { format = "" } = {}) {
   const giveIds = parseAssetList(Array.isArray(give) ? give.join(",") : give);
   const getIds = parseAssetList(Array.isArray(get) ? get.join(",") : get);
   const bits = [];
   if (giveIds.length) bits.push(`give=${giveIds.map(publicTradeId).join(",")}`);
   if (getIds.length) bits.push(`get=${getIds.map(publicTradeId).join(",")}`);
   if (LEAGUE_ID.test(String(leagueId || ""))) bits.push(`league=${String(leagueId)}`);
+  // Superflex is the default. Without a league, a 1QB board rides in the link
+  // so a reload or a copied link checks the trade on the same prices.
+  else if (format === "oneQb" && (giveIds.length || getIds.length)) bits.push("fmt=1qb");
   const query = bits.join("&");
   return `${urlPath("trade")}${query ? `?${query}` : ""}`;
 }
@@ -260,6 +263,7 @@ export function matchRoute(pathname, search = "") {
       // "/trade?say=Gibbs for Nabers": a described trade. Read once, then the URL
       // becomes the usual give/get.
       say: row.name === "trade" ? String(params.get("say") || params.get("try") || "").trim().slice(0, 300) : "",
+      format: row.name === "trade" && String(params.get("fmt") || "").toLowerCase() === "1qb" ? "oneQb" : "",
       next: row.name === "connect" ? safeNext(params.get("next")) : "",
     });
   }
@@ -349,6 +353,7 @@ export function pathForPlace({
   shareCode = "",
   landing = false,
   playersBoard = false,
+  format = "",
 } = {}) {
   const placePage = page || tab;
   const placeRoom = room || view;
@@ -365,7 +370,7 @@ export function pathForPlace({
   // The players board has its own address while the trade is empty, so a
   // reload, Back, or a copied link opens the board, not a blank calculator.
   else if (placePage === "trades" && placeRoom === "calculator" && playersBoard && !give.length && !get.length) href = urlPath("players");
-  else if (placePage === "trades" && placeRoom === "calculator") href = tradeHref(give, get, leagueId);
+  else if (placePage === "trades" && placeRoom === "calculator") href = tradeHref(give, get, leagueId, { format });
   else if (placePage === "trades" && placeRoom === "find" && LEAGUE_ID.test(String(leagueId || ""))) {
     href = urlPath("l", leagueId, "ideas");
   } else if (leagueSegment && LEAGUE_ID.test(String(leagueId || ""))) {
