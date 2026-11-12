@@ -60,6 +60,13 @@ export function shareText(summary, { today = null } = {}) {
     return credited ? `${label} ${n(listed)} + ${n(summary.credit.amount)} ${FEWER_BETTER_ADDEND} = ${n(total)}` : `${label} ${n(total)}`;
   };
   const verdictText = verdict.line;
+  if (summary.unpriced?.length) {
+    return {
+      title: `${list(summary.give)} for ${list(summary.get)}: ${verdictText}`.slice(0, 160),
+      description: `${verdictText.replace(/^No verdict: /, "").replace(/^./, (c) => c.toUpperCase())} on Dynasty Ticker${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, so there is no verdict. Open it to check the rest free at Dynasty Ticker.`,
+      alt: `${verdictText}.`,
+    };
+  }
   return {
     title: `${list(summary.give)} for ${list(summary.get)}: ${verdictText}`.slice(0, 160),
     description: `${side("give", "Give")} vs ${side("get", "get")}. Prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, ${summary.formatLabel}.${today ? ` Today: ${cardVerdict(today).line}.` : ""} Check your own trade free at Dynasty Ticker.`,
