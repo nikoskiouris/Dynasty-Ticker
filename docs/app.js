@@ -5974,13 +5974,19 @@ function renderDraftTokens(side, view) {
   }).join("");
 }
 
+// Position and NFL team for a priced player, from the value snapshot (or the
+// Sleeper directory). Search rows use it when no roster supplies one.
+function playerRecordFor(assetId) {
+  const id = String(assetId || "").replace(/^player:/, "");
+  return state.valueBundles?.players?.[`player:${id}`] || state.players?.[id] || {};
+}
+
 function draftItemMeta(item) {
   if (item.assetType === "pick" || String(item.assetId || "").startsWith("pick:")) {
     const season = parsePickAssetId(item.assetId)?.season || item.season || "";
     return season ? `${season} pick` : "Pick";
   }
-  const id = facePlayerId(item);
-  const record = state.valueBundles?.players?.[`player:${id}`] || state.players?.[id] || {};
+  const record = playerRecordFor(facePlayerId(item));
   return [record.position, record.team].filter(Boolean).join(" · ");
 }
 
@@ -6107,16 +6113,20 @@ function draftSuggestionRows(side, view) {
       .map((item) => item.assetId));
     return listValueCalcAssets(basis.values, names, { query, limit: 40, minSeason: nextRookieDraftSeason() })
       .filter((row) => !added.has(row.assetId))
-      .map((row) => ({
-      assetId: row.assetId,
-      name: row.name,
-      assetType: row.assetType,
-      value: Math.round(row.value),
-      estimated: false,
-      context: "",
-      hint: wholeRoundPickHint(row, query),
-      leagueId: "",
-    }));
+      .map((row) => {
+        const record = row.assetType === "player" ? playerRecordFor(row.assetId) : {};
+        return {
+          assetId: row.assetId,
+          name: row.name,
+          assetType: row.assetType,
+          position: String(record.position || ""),
+          value: Math.round(row.value),
+          estimated: false,
+          context: String(record.team || ""),
+          hint: wholeRoundPickHint(row, query),
+          leagueId: "",
+        };
+      });
   }
   const meId = view.me ? String(view.me.rosterId) : "";
   const partnerId = String(view.context?.partnerRosterId || "");
@@ -6164,6 +6174,7 @@ function draftSuggestionRows(side, view) {
         assetId: row.assetId,
         name: row.name,
         assetType: row.assetType,
+        position: row.assetType === "player" ? String(playerRecordFor(row.assetId).position || "") : "",
         value: Math.round(row.value),
         estimated: false,
         context: row.assetType === "pick" ? "Generic pick" : "Not on a roster here",
