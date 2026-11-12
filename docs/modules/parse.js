@@ -11,7 +11,7 @@ import {
 import { isRankAssetId } from "./ranks.js";
 
 const SLEEPER_LEAGUE_PATH = /leagues\/(\d+)/i;
-const SLEEPER_USER_PATH = /sleeper\.app\/(?:u|user)\/([^/?#]+)/i;
+const SLEEPER_USER_PATH = /sleeper\.(?:app|com)\/(?:u|user)\/([^/?#]+)/i;
 const LONG_NUMERIC_ID = /(\d{8,})/;
 
 export function parseLeagueId(raw) {
@@ -58,7 +58,7 @@ export function classifyLeagueInput(raw, { digitsAreLeague = true } = {}) {
   }
 
   const embeddedId = value.match(LONG_NUMERIC_ID);
-  if (embeddedId && /sleeper\.app/i.test(value)) {
+  if (embeddedId && /sleeper\.(?:app|com)/i.test(value)) {
     return { kind: "league", leagueId: embeddedId[1], username: "" };
   }
 
