@@ -193,7 +193,7 @@ import {
   releaseBootGate,
   scheduleBootFind,
 } from "./modules/boot-gate.js";
-import { sampleRosterLabels } from "./modules/sample-voice.js";
+import { ownerPossessive, sampleRosterLabels } from "./modules/sample-voice.js";
 import {
   buildTradeMatchProfile,
   countStartableAtPosition,
@@ -4236,8 +4236,14 @@ function renderPowerDashboard() {
   const meRoster = getLensRoster();
   if (el.powerHeading) {
     // The sample is someone else's team; its copy never says "your".
+    // Viewing another manager from the standings: say whose team this is.
     const voice = sampleVoice();
-    el.powerHeading.textContent = voice?.favor ? `${voice.favor} team` : "Your team";
+    const lens = getLensRoster();
+    const mine = getMyRoster();
+    const other = lens && mine && String(lens.rosterId) !== String(mine.rosterId);
+    el.powerHeading.textContent = other
+      ? `${ownerPossessive(lens.manager?.displayName || "This team")} team`
+      : voice?.favor ? `${voice.favor} team` : "Your team";
   }
   if (!meRoster || state.normalizedRosters.length === 0) {
     el.powerDashboard.innerHTML = `<p class="muted">Choose your team to generate a power score.</p>`;
@@ -4379,15 +4385,21 @@ function renderNextMove(profile) {
   const { weakest, strongest } = move;
   const rank = String(weakest.rankLabel).replace(" / ", " of ");
   const sample = Boolean(sampleVoice());
+  // Another manager's team (standings lens): name them, and no Find button,
+  // since Find a trade looks for deals for your team.
+  const mine = getMyRoster();
+  const lensName = mine && String(profile.rosterId) !== String(mine.rosterId)
+    ? (findNormalizedRoster(profile.rosterId)?.manager?.displayName || profile.managerName || "")
+    : "";
   const line = move.kind === "hold"
     ? `<strong>No weak spot</strong> <span class="muted">Every group ranks in the top half. The lowest, ${escapeHtml(weakest.position)}, is ${escapeHtml(rank)}. A trade has to beat what you have.</span>`
     : `<strong>Upgrade ${escapeHtml(weakest.position)}</strong> <span class="muted">${escapeHtml(weakest.position)} ranks ${escapeHtml(rank)}${strongest && strongest.position !== weakest.position ? `; ${escapeHtml(strongest.position)} is the deepest group to trade from` : ""}.</span>`;
-  const button = move.kind === "hold"
+  const button = lensName ? "" : move.kind === "hold"
     ? `<button type="button" class="ghost-btn" data-action="find-position" data-position="${escapeHtml(weakest.position)}">Look for ${escapeHtml(weakest.position)} upgrades anyway</button>`
     : `<button type="button" data-action="find-position" data-position="${escapeHtml(weakest.position)}">Find ${escapeHtml(withArticle(weakest.position))}</button>`;
   host.innerHTML = `
     <section class="next-move-card" aria-labelledby="next-move-title">
-      <p class="eyebrow" id="next-move-title">${sample ? "Next move" : "Your next move"}</p>
+      <p class="eyebrow" id="next-move-title">${lensName ? `${escapeHtml(ownerPossessive(lensName))} next move` : sample ? "Next move" : "Your next move"}</p>
       <p class="next-move-line">${line}</p>
       ${button}
     </section>
