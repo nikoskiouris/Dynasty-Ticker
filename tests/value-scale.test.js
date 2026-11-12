@@ -19,37 +19,37 @@ import {
   valueTrend,
   valuesUpdatedStatus,
 } from "../docs/modules/value-scale.js";
-import { fetchPriceHistory, fetchValuationBundles } from "../docs/modules/values.js";
+import { fetchPriceHistory, fetchValuationBundles, LEGACY_PRICE_MODEL_VERSION, PLAYER_VALUE_MODEL_VERSION } from "../docs/modules/values.js";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 test("tier bands follow the published cuts, including both edges", () => {
   assert.deepEqual(VALUE_TIERS.map((tier) => [tier.id, tier.label, tier.min, tier.blurb]), [
-    ["elite", "Elite", 8000, "Top ~25 players"],
-    ["starter", "Starter", 3000, "Weekly starter"],
-    ["solid", "Solid", 1000, "Startable some weeks"],
-    ["depth", "Depth", 250, "Bye-week or injury fill-in."],
+    ["elite", "Elite", 10000, "Top ~25 players"],
+    ["starter", "Starter", 3500, "Weekly starter"],
+    ["solid", "Solid", 1500, "Startable some weeks"],
+    ["depth", "Depth", 600, "Bye-week or injury fill-in."],
     ["deep", "Deep stash", 1, "Roster filler"],
   ]);
   assert.equal(DISPLAY_SCALE, 20);
-  assert.equal(tierForValue(14620).id, "elite");
-  assert.equal(tierForValue(8000).id, "elite");
-  assert.equal(tierForValue(7999).id, "starter");
-  assert.equal(tierForValue(3000).id, "starter");
-  assert.equal(tierForValue(2999).id, "solid");
-  assert.equal(tierForValue(1000).id, "solid");
-  assert.equal(tierForValue(999).id, "depth");
-  assert.equal(tierForValue(250).id, "depth");
-  assert.equal(tierForValue(249).id, "deep");
+  assert.equal(tierForValue(17169).id, "elite");
+  assert.equal(tierForValue(10000).id, "elite");
+  assert.equal(tierForValue(9999).id, "starter");
+  assert.equal(tierForValue(3500).id, "starter");
+  assert.equal(tierForValue(3499).id, "solid");
+  assert.equal(tierForValue(1500).id, "solid");
+  assert.equal(tierForValue(1499).id, "depth");
+  assert.equal(tierForValue(600).id, "depth");
+  assert.equal(tierForValue(599).id, "deep");
   assert.equal(tierForValue(1).id, "deep");
   assert.equal(tierForValue(0), null);
   assert.equal(tierForValue(-5), null);
   assert.equal(tierForValue(Number.NaN), null);
   assert.equal(renderValueTierBadge(0), "");
-  assert.match(renderValueTierBadge(3000), /Value tier: Starter/);
-  assert.match(renderValueTierBadge(8000), /class="value-tier"/);
-  assert.doesNotMatch(renderValueTierBadge(8000), /value-tier-elite|amber|green/);
+  assert.match(renderValueTierBadge(3500), /Value tier: Starter/);
+  assert.match(renderValueTierBadge(10000), /class="value-tier"/);
+  assert.doesNotMatch(renderValueTierBadge(10000), /value-tier-elite|amber|green/);
 });
 
 test("how values work names every band and does not call 10000 the ceiling", () => {
@@ -59,9 +59,43 @@ test("how values work names every band and does not call 10000 the ceiling", () 
     assert.match(html, new RegExp(tier.blurb.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
   assert.match(html, /How values work/);
-  assert.equal(TEN_THOUSAND_NOTE, "Values aren't capped at 10,000. Elite players start around 8,000; the very best are higher. Superflex leagues can start two QBs, so QBs are worth more there than in 1QB leagues.");
+  assert.equal(TEN_THOUSAND_NOTE, "Values aren't capped at 10,000. Elite players start around 10,000; the very best are well above it. Superflex leagues can start two QBs, so QBs are worth more there than in 1QB leagues.");
   assert.match(html, /Superflex leagues can start two QBs, so QBs are worth more there than in 1QB leagues/);
   assert.match(html, /Values aren&#39;t capped at 10,000/);
+});
+
+test("a new model is not every player moving: trends skip prices from another model", async () => {
+  const now = new Date("2026-11-12T12:00:00Z");
+  const rows = [
+    // Saved before the index named a model: the old forecast.
+    { stamp: "202611020000", asOf: "2026-11-02T00:00:00+00:00" },
+    { stamp: "202611090000", asOf: "2026-11-09T00:00:00+00:00", modelVersion: LEGACY_PRICE_MODEL_VERSION },
+    { stamp: "202611100000", asOf: "2026-11-10T00:00:00+00:00", modelVersion: PLAYER_VALUE_MODEL_VERSION },
+    { stamp: "202611110000", asOf: "2026-11-11T00:00:00+00:00", modelVersion: PLAYER_VALUE_MODEL_VERSION },
+  ];
+  const prices = { "202611020000": 8400, "202611090000": 8429, "202611100000": 7700, "202611110000": 7760 };
+  const calls = [];
+  const fetchFor = (listed) => async (path) => {
+    calls.push(path);
+    if (path.endsWith("index.json")) return { ok: true, json: async () => ({ schemaVersion: 1, snapshots: listed }) };
+    const row = listed.find((entry) => path.endsWith(`${entry.stamp}.json`));
+    return {
+      ok: Boolean(row),
+      json: async () => ({ asOf: row.asOf, sf: { "player:3163": prices[row.stamp] }, oneQb: { "player:3163": prices[row.stamp] } }),
+    };
+  };
+  const history = await fetchPriceHistory(fetchFor(rows), { now, days: 30 });
+  assert.deepEqual(playerSeries(history, "3163", "sf"), [
+    { date: "2026-11-10", value: 7700 },
+    { date: "2026-11-11", value: 7760 },
+  ]);
+  assert.equal(valueChange("3163", { days: 2, history, now }).delta, 60);
+  assert.equal(playerValueTrend(history, "3163", "sf", now).delta, 60);
+  assert.equal(calls.some((path) => path.includes("202611090000") || path.includes("202611020000")), false);
+  // The day a model ships there is one price, so there is no trend yet. Not an 8% drop.
+  const firstDay = await fetchPriceHistory(fetchFor(rows.slice(0, 3)), { now, days: 30 });
+  assert.equal(valueChange("3163", { days: 30, history: firstDay, now }), null);
+  assert.equal(playerValueTrend(firstDay, "3163", "sf", now), null);
 });
 
 test("trend needs two points inside 30 days", () => {
@@ -266,7 +300,7 @@ test("stamp prefers generatedAt, then asOf, then Last-Modified", async () => {
 
   const files = {
     "./data/player_values.json": {
-      modelVersion: "football-forecast-v1",
+      modelVersion: PLAYER_VALUE_MODEL_VERSION,
       sf: { "player:1": 8000 },
       oneQb: { "player:1": 5000 },
       names: {},
@@ -306,11 +340,11 @@ test("fetchPriceHistory loads one archive and a later same-day snapshot wins", a
       schemaVersion: 1,
       retentionDays: 90,
       snapshots: [
-        { stamp: "202601010000", asOf: "2026-01-01T12:00:00+00:00" },
-        { stamp: "202609010000", asOf: "2026-09-01T12:00:00+00:00" },
-        { stamp: "202609282149", asOf: prior.asOf },
-        { stamp: "202610140100", asOf: early.asOf },
-        { stamp: "202610141917", asOf: late.asOf },
+        { stamp: "202601010000", asOf: "2026-01-01T12:00:00+00:00", modelVersion: PLAYER_VALUE_MODEL_VERSION },
+        { stamp: "202609010000", asOf: "2026-09-01T12:00:00+00:00", modelVersion: PLAYER_VALUE_MODEL_VERSION },
+        { stamp: "202609282149", asOf: prior.asOf, modelVersion: PLAYER_VALUE_MODEL_VERSION },
+        { stamp: "202610140100", asOf: early.asOf, modelVersion: PLAYER_VALUE_MODEL_VERSION },
+        { stamp: "202610141917", asOf: late.asOf, modelVersion: PLAYER_VALUE_MODEL_VERSION },
       ],
     },
     "./data/price-history/202601010000.json": { asOf: "2026-01-01T12:00:00+00:00", sf: { "player:1": 1 }, oneQb: { "player:1": 1 } },

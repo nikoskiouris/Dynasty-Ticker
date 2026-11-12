@@ -6,7 +6,7 @@ Sleeper dynasty league ticker: live scores, standings, playoff odds, awards, arc
 - **Web app:** `docs/` — League Command Center at [dynastyticker.com](https://dynastyticker.com/).
 - **Kernels:** `docs/modules/` — parse, Sleeper client, values, live poll, season engine.
 - **Tests:** `tests/` — Node + Python. Run `npm test`.
-- **Python CLI:** `src/` — still there if you want terminal trade suggestions.
+- **Player values:** `player-values/` — the forecast, the builder, and the backtest.
 
 ## Web app
 
@@ -36,15 +36,18 @@ The app polls Sleeper matchups on the NFL window (Thu–Mon UTC) and whenever th
 There is one player-value system: `player-values/`.
 
 - Two published maps: **1QB full PPR** and **Superflex full PPR**.
-- Age, NFL experience, opportunity, efficiency, availability, team environment, draft investment for thin samples, and position-specific career retention feed an eight-season football forecast.
-- Value is discounted usable PPR production above a reference alternative, converted with one fixed 20× display ruler.
+- Each player gets a forecast of full-PPR points above a replacement player, one season at a time, for eight seasons of games. It is learned from the 15 most recent NFL seasons: his last two seasons, his age, and, through year three, his draft slot.
+- Value is that forecast, discounted by how far away each season is, converted with one fixed 20× display ruler. Every price is the sum of the seasons listed beside it.
+- Rookies and future picks use the same ruler. A pick is priced as the rookie it becomes.
 - RB/WR/TE use the same player value in both formats. Superflex changes QB scarcity; future pick values can also differ by format.
-- No imported external dynasty rankings, fitted trade-market prices, TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices, or age/position fallback guesses feed the published player price.
-- Players, Trade, My League, trade matching, and the Python CLI all read `docs/data/player_values.json`.
+- No imported external dynasty rankings, fitted trade-market prices, TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices, or hand-set bonuses for youth, draft capital, or past finishes feed the published player price.
+- Players, Trade, My League, and trade matching all read `docs/data/player_values.json`.
 - League trade history and crowd votes remain useful context/preferences, but they do not create a second player price.
 - Package consolidation credit can still affect a trade verdict without changing any player's listed price.
 
-The complete design and caveats live in `player-values/SPEC.md`; implementation details are in `player-values/README.md`. The chronological one-year holdout (observation count, MAE, and persistence MAE) lives on the snapshot `meta.validation` object and in `player-values/validation.json`. It validates that narrow retention target, not eight-year market-price accuracy. Refresh with `python3 player-values/build.py`. `python3 scripts/check_market_files.py` checks the committed file. `npm test` warns when that file is old. A live publish and the player-value refresh fail if it is older than 21 days. The refresh validates before atomically replacing the last good snapshot. The 2027 Superflex rookie mock remains a separate display feature and refreshes with `python3 scripts/update_dynasty_rookie_mock.py`.
+The running math and its caveats live in `player-values/README.md`; the target design is `player-values/SPEC.md`. `python3 player-values/backtest.py` rebuilds the forecast at every past kickoff from earlier games only and scores it against what players went on to do, beside two naive forecasts. The report lives in `player-values/validation.json` and on the snapshot `meta.validation` object. It tests the order and level of football production. It does not test trade-market prices. Tests fail if the saved report is for a different model version, or if the forecast stops beating "he repeats last season".
+
+Refresh with `python3 player-values/build.py`. `python3 scripts/check_market_files.py` checks the committed file. `npm test` warns when that file is old. A live publish and the player-value refresh fail if it is older than 21 days. The refresh validates before atomically replacing the last good snapshot. The 2027 Superflex rookie mock remains a separate display feature and refreshes with `python3 scripts/update_dynasty_rookie_mock.py`.
 
 ## Live site (dynastyticker.com)
 
@@ -104,34 +107,6 @@ NETLIFY_AUTH_TOKEN=... NETLIFY_SITE_ID=... node scripts/searched_users.mjs
 ```
 
 That writes `searched-users.csv` (gitignored). **This repo is public. Never commit that file.** There is no public URL for the list; `/api/searched-user` only accepts writes from dynastyticker.com. Localhost never sends a username. github.io is not the app, so it must not be treated as a second desk.
-
-## CLI
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-python -m src.cli \
-  --league <LEAGUE_ID> \
-  --me niko \
-  --target-manager demetri \
-  --target-player "Jahmyr Gibbs" \
-  --allow-extra-target-assets \
-  --fairness-pct 15 \
-  --max-results 5
-```
-
-No league id? Discover it:
-
-```bash
-python -m src.cli \
-  --username <YOUR_SLEEPER_USERNAME> \
-  --season 2026 \
-  --me niko \
-  --target-manager demetri \
-  --target-player "Jahmyr Gibbs"
-```
 
 ## Notes
 - Player assets: `player:<sleeper_player_id>`

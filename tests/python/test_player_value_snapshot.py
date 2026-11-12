@@ -43,9 +43,6 @@ class PlayerValueSnapshotTests(unittest.TestCase):
         self.assertEqual(harrison["draftPick"], 4)
         self.assertLess(harrison["age"], 26)
         self.assertGreater(self.data["sf"]["player:11628"], 0)
-        self.assertGreater(harrison["components"]["resume"]["draftBlend"], 0)
-
-        self.assertGreaterEqual(jefferson["components"]["resume"]["top5Finishes"], 3)
 
         for asset_id in ("player:167", "player:4634"):
             self.assertLessEqual(self.data["sf"].get(asset_id, 0), 0)
@@ -105,12 +102,77 @@ class PlayerValueSnapshotTests(unittest.TestCase):
         for asset_id in board:
             self.assertLess(self.data["players"][asset_id]["age"], 40, asset_id)
 
-    def test_young_stars_do_not_lose_points_every_year_before_their_prime(self):
+    def test_every_price_is_the_sum_of_its_forecast_seasons(self):
+        """The number on the board is the forecast, added up. Nothing is layered on afterwards."""
+        scale = self.data["meta"]["displayScale"]
+        horizon = self.data["meta"]["horizonYears"]
         for asset_id, info in self.data["players"].items():
-            if info["position"] not in ("WR", "TE") or info["age"] > 23 or self.data["sf"].get(asset_id, 0) < 3000:
-                continue
-            ppg = [year["ppg"] for year in info["forecast"]["sf"]]
-            self.assertGreaterEqual(ppg[3], ppg[1] * 0.97, asset_id)
+            for fmt in ("sf", "oneQb"):
+                rows = info["forecast"].get(fmt) or info["forecast"]["sf"]
+                self.assertEqual(len(rows), horizon + 1, asset_id)
+                self.assertEqual([row["season"] for row in rows],
+                                 list(range(self.data["season"], self.data["season"] + horizon + 1)))
+                total = sum(row["discountedAdvantage"] for row in rows)
+                self.assertAlmostEqual(self.data[fmt][asset_id], scale * total, delta=3, msg=f"{asset_id} {fmt}")
+                discounts = [row["discount"] for row in rows]
+                self.assertEqual(discounts, sorted(discounts, reverse=True), asset_id)
+                for row in rows:
+                    self.assertGreaterEqual(row["expectedAdvantage"], 0, asset_id)
+
+    def test_only_quarterbacks_carry_a_second_forecast(self):
+        for asset_id, info in self.data["players"].items():
+            self.assertEqual("oneQb" in info["forecast"], info["position"] == "QB", asset_id)
+            if info["position"] == "QB":
+                self.assertGreaterEqual(self.data["sf"][asset_id], self.data["oneQb"][asset_id], asset_id)
+
+    def test_nobody_who_never_played_is_priced_unless_he_is_new(self):
+        for asset_id, info in self.data["players"].items():
+            if info.get("lastSeason") is None and self.data["sf"][asset_id] > 0:
+                self.assertLessEqual(info["experience"], 1, asset_id)
+                self.assertLess(info["age"], 28, asset_id)
+        # Retired in 2010, still on Sleeper with a team. He was priced as an unplayed rookie.
+        self.assertLessEqual(self.data["sf"].get("player:4914", 0), 0)
+        # Two rookies who were priced off older namesakes' draft slots.
+        for asset_id in ("player:11863", "player:14064"):
+            self.assertLessEqual(self.data["sf"].get(asset_id, 0), 0, asset_id)
+
+    def test_ages_come_from_birthdays(self):
+        ages = [info["age"] for info in self.data["players"].values()]
+        whole = sum(1 for age in ages if float(age).is_integer())
+        self.assertLess(whole, len(ages) * 0.05)
+        # Sleeper lists Tyreek Hill at 31. He was born in March 1994.
+        hill = self.data["players"].get("player:3321")
+        if hill:
+            self.assertGreater(hill["age"] - (self.data["season"] - 1994), -0.6)
+
+    def test_a_player_keeps_his_own_career(self):
+        """Sleeper once pointed Ryan Izzo at Tyler Conklin's record. Conklin then had no price at all."""
+        self.assertIn("player:5133", self.data["players"])
+        self.assertEqual(self.data["names"]["player:5133"], "Tyler Conklin")
+        self.assertGreater(self.data["players"]["player:5133"]["components"]["careerGames"], 60)
+        izzo = self.data["players"].get("player:5094")
+        if izzo:
+            self.assertLess(izzo["components"]["careerGames"], 60)
+
+    def test_the_quarterback_line_is_a_starter_not_a_kneel_down(self):
+        replacement = self.data["meta"]["replacementPpg"]
+        self.assertGreater(replacement["sf"]["QB"], 2 * replacement["sf"]["WR"])
+        self.assertLess(replacement["sf"]["QB"], replacement["oneQb"]["QB"])
+
+    def test_an_unplayed_first_round_rookie_is_priced_near_the_picks_that_buy_him(self):
+        """One ruler for picks and rookies: a top-12 pick who has not played is not worth less than a third."""
+        year = min(int(key.split(":")[1]) for key in self.data["sf"] if key.startswith("pick:"))
+        third = self.data["sf"][f"pick:{year}:r3:any"]
+        for asset_id, info in self.data["players"].items():
+            if info["experience"] == 0 and (info.get("draftPick") or 999) <= 12 and info["components"]["careerGames"] == 0:
+                self.assertGreater(self.data["sf"][asset_id], third, asset_id)
+
+    def test_the_snapshot_says_how_it_was_checked(self):
+        validation = self.data["meta"]["validation"]
+        self.assertEqual(validation["status"], "backtested")
+        self.assertIn("trade-market prices", validation["notValidated"])
+        self.assertNotIn("draftAnchors", self.data["meta"])
+        self.assertIn("pricingDate", self.data["meta"])
 
     def test_a_star_quarterback_is_worth_more_in_superflex(self):
         allen = "player:4984"

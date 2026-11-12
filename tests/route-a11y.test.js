@@ -303,7 +303,8 @@ test("card words stay plain after the heading split", () => {
   const ranks = read("../docs/modules/ranks.js");
   assert.match(ranks, /label: "Touches \+ targets per game"/);
   assert.doesNotMatch(ranks, /Opportunities per game/);
-  assert.match(ranks, /label: "Projected points per game"/);
+  assert.match(ranks, /label: "Recent points per game"/);
+  assert.doesNotMatch(ranks, /Projected points per game/);
   assert.doesNotMatch(ranks, /Projected PPR\/G/);
   assert.match(ranks, /Our estimate, scored with a point per catch\. Same number in every trade and on My team\. The pick line is the closest pick\./);
   assert.match(app, /PPR · \$\{escapeHtml\(rankFormatLabel\(format\)\)\}/);

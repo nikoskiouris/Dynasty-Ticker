@@ -21,6 +21,8 @@ import {
   findPickCatalogValue,
   findMarketValueByPlayerName,
   getGlobalMaxPlayerValue,
+  LEGACY_PRICE_MODEL_VERSION,
+  PLAYER_VALUE_MODEL_VERSION,
 } from "../docs/modules/values.js";
 
 test("valuation stamp prefers meta.updatedAt, then asOf", () => {
@@ -355,7 +357,7 @@ test("pickValueBundle keeps top-level names when a format nameMap is empty", () 
 test("fetchValuationBundles reads only the independent model snapshot", async () => {
   const files = {
     "./data/player_values.json": {
-      modelVersion: "football-forecast-v1",
+      modelVersion: PLAYER_VALUE_MODEL_VERSION,
       asOf: "2026-09-28T00:00:00Z",
       sf: { "player:1": 8000, "player:wr": 7000 },
       oneQb: { "player:1": 5000, "player:wr": 7000 },
@@ -379,11 +381,21 @@ test("fetchValuationBundles reads only the independent model snapshot", async ()
 });
 
 test("fetchValuationBundles rejects a legacy or missing model version", async () => {
-  const fetchImpl = async () => ({
-    ok: true,
-    json: async () => ({ modelVersion: "market-v2", sf: { "player:1": 8000 }, oneQb: { "player:1": 5000 } }),
-  });
-  await assert.rejects(() => fetchValuationBundles(fetchImpl), /Unsupported player-value model/);
+  for (const modelVersion of ["market-v2", LEGACY_PRICE_MODEL_VERSION, undefined]) {
+    const fetchImpl = async () => ({
+      ok: true,
+      json: async () => ({ modelVersion, sf: { "player:1": 8000 }, oneQb: { "player:1": 5000 } }),
+    });
+    await assert.rejects(() => fetchValuationBundles(fetchImpl), /Unsupported player-value model/);
+  }
+});
+
+test("the desk expects the model the builder is configured to write", () => {
+  const config = JSON.parse(readFileSync(new URL("../player-values/config.json", import.meta.url), "utf8"));
+  const snapshot = JSON.parse(readFileSync(new URL("../docs/data/player_values.json", import.meta.url), "utf8"));
+  assert.equal(config.modelVersion, PLAYER_VALUE_MODEL_VERSION);
+  assert.equal(snapshot.modelVersion, PLAYER_VALUE_MODEL_VERSION);
+  assert.notEqual(PLAYER_VALUE_MODEL_VERSION, LEGACY_PRICE_MODEL_VERSION);
 });
 
 test("league board evidence never creates a second player price", () => {

@@ -54,8 +54,8 @@ test("board ranks players and drops retired, defense, and unnamed scrubs", () =>
     nflPlayers,
     minPickSeason: 2027,
     modelPlayers: {
-      "player:1": { confidence: "established", components: { projectedPpg: 18.4, availability: 0.91, roleOppPerGame: 19.2 } },
-      "player:2": { confidence: "developing", components: { projectedPpg: 17.8, availability: 0.88, roleOppPerGame: 9.7 } },
+      "player:1": { confidence: "established", components: { recentPpg: 18.4, availability: 0.91, roleOppPerGame: 19.2 } },
+      "player:2": { confidence: "developing", components: { recentPpg: 17.8, availability: 0.88, roleOppPerGame: 9.7 } },
     },
     owners: { "player:1": { name: "Niko", mine: true } },
   });

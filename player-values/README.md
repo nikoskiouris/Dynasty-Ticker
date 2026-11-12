@@ -13,86 +13,80 @@ The football forecast for a player is the same in both formats. Only quarterback
 
 League settings do **not** reprice players. There is no TE premium, RB premium, half-PPR toggle, star multiplier, crowd-vote bump, or local-league price. League context answers a different question: whether a move helps a particular roster.
 
-The browser, trade engine, league views, and CLI consume the same generated snapshot at `docs/data/player_values.json`.
+The browser, trade engine, and league views consume the same generated snapshot at `docs/data/player_values.json`.
 
 ## What the number means
 
-For each player, the builder forecasts eight seasons of usable full-PPR production above a replacement player at the same position:
+For each player the forecast answers one question a season at a time: how many full-PPR points above a replacement player should we expect from him?
 
 ```
-raw_value(format) =
-  sum(
-    discount^year *
-    expected_games(year) *
-    max(0, expected_ppr_per_game(year) - replacement_ppr_per_game(format, position))
+value(format) =
+  sum over the next eight seasons of games (
+    discount ^ years_until_that_season_kicks_off *
+    expected_points_above_replacement(season)
   )
 ```
 
 The fixed display conversion is **20 points per discounted point of lineup advantage**. It is the same ruler across formats and dates; values are never renormalized to make the top player equal 10,000.
 
-The annual discount starts at **0.85** and the horizon at **eight seasons**. Those are explicit product assumptions, not discovered constants; `config.json` owns them.
+The annual discount is **0.85** and the horizon is **eight seasons of games**. Those are product choices, not discovered constants; `config.json` owns them. The backtest does not test them.
 
-## Inputs actually implemented
+Every price is the sum of its forecast seasons. The snapshot lists them under `players[...].forecast`, and a test adds them up.
 
-The builder avoids counting the same signal as several independent bonuses. Inputs change a forecast component instead of adding a separate percentage to final value.
+## The files
 
-### Age and experience
-- exact age when available
-- NFL experience
-- position-specific year-to-year PPR retention
-- probability of remaining in a fantasy-relevant NFL role
+- `forecast.py` is the forecast. Standard library only.
+- `build.py` downloads the data, joins Sleeper to nflverse, and writes the snapshot.
+- `backtest.py` rebuilds the forecast at past kickoffs and scores it against what happened.
+- `config.json` owns every setting.
+- `validation.json` is the last backtest report.
 
-Historical players who lose jobs or leave the league remain in the training population. Survivor-only aging curves are not allowed.
+## How the forecast works
 
-### Opportunity
-- pass attempts
-- carries
-- targets
-- games with offensive involvement over about the last two seasons
-- team carry/target/attempt environment
-- target share and carry share
-- role trajectory across the recent season, not the last month
+### One year ahead
 
-This is a dynasty price. Opportunity uses a 17-game half-life across the last 34 games. A four-game slump nudges the role. It does not replace the prior season. A role that stays smaller for a full season does change the forecast.
+A player's season is three numbers, all measured against the replacement line:
 
-### Efficiency
-- completion rate
-- passing yards per attempt
-- passing TD and interception rates
-- rushing yards and TDs per carry
-- catch rate
-- receiving yards and TDs per target
-- full-PPR points per opportunity
+- **banked**: points above replacement he actually scored, `max(0, ppg - replacement) * games`
+- **pace**: the same rate over a full 16 games, so an injured star still reads as a star
+- **games**: the share of the season he played
 
-Efficiency uses a 32-game half-life across the last 48 games. Small samples shrink toward historical position baselines.
+Next season's three numbers are forecast from his last two seasons, his age, and, through his third year, his NFL draft slot. The relationship is a ridge regression, fit separately for QB, RB, WR, and TE, on the **15 most recent seasons** only. Football has changed since 1999: young players keep about a third less of their value five years out than they did in the 2000s. A forecast trained on old careers runs high.
 
-### Availability and health
-- recent multi-season availability
-- current Sleeper injury designation
+There is no free constant. A player earns expected value through recent production or recent games, so someone who has left the league fades to zero instead of collecting an average forever. A missed season is zeros, not the end: the season before still counts, and the forecast expects most players back.
 
-Availability changes expected games. It is not another final-value multiplier.
+A star who played three games did not become a three-game sample. For the share of last season a player missed, his pace is read from the level he had established over the three seasons before, fading 15% for each year since he showed it. A full season is taken as it was. In the backtest, players coming off a mostly-missed season produced 32% more than forecast without this and 11% more with it.
 
-### Team environment and competition
-- team attempts, carries, targets, and fantasy production
-- the player's share of those opportunities
-- recent share trend
+Three safeguards sit on the fitted line. None of them adds value by hand.
 
-A good offense does not receive a flat value bonus; it changes expected opportunity.
+- A better season never forecasts less. Where the fit would say otherwise, that slope is held at zero.
+- The line can bend at three high pace levels, because the best seasons regress the hardest.
+- A last step moves each forecast level to what players at that level actually averaged. It narrows a tendency to run high on the very best players. It does not remove it: the report shows the top dozen still about 10% high.
 
-### Positional finishes
-A season-long finish is total offensive PPR at the position, minimum 8 games. Rank 1 is the WR1. Several top-5 seasons pull a cold forecast back toward that player's typical top-5 scoring, and that pull fades slower when the run is long. One top-12 season is a small nudge. The pull only goes up. It is full through age 28.
+### Chained forward
 
-### Draft investment
-Early-career production by draft bucket sets an anchor. A top-10 pick keeps part of the 75th percentile of that bucket. A late pick does not. The pull only goes up, only after 4 games, and it fades with seasons of evidence. It is smaller than the production gap between two young players, so a better producer stays ahead of a higher pick who has not produced. It is full at age 22 and gone by 29.
+The forecast for next season becomes the input for the season after, for eight seasons. Each step ages the player one year. Because each step is an expected value that is linear in his own numbers, chaining keeps it an expected value. There is no "survival" switch that turns a player off for good.
 
-A player with few NFL games is also priced from his draft slot. The slot value is the median four-season outcome of past players at the same position and NFL draft range, the same window and ruler that prices rookie picks. It carries weight `8 / (8 + career games)` and fades to nothing by the fourth season. A draft range with fewer than 6 past players borrows the neighboring ranges. So a rookie who has not played yet is priced like his pick, and one big game from a seventh-rounder does not count as a full role.
+### Rookies and young players
 
-### Age
-The first forecast year uses the measured next-season rate for the player's tier and age. That rate already holds one season of pull toward average, and the role haircut for an unproven player applies that year only. Later years apply a pure age curve per position: next-season scoring change with the pull toward average fitted out. Past the peak age, the curve never softens and never rises, because old players in the sample are the ones still good enough to play. A rate borrowed from a younger age also pays the aging between the two ages.
+Before a rookie has played, his forecast is his draft slot: what past players at his position and slot went on to do. Draft slot keeps counting through year three and fades as real seasons arrive. In those years the slot counts separately for the share of last season a player missed, because a high pick who sat out is not the same as one who played poorly. In the data, first-round receivers who missed most of their rookie year went on to less, not more.
 
-The chance of playing next season is the tier rate shrunk toward all players at that position and age. Past the last well-measured age it fades 15% per year, and it is zero past the oldest season on record at the position. A player under 26 who missed time is pulled back toward a normal game rate. Two top-12 seasons lock a role. One hot year does not. A weekly Out tag trims the rest of this season. IR is the designation that cuts the year. The snapshot emits the learned curve (`meta.aging`), the fitted pull toward average (`meta.regressionToAverage`), and the career-end ages (`meta.careerEndAge`).
+An earlier pick is never forecast below a later one. A pick earlier than any the position has produced is priced like the earliest one it has.
 
-### Position and format
+### During the season
+
+Before kickoff the current season is the forecast. After week 17 it is what happened. In between, the weeks left are a blend: this season's pace counts `weeks / (weeks + 4)` against the kickoff forecast. The backtest replays week 10 of every season to check that the blend beats ignoring this season and beats trusting it alone.
+
+Weeks already played are spent, so a price eases down through the season. A ninth season fills in behind, so the forecast always covers eight seasons of games.
+
+A weekly Out, Doubtful, or Questionable tag trims the weeks left. IR cuts them in half. Those multipliers are set by hand and are not tested.
+
+### Time
+
+Each future season is discounted by how far away its kickoff is on the pricing date. That date is the Tuesday of the current week, so prices move when games or the week change, not every midnight. Nothing jumps when the season turns over: the day after week 17 and the first day of the next league year price the same future the same way. A test checks it.
+
+## Replacement
+
 Replacement is estimated from a **12-team reference league**, not a hard-coded QB18/RB48 lookup. The builder allocates:
 
 - 1 QB
@@ -102,46 +96,83 @@ Replacement is estimated from a **12-team reference league**, not a hard-coded Q
 - 2 FLEX
 - 12 bench slots
 
-Superflex adds one Superflex starter per team. The model fills the reference lineups from historical PPR production, then allocates the bench on scarcity-adjusted roster claims. Quarterback benches stop at **2 per team in 1QB** and **3 per team in Superflex**, so the league cannot roster every quarterback and call the alternative zero. The best remaining player at each position is the feasible alternative. If that pool is empty, the last rostered player is the alternative.
+Superflex adds one Superflex starter per team. The model fills the reference lineups from historical PPR production, then allocates the bench on scarcity-adjusted roster claims. Quarterback benches stop at **2 per team in 1QB** and **3 per team in Superflex**. The best remaining player at each position is the alternative. If that pool is empty, the last rostered player is.
 
-RB/WR/TE replacement is shared across formats at launch. Superflex therefore changes only QB player values. Future picks may differ because rookie-QB demand changes the expected rookie board.
+The line is the median of the **last 14 seasons**, because scoring has drifted since 1999.
 
-## Inputs deliberately not faked
+A quarterback's game counts only when he threw at least 10 passes. A kneel-down or a gadget snap is not a start, and nobody starts him in fantasy that week. Counting those appearances made the Superflex line whichever backup happened to rank 37th: 9.5 points a game one year and 0.7 the next. Counting starts, fewer quarterbacks have 8 of them than a Superflex league rosters, so the line is the last real starter: between 8.5 and 11.6 points in each of the last twelve seasons.
 
-The first implementation does **not** pretend to have live route participation, first-read targets, offensive-line grades, guaranteed-money detail, a college production model, or calibrated injury-recovery curves when those feeds are not dependable in the build.
+RB/WR/TE replacement is shared across formats. Superflex therefore changes only QB player values.
 
-Those are documented future inputs, not silent zeroes.
+The replacement level is still a product choice. This one is the waiver wire: the best player nobody rosters. A line set at the last starter instead would make stars worth more and depth worth less. The backtest cannot settle that, because it scores against whichever line is chosen.
 
-## Rookies and future picks
+## Future picks
 
-A future pick is not an arbitrary percentage of a veteran.
+A pick is priced as the rookie it becomes.
 
-Historical rookie classes are ordered from information available at draft time: NFL draft pick, then a format shift for quarterbacks, then age. Each year older than 23 moves a prospect back 4 picks. 1QB moves quarterbacks back 32 picks. Superflex moves them back only 8, so the same quarterback is earlier than in 1QB and still does not jump a whole round of skill players. `config.json` owns those shifts. A Superflex pick is never priced under the same 1QB pick, because every Superflex player value is at least his 1QB value.
+Every drafted QB, RB, WR, and TE from the last 10 classes gets the same eight-season forecast a player gets, as of his first kickoff. Each class is ordered by that value. Slots 1-4, 5-8, and 9-12 average into early, mid, and late firsts, and twelve-slot blocks into later rounds. Then the price is discounted for the wait until that rookie can first play.
 
-The builder measures the discounted above-replacement production those ordered rookies actually produced, then aggregates slots 1-4 / 5-8 / 9-12 into early / mid / late firsts and twelve-pick blocks into later rounds. If a later bucket's history comes out higher, the published price is capped at the earlier bucket. Early is worth at least as much as mid, and mid at least as much as late.
+This is one ruler. On the day he can first play, an unplayed rookie is worth what his pick was. A test checks it.
 
-This remains intentionally conservative until college-production inputs are added.
+Means, not medians. A late pick is mostly misses and a few hits, and the hits are the value. Pricing a third-round pick at its median outcome prices it near zero.
+
+A Superflex pick is never priced under the same 1QB pick. This year's picks are listed until the NFL draft ends in late April, then they are players.
+
+A rookie's age does not change his forecast yet, and the board is ordered by the forecast, not by how real rookie drafts go. Neither is tested against real drafts.
+
+## Who is priced
+
+The builder downloads public nflverse weekly player statistics from 1999 on, plus player and draft metadata, then uses Sleeper for current player IDs, teams, injury status, and the NFL week.
+
+- Sleeper joins nflverse on `gsis_id`, then ESPN id, then name. Every join is checked against the birthday both sources carry. A namesake born years apart is someone else and is not priced off that record. A Sleeper id that points at a different player is ignored.
+- Age is the birthday on September 1, the same definition the forecast is trained on. Sleeper's whole-number `age` is often a year or more stale and is the last resort.
+- First NFL year is the earliest of draft year, listed rookie season, and first game. One upstream column lists the whole 2012 class as 2013.
+- A player with no game since the season before last is left out. So is a player drafted two or more years ago who never played. `active: false` and retired or inactive statuses with no team are left out.
+- Prices use the offensive box score only. Defensive stats, return scores, and opponent defense are not inputs. A two-way player charted on defense still counts on weeks with targets or carries.
+
+No KTC value, completed-trade fitted price, crowd-vote shift, or other fantasy-market ranking is an input. Upstream files and hashes are recorded in snapshot metadata.
+
+## Known lean
+
+Established players coming off a shortened season are still forecast about 30% low at QB, RB, and TE (about right at WR). History is harsh on them on average: for every Aaron Rodgers 2014 there is a player who never came back. The forecast prices the average, and it prices it a little too low. A hurt star will read cheaper here than in a market that expects the comeback.
+
+## Not modeled
+
+Live route participation, first-read targets, offensive-line grades, contracts, depth charts, college production, and injury-specific recovery. They are documented gaps, not silent zeroes.
 
 ## Validation
 
-`player-values/validation.json` is generated with the snapshot.
+```bash
+python3 player-values/backtest.py            # print the report
+python3 player-values/backtest.py --write    # also save validation.json
+```
 
-The current holdout test is narrower than the final product claim. It asks: after a completed season, how well do learned age/availability transitions predict the next season's above-replacement production versus simply carrying forward the prior PPR rate? Transition tables and replacement levels are both frozen at the training cutoff before those seasons.
+The backtest rebuilds the whole forecast at each past kickoff from earlier games only, then compares it with the points above replacement those players produced over the next one, three, five, and eight seasons. It runs the same replay for two naive forecasts: he repeats last season, and he repeats a blend of his last two. The players scored are the top 200 by last season plus recent early draft picks, chosen before the outcome is known.
 
-The report includes both MAEs. It does **not** claim to validate:
-- eight-year career calibration
-- exact trade-market clearing prices
+It reports two things.
+
+- **Order.** Rank correlation between the forecast and what happened, and how much of the best 60 players' production the forecast's top 60 captured.
+- **Level.** Realized points over forecast points, by forecast year, by age group, by position, and by forecast rank. 1.00 is exact. Below 1 means the forecast ran high.
+
+The numbers live in `validation.json` and in the snapshot under `meta.validation`. They are not copied here, so they cannot go stale.
+
+Rules that tests enforce:
+
+- The saved report must be for the model version in `config.json`. Change the forecast and the tests fail until the backtest is run again.
+- The forecast must beat both naive forecasts at every horizon.
+- Totals must land within 10% of what happened, and every forecast year within 20%.
+- A replay must not see the future. A test wipes every later game and checks the forecast does not move.
+
+What it does **not** test:
+
+- trade-market prices
+- the 0.85 discount and the replacement definition
+- the pick board against real rookie drafts
+- in-season updates at weeks other than the one replayed
 - injury-specific recovery
 - weekly lineup decisions
-- rookie-pick ordering quality
 
 A model does not earn a stronger claim until a test measures it.
-
-## Data
-
-The builder downloads public nflverse weekly player statistics plus player/draft metadata, then uses Sleeper for current player IDs, teams, ages/status, and NFL week. Identity joins on `gsis_id`, then ESPN id, then a unique name and position. Players with `active: false`, a retired or inactive status, or no game since the previous season are left out. Prices use the offensive box score only. Defensive stats, return scores, and opponent defense are not inputs. A two-way player charted on defense still counts on weeks with targets or carries, and those weeks score only the passes, rushes, and catches.
-
-No KTC value, completed-trade fitted price, crowd-vote shift, or other fantasy-market ranking is an input. Upstream files and hashes are recorded in snapshot metadata.
 
 ## Refresh
 
@@ -151,7 +182,7 @@ python3 player-values/build.py
 
 The builder validates a temporary snapshot before atomically replacing `docs/data/player_values.json`. A failed refresh leaves the prior file intact.
 
-The refresh workflow runs every day at 11:17 UTC. GitHub only starts that schedule from the default branch. After the build, `scripts/prices_unchanged.py` compares `docs/data/player_values.json` and `player-values/validation.json` to HEAD with `asOf` and `generatedAt` removed. When that is the only difference, the workflow restores those files and does not archive. Otherwise it runs `scripts/archive_price_snapshot.py`. The commit step then runs `git diff --cached --quiet` on those data files and skips the commit when the tree is clean.
+The refresh workflow runs every day at 11:17 UTC. GitHub only starts that schedule from the default branch. Before the build it runs `backtest.py --write --if-stale`, which does nothing unless a season has finished since the report was saved. After the build, `scripts/prices_unchanged.py` compares `docs/data/player_values.json` and `player-values/validation.json` to HEAD with `asOf` and `generatedAt` removed. When that is the only difference, the workflow restores those files and does not archive. Otherwise it runs `scripts/archive_price_snapshot.py`. The commit step then runs `git diff --cached --quiet` on those data files and skips the commit when the tree is clean.
 
 A data commit is `data: refresh independent player values [skip netlify]`. It pushes to `develop` only. Live publishes still come from promoting `develop` to `prod`. `netlify.toml` sets `ignore = "bash ./scripts/netlify-ignore.sh"`, and that script exits 0 for every git-connected build, so the daily commit does not deploy even if that ignore command is what Netlify runs.
 
@@ -165,14 +196,14 @@ Shared trade links and the trend helpers read one archive, `docs/data/price-hist
 }
 ```
 
-The filename is the UTC stamp `YYYYMMDDHHmm` from `asOf`. `sf` and `oneQb` are the full price maps, the same keys as `player_values.json`. `index.json` (`schemaVersion` 1) lists `{ stamp, asOf }`. The page fetches that index and only the snapshots inside the trend window, plus the one snapshot just before it. A file more than 90 days older than the newest is dropped. The newest file is always kept. An existing stamp is never rewritten, so the same `asOf` writes nothing. To run the schedule on Tuesdays only, set the workflow cron back to `17 11 * * 2`.
+The filename is the UTC stamp `YYYYMMDDHHmm` from `asOf`. `sf` and `oneQb` are the full price maps, the same keys as `player_values.json`. `index.json` (`schemaVersion` 1) lists `{ stamp, asOf, modelVersion }`. A row with no `modelVersion` was priced by `football-forecast-v1`. The site only draws a trend across snapshots from the model it is running, so a model change never shows up as every player moving at once. Shared trade links still read any stamp. The page fetches that index and only the snapshots inside the trend window, plus the one snapshot just before it. A file more than 90 days older than the newest is dropped. The newest file is always kept. An existing stamp is never rewritten, so the same `asOf` writes nothing. To run the schedule on Tuesdays only, set the workflow cron back to `17 11 * * 2`.
 
 ## Output
 
 ```json
 {
   "schemaVersion": 1,
-  "modelVersion": "football-forecast-v1",
+  "modelVersion": "football-forecast-v2",
   "asOf": "...",
   "generatedAt": "...",
   "sf": {"player:...": 0, "pick:...": 0},
@@ -183,11 +214,12 @@ The filename is the UTC stamp `YYYYMMDDHHmm` from `asOf`. `sf` and `oneQb` are t
       "position": "WR",
       "team": "CIN",
       "confidence": "established",
-      "components": {}
+      "components": {},
+      "forecast": {"sf": [{"season": 2026, "expectedAdvantage": 0, "weight": 1, "discount": 1, "discountedAdvantage": 0}]}
     }
   },
   "meta": {}
 }
 ```
 
-The `players` object explains a value. Runtime pricing comes only from `sf` or `oneQb`.
+The `players` object explains a value. Runtime pricing comes only from `sf` or `oneQb`. `forecast.sf` lists the seasons that add up to the price. A quarterback also carries `forecast.oneQb`.

@@ -1,20 +1,21 @@
 import { escapeHtml, formatNumber } from "./html.js";
 
-// Cuts from the 2026-10-14 Superflex board (docs/data/player_values.json).
-// Priced players (value > 0): n=421. p25=278, p50=1,025, p75=3,018, p95=8,470.
-// All listed players: p99≈10,102, max=14,620. Players at or above 3,000: 106,
-// about 9 starters × 12 teams. Players at or above 8,000: 27. At or above 10,000: 13.
+// Cuts from the 2026-11-12 Superflex board (docs/data/player_values.json, football-forecast-v2).
+// Priced players (value > 0): n=731. p25=42, p50=412, p75=1,773, p95=8,203. Max 18,052.
+// Players at or above 10,000: 20. At or above 3,500: 97, about 9 starters × 12 teams.
+// At or above 1,500: 199. At or above 600: 310.
 // The ruler is displayScale 20 in player-values/config.json. It is not a 0–10,000 index.
+// A new model version moves the whole board, so re-cut these when the model changes.
 export const DISPLAY_SCALE = 20;
 export const VALUE_TIERS = Object.freeze([
-  { id: "elite", label: "Elite", min: 8000, blurb: "Top ~25 players" },
-  { id: "starter", label: "Starter", min: 3000, blurb: "Weekly starter" },
-  { id: "solid", label: "Solid", min: 1000, blurb: "Startable some weeks" },
-  { id: "depth", label: "Depth", min: 250, blurb: "Bye-week or injury fill-in." },
+  { id: "elite", label: "Elite", min: 10000, blurb: "Top ~25 players" },
+  { id: "starter", label: "Starter", min: 3500, blurb: "Weekly starter" },
+  { id: "solid", label: "Solid", min: 1500, blurb: "Startable some weeks" },
+  { id: "depth", label: "Depth", min: 600, blurb: "Bye-week or injury fill-in." },
   { id: "deep", label: "Deep stash", min: 1, blurb: "Roster filler" },
 ]);
 
-export const TEN_THOUSAND_NOTE = "Values aren't capped at 10,000. Elite players start around 8,000; the very best are higher. Superflex leagues can start two QBs, so QBs are worth more there than in 1QB leagues.";
+export const TEN_THOUSAND_NOTE = "Values aren't capped at 10,000. Elite players start around 10,000; the very best are well above it. Superflex leagues can start two QBs, so QBs are worth more there than in 1QB leagues.";
 
 export const TREND_WINDOW_DAYS = 30;
 export const STALE_AFTER_DAYS = 7;

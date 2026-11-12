@@ -7,6 +7,24 @@ const OLD = "202610071117";
 
 // Real Sleeper ids: 4984 Josh Allen, 9221 Jahmyr Gibbs. Superflex.
 const CODE = "1s4984.p27r1e~9221";
+
+// The best player on today's board for two players worth about half of him each.
+// Their listed prices add up to a little more than his, so the stud side only
+// leads once "fewer, better pieces" is counted. Chosen from the board, not by
+// name, so a price change cannot quietly flip the example.
+function studForTwo(values) {
+  const players = Object.entries(values)
+    .filter(([id, value]) => /^player:\d+$/.test(id) && value > 0)
+    .sort((a, b) => b[1] - a[1]);
+  const [stud, studValue] = players[0];
+  const nearest = (share, skip) => players.slice(1)
+    .filter(([id]) => !skip.includes(id))
+    .reduce((best, row) => (Math.abs(row[1] - studValue * share) < Math.abs(best[1] - studValue * share) ? row : best));
+  const first = nearest(0.55, []);
+  const second = nearest(0.5, [first[0]]);
+  return `${stud.slice(7)}~${first[0].slice(7)}.${second[0].slice(7)}`;
+}
+const STUD_FOR_TWO = studForTwo(VALUES.sf);
 const viewports = [
   { width: 390, height: 844 },
   { width: 1280, height: 800 },
@@ -149,8 +167,8 @@ for (const viewport of viewports) {
 
   test(`disclaimers sit behind an accessible info button on a shared link at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    // Bijan for Nabers + a 1st gets the extra for fewer, better pieces, so there is fine print to hide.
-    await page.goto(`/t/2s${STAMP}9509~11632.p27r1e`);
+    // One star for two lesser players gets the extra for fewer, better pieces, so there is fine print to hide.
+    await page.goto(`/t/2s${STAMP}${STUD_FOR_TWO}`);
     const toggle = page.locator("[data-action='verdict-info']");
     await expect(toggle).toBeVisible({ timeout: 30000 });
     await expect(toggle).toHaveAttribute("aria-expanded", "false");

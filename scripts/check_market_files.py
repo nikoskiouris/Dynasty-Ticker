@@ -16,6 +16,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "docs" / "data"
 MAX_VALUE_AGE_DAYS = 21
+# The model the builder is configured to write. A snapshot from any other model is not the one the desk expects.
+MODEL_VERSION = json.loads((ROOT / "player-values" / "config.json").read_text(encoding="utf-8"))["modelVersion"]
 POSITIONS = {"QB", "RB", "WR", "TE"}
 
 
@@ -57,7 +59,7 @@ def check_player_values(
             errors.append(f"player_values.json missing {key}")
     if data.get("schemaVersion") != 1:
         errors.append(f"player_values schemaVersion is {data.get('schemaVersion')!r}")
-    if data.get("modelVersion") != "football-forecast-v1":
+    if data.get("modelVersion") != MODEL_VERSION:
         errors.append(f"player_values modelVersion is {data.get('modelVersion')!r}")
     sf = data.get("sf")
     one = data.get("oneQb")
