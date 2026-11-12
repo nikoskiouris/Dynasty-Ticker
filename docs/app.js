@@ -907,7 +907,10 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
 function showAppPages() {
   hideLeagueNotFound();
   el.deskNav?.classList.remove("hidden");
-  document.querySelector("#disconnect-btn")?.classList.remove("hidden");
+  const disconnect = document.querySelector("#disconnect-btn");
+  disconnect?.classList.remove("hidden");
+  // The sample is not a connected league; leaving it is not "disconnecting".
+  if (disconnect) disconnect.textContent = state.viewingSample ? "Leave the sample" : "Disconnect league";
   const pending = state.pendingPlace || connectNextPlace;
   connectNextPlace = null;
   state.pendingPlace = null;
