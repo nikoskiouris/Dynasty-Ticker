@@ -568,7 +568,14 @@ export function parseTradeTalk(message, ctx = {}) {
 
   const shop = body.match(/^(?:what|who)\s+(?:could|can|would|might|should|do)\s+i\s+(?:get|ask for|target|land)\s+(?:back\s+)?for\s+(.+)$/)
     || body.match(/^(?:shop|sell|move|price check|value of)\s+(.+)$/)
-    || body.match(/^what(?:'s| is| are|s)\s+(.+?)\s+worth$/);
+    || body.match(/^what(?:'s| is| are|s)\s+(.+?)\s+worth$/)
+    // "How much is Gibbs worth", "Nabers value", "Gibbs worth?", "is Gibbs good".
+    || body.match(/^how much (?:is|are)\s+(.+?)(?:\s+worth)?$/)
+    || body.match(/^(?:value|price)(?:\s+(?:for|on))?\s+(.+)$/)
+    || body.match(/^(.+?)\s+(?:value|price|worth)$/)
+    || body.match(/^(?:is|are)\s+(.+?)\s+(?:good|any good|worth it|worth anything|valuable)$/)
+    // The leading "is" may already be gone ("gibbs good"). Never a trade ("for").
+    || body.match(/^(?!.*\bfor\b)(.+?)\s+(?:any good|good|valuable)$/);
   if (shop) {
     const plan = blankPlan("shop");
     absorb(plan, piecesWithSide(shop[1], "left", context, partner, index));
