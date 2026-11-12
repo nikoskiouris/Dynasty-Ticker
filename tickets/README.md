@@ -50,6 +50,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [019](019-describe-a-trade.txt) | Describe a trade in plain words and the calculator builds it | P1 | [#193](https://github.com/nikoskiouris/Dynasty-Ticker/pull/193) |
 | [020](020-three-tabs.txt) | Simplify to three tabs: Check a trade, Find a trade, My team | P0 | [#195](https://github.com/nikoskiouris/Dynasty-Ticker/pull/195) |
 | [022](022-player-values-backtested.txt) | Player values are a forecast that is checked against history | P0 | [#284](https://github.com/nikoskiouris/Dynasty-Ticker/pull/284) |
+| [023](023-crowd-trade-call.txt) | Crowd call: other managers drag one slider to say who a trade favors | P1 | [#282](https://github.com/nikoskiouris/Dynasty-Ticker/pull/282) |
 
 ## Shipped before this board
 

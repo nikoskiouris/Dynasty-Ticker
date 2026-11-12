@@ -274,6 +274,7 @@ import { shopOffers } from "./modules/shop-player.js";
 import { decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
 import { analyzeWindowCall, windowCallInputFromDesk } from "./modules/window-call.js";
 import { pickNextMove } from "./modules/next-move.js";
+import { POLL_PATH, POLL_STOPS, isPollStop, pollGetUrl, pollKeyFromCode, pollSummary, stopLine, stopMagnitudeLabel } from "./modules/trade-poll.js";
 import { chooseBestLineup } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
@@ -5291,6 +5292,7 @@ function paintTradeDraft() {
         ${renderDraftPane("left", view)}
         ${renderDraftPane("right", view)}
       </div>
+      <div id="trade-poll">${renderTradePoll(view)}</div>
       ${state.sharedEditing ? "" : `<div class="shared-trade-cta">
         <button type="button" class="ghost-btn shared-edit-btn" data-action="shared-edit">Edit this trade</button>
       </div>`}
@@ -5318,6 +5320,7 @@ function paintTradeDraft() {
       ${renderDraftPane("right", view)}
     </div>
     <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
+    <div id="trade-poll">${renderTradePoll(view)}</div>
     <div class="calc-price-notes">
       ${renderValueScaleExplainer()}
       ${renderPriceLegend(["model", "package"])}
@@ -5756,6 +5759,7 @@ function patchTradeDraft(listSides = []) {
   if (notice) notice.innerHTML = `${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}`;
   const verdict = host.querySelector("#value-calc-verdict");
   if (verdict) verdict.innerHTML = renderDraftVerdict(view);
+  patchTradePoll(view);
   const team = host.querySelector("#draft-team");
   if (team) team.innerHTML = renderDraftTeam(view);
 }
@@ -6371,6 +6375,238 @@ function renderDraftVerdict(view) {
     </section>
   `;
 }
+
+
+// ---------------------------------------------------------------------------
+// Crowd call (trade-poll.js). Other managers drag one slider to say who the
+// trade favors. Opinion, not price: it sits under the market verdict and
+// never moves a number. Results stay hidden until you vote, so the split
+// does not anchor your own read.
+// ---------------------------------------------------------------------------
+
+const POLL_VOTER_KEY = "dt-poll-voter";
+let pollVoterFallback = "";
+
+function pollVoterId() {
+  try {
+    let id = localStorage.getItem(POLL_VOTER_KEY) || "";
+    if (!/^[a-z0-9-]{16,64}$/.test(id)) {
+      id = (crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`).toLowerCase();
+      localStorage.setItem(POLL_VOTER_KEY, id);
+    }
+    return id;
+  } catch {
+    if (!pollVoterFallback) pollVoterFallback = (crypto.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}x`).toLowerCase();
+    return pollVoterFallback;
+  }
+}
+
+// Entries are keyed by share code, so counts and "mine" are already in this
+// page's chair (Team 1 = the Give side's manager).
+function pollEntry(code) {
+  if (!state.tradePolls) state.tradePolls = new Map();
+  return state.tradePolls.get(code) || null;
+}
+
+function setPollEntry(code, entry) {
+  if (!state.tradePolls) state.tradePolls = new Map();
+  if (state.tradePolls.size > 50) state.tradePolls.clear();
+  state.tradePolls.set(code, entry);
+}
+
+async function loadTradePoll(code) {
+  setPollEntry(code, { status: "loading", total: 0, counts: [], mine: null, pending: pollEntry(code)?.pending ?? 0 });
+  let next;
+  try {
+    const res = await fetch(`${pollGetUrl(code)}&voter=${encodeURIComponent(pollVoterId())}`, { headers: { accept: "application/json" } });
+    const body = res.ok ? await res.json() : null;
+    next = body?.ok
+      ? { status: "ready", total: body.total, counts: body.counts, mine: isPollStop(body.mine) ? body.mine : null }
+      : { status: "off" };
+  } catch {
+    next = { status: "off" };
+  }
+  const prev = pollEntry(code);
+  setPollEntry(code, { ...next, pending: isPollStop(next.mine) ? next.mine : (prev?.pending ?? 0), changing: false });
+  patchTradePoll();
+}
+
+async function submitTradePoll(code) {
+  const entry = pollEntry(code);
+  if (!entry || entry.status === "sending") return;
+  const stop = isPollStop(entry.pending) ? entry.pending : 0;
+  setPollEntry(code, { ...entry, status: "sending", note: "" });
+  patchTradePoll();
+  let next;
+  try {
+    const res = await fetch(POLL_PATH, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code, stop, voter: pollVoterId() }),
+    });
+    const body = await res.json().catch(() => null);
+    if (res.ok && body?.ok) {
+      next = { ...entry, status: "ready", total: body.total, counts: body.counts, mine: body.mine, changing: false, note: "" };
+      analyticsTrack("poll_voted", { mode: activeSharedTrade() ? "shared" : "draft" }, { once: `${code}|${stop}` });
+    } else if (body?.error === "limit") {
+      next = { ...entry, status: "ready", note: "Too many new votes from this connection on this trade." };
+    } else {
+      next = { ...entry, status: "ready", note: "That vote didn't go through. Try again." };
+    }
+  } catch {
+    next = { ...entry, status: "ready", note: "That vote didn't go through. Try again." };
+  }
+  setPollEntry(code, next);
+  patchTradePoll();
+  el.calculatorShell?.querySelector("#trade-poll .poll-result, #trade-poll .poll-note")?.focus?.({ preventScroll: true });
+}
+
+// Names for the two chairs. /t speaks about the trade ("Gets Nabers +1");
+// private /trade speaks to the person building it ("You" / the partner).
+function pollTeams(view) {
+  const lead = (items) => {
+    const rows = items.map((item) => ({ name: view.priced?.get(String(item.uid))?.asset?.name || item.name || "", value: view.priced?.get(String(item.uid))?.value || 0 }));
+    rows.sort((a, b) => b.value - a.value);
+    const name = rows[0]?.name && !/^(player|pick):|^\d+$/i.test(rows[0].name) ? rows[0].name : `${rows.length} piece${rows.length === 1 ? "" : "s"}`;
+    return rows.length > 1 && !name.endsWith("pieces") ? `${name} +${rows.length - 1}` : name;
+  };
+  if (activeSharedTrade(view.draft)) {
+    const one = `Gets ${lead(view.draft.right)}`;
+    const two = `Gets ${lead(view.draft.left)}`;
+    return { one, two, oneShort: one, twoShort: two };
+  }
+  const them = view.partner?.manager?.displayName || "Them";
+  return { one: "You", two: them, oneShort: "You", twoShort: them };
+}
+
+function renderTradePoll(view = buildDraftView()) {
+  const { draft } = view;
+  if (!draft.left.length || !draft.right.length) return "";
+  const code = draftShareCode(view);
+  if (!code || !pollKeyFromCode(code)) return "";
+  let entry = pollEntry(code);
+  if (!entry) {
+    entry = { status: "loading", total: 0, counts: [], mine: null, pending: 0 };
+    setPollEntry(code, entry);
+    queueMicrotask(() => void loadTradePoll(code));
+  }
+  const teams = pollTeams(view);
+  const shared = Boolean(activeSharedTrade(view.draft));
+  const head = `
+    <div class="poll-head">
+      <span class="analytics-kicker">Crowd call</span>
+      <h3 id="trade-poll-title">Who wins this trade?</h3>
+      <p class="poll-sub">${shared ? "Drag toward the side you think comes out ahead." : "Share this trade and other managers vote here."} Votes are opinions. They never change a price.</p>
+    </div>`;
+  if (entry.status === "off") {
+    return `<section class="trade-poll" aria-labelledby="trade-poll-title">${head}<p class="poll-note muted">Crowd votes aren't available right now.</p></section>`;
+  }
+  const voted = isPollStop(entry.mine) && !entry.changing;
+  return `
+    <section class="trade-poll" aria-labelledby="trade-poll-title" data-poll-code="${escapeHtml(code)}">
+      ${head}
+      ${voted ? renderPollResults(entry, teams) : renderPollSlider(entry, teams)}
+      ${entry.note ? `<p class="poll-note" role="alert" tabindex="-1">${escapeHtml(entry.note)}</p>` : ""}
+    </section>`;
+}
+
+function renderPollSlider(entry, teams) {
+  const stop = isPollStop(entry.pending) ? entry.pending : 0;
+  const count = entry.status === "loading" ? "" : entry.total
+    ? `${formatNumber(entry.total)} vote${entry.total === 1 ? "" : "s"} so far. Vote to see the split.`
+    : "No votes yet. Be the first.";
+  return `
+    <div class="poll-ends" aria-hidden="true">
+      <span>◀ ${escapeHtml(teams.one)}</span>
+      <span>${escapeHtml(teams.two)} ▶</span>
+    </div>
+    <input type="range" class="poll-range" min="${POLL_STOPS[0]}" max="${POLL_STOPS[POLL_STOPS.length - 1]}" step="1" value="${stop}"
+      data-poll-range aria-label="Who wins: left is ${escapeHtml(teams.one)}, right is ${escapeHtml(teams.two)}"
+      aria-valuetext="${escapeHtml(stopLine(stop, teams))}" style="--poll-pos:${((stop + 4) / 8) * 100}%" />
+    <div class="poll-ticks" aria-hidden="true">
+      ${POLL_STOPS.map((value, i) => `<span style="--i:${i}" class="${value === stop ? "is-on" : ""}${value === 0 ? " is-even" : ""}">${escapeHtml(stopMagnitudeLabel(value))}</span>`).join("")}
+    </div>
+    <p class="poll-readout"><output data-poll-readout>${escapeHtml(stopLine(stop, teams))}</output></p>
+    <div class="poll-actions">
+      <button type="button" class="poll-vote-btn" data-poll-vote ${entry.status === "sending" || entry.status === "loading" ? "disabled" : ""}>${entry.status === "sending" ? "Sending…" : entry.changing ? "Update vote" : "Vote"}</button>
+      ${entry.changing ? `<button type="button" class="ghost-btn btn-sm" data-poll-cancel>Keep my vote</button>` : ""}
+      <span class="poll-count">${escapeHtml(count)}</span>
+    </div>`;
+}
+
+function renderPollResults(entry, teams) {
+  const summary = pollSummary(entry.counts);
+  const max = Math.max(1, ...summary.counts);
+  const call = summary.ready
+    ? `Crowd says: <strong>${escapeHtml(stopLine(summary.median, teams))}</strong>`
+    : `${formatNumber(summary.total)} vote${summary.total === 1 ? "" : "s"} so far. Too few to call it yet.`;
+  return `
+    <p class="poll-result" tabindex="-1">${call}${summary.ready ? ` <span class="muted">(${formatNumber(summary.total)} votes, middle vote)</span>` : ""}</p>
+    <div class="poll-ends" aria-hidden="true">
+      <span>◀ ${escapeHtml(teams.one)}</span>
+      <span>${escapeHtml(teams.two)} ▶</span>
+    </div>
+    <ol class="poll-hist" aria-label="Votes at each point on the slider">
+      ${POLL_STOPS.map((value, i) => {
+        const n = summary.counts[i];
+        const label = stopLine(value, teams);
+        return `<li class="${value === entry.mine ? "is-mine" : ""}${value === 0 ? " is-even" : ""}" title="${escapeHtml(label)}: ${n}">
+          <span class="poll-bar" style="height:${Math.round((n / max) * 100)}%"></span>
+          <span class="sr-only">${escapeHtml(label)}: ${n} vote${n === 1 ? "" : "s"}${value === entry.mine ? " (your vote)" : ""}</span>
+        </li>`;
+      }).join("")}
+    </ol>
+    <p class="poll-split">${escapeHtml(teams.oneShort)} ${summary.split.one}% · Even ${summary.split.even}% · ${escapeHtml(teams.twoShort)} ${summary.split.two}%</p>
+    <div class="poll-actions">
+      <span class="poll-mine">Your vote: ${escapeHtml(stopLine(entry.mine, teams))}</span>
+      <button type="button" class="ghost-btn btn-sm" data-poll-change>Change vote</button>
+    </div>`;
+}
+
+function patchTradePoll(view = null) {
+  const slot = el.calculatorShell?.querySelector("#trade-poll");
+  if (!slot || !draftValuesReady()) return;
+  const hadFocus = slot.contains(document.activeElement) ? document.activeElement.matches("[data-poll-range]") ? "range" : "" : "";
+  slot.innerHTML = renderTradePoll(view || buildDraftView());
+  if (hadFocus === "range") slot.querySelector("[data-poll-range]")?.focus({ preventScroll: true });
+}
+
+function pollCodeFrom(node) {
+  return node?.closest?.("[data-poll-code]")?.dataset.pollCode || "";
+}
+
+document.addEventListener("input", (event) => {
+  const range = event.target?.closest?.("[data-poll-range]");
+  if (!range) return;
+  const code = pollCodeFrom(range);
+  const entry = pollEntry(code);
+  const stop = Number(range.value);
+  if (!entry || !isPollStop(stop)) return;
+  entry.pending = stop;
+  const teams = pollTeams(buildDraftView());
+  const text = stopLine(stop, teams);
+  range.setAttribute("aria-valuetext", text);
+  range.style.setProperty("--poll-pos", `${((stop + 4) / 8) * 100}%`);
+  const box = range.closest(".trade-poll");
+  const out = box?.querySelector("[data-poll-readout]");
+  if (out) out.textContent = text;
+  box?.querySelectorAll(".poll-ticks span").forEach((tick, i) => tick.classList.toggle("is-on", POLL_STOPS[i] === stop));
+});
+
+document.addEventListener("click", (event) => {
+  const target = event.target?.closest?.("[data-poll-vote], [data-poll-change], [data-poll-cancel]");
+  if (!target) return;
+  const code = pollCodeFrom(target);
+  const entry = pollEntry(code);
+  if (!entry) return;
+  if (target.matches("[data-poll-vote]")) {
+    void submitTradePoll(code);
+    return;
+  }
+  setPollEntry(code, { ...entry, changing: target.matches("[data-poll-change]"), pending: isPollStop(entry.mine) ? entry.mine : entry.pending, note: "" });
+  patchTradePoll();
+  el.calculatorShell?.querySelector(target.matches("[data-poll-change]") ? "#trade-poll [data-poll-range]" : "#trade-poll [data-poll-change]")?.focus({ preventScroll: true });
+});
 
 // Bar segments: listed price plus a separate stars segment. Private /trade
 // passes its meters (listed totals) and gets no stars segment.
