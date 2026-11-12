@@ -481,7 +481,7 @@ export function roleLine(row) {
   const pos = String(row?.position || "").toUpperCase();
   const posRank = Number(row?.positionRank);
   const parts = [];
-  if (pos && Number.isFinite(posRank) && posRank > 0) parts.push(`${ordinal(posRank)}-best ${pos} by value`);
+  if (pos && Number.isFinite(posRank) && posRank > 0) parts.push(posRank === 1 ? `Best ${pos} by value` : `${ordinal(posRank)}-best ${pos} by value`);
   const age = Number(row?.age);
   const end = PRIME_END[pos];
   if (end && Number.isFinite(age) && age > 0) {
