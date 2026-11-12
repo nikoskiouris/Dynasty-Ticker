@@ -24,7 +24,6 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 
 | ID | Ticket | Priority |
 | --- | --- | --- |
-| [004](004-buy-low-sell-high.txt) | Buy-low / sell-high targets | P0 |
 | [005](005-win-now-targets.txt) | Win-now targets from this league | P1 |
 | [006](006-late-season-win-now.txt) | Late-season win-now value | P2 |
 | [007](007-assets-to-move-on.txt) | Assets to move on from for capital | P1 |
@@ -50,6 +49,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [018](018-returning-manager-resume.txt) | Returning manager lands back on their league and team | P1 | [#213](https://github.com/nikoskiouris/Dynasty-Ticker/pull/213) |
 | [022](022-player-values-backtested.txt) | Player values are a forecast that is checked against history | P0 | [#284](https://github.com/nikoskiouris/Dynasty-Ticker/pull/284) |
 | [017](017-ideas-explain-why.txt) | Trade ideas say what they do and why the other team says yes | P1 | [#220](https://github.com/nikoskiouris/Dynasty-Ticker/pull/220) |
+| [004](004-buy-low-sell-high.txt) | Buy-low / sell-high targets | P0 | [#221](https://github.com/nikoskiouris/Dynasty-Ticker/pull/221) |
 
 ## Shipped before this board
 

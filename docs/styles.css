@@ -8218,3 +8218,11 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
 .launch-resume-forget { min-height: 44px; padding: 0 0.25rem; font-size: var(--fs-sm, 0.875rem); color: var(--muted); }
 /* One primary at a time: with a league to reopen, Connect is a normal choice. */
 .launch-resume:not([hidden]) + .launch-start .launch-action.launch-primary { border-color: var(--line); }
+/* Ticket 004: buy low / sell high. */
+.buy-sell-grid { display: grid; gap: var(--sp-3, 0.75rem); grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.buy-sell-grid h3 { margin: 0 0 0.35rem; font-size: var(--fs-body, 1rem); }
+.buy-sell-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.buy-sell-row { display: grid; gap: 0.15rem; padding: 0.55rem 0.7rem; border: 1px solid var(--line); border-radius: var(--r-md, 10px); background: var(--panel-soft, var(--panel)); }
+.buy-sell-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
+.buy-sell-why { margin: 0; }
+.buy-sell-row .link-btn[data-action="player-shop"] { justify-self: start; min-height: 44px; }
