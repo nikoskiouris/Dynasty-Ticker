@@ -157,6 +157,8 @@ import {
   leaguePickForGeneric,
   placeAfterConnect,
   readStoredDraft,
+  restoreDraft,
+  serializeDraft,
   resolveDraftContext,
   reviewPayloadFor,
   useLeaguePick,
@@ -459,7 +461,8 @@ let seasonStatsCache = { season: "", stats: null };
 let bootRoute = null;
 let connectNextPlace = null;
 // The draft a Review trade, a new partner, or Clear replaced, so one tap brings it back.
-let draftReplaced = null;
+const REPLACED_DRAFT_KEY = "dynasty_ticker_trade_draft_replaced_v1";
+let draftReplaced = readReplacedDraft();
 // The full players board is open (Look up a player / All players).
 let playersBoardOpen = false;
 // Describe-a-trade box: the last message and its reply (memory only), and a
@@ -4884,9 +4887,36 @@ function renderRosterSheet() {
 // Trade calculator: one draft, with or without a league
 // ---------------------------------------------------------------------------
 
+// The draft that Clear, Review trade, or a new partner replaced. It lives in
+// session storage beside the draft, so a reload still offers Restore draft.
+function readReplacedDraft() {
+  try {
+    const raw = globalThis.sessionStorage?.getItem(REPLACED_DRAFT_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    const draft = restoreDraft(saved?.draft || "");
+    return draft && !isDraftEmpty(draft) ? { draft, note: String(saved?.note || "") } : null;
+  } catch {
+    return null;
+  }
+}
+
+function setDraftReplaced(next) {
+  draftReplaced = next || null;
+  try {
+    if (draftReplaced) {
+      globalThis.sessionStorage?.setItem(REPLACED_DRAFT_KEY, JSON.stringify({ draft: serializeDraft(draftReplaced.draft), note: draftReplaced.note || "" }));
+    } else {
+      globalThis.sessionStorage?.removeItem(REPLACED_DRAFT_KEY);
+    }
+  } catch {
+    // Blocked storage: Restore draft still works until the tab reloads.
+  }
+}
+
 function setDraft(next, { keepNotice = false } = {}) {
   // "Restore draft / Keep new" goes away on the next change to the trade.
-  if (!keepNotice) draftReplaced = null;
+  if (!keepNotice) setDraftReplaced(null);
   state.valueCalc = next;
   writeStoredDraft(next);
   if (state.activePage === "trades" && getRoom("trades") === "calculator") {
@@ -4901,9 +4931,9 @@ function draftAssetKey(draft) {
 
 function replaceDraft(next, note) {
   const current = state.valueCalc;
-  draftReplaced = !isDraftEmpty(current) && draftAssetKey(current) !== draftAssetKey(next)
+  setDraftReplaced(!isDraftEmpty(current) && draftAssetKey(current) !== draftAssetKey(next)
     ? { draft: current, note }
-    : null;
+    : null);
   setDraft(next, { keepNotice: true });
 }
 
@@ -6740,7 +6770,7 @@ function handleWorkspaceClick(event) {
       // replace /t with /trade, and Back would leave the app.
       state.sharedTrade = null;
       state.sentShare = null;
-      draftReplaced = null;
+      setDraftReplaced(null);
       state.valueCalc = clearValueCalcSides(state.valueCalc);
       writeStoredDraft(state.valueCalc);
       renderTradeDraft();
@@ -6763,13 +6793,13 @@ function handleWorkspaceClick(event) {
     case "draft-restore": {
       if (!draftReplaced) return;
       const previous = draftReplaced.draft;
-      draftReplaced = isDraftEmpty(state.valueCalc) ? null : { draft: state.valueCalc, note: "Switched drafts." };
+      setDraftReplaced(isDraftEmpty(state.valueCalc) ? null : { draft: state.valueCalc, note: "Switched drafts." });
       setDraft(previous, { keepNotice: true });
       renderTradeDraft();
       break;
     }
     case "draft-dismiss": {
-      draftReplaced = null;
+      setDraftReplaced(null);
       const notice = el.calculatorShell?.querySelector("#draft-notice");
       if (notice) notice.innerHTML = "";
       break;
