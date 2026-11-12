@@ -682,8 +682,9 @@ export function tradeTalkReply(plan, result, { giveLabel = "You give", getLabel 
     if (give.length) lines.push(`${giveLabel}: ${listNames(give)}.`);
     if (get.length) lines.push(`${getLabel}: ${listNames(get)}.`);
   } else {
-    if (give.length) lines.push(`Added ${listNames(give)} to ${giveLabel}.`);
-    if (get.length) lines.push(`Added ${listNames(get)} to ${getLabel}.`);
+    // "Added 2028 2nd to You give." read oddly; name the side as a label.
+    if (give.length) lines.push(`${giveLabel}: added ${listNames(give)}.`);
+    if (get.length) lines.push(`${getLabel}: added ${listNames(get)}.`);
   }
   (plan.notes || []).forEach((note) => lines.push(note));
   if (result.skipped.length) lines.push(`${listNames(result.skipped)} ${result.skipped.length === 1 ? "is" : "are"} already in the trade.`);
