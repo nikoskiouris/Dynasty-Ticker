@@ -1,3 +1,4 @@
+import { safeStorage } from "./modules/safe-storage.js";
 import {
   handleBootIntent,
   keepUsernameFieldsEditable,
@@ -70,5 +71,5 @@ await watchBootImport({
   host,
   onlineTarget: window,
   reload: () => location.reload(),
-  storage: sessionStorage,
+  storage: safeStorage("sessionStorage"),
 });

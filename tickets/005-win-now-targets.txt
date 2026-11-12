@@ -2,10 +2,13 @@ Title
 Win-now targets inside this league
 
 Status
-Open
+Done
 
 Priority
 P1
+
+Shipped
+#223
 
 Area
 Teams → Call / Trades → Partners or Find deals

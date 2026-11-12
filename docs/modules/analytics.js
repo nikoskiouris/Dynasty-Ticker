@@ -21,6 +21,8 @@ export const ANALYTICS_EVENTS = Object.freeze({
   share_tapped: Object.freeze({ method: Object.freeze(["webshare", "copy"]) }),
   t_opened: Object.freeze({ drift: Object.freeze(["yes", "no"]) }),
   league_connected: Object.freeze({ sample: Object.freeze(["yes", "no"]) }),
+  // Crowd call on a trade: where the vote was cast, never the vote itself.
+  poll_voted: Object.freeze({ mode: Object.freeze(["shared", "draft"]) }),
   // Describe-a-trade box. The kind of message only, never the words typed.
   trade_described: Object.freeze({
     intent: Object.freeze(["trade", "add", "remove", "replace", "shop", "clear", "flip", "verdict", "empty"]),

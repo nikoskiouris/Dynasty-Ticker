@@ -1,5 +1,6 @@
 import { formatGenericPickAssetLabel, parsePickAssetId } from "./values.js";
 import {
+  expandPickSlotQuery,
   addValueCalcItem,
   clearValueCalcSides,
   emptyValueCalcState,
@@ -176,11 +177,17 @@ function cleanText(text) {
     .replace(/[’‘`]/g, "'")
     .replace(/[“”]/g, "\"")
     .replace(/\s*(?:\+|&)\s*/g, " and ")
+    // "Gibbs -> Chase": an arrow reads as "for".
+    .replace(/\s*(?:->|=>|→)\s*/g, " for ")
+    // "Gibbs straight up for Bijan", "Gibbs for Bijan, even up": filler, not a
+    // name. "Gibbs 1 for 1 Bijan" is a plain swap.
+    .replace(/\s+(?:1|one)[ -]for[ -](?:1|one)\s+/g, " for ")
+    .replace(/[,\s]+(?:straight[ -]up|straight|even[ -]up|1[ -]for[ -]1|one[ -]for[ -]one)\b/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-const ASK_TAIL = /(?:^|[\s,.;:!?-]+)(?:what do you think|what do u think|wdyt|thoughts|is (?:this|that|it) (?:fair|good|even|bad|a win|a fleece|a rip ?off|worth it)|should i (?:do|take|accept|make) (?:it|this|that)|would you (?:do|take|accept) (?:it|this|that)|good deal|fair|win or loss|who wins)\s*\??$/;
+const ASK_TAIL = /(?:^|[\s,.;:!?-]+)(?:what do you think|what do u think|wdyt|thoughts|is (?:this|that|it) (?:fair|good|even|bad|a win|a fleece|a rip ?off|worth it)|should i (?:do|take|accept|make) (?:it|this|that)|would you (?:do|take|accept) (?:it|this|that)|good deal|fair|win or loss|who wins|who won|did i win|did i lose|did i get (?:fleeced|robbed|ripped off)|was (?:it|that|this) (?:fair|good|a win|bad)|good trade|bad trade)\s*\??$/;
 const LEAD_FILLER = /^(?:hey|so|ok|okay|yo|hmm|um|lol)[,!.\s]+|^(?:would you do|would you take|should i do|should i take|should i accept|should i|would you|is|how about|what about|what if|lets do|let's do|try|check|rate)\s+/;
 
 function stripChatter(text) {
@@ -251,7 +258,7 @@ function pullOwner(piece, managers, meRosterId) {
 }
 
 export function parsePickPhrase(text, { season = new Date().getUTCFullYear() + 1 } = {}) {
-  const words = String(text || "").toLowerCase().replace(/'/g, "").split(/[^a-z0-9]+/).filter(Boolean);
+  const words = expandPickSlotQuery(text).toLowerCase().replace(/'/g, "").split(/[^a-z0-9]+/).filter(Boolean);
   if (!words.length) return null;
   const pick = { season: null, round: null, bucket: "", count: 1 };
   for (let i = 0; i < words.length; i += 1) {
@@ -351,11 +358,20 @@ function resolvePick(pick, { side, ownerRosterId, ctx }) {
     }
   }
   const generic = genericPickAsset(pick, ctx.pickIds);
-  if (!generic) return { reason: `No price for ${pickLabel(pick)} picks yet.` };
-  const note = ctx.connected && !seasonKnown
-    ? `No ${pick.season} picks on rosters here, so ${generic.name} is a generic pick at market price.`
-    : "";
-  return { picks: Array.from({ length: pick.count }, () => generic), note };
+  if (!generic) {
+    // A season that already drafted has no picks left to trade.
+    const next = Number(ctx?.season) || 0;
+    if (next && Number(pick.season) < next) return { reason: `The ${pick.season} draft already happened. Try ${next}.` };
+    return { reason: `No price for ${pickLabel(pick)} picks yet.` };
+  }
+  const notes = [];
+  if (ctx.connected && !seasonKnown) notes.push(`No ${pick.season} picks on rosters here, so ${generic.name} is a generic pick at market price.`);
+  // "2027 early 2nd": only some rounds have early/mid/late prices. Say so
+  // instead of quietly dropping the word.
+  if (pick.bucket && !generic.assetId.endsWith(`:${pick.bucket}`)) {
+    notes.push(`There is no separate ${pick.bucket} price for a ${pickLabel({ ...pick, bucket: "" })}, so it is priced as ${generic.name}.`);
+  }
+  return { picks: Array.from({ length: pick.count }, () => generic), note: notes.join(" ") };
 }
 
 function ownerFor(owned, ctx, partner) {
@@ -383,6 +399,21 @@ function resolvePiece(raw, { side, ctx, partner, index }) {
     return { adds: hit.picks.map((row) => ({ side: pieceSide || "left", asset: asDraftAsset(row) })), partner: owned.manager || null, note: hit.note || "" };
   }
   const found = resolvePlayer(owned.text, index, { ownerRosterId, preferRostered: ctx.connected });
+  // "My Gibbs and Taylor for Allen": on the give side only one Taylor is mine,
+  // so that is the one meant. Same for the get side and the partner's roster.
+  if (found.options && ctx.connected && ctx.meRosterId != null && pieceSide && ownerRosterId == null) {
+    const me = String(ctx.meRosterId);
+    const partnerId = partner?.rosterId ?? ctx.partnerRosterId ?? null;
+    const fits = found.options.filter((row) => {
+      const owner = row.ownerRosterId == null ? "" : String(row.ownerRosterId);
+      if (pieceSide === "left") return owner === me;
+      if (partnerId != null) return owner === String(partnerId);
+      return owner !== "" && owner !== me;
+    });
+    if (fits.length === 1) {
+      return { adds: [{ side: pieceSide, asset: asDraftAsset(fits[0]) }], partner: owned.manager || null };
+    }
+  }
   if (found.options) {
     return { ask: { text: raw, side: pieceSide, options: found.options.map(asDraftAsset), question: `Which ${owned.text.replace(/\b\w/g, (c) => c.toUpperCase())}?` } };
   }
@@ -404,8 +435,8 @@ function inferPartner(plan, ctx) {
   return ctx.managers.find((manager) => String(manager.rosterId) === id)?.rosterId ?? null;
 }
 
-const GET_LEAD = /\b(?:got offered|was offered|been offered|offered me|offers me|offering me|offer me|gives me|give me|giving me|i get|i'd get|id get|i receive|i'm getting|im getting|getting|receiving|receive)\b\s*/;
-const GIVE_LEAD = /^(?:[a-z0-9@_.,']+\s+){0,3}?(?:i give|i'd give|id give|i trade|i'm trading|im trading|trading|trade|i offer|i offered|offering|offer|sell|selling|send|sending|give|giving|i do|do)\b\s*/;
+const GET_LEAD = /\b(?:got offered|was offered|been offered|being offered|i'm offered|im offered|am offered|(?:they|he|she|someone|somebody)(?:\s+(?:offered|offers|is offering|are offering)|(?:'s|s|'re|re) offering)|offered me|offers me|offering me|offer me|gives me|give me|giving me|i get|i'd get|id get|i receive|i'm getting|im getting|getting|receiving|receive)\b\s*/;
+const GIVE_LEAD = /^(?:[a-z0-9@_.,']+\s+){0,3}?(?:i traded|traded|i gave up|gave up|i gave|gave|i sold|sold|i give|i'd give|id give|i trade|i'm trading|im trading|trading|trade|i offer|i offered|offering|offer|sell|selling|send|sending|give|giving|i do|do)\b\s*/;
 const RIGHT_VERB = /^(?:add|adds|throw in|throws in|toss in|include|includes|give|gives|kick in|kicks in)\b\s*/;
 const RIGHT_ADD = /^(?:(?:they|he|she|them)\s+(?:add|adds|throw in|throws in|toss in|include|includes|give|gives|kick in|kicks in)|ask for|ask them for|have them add|make them add|i want|i get|get|request|and they add)\b\s*/;
 const PRONOUNS = new Set(["me", "him", "her", "them", "my", "his", "their", "us", "it"]);
@@ -508,7 +539,7 @@ export function parseTradeTalk(message, ctx = {}) {
   };
   const index = indexPlayers(context.catalog);
   const { body: chatter, asked } = stripChatter(cleanText(message));
-  const { body, partner, unknown } = pullPartner(chatter, context.managers, context.meRosterId);
+  let { body, partner, unknown } = pullPartner(chatter, context.managers, context.meRosterId);
   if (partner) context.partnerRosterId = partner.rosterId;
   const finish = (plan) => {
     plan.asked = asked;
@@ -523,6 +554,25 @@ export function parseTradeTalk(message, ctx = {}) {
   if (!body) return finish(blankPlan(asked ? "verdict" : "empty"));
   if (/^(?:clear|reset|start over|new trade|empty)(?: it| the trade| everything| all| both sides)?$/.test(body)) return finish(blankPlan("clear"));
   if (/^(?:flip|swap|switch|reverse)(?: it| the trade| sides| the sides| them)?$/.test(body)) return finish(blankPlan("flip"));
+
+  // "Gibbs or Bijan?", "Gibbs vs Bijan", "who's better, Gibbs or Bijan": a
+  // comparison is checked as a straight swap, so the verdict says which side is
+  // worth more. Anything with "for" is already a trade.
+  let compared = false;
+  const cmp = !/\bfor\b/.test(body) && body.match(/^(?:(?:who(?:'s|s| is)|which(?: one)? is)\s+(?:better|worth more)[,:]?\s+|(?:would you\s+)?rather(?:\s+have)?\s+|compare\s+)?(.+?)\s+(?:or|vs\.?|versus)\s+(.+)$/);
+  // "is Bowers worth a 2027 1st", "is Gibbs worth more than Bijan", "Bowers
+  // worth more than a 1st?": the same comparison, said as a value question.
+  const worth = !cmp && !/\bfor\b/.test(body) && (
+    body.match(/^(?:(?:is|are)\s+)?(.+?)\s+(?:is\s+)?worth\s+(?:more than\s+|as much as\s+|less than\s+|about\s+)?(.+)$/)
+  );
+  const worthPair = worth && !/^(?:it|anything|something|much|a lot|that|this|keeping|holding|buying|selling)$/.test(worth[2].trim()) ? worth : null;
+  if (worthPair && worthPair[1].trim() && worthPair[2].trim()) {
+    body = `${worthPair[1].trim()} for ${worthPair[2].trim()}`;
+    compared = true;
+  } else if (cmp && cmp[1].trim() && cmp[2].trim()) {
+    body = `${cmp[1].trim()} for ${cmp[2].trim()}`;
+    compared = true;
+  }
 
   const replace = body.match(/^(?:swap|replace|change|sub|switch|trade)\s+(?:out\s+)?(.+?)\s+(?:for|with|to|into)\s+(.+)$/);
   if (replace && findInDraft(replace[1], context.draft, context).length) {
@@ -547,7 +597,14 @@ export function parseTradeTalk(message, ctx = {}) {
 
   const shop = body.match(/^(?:what|who)\s+(?:could|can|would|might|should|do)\s+i\s+(?:get|ask for|target|land)\s+(?:back\s+)?for\s+(.+)$/)
     || body.match(/^(?:shop|sell|move|price check|value of)\s+(.+)$/)
-    || body.match(/^what(?:'s| is| are|s)\s+(.+?)\s+worth$/);
+    || body.match(/^what(?:'s| is| are|s)\s+(.+?)\s+worth$/)
+    // "How much is Gibbs worth", "Nabers value", "Gibbs worth?", "is Gibbs good".
+    || body.match(/^how much (?:is|are)\s+(.+?)(?:\s+worth)?$/)
+    || body.match(/^(?:value|price)(?:\s+(?:for|on))?\s+(.+)$/)
+    || body.match(/^(.+?)\s+(?:value|price|worth)$/)
+    || body.match(/^(?:is|are)\s+(.+?)\s+(?:good|any good|worth it|worth anything|valuable)$/)
+    // The leading "is" may already be gone ("gibbs good"). Never a trade ("for").
+    || body.match(/^(?!.*\bfor\b)(.+?)\s+(?:any good|good|valuable)$/);
   if (shop) {
     const plan = blankPlan("shop");
     absorb(plan, piecesWithSide(shop[1], "left", context, partner, index));
@@ -588,10 +645,14 @@ export function parseTradeTalk(message, ctx = {}) {
     absorb(plan, a);
     absorb(plan, b);
     if (leadPartner) plan.partnerRosterId = leadPartner.rosterId;
+    // "London and a 2nd for Puka" with no "I give" / "they offer" and no league
+    // to read ownership from: the sides are a guess. The reply offers a flip.
+    plan.sidesGuessed = !getLead && !lead && !context.connected;
     if (!getLead && !lead && ownershipFlip(plan, context)) {
       plan.adds = plan.adds.map((add) => ({ ...add, side: add.side === "left" ? "right" : "left" }));
       plan.asks = plan.asks.map((ask) => ({ ...ask, side: ask.side === "left" ? "right" : "left" }));
     }
+    if (compared && plan.adds.length >= 2) plan.notes.push("Checked as a straight swap, so the verdict says which side is worth more.");
     return finish(plan);
   }
 
@@ -676,8 +737,9 @@ export function tradeTalkReply(plan, result, { giveLabel = "You give", getLabel 
     if (give.length) lines.push(`${giveLabel}: ${listNames(give)}.`);
     if (get.length) lines.push(`${getLabel}: ${listNames(get)}.`);
   } else {
-    if (give.length) lines.push(`Added ${listNames(give)} to ${giveLabel}.`);
-    if (get.length) lines.push(`Added ${listNames(get)} to ${getLabel}.`);
+    // "Added 2028 2nd to You give." read oddly; name the side as a label.
+    if (give.length) lines.push(`${giveLabel}: added ${listNames(give)}.`);
+    if (get.length) lines.push(`${getLabel}: added ${listNames(get)}.`);
   }
   (plan.notes || []).forEach((note) => lines.push(note));
   if (result.skipped.length) lines.push(`${listNames(result.skipped)} ${result.skipped.length === 1 ? "is" : "are"} already in the trade.`);

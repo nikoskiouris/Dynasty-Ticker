@@ -135,9 +135,24 @@ function snapshotPrice(snap, assetId, format) {
   return sf && typeof sf === "object" ? finitePrice(sf[assetId]) : null;
 }
 
+// Every board row asks for its trend, and each ask normalized the whole
+// history again. Reuse the result while the history object and its length
+// are unchanged. Callers only read it.
+const normalizedHistories = new WeakMap();
+
 export function normalizePriceHistory(history) {
+  const list = snapshotList(history);
+  const key = history && typeof history === "object" ? history : null;
+  const hit = key ? normalizedHistories.get(key) : null;
+  if (hit && hit.length === list.length && hit.first === list[0] && hit.last === list[list.length - 1]) return hit.result;
+  const result = normalizePriceHistoryNow(list);
+  if (key) normalizedHistories.set(key, { length: list.length, first: list[0], last: list[list.length - 1], result });
+  return result;
+}
+
+function normalizePriceHistoryNow(list) {
   const rows = [];
-  for (const snap of snapshotList(history)) {
+  for (const snap of list) {
     if (!snap || typeof snap !== "object") continue;
     const asOf = String(snap.asOf || "").trim();
     const date = isoDate(asOf);
@@ -248,6 +263,11 @@ export function valueTrend(points, { now = new Date(), windowDays = TREND_WINDOW
     })
     .filter(Boolean)
     .sort((a, b) => a.day - b.day || a.value - b.value);
+  // A leading 0 means the model had no price for him yet (a rookie before
+  // rookie pricing was fixed), not that he was worth nothing. Start the trend at
+  // his first real price so a new price never reads as "up 6,365".
+  const firstPriced = series.findIndex((point) => point.value > 0);
+  if (firstPriced > 0) series.splice(0, firstPriced);
   if (series.length < 2) return null;
   const first = series[0];
   const last = series[series.length - 1];

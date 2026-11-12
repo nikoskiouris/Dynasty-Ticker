@@ -51,7 +51,7 @@ function findEvenValueForRawGap(targetRawGap, tradeMaxValue, globalMaxValue) {
   return Math.max(0, Math.round(high));
 }
 
-export function calculatePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
+function curvePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
   // A missing or removed player is stored as 0. Infinity and NaN are not prices.
   // Those pieces are not real package mates, so they must not mint a stud credit.
   const mine = (Array.isArray(myValues) ? myValues : []).map(finiteAssetValue).filter((value) => value > 0);
@@ -131,5 +131,50 @@ export function calculatePackageAdjustment({ myValues, theirValues, globalMaxVal
     packageAdjustment,
     packageAdjustmentSide: side,
     evenValue,
+  };
+}
+
+// Adding a piece to a side never makes that side worth less in the verdict.
+// The stud curve alone broke that: a straight swap stays at listed prices, so
+// a 500-point throw-in on the other side switched the curve on and could turn
+// "you give 28% more" into "you give 70% more". Each side's pieces, best
+// first, are added one at a time; the lead for (i of mine, j of theirs) stays
+// between the leads one piece earlier on either side. That bounds it at both
+// ends, so every throw-in moves the verdict toward the side that receives it,
+// or leaves it where it was.
+export function calculatePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
+  const raw = curvePackageAdjustment({ myValues, theirValues, globalMaxValue });
+  const mine = (Array.isArray(myValues) ? myValues : []).map(finiteAssetValue).filter((value) => value > 0).sort((a, b) => b - a);
+  const theirs = (Array.isArray(theirValues) ? theirValues : []).map(finiteAssetValue).filter((value) => value > 0).sort((a, b) => b - a);
+  if (mine.length + theirs.length <= 2) return raw;
+  const globalMax = Math.max(Number(globalMaxValue) || 0, ...mine, ...theirs);
+  const sum = (list, count) => list.slice(0, count).reduce((total, value) => total + value, 0);
+  const lead = [];
+  for (let i = 0; i <= mine.length; i++) {
+    lead.push([]);
+    for (let j = 0; j <= theirs.length; j++) {
+      let value;
+      if (!i || !j) value = sum(mine, i) - sum(theirs, j);
+      else {
+        const step = curvePackageAdjustment({ myValues: mine.slice(0, i), theirValues: theirs.slice(0, j), globalMaxValue: globalMax });
+        value = step.myAdjustedValue - step.theirAdjustedValue;
+        value = Math.min(value, lead[i][j - 1]);
+        value = Math.max(value, lead[i - 1][j]);
+      }
+      lead[i].push(value);
+    }
+  }
+  const bounded = Math.round(lead[mine.length][theirs.length]);
+  const rawLead = raw.myAdjustedValue - raw.theirAdjustedValue;
+  if (bounded === rawLead) return raw;
+  const baseLead = raw.myBaseValue - raw.theirBaseValue;
+  const packageAdjustment = Math.abs(bounded - baseLead);
+  const side = packageAdjustment > 0 ? (bounded > baseLead ? "my" : "their") : null;
+  return {
+    ...raw,
+    myAdjustedValue: raw.myBaseValue + (side === "my" ? packageAdjustment : 0),
+    theirAdjustedValue: raw.theirBaseValue + (side === "their" ? packageAdjustment : 0),
+    packageAdjustment,
+    packageAdjustmentSide: side,
   };
 }

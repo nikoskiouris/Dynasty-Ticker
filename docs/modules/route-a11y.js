@@ -18,9 +18,12 @@ function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-export function routeDocumentTitle({ playerName = "", tab = "", room = "", siteName = ROUTE_SITE_NAME } = {}) {
+export const ROUTE_PLAYERS_TITLE = "Players";
+
+export function routeDocumentTitle({ playerName = "", tab = "", room = "", playersBoard = false, siteName = ROUTE_SITE_NAME } = {}) {
   const player = clean(playerName);
   if (player) return `${player} · ${siteName}`;
+  if (playersBoard && room === "calculator") return `${ROUTE_PLAYERS_TITLE} · ${siteName}`;
   const roomLabel = ROUTE_ROOM_TITLES[room] || "";
   if (roomLabel) return `${roomLabel} · ${siteName}`;
   const label = ROUTE_TAB_LABELS[tab] || "";
@@ -42,6 +45,7 @@ export function routeAnnouncement(place = {}, before = {}) {
   if (overlay === "trade") return "Trade";
   if (overlay === "rail" && !changed) return "Menu";
   if (overlay === "player" || player) return player || "Player";
+  if (place.playersBoard && place.view === "calculator") return ROUTE_PLAYERS_TITLE;
   const roomLabel = ROUTE_ROOM_TITLES[place.view] || "";
   if (roomLabel) return roomLabel;
   return ROUTE_TAB_LABELS[place.tab] || "";
@@ -51,6 +55,10 @@ export function focusWithoutScroll(el, { focusVisible = false } = {}) {
   if (!el || typeof el.focus !== "function") return false;
   const opts = { preventScroll: true };
   if (focusVisible) opts.focusVisible = true;
+  // A page that just loaded has no pointer input yet, so the browser treats a
+  // scripted heading focus as keyboard focus and draws a ring around it. A
+  // heading is never a control: say "no ring" outright unless a key moved us.
+  else if (/^H[1-6]$/.test(String(el.tagName || ""))) opts.focusVisible = false;
   try {
     el.focus(opts);
   } catch {
@@ -114,6 +122,7 @@ export function headingSelectorFor(place = {}) {
   if (overlay === "player" || place.playerId) return ".ranks-card h2, .player-week-sheet h2";
   const page = place.page || place.tab || "";
   const room = String(place.view || "");
+  if (place.playersBoard && page === "trades" && room === "calculator") return "#ranks-section .panel-heading h2";
   if (ROOM_HEADINGS[`${page}:${room}`]) return ROOM_HEADINGS[`${page}:${room}`];
   return "";
 }
@@ -231,7 +240,9 @@ function cssAttr(value) {
 export function invokerKey(el) {
   const action = el?.getAttribute?.("data-action") || "";
   const asset = el?.getAttribute?.("data-asset-id") || "";
-  const player = el?.getAttribute?.("data-player-id") || "";
+  const playerAttr = el?.getAttribute?.("data-player-id") || "";
+  // Player links (playerLinkHtml) carry data-asset-id="player:<id>".
+  const player = playerAttr || (el?.getAttribute?.("data-action") === "open-player" ? asset : "");
   const trade = el?.getAttribute?.("data-trade-id") || "";
   const manager = el?.getAttribute?.("data-manager-key") || "";
   if (action === "rank-open" && asset) return `asset:${asset}`;
@@ -246,7 +257,7 @@ export function findInvokerRow(doc, trigger) {
   const kind = key.startsWith("trade\n") ? "trade" : key.slice(0, key.indexOf(":"));
   const rest = kind === "trade" ? "" : key.slice(kind.length + 1);
   let selector = "";
-  if (kind === "player") selector = `[data-action="open-player"][data-player-id="${cssAttr(rest)}"]`;
+  if (kind === "player") selector = `[data-action="open-player"][data-player-id="${cssAttr(rest)}"], [data-action="open-player"][data-asset-id="${cssAttr(rest)}"]`;
   if (kind === "asset") selector = `[data-action="rank-open"][data-asset-id="${cssAttr(rest)}"]`;
   if (kind === "trade") {
     const [, trade, manager] = key.split("\n");

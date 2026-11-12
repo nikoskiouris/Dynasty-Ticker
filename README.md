@@ -1,36 +1,30 @@
 # Dynasty Ticker
 
-Sleeper dynasty league ticker: live scores, standings, playoff odds, awards, archive, trade match, and a trade lab. Player values come from Dynasty Ticker's independent full-PPR football forecast. The site is static. It talks to Sleeper from the browser.
+Dynasty Ticker helps a Sleeper dynasty manager answer three questions: what is this player worth, is this trade fair, and does this move help my team. Player values come from Dynasty Ticker's independent full-PPR football forecast. The site is static. It talks to Sleeper from the browser.
 
 ## What is in this repo
-- **Web app:** `docs/` — League Command Center at [dynastyticker.com](https://dynastyticker.com/).
-- **Kernels:** `docs/modules/` — parse, Sleeper client, values, live poll, season engine.
-- **Agent coding policy:** `.cursor/skills/no-unit-tests/SKILL.md` — no unit tests or automated test suite.
+- **Web app:** `docs/` — the site at [dynastyticker.com](https://dynastyticker.com/).
+- **Modules:** `docs/modules/` — routing, Sleeper client, values, verdict copy, trade talk, trade match, season engine.
+- **Functions:** `netlify/` — shared-trade pages and cards (`/t/<code>`), first-party page counts, the searched-username list.
 - **Player values:** `player-values/` — the forecast, the builder, and the backtest.
+- **Agent coding policy:** `.cursor/skills/no-unit-tests/SKILL.md` — no unit tests or automated test suite.
 
 ## Web app
 
 Open `docs/` locally (`npm run serve`) or [dynastyticker.com](https://dynastyticker.com/).
 
-1. Type a **Sleeper username** and press **Find my leagues**. No username yet? Open `/?sample=1`. That loads one public Sleeper league so you can see the desk. It does not sign you in as a manager.
-2. Pick the league.
-3. League ID / URL still lives behind “Have a league ID or URL instead?”
+Home offers four ways in: type a trade in plain words ("Gibbs and a 1st for Nabers"), connect a Sleeper username, try the sample league (`/?sample=1`, invented managers), or look up a player.
 
-Share URLs are ordinary query strings: `?league=&me=&tab=&view=&week=&tone=`. `tab` is the page, `view` is the room inside it. Old links (`tab=trader`, `tab=analytics`, `tab=team`, `view=passport`, `tab=recap`, ...) still resolve.
+### Tabs
+Three tabs, one bar at every width. Check a trade and the players board work before a league is connected.
 
-### Pages
-Three jobs. Players and Trade work before a league is connected.
+1. **Check a trade** (`/trade?give=…&get=…`) — one calculator (you give / you get) and one trade draft. Describe a trade in plain words or add pieces by search. One verdict ("You give 12% more"), the reason under **Why?**, and, with a league, who owns each piece and both rosters' lineup impact. Connecting Sleeper keeps the trade. **Share trade** makes a `/t/<code>` link with its own preview card.
+2. **Find a trade** (`/l/<league>/ideas`) — ideas for your team, Shop a player (fair offers from the league), and the best partners. **Review trade** opens the idea in Check a trade.
+3. **My team** (`/l/<league>/team`) — the contend-or-rebuild call with playoff odds, your next move, position ranks, best lineup, bench and picks, standings and playoff odds.
 
-1. **Players** — search a name, see the value, add him to a trade. Voting is optional underneath.
-2. **Trade** — one calculator (you give / you get) and one trade draft. It works before you connect. Connect Sleeper and the same trade stays put: each piece shows who owns it, and when you give yours and get from one team, both rosters' lineup impact appears. Find a trade shops, targets, or finds a partner, then **Review trade** opens that same draft. The draft lasts for the browser tab.
-3. **My League** — your outlook and roster first. This week, the league table, activity, and history sit beside that. Tank-or-contend, who stayed, awards, and the mock live inside those views.
+The players board and player pages (`/player/<sleeper id>`) show each price, its trend, and similar values. Old links (`?tab=…`, `?view=ranks`, removed rooms) still open the closest page.
 
 Product purpose and how to choose between competing asks live in `AGENTS.md`. First-visit usability tasks live in `research/first-visit-tasks.md`.
-
-Old links (`tab=trader`, `tab=teams`, `view=calculator`, `view=ranks`, ...) still open the matching job.
-
-### Live Sunday scores
-The app polls Sleeper matchups on the NFL window (Thu–Mon UTC) and whenever the current week already has points. Scoreboard, ticker, and awards refresh. The 4000-season Monte Carlo does **not** rerun on every point tick. It refreshes when a week finals, remaining games change, or ~3 minutes have passed.
 
 ### Value source
 There is one player-value system: `player-values/`.
@@ -41,7 +35,7 @@ There is one player-value system: `player-values/`.
 - Rookies and future picks use the same ruler. A pick is priced as the rookie it becomes.
 - RB/WR/TE use the same player value in both formats. Superflex changes QB scarcity; future pick values can also differ by format.
 - No imported external dynasty rankings, fitted trade-market prices, TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices, or hand-set bonuses for youth, draft capital, or past finishes feed the published player price.
-- Players, Trade, My League, and trade matching all read `docs/data/player_values.json`.
+- Check a trade, Find a trade, My team, the players board and the share cards all read `docs/data/player_values.json`.
 - League trade history and crowd votes remain useful context/preferences, but they do not create a second player price.
 - Package consolidation credit can still affect a trade verdict without changing any player's listed price.
 
@@ -112,4 +106,4 @@ That writes `searched-users.csv` (gitignored). **This repo is public. Never comm
 - Player assets: `player:<sleeper_player_id>`
 - Pick assets: `pick:<season>:r<round>:<original_owner|any>`
 - Playoff odds are a 4000-season Monte Carlo. Each simulated season draws team quality from the posterior, so a Week 1 favorite is not a 100% lock. 100% / 0% only appear when a team has mathematically clinched or been eliminated.
-- Phone layout (`max-width: 700px`) sticks the four page tabs under the header and pins the room strip to the bottom edge. A share button sits in the header. iPad and desktop keep the tabs inline above the room strip.
+- Phones (`max-width: 700px`) get a fixed three-tab bar at the bottom and a "Connect my league" chip in the header. iPad and desktop show the same three tabs in one row above the page.
