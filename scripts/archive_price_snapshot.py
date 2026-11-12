@@ -72,7 +72,24 @@ def prune(history: Path, keep: int | None = None) -> None:
             path.unlink()
 
 
-def write_index(history: Path) -> None:
+def indexed_models(history: Path) -> dict[str, str]:
+    """Which model priced each stamp, as the index already records it."""
+    try:
+        index = json.loads((history / INDEX_NAME).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    models = {}
+    for row in index.get("snapshots") or []:
+        if isinstance(row, dict) and row.get("stamp") and row.get("modelVersion"):
+            models[str(row["stamp"])] = str(row["modelVersion"])
+    return models
+
+
+def write_index(history: Path, models: dict[str, str] | None = None) -> None:
+    # A row with no modelVersion was priced before the index kept one. The site
+    # only draws a trend across rows from the model it is running, so a model
+    # change never shows up as every player moving at once.
+    models = {**indexed_models(history), **(models or {})}
     rows = []
     for path in snapshot_files(history):
         try:
@@ -82,7 +99,10 @@ def write_index(history: Path) -> None:
         as_of = data.get("asOf")
         if not isinstance(as_of, str) or not as_of:
             continue
-        rows.append({"asOf": as_of, "stamp": path.stem})
+        row = {"asOf": as_of, "stamp": path.stem}
+        if models.get(path.stem):
+            row["modelVersion"] = models[path.stem]
+        rows.append(row)
     index = {
         "schemaVersion": SCHEMA_VERSION,
         "retentionDays": RETENTION_DAYS,
@@ -92,6 +112,7 @@ def write_index(history: Path) -> None:
             "dates": "filename and asOf are UTC; the calendar day is YYYY-MM-DD",
             "oneQb": "full 1QB price map, same asset ids as sf",
             "retention": "drop a file more than 90 days older than the newest; always keep the newest",
+            "modelVersion": "index rows name the model that priced the snapshot; a row without one is football-forecast-v1",
         },
         "snapshots": rows,
     }
@@ -107,12 +128,15 @@ def archive(values_path: Path = VALUES, history: Path = HISTORY, keep: int | Non
     stamp = price_stamp(data["asOf"])
     history.mkdir(parents=True, exist_ok=True)
     target = history / f"{stamp}.json"
+    models = {}
     if not target.exists():
         snapshot = {"asOf": data["asOf"], "sf": data["sf"], "oneQb": data["oneQb"]}
         target.write_text(json.dumps(snapshot, separators=(",", ":"), sort_keys=True) + "\n")
+        if data.get("modelVersion"):
+            models[stamp] = str(data["modelVersion"])
     prune(history, keep)
     if keep is None:
-        write_index(history)
+        write_index(history, models)
     return target
 
 

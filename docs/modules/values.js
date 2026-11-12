@@ -14,7 +14,9 @@ export function valuationUpdatedAt(bundle) {
   if (Number.isNaN(date.getTime())) return text;
   return date.toISOString().slice(0, 10);
 }
-export const PLAYER_VALUE_MODEL_VERSION = "football-forecast-v1";
+export const PLAYER_VALUE_MODEL_VERSION = "football-forecast-v2";
+// Archive rows saved before the index named the model that priced them.
+export const LEGACY_PRICE_MODEL_VERSION = "football-forecast-v1";
 // Same annual discount as player-values/config.json. A missing pick year uses this ruler.
 export const PICK_YEAR_DISCOUNT = 0.85;
 
@@ -593,7 +595,10 @@ export async function fetchPriceHistory(fetchImpl = globalThis.fetch, { now = ne
   const index = await readJsonIfOk(fetchImpl, PRICE_HISTORY_INDEX_PATH);
   if (!index || typeof index !== "object") return null;
   if (index.schemaVersion != null && index.schemaVersion !== 1) return null;
-  const listed = Array.isArray(index.snapshots) ? index.snapshots : [];
+  // A new model reprices everyone at once. That is not a player moving, so a
+  // trend only compares prices the current model produced.
+  const listed = (Array.isArray(index.snapshots) ? index.snapshots : [])
+    .filter((row) => (row?.modelVersion || LEGACY_PRICE_MODEL_VERSION) === PLAYER_VALUE_MODEL_VERSION);
   const needed = stampsForWindow(listed, { now, days });
   const loaded = await Promise.all(needed.map(async (row) => {
     const snap = await readJsonIfOk(fetchImpl, `./data/price-history/${row.stamp}.json`);

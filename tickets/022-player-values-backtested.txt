@@ -1,0 +1,32 @@
+Title
+Player values are a forecast that is checked against history
+
+Status
+Done
+
+Priority
+P0 — trust
+
+Shipped
+#284
+
+Area
+`player-values/forecast.py`, `player-values/build.py`, `player-values/backtest.py`, `docs/data/player_values.json`
+
+Description
+An audit of the value model found that the published holdout did not test the published price, that the model ordered players no better than "he repeats last season" on veterans, and that it put too much value in the current year and too little in later ones. Picks and rookies used a shorter ruler than veterans. Sleeper's stale ages and a few wrong-player joins reached the board: a player retired since 2010 was priced as a rookie.
+
+Why
+A manager asks what a player is worth and why to trust the number. The number was not checked against anything it claimed.
+
+Acceptance
+- The forecast is rebuilt at past kickoffs from earlier games only and beats "he repeats last season" at one, three, five, and eight seasons. The saved report must be for the model that ships.
+- Every price is the sum of the forecast seasons listed beside it.
+- A rookie who has not played is worth what his pick was on the day he can first play.
+- A price does not jump when the season turns over. A new model is not shown as every player moving.
+- A player is priced from his own career and his real age.
+
+Left open
+- Hurt stars still read about 30% low at QB, RB, and TE.
+- The replacement level and the 0.85 discount are product choices the backtest cannot settle.
+- No comparison with a trade market. There is no dated market history in the repo.
