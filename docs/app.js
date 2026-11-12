@@ -4182,7 +4182,10 @@ function renderPowerDashboard() {
         managerName: profile.managerName,
         grade: profile.grade,
         tierClass: profile.tierClass,
-        badges: profile.badges,
+        // The lane tag ("Middle of the pack") is a value-only guess at the
+        // window. The call above answers that from record and odds too, so the
+        // tag could contradict it ("Go win it now" over "Middle of the pack").
+        badges: (profile.badges || []).filter((badge) => badge !== profile.lane?.label),
       })}
       ${insights[0] ? `<details class="league-format-details"><summary>League format</summary><div class="insight-list">${renderSleeperInsight(insights[0])}</div></details>` : ""}
     `;
