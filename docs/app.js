@@ -1,4 +1,5 @@
 import { safeStorage } from "./modules/safe-storage.js";
+import { forgetLastLeague, lastLeagueMarkup, readLastLeague, writeLastLeague } from "./modules/last-league.js";
 import {
   buildSeasonModel,
   simulateSeason,
@@ -676,6 +677,7 @@ el.meSelect?.addEventListener("change", () => {
   if (managerSelectorHydrating) return;
   state.meRosterId = Number(el.meSelect.value);
   state.mePickedByUser = true;
+  rememberLastLeague();
   state.lensRosterId = null;
   clearTradeMatchCache();
   pruneSelectedOutgoingAssets();
@@ -2141,7 +2143,37 @@ function restoreHistoryScroll(historyState) {
   requestAnimationFrame(go);
 }
 
+// Ticket 018: home offers the last real league and team this browser opened.
+function rememberLastLeague() {
+  if (!state.leagueId || state.viewingSample) return;
+  const me = getMyRoster();
+  writeLastLeague({
+    leagueId: state.leagueId,
+    leagueName: state.leagueName,
+    rosterId: me?.rosterId ?? null,
+    managerName: me?.manager?.displayName || "",
+  });
+}
+
+function renderLandingResume() {
+  const host = document.querySelector("#landing-resume");
+  if (!host) return;
+  const markup = lastLeagueMarkup(readLastLeague());
+  host.innerHTML = markup;
+  host.hidden = !markup;
+}
+
+document.addEventListener("click", (event) => {
+  const forget = event.target?.closest?.("[data-action='forget-last-league']");
+  if (!forget) return;
+  event.preventDefault();
+  forgetLastLeague();
+  renderLandingResume();
+  document.querySelector(".launch-connect")?.focus({ preventScroll: true });
+});
+
 function syncLaunchChrome() {
+  renderLandingResume();
   const trades = document.querySelector("#trades-page");
   const league = document.querySelector("#league-page");
   const onOther = (trades && !trades.classList.contains("hidden")) || (league && !league.classList.contains("hidden"));
@@ -3254,6 +3286,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     showAppPages();
     noteSearchedUser(leagueId);
     analyticsTrack("league_connected", { sample: state.viewingSample ? "yes" : "no" });
+    rememberLastLeague();
     scrollLoadedWorkspaceIntoView();
     const missingTeam = state.meRosterId ? "" : noTeamInLeagueCopy(state.sleeperUser);
     setStatus(

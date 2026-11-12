@@ -31,7 +31,6 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [008](008-aging-stars-on-bad-teams.txt) | Target aging stars on tanking teams | P1 |
 | [014](014-redraft-values.txt) | Redraft rest-of-season values | P1 |
 | [017](017-ideas-explain-why.txt) | Trade ideas say what they do and why the other team says yes | P1 |
-| [018](018-returning-manager-resume.txt) | Returning manager lands back on their league and team | P1 |
 | [021](021-navigation-decision-tree.txt) | Navigation decision tree: trustworthy verdict, Find a trade that answers, one nav, a player page | P0 |
 ## Done
 
@@ -49,6 +48,7 @@ Each file in this folder is one ticket: title, status, why, what to build, and h
 | [016](016-one-price-every-screen.txt) | One price for a player on every screen | P0 | [#111](https://github.com/nikoskiouris/Dynasty-Ticker/pull/111) |
 | [019](019-describe-a-trade.txt) | Describe a trade in plain words and the calculator builds it | P1 | [#193](https://github.com/nikoskiouris/Dynasty-Ticker/pull/193) |
 | [020](020-three-tabs.txt) | Simplify to three tabs: Check a trade, Find a trade, My team | P0 | [#195](https://github.com/nikoskiouris/Dynasty-Ticker/pull/195) |
+| [018](018-returning-manager-resume.txt) | Returning manager lands back on their league and team | P1 | [#213](https://github.com/nikoskiouris/Dynasty-Ticker/pull/213) |
 | [022](022-player-values-backtested.txt) | Player values are a forecast that is checked against history | P0 | [#284](https://github.com/nikoskiouris/Dynasty-Ticker/pull/284) |
 
 ## Shipped before this board

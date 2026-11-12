@@ -50,6 +50,7 @@
         <ul>
           <li>Whether the left board is open or closed</li>
           <li>A short-lived cache of Sleeper NFL player metadata (in IndexedDB when it is too big for localStorage)</li>
+          <li>The last Sleeper league you opened here (league id and name, your team id and manager name), so the home page can offer to open it again. “Forget this league” on the home page removes it. The sample league is never saved.</li>
         </ul>
         <p>The trade you are building (player and pick ids, names, and the team you picked to browse) sits in <strong>session storage</strong> for this tab only, so a reload or connecting Sleeper does not erase it. So does the trade you last cleared or replaced, so Restore draft still works after a reload. It is gone when you close the tab. It is never sent anywhere.</p>
         <p>Clear site data in your browser to wipe the local copy.</p>
