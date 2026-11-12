@@ -903,6 +903,7 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
       get: draftSideIds("right"),
       shareCode: activeShareCode(),
       playersBoard: playersBoardOpen,
+      sample: Boolean(state.viewingSample),
     });
     if (!href || href === window.location.pathname) return;
   }
@@ -2427,6 +2428,7 @@ function buildShareUrl(overrides = {}) {
     give: draftSideIds("left"),
     get: draftSideIds("right"),
     shareCode: activeShareCode(),
+    sample: Boolean(state.viewingSample),
     landing: landingVisible(),
     playersBoard: playersBoardShown(),
     format: state.leagueId ? "" : activeRankFormat(),
@@ -3097,6 +3099,7 @@ function rememberPickedLeague(leagueId) {
       give: draftSideIds("left"),
       get: draftSideIds("right"),
       shareCode: activeShareCode(),
+      sample: Boolean(state.viewingSample),
     });
     const next = picked && picked !== urlPath() ? picked : urlPath("l", leagueId, "team");
     routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());

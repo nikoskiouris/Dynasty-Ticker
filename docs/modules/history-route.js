@@ -354,6 +354,7 @@ export function pathForPlace({
   landing = false,
   playersBoard = false,
   format = "",
+  sample = false,
 } = {}) {
   const placePage = page || tab;
   const placeRoom = room || view;
@@ -376,7 +377,18 @@ export function pathForPlace({
   } else if (leagueSegment && LEAGUE_ID.test(String(leagueId || ""))) {
     href = urlPath("l", leagueId, leagueSegment);
   }
-  return rememberLeague(href, leagueId);
+  return keepSample(rememberLeague(href, leagueId), sample && LEAGUE_ID.test(String(leagueId || "")));
+}
+
+// The sample league is a real Sleeper league shown with invented managers.
+// Its address carries ?sample=1 so a reload or a shared link stays the sample
+// instead of showing the real usernames.
+function keepSample(path, sample) {
+  if (!path || !sample) return path;
+  const [pathname, query = ""] = path.split("?");
+  const params = new URLSearchParams(query);
+  params.set("sample", "1");
+  return `${pathname}?${params.toString()}`;
 }
 
 // The phone menu sits on top of a player card. Back closes that layer only.
