@@ -5,7 +5,7 @@ Sleeper dynasty league ticker: live scores, standings, playoff odds, awards, arc
 ## What is in this repo
 - **Web app:** `docs/` — League Command Center at [dynastyticker.com](https://dynastyticker.com/).
 - **Kernels:** `docs/modules/` — parse, Sleeper client, values, live poll, season engine.
-- **Tests:** `tests/` — Node + Python. Run `npm test`.
+- **Agent coding policy:** `.cursor/skills/no-unit-tests/SKILL.md` — no unit tests or automated test suite.
 - **Player values:** `player-values/` — the forecast, the builder, and the backtest.
 
 ## Web app
@@ -45,9 +45,9 @@ There is one player-value system: `player-values/`.
 - League trade history and crowd votes remain useful context/preferences, but they do not create a second player price.
 - Package consolidation credit can still affect a trade verdict without changing any player's listed price.
 
-The running math and its caveats live in `player-values/README.md`; the target design is `player-values/SPEC.md`. `python3 player-values/backtest.py` rebuilds the forecast at every past kickoff from earlier games only and scores it against what players went on to do, beside two naive forecasts. The report lives in `player-values/validation.json` and on the snapshot `meta.validation` object. It tests the order and level of football production. It does not test trade-market prices. Tests fail if the saved report is for a different model version, or if the forecast stops beating "he repeats last season".
+The running math and its caveats live in `player-values/README.md`; the target design is `player-values/SPEC.md`. `python3 player-values/backtest.py` rebuilds the forecast at every past kickoff from earlier games only and scores it against what players went on to do, beside two naive forecasts. The report lives in `player-values/validation.json` and on the snapshot `meta.validation` object. It tests the order and level of football production. It does not test trade-market prices.
 
-Refresh with `python3 player-values/build.py`. `python3 scripts/check_market_files.py` checks the committed file. `npm test` warns when that file is old. A live publish and the player-value refresh fail if it is older than 21 days. The refresh validates before atomically replacing the last good snapshot. The 2027 Superflex rookie mock remains a separate display feature and refreshes with `python3 scripts/update_dynasty_rookie_mock.py`.
+Refresh with `python3 player-values/build.py`. `python3 scripts/check_market_files.py` checks the committed file. A live publish and the player-value refresh fail if it is older than 21 days. The refresh validates before atomically replacing the last good snapshot. The 2027 Superflex rookie mock remains a separate display feature and refreshes with `python3 scripts/update_dynasty_rookie_mock.py`.
 
 ## Live site (dynastyticker.com)
 
@@ -73,7 +73,7 @@ Netlify emails on a GitHub merge do **not** mean credits were spent. On credit p
 8. GitHub Actions runs `.github/workflows/stop-netlify-git-builds.yml` so Netlify **Build status = Stopped builds**. Confirm in Netlify: **Project configuration → Build & deploy → Continuous deployment → Build settings → Stopped builds**. Do **not** use “Stop auto publishing”; that still starts a canceled production job. `netlify.toml` skip/refuse scripts are only a backup.
 9. Repo **Settings → Pages**: turn the source **off** once dynastyticker.com matches this desk. If a github.io URL is still up, replace it with a redirect to `https://dynastyticker.com/`. Do **not** add a custom domain there. Visit counts stay on dynastyticker.com only. An old Pages workflow left on `main` checks out `develop` and runs `scripts/stage_pages_preview.sh`. That script refuses, so the dispatch cannot publish a second desk.
 
-Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Tests: `.github/workflows/test.yml`. Local check: `npm run serve`. There is no GitHub Pages preview workflow.
+Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Local check: `npm run serve`. There is no GitHub Pages preview workflow.
 
 ### Traffic
 

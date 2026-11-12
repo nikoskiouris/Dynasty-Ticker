@@ -20,7 +20,7 @@ Why
 A manager asks what a player is worth and why to trust the number. The number was not checked against anything it claimed.
 
 Acceptance
-- The forecast is rebuilt at past kickoffs from earlier games only and beats "he repeats last season" at one, three, five, and eight seasons. Tests fail when the saved report is for a different model.
+- The forecast is rebuilt at past kickoffs from earlier games only and beats "he repeats last season" at one, three, five, and eight seasons. The saved report must be for the model that ships.
 - Every price is the sum of the forecast seasons listed beside it.
 - A rookie who has not played is worth what his pick was on the day he can first play.
 - A price does not jump when the season turns over. A new model is not shown as every player moving.

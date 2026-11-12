@@ -1,0 +1,6 @@
+---
+description: Repository-wide owner instruction not to create automated tests
+alwaysApply: true
+---
+
+Do not write unit tests, integration tests, E2E tests, or automated test suites in Dynasty Ticker unless the owner explicitly reverses the no-tests policy. Do not recreate removed test runners, test files, or test CI workflows. Follow `.cursor/skills/no-unit-tests/SKILL.md` and `AGENTS.md`. Use manual browser/CLI verification and lightweight syntax checks instead. Preserve production data-integrity and deployment safeguards.

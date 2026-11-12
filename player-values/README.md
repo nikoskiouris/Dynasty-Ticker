@@ -83,7 +83,7 @@ A weekly Out, Doubtful, or Questionable tag trims the weeks left. IR cuts them i
 
 ### Time
 
-Each future season is discounted by how far away its kickoff is on the pricing date. That date is the Tuesday of the current week, so prices move when games or the week change, not every midnight. Nothing jumps when the season turns over: the day after week 17 and the first day of the next league year price the same future the same way. A test checks it.
+Each future season is discounted by how far away its kickoff is on the pricing date. That date is the Tuesday of the current week, so prices move when games or the week change, not every midnight. Nothing jumps when the season turns over: the day after week 17 and the first day of the next league year price the same future the same way. `backtest.py` and the snapshot check it by construction: a rookie at kickoff and his pick use the same function.
 
 ## Replacement
 
@@ -112,7 +112,7 @@ A pick is priced as the rookie it becomes.
 
 Every drafted QB, RB, WR, and TE from the last 10 classes gets the same eight-season forecast a player gets, as of his first kickoff. Each class is ordered by that value. Slots 1-4, 5-8, and 9-12 average into early, mid, and late firsts, and twelve-slot blocks into later rounds. Then the price is discounted for the wait until that rookie can first play.
 
-This is one ruler. On the day he can first play, an unplayed rookie is worth what his pick was. A test checks it.
+This is one ruler. On the day he can first play, an unplayed rookie is worth what his pick was. `backtest.py` and the snapshot check it by construction: a rookie at kickoff and his pick use the same function.
 
 Means, not medians. A late pick is mostly misses and a few hits, and the hits are the value. Pricing a third-round pick at its median outcome prices it near zero.
 
@@ -156,12 +156,12 @@ It reports two things.
 
 The numbers live in `validation.json` and in the snapshot under `meta.validation`. They are not copied here, so they cannot go stale.
 
-Rules that tests enforce:
+Rules the report is meant to meet. There is no automated test suite (owner policy), so check them by reading `validation.json` after running `backtest.py --write`:
 
-- The saved report must be for the model version in `config.json`. Change the forecast and the tests fail until the backtest is run again.
-- The forecast must beat both naive forecasts at every horizon.
-- Totals must land within 10% of what happened, and every forecast year within 20%.
-- A replay must not see the future. A test wipes every later game and checks the forecast does not move.
+- The saved report must be for the model version in `config.json`. Change the forecast and run the backtest again before shipping.
+- The forecast should beat both naive forecasts at every horizon.
+- Totals should land within 10% of what happened, and every forecast year within 20%.
+- A replay must not see the future: it trains only on seasons before the kickoff and prices from earlier games only.
 
 What it does **not** test:
 
