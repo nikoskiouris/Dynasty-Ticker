@@ -5,8 +5,8 @@ Sleeper dynasty league ticker: live scores, standings, playoff odds, awards, arc
 ## What is in this repo
 - **Web app:** `docs/` — League Command Center at [dynastyticker.com](https://dynastyticker.com/).
 - **Kernels:** `docs/modules/` — parse, Sleeper client, values, live poll, season engine.
-- **Tests:** `tests/` — Node + Python. Run `npm test`.
-- **Python CLI:** `src/` — still there if you want terminal trade suggestions.
+- **Agent coding policy:** `.cursor/skills/no-unit-tests/SKILL.md` — no unit tests or automated test suite.
+- **Player values:** `player-values/` — the forecast, the builder, and the backtest.
 
 ## Web app
 
@@ -36,15 +36,18 @@ The app polls Sleeper matchups on the NFL window (Thu–Mon UTC) and whenever th
 There is one player-value system: `player-values/`.
 
 - Two published maps: **1QB full PPR** and **Superflex full PPR**.
-- Age, NFL experience, opportunity, efficiency, availability, team environment, draft investment for thin samples, and position-specific career retention feed an eight-season football forecast.
-- Value is discounted usable PPR production above a reference alternative, converted with one fixed 20× display ruler.
+- Each player gets a forecast of full-PPR points above a replacement player, one season at a time, for eight seasons of games. It is learned from the 15 most recent NFL seasons: his last two seasons, his age, and, through year three, his draft slot.
+- Value is that forecast, discounted by how far away each season is, converted with one fixed 20× display ruler. Every price is the sum of the seasons listed beside it.
+- Rookies and future picks use the same ruler. A pick is priced as the rookie it becomes.
 - RB/WR/TE use the same player value in both formats. Superflex changes QB scarcity; future pick values can also differ by format.
-- No imported external dynasty rankings, fitted trade-market prices, TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices, or age/position fallback guesses feed the published player price.
-- Players, Trade, My League, trade matching, and the Python CLI all read `docs/data/player_values.json`.
+- No imported external dynasty rankings, fitted trade-market prices, TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices, or hand-set bonuses for youth, draft capital, or past finishes feed the published player price.
+- Players, Trade, My League, and trade matching all read `docs/data/player_values.json`.
 - League trade history and crowd votes remain useful context/preferences, but they do not create a second player price.
 - Package consolidation credit can still affect a trade verdict without changing any player's listed price.
 
-The complete design and caveats live in `player-values/SPEC.md`; implementation details are in `player-values/README.md`. The chronological one-year holdout (observation count, MAE, and persistence MAE) lives on the snapshot `meta.validation` object and in `player-values/validation.json`. It validates that narrow retention target, not eight-year market-price accuracy. Refresh with `python3 player-values/build.py`. `python3 scripts/check_market_files.py` checks the committed file. `npm test` warns when that file is old. A live publish and the player-value refresh fail if it is older than 21 days. The refresh validates before atomically replacing the last good snapshot. The 2027 Superflex rookie mock remains a separate display feature and refreshes with `python3 scripts/update_dynasty_rookie_mock.py`.
+The running math and its caveats live in `player-values/README.md`; the target design is `player-values/SPEC.md`. `python3 player-values/backtest.py` rebuilds the forecast at every past kickoff from earlier games only and scores it against what players went on to do, beside two naive forecasts. The report lives in `player-values/validation.json` and on the snapshot `meta.validation` object. It tests the order and level of football production. It does not test trade-market prices.
+
+Refresh with `python3 player-values/build.py`. `python3 scripts/check_market_files.py` checks the committed file. A live publish and the player-value refresh fail if it is older than 21 days. The refresh validates before atomically replacing the last good snapshot. The 2027 Superflex rookie mock remains a separate display feature and refreshes with `python3 scripts/update_dynasty_rookie_mock.py`.
 
 ## Live site (dynastyticker.com)
 
@@ -70,7 +73,7 @@ Netlify emails on a GitHub merge do **not** mean credits were spent. On credit p
 8. GitHub Actions runs `.github/workflows/stop-netlify-git-builds.yml` so Netlify **Build status = Stopped builds**. Confirm in Netlify: **Project configuration → Build & deploy → Continuous deployment → Build settings → Stopped builds**. Do **not** use “Stop auto publishing”; that still starts a canceled production job. `netlify.toml` skip/refuse scripts are only a backup.
 9. Repo **Settings → Pages**: turn the source **off** once dynastyticker.com matches this desk. If a github.io URL is still up, replace it with a redirect to `https://dynastyticker.com/`. Do **not** add a custom domain there. Visit counts stay on dynastyticker.com only. An old Pages workflow left on `main` checks out `develop` and runs `scripts/stage_pages_preview.sh`. That script refuses, so the dispatch cannot publish a second desk.
 
-Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Tests: `.github/workflows/test.yml`. Local check: `npm run serve`. There is no GitHub Pages preview workflow.
+Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Local check: `npm run serve`. There is no GitHub Pages preview workflow.
 
 ### Traffic
 
@@ -104,34 +107,6 @@ NETLIFY_AUTH_TOKEN=... NETLIFY_SITE_ID=... node scripts/searched_users.mjs
 ```
 
 That writes `searched-users.csv` (gitignored). **This repo is public. Never commit that file.** There is no public URL for the list; `/api/searched-user` only accepts writes from dynastyticker.com. Localhost never sends a username. github.io is not the app, so it must not be treated as a second desk.
-
-## CLI
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-python -m src.cli \
-  --league <LEAGUE_ID> \
-  --me niko \
-  --target-manager demetri \
-  --target-player "Jahmyr Gibbs" \
-  --allow-extra-target-assets \
-  --fairness-pct 15 \
-  --max-results 5
-```
-
-No league id? Discover it:
-
-```bash
-python -m src.cli \
-  --username <YOUR_SLEEPER_USERNAME> \
-  --season 2026 \
-  --me niko \
-  --target-manager demetri \
-  --target-player "Jahmyr Gibbs"
-```
 
 ## Notes
 - Player assets: `player:<sleeper_player_id>`

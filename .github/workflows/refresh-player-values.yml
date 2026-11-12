@@ -46,6 +46,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      # The snapshot publishes the backtest summary. When a season has finished since the
+      # report was saved, score the forecast again first. Most days this step does nothing.
+      - name: Re-score the forecast when a new season of results is in
+        run: python3 player-values/backtest.py --write --if-stale
+
       - name: Build independent values
         run: python3 player-values/build.py
 
@@ -62,17 +67,6 @@ jobs:
             echo "No price change. Leaving generatedAt alone."
           fi
           python3 scripts/archive_price_snapshot.py
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22.12.0"
-          cache: npm
-
-      - name: Install
-        run: npm ci
-
-      - name: Validate repository
-        run: npm test
 
       - name: Commit refreshed snapshot
         run: |

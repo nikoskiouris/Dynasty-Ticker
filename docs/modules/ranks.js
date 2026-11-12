@@ -392,13 +392,13 @@ function renderRankCard(row, view = {}) {
     : "";
   const components = row?.model?.components || {};
   const facts = [
-    Number.isFinite(Number(components.projectedPpg))
-      ? { label: "Projected points per game", value: Number(components.projectedPpg).toFixed(1) }
+    Number(components.recentPpg) > 0
+      ? { label: "Recent points per game", value: Number(components.recentPpg).toFixed(1) }
       : null,
-    Number.isFinite(Number(components.availability))
-      ? { label: "Availability", value: `${Math.round(Number(components.availability) * 100)}%` }
+    components.availability != null && Number.isFinite(Number(components.availability))
+      ? { label: "Games played since last season", value: `${Math.round(Number(components.availability) * 100)}%` }
       : null,
-    Number.isFinite(Number(components.roleOppPerGame))
+    Number(components.roleOppPerGame) > 0
       ? { label: "Touches + targets per game", value: Number(components.roleOppPerGame).toFixed(1) }
       : null,
   ].filter(Boolean);
