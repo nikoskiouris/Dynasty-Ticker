@@ -409,7 +409,9 @@ function renderRankCard(row, view = {}) {
       ? { label: "Games played since last season", value: `${Math.round(Number(components.availability) * 100)}%` }
       : null,
     Number(components.roleOppPerGame) > 0
-      ? { label: "Touches + targets per game", value: Number(components.roleOppPerGame).toFixed(1) }
+      // player-values/build.py counts pass attempts + carries for a QB and
+      // carries + targets for everyone else. Say which.
+      ? { label: row.position === "QB" ? "Pass attempts + carries per game" : "Carries + targets per game", value: Number(components.roleOppPerGame).toFixed(1) }
       : null,
   ].filter(Boolean);
   const spread = Array.isArray(row.spread) && row.spread.length > 1
