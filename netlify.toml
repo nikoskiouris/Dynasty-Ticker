@@ -84,7 +84,7 @@
   status = 200
 
 # Keep these /* values identical to netlify/lib/security-headers.js, which
-# the asset-404 edge function sets on its own response. tests check they match.
+# the asset-404 edge function sets on its own response.
 [[headers]]
   for = "/*"
   [headers.values]
