@@ -389,6 +389,21 @@ function resolvePiece(raw, { side, ctx, partner, index }) {
     return { adds: hit.picks.map((row) => ({ side: pieceSide || "left", asset: asDraftAsset(row) })), partner: owned.manager || null, note: hit.note || "" };
   }
   const found = resolvePlayer(owned.text, index, { ownerRosterId, preferRostered: ctx.connected });
+  // "My Gibbs and Taylor for Allen": on the give side only one Taylor is mine,
+  // so that is the one meant. Same for the get side and the partner's roster.
+  if (found.options && ctx.connected && ctx.meRosterId != null && pieceSide && ownerRosterId == null) {
+    const me = String(ctx.meRosterId);
+    const partnerId = partner?.rosterId ?? ctx.partnerRosterId ?? null;
+    const fits = found.options.filter((row) => {
+      const owner = row.ownerRosterId == null ? "" : String(row.ownerRosterId);
+      if (pieceSide === "left") return owner === me;
+      if (partnerId != null) return owner === String(partnerId);
+      return owner !== "" && owner !== me;
+    });
+    if (fits.length === 1) {
+      return { adds: [{ side: pieceSide, asset: asDraftAsset(fits[0]) }], partner: owned.manager || null };
+    }
+  }
   if (found.options) {
     return { ask: { text: raw, side: pieceSide, options: found.options.map(asDraftAsset), question: `Which ${owned.text.replace(/\b\w/g, (c) => c.toUpperCase())}?` } };
   }
