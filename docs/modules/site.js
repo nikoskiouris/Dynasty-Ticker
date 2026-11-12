@@ -1,3 +1,4 @@
+import { safeStorage } from "./safe-storage.js";
 import { DEFAULT_ROOMS, PAGE_LABELS } from "./constants.js";
 import { roomDescriptionFor, roomHintFor, roomLabelFor } from "./league-format.js";
 import { normalizeDeskTab, normalizeRoom } from "./parse.js";
@@ -118,7 +119,7 @@ export function applyDocumentMeta(doc, { title, description } = {}) {
   }
 }
 
-export function readStorageNoticeDismissed(storage = globalThis.localStorage) {
+export function readStorageNoticeDismissed(storage = safeStorage("localStorage")) {
   try {
     return storage?.getItem(STORAGE_NOTICE_KEY) === "1";
   } catch {
@@ -126,7 +127,7 @@ export function readStorageNoticeDismissed(storage = globalThis.localStorage) {
   }
 }
 
-export function writeStorageNoticeDismissed(storage = globalThis.localStorage) {
+export function writeStorageNoticeDismissed(storage = safeStorage("localStorage")) {
   try {
     storage?.setItem(STORAGE_NOTICE_KEY, "1");
     return true;
@@ -147,7 +148,7 @@ export function sampleBannerDismissed(memoryFlag = false) {
   return Boolean(memoryFlag);
 }
 
-export function clearSampleBannerDismissal(storage = globalThis.sessionStorage) {
+export function clearSampleBannerDismissal(storage = safeStorage("sessionStorage")) {
   try {
     storage?.removeItem(SAMPLE_BANNER_KEY);
     return true;

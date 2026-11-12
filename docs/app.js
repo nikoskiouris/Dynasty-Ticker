@@ -1,3 +1,4 @@
+import { safeStorage } from "./modules/safe-storage.js";
 import {
   buildSeasonModel,
   simulateSeason,
@@ -716,7 +717,7 @@ let leagueMissing = false;
 let sleeperUnreachable = false;
 let connectAsked = false;
 setDeskBoardShut(readDeskBoardShut());
-state.valueCalc = readStoredDraft(globalThis.sessionStorage, globalThis.localStorage) || state.valueCalc;
+state.valueCalc = readStoredDraft(safeStorage("sessionStorage"), safeStorage("localStorage")) || state.valueCalc;
 renderSessionSnapshot();
 let searchedUserNoted = false;
 let appBooted = false;
@@ -3695,7 +3696,7 @@ function cancelledPlayerLoad() {
 function playersCacheAdapters() {
   if (!playersIdb) playersIdb = createPlayersIdb();
   return {
-    localStorage: globalThis.localStorage,
+    localStorage: safeStorage("localStorage"),
     idb: playersIdb,
     key: PLAYERS_CACHE_KEY,
   };
