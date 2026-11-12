@@ -184,10 +184,13 @@ export function isInactivePlayerAsset(asset) {
   if (asset?.assetType !== "player") return false;
   if (asset.raw?.active === false) return true;
   const status = String(asset.raw?.status || "").trim().toLowerCase();
-  if (["inactive", "retired", "reserve_retired", "reserve/did_not_report", "did_not_report"].includes(status)) {
+  if (["retired", "reserve_retired", "reserve/did_not_report", "did_not_report"].includes(status)) {
     return true;
   }
   const team = String(asset.raw?.team || "").trim().toUpperCase();
+  // Sleeper marks injured reserve "Inactive" too (Lamar Jackson on IR). A
+  // player still on an NFL team is hurt, not gone; he keeps his price and rank.
+  if (status === "inactive" && (!team || team === "FA")) return true;
   if (!team || team === "FA") {
     const age = playerAgeForAsset(asset);
     if (Number.isFinite(age) && age >= 30) return true;
