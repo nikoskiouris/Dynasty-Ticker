@@ -8240,3 +8240,8 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
 .win-now-row .link-btn[data-action="player-shop"] { justify-self: start; min-height: 44px; }
 /* Redraft / keeper leagues: the one price is the dynasty market. Say so where prices show. */
 .calc-market-caveat { margin: 0.15rem 0 0; max-width: 60ch; }
+/* The roster sheet's slot column is a fixed 3rem, so "Superflex" was cut to
+   "SUPERFLE" on wide screens. Use the SF abbreviation there too (its title
+   spells it out), as phones already do. */
+#roster-sheet .sheet-slot-superflex .sheet-slot-full { display: none; }
+#roster-sheet .sheet-slot-superflex .sheet-slot-short { display: inline; }
