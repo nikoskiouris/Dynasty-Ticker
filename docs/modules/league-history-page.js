@@ -1,5 +1,6 @@
 import { escapeHtml, formatNumber } from "./html.js";
 import { championsWall, allTimeStandings, leagueRecordBook, leagueTrends } from "./league-records.js";
+import { renderRivalries } from "./league-rivalries-page.js";
 
 const e = (value) => escapeHtml(String(value ?? ""));
 const whole = (value) => Number.isFinite(Number(value)) ? formatNumber(Number(value)) : "—";
@@ -101,9 +102,10 @@ export function renderLeagueHistory(archive) {
     ${renderChampions(championsWall(archive))}
     ${renderAllTime(allTimeStandings(archive))}
     ${renderRecords(book)}
+    ${renderRivalries(archive)}
     ${renderTrends(leagueTrends(archive))}
     <section class="workspace-panel"><h2>More history</h2><p class="muted">
-      Head-to-head rivalries, manager trophy cases, and best/worst manager, trader, drafter, lineup and waiver awards are not available yet.
+      Manager trophy cases and best/worst manager, trader, drafter, lineup and waiver awards are not available yet.
       These sections require additional calculation and verification; no rankings have been inferred.</p></section>
   </div>`;
 }
