@@ -8588,3 +8588,22 @@ body.launch-open .workspace { display:block; }
 .smart-trade-name small { display:block; }
 .smart-trade-add { flex:0 0 auto; width:auto; min-height:44px; font-size:.75rem; padding:6px; }
 .draft-add-focus { margin:12px 0; }
+
+
+/* League History · Recent Trades (ticket 039). Cards stay within the viewport. */
+#league-trades-content { min-width: 0; }
+#league-trades-content > .workspace-panel { display: flex; flex-wrap: wrap; gap: .75rem 1rem; align-items: end; }
+#league-trades-content > .workspace-panel label { display: block; width: 100%; font-weight: 600; }
+#league-trade-search { flex: 1 1 16rem; width: 100%; min-width: 0; }
+#league-trade-season { flex: 0 1 10rem; min-width: 0; }
+.trade-log-card { min-width: 0; margin-top: 1rem; overflow-wrap: anywhere; }
+.trade-log-parties { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: 1rem; }
+.trade-log-side { min-width: 0; }
+.trade-log-side h3 { margin-bottom: .25rem; }
+.trade-log-side p { margin: .3rem 0; }
+.trade-log-card details { margin-top: .75rem; }
+.trade-log-card summary { cursor: pointer; }
+@media (max-width: 480px) {
+  #league-trades-content > .workspace-panel { display: block; }
+  #league-trade-search, #league-trade-season { margin-bottom: .75rem; width: 100%; }
+}
