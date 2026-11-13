@@ -239,7 +239,9 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
           });
           result.transactions[entry.season] = dedupeArchiveTransactions(moves);
         }
-        if (scope === "all") {
+        // Recent trade grades need the actual player selected with a past
+        // pick. Fetch draft picks for the same two seasons as transactions.
+        if (scope === "all" || scope === "recent" && index < 2) {
           const drafts = [];
           await mapInChunks(entry.drafts, 6, async (draft) => {
             const draftId = String(draft.draft_id || "");
