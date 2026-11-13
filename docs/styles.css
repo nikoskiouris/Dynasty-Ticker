@@ -8607,3 +8607,23 @@ body.launch-open .workspace { display:block; }
   #league-trades-content > .workspace-panel { display: block; }
   #league-trade-search, #league-trade-season { margin-bottom: .75rem; width: 100%; }
 }
+
+
+/* Historical Data record-book cards (ticket 040). Tables scroll independently. */
+.league-history-page { min-width: 0; }
+.league-history-page > .workspace-panel { margin-top: 1rem; min-width: 0; }
+.league-history-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+.league-history-table { width: 100%; border-collapse: collapse; white-space: nowrap; text-align: left; }
+.league-history-table th, .league-history-table td { padding: .65rem .8rem; border-bottom: 1px solid var(--line, #ccc); }
+.league-history-table tbody th { font-weight: 600; }
+.league-history-season-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 1rem; }
+.league-history-season { min-width: 0; padding: 1rem; border: 1px solid var(--line, #ccc); border-radius: .75rem; }
+.league-history-season h3 { margin: 0 0 .6rem; }
+.league-history-season dl { margin: 0; }
+.league-history-season dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .3rem 1rem; margin: .45rem 0; }
+.league-history-season dt { opacity: .8; }
+.league-history-season dd { margin: 0; font-weight: 600; }
+.league-history-records { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: .75rem; }
+.league-history-records > div { padding: .9rem; border: 1px solid var(--line, #ccc); border-radius: .6rem; min-width: 0; }
+.league-history-records dt { margin-bottom: .4rem; }
+.league-history-records dd { display: flex; flex-direction: column; gap: .2rem; margin: 0; overflow-wrap: anywhere; }
