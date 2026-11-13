@@ -1175,7 +1175,8 @@ function renderActivePage() {
     if (host) host.innerHTML = renderLeagueHub({ league: state.league, leagueId: state.leagueId,
       seasons: archive?.leagueId === state.leagueId ? archive.seasons : state.leagueHistory,
       myTeam: managerForRosterId(connectedRosterId())?.teamName || managerForRosterId(connectedRosterId())?.displayName || "",
-      model: getSeasonModel(), transactions: state.transactions, loading: !archive,
+      model: getSeasonModel(), transactions: state.transactions, tradesLoaded: state.transactionsLoaded,
+      loading: !(archive?.leagueId === state.leagueId || state.leagueHistory.length),
     });
     return;
   }
