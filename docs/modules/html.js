@@ -129,3 +129,10 @@ export function withArticle(word) {
   const spelled = /^[A-Z]{2,}$/.test(text) ? /^[AEFHILMNORSX]/.test(text) : /^[aeiou]/i.test(text);
   return `${spelled ? "an" : "a"} ${text}`;
 }
+
+// "Sam" -> "Sam's", "Chris" -> "Chris'".
+export function ownerPossessive(name) {
+  const clean = String(name || "").trim();
+  if (!clean) return "";
+  return /s$/i.test(clean) ? `${clean}'` : `${clean}'s`;
+}

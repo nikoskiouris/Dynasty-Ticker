@@ -19,7 +19,6 @@
 // on private /trade. publicTone (fair | strong) colours only the tier on the
 // public card and cold /t; direction is shown by placement and a pointer.
 import { valueCalcVerdict } from "./value-calc.js";
-import { DEFAULT_FAIRNESS_PCT } from "./constants.js";
 import { formatNumber } from "./html.js";
 
 // Labels valueCalcVerdict gives when both sides are filled in.
@@ -197,27 +196,8 @@ export function oldPctToMore(oldPct) {
   return round1((p / (100 - p)) * 100);
 }
 
-// Launch default: Trade Lab's balanced setting (DEFAULT_FAIRNESS_PCT 20) is
-// pinned at exactly 25% more, its old reach, not rounded up to 28. 25 is
-// inside the Favors band, so no default idea shows a tier above Favors.
-export const DEFAULT_IDEA_LIMIT_MORE = 25;
 
-export function ideaLimitMore(oldPct) {
-  if (Number(oldPct) === DEFAULT_FAIRNESS_PCT) return DEFAULT_IDEA_LIMIT_MORE;
-  const more = oldPctToMore(oldPct);
-  if (more <= TIER_BANDS.even) return TIER_BANDS.even;
-  if (more <= TIER_BANDS.edge) return TIER_BANDS.edge;
-  if (more <= TIER_BANDS.favors) return TIER_BANDS.favors;
-  return more;
-}
 
-// The shown metric for two package values, as the whole number a chip prints.
-// 1000 when a side is empty. Filters compare this same number.
-export function ideaGapMore(a, b) {
-  const more = percentMore(a, b);
-  if (more == null || !(Number(a) > 0) || !(Number(b) > 0)) return 1000;
-  return displayMore(more);
-}
 
 // "Even it up" / "To make it fair". side names who adds: "You", "They", a
 // manager's name, or "Give" / "Get" on a shared link. Every branch says who

@@ -1,4 +1,3 @@
-import { ideaGapMore } from "./verdict-copy.js";
 // Consolidation math for uneven packages: one better player is worth more than
 // the same total spread across more pieces.
 const KTC_RAW_BASE = 0.10;
@@ -11,11 +10,6 @@ export function finiteAssetValue(value) {
   return Number.isFinite(number) ? Math.max(0, number) : 0;
 }
 
-// Trade ideas use the verdict's shown metric: % more, gap / smaller side
-// (verdict-copy.js). Compare it with ideaLimitMore(setting), never a raw setting.
-export function calculatePctDiff(a, b) {
-  return ideaGapMore(a, b);
-}
 
 function calculateKtcRawAdjustment(playerValue, tradeMaxValue, globalMaxValue) {
   if (!Number.isFinite(playerValue) || playerValue <= 0 || !Number.isFinite(tradeMaxValue) || tradeMaxValue <= 0) return 0;

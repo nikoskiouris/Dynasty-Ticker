@@ -118,3 +118,18 @@ export function chooseBestLineup(slotEntries, candidates, canFill, {
   }
   return { score, picks };
 }
+
+// A player at or above this value counts as a startable body at his position.
+export const STARTABLE_VALUE = 2500;
+
+export function countStartableAtPosition(assets, position, valueOf, positionsOf) {
+  const token = String(position || "");
+  if (!token) return 0;
+  return (Array.isArray(assets) ? assets : []).filter((asset) => {
+    if (asset?.assetType !== "player") return false;
+    const positions = positionsOf?.(asset) || [];
+    if (!positions.includes(token)) return false;
+    const value = Number(valueOf?.(asset));
+    return Number.isFinite(value) && value >= STARTABLE_VALUE;
+  }).length;
+}

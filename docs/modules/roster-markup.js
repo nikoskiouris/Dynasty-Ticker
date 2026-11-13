@@ -1,5 +1,4 @@
 import { escapeHtml } from "./html.js";
-import { badgeMeaning } from "./info-tip.js";
 import { sleeperAvatarUrl } from "./sleeper.js";
 
 const AVATAR_SIZES = new Set(["xs", "sm", "md", "lg"]);
@@ -40,56 +39,12 @@ export function renderPositionMeter(position) {
   `;
 }
 
-export function renderSleeperInsight(insight) {
-  const tone = classToken(insight?.tone);
-  const busy = insight?.busy === true ? ` aria-busy="true"` : "";
-  return `
-    <section class="insight-item ${tone}"${busy}>
-      <strong>${escapeHtml(insight?.title)}${insight?.tipHtml || ""}</strong>
-      <span>${escapeHtml(insight?.body)}</span>
-      ${insight?.hint ? `<span class="pick-value-hint">${escapeHtml(insight.hint)}</span>` : ""}
-    </section>
-  `;
-}
 
 // The score and its tag ("Middle of the pack") rank roster value only. Say so,
 // or an 8-0 team reads "Middle of the pack" as a judgment of its season.
 export const POWER_SCORE_NOTE =
   "Dynasty roster value against this league: starters, bench, picks, position balance and age. It ignores your record. A rough score, not a probability.";
 
-export function renderPowerHero({ score, managerName, grade, tierClass, badges } = {}) {
-  const numeric = Number(score);
-  const safeScore = Number.isFinite(numeric) ? Math.max(0, Math.min(100, Math.round(numeric))) : 0;
-  const tier = classToken(tierClass);
-  const badgeHtml = (Array.isArray(badges) ? badges : [])
-    .map((badge) => {
-      const meaning = badgeMeaning(badge);
-      return meaning
-        ? `<span class="power-badge" title="${escapeHtml(meaning)}">${escapeHtml(badge)}<span class="sr-only">: ${escapeHtml(meaning)}</span></span>`
-        : `<span class="power-badge">${escapeHtml(badge)}</span>`;
-    })
-    .join("");
-  const meanings = (Array.isArray(badges) ? badges : []).map((badge) => badgeMeaning(badge) ? `${badge}: ${badgeMeaning(badge)}` : "").filter(Boolean);
-  return `
-    <div class="power-hero">
-      <div class="power-score-ring" style="--score:${safeScore}">
-        <strong>${safeScore}</strong>
-        <span>/100</span>
-      </div>
-      <div class="power-hero-copy">
-        <div class="power-title-row">
-          <h3>${escapeHtml(managerName)}</h3>
-          <span class="power-tier ${tier}">${escapeHtml(grade)}</span>
-        </div>
-        <div class="power-badge-row">
-          ${badgeHtml}
-        </div>
-        <p class="power-score-note">${escapeHtml(POWER_SCORE_NOTE)}</p>
-        ${meanings.length ? `<details class="power-badge-help"><summary>What these tags mean</summary><ul>${meanings.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul></details>` : ""}
-      </div>
-    </div>
-  `;
-}
 
 export function renderAvatar(manager, { size = "md", className = "" } = {}) {
   const name = String(manager?.displayName || manager?.name || "?");

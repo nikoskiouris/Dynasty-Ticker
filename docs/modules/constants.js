@@ -16,7 +16,6 @@ export const DEFAULT_PAGE = "home";
 export const HOME_ROOM = "team";
 export const NAV_TABS = Object.freeze([
   { id: "check", page: "trades", room: "calculator", label: "Check a trade", hint: "Is this offer fair?" },
-  { id: "find", page: "trades", room: "find", label: "Find a trade", hint: "Deals that fit both teams" },
   { id: "team", page: "league", room: "team", label: "My team", hint: "Roster, standings, playoff odds" },
 ]);
 export const PAGE_LABELS = {
@@ -28,13 +27,13 @@ export const PAGE_LABELS = {
 export const PAGE_HINTS = {
   home: "Choose a tool",
   leagues: "Choose your Sleeper league",
-  trades: "Check a trade or find one",
+  trades: "Is this trade fair?",
   league: "Roster, standings, and playoff odds",
 };
 export const PAGE_ROOMS = {
   home: ["home"],
   leagues: ["picker"],
-  trades: ["calculator", "find"],
+  trades: ["calculator"],
   league: ["hub", "standings", "team", "trades", "history"],
 };
 export const DEFAULT_ROOMS = {
@@ -48,7 +47,6 @@ export const ROOM_LABELS = {
   leagues: { picker: "League History" },
   trades: {
     calculator: "Check a trade",
-    find: "Find a trade",
   },
   league: {
     hub: "League hub", standings: "Standings", trades: "Recent Trades", history: "Historical Data",
@@ -58,7 +56,6 @@ export const ROOM_LABELS = {
 export const ROOM_HINTS = {
   trades: {
     calculator: "You give and you get. Works before you connect a league",
-    find: "1-for-1 and 2-for-1 ideas from team needs",
   },
   league: {
     team: "Roster value, picks, standings, and playoff odds",
@@ -105,18 +102,18 @@ export const PLACE_ALIASES = {
   stamps: { page: "trades", room: "calculator" },
   players: { page: "trades", room: "calculator" },
   player: { page: "trades", room: "calculator" },
-  find: { page: "trades", room: "find" },
-  match: { page: "trades", room: "find" },
-  tradematch: { page: "trades", room: "find" },
-  partners: { page: "trades", room: "find" },
-  needs: { page: "trades", room: "find" },
-  lab: { page: "trades", room: "find" },
-  generator: { page: "trades", room: "find" },
-  shop: { page: "trades", room: "find" },
-  acquire: { page: "trades", room: "find" },
-  blockbuster: { page: "trades", room: "find" },
-  finddeals: { page: "trades", room: "find" },
-  ideas: { page: "trades", room: "find" },
+  find: { page: "trades", room: "calculator" },
+  match: { page: "trades", room: "calculator" },
+  tradematch: { page: "trades", room: "calculator" },
+  partners: { page: "trades", room: "calculator" },
+  needs: { page: "trades", room: "calculator" },
+  lab: { page: "trades", room: "calculator" },
+  generator: { page: "trades", room: "calculator" },
+  shop: { page: "trades", room: "calculator" },
+  acquire: { page: "trades", room: "calculator" },
+  blockbuster: { page: "trades", room: "calculator" },
+  finddeals: { page: "trades", room: "calculator" },
+  ideas: { page: "trades", room: "calculator" },
   start: { page: "league", room: "team" },
   jobs: { page: "league", room: "team" },
   welcome: { page: "league", room: "team" },
@@ -183,8 +180,8 @@ export const SCOPED_ROOM_ALIASES = {
     value: "calculator",
     ask: "calculator",
     ranks: "calculator",
-    match: "find",
-    lab: "find",
+    match: "calculator",
+    lab: "calculator",
   },
 };
 export const DEFAULT_FAIRNESS_PCT = 20;

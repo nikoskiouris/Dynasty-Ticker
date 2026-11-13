@@ -66,7 +66,6 @@ export function leagueUsesFuturePicks(league) {
   return true;
 }
 
-export function windowCallHorizon() { return "dynasty"; }
 export function hiddenRoomsForLeague() { return []; }
 
 export function roomsForPage(page, league) {

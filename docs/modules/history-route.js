@@ -381,9 +381,7 @@ export function pathForPlace({
   // reload, Back, or a copied link opens the board, not a blank calculator.
   else if (placePage === "trades" && placeRoom === "calculator" && playersBoard && !give.length && !get.length) href = urlPath("players");
   else if (placePage === "trades" && placeRoom === "calculator") href = tradeHref(give, get, leagueId, { format });
-  else if (placePage === "trades" && placeRoom === "find" && LEAGUE_ID.test(String(leagueId || ""))) {
-    href = urlPath("l", leagueId, "ideas");
-  } else if (leagueSegment && LEAGUE_ID.test(String(leagueId || ""))) {
+  else if (leagueSegment && LEAGUE_ID.test(String(leagueId || ""))) {
     href = urlPath("l", leagueId, leagueSegment);
   }
   return keepSample(rememberLeague(href, leagueId), sample && LEAGUE_ID.test(String(leagueId || "")));

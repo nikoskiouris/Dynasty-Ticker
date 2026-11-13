@@ -11,7 +11,6 @@ export const ROUTE_TAB_LABELS = Object.freeze({
 export const ROUTE_ROOM_TITLES = Object.freeze({
   home: "Home", picker: "League History", hub: "League hub", standings: "Standings", trades: "Recent Trades", history: "Historical Data",
   team: "My Team",
-  find: "Find a trade",
   calculator: "Check a trade",
 });
 

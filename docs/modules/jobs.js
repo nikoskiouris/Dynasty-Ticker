@@ -16,14 +16,6 @@ export const DESK_JOBS = Object.freeze([
     blurb: "Roster, picks, standings, playoff odds",
     cta: "see your team",
   },
-  {
-    id: "find",
-    page: "trades",
-    room: "find",
-    label: "Find a trade",
-    blurb: "1-for-1 and 2-for-1 ideas",
-    cta: "find a trade",
-  },
 ]);
 
 export const DESK_MORE_JOBS = Object.freeze([]);
