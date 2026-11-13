@@ -1,3 +1,4 @@
+import { renderPlayerPage } from "./player-page.js";
 import { escapeHtml, formatNumber } from "./html.js";
 import {
   playerValueTrend,
@@ -91,6 +92,7 @@ export function buildRankBoard({
   nflPlayers = {},
   owners = {},
   noteFor = null,
+  detailFor = null,
   minPickSeason = upcomingDraftSeason(),
 } = {}) {
   const picks = collectRankPicks(values, minPickSeason);
@@ -130,6 +132,7 @@ export function buildRankBoard({
       tape,
       model,
       raw,
+      ...(typeof detailFor === "function" ? detailFor(playerId, raw) : {}),
       owner: owners?.[assetId] || null,
       note: typeof noteFor === "function" ? String(noteFor(playerId, raw) || "") : "",
       photoUrl: sleeperPlayerThumbUrl(playerId),
@@ -226,7 +229,7 @@ export function rankView({
     const leagueValue = typeof leagueValueFor === "function" ? Number(leagueValueFor(selected)) : NaN;
     card = {
       ...selected,
-      neighbors: sameMoney(rows, selected.assetId),
+      neighbors: sameMoney(rows.filter(row => row.kind === "player"), selected.assetId, 3),
       leagueValue: Number.isFinite(leagueValue) && leagueValue > 0 ? Math.round(leagueValue) : null,
     };
   }
@@ -294,7 +297,7 @@ export function renderRanksMarkup(view) {
 }
 
 export function renderRanksBody(view) {
-  if (view?.card) return renderRankCard(view.card, view);
+  if (view?.card) return renderPlayerPage(view.card, view);
   if (view?.missing) return `<article class="player-detail" role="status"><button type="button" class="ghost-btn player-return" data-action="player-rankings-return">Return to player rankings</button><h1>We can't find that player</h1><p>The link may be old, or we have no price for him right now. Dynasty Ticker does not guess one.</p></article>`;
   const rows = Array.isArray(view?.rows) ? view.rows : [];
   const table = rows.length ? `<div class="rankings-table-wrap"><table class="rankings-table"><caption class="sr-only">Player Rankings · 12-team Superflex PPR dynasty</caption><thead><tr><th scope="col" class="rank-face-col"><span class="sr-only">Face</span></th><th scope="col">Player</th><th scope="col"><span class="rank-wide-label">Overall </span>Rank</th><th scope="col"><span class="rank-wide-label">Position </span>Rank</th><th scope="col">Age</th><th scope="col" class="rank-team-col">Team</th><th scope="col">Value</th></tr></thead><tbody>${rows.map(renderRankTableRow).join("")}</tbody></table></div>` : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;

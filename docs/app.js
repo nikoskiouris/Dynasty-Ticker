@@ -485,6 +485,7 @@ let pendingTradeTalk = "";
 let swallowCalcClick = false;
 let swallowCalcTimer = 0;
 let ranksSearchTimer = 0;
+let rankingsReturnScroll = null;
 let draftBasisCache = { bundles: null, format: "", basis: null };
 let rankBoardCache = { key: "", rows: [] };
 let rankContextPromise = null;
@@ -1133,6 +1134,7 @@ function cachedRankRows() {
       nflPlayers: players,
       owners: rankOwners(),
       noteFor: rankPlayerNote,
+      detailFor: (id, raw) => ({ draft: lookupNflDraftPick(id, playerNoteContext.draftPicks, raw), production: { lastLine: rankPlayerNote(id, raw) } }),
       minPickSeason: nextRookieDraftSeason(),
     }),
   };
@@ -1313,6 +1315,7 @@ async function ensureCalcPrices() {
 }
 
 function openPlayerBoard({ history = "push" } = {}) {
+  state.ranks.selectedId = "";
   playersBoardOpen = true;
   openRoom("trades", "calculator", { history });
   syncPlayersBoardFlag();
@@ -2273,6 +2276,7 @@ function openEmptyTrade() {
 function openPlayerPage(assetId) {
   const id = String(assetId || "");
   if (!/^player:\d+$/.test(id)) return;
+  if (playersBoardOpen && !state.ranks.selectedId) rankingsReturnScroll = window.scrollY || 0;
   prepareDeskPush();
   state.ranks.selectedId = id;
   document.querySelector("#landing")?.classList.add("hidden");
@@ -6857,15 +6861,9 @@ function addDraftAsset(side, asset) {
 function addDraftFromPlayers(assetId, name, kind) {
   if (!assetId) return;
   playersBoardOpen = false;
-  const me = state.leagueId ? getMyRoster() : null;
-  const placement = state.leagueId
-    ? draftSideForAsset(assetId, { rosters: state.normalizedRosters, meRosterId: me ? me.rosterId : null })
-    : { side: "left", ownerRosterId: null };
-  const hadGet = state.valueCalc.right.length > 0;
-  const added = addDraftAsset(placement.side, { assetId, name, assetType: kind === "pick" ? "pick" : "player" });
-  if (added && placement.side === "right" && !hadGet && placement.ownerRosterId != null) {
-    setDraft({ ...state.valueCalc, partnerRosterId: placement.ownerRosterId });
-  }
+  // Player detail always adds to Team 1 Receives. Ownership is context, not
+  // permission to move the owner's existing draft or swap this action's side.
+  addDraftAsset("left", { assetId, name, assetType: kind === "pick" ? "pick" : "player" });
   openRoom("trades", "calculator");
 }
 
@@ -7099,6 +7097,15 @@ function handleWorkspaceClick(event) {
         updateUrlState({ mode: "replace" });
       }
       break;
+    case "player-rankings-return": {
+      const scroll = rankingsReturnScroll;
+      if (scroll != null && history.state?.pushed) history.back();
+      else {
+        openPlayerBoard({ history: "push" });
+        requestAnimationFrame(() => window.scrollTo({ top: scroll || 0, left: 0, behavior: "instant" }));
+      }
+      break;
+    }
     case "player-back":
       if (backTarget({ pushed: Boolean(history.state?.pushed) }) === "history" && typeof history.back === "function") {
         history.back();

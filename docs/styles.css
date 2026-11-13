@@ -8514,3 +8514,40 @@ body.launch-open .workspace { display:block; }
  .rankings-table .player-face,.rank-pick-token { width:24px; height:24px; }
  .rank-name-link { font-size:.72rem; }
 }
+
+/* Dedicated player page. The rankings toolbar is removed from the visual and keyboard flow. */
+.ranks:has(.player-detail) > .ranks-toolbar { display:none; }
+.player-detail { max-width:1080px; margin:auto; min-width:0; }
+.player-detail-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:24px; }
+.player-return { margin-left:auto; }
+.player-detail-header { display:flex; align-items:center; gap:24px; margin-bottom:24px; }
+.player-detail-header > .player-face { width:100px; height:100px; flex-shrink:0; }
+.player-detail-header h1 { margin:0 0 8px; font-size:clamp(1.7rem,4vw,3rem); }
+.player-detail-header p { margin:6px 0; }
+.player-detail-value { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:24px; border:1px solid var(--line,#293441); border-radius:16px; }
+.player-detail-value > strong { font-size:2.5rem; }
+.player-detail-value > p { flex-basis:100%; margin:0; color:var(--muted,#a7b2c1); }
+.player-detail-grid { display:grid; grid-template-columns:1.6fr 1fr; gap:32px; margin:32px 0; }
+.player-detail h2 { font-size:1.15rem; }
+.player-detail-facts { display:grid; gap:12px; }
+.player-detail-facts > div { display:flex; justify-content:space-between; gap:12px; }
+.player-detail-facts dd { margin:0; font-weight:700; }
+.player-forecast { display:grid; gap:12px; }
+.player-forecast-row { display:grid; grid-template-columns:40px 1fr 56px; gap:8px; align-items:center; font-variant-numeric:tabular-nums; }
+.player-forecast-row small { grid-column:2/4; color:var(--muted,#a7b2c1); font-size:.7rem; }
+.player-forecast-track { height:12px; border-radius:6px; background:var(--line,#293441); overflow:hidden; }
+.player-forecast-track > span { display:block; height:100%; min-width:1px; background:var(--accent,#55d7a5); }
+.player-comparables { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:16px 0 24px; }
+.player-comparables button { display:flex; gap:10px; align-items:center; text-align:left; }
+.player-comparables small { display:block; margin-top:5px; color:var(--muted,#a7b2c1); }
+@media(max-width:640px) {
+ .player-detail-top { position:sticky; top:0; z-index:3; background:var(--panel,#111b26); padding:8px 0; margin-bottom:16px; }
+ .player-detail-top .eyebrow { display:none; }
+ .player-return { font-size:.75rem; }
+ .player-detail-header { align-items:flex-start; gap:12px; }
+ .player-detail-header > .player-face { width:64px; height:64px; }
+ .player-detail-header p { font-size:.75rem; }
+ .player-detail-grid { grid-template-columns:1fr; gap:20px; }
+ .player-detail-value { padding:16px; }
+ .player-comparables { grid-template-columns:1fr; }
+}
