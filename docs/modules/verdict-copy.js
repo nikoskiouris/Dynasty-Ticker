@@ -36,7 +36,7 @@ export const TIER_EXPLAINER = `How the verdict reads: one side's total, includin
 // Pending Designer. The numbers stay in the callers.
 export const FEWER_BETTER_LABEL = "Fewer, better pieces";
 export const FEWER_BETTER_ADDEND = "for fewer, better pieces";
-export const PRICE_FACTORS_LINE = "The price uses age, role, how well a player plays, how often they play, their team, where they were drafted, and how long players at that position usually stay good. Connecting a league never changes a player's price.";
+export const PRICE_FACTORS_LINE = "Values use one 12-team Superflex PPR dynasty reference league. The price uses age, role, how well a player plays, how often they play, their team, where they were drafted, and how long players at that position usually stay good. Connecting a league never changes a player's price.";
 export const UNAVAILABLE_PRICE_LINE = "Unavailable means we do not have a price for that player or pick right now. Dynasty Ticker does not guess one.";
 export const FEWER_BETTER_LINE = "Fewer, better pieces are worth extra compared with the same total split into smaller pieces. That extra changes the trade verdict, not any player's listed price.";
 

@@ -15,12 +15,12 @@ export const VALUE_TIERS = Object.freeze([
   { id: "deep", label: "Deep stash", min: 1, blurb: "Roster filler" },
 ]);
 
-export const TEN_THOUSAND_NOTE = "Values aren't capped at 10,000. Elite players start around 10,000; the very best are well above it. Superflex leagues can start two QBs, so QBs are worth more there than in 1QB leagues.";
+export const TEN_THOUSAND_NOTE = "Values aren't capped at 10,000. Elite players start around 10,000; the very best are well above it. Values use one 12-team Superflex PPR dynasty reference league.";
 
 export const TREND_WINDOW_DAYS = 30;
 export const STALE_AFTER_DAYS = 7;
 // docs/data/price-history schema, shared with trade links.
-// <YYYYMMDDHHmm>.json = { asOf, sf, oneQb }. sf and oneQb are full price maps.
+// <YYYYMMDDHHmm>.json = { asOf, sf }. sf is the sole full price map.
 // index.json schemaVersion 1 lists { stamp, asOf }. Snapshots older than 90
 // days before the newest are dropped. The newest file is always kept.
 export const PRICE_HISTORY_SCHEMA_VERSION = 1;
@@ -28,9 +28,8 @@ export const PRICE_HISTORY_RETENTION_DAYS = 90;
 export const PRICE_HISTORY_SCHEMA = Object.freeze({
   schemaVersion: PRICE_HISTORY_SCHEMA_VERSION,
   directory: "docs/data/price-history",
-  snapshot: "<YYYYMMDDHHmm>.json = { asOf, sf, oneQb }",
+  snapshot: "<YYYYMMDDHHmm>.json = { asOf, sf }",
   index: "index.json = { schemaVersion, retentionDays, snapshots: [{ stamp, asOf }] }",
-  oneQb: "full 1QB map; a missing player falls back to sf",
   dates: "asOf is UTC; the calendar day is YYYY-MM-DD",
   retentionDays: PRICE_HISTORY_RETENTION_DAYS,
 });
@@ -70,7 +69,7 @@ function playerKey(playerId) {
 }
 
 function formatKey(format) {
-  return format === "oneQb" ? "oneQb" : "sf";
+  return "sf";
 }
 
 function isoDate(value) {
@@ -130,9 +129,7 @@ function snapshotPrice(snap, assetId, format) {
   const map = snap?.[key];
   const own = map && typeof map === "object" ? finitePrice(map[assetId]) : null;
   if (own != null) return own;
-  if (key !== "oneQb") return null;
-  const sf = snap?.sf;
-  return sf && typeof sf === "object" ? finitePrice(sf[assetId]) : null;
+  return null;
 }
 
 // Every board row asks for its trend, and each ask normalized the whole
@@ -158,12 +155,10 @@ function normalizePriceHistoryNow(list) {
     const date = isoDate(asOf);
     if (!date) continue;
     if (!snap.sf || typeof snap.sf !== "object") continue;
-    const oneQb = snap.oneQb && typeof snap.oneQb === "object" ? snap.oneQb : null;
     rows.push({
       asOf,
       stamp: String(snap.stamp || "").trim(),
       sf: snap.sf,
-      oneQb,
     });
   }
   rows.sort((a, b) => (a.asOf < b.asOf ? -1 : a.asOf > b.asOf ? 1 : a.stamp < b.stamp ? -1 : a.stamp > b.stamp ? 1 : 0));
@@ -227,7 +222,7 @@ export function topMovers(count, { days = 30, format = "sf", minValue = 0, histo
   const minimum = Number.isFinite(floor) ? floor : 0;
   const ids = new Set();
   for (const snap of normalizePriceHistory(history).snapshots) {
-    for (const map of [snap.sf, snap.oneQb]) {
+    for (const map of [snap.sf]) {
       if (!map) continue;
       for (const assetId of Object.keys(map)) {
         if (assetId.startsWith("player:")) ids.add(assetId.slice("player:".length));

@@ -14,8 +14,10 @@ export const PRICE_HISTORY_DIR = "data/price-history";
 const STAMP = /^20\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])([01]\d|2[0-3])[0-5]\d$/;
 export const SHARE_MAX_SIDE = 8;
 export const SHARE_MAX_LENGTH = 220; // 8 twelve-digit ids a side fit
-const FORMAT_CODE = Object.freeze({ sf: "s", oneQb: "q" });
-const CODE_FORMAT = Object.freeze({ s: "sf", q: "oneQb" });
+
+// Backward compatibility: old q codes open on the sole SF value set.
+const CODE_FORMAT = Object.freeze({ s: "sf", q: "sf" });
+export const LEGACY_FORMAT_NOTE = "Shared with 1QB values, which we no longer publish. Shown on 12-team SF PPR values.";
 const BUCKET_CODE = Object.freeze({ any: "a", early: "e", mid: "m", late: "l" });
 const CODE_BUCKET = Object.freeze({ a: "any", e: "early", m: "mid", l: "late" });
 const PLAYER_ITEM = /^(?!0$)\d{1,12}$/;
@@ -103,7 +105,7 @@ export function encodeTradeShare({ give = [], get = [], format = "sf", asOf = ""
   if (left.length > SHARE_MAX_SIDE || right.length > SHARE_MAX_SIDE) return "";
   if ([...left, ...right].some((item) => !item)) return "";
   const stamp = priceStamp(asOf);
-  const head = stamp ? `${SHARE_VERSION}${FORMAT_CODE[format] || "s"}${stamp}` : `1${FORMAT_CODE[format] || "s"}`;
+  const head = stamp ? `${SHARE_VERSION}s${stamp}` : `1s`;
   const code = `${head}${left.join(".")}~${right.join(".")}`;
   return code.length <= SHARE_MAX_LENGTH ? code : "";
 }
@@ -128,7 +130,7 @@ export function decodeTradeShare(code) {
   if (sides.some((list) => !list.length || list.length > SHARE_MAX_SIDE)) return null;
   const [give, get] = sides.map((list) => list.map(decodeShareAsset));
   if ([...give, ...get].some((id) => !id)) return null;
-  return { format, give, get, stamp };
+  return { format, give, get, stamp, legacyFormat: text[1] === "q" };
 }
 
 export function sharePath(code) {
@@ -180,7 +182,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     : null;
   const summary = {
     format: decoded.format,
-    formatLabel: decoded.format === "oneQb" ? "1QB" : "Superflex",
+    formatLabel: "12-team Superflex PPR dynasty",
     give,
     get,
     giveTotal: model.give,

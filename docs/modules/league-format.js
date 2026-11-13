@@ -59,21 +59,15 @@ export function leagueTypeLabel(league) {
 }
 
 export function leagueKeepsPlayers(league) {
-  return Boolean(leagueTypeMeta(league).keepsPlayers);
+  return true;
 }
 
 export function leagueUsesFuturePicks(league) {
-  return Boolean(leagueTypeMeta(league).futurePicks);
+  return true;
 }
 
-export function windowCallHorizon(league) {
-  return leagueTypeMeta(league).horizon === "season" ? "season" : "dynasty";
-}
-
-export function hiddenRoomsForLeague(league) {
-  if (!league) return [];
-  return [...(leagueTypeMeta(league).hiddenRooms || [])];
-}
+export function windowCallHorizon() { return "dynasty"; }
+export function hiddenRoomsForLeague() { return []; }
 
 export function roomsForPage(page, league) {
   const rooms = PAGE_ROOMS[page] || [];
@@ -99,39 +93,25 @@ export function visibleRoomFor(page, room, league) {
   return fallback || room || "";
 }
 
-export function roomLabelFor(page, room, league) {
-  if (leagueTypeId(league) === "redraft" && page === "league" && room === "team") {
-    return "My team";
-  }
+export function roomLabelFor(page, room) {
   return ROOM_LABELS[page]?.[room] || room || "";
 }
 
-export function roomHintFor(page, room, league) {
-  if (leagueTypeId(league) === "redraft") {
-    if (page === "league" && room === "power") {
-      return "This-year roster board. Prices are still dynasty for now";
-    }
-    if (page === "league" && room === "team") {
-      return "Your outlook this season, roster, and standings";
-    }
-  }
+export function roomHintFor(page, room) {
   return ROOM_HINTS[page]?.[room] || "";
 }
 
-export function roomDescriptionFor(page, room, league) {
-  if (leagueTypeId(league) === "redraft" && page === "league" && room === "team") {
-    return "Your outlook for this season: push, bubble, or out. Then the roster.";
-  }
-  return "";
-}
+export function roomDescriptionFor() { return ""; }
 
+// League settings describe a warning only. They never select another price map.
 export function marketCaveat(league) {
-  const type = leagueTypeId(league);
-  if (type === "redraft") {
-    return "This is a redraft league. Prices are still the dynasty market, so youth looks rich. Scores, standings, and odds are this season.";
-  }
-  if (type === "keeper") {
-    return "Keeper league. Prices are the dynasty market; dumped names may not match this year's board.";
-  }
-  return "";
+  if (!league) return "";
+  const teams = Number(league.total_rosters);
+  const slots = (league.roster_positions || []).map((slot) => String(slot).trim().toUpperCase());
+  const sf = slots.some((slot) => ["SUPER_FLEX", "SUPERFLEX", "OP"].includes(slot)) || slots.filter((slot) => slot === "QB").length >= 2;
+  const ppr = Number(league.scoring_settings?.rec) === 1;
+  const dynasty = leagueTypeId(league) === "dynasty";
+  if (teams === 12 && sf && ppr && dynasty) return "";
+  const shape = [Number.isFinite(teams) && teams > 0 ? `${teams}-team` : "custom-size", sf ? "Superflex" : "1QB", ppr ? "PPR" : "custom scoring", leagueTypeLabel(league).toLowerCase()].join(" ");
+  return `Values are built for 12-team Superflex PPR dynasty. Your league is ${shape}, so treat QB values with care.`;
 }

@@ -97,7 +97,6 @@ export function createState() {
     ranks: {
       query: "",
       position: "ALL",
-      format: "",
       selectedId: "",
     },
     tradeMatch: {
@@ -116,7 +115,7 @@ export function createState() {
     sleeperUser: null,
     userLeagues: [],
     value: "sf",
-    valueBundles: { sf: { values: {}, nameMap: {} }, oneQb: { values: {}, nameMap: {} }, names: {} },
+    valueBundles: { sf: { values: {}, nameMap: {} }, names: {} },
     valueHistory: null,
   };
 }

@@ -9,14 +9,13 @@ export const INFO_PHONE_MAX_WIDTH = 700;
 export function valuesWorkText(date = "") {
   const when = String(date || "").trim();
   const updated = when ? ` Updated ${when}.` : "";
-  return `Values come from our own football forecast: a player's last two seasons, his age, and early on his draft slot. Not crowd votes. Same number everywhere on the site.${updated}`;
+  return `Values are built for 12-team Superflex PPR dynasty from our own football forecast: a player's last two seasons, his age, and early on his draft slot. Not crowd votes. Same number everywhere on the site.${updated}`;
 }
 
 // Plain words for terms a first-time or non-native reader may not know.
 export const GLOSSARY = Object.freeze({
   PPR: "PPR (points per reception): every catch scores 1 point.",
   Superflex: "Superflex: one lineup spot can hold a quarterback, so quarterbacks are worth more.",
-  "1QB": "1QB: only one quarterback starts, so quarterbacks are worth less.",
   Stars: "Stars: one great player is worth more than several average players that add up to the same total. Player prices stay the same.",
   "Pick slot": "Pick slot, like 1.04: round 1, 4th pick in that round.",
   "Pick Hoarder": "Pick Hoarder: this team owns 3 or more future 1st-round picks.",

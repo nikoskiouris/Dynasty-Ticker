@@ -176,7 +176,7 @@ export async function loadSnapshot(stamp, { origin = SITE_ORIGIN } = {}) {
   let payload = null;
   try {
     payload = JSON.parse(await readSiteFile(snapshotPath(stamp).slice(1), origin));
-    if (!payload?.sf || !payload?.oneQb) payload = null;
+    if (!payload?.sf) payload = null;
   } catch {
     payload = null;
   }

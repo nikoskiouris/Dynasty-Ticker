@@ -81,7 +81,6 @@ import {
 } from "./modules/parse.js";
 import {
   pickValueBundle,
-  selectValueFormat,
   fetchValuationBundles,
   NFL_PLAYERS_SLIM_PATH,
   playersFromValueSnapshot,
@@ -100,8 +99,6 @@ import {
   tradablePickSeason,
   playerPositionForAsset,
   playerAgeForAsset,
-  leagueHasSuperflex,
-  tepLevel,
   getGlobalMaxPlayerValue,
 } from "./modules/values.js";
 import {
@@ -1108,13 +1105,11 @@ function renderLeagueRoom(room) {
 }
 
 function activeRankFormat() {
-  if (state.ranks?.format === "oneQb" || state.ranks?.format === "sf") return state.ranks.format;
-  if (state.league) return selectValueFormat(state.league);
   return "sf";
 }
 
 function rankValuesReady() {
-  const values = state.valueBundles?.sf?.values || state.valueBundles?.oneQb?.values;
+  const values = state.valueBundles?.sf?.values;
   return Boolean(values && Object.keys(values).length);
 }
 
@@ -1201,7 +1196,7 @@ function rankViewModel() {
     position: state.ranks?.position || "ALL",
     shown: state.ranks?.shown || RANK_PAGE_SIZE,
     format: activeRankFormat(),
-    leagueFormat: state.league ? selectValueFormat(state.league) : "",
+    leagueFormat: state.league ? "sf" : "",
     selectedId: state.ranks?.selectedId || "",
     caveat: state.league ? marketCaveat(state.league) : "",
     leagueOpen: Boolean(state.leagueId),
@@ -1308,7 +1303,7 @@ async function ensureRankExtras() {
         const bundle = pickValueBundle(state.valueBundles, activeRankFormat());
         state.values = bundle.values || {};
         state.valueNameMap = bundle.nameMap || {};
-        state.valueFormat = activeRankFormat();
+
       }
     }
     if (!playerNoteContext?.previousSeason && !rankContextPromise) {
@@ -1344,7 +1339,7 @@ async function ensureCalcPrices() {
           const bundle = pickValueBundle(state.valueBundles, activeRankFormat());
           state.values = bundle.values || {};
           state.valueNameMap = bundle.nameMap || {};
-          state.valueFormat = activeRankFormat();
+
         }
       } catch (err) {
         console.warn("Could not load market prices", err);
@@ -2068,11 +2063,8 @@ function applyTradeRoute(route) {
     pendingTradeTalk = route.say;
     return;
   }
-  // A shared link names its scoring. Without a league that sets the board format.
-  if ((route?.format === "sf" || route?.format === "oneQb") && !state.leagueId) {
-    if (!state.ranks) state.ranks = {};
-    state.ranks.format = route.format;
-  }
+  // Legacy format links stay valid without changing the canonical prices.
+  state.legacyValueLink = Boolean(route?.legacyFormat || route?.format === "oneQb");
   let draft = emptyValueCalcState();
   const nameOf = (id) => state.valueNameMap?.[id] || id;
   for (const id of route?.give || []) draft = addValueCalcItem(draft, "left", { assetId: id, name: nameOf(id) });
@@ -2116,7 +2108,7 @@ async function loadSharedTrade(code, draft) {
         entry.snapshotState = "missing";
       } else {
         const snapshot = await res.json();
-        if (snapshot?.sf && snapshot?.oneQb) {
+        if (snapshot?.sf) {
           entry.snapshot = snapshot;
           entry.snapshotState = "ready";
         } else {
@@ -2741,9 +2733,7 @@ function renderLeagueHero() {
             ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
             : "Matchups are syncing.";
   const sampleNote = state.viewingSample ? (sampleVoice()?.accountNote || "Sample league — invented managers. ") : "";
-  const formatTip = tepLevel(league) > 0
-    ? ` ${infoTipMarkup({ id: "pop-hero-format", label: "Scoring", text: "Values use 1 point per catch at every position, even with the TE bonus." })}`
-    : "";
+  const formatTip = "";
   el.heroLede.innerHTML = `${escapeHtml(`${sampleNote}${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`)}${formatTip}`;
   if (el.leagueAvatar) {
     const leagueAvatarSrc = sleeperAvatarUrl(league.avatar);
@@ -5180,7 +5170,7 @@ function draftBasis() {
   if (state.leagueId && state.league) {
     return {
       connected: true,
-      format: selectValueFormat(state.league),
+      format: "sf",
       values: state.values,
       nameMap: state.valueNameMap,
       catalog: state.pickValueCatalog,
@@ -5258,7 +5248,7 @@ function dropUnknownDraftPlayers() {
   const bundles = state.valueBundles || {};
   const known = (assetId) => {
     const id = String(assetId || "").replace(/^player:/, "");
-    return Boolean(players[id] || bundles.sf?.[assetId] != null || bundles.oneQb?.[assetId] != null || state.valueNameMap?.[assetId]);
+    return Boolean(players[id] || bundles.sf?.[assetId] != null || state.valueNameMap?.[assetId]);
   };
   const isPlayer = (item) => /^player:/.test(String(item?.assetId || ""));
   const bad = [...(state.valueCalc?.left || []), ...(state.valueCalc?.right || [])].filter((item) => isPlayer(item) && !known(item.assetId));
@@ -5823,18 +5813,12 @@ function refreshDraftSuggestions(side) {
 }
 
 function renderDraftBasis(view) {
-  const { basis } = view;
-  return `
-    <div class="draft-basis-row" role="group" aria-label="Scoring format">
-      ${basis.connected
-        // A league's prices follow its format. A toggle here did nothing.
-        ? `<p class="draft-format-fixed" title="Prices use your league's format: ${escapeHtml(rankFormatLabel(basis.format))}.">${basis.format === "oneQb" ? "1QB" : "SF"} <span>· your league</span></p>`
-        : `<div class="draft-format-toggle">
-        ${["sf", "oneQb"].map((format) => `<button type="button" class="draft-format-btn${basis.format === format ? " active" : ""}" data-action="draft-format" data-format="${format}" aria-pressed="${basis.format === format ? "true" : "false"}" aria-label="PPR · ${escapeHtml(rankFormatLabel(format))}" title="PPR · ${escapeHtml(rankFormatLabel(format))}">${format === "sf" ? "SF" : "1QB"}</button>`).join("")}
-      </div>`}
-      ${infoTipMarkup({ id: "pop-format-trade", label: "Scoring and how values work", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${GLOSSARY["1QB"]} ${valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10))}` })}
-    </div>
-  `;
+  const legacy = activeSharedTrade(view.draft)?.decoded?.legacyFormat || state.legacyValueLink;
+  const caveat = marketCaveat(state.league);
+  return `<div class="draft-basis-row"><p class="draft-format-fixed">Values: 12-team Superflex PPR dynasty</p>
+    ${infoTipMarkup({ id: "pop-format-trade", label: "Scoring and how values work", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10))}` })}
+    ${caveat ? `<p class="muted">${escapeHtml(caveat)}</p>` : ""}
+    ${legacy ? `<p class="muted">Shared with 1QB values, which we no longer publish. Shown on 12-team SF PPR values.</p>` : ""}</div>`;
 }
 
 // /t/<code> that does not decode. The calculator stays usable underneath.
@@ -6736,7 +6720,7 @@ function draftShareCode(view) {
   return encodeTradeShare({
     give: ids(view.draft.left),
     get: ids(view.draft.right),
-    format: view.basis.format === "oneQb" ? "oneQb" : "sf",
+    format: "sf",
     asOf: state.valueBundles?.asOf || "",
   });
 }
@@ -7166,12 +7150,6 @@ function handleWorkspaceClick(event) {
       state.ranks.shown = (Number(state.ranks.shown) || RANK_PAGE_SIZE) + RANK_PAGE_SIZE;
       renderRankSurfaces();
       break;
-    case "rank-format":
-      state.ranks.format = target.dataset.format === "oneQb" ? "oneQb" : "sf";
-      rankBoardCache = { key: "", rows: [] };
-      renderRankSurfaces();
-      updateUrlState({ mode: "replace" });
-      break;
     case "rank-calc":
       state.ranks.selectedId = "";
       syncPlayerPageFlag();
@@ -7331,13 +7309,6 @@ function handleWorkspaceClick(event) {
       if (!item || !asset) break;
       setDraft(useLeaguePick(state.valueCalc, uid, asset, state.leagueId));
       renderTradeDraft();
-      break;
-    }
-    case "draft-format": {
-      state.ranks.format = target.dataset.format === "oneQb" ? "oneQb" : "sf";
-      rankBoardCache = { key: "", rows: [] };
-      patchTradeDraft(["left", "right"]);
-      updateUrlState({ mode: "replace" });
       break;
     }
     case "calc-copy": {
@@ -7954,9 +7925,7 @@ function buildSleeperInsightCards(profile, context) {
     title: "League Format",
     body: formatInsight,
     tone: "blue",
-    tipHtml: tepLevel(context.league) > 0
-      ? infoTipMarkup({ id: "pop-league-format", label: "Scoring", text: "Values use 1 point per catch at every position, even with the TE bonus." })
-      : "",
+    tipHtml: "",
   });
 
   if (profile.strongestPosition) {
@@ -8015,27 +7984,7 @@ function buildSleeperInsightCards(profile, context) {
 }
 
 function describeLeagueFormat(league) {
-  const slots = getStarterRosterSlots(league);
-  const hasSuperflex = leagueHasSuperflex(league);
-  const scoring = league?.scoring_settings || {};
-  const receptionValue = Number(scoring.rec);
-  const pprLabel = Number.isFinite(receptionValue)
-    ? receptionValue > 0
-      ? `${receptionValue} ${receptionValue === 1 ? "point" : "points"} per catch`
-      : "standard"
-    : "custom scoring";
-  const taxiSlots = Number(league?.settings?.taxi_slots || 0);
-  const draftRounds = Number(league?.settings?.draft_rounds || 0);
-  const parts = [
-    leagueTypeLabel(league),
-    hasSuperflex ? "Superflex" : "1-QB",
-    pprLabel,
-    `${slots.length} starters`,
-  ];
-  if (tepLevel(league) > 0) parts.push("TE bonus");
-  if (leagueKeepsPlayers(league) && taxiSlots > 0) parts.push(`${taxiSlots} taxi spots`);
-  if (leagueUsesFuturePicks(league) && draftRounds > 0) parts.push(`${draftRounds}-round rookie draft`);
-  return parts.join(" • ");
+  return marketCaveat(league) || "Values: 12-team Superflex PPR dynasty";
 }
 
 function buildTrendingInsight(profile) {
@@ -9577,7 +9526,7 @@ function valuesFreshness(now = new Date()) {
 function renderPlayerValueMarks(asset, values = state.values, { soon = false, spark = false } = {}) {
   if (asset?.assetType === "pick" || isEstimatedAsset(asset, values)) return "";
   const value = getAssetValue(asset, values);
-  const trend = playerValueTrend(state.valueHistory, asset.assetId, state.valueFormat || "sf");
+  const trend = playerValueTrend(state.valueHistory, asset.assetId, "sf");
   const trendHtml = trend ? renderValueTrend(trend, { spark }) : (soon ? renderTrendSoon() : "");
   return `${renderValueTierBadge(value)}${trendHtml}`;
 }
@@ -10091,11 +10040,11 @@ function formatPickName(pick, {
 async function loadValues() {
   state.valueBundles = await fetchValuationBundles();
   state.valueHistory = await fetchPriceHistory();
-  return pickValueBundle(state.valueBundles, selectValueFormat(state.league));
+  return pickValueBundle(state.valueBundles, "sf");
 }
 
 function primeValuationData() {
-  const format = selectValueFormat(state.league);
+  const format = "sf";
   if (state.valueBundles?.sf?.values && Object.keys(state.valueBundles.sf.values).length > 0) {
     applyValuationBundle(pickValueBundle(state.valueBundles, format));
     return;
@@ -10109,12 +10058,9 @@ async function ensureValuesLoaded(optionalUrl = "") {
   if (optionalUrl) {
     return applyValuationBundle(await loadValues(), { rerender: false });
   }
-
-  const format = selectValueFormat(state.league);
   if (
     Object.keys(state.values).length > 0
     && state.pickValueCatalog.length > 0
-    && state.valueFormat === format
   ) {
     return { values: state.values, nameMap: state.valueNameMap };
   }
@@ -10133,7 +10079,6 @@ async function ensureValuesLoaded(optionalUrl = "") {
 
 function applyValuationBundle(bundle, { rerender = true } = {}) {
   valuesLoadFailed = false;
-  state.valueFormat = selectValueFormat(state.league);
   state.valuationRevision = Number(state.valuationRevision || 0) + 1;
   state.values = bundle?.values && typeof bundle.values === "object" ? bundle.values : {};
   state.valueNameMap = bundle?.nameMap && typeof bundle.nameMap === "object" ? bundle.nameMap : {};
@@ -10538,7 +10483,7 @@ async function loadSeasonStats(season) {
 }
 
 function formatMarketValues() {
-  const format = state.valueFormat === "oneQb" ? "oneQb" : "sf";
+  const format = "sf";
   const selected = state.valueBundles?.[format]?.values;
   return selected && Object.keys(selected).length ? selected : state.values;
 }
