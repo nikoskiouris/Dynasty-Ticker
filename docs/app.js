@@ -1158,6 +1158,7 @@ function renderActivePage() {
   renderLeagueHero();
   const page = state.activePage;
   const room = getRoom(page);
+  if (livePoller && !(page === "league" && room === "standings")) stopLivePolling();
   if (page === "home") { renderToolPicker(document.querySelector("#home-page-content")); return; }
   if (page === "leagues") { moveLeagueControls(document.querySelector("#leagues-page-content")); return; }
   if (page === "league" && room === "hub") {
@@ -1175,10 +1176,14 @@ function renderActivePage() {
     const model = getSeasonModel();
     if (host) {
       const sim = model ? getSimulation(model) : null;
+      const live = model?.currentWeekEntry?.isLive;
       host.innerHTML = `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
+        <h2>${escapeHtml(state.leagueName || "League")} standings</h2>
+        <p class="muted small">${live ? `Live · Week ${model.currentWeek}` : `Week ${model?.currentWeek || "—"}`} · Updates every 2 minutes while this page is visible.</p>
         ${model ? `${renderStandingsPanel(model, sim)}${renderPlayoffOddsPanel(model, sim)}`
           : '<p role="status">Standings are loading from Sleeper…</p>'}`;
     }
+    startStandingsPolling();
     return;
   }
   if (page === "league" && room === "trades") { renderLeagueTradePage(); return; }
@@ -3638,6 +3643,55 @@ function stopLivePolling() {
 function handleLiveVisibility() {
   if (!livePoller?.running) return;
   if (!document.hidden) livePoller.resume();
+}
+
+function startStandingsPolling() {
+  const leagueId = String(state.leagueId || "");
+  const week = Number(state.nflState?.week);
+  if (!leagueId || !Number.isInteger(week) || week < 1 || week > 18
+    || String(state.league?.season) !== String(state.nflState?.season)
+    || state.league?.status === "complete") {
+    stopLivePolling();
+    return;
+  }
+  if (livePoller?.leagueId === leagueId && livePoller?.week === week) return;
+  stopLivePolling();
+
+  let timer = null;
+  let stopped = false;
+  function schedule(delay = 120000) {
+    clearTimeout(timer);
+    if (!stopped && !document.hidden) timer = setTimeout(poll, delay);
+  }
+  async function poll() {
+    if (stopped || document.hidden || String(state.leagueId) !== leagueId
+      || state.activePage !== "league" || getRoom("league") !== "standings") return;
+    try {
+      const rows = await apiGetWithRetry(sleeperLeaguePath(leagueId, `matchups/${week}`), {
+        timeoutMs: 12000, retries: 0,
+      });
+      if (!stopped && !document.hidden && String(state.leagueId) === leagueId
+        && state.activePage === "league" && getRoom("league") === "standings"
+        && Array.isArray(rows)) {
+        state.seasonWeekRows.set(week, rows);
+        invalidateSeasonCaches();
+        requestActivePageRender();
+      }
+    } catch (error) {
+      if (!stopped) console.warn("Standings refresh unavailable", error);
+    } finally {
+      schedule();
+    }
+  }
+  livePoller = {
+    leagueId, week, running: true,
+    stop() { stopped = true; clearTimeout(timer); },
+    resume() { if (!stopped) schedule(0); },
+  };
+  state.livePolling = true;
+  document.addEventListener("visibilitychange", handleLiveVisibility);
+  liveVisibilityBound = true;
+  schedule();
 }
 
 async function loadLeagueCoreData(leagueId) {
