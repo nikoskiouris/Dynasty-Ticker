@@ -22,15 +22,12 @@ import {
 import {
   PLAYERS_CACHE_TTL_MS,
   SIM_ITERATIONS,
-  NAV_TABS,
   PAGE_IDS,
   PAGE_LABELS,
   DEFAULT_PAGE,
   DEFAULT_ROOMS,
   MAX_HISTORY_SEASONS,
-  PHONE_LAYOUT_QUERY,
-} from "./modules/constants.js";
-import { bindMobileChromeScroll } from "./modules/mobile-chrome-scroll.js";
+  } from "./modules/constants.js";
 import { state, sleeper, PLAYERS_CACHE_KEY } from "./modules/state.js";
 import { createLeagueLoader, shouldBlankDeskForLeagueSwitch } from "./modules/league-load.js";
 import {
@@ -213,7 +210,6 @@ import {
   backTarget,
   decideHistoryWrite,
   matchRoute,
-  historyModeAfterMenuChoice,
   pathForPlace,
   playerIdFromPathname,
   playerPathname,
@@ -224,7 +220,7 @@ import {
   sleeperIdFrom,
   topOverlay,
   urlPath,
-  removedRoomRedirect,
+  legacyRedirect,
 } from "./modules/history-route.js";
 import {
   EVEN_UP_OFFER_ABOVE,
@@ -288,8 +284,7 @@ import {
   renderPlayerConnect,
   renderRanksBody,
   renderRanksMarkup,
-  renderRanksToolbar,
-} from "./modules/ranks.js";
+  } from "./modules/ranks.js";
 import {
   announceRoute,
   applyEscape,
@@ -303,12 +298,10 @@ import {
   restoreTriggerFocus,
   routeAnnouncement,
   routeDocumentTitle,
-  syncAriaCurrent,
-} from "./modules/route-a11y.js";
+  } from "./modules/route-a11y.js";
 
 const routeFocus = createRouteFocusMemory();
 
-const BOARD_STORAGE_KEY = "dynasty_ticker_board";
 const LINEUP_CANDIDATE_FLOOR = 6;
 const LINEUP_CANDIDATE_BUFFER = 2;
 const leagueStrengthCache = { key: "", baseline: null };
@@ -332,18 +325,11 @@ const el = {
   landingSearchStatus: document.querySelector("#landing-search-status"),
   landingSearchStatusText: document.querySelector("#landing-search-status-text"),
   landingSearchRetry: document.querySelector("#landing-search-retry"),
-  chromeLeagueLabel: document.querySelector("#chrome-league-label"),
-  chromeManagerLabel: document.querySelector("#chrome-manager-label"),
-  chromeModeLabel: document.querySelector("#chrome-mode-label"),
-  mobileChromeViewing: document.querySelector("#mobile-chrome-viewing"),
   identitySection: document.querySelector("#identity-section"),
   meSelect: document.querySelector("#me-select"),
-  deskNav: document.querySelector("#desk-nav"),
-  pageTabs: document.querySelector("#page-tabs"),
   powerSection: document.querySelector("#power-section"),
   powerDashboard: document.querySelector("#power-dashboard"),
   workspace: document.querySelector(".workspace"),
-  pageTabButtons: document.querySelectorAll(".page-tab"),
   pages: Object.fromEntries(PAGE_IDS.map((page) => [page, document.querySelector(`#${page}-page`)])),
   startDashboard: document.querySelector("#start-dashboard"),
   standingsDashboard: document.querySelector("#standings-dashboard"),
@@ -365,19 +351,7 @@ const el = {
   landingLoadingText: document.querySelector("#landing-loading-text"),
   usernameError: document.querySelector("#username-error"),
   leagueIdError: document.querySelector("#league-id-error"),
-  stickyMobileCta: document.querySelector("#sticky-mobile-cta"),
-  stickyFindBtn: document.querySelector("#sticky-find-btn"),
-  mobileChromeTitle: document.querySelector("#mobile-chrome-title"),
   routeTitle: document.querySelector("#route-title"),
-  mobileRailToggle: document.querySelector("#mobile-rail-toggle"),
-  mobileRailClose: document.querySelector("#mobile-rail-close"),
-  deskBoardClose: document.querySelector("#desk-board-close"),
-  deskBoardOpen: document.querySelector("#desk-board-open"),
-  boardTools: document.querySelector("#board-tools"),
-  boardToolsSlot: document.querySelector("#board-tools-slot"),
-  railBackdrop: document.querySelector("#rail-backdrop"),
-  controlRail: document.querySelector("#control-rail"),
-  phoneDesk: document.querySelector("#phone-desk"),
   heroTitle: document.querySelector("#hero-title"),
   heroLede: document.querySelector("#hero-lede"),
   heroEyebrow: document.querySelector("#hero-eyebrow"),
@@ -468,14 +442,7 @@ function isEstimatedAsset(asset, values = state.values) {
   });
 }
 
-el.usernameSearchForm?.addEventListener("submit", (event) => {
-  // Connecting from the phone drawer comes back to the room you were in, so a
-  // trade being checked reopens with your team's impact instead of My team.
-  if (!state.leagueId && document.body.classList.contains("rail-open") && state.activePage) {
-    state.pendingPlace = { page: state.activePage, room: getRoom(state.activePage) };
-  }
-  requestFindLeagues(event);
-});
+el.usernameSearchForm?.addEventListener("submit", requestFindLeagues);
 el.leagueStatusRetry?.addEventListener("click", retryUserLeagueSearch);
 el.landingSearchRetry?.addEventListener("click", retryUserLeagueSearch);
 document.getElementById("landing-league-retry")?.addEventListener("click", retryFailedLeagueLoad);
@@ -514,41 +481,6 @@ el.leagueId?.addEventListener("keydown", (event) => {
     requestLoadLeague(event);
   }
 });
-el.pageTabButtons?.forEach((button) => {
-  button.addEventListener("click", () => {
-    document.querySelector("#landing")?.classList.add("hidden");
-    playersBoardOpen = false;
-    openRoom(button.dataset.page, button.dataset.room);
-    syncPlayersBoardFlag();
-  });
-});
-el.pageTabs?.addEventListener("keydown", handlePageTabKeydown);
-el.mobileRailToggle?.addEventListener("click", () => {
-  const nextOpen = !document.body.classList.contains("rail-open");
-  setMobileRailOpen(nextOpen);
-  if (nextOpen) {
-    requestAnimationFrame(() => {
-      if (!document.body.classList.contains("rail-open")) return;
-      // No league yet: the drawer is the connect form, so start in it.
-      if (!state.leagueId && el.sleeperUsername && el.sleeperUsername.offsetParent) {
-        el.sleeperUsername.focus();
-        return;
-      }
-      el.mobileRailClose?.focus();
-    });
-  }
-});
-el.phoneDesk?.addEventListener("click", handlePhoneDeskClick);
-el.mobileRailClose?.addEventListener("click", () => setMobileRailOpen(false));
-el.railBackdrop?.addEventListener("click", () => setMobileRailOpen(false));
-el.deskBoardClose?.addEventListener("click", () => {
-  setDeskBoardShut(true);
-  requestAnimationFrame(() => el.deskBoardOpen?.focus());
-});
-el.deskBoardOpen?.addEventListener("click", () => {
-  setDeskBoardShut(false);
-  requestAnimationFrame(() => el.deskBoardClose?.focus());
-});
 document.addEventListener("click", (event) => {
   const trigger = event.target?.closest?.("button, a, [role='button']");
   if (trigger) routeFocus.arm(trigger);
@@ -564,12 +496,6 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (escapeRouteOverlay(event)) return;
-  const field = event.target?.closest?.("input, textarea, select");
-  if (field) return;
-  if (!isPhoneLayout() && !document.documentElement.classList.contains("desk-shut")) {
-    setDeskBoardShut(true);
-    el.deskBoardOpen?.focus();
-  }
 });
 document.addEventListener("click", handleLaunchClick);
 document.addEventListener("click", (event) => {
@@ -579,21 +505,7 @@ document.addEventListener("click", (event) => {
   // The trade draft is stored, so it survives. Back to the no-league desk.
   window.location.assign("/");
 });
-window.matchMedia(PHONE_LAYOUT_QUERY).addEventListener("change", () => {
-  setMobileRailOpen(false);
-  setDeskBoardShut(readDeskBoardShut());
-  if (state.activePage === "players") renderRankSurfaces();
-  else releaseRankBoardTools();
-});
 el.landingUsernameForm?.addEventListener("submit", requestFindLeagues);
-el.stickyFindBtn?.addEventListener("click", (event) => {
-  if (bootIsPending()) {
-    event.preventDefault();
-    queueFindForBoot(String(el.sleeperUsername?.value || el.landingUsername?.value || ""));
-    return;
-  }
-  focusUsernameSearch();
-});
 el.sleeperUsername?.addEventListener("input", () => {
   syncUsernameFields(el.sleeperUsername);
   setUsernameError("");
@@ -610,11 +522,6 @@ document.addEventListener("input", (event) => {
 el.leagueId?.addEventListener("input", () => setFieldError(el.leagueId, el.leagueIdError, ""));
 el.workspace?.addEventListener("click", swallowArmedCalcClick, true);
 el.workspace?.addEventListener("click", handleWorkspaceClick);
-el.controlRail?.addEventListener("click", (event) => {
-  if (!event.target.closest("#board-tools")) return;
-  handleWorkspaceClick(event);
-});
-el.controlRail?.addEventListener("input", handleWorkspaceInput);
 el.workspace?.addEventListener("keydown", handleWorkspaceKeydown);
 el.workspace?.addEventListener("focusin", handleCalcSearchFocus);
 el.workspace?.addEventListener("pointerdown", handleWorkspacePointerDown);
@@ -662,7 +569,6 @@ let valuesLoadFailed = false;
 let leagueMissing = false;
 let sleeperUnreachable = false;
 let connectAsked = false;
-setDeskBoardShut(readDeskBoardShut());
 state.valueCalc = readStoredDraft(safeStorage("sessionStorage"), safeStorage("localStorage")) || state.valueCalc;
 renderSessionSnapshot();
 let searchedUserNoted = false;
@@ -702,11 +608,6 @@ document.addEventListener("focusin", (event) => {
   if (target.id === "workspace") return;
   const tag = String(target.tagName || "");
   if (tag === "H1" || tag === "H2" || tag === "H3") return;
-  // Closing the menu can move focus onto the close control after the room
-  // heading. That is not the user staying in the menu.
-  if (target.id === "mobile-rail-close" && !document.body.classList.contains("rail-open")) return;
-  const cls = typeof target.className === "string" ? target.className : "";
-  if (/(?:^|\s)(?:room-tab|page-tab|phone-desk-room|phone-desk-page)(?:\s|$)/.test(cls)) return;
   followHeadingsUntil = 0;
   coldPlayerHeading = false;
 });
@@ -723,7 +624,6 @@ document.addEventListener("focusin", () => {
   if (!hold || hold.token !== routeFocusToken) return;
   requestAnimationFrame(() => restoreHeldFocus());
 }, true);
-window.addEventListener("resize", syncDeskRailOffset);
 if (bootRoute?.badLeague) {
   showLeagueNotFound();
 } else if (!(bootRoute?.leagueId || parseShareParams(window.location.search).leagueId)) {
@@ -781,20 +681,11 @@ window.addEventListener("pageshow", (event) => {
   if (!event.persisted) return;
   syncDocumentMeta();
 });
-if (isPhoneLayout()) setMobileRailOpen(false);
 
 syncDocumentMeta();
 reportRoute();
 appBooted = true;
 focusColdPlayerHeading();
-syncSiteDock();
-bindMobileChromeScroll(window, {
-  chrome: document.querySelector("#mobile-chrome"),
-  isPhone: isPhoneLayout,
-  prefersReducedMotion: () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  phoneMedia: window.matchMedia(PHONE_LAYOUT_QUERY),
-  reduceMedia: window.matchMedia("(prefers-reduced-motion: reduce)"),
-});
 const runQueuedFind = releaseBootGate(document);
 if (runQueuedFind) scheduleBootFind(() => requestFindLeagues());
 
@@ -879,7 +770,6 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
 
 function showAppPages() {
   hideLeagueNotFound();
-  el.deskNav?.classList.remove("hidden");
   const disconnect = document.querySelector("#disconnect-btn");
   disconnect?.classList.remove("hidden");
   const pending = state.pendingPlace || connectNextPlace;
@@ -898,7 +788,6 @@ function showAppPages() {
 }
 
 function hideAppPages() {
-  el.deskNav?.classList.add("hidden");
   document.querySelector("#disconnect-btn")?.classList.add("hidden");
   PAGE_IDS.forEach((page) => {
     const pageEl = el.pages[page];
@@ -914,7 +803,6 @@ function setActivePage(page, { history = "replace", scroll = "preserve", prepare
   if (landing === "show") document.querySelector("#landing")?.classList.remove("hidden");
   state.activePage = nextPage;
   document.querySelector("#landing")?.classList.add("hidden");
-  if (nextPage !== "trades") releaseRankBoardTools();
 
   PAGE_IDS.forEach((pageId) => {
     const pageEl = el.pages[pageId];
@@ -922,36 +810,15 @@ function setActivePage(page, { history = "replace", scroll = "preserve", prepare
     pageEl?.classList.toggle("hidden", !isActive);
     if (pageEl) pageEl.hidden = !isActive;
   });
-  scrollActiveTabIntoView();
   renderSessionSnapshot();
   renderActivePage();
   if (scroll === "top") window.scrollTo(0, 0);
   if (history !== "silent") updateUrlState({ mode: history });
   syncDocumentMeta();
   syncLaunchChrome();
-  syncRouteAriaCurrent();
 }
 
-function stepTabIndex(event, count, currentIndex) {
-  if (event.key === "ArrowRight" || event.key === "ArrowDown") return (currentIndex + 1) % count;
-  if (event.key === "ArrowLeft" || event.key === "ArrowUp") return (currentIndex - 1 + count) % count;
-  if (event.key === "Home") return 0;
-  if (event.key === "End") return count - 1;
-  return -1;
-}
 
-function handlePageTabKeydown(event) {
-  const tabs = [...(el.pageTabs?.querySelectorAll(".page-tab") || el.pageTabButtons || [])];
-  if (tabs.length === 0) return;
-  const currentIndex = Math.max(0, tabs.findIndex((button) => button.classList.contains("active")));
-  const nextIndex = stepTabIndex(event, tabs.length, currentIndex);
-  if (nextIndex < 0) return;
-  event.preventDefault();
-  const nextTab = tabs[nextIndex];
-  nextTab.focus();
-  if (isActiveNavTab(nextTab)) return;
-  openRoom(nextTab.dataset.page, nextTab.dataset.room, { history: "push", scroll: "top" });
-}
 
 // The board is open and the trades calculator room is the one on screen.
 function playersBoardShown() {
@@ -1276,16 +1143,6 @@ function rankViewModel() {
   });
 }
 
-function releaseRankBoardTools() {
-  document.body.classList.remove("board-tools-live");
-  if (el.boardTools) el.boardTools.hidden = true;
-  if (el.boardToolsSlot) el.boardToolsSlot.replaceChildren();
-}
-
-function rankToolbarHome(host, park) {
-  return park ? el.boardToolsSlot : host;
-}
-
 function paintRankToolbar(toolbar, view, typing) {
   if (!toolbar) return;
   toolbar.querySelectorAll("[data-action='rank-pos']").forEach((button) => {
@@ -1307,32 +1164,11 @@ function paintRankToolbar(toolbar, view, typing) {
 function renderRankHost(host) {
   if (!host) return;
   const view = rankViewModel();
-  const canPark = false;
-  const park = canPark && !view.loading;
-
-  if (host === el.ranksDashboard) {
-    document.body.classList.toggle("board-tools-live", park);
-    if (el.boardTools) el.boardTools.hidden = !park;
-  }
-
   if (view.loading || !host.querySelector("[data-ranks-body]")) {
     host.innerHTML = renderRanksMarkup(view);
   }
 
-  if (canPark && el.boardToolsSlot) {
-    const parkedToolbar = el.boardToolsSlot.querySelector("[data-ranks-toolbar]");
-    const hostToolbar = host.querySelector("[data-ranks-toolbar]");
-    if (park) {
-      if (hostToolbar) el.boardToolsSlot.appendChild(hostToolbar);
-      else if (!parkedToolbar) el.boardToolsSlot.innerHTML = renderRanksToolbar(view);
-    } else if (parkedToolbar) {
-      const root = host.querySelector("[data-ranks-root]");
-      if (root) root.prepend(parkedToolbar);
-      else el.boardToolsSlot.replaceChildren();
-    }
-  }
-
-  const toolbar = rankToolbarHome(host, park)?.querySelector("[data-ranks-toolbar]");
+  const toolbar = host.querySelector("[data-ranks-toolbar]");
   const typing = Boolean(
     toolbar
     && document.activeElement?.matches?.("[data-input='ranks-search']")
@@ -1440,9 +1276,9 @@ function renderTradesRoom(room) {
 
 function bootFromUrl() {
   // Rewrite before anything is reported, so a cold removed-room link counts one visit.
-  const removedRoomTarget = removedRoomRedirect(window.location.pathname);
-  if (removedRoomTarget && typeof history?.replaceState === "function") {
-    history.replaceState(history.state, "", `${removedRoomTarget}${window.location.search}`);
+  const legacyTarget = legacyRedirect(window.location.pathname, window.location.search);
+  if (legacyTarget && typeof history?.replaceState === "function") {
+    history.replaceState(history.state, "", `${legacyTarget}${window.location.hash}`);
   }
   const route = resolveLocation(window.location.pathname, window.location.search);
   bootRoute = route;
@@ -1502,7 +1338,6 @@ function activePlayerRouteId() {
 
 function activeOverlay() {
   return topOverlay({
-    rail: document.body.classList.contains("rail-open"),
     player: Boolean(activePlayerRouteId()),
     trade: Boolean(state.selectedTradeId),
   });
@@ -1576,13 +1411,6 @@ function routePlaceNow() {
   };
 }
 
-function syncRouteAriaCurrent() {
-  const room = getRoom();
-  syncAriaCurrent(el.pageTabButtons, isActiveNavTab);
-  syncAriaCurrent(document.querySelectorAll("[data-phone-room]"), (button) => {
-    return button.dataset.page === state.activePage && button.dataset.phoneRoom === room;
-  });
-}
 
 function armHeadingFollow() {
   followHeadingsUntil = Date.now() + 45000;
@@ -1656,12 +1484,7 @@ function releaseRouteFocusHold() {
 
 function focusHoldExempt(node) {
   if (!node) return false;
-  const id = node.id || "";
-  if (id === "mobile-rail-toggle" || id === "mobile-rail-close" || id === "desk-board-open" || id === "desk-board-close") return true;
-  const cls = typeof node.className === "string" ? node.className : "";
-  return cls.split(/\s+/).some((name) => (
-    name === "room-tab" || name === "page-tab" || name === "phone-desk-room" || name === "phone-desk-page"
-  ));
+  return node.id === "site-menu-toggle";
 }
 
 function shownElement(node) {
@@ -1689,7 +1512,6 @@ function shownQuery(selector) {
 function visiblePageHeading() {
   const nodes = [
     document.querySelector("#landing-job-hint"),
-    document.querySelector("#mobile-chrome-title"),
     document.querySelector("#route-title"),
   ];
   return nodes.find((node) => shownElement(node)) || null;
@@ -1811,7 +1633,6 @@ async function focusAfterPopstate({ focus, trigger, before, token }) {
 
 function syncRouteA11y({ focus = "none", trigger = null, before = null, settled = 0, focusVisible = roomFocusVisible() } = {}) {
   syncDocumentMeta();
-  syncRouteAriaCurrent();
   if (!appBooted || focus === "none") return;
   if (settled) {
     if (settled !== routeFocusToken) return;
@@ -1846,10 +1667,6 @@ function overlayPushed(overlay) {
 }
 
 function dismissRouteOverlay(overlay) {
-  if (overlay === "rail") {
-    setMobileRailOpen(false);
-    return;
-  }
   if (overlay === "player") {
     state.ranks.selectedId = "";
     if (state.activePage === "league" && getRoom() === "team") renderRosterSheet();
@@ -1948,8 +1765,7 @@ function updateUrlStateInner({ mode = "replace", force = false } = {}) {
     || before.view !== after.view
     || before.playerId !== after.playerId;
   if (!changed) return;
-  const moved = before.tab !== after.tab || before.view !== after.view;
-  if (before.overlay && !after.overlay && !(before.overlay === "rail" && moved)) {
+  if (before.overlay && !after.overlay) {
     syncRouteA11y({ focus: "restore", trigger: routeFocus.opener(), before });
     return;
   }
@@ -1987,7 +1803,6 @@ function applyPlayerRoute(historyState, parsed) {
   });
   state.ranks.selectedId = picked.rankAssetId;
   if (picked.rankAssetId) document.querySelector("#landing")?.classList.add("hidden");
-  setMobileRailOpen(picked.railOpen, { history: "silent" });
 }
 
 function applyDeskPopState(historyState) {
@@ -2476,102 +2291,12 @@ function goSiteHome({ history = "push" } = {}) {
   setActivePage("home", { history, scroll: "top" });
 }
 
-function isPhoneLayout() {
-  return window.matchMedia(PHONE_LAYOUT_QUERY).matches;
-}
 
-function readDeskBoardShut() {
-  try {
-    return localStorage.getItem(BOARD_STORAGE_KEY) === "shut";
-  } catch {
-    return document.documentElement.classList.contains("desk-shut");
-  }
-}
 
-function setDeskBoardShut(shut) {
-  const next = Boolean(shut);
-  document.documentElement.classList.toggle("desk-shut", next);
-  el.deskBoardOpen?.setAttribute("aria-expanded", String(!next));
-  if (next) el.deskBoardClose?.setAttribute("tabindex", "-1");
-  else el.deskBoardClose?.removeAttribute("tabindex");
-  if (!isPhoneLayout() && el.controlRail) {
-    if (next) el.controlRail.setAttribute("inert", "");
-    else el.controlRail.removeAttribute("inert");
-  }
-  try {
-    localStorage.setItem(BOARD_STORAGE_KEY, next ? "shut" : "open");
-  } catch {
-    // The board still shuts for this visit.
-  }
-}
 
-function setMobileRailOpen(open, { history = "auto" } = {}) {
-  const shouldOpen = Boolean(open) && isPhoneLayout();
-  const wasOpen = document.body.classList.contains("rail-open");
-  if (!shouldOpen && wasOpen && history !== "silent" && closeHistoryOverlay("rail")) return;
-  if (shouldOpen && !wasOpen && history !== "silent" && !applyingHistory) prepareDeskPush();
-  if (!shouldOpen && el.controlRail?.contains(document.activeElement)) {
-    el.mobileRailToggle?.focus();
-  }
-  document.body.classList.toggle("rail-open", shouldOpen);
-  el.controlRail?.classList.toggle("is-open", shouldOpen);
-  el.mobileRailToggle?.setAttribute("aria-expanded", String(shouldOpen));
-  if (el.railBackdrop) {
-    el.railBackdrop.hidden = !shouldOpen;
-    el.railBackdrop.classList.toggle("open", shouldOpen);
-  }
-  if (!el.controlRail) return;
-  if (isPhoneLayout() && !shouldOpen) {
-    el.controlRail.setAttribute("aria-hidden", "true");
-    el.controlRail.setAttribute("inert", "");
-  } else {
-    el.controlRail.removeAttribute("aria-hidden");
-    el.controlRail.removeAttribute("inert");
-  }
-  if (shouldOpen) el.mobileRailClose?.removeAttribute("tabindex");
-  else el.mobileRailClose?.setAttribute("tabindex", "-1");
-  // The open drawer is a modal layer over the page. Tab must stay inside it,
-  // so the page behind (header, board button, workspace with the tab bar) is
-  // inert until it closes.
-  const behind = [
-    document.querySelector(".skip-link"),
-    document.querySelector("#mobile-chrome"),
-    document.querySelector("#desk-board-open"),
-    el.workspace,
-  ].filter(Boolean);
-  behind.forEach((node) => {
-    if (shouldOpen) node.setAttribute("inert", "");
-    else node.removeAttribute("inert");
-  });
-  syncSiteDock();
-  if (history === "silent" || applyingHistory) return;
-  if (shouldOpen && !wasOpen) updateUrlState({ mode: "push" });
-  else if (!shouldOpen && wasOpen) updateUrlState({ mode: "replace" });
-}
 
-function scrollChildIntoStrip(strip, child) {
-  if (!strip || !child || typeof strip.getBoundingClientRect !== "function") return;
-  const parentRect = strip.getBoundingClientRect();
-  const childRect = child.getBoundingClientRect();
-  if (childRect.left >= parentRect.left + 8 && childRect.right <= parentRect.right - 8) return;
-  if (typeof strip.scrollTo !== "function") return;
-  const delta = childRect.left - parentRect.left - (parentRect.width - childRect.width) / 2;
-  strip.scrollTo({ left: (Number(strip.scrollLeft) || 0) + delta, behavior: "auto" });
-}
 
-function scrollActiveTabIntoView() {
-  const active = [...(el.pageTabButtons || [])].find((button) => button.classList.contains("active"));
-  scrollChildIntoStrip(el.pageTabs, active);
-}
 
-function syncDeskRailOffset() {
-  const rail = el.controlRail;
-  if (!rail || isPhoneLayout()) return;
-  // Round down: the sticky tabs tuck under the rail's last fraction of a pixel
-  // instead of leaving a sliver where scrolled content shows through.
-  const height = Math.floor(rail.getBoundingClientRect().height);
-  if (height > 0) document.documentElement.style.setProperty("--desk-rail-height", `${height}px`);
-}
 
 function guestRouteHeading() {
   const path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
@@ -2589,61 +2314,21 @@ function routeHeadingText() {
 
 function renderSessionSnapshot() {
   rebindUsernameInputs();
-  const you = getMyRoster()?.manager?.displayName || "";
   document.body.classList.toggle("league-loaded", Boolean(state.leagueId));
   if (state.leagueSwitching) {
-    if (el.mobileChromeTitle) el.mobileChromeTitle.textContent = "Loading league…";
-    if (el.chromeLeagueLabel) el.chromeLeagueLabel.textContent = "Loading…";
-    if (el.chromeManagerLabel) el.chromeManagerLabel.textContent = "—";
-    if (el.chromeModeLabel) el.chromeModeLabel.textContent = "—";
     renderLeagueHero();
     syncDocumentMeta();
-    syncSiteDock();
     return;
   }
-  // Cold /t/<code>: no "Your Sleeper league" subtitle under the wordmark.
-  // A broken /t link has no shared-trade title to stand in for the page h1.
+  // Cold /t/<code>: the shared-trade title stands in for the page h1.
+  // A broken /t link has no shared-trade title.
   const coldShare = !state.leagueId && !state.badShareLink && /^\/t\//.test(window.location.pathname);
   document.body.classList.toggle("cold-share", coldShare);
-  if (el.mobileChromeTitle) el.mobileChromeTitle.hidden = coldShare;
-  if (el.mobileChromeTitle && !coldShare) {
-    el.mobileChromeTitle.textContent = state.leagueName
-      ? (you ? `${you} · ${state.leagueName}` : state.leagueName)
-      : guestRouteHeading();
-  }
   if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
-  const chipText = document.querySelector("#team-league-chip-text");
-  if (chipText) {
-    chipText.textContent = state.leagueName
-      ? `${you || "Pick your team"} · ${state.leagueName}`
-      : "Connect my league";
-  }
-  el.mobileRailToggle?.setAttribute("aria-label", state.leagueName ? `Team and league: ${chipText?.textContent || ""}. Switch team, switch league, or disconnect.` : "Connect my league");
-  if (el.chromeLeagueLabel) {
-    el.chromeLeagueLabel.textContent = state.leagueName || "Not loaded";
-  }
-  if (el.chromeManagerLabel) {
-    el.chromeManagerLabel.textContent = you || "Select team";
-  }
-  if (el.chromeModeLabel) {
-    el.chromeModeLabel.textContent = state.leagueId ? describeSeasonWeek() : "—";
-  }
   renderLeagueHero();
   syncDocumentMeta();
-  syncSiteDock();
-  requestAnimationFrame(syncDeskRailOffset);
 }
 
-function describeSeasonWeek() {
-  const model = state.leagueId ? getSeasonModel() : null;
-  if (!model) return "—";
-  if (model.seasonComplete) return `${model.season} done`;
-  const entry = model.currentWeekEntry;
-  if (!entry) return `Week ${model.currentWeek}`;
-  if (entry.isPlayoff) return `Playoffs Wk ${entry.week}${entry.isLive ? " live" : ""}`;
-  if (entry.isLive) return `Week ${entry.week} live`;
-  return `Week ${entry.week}`;
-}
 
 function brandMarkAvatarHtml() {
   return `<img class="league-mark" src="./brand/mark.svg" width="148" height="132" alt="" decoding="async" />`;
@@ -2705,92 +2390,15 @@ function syncRoomUi() {
   el.pages[page]?.querySelectorAll("[data-room-panel]").forEach((panel) => {
     panel.classList.toggle("hidden", panel.dataset.roomPanel !== room);
   });
-  renderRoomNav();
-  renderPhoneDesk();
 }
 
-function isActiveNavTab(button) {
-  return button.dataset.page === state.activePage && button.dataset.room === getRoom(state.activePage);
-}
 
-// No league: Check a trade · Find a trade · My team (checking works without a
-// league). League connected: My team · Find a trade · Check a trade, the
-// decision order (diagnose, find, validate).
-function orderNavTabs() {
-  const nav = el.pageTabs;
-  if (!nav) return;
-  const ids = state.leagueId ? ["league-tab", "find-tab", "trades-tab"] : ["trades-tab", "find-tab", "league-tab"];
-  const current = [...nav.querySelectorAll(".page-tab")].map((button) => button.id).join(",");
-  if (current === ids.join(",")) return;
-  ids.forEach((id) => {
-    const button = nav.querySelector(`#${id}`);
-    if (button) nav.appendChild(button);
-  });
-}
 
-function renderRoomNav() {
-  orderNavTabs();
-  el.pageTabButtons?.forEach((button) => {
-    const isActive = isActiveNavTab(button);
-    button.classList.toggle("active", isActive);
-    button.setAttribute("aria-selected", String(isActive));
-    button.tabIndex = isActive ? 0 : -1;
-  });
-  scrollActiveTabIntoView();
-  syncRouteAriaCurrent();
-}
 
-function renderPhoneDesk() {
-  if (!el.phoneDesk) return;
-  el.phoneDesk.innerHTML = NAV_TABS.map((tab) => {
-    const active = tab.page === state.activePage && tab.room === getRoom(tab.page);
-    return `
-      <button type="button" class="phone-desk-room${active ? " active" : ""}" data-phone-room="${escapeHtml(tab.room)}" data-page="${escapeHtml(tab.page)}">
-        <strong>${escapeHtml(tab.label)}</strong>
-        <small>${escapeHtml(tab.hint)}</small>
-      </button>
-    `;
-  }).join("");
-  syncRouteAriaCurrent();
-}
 
-function leavePhoneMenu(navigate) {
-  const mode = historyModeAfterMenuChoice(history.state || {});
-  setMobileRailOpen(false, { history: "silent" });
-  navigate(mode);
-  if (mode !== "replace" || typeof history.replaceState !== "function") return;
-  const next = history.state || {};
-  history.replaceState({
-    ...next,
-    pushed: true,
-    overlay: next.overlay === "rail" ? "" : next.overlay,
-  }, "", `${window.location.pathname}${window.location.search}`);
-}
 
-function scrollMotion() {
-  const reduce = typeof window.matchMedia === "function"
-    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  return reduce ? "auto" : "smooth";
-}
 
-function scrollCheckOfferIntoView() {
-  const target = document.querySelector("#trades-page [data-room-panel='calculator']")
-    || document.querySelector("#calculator-section");
-  if (!target || typeof target.scrollIntoView !== "function") return;
-  target.scrollIntoView({ behavior: scrollMotion(), block: "start" });
-}
 
-function handlePhoneDeskClick(event) {
-  const roomButton = event.target.closest("[data-phone-room]");
-  if (!roomButton) return;
-  const page = roomButton.dataset.page;
-  const room = roomButton.dataset.phoneRoom;
-  document.querySelector("#landing")?.classList.add("hidden");
-  leavePhoneMenu((mode) => {
-    openRoom(page, room, { history: mode, scroll: "top" });
-    if (page === "trades" && room === "calculator") scrollCheckOfferIntoView();
-  });
-}
 
 
 function deskRoomLabel(page, room) {
@@ -2803,7 +2411,6 @@ function collapseLeaguePicker() {
     host.classList.add("hidden");
     host.replaceChildren();
   });
-  syncDeskRailOffset();
 }
 
 function handleLeaguePickClick(event) {
@@ -3273,7 +2880,6 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     if (keepPlace) state.pendingPlace = keepPlace;
     primeValuationData();
     if (!leagueLoader.isCurrent(token)) return;
-    setMobileRailOpen(false, { history: "silent" });
     showAppPages();
     noteSearchedUser(leagueId);
     analyticsTrack("league_connected");
@@ -5115,7 +4721,7 @@ function syncTradeStickyTop() {
   const host = el.calculatorShell;
   if (!host) return;
   let top = 0;
-  for (const node of document.querySelectorAll("#control-rail, #desk-nav, #mobile-chrome")) {
+  for (const node of document.querySelectorAll("#site-menu-toggle")) {
     const cs = getComputedStyle(node);
     if ((cs.position !== "sticky" && cs.position !== "fixed") || !node.offsetHeight) continue;
     top = Math.max(top, (parseFloat(cs.top) || 0) + node.offsetHeight);
@@ -6553,8 +6159,7 @@ function handleWorkspacePointerDown(event) {
 function handleWorkspaceClick(event) {
   const target = event.target.closest("[data-action]");
   const inWorkspace = Boolean(target && el.workspace?.contains(target));
-  const inBoard = Boolean(target && el.boardTools?.contains(target));
-  if (!target || (!inWorkspace && !inBoard)) return;
+  if (!target || !inWorkspace) return;
   if (target.dataset.action === "league-home") return;
   const action = target.dataset.action;
   switch (action) {
@@ -6582,7 +6187,6 @@ function handleWorkspaceClick(event) {
         openLandingFromMissingLeague();
         break;
       }
-      if (!state.leagueId) document.querySelector("#landing")?.classList.remove("hidden");
       if (bootIsPending()) {
         queueFindForBoot(String(el.sleeperUsername?.value || el.landingUsername?.value || ""));
         break;
@@ -8945,7 +8549,7 @@ function dismissFailedLeagueLoad(event) {
 function setLeagueSwitchStale(on) {
   const stale = Boolean(on);
   document.body.classList.toggle("league-switch-stale", stale);
-  ["workspace-header", "ui-pages", "desk-nav", "mobile-chrome-title"].forEach((id) => {
+  ["workspace-header", "ui-pages"].forEach((id) => {
     const node = document.getElementById(id);
     if (!node) return;
     if (stale) node.setAttribute("aria-busy", "true");
@@ -9025,12 +8629,11 @@ function syncUsernameFields(source) {
   if (el.landingUsername && el.landingUsername !== source) el.landingUsername.value = value;
 }
 
+// The Sleeper username box lives on League History (/leagues).
 function focusUsernameSearch() {
   rebindUsernameInputs();
-  if (isPhoneLayout() && state.leagueId) setMobileRailOpen(true);
-  const target = !state.leagueId && el.landingUsername
-    ? el.landingUsername
-    : (el.sleeperUsername || el.leagueId);
+  if (state.activePage !== "leagues") navigateTool("/leagues");
+  const target = el.sleeperUsername || el.leagueId;
   target?.focus();
   target?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
@@ -9161,12 +8764,6 @@ document.addEventListener("error", (event) => {
   img.classList.add("is-broken");
 }, true);
 
-function syncSiteDock() {
-  // Connect my league stays in the landing form. Do not pin a second bar over the page.
-  if (el.stickyMobileCta) el.stickyMobileCta.hidden = true;
-  document.body.classList.remove("dock-visible");
-}
-
 function startLeagueLoadingUi() {
   if (el.loadLeagueBtn) {
     el.loadLeagueBtn.disabled = true;
@@ -9178,10 +8775,6 @@ function startLeagueLoadingUi() {
   if (el.landingLoading) {
     el.landingLoading.classList.remove("hidden");
     if (el.landingLoadingText) el.landingLoadingText.textContent = "Opening league from Sleeper…";
-  }
-  if (el.stickyFindBtn) {
-    el.stickyFindBtn.disabled = true;
-    el.stickyFindBtn.textContent = "Opening…";
   }
 
   leagueLoadStartedAt = Date.now();
@@ -9201,10 +8794,6 @@ function stopLeagueLoadingUi() {
   document.body.classList.remove("league-loading");
   el.leagueLoadForm?.setAttribute("aria-busy", "false");
   el.landingLoading?.classList.add("hidden");
-  if (el.stickyFindBtn) {
-    el.stickyFindBtn.disabled = false;
-    el.stickyFindBtn.textContent = el.stickyFindBtn.dataset.idleLabel || "Connect my league";
-  }
   if (!el.loadLeagueBtn) return;
   el.loadLeagueBtn.disabled = false;
   el.loadLeagueBtn.classList.remove("loading");

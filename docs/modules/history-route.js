@@ -307,11 +307,56 @@ export function safeNext(value) {
 
 // Removed league rooms (This week, League, Activity) open that league's
 // My team. Netlify 301s the same paths in docs/_redirects; this covers the SPA.
-const REMOVED_LEAGUE_ROOM = /^\/l\/(\d{1,20})\/(?:week|league|activity)\/?$/;
+// Old addresses (ticket 043). Each lands on the closest page of the redesign.
+const REMOVED_LEAGUE_ROOM = /^\/l\/(\d{1,20})\/(week|league|activity|ideas)\/?$/;
+const REMOVED_ROOM_TARGET = Object.freeze({ week: "standings", league: "", activity: "trades", ideas: "" });
+const LEGACY_TOKEN_TARGET = Object.freeze({
+  players: "players", player: "players", value: "players", ktc: "players", ranks: "players", rank: "players",
+  playervalues: "players", "player-values": "players",
+  trade: "trade", trader: "trade", trades: "trade", calculator: "trade", calc: "trade", check: "trade",
+  find: "trade", ideas: "trade", match: "trade", shop: "trade",
+  history: "history", hall: "history", analytics: "history", archive: "history", records: "history",
+  recordbook: "history", titles: "history", seasons: "history", awards: "history", recap: "history",
+  week: "standings", matchups: "standings", now: "standings", standings: "standings", scores: "standings",
+  scoreboard: "standings", odds: "standings", playoffs: "standings", luck: "standings",
+  team: "team", teams: "team", myteam: "team", "my-team": "team", roster: "team", lineup: "team", league: "team",
+});
+const LEGACY_PARAMS = ["tab", "view", "league", "sample"];
 
-export function removedRoomRedirect(pathname) {
-  const hit = REMOVED_LEAGUE_ROOM.exec(String(pathname || "").split("?")[0]);
-  return hit ? urlPath("l", hit[1], "team") : "";
+// The new address for an old link, or "" when the link is already current.
+// Covers /l/:id/<removed room>, /connect, ?sample=1, and `/?tab=…&view=…&league=…`.
+export function legacyRedirect(pathname = "/", search = "") {
+  const path = String(pathname || "/").split("?")[0] || "/";
+  const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+  const keep = () => {
+    const rest = new URLSearchParams(params);
+    LEGACY_PARAMS.forEach((key) => rest.delete(key));
+    const query = rest.toString();
+    return query ? `?${query}` : "";
+  };
+  const room = REMOVED_LEAGUE_ROOM.exec(path);
+  if (room) {
+    const segment = REMOVED_ROOM_TARGET[room[2]];
+    return `${segment ? urlPath("l", room[1], segment) : urlPath("l", room[1])}${keep()}`;
+  }
+  if (/^\/connect\/?$/.test(path)) return urlPath("leagues");
+  if (params.has("sample")) {
+    if (/^\/l\/\d{1,20}/.test(path)) return `${path}${keep()}`;
+    if (path === "/") return `${urlPath("leagues")}${keep()}`;
+  }
+  if (path !== "/") return "";
+  const token = [params.get("view"), params.get("tab")]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .find((value) => LEGACY_TOKEN_TARGET[value]);
+  const leagueId = String(params.get("league") || "").trim();
+  const league = LEAGUE_ID.test(leagueId) ? leagueId : "";
+  const homeTab = !token && league && /^home$/i.test(String(params.get("tab") || params.get("view") || "").trim());
+  const target = homeTab ? "team" : LEGACY_TOKEN_TARGET[token];
+  if (!target) return "";
+  if (target === "players") return `${urlPath("players")}${keep()}`;
+  if (target === "trade") return `${urlPath("trade")}${keep()}`;
+  if (!league) return `${urlPath("leagues")}${keep()}`;
+  return `${urlPath("l", league, target)}${keep()}`;
 }
 
 // Legacy `?ranks=1` opens /players. Anything else unknown opens home.
@@ -456,10 +501,6 @@ export function isSpaPath(pathname) {
   });
 }
 
-// Choosing a section replaces the open menu entry so Back does not reopen it.
-export function historyModeAfterMenuChoice({ overlay = "", pushed = false } = {}) {
-  return overlay === "rail" && pushed ? "replace" : "push";
-}
 
 // Cold deep links have no pushed entry, so the header arrow goes home.
 export function backTarget({ pushed = false } = {}) {

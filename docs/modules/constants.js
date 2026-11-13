@@ -11,10 +11,6 @@ export const SIM_ITERATIONS = 4000;
 export const PAGE_IDS = ["home", "trades", "leagues", "league"];
 export const DEFAULT_PAGE = "home";
 export const HOME_ROOM = "team";
-export const NAV_TABS = Object.freeze([
-  { id: "check", page: "trades", room: "calculator", label: "Check a trade", hint: "Is this offer fair?" },
-  { id: "team", page: "league", room: "team", label: "My team", hint: "Roster, standings, playoff odds" },
-]);
 export const PAGE_LABELS = {
   home: "Home",
   leagues: "League History",
@@ -183,4 +179,3 @@ export const SCOPED_ROOM_ALIASES = {
 };
 export const DEFAULT_FAIRNESS_PCT = 20;
 export const MAX_HISTORY_SEASONS = 6;
-export const PHONE_LAYOUT_QUERY = "(max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse)";

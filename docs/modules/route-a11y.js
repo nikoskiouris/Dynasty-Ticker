@@ -33,19 +33,10 @@ export function routeDocumentTitle({ playerName = "", tab = "", room = "", playe
   return "";
 }
 
-function placeChanged(before, place) {
-  if (!before?.tab) return false;
-  return before.tab !== place.tab
-    || before.view !== place.view
-    || String(before.playerId || "") !== String(place.playerId || "");
-}
-
 export function routeAnnouncement(place = {}, before = {}) {
   const overlay = String(place.overlay || "");
   const player = clean(place.playerName);
-  const changed = placeChanged(before, place);
   if (overlay === "trade") return "Trade";
-  if (overlay === "rail" && !changed) return "Menu";
   if (overlay === "player" || player) return player || "Player";
   if (place.playersBoard && place.view === "calculator") return ROUTE_PLAYERS_TITLE;
   const roomLabel = ROUTE_ROOM_TITLES[place.view] || "";
@@ -143,13 +134,6 @@ function firstVisible(doc, selector) {
   return null;
 }
 
-function railOpen(doc) {
-  const body = doc?.body;
-  if (!body) return false;
-  if (typeof body.classList?.contains === "function" && body.classList.contains("rail-open")) return true;
-  return classListHas(body, "rail-open");
-}
-
 function inLeagueIdForm(active) {
   if (!active) return false;
   if (active.id === "league-id" || active.id === "load-league-btn") return true;
@@ -161,16 +145,10 @@ function mayMoveFocus(doc, active, takeover = false) {
   if (active.id === "workspace") return true;
   // Back after a league-id switch leaves focus in that form. The restored room heading takes it.
   if (takeover && inLeagueIdForm(active)) return true;
-  // Closing the phone menu parks focus on Sections. The room heading should take it.
-  if ((active.id === "mobile-rail-toggle" || active.id === "mobile-rail-close") && !railOpen(doc)) return true;
   // A room change hides the previous room. Focus is still on that heading until
   // the browser drops it, and the next room heading has to take over.
   const tag = String(active.tagName || "");
-  if ((tag === "H1" || tag === "H2" || tag === "H3") && isHidden(active)) return true;
-  const cls = typeof active.className === "string" ? active.className : "";
-  return cls.split(/\s+/).some((name) => (
-    name === "room-tab" || name === "page-tab" || name === "phone-desk-room" || name === "phone-desk-page"
-  ));
+  return (tag === "H1" || tag === "H2" || tag === "H3") && isHidden(active);
 }
 
 let headingWatch = 0;
@@ -361,7 +339,6 @@ function pageRoot(doc, page) {
 export function headingRootFor(doc, place = {}, before = {}) {
   if (!doc?.querySelector) return null;
   const overlay = String(place.overlay || "");
-  const changed = placeChanged(before, place);
   if (overlay === "player" || place.playerId) {
     return doc.querySelector(".ranks-card")
       || doc.querySelector(".player-week-sheet")
@@ -377,7 +354,6 @@ export function headingRootFor(doc, place = {}, before = {}) {
       || doc.querySelector("[data-room-panel='activity']")
       || pageRoot(doc, place.page);
   }
-  if (overlay === "rail" && !changed) return doc.querySelector("#control-rail");
   if (overlay === "public-ranks") {
     return doc.querySelector("#public-ranks") || pageRoot(doc, place.page);
   }

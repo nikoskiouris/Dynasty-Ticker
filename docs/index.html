@@ -8,7 +8,6 @@
     <title>Dynasty Ticker — Trade Calc, Player Rankings & League History</title>
     <meta name="description" content="Trade Calc, Player Rankings and Sleeper League History. Values optimized for 12-team Superflex PPR dynasty." />
     <meta name="theme-color" content="#0c0c0e" />
-    <script src="./desk-shut.js"></script>
     <script src="./boot-intent.js"></script>
     <meta property="og:title" content="Dynasty Ticker — Trade Calc, Player Rankings & League History" />
     <meta property="og:description" content="Trade Calc, Player Rankings and Sleeper League History. Values optimized for 12-team Superflex PPR dynasty." />
@@ -35,50 +34,8 @@
     <a class="skip-link" href="#workspace">Skip to content</a>
     <div id="route-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     <div class="app-frame">
-      <header class="mobile-chrome" id="mobile-chrome">
-        <button
-          type="button"
-          id="mobile-rail-toggle"
-          class="team-league-chip"
-          aria-expanded="false"
-          aria-controls="control-rail"
-        >
-          <span id="team-league-chip-text">Connect my league</span>
-          <span class="chip-caret" aria-hidden="true">▾</span>
-        </button>
-        <div class="mobile-chrome-copy">
-          <span class="brand-lockup brand-lockup--header">
-            <img class="brand-wordmark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="Dynasty Ticker" decoding="async" />
-          </span>
-          <div class="mobile-chrome-title-row">
-            <h1 id="mobile-chrome-title">Your Sleeper league</h1>
-          </div>
-          <p id="mobile-chrome-viewing" class="mobile-chrome-viewing" hidden></p>
-        </div>
-        <a class="launch-header-link" href="/connect?next=/" data-launch="connect">Connect my league</a>
-      </header>
-      <div class="rail-backdrop" id="rail-backdrop" hidden></div>
-      <aside class="control-rail" id="control-rail" aria-label="League controls">
-        <div class="brand-panel">
-          <span class="brand-lockup brand-lockup--rail">
-            <img class="brand-wordmark" src="./brand/wordmark-on-dark.svg" width="364" height="57" alt="" decoding="async" />
-          </span>
-          <a class="launch-header-link" href="/connect?next=/" data-launch="connect">Connect my league</a>
-          <button type="button" id="mobile-rail-close" class="mobile-rail-close" aria-label="Close league controls" tabindex="-1">
-            <span aria-hidden="true">×</span>
-          </button>
-          <button type="button" id="desk-board-close" class="desk-board-close" aria-label="Close board" aria-controls="control-rail">
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
-
-        <nav id="phone-desk" class="phone-desk" aria-label="Sections"></nav>
-
-        <div id="board-tools" class="board-tools" hidden>
-          <p class="eyebrow">Look up</p>
-          <div id="board-tools-slot"></div>
-        </div>
-
+      <!-- Sleeper connect controls. moveLeagueControls() mounts them on /leagues. -->
+      <div id="league-controls" class="league-controls" hidden>
         <section class="rail-module league-module">
           <div class="module-heading">
             <span class="step-badge">01</span>
@@ -152,11 +109,7 @@
         <div class="rail-footer">
           <button id="disconnect-btn" type="button" class="ghost-btn hidden" data-action="disconnect-league">Disconnect league</button>
         </div>
-      </aside>
-
-      <button type="button" id="desk-board-open" class="desk-board-open" aria-label="Open board" aria-controls="control-rail">
-        <span class="desk-board-bars" aria-hidden="true"></span>
-      </button>
+      </div>
 
       <main class="workspace" id="workspace" tabindex="-1">
         <h1 id="route-title" class="sr-only">Dynasty Ticker</h1>
@@ -171,20 +124,6 @@
               <p class="workspace-lede" id="hero-lede">Type a username. Scores open first.</p>
             </div>
           </div>
-          <dl class="state-grid" aria-label="Current session">
-            <div>
-              <dt>League</dt>
-              <dd id="chrome-league-label">Not loaded</dd>
-            </div>
-            <div>
-              <dt>You</dt>
-              <dd id="chrome-manager-label">Select team</dd>
-            </div>
-            <div>
-              <dt>Week</dt>
-              <dd id="chrome-mode-label">—</dd>
-            </div>
-          </dl>
         </header>
 
         <div id="desk-load-alert" class="status error desk-load-alert hidden" role="alert">
@@ -193,78 +132,8 @@
           <button type="button" id="desk-load-dismiss" class="ghost-btn status-retry">Dismiss</button>
         </div>
 
-        <div class="desk-nav" id="desk-nav">
-          <nav class="workspace-tabs" id="page-tabs" role="tablist" aria-label="What you can do">
-            <button id="trades-tab" aria-label="Check a trade" class="page-tab active" type="button" role="tab" aria-selected="true" aria-current="page" aria-controls="trades-page" tabindex="0" data-page="trades" data-room="calculator">
-              <span class="tab-copy"><strong>Check a trade</strong><small>Is this offer fair?</small></span>
-            </button>
-            <button id="find-tab" aria-label="Find a trade" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="trades-page" tabindex="-1" data-page="trades" data-room="find">
-              <span class="tab-copy"><strong>Find a trade</strong><small>Deals that fit both teams</small></span>
-            </button>
-            <button id="league-tab" aria-label="My team" class="page-tab" type="button" role="tab" aria-selected="false" aria-controls="league-page" tabindex="-1" data-page="league" data-room="team">
-              <span class="tab-copy"><strong>My team</strong><small id="teams-tab-hint">Roster, standings, playoff odds</small></span>
-            </button>
-          </nav>
-        </div>
-
-        <div id="ui-pages">
-          <section class="launch" id="landing">
-  <div class="launch-wrap">
-    <h1 id="landing-job-hint">Is your trade fair? What should you trade for?</h1>
-    <p class="sub">Connect your Sleeper league. Free. No sign-up.</p>
-    <div class="launch-main">
-      <div class="launch-start-col">
-        <div id="landing-resume" class="launch-resume" hidden></div>
-        <div id="landing-connect" hidden>
-          <form id="landing-username-form" class="landing-search" novalidate>
-            <label for="landing-username">Sleeper username</label>
-            <div class="landing-search-row">
-              <input
-                id="landing-username"
-                name="landing-username"
-                maxlength="120"
-                placeholder="Search your Sleeper username"
-                autocomplete="off"
-                value=""
-                autocapitalize="none"
-                autocorrect="off"
-                spellcheck="false"
-                enterkeyhint="search"
-                aria-describedby="landing-username-error"
-              />
-              <button id="landing-find-btn" type="submit" data-idle-label="Connect my league" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
-            </div>
-            <p id="landing-username-error" class="field-error" hidden role="alert"></p>
-            <div id="landing-search-status" class="status error landing-search-status hidden" aria-live="polite">
-              <span id="landing-search-status-text"></span>
-              <button type="button" id="landing-search-retry" class="ghost-btn status-retry">Retry</button>
-            </div>
-          </form>
-          <div id="landing-league-picker" class="league-picker landing-league-picker hidden" data-league-picker></div>
-          <p id="landing-loading" class="landing-loading hidden" aria-live="polite">
-            <span class="status-loader" aria-hidden="true"></span>
-            <span id="landing-loading-text">Opening league from Sleeper…</span>
-          </p>
-          <div id="landing-league-error" class="status error landing-league-error hidden" role="alert">
-            <span id="landing-league-error-text"></span>
-            <button type="button" id="landing-league-retry" class="ghost-btn status-retry">Retry</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <footer class="launch-footer">
-    <span>Free, no sign-up.</span>
-    <nav aria-label="Legal"><a href="/privacy">Privacy</a> <span aria-hidden="true">·</span> <a href="/terms">Terms</a></nav>
-  </footer>
-</section>
-
-        </div>
-
-    <div id="site-dock" class="site-dock">
-      <div id="sticky-mobile-cta" class="sticky-mobile-cta" hidden>
-        <button id="sticky-find-btn" type="button" data-idle-label="Connect my league" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
-      </div>
+        <div id="ui-pages"></div>
+      </main>
     </div>
 
     <script type="module" src="./boot.js"></script>
