@@ -8492,3 +8492,25 @@ body .app-frame { display:block; }
 body .workspace { margin:0; width:100%; max-width:1440px; padding:84px clamp(16px,4vw,52px) 32px; }
 body.launch-open .workspace { display:block; }
 @media(max-width:650px) { .tool-picker-cards { grid-template-columns:1fr; gap:12px; } .tool-picker-cards a { min-height:95px; padding:20px; gap:7px; } .tool-picker { padding-top:16px; } .tool-picker h1 { margin-bottom:16px; } .tool-picker h2 { margin-bottom:18px; } }
+/* Player Rankings: compact, readable columns at every screen size. */
+.rankings-table-wrap { width:100%; }
+.rankings-table { width:100%; border-collapse:collapse; table-layout:fixed; font-variant-numeric:tabular-nums; }
+.rankings-table th,.rankings-table td { padding:12px 8px; border-bottom:1px solid var(--line,#293441); text-align:left; overflow-wrap:anywhere; }
+.rankings-table thead th { position:sticky; top:0; z-index:2; background:var(--panel,#111b26); font-size:.75rem; }
+.rankings-table thead th:nth-child(2) { width:31%; }
+.rankings-table .rank-face-col { width:48px; }
+.rankings-table tbody th { font-weight:500; }
+.rank-name-link { text-align:left; font-weight:700; }
+.rank-position-tag,.rank-owner { display:block; font-size:.7rem; opacity:.7; margin-top:3px; }
+.rank-table-value { font-weight:750; }
+.rank-pick-token { width:32px; height:32px; display:grid; place-items:center; border:1px solid currentColor; border-radius:50%; font-size:.75rem; }
+.rankings-footnote { margin-top:24px; font-size:.8rem; line-height:1.6; color:var(--muted,#a7b2c1); }
+@media(max-width:560px) {
+ .rankings-table th,.rankings-table td { padding:10px 3px; font-size:.7rem; }
+ .rankings-table thead th { font-size:.6rem; }
+ .rankings-table .rank-face-col { width:28px; }
+ .rankings-table .rank-team-col,.rank-wide-label { display:none; }
+ .rankings-table thead th:nth-child(2) { width:33%; }
+ .rankings-table .player-face,.rank-pick-token { width:24px; height:24px; }
+ .rank-name-link { font-size:.72rem; }
+}
