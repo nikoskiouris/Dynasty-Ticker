@@ -13,7 +13,7 @@ export function recentChampion(seasons = []) {
   return null;
 }
 
-export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', model = null, transactions = [], loading = false, caveat = '' } = {}) {
+export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', model = null, transactions = [], tradesLoaded = false, loading = false, caveat = '' } = {}) {
   if (!league) return '<p role="status">Loading league…</p>';
   const id = encodeURIComponent(leagueId || league.league_id);
   const winner = recentChampion(seasons);
@@ -21,7 +21,7 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
   const links = [
     ['standings', 'Standings', model?.finalThroughWeek ? `Through week ${model.finalThroughWeek}` : 'Records, playoff odds and luck'],
     ['team', 'My Team', myTeam || 'Your roster and player superlatives'],
-    ['trades', 'Recent Trades', `${recent} completed trades in the last 30 days`],
+    ['trades', 'Recent Trades', tradesLoaded ? `${recent} completed trades in the last 30 days` : 'Browse completed league trades'],
     ['history', 'Historical Data', loading ? 'Loading seasons…' : `${seasons.length} seasons of records`],
   ];
   return `<header class="league-hub-header">${league.avatar ? `<img width="64" height="64" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(league.avatar)}">` : ''}<h2>${escapeHtml(league.name || 'Your league')}</h2><p>${escapeHtml(league.season)} · ${Number(league.total_rosters) || '—'} teams · Values: 12-team Superflex PPR dynasty</p>${caveat ? `<p>${escapeHtml(caveat)}</p>` : ''}<a href="/leagues">Change league</a></header>
