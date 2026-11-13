@@ -8639,3 +8639,13 @@ body.launch-open .workspace { display:block; }
 .league-rivalry-detail summary { cursor: pointer; font-weight: 600; }
 .league-rivalry-detail ul { margin: .5rem 0; padding-left: 1.25rem; }
 .league-rivalry-detail li { margin-bottom: .3rem; }
+
+
+/* Historical league: expandable manager trophy summaries. */
+.league-trophy-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: .75rem; }
+.league-trophy-card { border: 1px solid var(--line, #ddd); border-radius: .75rem; padding: .75rem 1rem; min-width: 0; }
+.league-trophy-card summary { cursor: pointer; overflow-wrap: anywhere; }
+.league-trophy-card dl { margin-bottom: 0; }
+.league-trophy-card dl > div { display: flex; flex-direction: column; gap: .15rem; margin-top: .65rem; }
+.league-trophy-card dt { font-size: .8rem; color: var(--muted, #777); }
+.league-trophy-card dd { margin: 0; overflow-wrap: anywhere; }
