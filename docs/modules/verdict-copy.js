@@ -27,10 +27,10 @@ const BOTH_SIDES = new Set(["Dead even", "Fair, leans Get", "Fair, leans Give", 
 
 // Upper bounds (inclusive) on the unrounded "% more". The sentence may ceil past them.
 export const TIER_BANDS = Object.freeze({ even: 5, edge: 14, favors: 28 });
-const LABEL = Object.freeze({ even: "Fair trade", edge: "Fair, slight edge", favors: "Favors one side", lopsided: "Lopsided" });
+const LABEL = Object.freeze({ even: "Even", edge: "Close", favors: "Unfair", lopsided: "Lopsided" });
 
 // The ⓘ explainer line for the tiers.
-export const TIER_EXPLAINER = `How the verdict reads: one side's total, including the extra for fewer, better pieces, is compared with the other's. Within ${TIER_BANDS.even}% is a fair trade, up to ${TIER_BANDS.edge}% more is a fair, slight edge, up to ${TIER_BANDS.favors}% more favors one side, and more than ${TIER_BANDS.favors}% is lopsided.`;
+export const TIER_EXPLAINER = `How the verdict reads: one side's total, including the extra for fewer, better pieces, is compared with the other's. Within ${TIER_BANDS.even}% is Even, up to ${TIER_BANDS.edge}% more is Close, up to ${TIER_BANDS.favors}% more is Unfair, and more than ${TIER_BANDS.favors}% is lopsided.`;
 
 // Plain words for the extra on the side that has fewer, better pieces.
 // Pending Designer. The numbers stay in the callers.
@@ -100,7 +100,7 @@ const TEN_X_MORE = 900;
 
 // "You give" / "You get" / "They give" read as a sentence without "worth":
 // "You give 136% more". A side name ("Give side") keeps "worth".
-const VERB_NAME = /^(?:you|they) (?:give|get)$/i;
+const VERB_NAME = /^(?:(?:you|they) (?:give|get)|.+ receives)$/i;
 
 function worthMorePhrase(name, more) {
   const worth = VERB_NAME.test(String(name)) ? "" : "worth ";
@@ -123,10 +123,10 @@ export function verdictCopy(verdict) {
   const hit = { tier: tierForMore(more) };
   const side = right > left ? "Get" : left > right ? "Give" : "";
   // Say which side, never "one side".
-  hit.label = hit.tier === "favors" && side ? `Favors ${side} side` : LABEL[hit.tier];
+  hit.label = LABEL[hit.tier];
   const detail = hit.tier === "even"
     ? `within ${TIER_BANDS.even}%`
-    : worthMorePhrase(`${side} side`, more);
+    : worthMorePhrase(side === "Get" ? "Team 1 receives" : "Team 2 receives", more);
   const tone = hit.tier === "even" || hit.tier === "edge" ? "fair" : side === "Get" ? "good" : "bad";
   return {
     tier: hit.tier,
@@ -154,7 +154,7 @@ export function verdictLineNamed(verdict, names = {}) {
   if (!copy.tier || copy.tier === "even" || !copy.side) return copy.line;
   const name = String(names[copy.side] || `${copy.side} side`);
   // "Favors You give" does not read; a verb name keeps the plain tier label.
-  const label = copy.tier === "favors" ? (VERB_NAME.test(name) ? LABEL.favors : `Favors ${name}`) : copy.label;
+  const label = copy.label;
   return `${label} · ${worthMorePhrase(name, copy.more)}`;
 }
 

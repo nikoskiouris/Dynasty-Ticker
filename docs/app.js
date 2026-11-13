@@ -2,6 +2,7 @@ import { mountSiteMenu } from "./modules/site-menu.js";
 import { renderToolPicker, moveLeagueControls } from "./modules/tool-picker.js";
 import { renderLeagueHub } from "./modules/league-hub.js";
 import { leagueArchive } from "./modules/league-archive.js";
+import { renderTradeFairness } from "./modules/trade-fairness.js";
 import { safeStorage } from "./modules/safe-storage.js";
 import { forgetLastLeague, lastLeagueMarkup, readLastLeague, writeLastLeague } from "./modules/last-league.js";
 import { BUY_SELL_MIN_GAMES, buildBuySellLists } from "./modules/buy-sell.js";
@@ -6310,7 +6311,7 @@ function noteTradeChecked(draft) {
 function renderDraftVerdict(view) {
   const { draft, model } = view;
   if (!draft.left.length && !draft.right.length) {
-    return `<p class="muted calc-hint">Type a name. Click a result, or press Enter, to add it. Every player is priced the same way everywhere on the site.</p>`;
+    return `${renderTradeFairness(view.model.verdict, { ready: false })}<div class="calc-actions"><button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button></div>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (bothSides) noteTradeChecked(draft);
@@ -6322,7 +6323,7 @@ function renderDraftVerdict(view) {
   // The headline is the full line ("Lopsided · Give side worth 89% more"), like the card.
   // Private /trade names the sides as the reader: "You give 136% more".
   const label = bothSides
-    ? (voice ? copy.line : verdictLineNamed(verdict, { Give: "You give", Get: "You get" }))
+    ? (voice ? copy.line : verdictLineNamed(verdict, { Give: `${draftReceivingTeam("left", view)} receives`, Get: `${draftReceivingTeam("right", view)} receives` }))
     : copy.label;
   const sharedView = bothSides ? sharedVerdictFor(view) : null;
   // RECHECK4: on a cold /t the bars are sized on the credited totals the
@@ -6345,6 +6346,7 @@ function renderDraftVerdict(view) {
   const bestPick = bestRowIsPick(creditedRows);
   return `
     <section class="calc-summary ${bothSides ? (sharedView ? copy.publicTone : copy.tone) : ""}">
+      ${renderTradeFairness(verdict, { ready: bothSides, team1: draftReceivingTeam("right", view), team2: draftReceivingTeam("left", view) })}
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
         ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${verdictLineHtml(label)}</h3>`}
@@ -6366,19 +6368,6 @@ function renderDraftVerdict(view) {
           ${starsPremiumMarkup(model, { best, pick: bestPick })}
           ${renderDraftMethod(view)}
         </details>`}
-      </div>
-      <div class="calc-bars">${bars.give.stars || bars.get.stars ? `
-        <p class="calc-legend"><span class="calc-legend-swatch" aria-hidden="true"></span>${escapeHtml(STAR_PREMIUM_KEY)}</p>` : ""}
-        <div class="calc-bar team-a${sharedView && copy.side === "Give" ? " is-bigger" : ""}">
-          <span>${sharedView && copy.side === "Give" ? `${calcPointer("◀")} ` : ""}${escapeHtml(giveLabel)}</span>
-          ${meterTrack(bars.give, maxSide, barLabel("Give", bars.give.listed, bars.give.stars))}
-          <strong>${formatNumber(bars.give.total)}</strong>
-        </div>
-        <div class="calc-bar team-b${sharedView && copy.side === "Get" ? " is-bigger" : ""}">
-          <span>${escapeHtml(getLabel)}${sharedView && copy.side === "Get" ? ` ${calcPointer("▶")}` : ""}</span>
-          ${meterTrack(bars.get, maxSide, barLabel("Get", bars.get.listed, bars.get.stars))}
-          <strong>${formatNumber(bars.get.total)}</strong>
-        </div>
       </div>
       <div class="calc-actions">
         ${sharedView ? `<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>` : ""}

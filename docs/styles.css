@@ -8571,3 +8571,11 @@ body.launch-open .workspace { display:block; }
 .calc-selected .player-name-text { overflow-wrap:anywhere; }
 .calc-empty-side { padding:16px 0; }
 @media (max-width:600px) { .calc-grid { grid-template-columns:1fr; gap:16px; } }
+.trade-fairness { grid-column:1 / -1; width:100%; padding:24px 6px 12px; }
+.trade-fairness-track { position:relative; display:flex; justify-content:space-between; border-top:4px solid var(--border,#65758b); padding-top:14px; margin:0 20px; }
+.trade-fairness-marker { position:absolute; top:-11px; width:18px; height:18px; transform:translateX(-50%); border:3px solid var(--panel,#fff); border-radius:50%; background:var(--accent,#5b78ff); transition:left .22s ease; }
+.trade-fairness-stop { position:relative; width:0; display:flex; justify-content:center; font-size:clamp(.58rem,1.5vw,.85rem); color:var(--muted,#7c8898); }
+.trade-fairness-stop.is-current { font-weight:800; color:var(--text,#e5ecf5); }
+.trade-fairness-sentence { text-align:center; margin-top:18px; }
+.trade-fairness.is-empty { opacity:.5; }
+@media(prefers-reduced-motion:reduce) { .trade-fairness-marker { transition:none; } }
