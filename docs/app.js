@@ -4848,7 +4848,12 @@ function paintConnectGate(host, copy) {
 
 // No league: the tab stays selected and shows what it does, a username box,
 // and the sample league. It never redirects.
-const NO_LEAGUE_PREVIEW = Object.freeze({
+// A hoisted function, not a const: a deep-linked league route renders the
+// guest preview during module boot, before a const here would be initialized.
+function noLeaguePreviewCopy() {
+  return NO_LEAGUE_PREVIEW_COPY;
+}
+var NO_LEAGUE_PREVIEW_COPY = Object.freeze({
   find: {
     title: "Trade ideas that fit your league",
     points: ["Ideas that fill your weakest spot, each with a fairness check", "Shop a player: who pays a fair price for him", "The teams most likely to say yes"],
@@ -4860,7 +4865,8 @@ const NO_LEAGUE_PREVIEW = Object.freeze({
 });
 
 function renderNoLeaguePreview(kind) {
-  const copy = NO_LEAGUE_PREVIEW[kind] || NO_LEAGUE_PREVIEW.team;
+  const previews = noLeaguePreviewCopy() || {};
+  const copy = previews[kind] || previews.team || { title: "", points: [] };
   return `
     <section class="no-league-preview" data-preview="${escapeHtml(kind)}">
       <p class="no-league-title"><strong>${escapeHtml(copy.title)}</strong></p>
