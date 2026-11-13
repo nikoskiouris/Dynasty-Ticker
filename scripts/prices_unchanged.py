@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Exit 0 when the value files differ from HEAD only by asOf or generatedAt.
 
-A new generatedAt is not a price change. sf, oneQb, and every other field are.
+A new generatedAt is not a price change. sf and every other field are.
 The refresh workflow restores the files on exit 0, then uses git diff --quiet
 on the data files as the commit gate.
 """

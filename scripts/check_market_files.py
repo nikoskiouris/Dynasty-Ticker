@@ -52,7 +52,7 @@ def check_player_values(
         return ["player_values.json is not an object"], warnings
     required = (
         "schemaVersion", "modelVersion", "asOf", "season", "throughWeek",
-        "sf", "oneQb", "names", "players", "meta",
+        "sf", "names", "players", "meta",
     )
     for key in required:
         if key not in data:
@@ -62,25 +62,18 @@ def check_player_values(
     if data.get("modelVersion") != MODEL_VERSION:
         errors.append(f"player_values modelVersion is {data.get('modelVersion')!r}")
     sf = data.get("sf")
-    one = data.get("oneQb")
     names = data.get("names")
     players = data.get("players")
-    if not isinstance(sf, dict) or not isinstance(one, dict):
-        errors.append("player_values sf and oneQb must be objects")
+    if not isinstance(sf, dict):
+        errors.append("player_values sf must be an object")
         return errors, warnings
-    if set(sf) != set(one):
-        errors.append("player_values sf and oneQb keys differ")
     if not isinstance(names, dict) or not isinstance(players, dict):
         errors.append("player_values names and players must be objects")
         names = names if isinstance(names, dict) else {}
         players = players if isinstance(players, dict) else {}
     for asset_id, value in sf.items():
-        other = one.get(asset_id)
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             errors.append(f"bad sf value {asset_id}")
-            break
-        if isinstance(other, bool) or not isinstance(other, int) or other < 0:
-            errors.append(f"bad oneQb value {asset_id}")
             break
         if asset_id not in names:
             errors.append(f"missing name for {asset_id}")
@@ -93,9 +86,6 @@ def check_player_values(
             position = info.get("position")
             if position not in POSITIONS:
                 errors.append(f"bad position for {asset_id}")
-                break
-            if position in {"RB", "WR", "TE"} and value != other:
-                errors.append(f"non-QB price differs by format: {asset_id}")
                 break
     if not any(str(key).startswith("player:") for key in sf):
         errors.append("player_values has no players")

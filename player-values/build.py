@@ -639,8 +639,7 @@ def allocate_reference_league(values, fmt):
     teams = int(CONFIG["referenceTeams"])
     lineup = CONFIG["referenceLineup"]
     bench_slots = teams * int(CONFIG["referenceBenchSlots"])
-    caps = CONFIG["qbRosterCapPerTeam"]
-    qb_cap = teams * int(caps["sf"] if fmt == "sf" else caps["oneQb"])
+    qb_cap = teams * int(CONFIG["qbRosterCapPerTeam"])
     base_counts = {
         "QB": teams * int(lineup["QB"]),
         "RB": teams * int(lineup["RB"]),
@@ -651,7 +650,7 @@ def allocate_reference_league(values, fmt):
         values,
         base_counts,
         flex_count=teams * int(lineup["FLEX"]),
-        superflex_count=teams * int(lineup["SUPER_FLEX"]) if fmt == "sf" else 0,
+        superflex_count=teams * int(lineup["SUPER_FLEX"]),
     )
     remaining, rostered = _allocate_bench(remaining, rostered, bench_slots, qb_cap=qb_cap)
     output = {}
@@ -674,13 +673,13 @@ class ReplacementTable:
         self._seasons = {}
 
     def season(self, season):
-        """Both formats for one finished season. None when the pool cannot fill a league."""
+        """SF reference for one finished season. None when the pool cannot fill a league."""
         if season not in self._seasons:
             pool = self._pools.get(season)
             teams = int(CONFIG["referenceTeams"])
             result = None
             if pool and all(len(pool[position]) >= teams for position in POSITIONS):
-                allocated = {fmt: allocate_reference_league(pool, fmt) for fmt in ("oneQb", "sf")}
+                allocated = {fmt: allocate_reference_league(pool, fmt) for fmt in forecast.FORMATS}
                 if all(allocated.values()):
                     result = allocated
             self._seasons[season] = result
@@ -690,7 +689,7 @@ class ReplacementTable:
         """The line as it stood after `through`: the median of the most recent seasons.
 
         Scoring has drifted since 1999, so only the last `replacementSeasons`
-        count. Skill positions share one line across formats.
+        count. The only reference league is 12-team Superflex PPR.
         """
         window = int(CONFIG["replacementSeasons"])
         seasons = [
@@ -699,15 +698,10 @@ class ReplacementTable:
         ][-window:]
         if not seasons:
             raise RuntimeError(f"No reference-league replacement samples through {through}")
-        result = {"sf": {}, "oneQb": {}}
+        result = {"sf": {}}
         for fmt in result:
             for position in POSITIONS:
                 result[fmt][position] = round(median(self.season(season)[fmt][position] for season in seasons), 4)
-        # Owner-defined launch behavior: skill-position player values share one ruler.
-        for position in ("RB", "WR", "TE"):
-            shared = round((result["sf"][position] + result["oneQb"][position]) / 2, 4)
-            result["sf"][position] = shared
-            result["oneQb"][position] = shared
         return result
 
 
@@ -782,9 +776,6 @@ def value_player(world, pid, position, age, exp, pick, elapsed, as_of, injury=1.
             "observed": observed,
             "preseason": detail["preseason"],
         }
-    # A quarterback can always be played as if the league were 1QB, so Superflex is never worth less.
-    if position == "QB" and output["sf"]["total"] < output["oneQb"]["total"]:
-        output["sf"] = output["oneQb"]
     return output
 
 
@@ -890,11 +881,8 @@ def rookie_slot_values(world, meta, season):
         for position, pick in rookies:
             key = (position, pick)
             if key not in memo:
-                one = forecast.rookie_value(world["models"][forecast.model_group(position, "oneQb")], pick, CONFIG)
-                sf = forecast.rookie_value(world["models"][forecast.model_group(position, "sf")], pick, CONFIG)
-                memo[key] = (max(sf, one), one)
-            board["sf"].append(memo[key][0])
-            board["oneQb"].append(memo[key][1])
+                memo[key] = forecast.rookie_value(world["models"][forecast.model_group(position, "sf")], pick, CONFIG)
+            board["sf"].append(memo[key])
         for fmt in forecast.FORMATS:
             ordered = sorted(board[fmt], reverse=True)[:PICK_SLOTS]
             for slot, value in enumerate(ordered):
@@ -911,7 +899,7 @@ def first_pick_year(as_of):
 
 def pick_values(slot_values, as_of, kickoff=None):
     """Future-pick prices: the rookie that slot usually buys, discounted until his first kickoff."""
-    output = {"sf": {}, "oneQb": {}, "names": {}}
+    output = {"sf": {}, "names": {}}
     scale = float(CONFIG["displayScale"])
     discount = float(CONFIG["annualDiscount"])
     teams = int(CONFIG["referenceTeams"])
@@ -921,7 +909,7 @@ def pick_values(slot_values, as_of, kickoff=None):
         return sum(values) / len(values)
 
     raw = {}
-    for fmt in ("sf", "oneQb"):
+    for fmt in forecast.FORMATS:
         slots = slot_values[fmt]
         firsts = force_descending([
             mean(slots[0:third]), mean(slots[third:2 * third]), mean(slots[2 * third:teams]),
@@ -932,23 +920,18 @@ def pick_values(slot_values, as_of, kickoff=None):
         )
         raw[fmt] = {"early": firsts[0], "mid": firsts[1], "late": firsts[2], "any": any_first, "rounds": rounds}
 
-    # The kth-best rookie on a Superflex board is worth at least the kth-best on a 1QB board.
-    for key in ("early", "mid", "late", "any"):
-        raw["sf"][key] = max(raw["sf"][key], raw["oneQb"][key])
-    raw["sf"]["rounds"] = [max(sf, one) for sf, one in zip(raw["sf"]["rounds"], raw["oneQb"]["rounds"])]
-
     start = first_pick_year(as_of)
     for year in range(start, start + 6):
         delay = discount ** forecast.years_until(forecast.season_start(year, kickoff), as_of)
         for round_number in range(1, PICK_ROUNDS + 1):
             aid = f"pick:{year}:r{round_number}:any"
             output["names"][aid] = f"{year} Round {round_number}"
-            for fmt in ("sf", "oneQb"):
+            for fmt in forecast.FORMATS:
                 output[fmt][aid] = max(1, round(raw[fmt]["rounds"][round_number - 1] * delay * scale))
         for bucket in ("early", "mid", "late"):
             aid = f"pick:{year}:r1:{bucket}"
             output["names"][aid] = f"{year} {bucket.title()} 1st"
-            for fmt in ("sf", "oneQb"):
+            for fmt in forecast.FORMATS:
                 output[fmt][aid] = max(1, round(raw[fmt][bucket] * delay * scale))
     return output
 
@@ -1102,7 +1085,7 @@ def atomic_json(path, payload):
 def validate(bundle):
     if bundle.get("modelVersion") != CONFIG["modelVersion"]:
         raise RuntimeError("Wrong model version")
-    for fmt in ("sf", "oneQb"):
+    for fmt in forecast.FORMATS:
         values = bundle.get(fmt)
         if not isinstance(values, dict) or not any(key.startswith("player:") for key in values):
             raise RuntimeError(f"Missing {fmt} players")
@@ -1110,16 +1093,8 @@ def validate(bundle):
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise RuntimeError(f"Invalid {fmt} value {asset_id}: {value}")
     sf_players = {key for key in bundle["sf"] if key.startswith("player:")}
-    one_players = {key for key in bundle["oneQb"] if key.startswith("player:")}
-    if sf_players != one_players:
-        raise RuntimeError("Format player coverage differs")
     for asset_id in sf_players:
         info = bundle["players"].get(asset_id, {})
-        position = info.get("position")
-        if position in ("RB", "WR", "TE") and bundle["sf"][asset_id] != bundle["oneQb"][asset_id]:
-            raise RuntimeError(f"Non-QB changed by format: {asset_id}")
-        if position == "QB" and bundle["sf"][asset_id] < bundle["oneQb"][asset_id]:
-            raise RuntimeError(f"Quarterback worth less in Superflex: {asset_id}")
         last_season = info.get("lastSeason")
         season = int(bundle.get("season") or 0)
         if season and last_season is not None and int(last_season) < season - 1 and bundle["sf"][asset_id] > 0:
@@ -1127,18 +1102,18 @@ def validate(bundle):
         if last_season is None and int(info.get("experience") or 0) > 1 and bundle["sf"][asset_id] > 0:
             raise RuntimeError(f"Never-played veteran priced as a rookie: {asset_id}")
     replacement = bundle.get("meta", {}).get("replacementPpg") or {}
-    for fmt in ("sf", "oneQb"):
+    for fmt in forecast.FORMATS:
         for position in POSITIONS:
             value = (replacement.get(fmt) or {}).get(position)
             if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
                 raise RuntimeError(f"Replacement for {fmt} {position} is not a real player: {value}")
-    for fmt in ("sf", "oneQb"):
+    for fmt in forecast.FORMATS:
         _assert_pick_order(bundle[fmt])
     for asset_id, label in REQUIRED_ASSETS.items():
-        if bundle["sf"].get(asset_id, 0) <= 0 or bundle["oneQb"].get(asset_id, 0) <= 0:
+        if bundle["sf"].get(asset_id, 0) <= 0:
             raise RuntimeError(f"Missing priced player {label} ({asset_id})")
     for asset_id in EXCLUDED_ASSETS:
-        if bundle["sf"].get(asset_id, 0) > 0 or bundle["oneQb"].get(asset_id, 0) > 0:
+        if bundle["sf"].get(asset_id, 0) > 0:
             raise RuntimeError(f"Excluded player still priced: {asset_id}")
 
 
@@ -1252,13 +1227,11 @@ def build(cache, refresh=True, today=None):
             elapsed, as_of, profile["injuryMultiplier"], kickoff,
         )
         aid = f"player:{sleeper_id}"
-        projected[aid] = {"position": position, "sf": valued["sf"]["total"], "oneQb": valued["oneQb"]["total"]}
+        projected[aid] = {"position": position, "sf": valued["sf"]["total"]}
         label = str(player_label(player)).strip()
         names[aid] = label or aid
         seasons = valued["sf"]
         forecast_rows = {"sf": valued["sf"]["forecast"]}
-        if position == "QB":
-            forecast_rows["oneQb"] = valued["oneQb"]["forecast"]
         player_meta[aid] = {
             "position": position,
             "team": profile["team"],
@@ -1293,7 +1266,6 @@ def build(cache, refresh=True, today=None):
         "season": current_season,
         "throughWeek": max(0, current_week - 1),
         "sf": {},
-        "oneQb": {},
         "names": names,
         "players": player_meta,
         "meta": {
@@ -1332,22 +1304,19 @@ def build(cache, refresh=True, today=None):
                 "No college production model yet",
                 "Current injuries use designation-level availability only",
                 "A rookie's age does not change his forecast yet",
-                "Replacement comes from a modeled 12-team reference roster, capped at 2 QBs per team in 1QB and 3 in Superflex",
+                "Replacement comes from a modeled 12-team Superflex PPR reference roster, capped at 3 QBs per team",
             ],
         },
     }
 
     for aid, row in projected.items():
         sf_value = max(0, round(row["sf"] * scale))
-        one_value = max(0, round(row["oneQb"] * scale)) if row["position"] == "QB" else sf_value
-        bundle["sf"][aid] = max(sf_value, one_value)
-        bundle["oneQb"][aid] = one_value
+        bundle["sf"][aid] = sf_value
 
     slot_values, classes = rookie_slot_values(world, inputs["meta"], current_season)
     picks = pick_values(slot_values, as_of, kickoff)
     bundle["meta"]["pickClasses"] = classes
     bundle["sf"].update(picks["sf"])
-    bundle["oneQb"].update(picks["oneQb"])
     bundle["names"].update(picks["names"])
 
     validate(bundle)
@@ -1358,7 +1327,6 @@ def build(cache, refresh=True, today=None):
         "players": len(player_meta),
         "priced": sum(1 for aid in player_meta if bundle["sf"][aid] > 0),
         "sfAssets": len(bundle["sf"]),
-        "oneQbAssets": len(bundle["oneQb"]),
         "displayScale": scale,
         "pricingDate": as_of.isoformat(),
         "validation": bundle["meta"]["validation"].get("status"),

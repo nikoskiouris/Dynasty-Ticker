@@ -8,7 +8,7 @@ Prepared September 28, 2026.
 
 - a one-year forecast of full-PPR points above a 12-team reference replacement, learned from the 15 most recent seasons and chained forward for eight seasons of games
 - annual discount 0.85, owned by `config.json`, applied by how far away each kickoff is
-- display scale 20, the same ruler in both formats
+- display scale 20, the one Superflex ruler
 - one shared RB/WR/TE price; Superflex changes the QB alternative only
 - rookies and future picks on the same eight-season ruler as veterans
 
@@ -16,7 +16,7 @@ Sections 4–10 are the target design (routes, weekly lineup simulation, joint s
 
 Shipped rules:
 
-- Each reference team keeps at most 2 quarterbacks in 1QB and 3 in Superflex. The alternative is the best player left outside that roster. If the historical pool is smaller than the cap, the alternative is the last rostered player. Replacement is never zero. A quarterback's game counts only when he threw at least 10 passes, so a kneel-down does not set the line. The line is the median of the last 14 seasons.
+- Each reference team keeps at most 3 quarterbacks in Superflex. The alternative is the best player left outside that roster. If the historical pool is smaller than the cap, the alternative is the last rostered player. Replacement is never zero. A quarterback's game counts only when he threw at least 10 passes, so a kneel-down does not set the line. The line is the median of the last 14 seasons.
 - A player with no game since the previous season is left out. So is a player drafted two or more years ago who never played. `active: false` and retired or inactive statuses with no team are left out.
 - Sleeper joins nflverse on `gsis_id`, then ESPN id, then name, and every join is checked against the birthday. A second player with the same name at another position does not block the match. A namesake born years apart, or an id that points at a different player, is not used. Points are offensive productivity only: passing, rushing, and receiving. Tackles, sacks, passes defended, return yards, return scores, and opponent defense are not inputs. A defensive chart still counts the weeks that have real targets or carries, and those weeks are scored from the offensive box score.
 - A season is three numbers against the replacement line: points banked, the full-season pace, and the share of games played. Next season is forecast from the last two seasons, age, and, through year three, NFL draft slot. A missed season is zeros. It is not an exit. For the share of last season a player missed, his pace is read from the level he had established in the three seasons before.
@@ -26,7 +26,7 @@ Shipped rules:
 - During the season the weeks left blend this season's pace with the kickoff forecast. Weeks played are spent. A weekly Out tag trims what is left. IR cuts it in half.
 - The backtest rebuilds the forecast at every kickoff since 2012 from earlier games only. It measures order and level at one, three, five, and eight seasons against two naive forecasts. It does not test trade-market prices, the discount, the replacement definition, or the pick board against real rookie drafts.
 
-The owner-defined scope is two dynasty markets: 1QB full PPR and Superflex full PPR. No TE, RB, or other positional scoring bonuses. No imported KTC values or other dynasty price targets. Skill-position football projections are shared between formats. QB and pick valuation must account for format.
+The owner-defined scope is one 12-team Superflex full-PPR dynasty market. No alternate scoring or league-size value maps. No imported KTC values or other dynasty price targets. League settings never reprice a player.
 
 ## 1. What the number means
 
@@ -49,7 +49,7 @@ Do not add a separate youth bonus, talent bonus, team multiplier, or injury pena
 
 | Setting | Proposed definition | Status |
 |---|---|---|
-| Market formats | 1QB/PPR and Superflex/PPR | Owner requirement |
+| Market formats | 12-team Superflex PPR dynasty | Owner requirement |
 | Reception points | 1 per reception for all eligible positions | Owner requirement |
 | Passing yards | 0.04 points per yard | Proposed fixed rule |
 | Passing TD | 4 points | Proposed fixed rule |
@@ -71,7 +71,7 @@ Do not add a separate youth bonus, talent bonus, team multiplier, or injury pena
 
 The reference league exists to define scarcity. It does not add user-facing controls. Test the model against reasonable changes in roster depth before treating the reference league as representative.
 
-At launch, use a common RB/WR/TE replacement framework in both formats and a different QB replacement framework. Superflex's extra slot can create indirect skill-position effects; allow those only after a consistent lineup simulation or sufficient format-specific market evidence supports them.
+All positions use the same 12-team Superflex PPR reference roster allocation.
 
 Do not independently normalize each format's top player to 10,000. That would change the ruler between formats and undermine the shared baseline.
 
@@ -374,15 +374,9 @@ Evaluate the positive advantage of observable, forecastable role scenarios. Do n
 
 Keep uncertainty intervals separate from value. A player with uncertain but valuable upside should not automatically be discounted merely because the data is thin. Risk preferences belong in team-specific advice or a separately validated utility objective.
 
-## 11. 1QB, Superflex, and positional scarcity
+## 11. Superflex and positional scarcity
 
-Use the same football forecast for a player in either fantasy format. Josh Allen's projected NFL touchdowns do not change because the fantasy league changes.
-
-The format changes the value of the alternative available at QB. Estimate that alternative from a reference roster/startup allocation and plausible substitutes. Do not equate the QB alternative mechanically to QB13 in 1QB or QB25 in SF; bench depth, byes, roster availability, and flex eligibility matter.
-
-The shipped model uses that roster idea with an explicit cap in `config.json`: 2 quarterbacks per team in 1QB and 3 in Superflex. The bench stops taking quarterbacks at the cap, so the alternative stays a real player. An empty waiver pool uses the last rostered player instead of zero. Only real starts count as quarterback games, so in Superflex the alternative is the last starting quarterback.
-
-For RB/WR/TE, start with a shared valuation baseline. Permit small format departures only from consistent lineup-demand modeling or strong market evidence. Do not manufacture separate non-QB prices from small samples.
+Use one football forecast and one 12-team Superflex PPR reference league. The lineup and bench allocation estimates the available alternative at every position. The explicit cap is 3 quarterbacks per team; an empty waiver pool uses the last rostered player rather than zero. Only real quarterback starts count. Do not publish alternate format values.
 
 TE scarcity remains part of roster utility even with no TE premium scoring. A top TE can create lineup advantage while receiving exactly the same PPR points per catch as a WR.
 
@@ -393,14 +387,14 @@ Value a fantasy rookie pick as a probability-weighted choice among the players l
 1. Forecast the available rookie pool and its football outcomes.
 2. Estimate which prospects are likely to be selected before each slot.
 3. Value the choice available at that slot, with uncertainty and realistic information timing.
-4. Separate 1QB and Superflex because QB demand changes who is taken where.
+4. Model quarterback demand in the single 12-team Superflex reference league.
 5. For an unknown future slot, average across a slot distribution instead of pretending every first is mid-round.
 6. Discount the delay until the player contributes.
 7. Use historical class distributions when future class information is thin.
 
 Do not add a second 12% annual pick discount if the same delay is already accounted for in the discounted contribution model. Do not assume future classes are equally strong once credible evidence exists.
 
-Shipped v2 forecasts every drafted rookie of the last 10 classes like a player and orders each class by that forecast, per format. A quarterback is worth more in Superflex, so he sits earlier on that board with no hand-set shift. A rookie's age does not change his forecast yet. Published bucket prices are still held so a later pick cannot outrank an earlier one. The app's fallback for a year missing from the snapshot uses the same 0.85 annual discount as `config.json`.
+Shipped v2 forecasts every drafted rookie of the last 10 classes like a player and orders each class by that forecast, for the one Superflex reference league. A rookie's age does not change his forecast yet. Published bucket prices are still held so a later pick cannot outrank an earlier one. The app's fallback for a year missing from the snapshot uses the same 0.85 annual discount as `config.json`.
 
 ## 13. Optional market price from our own evidence
 

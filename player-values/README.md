@@ -4,12 +4,7 @@ This directory is the single source of truth for Dynasty Ticker player values.
 
 ## Product contract
 
-Dynasty Ticker publishes exactly two **full-PPR** value maps:
-
-- **1QB PPR**
-- **Superflex PPR**
-
-The football forecast for a player is the same in both formats. Only quarterback replacement scarcity changes between them. RB, WR, and TE values are therefore identical across 1QB and Superflex. Future picks can differ because Superflex changes the value of quarterbacks in the expected rookie pool.
+Dynasty Ticker publishes exactly one value map: **12-team Superflex full-PPR dynasty**. All players and picks use the same reference league. Connected league settings never change the price.
 
 League settings do **not** reprice players. There is no TE premium, RB premium, half-PPR toggle, star multiplier, crowd-vote bump, or local-league price. League context answers a different question: whether a move helps a particular roster.
 
@@ -20,18 +15,18 @@ The browser, trade engine, and league views consume the same generated snapshot 
 For each player the forecast answers one question a season at a time: how many full-PPR points above a replacement player should we expect from him?
 
 ```
-value(format) =
+value =
   sum over the next eight seasons of games (
     discount ^ years_until_that_season_kicks_off *
     expected_points_above_replacement(season)
   )
 ```
 
-The fixed display conversion is **20 points per discounted point of lineup advantage**. It is the same ruler across formats and dates; values are never renormalized to make the top player equal 10,000.
+The fixed display conversion is **20 points per discounted point of lineup advantage**. It is one ruler across dates; values are never renormalized to make the top player equal 10,000.
 
 The annual discount is **0.85** and the horizon is **eight seasons of games**. Those are product choices, not discovered constants; `config.json` owns them. The backtest does not test them.
 
-Every price is the sum of its forecast seasons. The snapshot lists them under `players[...].forecast`, and a test adds them up.
+Every price is the sum of its forecast seasons. The snapshot lists them under `players[...].forecast`, with data-integrity validation during generation.
 
 ## The files
 
@@ -96,7 +91,7 @@ Replacement is estimated from a **12-team reference league**, not a hard-coded Q
 - 2 FLEX
 - 12 bench slots
 
-Superflex adds one Superflex starter per team. The model fills the reference lineups from historical PPR production, then allocates the bench on scarcity-adjusted roster claims. Quarterback benches stop at **2 per team in 1QB** and **3 per team in Superflex**. The best remaining player at each position is the alternative. If that pool is empty, the last rostered player is.
+Superflex adds one Superflex starter per team. The model fills the reference lineups from historical PPR production, then allocates the bench on scarcity-adjusted roster claims. Quarterback benches stop at **3 per team in Superflex**. The best remaining player at each position is the alternative. If that pool is empty, the last rostered player is.
 
 The line is the median of the **last 14 seasons**, because scoring has drifted since 1999.
 
@@ -116,7 +111,7 @@ This is one ruler. On the day he can first play, an unplayed rookie is worth wha
 
 Means, not medians. A late pick is mostly misses and a few hits, and the hits are the value. Pricing a third-round pick at its median outcome prices it near zero.
 
-A Superflex pick is never priced under the same 1QB pick. This year's picks are listed until the NFL draft ends in late April, then they are players.
+This year's picks are listed until the NFL draft ends in late April, then they are players.
 
 A rookie's age does not change his forecast yet, and the board is ordered by the forecast, not by how real rookie drafts go. Neither is tested against real drafts.
 
@@ -191,12 +186,11 @@ Shared trade links and the trend helpers read one archive, `docs/data/price-hist
 ```json
 {
   "asOf": "2026-10-14T19:17:17+00:00",
-  "sf": { "player:4984": 14620, "player:6794": 7803 },
-  "oneQb": { "player:4984": 8175, "player:6794": 7803 }
+  "sf": { "player:4984": 14620, "player:6794": 7803 }
 }
 ```
 
-The filename is the UTC stamp `YYYYMMDDHHmm` from `asOf`. `sf` and `oneQb` are the full price maps, the same keys as `player_values.json`. `index.json` (`schemaVersion` 1) lists `{ stamp, asOf, modelVersion }`. A row with no `modelVersion` was priced by `football-forecast-v1`. The site only draws a trend across snapshots from the model it is running, so a model change never shows up as every player moving at once. Shared trade links still read any stamp. The page fetches that index and only the snapshots inside the trend window, plus the one snapshot just before it. A file more than 90 days older than the newest is dropped. The newest file is always kept. An existing stamp is never rewritten, so the same `asOf` writes nothing. To run the schedule on Tuesdays only, set the workflow cron back to `17 11 * * 2`.
+The filename is the UTC stamp `YYYYMMDDHHmm` from `asOf`. `sf` is the full price map; legacy snapshots may contain an ignored alternate map,, the same keys as `player_values.json`. `index.json` (`schemaVersion` 1) lists `{ stamp, asOf, modelVersion }`. A row with no `modelVersion` was priced by `football-forecast-v1`. The site only draws a trend across snapshots from the model it is running, so a model change never shows up as every player moving at once. Shared trade links still read any stamp. The page fetches that index and only the snapshots inside the trend window, plus the one snapshot just before it. A file more than 90 days older than the newest is dropped. The newest file is always kept. An existing stamp is never rewritten, so the same `asOf` writes nothing. To run the schedule on Tuesdays only, set the workflow cron back to `17 11 * * 2`.
 
 ## Output
 
@@ -207,7 +201,6 @@ The filename is the UTC stamp `YYYYMMDDHHmm` from `asOf`. `sf` and `oneQb` are t
   "asOf": "...",
   "generatedAt": "...",
   "sf": {"player:...": 0, "pick:...": 0},
-  "oneQb": {"player:...": 0, "pick:...": 0},
   "names": {"player:...": "..."},
   "players": {
     "player:...": {
@@ -222,4 +215,4 @@ The filename is the UTC stamp `YYYYMMDDHHmm` from `asOf`. `sf` and `oneQb` are t
 }
 ```
 
-The `players` object explains a value. Runtime pricing comes only from `sf` or `oneQb`. `forecast.sf` lists the seasons that add up to the price. A quarterback also carries `forecast.oneQb`.
+The `players` object explains a value. Runtime pricing comes only from `sf`. `forecast.sf` lists the seasons that add up to the price.

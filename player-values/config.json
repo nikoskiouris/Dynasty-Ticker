@@ -14,10 +14,7 @@
     "SUPER_FLEX": 1
   },
   "referenceBenchSlots": 12,
-  "qbRosterCapPerTeam": {
-    "oneQb": 2,
-    "sf": 3
-  },
+  "qbRosterCapPerTeam": 3,
   "replacementSeasons": 14,
   "qbStartAttempts": 10,
   "oneYearModel": {

@@ -20,7 +20,7 @@ from operator import mul
 import math
 
 POSITIONS = ("QB", "RB", "WR", "TE")
-FORMATS = ("sf", "oneQb")
+FORMATS = ("sf",)
 SEASON_GAMES = 16          # games a team plays inside fantasy weeks 1-17
 FANTASY_WEEKS = 17
 MAX_PICK = 300             # an undrafted player sits at the end of the board

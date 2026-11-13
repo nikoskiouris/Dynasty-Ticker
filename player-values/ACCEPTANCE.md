@@ -7,13 +7,13 @@ This folder owns Dynasty Ticker's player-value system.
 - Connecting a league cannot change a player's published value.
 - TE premium, RB premium, half-PPR/full-PPR switches, star multipliers, crowd-vote shifts, and league-specific overlays do not reprice players.
 - Full PPR is the only scoring model, and it counts offensive productivity only. Defensive stats, return scores, and opponent defense do not change a price.
-- Superflex vs 1QB changes QB scarcity. RB/WR/TE player values are identical across those formats.
+- Only 12-team Superflex PPR dynasty values are published. League settings never select another value set.
 - Future picks may differ by format because the rookie-QB opportunity set differs.
 - Missing players are explicitly unavailable; the app does not invent a position/age fallback price.
 - The build uses football data, not another dynasty-ranking provider or an existing fantasy-market price.
 - Model inputs, assumptions, validation, data freshness, and known gaps are documented and emitted in the snapshot.
 - A failed refresh never overwrites the last valid snapshot.
-- Replacement points per game are above zero for QB, RB, WR, and TE in both formats.
+- Replacement points per game are above zero for QB, RB, WR, and TE in the Superflex reference league.
 - Early firsts are worth at least as much as mid firsts, and mid firsts at least as much as late firsts.
 - Inactive or long-gone players are not given a positive price.
 - Every price is the sum of the forecast seasons listed beside it.

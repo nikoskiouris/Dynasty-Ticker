@@ -29,11 +29,11 @@ Product purpose and how to choose between competing asks live in `AGENTS.md`. Fi
 ### Value source
 There is one player-value system: `player-values/`.
 
-- Two published maps: **1QB full PPR** and **Superflex full PPR**.
+- One published map: **12-team Superflex full-PPR dynasty**.
 - Each player gets a forecast of full-PPR points above a replacement player, one season at a time, for eight seasons of games. It is learned from the 15 most recent NFL seasons: his last two seasons, his age, and, through year three, his draft slot.
 - Value is that forecast, discounted by how far away each season is, converted with one fixed 20× display ruler. Every price is the sum of the seasons listed beside it.
 - Rookies and future picks use the same ruler. A pick is priced as the rookie it becomes.
-- RB/WR/TE use the same player value in both formats. Superflex changes QB scarcity; future pick values can also differ by format.
+- All players and picks use that single reference league. Connected league settings never select another price map.
 - No imported external dynasty rankings, fitted trade-market prices, TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices, or hand-set bonuses for youth, draft capital, or past finishes feed the published player price.
 - Check a trade, Find a trade, My team, the players board and the share cards all read `docs/data/player_values.json`.
 - League trade history and crowd votes remain useful context/preferences, but they do not create a second player price.
