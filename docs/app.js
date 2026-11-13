@@ -27,7 +27,6 @@ import {
   PAGE_LABELS,
   DEFAULT_PAGE,
   DEFAULT_ROOMS,
-  HOME_ROOM,
   MAX_HISTORY_SEASONS,
   PHONE_LAYOUT_QUERY,
 } from "./modules/constants.js";
@@ -188,7 +187,7 @@ import {
   releaseBootGate,
   scheduleBootFind,
 } from "./modules/boot-gate.js";
-import { ownerPossessive, sampleRosterLabels } from "./modules/sample-voice.js";
+import { ownerPossessive } from "./modules/html.js";
 import {
   describeUserSearchFailure,
   renderLeaguePickerMarkup,
@@ -244,7 +243,6 @@ import {
 } from "./modules/verdict-copy.js";
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import { GLOSSARY, bindInfoTips, infoTipMarkup, renderPriceLegend, valuesWorkText } from "./modules/info-tip.js";
-import { inventSampleCore } from "./modules/sample-league.js";
 import { decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
 import { chooseBestLineup, countStartableAtPosition } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
@@ -271,11 +269,7 @@ import {
   buildDocumentTitle,
   holdDocumentTitle,
   buildPageDescription,
-  clearSampleBannerDismissal,
-  focusAfterSampleBannerDismiss,
-  sampleBannerDismissed,
-  sampleConnectEntryVisible,
-} from "./modules/site.js";
+  } from "./modules/site.js";
 import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
 import { createBeaconAdapter, pageview as analyticsPageview, setAnalyticsAdapter, track as analyticsTrack, trackShareTapped, trackTradeLinkOpened } from "./modules/analytics.js";
 import {
@@ -342,10 +336,6 @@ const el = {
   chromeManagerLabel: document.querySelector("#chrome-manager-label"),
   chromeModeLabel: document.querySelector("#chrome-mode-label"),
   mobileChromeViewing: document.querySelector("#mobile-chrome-viewing"),
-  sampleChrome: document.querySelector("#sample-chrome"),
-  sampleChromeTitle: document.querySelector("#sample-chrome-title"),
-  sampleChromeViewing: document.querySelector("#sample-chrome-viewing"),
-  sampleBanner: document.querySelector("#sample-banner"),
   identitySection: document.querySelector("#identity-section"),
   meSelect: document.querySelector("#me-select"),
   deskNav: document.querySelector("#desk-nav"),
@@ -398,7 +388,7 @@ const leagueLoader = createLeagueLoader();
 const leagueLoadRecovery = createLeagueLoadRecovery({
   isCurrent: (token) => leagueLoader.isCurrent(token),
   load: (leagueId, job) => {
-    void loadLeagueById(leagueId, { sample: Boolean(job?.sample) });
+    void loadLeagueById(leagueId);
   },
   onlineTarget: window,
 });
@@ -540,7 +530,7 @@ el.mobileRailToggle?.addEventListener("click", () => {
     requestAnimationFrame(() => {
       if (!document.body.classList.contains("rail-open")) return;
       // No league yet: the drawer is the connect form, so start in it.
-      if (!state.leagueId && !state.viewingSample && el.sleeperUsername && el.sleeperUsername.offsetParent) {
+      if (!state.leagueId && el.sleeperUsername && el.sleeperUsername.offsetParent) {
         el.sleeperUsername.focus();
         return;
       }
@@ -588,12 +578,6 @@ document.addEventListener("click", (event) => {
   event.preventDefault();
   // The trade draft is stored, so it survives. Back to the no-league desk.
   window.location.assign("/");
-});
-document.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-sample-find]");
-  if (!button || el.workspace?.contains(button)) return;
-  event.preventDefault();
-  openSampleConnect();
 });
 window.matchMedia(PHONE_LAYOUT_QUERY).addEventListener("change", () => {
   setMobileRailOpen(false);
@@ -674,7 +658,6 @@ document.addEventListener("submit", (event) => {
   requestFindLeagues();
 });
 
-let sampleBannerOff = false;
 let valuesLoadFailed = false;
 let leagueMissing = false;
 let sleeperUnreachable = false;
@@ -874,7 +857,6 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
       get: draftSideIds("right"),
       shareCode: activeShareCode(),
       playersBoard: playersBoardOpen,
-      sample: Boolean(state.viewingSample),
     });
     if (!href || href === window.location.pathname) return;
   }
@@ -900,8 +882,6 @@ function showAppPages() {
   el.deskNav?.classList.remove("hidden");
   const disconnect = document.querySelector("#disconnect-btn");
   disconnect?.classList.remove("hidden");
-  // The sample is not a connected league; leaving it is not "disconnecting".
-  if (disconnect) disconnect.textContent = state.viewingSample ? "Leave the sample" : "Disconnect league";
   const pending = state.pendingPlace || connectNextPlace;
   connectNextPlace = null;
   state.pendingPlace = null;
@@ -1459,8 +1439,6 @@ function renderTradesRoom(room) {
 }
 
 function bootFromUrl() {
-  sampleBannerOff = false;
-  clearSampleBannerDismissal();
   // Rewrite before anything is reported, so a cold removed-room link counts one visit.
   const removedRoomTarget = removedRoomRedirect(window.location.pathname);
   if (removedRoomTarget && typeof history?.replaceState === "function") {
@@ -1489,7 +1467,7 @@ function bootFromUrl() {
   if (parsed.week) state.pendingWeek = parsed.week;
   if (parsed.tone) state.pendingTone = parsed.tone;
 
-  const fields = bootSearchFieldValues({ leagueFromUrl: parsed.sample ? "" : (route.leagueId || parsed.leagueId) });
+  const fields = bootSearchFieldValues({ leagueFromUrl: route.leagueId || parsed.leagueId });
   applyBootFieldValue(el.sleeperUsername, fields.username);
   applyBootFieldValue(el.landingUsername, fields.username);
   applyBootFieldValue(el.leagueId, fields.leagueId);
@@ -1507,7 +1485,7 @@ function bootFromUrl() {
   if (route.name === "connect") connectAsked = true;
   const leagueId = route.leagueId || parsed.leagueId;
   if (leagueId) {
-    void loadLeagueById(leagueId, { sample: parsed.sample });
+    void loadLeagueById(leagueId);
   } else if (!routeDrivesPlace && parsed.tab === "trades" && parsed.view === "ranks") {
     openPlayerBoard({ history: "silent" });
   } else if (route.legacy === "ranks" || route.name === "players") {
@@ -2048,7 +2026,7 @@ function applyDeskPopState(historyState) {
     if (!state.pendingPlace.page && parsed.tab) state.pendingPlace = { page: parsed.tab, room: parsed.view };
     if (parsed.week) state.pendingWeek = parsed.week;
     if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
-    void loadLeagueById(leagueId, { fromHistory: true, sample: parsed.sample });
+    void loadLeagueById(leagueId, { fromHistory: true });
     return;
   }
   if (!leagueId && state.leagueId) unloadLeague();
@@ -2272,7 +2250,7 @@ function restoreHistoryScroll(historyState) {
 
 // Ticket 018: home offers the last real league and team this browser opened.
 function rememberLastLeague() {
-  if (!state.leagueId || state.viewingSample) return;
+  if (!state.leagueId) return;
   const me = getMyRoster();
   writeLastLeague({
     leagueId: state.leagueId,
@@ -2461,7 +2439,6 @@ function buildShareUrl(overrides = {}) {
     give: draftSideIds("left"),
     get: draftSideIds("right"),
     shareCode: activeShareCode(),
-    sample: Boolean(state.viewingSample),
     landing: landingVisible(),
     playersBoard: playersBoardShown(),
     format: state.leagueId ? "" : activeRankFormat(),
@@ -2471,7 +2448,6 @@ function buildShareUrl(overrides = {}) {
     origin: overrides.origin ?? window.location.origin,
     pathname: "/",
     leagueId: state.leagueId,
-    sample: state.viewingSample,
     meRosterId: state.meRosterId,
     tab: page,
     view: room,
@@ -2588,10 +2564,6 @@ function scrollActiveTabIntoView() {
   scrollChildIntoStrip(el.pageTabs, active);
 }
 
-function sampleViewingLine() {
-  return "Sample league";
-}
-
 function syncDeskRailOffset() {
   const rail = el.controlRail;
   if (!rail || isPhoneLayout()) return;
@@ -2617,10 +2589,8 @@ function routeHeadingText() {
 
 function renderSessionSnapshot() {
   rebindUsernameInputs();
-  const sampleOn = Boolean(state.viewingSample && state.leagueId);
   const you = getMyRoster()?.manager?.displayName || "";
   document.body.classList.toggle("league-loaded", Boolean(state.leagueId));
-  document.body.classList.toggle("viewing-sample", sampleOn);
   if (state.leagueSwitching) {
     if (el.mobileChromeTitle) el.mobileChromeTitle.textContent = "Loading league…";
     if (el.chromeLeagueLabel) el.chromeLeagueLabel.textContent = "Loading…";
@@ -2637,11 +2607,9 @@ function renderSessionSnapshot() {
   document.body.classList.toggle("cold-share", coldShare);
   if (el.mobileChromeTitle) el.mobileChromeTitle.hidden = coldShare;
   if (el.mobileChromeTitle && !coldShare) {
-    el.mobileChromeTitle.textContent = sampleOn
-        ? (state.leagueName || "Sample league")
-        : state.leagueName
-          ? (you ? `${you} · ${state.leagueName}` : state.leagueName)
-          : guestRouteHeading();
+    el.mobileChromeTitle.textContent = state.leagueName
+      ? (you ? `${you} · ${state.leagueName}` : state.leagueName)
+      : guestRouteHeading();
   }
   if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
   const chipText = document.querySelector("#team-league-chip-text");
@@ -2651,25 +2619,11 @@ function renderSessionSnapshot() {
       : "Connect my league";
   }
   el.mobileRailToggle?.setAttribute("aria-label", state.leagueName ? `Team and league: ${chipText?.textContent || ""}. Switch team, switch league, or disconnect.` : "Connect my league");
-  if (el.mobileChromeViewing) {
-    el.mobileChromeViewing.hidden = !sampleOn;
-    el.mobileChromeViewing.textContent = sampleOn ? sampleViewingLine(you) : "";
-  }
-  document.querySelectorAll("[data-sample-chip]").forEach((chip) => {
-    chip.hidden = !sampleOn;
-  });
-  if (el.sampleChrome) el.sampleChrome.hidden = !sampleOn;
-  if (el.sampleChromeTitle) el.sampleChromeTitle.textContent = sampleOn ? (state.leagueName || "Sample league") : "";
-  if (el.sampleChromeViewing) el.sampleChromeViewing.textContent = sampleOn ? sampleViewingLine(you) : "";
-  if (el.sampleBanner) el.sampleBanner.hidden = !sampleOn || sampleBannerDismissed(sampleBannerOff);
-  document.querySelectorAll("[data-sample-find]").forEach((button) => {
-    button.hidden = !sampleConnectEntryVisible({ sampleOn, bannerDismissed: sampleBannerOff });
-  });
   if (el.chromeLeagueLabel) {
     el.chromeLeagueLabel.textContent = state.leagueName || "Not loaded";
   }
   if (el.chromeManagerLabel) {
-    el.chromeManagerLabel.textContent = sampleOn ? sampleViewingLine(you) : (you || "Select team");
+    el.chromeManagerLabel.textContent = you || "Select team";
   }
   if (el.chromeModeLabel) {
     el.chromeModeLabel.textContent = state.leagueId ? describeSeasonWeek() : "—";
@@ -2729,9 +2683,7 @@ function renderLeagueHero() {
           : model
             ? `Week ${model.currentWeek} is next. ${model.remainingGames.length} regular-season games left before the playoffs start in Week ${model.playoffStart}.`
             : "Matchups are syncing.";
-  const sampleNote = state.viewingSample ? (sampleVoice()?.accountNote || "Sample league — invented managers. ") : "";
-  const formatTip = "";
-  el.heroLede.innerHTML = `${escapeHtml(`${sampleNote}${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`)}${formatTip}`;
+  el.heroLede.innerHTML = `${escapeHtml(`${format}. ${status}${trophy ? ` Reigning champion banner: "${trophy}".` : ""}`)}`;
   if (el.leagueAvatar) {
     const leagueAvatarSrc = sleeperAvatarUrl(league.avatar);
     el.leagueAvatar.innerHTML = leagueAvatarSrc
@@ -2840,17 +2792,8 @@ function handlePhoneDeskClick(event) {
   });
 }
 
-function sampleVoice() {
-  if (!state.viewingSample) return null;
-  return sampleRosterLabels({
-    viewingSample: true,
-    ownerName: getMyRoster()?.manager?.displayName || "",
-  });
-}
 
 function deskRoomLabel(page, room) {
-  const voice = sampleVoice();
-  if (voice && page === "league" && room === HOME_ROOM) return voice.teamTab;
   return roomLabelFor(page, room, state.league) || room || "";
 }
 
@@ -3127,7 +3070,6 @@ function rememberPickedLeague(leagueId) {
       give: draftSideIds("left"),
       get: draftSideIds("right"),
       shareCode: activeShareCode(),
-      sample: Boolean(state.viewingSample),
     });
     const next = picked && picked !== urlPath() ? picked : urlPath("l", leagueId, "team");
     routeFocus.push(routeFocus.consumeArmed() || activeRouteElement());
@@ -3150,11 +3092,10 @@ function dropFailedLeagueQuery() {
   history.replaceState(history.state, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
 }
 
-async function loadLeagueById(leagueId, { fromHistory = false, sample = false } = {}) {
+async function loadLeagueById(leagueId, { fromHistory = false } = {}) {
   if (!leagueId) return;
   leagueOpenedInApp = Boolean(appBooted) && !fromHistory;
   if (!fromHistory) rememberPickedLeague(leagueId);
-  state.viewingSample = Boolean(sample);
   if (shouldBlankDeskForLeagueSwitch(state.leagueId, leagueId)) blankDeskForLeagueSwitch();
   return leagueLoader.run(leagueId, (id, token) => runLeagueLoad(id, token, { fromHistory }));
 }
@@ -3175,7 +3116,6 @@ function unloadLeague() {
   state.leagueId = "";
   state.leagueName = "";
   state.league = null;
-  state.viewingSample = false;
   state.users = [];
   state.rosters = [];
   state.normalizedRosters = [];
@@ -3189,7 +3129,7 @@ function unloadLeague() {
   state.transactions = [];
   state.transactionsLoaded = false;
   el.identitySection?.classList.add("hidden");
-  document.body.classList.remove("league-loaded", "viewing-sample");
+  document.body.classList.remove("league-loaded");
   renderSessionSnapshot();
 }
 
@@ -3336,14 +3276,12 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     setMobileRailOpen(false, { history: "silent" });
     showAppPages();
     noteSearchedUser(leagueId);
-    analyticsTrack("league_connected", { sample: state.viewingSample ? "yes" : "no" });
+    analyticsTrack("league_connected");
     rememberLastLeague();
     scrollLoadedWorkspaceIntoView();
     const missingTeam = state.meRosterId ? "" : noTeamInLeagueCopy(state.sleeperUser);
     setStatus(
-      missingTeam || (state.viewingSample
-        ? (sampleVoice()?.statusSample || "Sample league — not this account.")
-        : `Loaded ${state.leagueName}.`),
+      missingTeam || `Loaded ${state.leagueName}.`,
       missingTeam ? { error: true } : { loading: true },
     );
     void loadSeasonWeeks(leagueId, league);
@@ -3359,9 +3297,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
           missingTeam
             ? missingTeam
             : me
-              ? state.viewingSample
-                ? `${sampleVoice()?.statusSample || "Sample league — not this account."} Viewing as ${me.manager?.displayName || "a roster"}; switch in Manager.`
-                : `Loaded ${state.leagueName}. Viewing as ${me.manager?.displayName || "your team"}. Switch teams in the Manager panel.`
+              ? `Loaded ${state.leagueName}. Viewing as ${me.manager?.displayName || "your team"}. Switch teams in the Manager panel.`
               : `Loaded ${state.leagueName}. Choose your team to continue.`,
           missingTeam ? { error: true } : { ok: true },
         );
@@ -3410,7 +3346,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     const unreachable = message === SLEEPER_UNREACHABLE_MESSAGE;
     setFieldError(el.leagueId, el.leagueIdError, unreachable || failedSwitch ? "" : message);
     setStatus(unreachable || failedSwitch ? "" : message, { error: true });
-    leagueLoadRecovery.fail({ leagueId, token, sample: state.viewingSample });
+    leagueLoadRecovery.fail({ leagueId, token });
     paintLeagueLoadError(message);
     if (state.league) {
       showAppPages();
@@ -3606,8 +3542,7 @@ async function loadLeagueCoreData(leagueId) {
     winnersBracket: Array.isArray(byKey.winnersBracket) ? byKey.winnersBracket : [],
     losersBracket: Array.isArray(byKey.losersBracket) ? byKey.losersBracket : [],
   };
-  // The sample league's people are invented; only its structure is real.
-  return state.viewingSample ? inventSampleCore(core) : core;
+  return core;
 }
 
 function rankDraftCandidateStatus(status) {
@@ -4108,7 +4043,6 @@ function hydrateManagerSelector({ syncUrl = true } = {}) {
   el.meSelect.innerHTML = renderMeSelectOptions(
     state.normalizedRosters,
     chosen?.rosterId,
-    state.viewingSample ? { sample: true, rosterId: chosen?.rosterId } : null,
   );
   if (chosen) {
     state.meRosterId = chosen.rosterId;
@@ -4455,14 +4389,14 @@ function managerForRosterId(rosterId) {
 
 function renderTeamIdentity(rosterId, { size = "sm", showTeamName = true, extra = "" } = {}) {
   const manager = managerForRosterId(rosterId);
-  const isMe = state.viewingSample ? String(rosterId) === String(state.meRosterId) : String(rosterId) === connectedRosterId();
+  const isMe = String(rosterId) === connectedRosterId();
   const teamName = showTeamName ? (manager.teamName || "") : "";
   const subtitle = [teamName, extra].filter(Boolean).join(" · ");
   return `
     <span class="team-identity ${isMe ? "you" : ""}">
       ${renderAvatar(manager, { size })}
       <span class="team-identity-copy">
-        <strong><span class="team-name">${escapeHtml(manager.displayName)}</span>${isMe ? (state.viewingSample ? `<span class="mini-chip">Viewing</span>` : `<span class="you-chip">You</span>`) : ""}</strong>
+        <strong><span class="team-name">${escapeHtml(manager.displayName)}</span>${isMe ? `<span class="you-chip">You</span>` : ""}</strong>
         ${subtitle ? `<span>${escapeHtml(subtitle)}</span>` : ""}
       </span>
     </span>
@@ -4514,21 +4448,17 @@ function paintConnectGate(host, copy) {
   host.innerHTML = renderConnectGate({ copy });
 }
 
-// No league: the tab stays selected and shows what it does, a username box,
-// and the sample league. It never redirects.
+// No league: the tab stays selected and shows what it does and a username box.
+// It never redirects.
 // A hoisted function, not a const: a deep-linked league route renders the
 // guest preview during module boot, before a const here would be initialized.
 function noLeaguePreviewCopy() {
   return NO_LEAGUE_PREVIEW_COPY;
 }
 var NO_LEAGUE_PREVIEW_COPY = Object.freeze({
-  find: {
-    title: "Trade ideas that fit your league",
-    points: ["Ideas that fill your weakest spot, each with a fairness check", "Shop a player: who pays a fair price for him", "The teams most likely to say yes"],
-  },
   team: {
-    title: "Your team, read in one line",
-    points: ["Contend or rebuild, with playoff odds", "Your next move: the spot to upgrade", "Position ranks, best lineup, bench and picks"],
+    title: "Your team at a glance",
+    points: ["Roster value and draft picks", "Position ranks against the league", "Best lineup and bench"],
   },
 });
 
@@ -4546,7 +4476,6 @@ function renderNoLeaguePreview(kind) {
           <button type="submit">Connect my league</button>
         </div>
       </form>
-      <p class="no-league-sample">No league? <a class="sample-league-link" href="./?sample=1">Try the sample league</a></p>
     </section>
   `;
 }
@@ -4778,13 +4707,13 @@ function syncLeagueFormatCopy() {
 }
 
 function renderLensPicker(roster, { label = "Viewing", extra = "" } = {}) {
-  const meId = state.viewingSample ? String(state.meRosterId ?? "") : connectedRosterId();
+  const meId = connectedRosterId();
   const options = state.normalizedRosters
     .slice()
     .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName))
     .map((entry) => `
       <option value="${escapeHtml(entry.rosterId)}" ${String(entry.rosterId) === String(roster.rosterId) ? "selected" : ""}>
-        ${escapeHtml(entry.manager.displayName)}${String(entry.rosterId) === meId ? (state.viewingSample ? " · Example roster" : " (you)") : ""}
+        ${escapeHtml(entry.manager.displayName)}${String(entry.rosterId) === meId ? " (you)" : ""}
       </option>
     `)
     .join("");
@@ -5154,7 +5083,7 @@ function paintTradeDraft() {
   const talk = snapshotTradeTalkInput(host);
   host.innerHTML = `
     <div class="panel-heading calc-heading">
-      <h2>${escapeHtml(sampleVoice()?.giveGetHeading || "Trade")}</h2>
+      <h2>${escapeHtml("Trade")}</h2>
       <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
       ${renderValuesFreshness(valuesFreshness())}
       ${state.leagueId && state.league && marketCaveat(state.league) ? `<p class="muted small calc-market-caveat">${escapeHtml(marketCaveat(state.league))}</p>` : ""}
@@ -5441,9 +5370,8 @@ function runTradeTalk(text) {
     return;
   }
   const result = applyTradeTalk(state.valueCalc, plan);
-  const voice = sampleVoice();
-  const giveLabel = voice?.giveLabel || "You give";
-  const getLabel = voice?.getLabel || "You get";
+  const giveLabel = "You give";
+  const getLabel = "You get";
   const changed = draftAssetKey(result.draft) !== draftAssetKey(state.valueCalc)
     || result.draft.partnerRosterId !== state.valueCalc.partnerRosterId;
   if (changed) {
@@ -5499,10 +5427,7 @@ function runTradeTalk(text) {
   }
   // "Is this fair?" gets the answer in the reply, the same line the verdict shows.
   if (bothSides && plan.asked && after.model?.verdict) {
-    const voice = sampleVoice();
-    const verdictLine = voice
-      ? verdictCopy(after.model.verdict).line
-      : verdictLineNamed(after.model.verdict, { Give: "You give", Get: "You get" });
+    const verdictLine = verdictLineNamed(after.model.verdict, { Give: "You give", Get: "You get" });
     if (verdictLine) lines.push(`${verdictLine}. The reason is under “Why?” below.`);
   }
   // A question needs an answer, so its reply stays on screen instead of a toast over it.
@@ -5532,7 +5457,7 @@ function addTalkChip(target) {
     assetType: target.dataset.kind === "pick" ? "pick" : "player",
     leagueId: target.dataset.leagueId || "",
   });
-  const label = side === "right" ? (sampleVoice()?.getLabel || "You get") : (sampleVoice()?.giveLabel || "You give");
+  const label = side === "right" ? ("You get") : ("You give");
   const after = buildDraftView();
   const last = tradeTalkLog[0];
   const line = added ? `Added ${target.dataset.name} to ${label}.` : `${target.dataset.name} is already in the trade.`;
@@ -5673,7 +5598,6 @@ function renderDraftNotice() {
     note: draftReplaced?.note || "",
     saved: draftReplaced?.draft,
     current: state.valueCalc,
-    voice: sampleVoice(),
   });
   if (!text) return "";
   return `
@@ -5880,18 +5804,18 @@ function renderDraftNotes(side, view) {
     }) : null;
     if (real) {
       const partner = findNormalizedRoster(view.context.partnerRosterId)?.manager?.displayName;
-      const whose = side === "left" ? (sampleVoice()?.roster || "your roster") : (partner ? `${partner}’s roster` : "their roster");
+      const whose = side === "left" ? ("your roster") : (partner ? `${partner}’s roster` : "their roster");
       const label = `${item.name.replace(/^(\d{4} )(?:early |mid |late )/i, "$1")} on ${whose}`;
       return `<li><strong>${escapeHtml(item.name)}:</strong> Generic pick at market price. <button type="button" class="inline-link" data-action="draft-use-league-pick" data-uid="${escapeHtml(item.uid)}" data-asset-id="${escapeHtml(real.assetId)}">Use the ${escapeHtml(label)}</button></li>`;
     }
-    return `<li><strong>${escapeHtml(item.name)}:</strong> ${escapeHtml(describeDraftItem(row, { ownerName: owner, kind: item.assetType, voice: sampleVoice() }))}</li>`;
+    return `<li><strong>${escapeHtml(item.name)}:</strong> ${escapeHtml(describeDraftItem(row, { ownerName: owner, kind: item.assetType }))}</li>`;
   }).filter(Boolean);
   return notes.length ? `<ul class="draft-note-list">${notes.join("")}</ul>` : "";
 }
 
 function draftSearchPlaceholder(side, view) {
   if (!view.basis.connected) return `+ Add player or pick, like ${nextRookieDraftSeason()} early 1st`;
-  if (side === "left") return sampleVoice()?.draftSearchLeft || "Your players and picks";
+  if (side === "left") return "Your players and picks";
   return "Their players and picks";
 }
 
@@ -5987,7 +5911,7 @@ function draftSuggestionRows(side, view) {
         estimated: price.estimated,
         slot: Number(asset.raw?.projectedDraftSlot) || 0,
         round: Number(asset.raw?.round) || 0,
-        context: mine ? (sampleVoice()?.roster || "Your roster") : roster.manager.displayName,
+        context: mine ? ("Your roster") : roster.manager.displayName,
         leagueId: isLeaguePickAssetId(asset.assetId) ? String(state.leagueId) : "",
         hint: valuedAsMidFirstHint(asset, state.league?.season),
         group: side === "left" ? (mine ? 0 : 2) : (rosterId === partnerId ? 0 : 1),
@@ -6086,7 +6010,7 @@ function findEvenUpPick(view) {
 }
 
 function evenUpLine(choice, side) {
-  const after = choice?.verdict ? verdictLineNamed(choice.verdict, sampleVoice() ? {} : { Give: "You give", Get: "You get" }) : "";
+  const after = choice?.verdict ? verdictLineNamed(choice.verdict, { Give: "You give", Get: "You get" }) : "";
   return evenUpCopy(choice, side, { afterLine: after });
 }
 
@@ -6100,7 +6024,7 @@ function renderDraftMethod(view) {
   }
   lines.push(FEWER_BETTER_LINE);
   lines.push(TIER_EXPLAINER);
-  lines.push(sampleVoice()?.methodLineup || "Team impact is separate from price: it asks whether the move helps your starting lineup.");
+  lines.push("Team impact is separate from price: it asks whether the move helps your starting lineup.");
   return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
 }
 
@@ -6124,14 +6048,13 @@ function renderDraftVerdict(view) {
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (bothSides) noteTradeChecked(draft);
   const them = view.partner?.manager?.displayName || "them";
-  const voice = sampleVoice();
   const { verdict, adjustment } = model;
   // One verdict wording everywhere (verdict-copy.js): app, /t, card, meta, share text.
   const copy = verdictCopy(verdict);
   // The headline is the full line ("Lopsided · Give side worth 89% more"), like the card.
   // Private /trade names the sides as the reader: "You give 136% more".
   const label = bothSides
-    ? (voice ? copy.line : verdictLineNamed(verdict, { Give: `${draftReceivingTeam("left", view)} receives`, Get: `${draftReceivingTeam("right", view)} receives` }))
+    ? verdictLineNamed(verdict, { Give: `${draftReceivingTeam("left", view)} receives`, Get: `${draftReceivingTeam("right", view)} receives` })
     : copy.label;
   const sharedView = bothSides ? sharedVerdictFor(view) : null;
   // RECHECK4: on a cold /t the bars are sized on the credited totals the
@@ -6143,9 +6066,9 @@ function renderDraftVerdict(view) {
   const maxSide = Math.max(bars.give.total, bars.get.total, 1);
   // Same metric and bands as the headline (verdict-copy.js).
   const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpPick(view) : null;
-  const evenSide = verdict.gap > 0 ? (voice ? voice.youGive : "You") : (view.partner ? them : "They");
-  const giveLabel = sharedView ? "Give side" : (voice?.giveLabel || "You give");
-  const getLabel = sharedView ? "Get side" : (voice?.getLabel || "You get");
+  const evenSide = verdict.gap > 0 ? "You" : (view.partner ? them : "They");
+  const giveLabel = sharedView ? "Give side" : "You give";
+  const getLabel = sharedView ? "Get side" : "You get";
   const creditedRows = (adjustment?.side === "left" ? draft.left : draft.right).map((item) => {
     const hit = view.priced?.get(String(item.uid));
     return { name: hit?.asset?.name || item.name || "", value: hit?.value || 0, uid: String(item.uid || "") };
@@ -6385,9 +6308,9 @@ function buildDraftOfferText(view) {
   const partnerName = view.partner?.manager?.displayName || "them";
   const { verdict, adjustment } = view.model;
   // Same metric and bands as the headline: "Favors one side · My side worth 25% more".
-  const mySide = sampleVoice()?.sideLabel || "my side";
+  const mySide = "my side";
   const line = verdictLineNamed(verdict, { Give: `${mySide.charAt(0).toUpperCase()}${mySide.slice(1)}`, Get: view.partner?.manager?.displayName ? `${partnerName}'s side` : "The other side" });
-  const creditSide = adjustment?.side === "left" ? (sampleVoice()?.sideLabel || "my side") : "their side";
+  const creditSide = adjustment?.side === "left" ? ("my side") : "their side";
   const credit = adjustment ? ` ${fewerBetterOffer(formatNumber(adjustment.amount), creditSide)}` : "";
   return `Trade idea: ${view.me?.manager?.displayName || "I"} sends ${list(view.draft.left)} to ${partnerName} for ${list(view.draft.right)}. Market ${formatNumber(view.give)} vs ${formatNumber(view.get)}.${credit} ${line}. Dynasty Ticker prices, ${rankFormatLabel(view.basis.format)}.`;
 }
@@ -6403,7 +6326,6 @@ function renderDraftTeam(view) {
     rightCount: draft.right.length,
     partnerName,
     splitNames,
-    voice: sampleVoice(),
   });
   if (!context?.ready) {
     if (isDraftEmpty(draft)) return "";
@@ -6665,12 +6587,7 @@ function handleWorkspaceClick(event) {
         queueFindForBoot(String(el.sleeperUsername?.value || el.landingUsername?.value || ""));
         break;
       }
-      openSampleConnect();
-      break;
-    case "dismiss-sample-banner":
-      sampleBannerOff = true;
-      renderSessionSnapshot();
-      focusAfterSampleBannerDismiss(document);
+      focusUsernameSearch();
       break;
     case "rank-open": {
       const id = String(target.dataset.assetId || "");
@@ -7735,7 +7652,7 @@ function buildTradeImpactAnalysis({ baseline, league, rosters, myRoster, theirRo
 
   const afterRanks = rankRosterMetrics(afterMetricsByRosterId);
   const mySide = buildTradeImpactSide({
-    title: state.viewingSample ? "Viewing" : "You",
+    title: "You",
     managerName: myRoster.manager.displayName,
     beforeMetrics: myBeforeMetrics,
     afterMetrics: myAfterMetrics,
@@ -7855,7 +7772,7 @@ function buildTradePowerSummary({ beforeProfile, afterProfile, delta }) {
     ? `adds ${delta} power point${delta === 1 ? "" : "s"}`
     : delta < 0
       ? `costs ${Math.abs(delta)} power point${Math.abs(delta) === 1 ? "" : "s"}`
-      : (sampleVoice()?.powerFlat || "keeps your power score flat"));
+      : ("keeps your power score flat"));
 
   if (afterProfile.rank < beforeProfile.rank) {
     parts.push(`lineup rank climbs from ${ordinal(beforeProfile.rank)} to ${ordinal(afterProfile.rank)}`);
@@ -7950,10 +7867,10 @@ function buildOverallTradeImpactSummary(mySide, theirSide) {
   const theirImproved = theirSide.after.rank < theirSide.before.rank || theirSide.after.starterValue > theirSide.before.starterValue;
 
   if (myImproved && !theirImproved) {
-    return sampleVoice()?.strengthens || `This trade strengthens your starting lineup while making theirs weaker or thinner.`;
+    return `This trade strengthens your starting lineup while making theirs weaker or thinner.`;
   }
   if (!myImproved && theirImproved) {
-    return sampleVoice()?.helpsThemMore || `This trade helps their starting lineup more than yours, even if the value stays close.`;
+    return `This trade helps their starting lineup more than yours, even if the value stays close.`;
   }
   if (myImproved && theirImproved) {
     return `This trade improves both starting lineups, so the deal is more about which team values the target archetype most.`;
@@ -9108,11 +9025,6 @@ function syncUsernameFields(source) {
   if (el.landingUsername && el.landingUsername !== source) el.landingUsername.value = value;
 }
 
-function openSampleConnect() {
-  document.body.classList.add("sample-connect-open");
-  focusUsernameSearch();
-}
-
 function focusUsernameSearch() {
   rebindUsernameInputs();
   if (isPhoneLayout() && state.leagueId) setMobileRailOpen(true);
@@ -9176,8 +9088,6 @@ function syncDocumentMeta() {
       loaded: Boolean(state.leagueId),
       room,
       league: state.league,
-      viewingSample: Boolean(state.viewingSample),
-      ownerName: getMyRoster()?.manager?.displayName || "",
     });
   applyDocumentMeta(document, {
     title: routedTitle || buildDocumentTitle({
@@ -9191,7 +9101,7 @@ function syncDocumentMeta() {
   });
   if (el.routeTitle) el.routeTitle.textContent = routeHeadingText();
   // The guest header names the screen. Opening or leaving the board changes it.
-  if (el.mobileChromeTitle && !state.leagueId && !state.viewingSample && !document.body.classList.contains("cold-share")) {
+  if (el.mobileChromeTitle && !state.leagueId && !document.body.classList.contains("cold-share")) {
     el.mobileChromeTitle.textContent = guestRouteHeading();
   }
 }

@@ -1,6 +1,6 @@
 import { escapeHtml } from "./html.js";
 
-// The last real (not sample) league and team this browser opened, so a
+// The last league and team this browser opened, so a
 // returning manager reopens it from home in one tap. Ticket 018.
 export const LAST_LEAGUE_KEY = "dt:last-league:v1";
 const LEAGUE_ID = /^\d{1,20}$/;

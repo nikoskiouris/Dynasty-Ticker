@@ -126,17 +126,15 @@ export function noTeamInLeagueCopy(sleeperUser) {
   return "This user has no team in this league.";
 }
 
-export function renderMeSelectOptions(rosters, selectedRosterId = "", viewer = null) {
+export function renderMeSelectOptions(rosters, selectedRosterId = "") {
   const selected = String(selectedRosterId ?? "");
-  const viewerId = viewer?.sample && viewer?.rosterId != null ? String(viewer.rosterId) : "";
   const options = [...(Array.isArray(rosters) ? rosters : [])]
     .sort((a, b) => String(a?.manager?.displayName || "").localeCompare(String(b?.manager?.displayName || "")))
     .map((roster) => {
       const id = String(roster?.rosterId ?? "");
       const selectedAttr = id && id === selected ? " selected" : "";
       const name = roster?.manager?.displayName || `Roster ${id}`;
-      const label = viewerId && id === viewerId ? "Sample league" : name;
-      return `<option value="${escapeHtml(id)}"${selectedAttr}>${escapeHtml(label)}</option>`;
+      return `<option value="${escapeHtml(id)}"${selectedAttr}>${escapeHtml(name)}</option>`;
     })
     .join("");
   if (selected) return options;

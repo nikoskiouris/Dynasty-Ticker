@@ -5,7 +5,6 @@ import {
   PAGE_IDS,
   PAGE_ROOMS,
   PLACE_ALIASES,
-  SAMPLE_LEAGUE_ID,
   SCOPED_ROOM_ALIASES,
 } from "./constants.js";
 import { isRankAssetId } from "./ranks.js";
@@ -189,10 +188,8 @@ export function buildShareParams({
   week = null,
   tone = "",
   asset = "",
-  sample = false,
 } = {}) {
   const params = new URLSearchParams();
-  if (sample) params.set("sample", "1");
   if (leagueId) params.set("league", String(leagueId));
   if (meRosterId) params.set("me", String(meRosterId));
   const place = resolveDeskPlace({ tab, view });
@@ -205,11 +202,6 @@ export function buildShareParams({
 }
 
 export const INVALID_LEAGUE_LINK_MESSAGE = "That league link isn't valid";
-
-function sampleRequested(params) {
-  const raw = String(params.get("sample") || "").trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes";
-}
 
 // First pick, before the load finishes. Empty when the URL already names a league
 // so a later switch can still push a Back entry.
@@ -226,7 +218,6 @@ export function stampPickedLeagueSearch(search, leagueId) {
 export function parseShareParams(search) {
   const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
   const league = String(params.get("league") || "").trim();
-  const sample = sampleRequested(params);
   const me = Number(params.get("me"));
   const rawTab = params.get("tab") || "";
   const rawView = params.get("view") || "";
@@ -236,11 +227,10 @@ export function parseShareParams(search) {
   const hasPlace = Boolean(cleanToken(rawTab) || cleanToken(rawView));
   const place = resolveDeskPlace({ tab: rawTab, view: rawView });
   const parsedLeague = parseLeagueId(league);
-  const invalidLeague = Boolean(league) && !parsedLeague && !sample;
+  const invalidLeague = Boolean(league) && !parsedLeague;
   return {
-    leagueId: parsedLeague || (sample ? SAMPLE_LEAGUE_ID : ""),
+    leagueId: parsedLeague,
     invalidLeague,
-    sample,
     meRosterId: Number.isFinite(me) && me > 0 ? me : null,
     asset: place.room === "ranks" && isRankAssetId(asset) ? asset : "",
     // `tab` stays "" when the URL did not ask for a place, so boot can fall

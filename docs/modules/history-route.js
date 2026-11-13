@@ -321,7 +321,8 @@ export function resolveLocation(pathname = "/", search = "") {
   if (params.get("ranks") === "1") {
     return blankRoute({ name: "players", page: "trades", room: "calculator", legacy: "ranks" });
   }
-  if (params.get("sample") === "1" && !/^\/l\/\d+/.test(pathOnly)) return blankRoute({ name: "leagues", page: "leagues", room: "picker", legacy: "sample" });
+  // The sample league is gone (Nov 13, 2026). Old ?sample=1 links open League History.
+  if (params.has("sample") && !/^\/l\/\d+/.test(pathOnly)) return blankRoute({ name: "leagues", page: "leagues", room: "picker", legacy: "sample" });
   const hit = matchRoute(pathOnly, search || inline) || blankRoute({ unknown: true });
   // Old player links were `?asset=<id>` on the page you were already on.
   const assetId = sleeperIdFrom(params.get("asset") || "");
@@ -360,7 +361,6 @@ export function pathForPlace({
   landing = false,
   playersBoard = false,
   format = "",
-  sample = false,
 } = {}) {
   const placePage = page || tab;
   const placeRoom = room || view;
@@ -384,18 +384,7 @@ export function pathForPlace({
   else if (leagueSegment && LEAGUE_ID.test(String(leagueId || ""))) {
     href = urlPath("l", leagueId, leagueSegment);
   }
-  return keepSample(rememberLeague(href, leagueId), sample && LEAGUE_ID.test(String(leagueId || "")));
-}
-
-// The sample league is a real Sleeper league shown with invented managers.
-// Its address carries ?sample=1 so a reload or a shared link stays the sample
-// instead of showing the real usernames.
-function keepSample(path, sample) {
-  if (!path || !sample) return path;
-  const [pathname, query = ""] = path.split("?");
-  const params = new URLSearchParams(query);
-  params.set("sample", "1");
-  return `${pathname}?${params.toString()}`;
+  return rememberLeague(href, leagueId);
 }
 
 // The phone menu sits on top of a player card. Back closes that layer only.

@@ -96,10 +96,10 @@ export function createLeagueLoadRecovery({ isCurrent, load, onlineTarget } = {})
   onlineTarget?.addEventListener?.("online", onOnline);
 
   return {
-    fail({ leagueId, token, sample = false } = {}) {
+    fail({ leagueId, token } = {}) {
       const id = String(leagueId || "");
       if (!shouldRecoverLeagueLoad({ leagueId: id, token, isCurrent })) return false;
-      pending = { leagueId: id, token, sample: Boolean(sample) };
+      pending = { leagueId: id, token };
       return true;
     },
     clear() {

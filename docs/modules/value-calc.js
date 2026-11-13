@@ -330,7 +330,7 @@ export function valueCalcVerdict(leftTotal, rightTotal, { leftCount = null, righ
   return { left, right, gap, pct, label, tone };
 }
 
-// Seat wording for a sample league. The published line is verdictCopy, which stays Give/Get.
+// Seat wording ("Favors you"). The published line is verdictCopy, which stays Give/Get.
 export function draftVerdictLabel(verdict, { them = "them", getFavor = "your", favorName = "" } = {}) {
   const label = String(verdict?.label || "");
   const other = String(them || "them");

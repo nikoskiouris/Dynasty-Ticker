@@ -18,7 +18,6 @@ export function emptyDealBoard() {
 export function createState() {
   return {
     leagueId: "",
-    viewingSample: false,
     leagueName: "",
     league: null,
     users: [],
