@@ -1204,6 +1204,7 @@ function renderActivePage() {
       ? renderLeagueHistory(archive, {
           valueNames: state.valueBundles?.names || state.valueNameMap || {},
           values: state.valueBundles?.sf?.values || state.values || {},
+          players: state.players || {},
         })
       : `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
         <p role="status">${escapeHtml(archiveErrorMessage || archiveProgressMessage || "Loading seasons…")}</p>`;
