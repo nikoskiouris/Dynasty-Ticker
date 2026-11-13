@@ -62,3 +62,7 @@ In the **same PR/commit as the work**:
 1. `git mv tickets/todo/<this file> tickets/done/`.
 2. Add a line at the very top, under the title: `Done: <YYYY-MM-DD>, <PR or commit link>`. Change **Status** to `Done`.
 3. Move this ticket's row in `tickets/README.md` from **To do** to **Done**, and point its link at `done/`.
+
+## Implementation checkpoint · 2026-11-13 (continued)
+
+Shared archive loader now reuses the desk's preloaded season cores, exposes its loaded scope, caches transaction history, and loads draft outcomes for Recent Trades (commits `8c19f31`, `9f47c77`, `d4dc696`). Historical Data triggers a full archive load and reports partial errors. Still **Open**: confirm fetch counts against Sleeper in Network, reload/offline persistence, partial failures, cancellation, and desktop/phone/iPad behavior. No automated tests were added or run; browser verification/demo video pending.
