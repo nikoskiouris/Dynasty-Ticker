@@ -1,4 +1,4 @@
-import { escapeHtml, formatNumber } from "./html.js";
+import { escapeHtml, formatNumber, ownerPossessive } from "./html.js";
 import { gradeTrade, tradeAssets } from "./trade-grade.js";
 import { tradeHref } from "./history-route.js";
 
@@ -6,11 +6,17 @@ const text = (value) => String(value ?? "").trim();
 const fullName = (raw) => text(raw?.full_name || [raw?.first_name, raw?.last_name].filter(Boolean).join(" "));
 const playerLabel = (playerId, { valueNames = {}, players = {} } = {}) =>
   text(valueNames[`player:${playerId}`] || fullName(players[playerId]) || `Player ${playerId}`);
+// "2026 1st (Burger King's pick)": a pick is named by its original team, not a roster number.
+const pickLabel = (asset, context) => {
+  const base = asset.name || asset.assetId;
+  if (!asset.originalRosterId || !context.entry) return base;
+  return `${base} (${ownerPossessive(rosterLabel(asset.originalRosterId, context.entry))} pick)`;
+};
 const assetLabel = (asset, context) => asset.kind === "player"
   ? playerLabel(asset.playerId, context)
   : asset.draftedPlayerId
-    ? `${asset.name || asset.assetId} → ${playerLabel(asset.draftedPlayerId, context)} (drafted)`
-    : asset.name || asset.assetId;
+    ? `${pickLabel(asset, context)} → ${playerLabel(asset.draftedPlayerId, context)} (drafted)`
+    : pickLabel(asset, context);
 
 function rosterLabel(rosterId, entry) {
   const roster = (entry?.rosters || []).find((row) => text(row.roster_id) === text(rosterId));
@@ -32,7 +38,7 @@ export function completedLeagueTrades(trades = []) {
 export function renderTradeLogRows({
   trades = [], entry = null, archive = null, values = {}, valueNames = {}, players = {}, query = "", team = "",
 } = {}) {
-  const context = { valueNames, players };
+  const context = { valueNames, players, entry };
   const searchable = text(query).toLowerCase();
   const rows = completedLeagueTrades(trades).filter((trade) => {
     const snapshot = tradeAssets(trade);

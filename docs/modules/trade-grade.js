@@ -98,7 +98,7 @@ export function tradeAssets(trade) {
       kind: "pick",
       assetId: `pick:${season}:r${round}:any`,
       season, round, originalRosterId: id(pick.roster_id), sender, receiver,
-      name: `${season} ${ordinal(round)} (original roster ${id(pick.roster_id) || "unknown"})`,
+      name: `${season} ${ordinal(round)}`,
     });
   }
   return { rosterIds: [...rosterIds], assets };
