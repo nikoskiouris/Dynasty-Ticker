@@ -5319,8 +5319,8 @@ function paintTradeDraft() {
       <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
       <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
       <div class="calc-grid">
-        ${renderDraftPane("left", view)}
         ${renderDraftPane("right", view)}
+        ${renderDraftPane("left", view)}
       </div>
       <div id="trade-poll">${renderTradePoll(view)}</div>
       ${state.sharedEditing ? "" : `<div class="shared-trade-cta">
@@ -5346,8 +5346,8 @@ function paintTradeDraft() {
     ${renderTradeTalk()}
     <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
     <div class="calc-grid">
-      ${renderDraftPane("left", view)}
       ${renderDraftPane("right", view)}
+      ${renderDraftPane("left", view)}
     </div>
     <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
     <div id="trade-poll">${renderTradePoll(view)}</div>
@@ -5868,24 +5868,14 @@ function renderDraftNotice() {
   `;
 }
 
+function draftReceivingTeam(side, view) {
+  if (activeSharedTrade(view.draft)) return side === "right" ? "Team 1" : "Team 2";
+  const roster = side === "right" ? view.me : view.partner;
+  return roster?.manager?.teamName || roster?.manager?.displayName || (side === "right" ? "Team 1" : "Team 2");
+}
+
 function renderDraftPaneTitle(side, view) {
-  const left = side === "left";
-  // Cold /t: neutral column names, never the sender's name.
-  if (activeSharedTrade(view.draft)) return `<span class="analytics-kicker">${left ? "Give side" : "Get side"}</span>`;
-  const voice = sampleVoice();
-  let name = "";
-  if (view.basis.connected) {
-    if (left) name = view.me?.manager?.displayName || "";
-    else if (view.partner) name = `from ${view.partner.manager.displayName}`;
-  }
-  const kicker = voice
-    ? (left ? voice.youGive : "Other side")
-    : (left ? "You give" : "You get");
-  const showName = Boolean(name) && !(voice && left && name === kicker);
-  return `
-    <span class="analytics-kicker">${escapeHtml(kicker)}</span>
-    ${showName ? `<strong>${escapeHtml(name)}</strong>` : ""}
-  `;
+  return `<span class="analytics-kicker">${escapeHtml(draftReceivingTeam(side, view))} Receives</span>`;
 }
 
 // "1 player", "2 picks", "1 player & 1 pick". Players first, then picks.
@@ -5977,7 +5967,7 @@ function requestDraftPlayerNames() {
 
 function renderDraftTokens(side, view) {
   const items = view.draft[side] || [];
-  if (!items.length) return "";
+  if (!items.length) return `<p class="muted calc-empty-side">Add a player or pick to this team.</p>`;
   const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
   return items.map((rawItem) => {
     const price = view.priced.get(String(rawItem.uid));
@@ -6015,7 +6005,7 @@ function draftItemMeta(item) {
     return season ? `${season} pick` : "Pick";
   }
   const record = playerRecordFor(facePlayerId(item));
-  return [record.position, record.team].filter(Boolean).join(" · ");
+  return [record.position, record.age ? `${record.age} years` : "", record.team].filter(Boolean).join(" · ");
 }
 
 // Per-piece breakdown, shown under the verdict's "Why?".
@@ -6393,7 +6383,7 @@ function renderDraftVerdict(view) {
       <div class="calc-actions">
         ${sharedView ? `<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>` : ""}
         ${bothSides && draftShareCode(view) ? `<button type="button" class="ghost-btn btn-sm calc-share" data-action="trade-share">Share trade</button>` : ""}
-        ${sharedView ? "" : `<button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>`}
+        ${sharedView ? "" : `<button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>`}
         <p class="calc-share-status" role="status" aria-live="polite"></p>
       </div>
     </section>

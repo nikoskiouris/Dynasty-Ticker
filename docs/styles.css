@@ -8559,3 +8559,15 @@ body.launch-open .workspace { display:block; }
 .league-winner { margin-top: 1rem; overflow-wrap: anywhere; text-align: center; }
 .league-hub-header { overflow-wrap: anywhere; }
 @media (max-width: 480px) { .league-hub-grid { grid-template-columns: 1fr; } }
+/* Trade Calc: receiving teams keep the original give/get storage semantics. */
+.calc-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+.calc-pane { min-width:0; }
+.calc-selected .selected-token { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; column-gap:10px; }
+.calc-selected .selected-token-label { min-width:0; grid-column:1; }
+.calc-selected .selected-token-meta { grid-column:1; padding-left:42px; font-size:.75rem; }
+.calc-selected .selected-token-price { grid-column:2; grid-row:1 / span 2; white-space:nowrap; }
+.calc-selected .selected-token-remove { grid-column:3; grid-row:1 / span 2; }
+.calc-selected .token-face-blank { display:none; }
+.calc-selected .player-name-text { overflow-wrap:anywhere; }
+.calc-empty-side { padding:16px 0; }
+@media (max-width:600px) { .calc-grid { grid-template-columns:1fr; gap:16px; } }
