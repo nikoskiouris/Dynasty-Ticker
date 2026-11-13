@@ -8562,13 +8562,7 @@ body.launch-open .workspace { display:block; }
 /* Trade Calc: receiving teams keep the original give/get storage semantics. */
 .calc-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
 .calc-pane { min-width:0; }
-.calc-selected .selected-token { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; column-gap:10px; }
-.calc-selected .selected-token-label { min-width:0; grid-column:1; }
-.calc-selected .selected-token-meta { grid-column:1; padding-left:42px; font-size:.75rem; }
-.calc-selected .selected-token-price { grid-column:2; grid-row:1 / span 2; white-space:nowrap; }
-.calc-selected .selected-token-remove { grid-column:3; grid-row:1 / span 2; }
-.calc-selected .token-face-blank { display:none; }
-.calc-selected .player-name-text { overflow-wrap:anywhere; }
+/* Asset rows use the shared face / name over meta / value / × grid (.calc-pane .selected-token). */
 .calc-empty-side { padding:16px 0; }
 @media (max-width:600px) { .calc-grid { grid-template-columns:1fr; gap:16px; } }
 .trade-fairness { grid-column:1 / -1; width:100%; padding:24px 6px 12px; }
@@ -8611,6 +8605,8 @@ body.launch-open .workspace { display:block; }
 
 /* Historical Data record-book cards (ticket 040). Tables scroll independently. */
 .league-history-page { min-width: 0; }
+/* The room grid sizes its column to content; let the history page shrink so wide tables scroll inside .league-history-scroll, not the page. */
+.room > :has(> .league-history-page) { min-width: 0; }
 .league-history-page > .workspace-panel { margin-top: 1rem; min-width: 0; }
 .league-history-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
 .league-history-table { width: 100%; border-collapse: collapse; white-space: nowrap; text-align: left; }
