@@ -1201,7 +1201,7 @@ function renderActivePage() {
     const host = document.querySelector("#league-history-content");
     const archive = leagueArchive.snapshot;
     if (host) host.innerHTML = archiveCovers(archive, "all", state.leagueId)
-      ? renderLeagueHistory(archive)
+      ? renderLeagueHistory(archive, { valueNames: state.valueBundles?.names || state.valueNameMap || {} })
       : `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
         <p role="status">${escapeHtml(archiveErrorMessage || archiveProgressMessage || "Loading seasons…")}</p>`;
     return;
