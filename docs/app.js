@@ -2,6 +2,7 @@ import { mountSiteMenu } from "./modules/site-menu.js";
 import { renderToolPicker, moveLeagueControls } from "./modules/tool-picker.js";
 import { renderLeagueHub } from "./modules/league-hub.js";
 import { leagueArchive } from "./modules/league-archive.js";
+import { renderTradeLog, renderTradeLogRows } from "./modules/trade-log.js";
 import { renderTradeFairness } from "./modules/trade-fairness.js";
 import { safeStorage } from "./modules/safe-storage.js";
 import { forgetLastLeague, lastLeagueMarkup, readLastLeague, writeLastLeague } from "./modules/last-league.js";
@@ -1040,6 +1041,107 @@ function syncPlayersBoardFlag() {
 }
 window.addEventListener("popstate", () => syncPlayersBoardFlag());
 
+// The archive is loaded only when its data is needed. A single in-flight
+// request owns the UI; changing leagues invalidates stale responses.
+let archiveRequest = null;
+let archiveErrorKey = "";
+let archiveErrorMessage = "";
+let archiveProgressMessage = "";
+let tradeLogSearch = "";
+let tradeLogSeason = "";
+
+function archiveCovers(snapshot, scope, leagueId) {
+  return String(snapshot?.leagueId || "") === String(leagueId)
+    && (snapshot.scope === "all" || snapshot.scope === scope);
+}
+
+function ensureLeagueArchive(scope) {
+  const leagueId = String(state.leagueId || "");
+  if (!leagueId || archiveCovers(leagueArchive.snapshot, scope, leagueId)) return;
+  if (archiveRequest?.leagueId === leagueId
+    && (archiveRequest.scope === "all" || archiveRequest.scope === scope)) return;
+  const key = `${leagueId}:${scope}`;
+  if (archiveErrorKey === key) return;
+  archiveProgressMessage = scope === "all" ? "Loading league history…" : "Loading league trades…";
+  const promise = leagueArchive.load(leagueId, {
+    scope, nflState: state.nflState, preloadedSeasons: state.leagueHistory,
+    onProgress(progress) {
+      if (String(state.leagueId || "") !== leagueId) return;
+      archiveProgressMessage = progress.message || archiveProgressMessage;
+      if (state.activePage === "league" && getRoom("league") === "history") requestActivePageRender();
+    },
+  });
+  archiveRequest = { leagueId, scope, promise };
+  promise.then((archive) => {
+    if (String(state.leagueId || "") !== leagueId || archiveRequest?.promise !== promise) return;
+    state.transactions = archive.transactions?.[String(state.league?.season)] || [];
+    state.transactionsLoaded = Boolean(archive.transactions?.[String(state.league?.season)]);
+    archiveErrorMessage = "";
+    requestActivePageRender();
+  }).catch((error) => {
+    if (String(state.leagueId || "") !== leagueId || archiveRequest?.promise !== promise) return;
+    if (error?.name === "AbortError") return;
+    archiveErrorKey = key;
+    archiveErrorMessage = "Sleeper trade history could not load. Refresh the page to retry.";
+    console.warn("League archive unavailable", error);
+    requestActivePageRender();
+  }).finally(() => {
+    if (archiveRequest?.promise === promise) archiveRequest = null;
+  });
+}
+
+function renderLeagueTradePage() {
+  const host = document.querySelector("#league-trades-content");
+  if (!host) return;
+  ensureLeagueArchive("recent");
+  const archive = leagueArchive.snapshot;
+  const ready = archiveCovers(archive, "recent", state.leagueId);
+  if (!ready) {
+    host.innerHTML = `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
+      <p role="status">${escapeHtml(archiveErrorMessage || archiveProgressMessage || "Loading league trades…")}</p>`;
+    return;
+  }
+  const seasons = archive.seasons.slice(0, archive.scope === "all" ? undefined : 2)
+    .map((entry) => String(entry.season));
+  const season = seasons.includes(tradeLogSeason) ? tradeLogSeason : seasons[0];
+  const entry = archive.seasons.find((item) => String(item.season) === season);
+  host.innerHTML = renderTradeLog({
+    archive, entry, season, seasons,
+    trades: archive.transactions?.[season] || [],
+    values: state.valueBundles?.sf?.values || state.values,
+    valueNames: state.valueBundles?.names || state.valueNameMap,
+    players: state.players,
+    query: tradeLogSearch,
+  });
+}
+
+function redrawLeagueTradeRows() {
+  const archive = leagueArchive.snapshot;
+  if (!archiveCovers(archive, "recent", state.leagueId)) return;
+  const seasons = archive.seasons.map((entry) => String(entry.season));
+  const season = seasons.includes(tradeLogSeason) ? tradeLogSeason : seasons[0];
+  const entry = archive.seasons.find((item) => String(item.season) === season);
+  const host = document.querySelector("#league-trade-results");
+  if (host) host.innerHTML = renderTradeLogRows({
+    archive, entry, query: tradeLogSearch,
+    trades: archive.transactions?.[season] || [],
+    values: state.valueBundles?.sf?.values || state.values,
+    valueNames: state.valueBundles?.names || state.valueNameMap,
+    players: state.players,
+  });
+}
+
+document.addEventListener("input", (event) => {
+  if (event.target?.id !== "league-trade-search") return;
+  tradeLogSearch = event.target.value || "";
+  redrawLeagueTradeRows(); // Keep the search input mounted and focused.
+});
+document.addEventListener("change", (event) => {
+  if (event.target?.id !== "league-trade-season") return;
+  tradeLogSeason = event.target.value || "";
+  redrawLeagueTradeRows();
+});
+
 function renderActivePage() {
   pageRenderQueue.settle();
   // The full players board lives on /players only. Check a trade adds players
@@ -1076,6 +1178,17 @@ function renderActivePage() {
         ${model ? `${renderStandingsPanel(model, sim)}${renderPlayoffOddsPanel(model, sim)}`
           : '<p role="status">Standings are loading from Sleeper…</p>'}`;
     }
+    return;
+  }
+  if (page === "league" && room === "trades") { renderLeagueTradePage(); return; }
+  if (page === "league" && room === "history") {
+    ensureLeagueArchive("all");
+    const host = document.querySelector("#league-history-content");
+    const archive = leagueArchive.snapshot;
+    if (host) host.innerHTML = `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
+      <p role="status">${escapeHtml(archiveCovers(archive, "all", state.leagueId)
+        ? `${archive.seasons.length} seasons loaded. Record book and awards are being built.`
+        : archiveErrorMessage || archiveProgressMessage || "Loading seasons…")}</p>`;
     return;
   }
   if (page === "league" && room !== "team") return;
@@ -3175,6 +3288,12 @@ async function loadLeagueById(leagueId, { fromHistory = false, sample = false } 
 }
 
 function unloadLeague() {
+  leagueArchive.cancel();
+  archiveRequest = null;
+  archiveErrorKey = "";
+  archiveErrorMessage = "";
+  tradeLogSearch = "";
+  tradeLogSeason = "";
   leagueLoader.drop();
   stopLivePolling();
   stopLeagueLoadingUi();
@@ -3276,6 +3395,12 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       state.awardsWeek = null;
     }
     franchiseIndexCache = { key: "", index: null };
+    leagueArchive.cancel();
+    archiveRequest = null;
+    archiveErrorKey = "";
+    archiveErrorMessage = "";
+    tradeLogSearch = "";
+    tradeLogSeason = "";
     state.transactions = [];
     state.transactionsLoaded = false;
     state.transactionsFailed = false;
