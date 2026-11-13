@@ -8551,3 +8551,11 @@ body.launch-open .workspace { display:block; }
  .player-detail-value { padding:16px; }
  .player-comparables { grid-template-columns:1fr; }
 }
+
+/* League hub: the four destinations stay within the viewport on phones. */
+.league-hub-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.league-hub-grid a { display: block; color: inherit; text-decoration: none; min-width: 0; }
+.league-hub-grid a:hover, .league-hub-grid a:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.league-winner { margin-top: 1rem; overflow-wrap: anywhere; text-align: center; }
+.league-hub-header { overflow-wrap: anywhere; }
+@media (max-width: 480px) { .league-hub-grid { grid-template-columns: 1fr; } }

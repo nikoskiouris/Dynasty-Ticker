@@ -52,3 +52,9 @@ In the **same PR/commit as the work**:
 1. `git mv tickets/todo/<this file> tickets/done/`.
 2. Add a line at the very top, under the title: `Done: <YYYY-MM-DD>, <PR or commit link>`. Change **Status** to `Done`.
 3. Move this ticket's row in `tickets/README.md` from **To do** to **Done**, and point its link at `done/`.
+
+## Implementation checkpoint · 2026-11-13
+
+Hub rendering is wired to `/l/:id` with four linked destinations, current team context, actual league size and fixed value basis, change-league link, recent-trade count and a recent winner derived only from a completed season's `p:1` winners-bracket match. A missing bracket never becomes an invented champion. Archive loading is shared with ticket 034.
+
+Browser layout/navigation, two-league champion spot checks and the required demo remain pending because the available cloud browser cannot reach the workspace preview. No automated tests were added or run.

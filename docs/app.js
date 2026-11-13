@@ -1,5 +1,7 @@
 import { mountSiteMenu } from "./modules/site-menu.js";
 import { renderToolPicker, moveLeagueControls } from "./modules/tool-picker.js";
+import { renderLeagueHub } from "./modules/league-hub.js";
+import { leagueArchive } from "./modules/league-archive.js";
 import { safeStorage } from "./modules/safe-storage.js";
 import { forgetLastLeague, lastLeagueMarkup, readLastLeague, writeLastLeague } from "./modules/last-league.js";
 import { BUY_SELL_MIN_GAMES, buildBuySellLists } from "./modules/buy-sell.js";
@@ -1057,6 +1059,16 @@ function renderActivePage() {
   const room = getRoom(page);
   if (page === "home") { renderToolPicker(document.querySelector("#home-page-content")); return; }
   if (page === "leagues") { moveLeagueControls(document.querySelector("#leagues-page-content")); return; }
+  if (page === "league" && room === "hub") {
+    const archive = leagueArchive.snapshot;
+    const host = document.querySelector("#league-hub-content");
+    if (host) host.innerHTML = renderLeagueHub({ league: state.league, leagueId: state.leagueId,
+      seasons: archive?.leagueId === state.leagueId ? archive.seasons : state.leagueHistory,
+      myTeam: managerForRosterId(connectedRosterId())?.teamName || managerForRosterId(connectedRosterId())?.displayName || "",
+      model: getSeasonModel(), transactions: state.transactions, loading: !archive,
+    });
+    return;
+  }
   if (page === "league" && room !== "team") return;
   if (page === "trades") {
     renderTradesRoom(room);
