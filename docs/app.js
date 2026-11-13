@@ -1051,6 +1051,7 @@ let archiveProgressMessage = "";
 let tradeLogSearch = "";
 let tradeLogSeason = "";
 let tradeLogTeam = "";
+let showLineupAwards = false;
 
 function archiveCovers(snapshot, scope, leagueId) {
   return String(snapshot?.leagueId || "") === String(leagueId)
@@ -1205,6 +1206,7 @@ function renderActivePage() {
           valueNames: state.valueBundles?.names || state.valueNameMap || {},
           values: state.valueBundles?.sf?.values || state.values || {},
           players: state.players || {},
+          showLineup: showLineupAwards,
         })
       : `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
         <p role="status">${escapeHtml(archiveErrorMessage || archiveProgressMessage || "Loading seasons…")}</p>`;
@@ -3314,6 +3316,7 @@ function unloadLeague() {
   tradeLogSearch = "";
   tradeLogSeason = "";
   tradeLogTeam = "";
+  showLineupAwards = false;
   leagueLoader.drop();
   stopLivePolling();
   stopLeagueLoadingUi();
@@ -3422,6 +3425,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     tradeLogSearch = "";
     tradeLogSeason = "";
     tradeLogTeam = "";
+    showLineupAwards = false;
     state.transactions = [];
     state.transactionsLoaded = false;
     state.transactionsFailed = false;
@@ -7389,6 +7393,13 @@ function handleWorkspaceClick(event) {
       state.ranks.selectedId = "";
       syncPlayerPageFlag();
       openShop(id);
+      break;
+    }
+    case "compute-lineup-awards": {
+      if (state.activePage === "league" && getRoom("league") === "history") {
+        showLineupAwards = true;
+        requestActivePageRender();
+      }
       break;
     }
     case "standings-view": {
