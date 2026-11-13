@@ -2,6 +2,8 @@
 
 Done: 2026-11-12, [#222](https://github.com/nikoskiouris/Dynasty-Ticker/pull/222) (landed as commit [894d018](https://github.com/nikoskiouris/Dynasty-Ticker/commit/894d0186e9ba3d87f8889cd0dbbd62e55be68886))
 
+Superseded: 2026-11-13. The owner removed this feature (ticket 045). Restore it from git at df93556; see the 045 restore table.
+
 ## Status
 Done
 
@@ -31,3 +33,6 @@ Call already says “Shop veterans 27+ for firsts and young players” with no n
 - 2–6 named assets on my roster, each with a reason and a return type (first, young WR, etc.).
 - List respects the desk call (tank vs all-in).
 - Tapping a name can jump into Find deals / shop for that asset.
+
+## Superseded
+Owner decision, Nov 13, 2026: features the redesign sketches do not show are deleted for now (ticket [045](045-delete-features-not-in-sketches.md)). This feature shipped as linked above, then was removed in [836aabe](https://github.com/nikoskiouris/Dynasty-Ticker/commit/836aabef15100e37fe4daab726bfa9cf6ab7cb2c). Restore with `git show df93556:<path>` using the 045 restore table.

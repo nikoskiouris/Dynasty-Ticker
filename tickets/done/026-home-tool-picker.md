@@ -1,6 +1,8 @@
 # 026 · Home page: "Which tool to use?" tool picker
 
-**Status:** Open · **Priority:** P0 · **Size:** S · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-13, [487ffcc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/487ffcc65ddf5d5dd42b7d35ec6bac21c88becc8), [c81aa5d](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c81aa5d7162a94f59092191505c96a3e3bf9d56c), [6dd4c3c](https://github.com/nikoskiouris/Dynasty-Ticker/commit/6dd4c3c3ea43ab15b21c6ebabc199745f7993fcc)
+
+**Status:** Done · **Priority:** P0 · **Size:** S · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 
@@ -53,3 +55,9 @@ In the **same PR/commit as the work**:
 1. `git mv tickets/todo/<this file> tickets/done/`.
 2. Add a line at the very top, under the title: `Done: <YYYY-MM-DD>, <PR or commit link>`. Change **Status** to `Done`.
 3. Move this ticket's row in `tickets/README.md` from **To do** to **Done**, and point its link at `done/`.
+
+## Done notes (2026-11-13)
+
+Built by ChatGPT in 487ffcc/c81aa5d. Chief Of Staff gave the resume link its own id (6dd4c3c); the old hidden landing also had `#landing-resume`.
+
+Manual QA (headless Chromium, 390/820/1280 px): `/` shows the title, "Which tool to use?", three cards and the 12-team SF PPR footnote and nothing else; each card opens its tool and Back returns Home; after opening a league, "Back to Try Hard or Die Hard" shows and opens `/l/1315165104303513600`; the page paints with no spinner; no console errors. Screenshot: `/workspace/qa-045/home_resume_390.png`.

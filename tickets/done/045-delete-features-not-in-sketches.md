@@ -1,6 +1,8 @@
 # 045 · Delete features the sketches don't show (Find a trade, buy-low/sell-high, win-now, hot on Sleeper, sample league, and the rest)
 
-**Status:** Open · **Priority:** P1 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-13, [836aabe](https://github.com/nikoskiouris/Dynasty-Ticker/commit/836aabef15100e37fe4daab726bfa9cf6ab7cb2c), [d02415e](https://github.com/nikoskiouris/Dynasty-Ticker/commit/d02415e70225897fe63648cd3c5754405a153571), [300d220](https://github.com/nikoskiouris/Dynasty-Ticker/commit/300d2209e37490ce5c8c52776285402889e7ed40), [c48cfd8](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c48cfd84fc43c4a4d4d7afda7f693fe1e7302ca3), [96401dc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/96401dcf2786a4f2fb24c83956f993ac5529f3ab)
+
+**Status:** Done · **Priority:** P1 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / owner decision
 
@@ -77,3 +79,30 @@ In the **same PR/commit as the work**:
 1. `git mv tickets/todo/<this file> tickets/done/`.
 2. Add a line at the very top, under the title: `Done: <YYYY-MM-DD>, <PR or commit link>`. Change **Status** to `Done`.
 3. Move this ticket's row in `tickets/README.md` from **To do** to **Done**, and point its link at `done/`.
+
+## Done notes (2026-11-13)
+
+Owner decision (Nov 13, 2026) overrides AGENTS.md "Keep capabilities" for these features. Share a trade is kept and was checked end to end: Share → link copied → `/t/<code>` opens the same trade and verdict. The Netlify Blobs store "trade-polls" was **not** touched; deleting that data needs Niko.
+
+### Restore table
+
+Every feature below last existed at **df93556** (`git show df93556:<path>`).
+
+| Feature | Removed in | Files / functions |
+| --- | --- | --- |
+| Find a trade (`/l/:id/ideas`) | 836aabe | `docs/modules/trade-match.js`; find room in `docs/ui/trades.html`; app.js match/partner/idea renderers; `PAGE_ROOMS.trades` "find"; jobs.js find job; verdict-copy `ideaLimitMore`/`ideaGapMore` |
+| Shop a player | 836aabe | `docs/modules/shop-player.js`; app.js shop panel/results |
+| Buy-low / sell-high (004) | 836aabe | `docs/modules/buy-sell.js`; app.js `renderBuySell` |
+| Win-now targets (005/008) | 836aabe | `docs/modules/win-now.js` |
+| Move on from (007) | 836aabe | `docs/modules/move-on.js`; `docs/ui/league.html` move-on card |
+| Your next move | 836aabe | `docs/modules/next-move.js` |
+| Contend/rebuild window call | 836aabe | `docs/modules/window-call.js`; league-format `windowCallHorizon` |
+| Sleeper insight cards / power hero | 836aabe | roster-markup `renderSleeperInsight`, `renderPowerHero`, `badgeMeaning`; team-score section |
+| Crowd call poll (023) | d02415e | `docs/modules/trade-poll.js`, `netlify/functions/trade-poll.js`, `netlify/lib/trade-poll.js`, `/api/trade-poll` in `netlify.toml`, `poll_voted` analytics |
+| Landing example trade, Hot on Sleeper, plain-words box, mock fold | 300d220 | `docs/launch-early.js`, `docs/modules/launch-landing.js`, landing talk form and trend column in `index.html`/`ui/landing.html` |
+| Sample league | c48cfd8 | `docs/modules/sample-league.js`, `docs/modules/sample-voice.js`, `SAMPLE_LEAGUE_ID`, `state.viewingSample`, parse `sampleRequested`, history-route `keepSample`, site.js sample helpers, sample banner/chips/links in html |
+| CSS for all of the above | 96401dc | `docs/styles.css` |
+
+Kept and still used: `buildDraftImpact` and `enrichTradeIdea` (team impact), `formatPowerGrade`, `buildPowerBadges`, `calculateTradeXp` and `buildTradePowerBadges` (power profiles). `countStartableAtPosition` moved to `lineup.js` and `ownerPossessive` to `html.js`. No rookie-mock script or workflow existed.
+
+Manual QA (headless Chromium, 390/820/1280 px, 13 paths, with real league 1315165104303513600 loaded): none of the deleted features or any "sample" text shows; `?sample=1` lands on `/leagues`; `/l/ID/ideas` lands on the hub; no request to `trade-poll`; no console errors; no sideways scroll. Trade Calc with the league connected still shows team impact. Line counts are in 043's notes. Demo: `/workspace/qa-045/video/045-deleted-features-1280.webm`, with screenshots in `/workspace/qa-045/`.

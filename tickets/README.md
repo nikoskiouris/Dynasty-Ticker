@@ -45,7 +45,7 @@ Repo policy applies: **no unit tests and no automated test suites**. Acceptance 
 
 - **"Give real trade advice" (030):** use existing logic only. AI comes later and is out of scope for now.
 - **Rankings table (031):** has a **Value** column and **keeps picks**. **No 1QB toggle.**
-- **Features the sketches don't show** are **deleted for now** (ticket [045](todo/045-delete-features-not-in-sketches.md)): Find a trade, shop a player, buy-low/sell-high, win-now targets, move-on, next move, the contend/rebuild call, hot on Sleeper, the landing example trade, crowd call, and the **sample league**. Restore any of them from git history; 045's PR records the last SHA for each.
+- **Features the sketches don't show** are **deleted for now** (ticket [045](done/045-delete-features-not-in-sketches.md)): Find a trade, shop a player, buy-low/sell-high, win-now targets, move-on, next move, the contend/rebuild call, hot on Sleeper, the landing example trade, crowd call, and the **sample league**. Restore any of them from git history; 045's PR records the last SHA for each.
 - **Share a trade is kept**: the Share button, `/t/` links and the share card.
 - **One value system:** 12-team Superflex PPR dynasty only (ticket 044).
 - **Rankings footnote (031):** says "updated daily" as written, with no caveat.
@@ -56,9 +56,9 @@ Repo policy applies: **no unit tests and no automated test suites**. Acceptance 
 | --- | --- | --- | --- | --- |
 | 1 | [024](todo/024-redesign-routes-and-page-shells.md) Routes and page shells | L | none | none; do it first |
 | 1b | [044](todo/044-one-value-system-12-team-sf-ppr.md) One value system: 12-team SF PPR | L | 024 | 045 |
-| 1b | [045](todo/045-delete-features-not-in-sketches.md) Delete features the sketches don't show (incl. sample league) | L | 024 | 044 |
-| 2 | [025](todo/025-global-slide-out-menu.md) Global menu | M | 024 | 026, 027, 031, 033 |
-| 2 | [026](todo/026-home-tool-picker.md) Home tool picker | S | 024, 025, 044, 045 | 027, 031, 033 |
+| 1b | [045](done/045-delete-features-not-in-sketches.md) Delete features the sketches don't show (incl. sample league) | L | 024 | 044 |
+| 2 | [025](done/025-global-slide-out-menu.md) Global menu | M | 024 | 026, 027, 031, 033 |
+| 2 | [026](done/026-home-tool-picker.md) Home tool picker | S | 024, 025, 044, 045 | 027, 031, 033 |
 | 2 | [027](todo/027-trade-calc-two-column-layout.md) Trade Calc columns | M | 024, 044 | 025, 031, 033 |
 | 2 | [031](todo/031-player-rankings-table.md) Player Rankings table | M | 024, 025, 044 | 027, 033 |
 | 2 | [033](todo/033-league-history-username-and-league-picker.md) Username → league | M | 024, 025 | 027, 031 |
@@ -75,7 +75,7 @@ Repo policy applies: **no unit tests and no automated test suites**. Acceptance 
 | 6 | [040](todo/040-historical-data-page-all-time-records.md) Historical Data page | L | 034, 035, 036 | 041 (after its shell) |
 | 6 | [041](todo/041-awards-manager-trader-drafter.md) Awards I | L | 034, 038, 040, 044 | 042 |
 | 6 | [042](todo/042-awards-lineup-setter-and-waivers.md) Awards II | M | 034, 040 | 041 |
-| 7 | [043](todo/043-retire-old-navigation-and-redirects.md) Retire old nav + redirects | M | 024–042, 044, 045 | none; do it last |
+| 7 | [043](done/043-retire-old-navigation-and-redirects.md) Retire old nav + redirects | M | 024–042, 044, 045 | none; do it last |
 
 Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one agent. Nearly every ticket touches `docs/app.js`. Keep new pages in their own `docs/modules/*.js` files to limit merge conflicts.
 
@@ -84,8 +84,6 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 | ID | Ticket | Priority | Size |
 | --- | --- | --- | --- |
 | [024](todo/024-redesign-routes-and-page-shells.md) | Redesign foundation: new page map, routes, and empty page shells | P0 | L |
-| [025](todo/025-global-slide-out-menu.md) | Global slide-out menu (hamburger drawer) on every page | P0 | M |
-| [026](todo/026-home-tool-picker.md) | Home page: "Which tool to use?" tool picker | P0 | S |
 | [027](todo/027-trade-calc-two-column-layout.md) | Trade Calc: "Team 1 Receives" / "Team 2 Receives" two-column layout | P0 | M |
 | [028](todo/028-trade-calc-smart-search.md) | Trade Calc: one "smart search bar" at the top | P1 | M |
 | [029](todo/029-trade-calc-fairness-scale.md) | Trade Calc: symmetric fairness scale (Lopsided … Even … Lopsided) | P0 | M |
@@ -102,9 +100,7 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 | [040](todo/040-historical-data-page-all-time-records.md) | Historical Data page: "<League Name> All-Time" records and timelines | P1 | L |
 | [041](todo/041-awards-manager-trader-drafter.md) | All-time awards I: best/worst manager, trader, drafter, and the all-time best/worst trade | P1 | L |
 | [042](todo/042-awards-lineup-setter-and-waivers.md) | All-time awards II: best/worst lineup setter and best/worst waiver work | P2 | M |
-| [043](todo/043-retire-old-navigation-and-redirects.md) | Retire the three-tab desk: old nav, rail, redirects, clean-up | P1 | M |
 | [044](todo/044-one-value-system-12-team-sf-ppr.md) | One value system: 12-team Superflex PPR dynasty only | P0 | L |
-| [045](todo/045-delete-features-not-in-sketches.md) | Delete features the sketches don't show (Find a trade, buy-low/sell-high, win-now, hot on Sleeper, and the rest) | P1 | L |
 
 ## Done
 
@@ -113,10 +109,10 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 | [001](done/001-weekly-player-value.md) | Weekly player value from matchup and usage | P0 | 2026-09-18, [#57](https://github.com/nikoskiouris/Dynasty-Ticker/pull/57) |
 | [002](done/002-sit-start.md) | Sit / start | P0 | 2026-09-20, [#60](https://github.com/nikoskiouris/Dynasty-Ticker/pull/60) |
 | [003](done/003-future-dynasty-rankings.md) | Future dynasty rankings: names one year out, not pick labels | P0 | 2026-09-20, [#61](https://github.com/nikoskiouris/Dynasty-Ticker/pull/61) |
-| [004](done/004-buy-low-sell-high.md) | Buy-low and sell-high targets | P0 | 2026-11-12, [#221](https://github.com/nikoskiouris/Dynasty-Ticker/pull/221) (landed as commit [88060d7](https://github.com/nikoskiouris/Dynasty-Ticker/commit/88060d7906df814a09a7e46f066dcf96b19a35a0)) |
-| [005](done/005-win-now-targets.md) | Win-now targets inside this league | P1 | 2026-11-12, [#223](https://github.com/nikoskiouris/Dynasty-Ticker/pull/223) (landed as commit [e34d44f](https://github.com/nikoskiouris/Dynasty-Ticker/commit/e34d44ffd8da5d7114d551198a44096fdc3073cd)) |
-| [007](done/007-assets-to-move-on.md) | Assets to move on from for capital | P1 | 2026-11-12, [#222](https://github.com/nikoskiouris/Dynasty-Ticker/pull/222) (landed as commit [894d018](https://github.com/nikoskiouris/Dynasty-Ticker/commit/894d0186e9ba3d87f8889cd0dbbd62e55be68886)) |
-| [008](done/008-aging-stars-on-bad-teams.md) | Target aging stars on tanking teams in this league | P1 | 2026-11-12, [#223](https://github.com/nikoskiouris/Dynasty-Ticker/pull/223) (landed as commit [e34d44f](https://github.com/nikoskiouris/Dynasty-Ticker/commit/e34d44ffd8da5d7114d551198a44096fdc3073cd)) |
+| [004](done/004-buy-low-sell-high.md) | Buy-low and sell-high targets | P0 | 2026-11-12, [#221](https://github.com/nikoskiouris/Dynasty-Ticker/pull/221) (landed as commit [88060d7](https://github.com/nikoskiouris/Dynasty-Ticker/commit/88060d7906df814a09a7e46f066dcf96b19a35a0)). Feature removed 2026-11-13 (045); restore from df93556 |
+| [005](done/005-win-now-targets.md) | Win-now targets inside this league | P1 | 2026-11-12, [#223](https://github.com/nikoskiouris/Dynasty-Ticker/pull/223) (landed as commit [e34d44f](https://github.com/nikoskiouris/Dynasty-Ticker/commit/e34d44ffd8da5d7114d551198a44096fdc3073cd)). Feature removed 2026-11-13 (045); restore from df93556 |
+| [007](done/007-assets-to-move-on.md) | Assets to move on from for capital | P1 | 2026-11-12, [#222](https://github.com/nikoskiouris/Dynasty-Ticker/pull/222) (landed as commit [894d018](https://github.com/nikoskiouris/Dynasty-Ticker/commit/894d0186e9ba3d87f8889cd0dbbd62e55be68886)). Feature removed 2026-11-13 (045); restore from df93556 |
+| [008](done/008-aging-stars-on-bad-teams.md) | Target aging stars on tanking teams in this league | P1 | 2026-11-12, [#223](https://github.com/nikoskiouris/Dynasty-Ticker/pull/223) (landed as commit [e34d44f](https://github.com/nikoskiouris/Dynasty-Ticker/commit/e34d44ffd8da5d7114d551198a44096fdc3073cd)). Feature removed 2026-11-13 (045); restore from df93556 |
 | [009](done/009-trade-match-false-needs.md) | Trade match invents positional needs | P0 | 2026-09-21, [#77](https://github.com/nikoskiouris/Dynasty-Ticker/pull/77) |
 | [010](done/010-league-first-landing.md) | League is the product; rather is not the homepage | P0 | 2026-09-21, [#81](https://github.com/nikoskiouris/Dynasty-Ticker/pull/81) |
 | [011](done/011-rather-pairing.md) | Rather pairing still produces no-brainers | P1 | 2026-09-21, [#81](https://github.com/nikoskiouris/Dynasty-Ticker/pull/81) |
@@ -129,8 +125,11 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 | [019](done/019-describe-a-trade.md) | Describe a trade in plain words and the calculator builds it | P1 | 2026-10-29, [#193](https://github.com/nikoskiouris/Dynasty-Ticker/pull/193) |
 | [020](done/020-three-tabs.md) | Simplify to three tabs: Check a trade, Find a trade, My team | P0 | 2026-10-30, [#195](https://github.com/nikoskiouris/Dynasty-Ticker/pull/195) |
 | [022](done/022-player-values-backtested.md) | Player values are a forecast that is checked against history | P0 | 2026-11-12, [#284](https://github.com/nikoskiouris/Dynasty-Ticker/pull/284) |
-| [023](done/023-crowd-trade-call.md) | Crowd call: other managers drag one slider to say who a trade favors | P1 | 2026-11-12, [#282](https://github.com/nikoskiouris/Dynasty-Ticker/pull/282) (landed as commit [2a97de5](https://github.com/nikoskiouris/Dynasty-Ticker/commit/2a97de5732d85c0c77a4a8a22b40969a1d76de38)) |
-
+| [023](done/023-crowd-trade-call.md) | Crowd call: other managers drag one slider to say who a trade favors | P1 | 2026-11-12, [#282](https://github.com/nikoskiouris/Dynasty-Ticker/pull/282) (landed as commit [2a97de5](https://github.com/nikoskiouris/Dynasty-Ticker/commit/2a97de5732d85c0c77a4a8a22b40969a1d76de38)). Feature removed 2026-11-13 (045); restore from df93556 |
+| [025](done/025-global-slide-out-menu.md) | Global slide-out menu (hamburger drawer) on every page | P0 | 2026-11-13, [487ffcc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/487ffcc65ddf5d5dd42b7d35ec6bac21c88becc8), [c81aa5d](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c81aa5d7162a94f59092191505c96a3e3bf9d56c), [570bd19](https://github.com/nikoskiouris/Dynasty-Ticker/commit/570bd19d06b2c5b67a7b3cc7340dc109ab4f1277), [5b6dad0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/5b6dad0b05df7c0aa44d688a60ec1e56d24048c7), [04bc198](https://github.com/nikoskiouris/Dynasty-Ticker/commit/04bc1985dd3bcf46b85d236865745dea2bfc265b) |
+| [026](done/026-home-tool-picker.md) | Home page: "Which tool to use?" tool picker | P0 | 2026-11-13, [487ffcc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/487ffcc65ddf5d5dd42b7d35ec6bac21c88becc8), [c81aa5d](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c81aa5d7162a94f59092191505c96a3e3bf9d56c), [6dd4c3c](https://github.com/nikoskiouris/Dynasty-Ticker/commit/6dd4c3c3ea43ab15b21c6ebabc199745f7993fcc) |
+| [043](done/043-retire-old-navigation-and-redirects.md) | Retire the three-tab desk: old nav, rail, redirects, clean-up | P1 | 2026-11-13, [428f5d0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/428f5d0e6544b6cf129992fffb7265e2556b11cc), [96401dc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/96401dcf2786a4f2fb24c83956f993ac5529f3ab), [5b6dad0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/5b6dad0b05df7c0aa44d688a60ec1e56d24048c7) |
+| [045](done/045-delete-features-not-in-sketches.md) | Delete features the sketches don't show (Find a trade, buy-low/sell-high, win-now, hot on Sleeper, and the rest) | P1 | 2026-11-13, [836aabe](https://github.com/nikoskiouris/Dynasty-Ticker/commit/836aabef15100e37fe4daab726bfa9cf6ab7cb2c), [d02415e](https://github.com/nikoskiouris/Dynasty-Ticker/commit/d02415e70225897fe63648cd3c5754405a153571), [300d220](https://github.com/nikoskiouris/Dynasty-Ticker/commit/300d2209e37490ce5c8c52776285402889e7ed40), [c48cfd8](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c48cfd84fc43c4a4d4d7afda7f693fe1e7302ca3), [96401dc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/96401dcf2786a4f2fb24c83956f993ac5529f3ab) |
 Several PRs above (#213, #220–#223, #282) show as closed on GitHub, but their work landed on `develop` as the linked commits.
 
 ## Closed (superseded, not built)

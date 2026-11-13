@@ -2,6 +2,8 @@
 
 Done: 2026-11-12, [#223](https://github.com/nikoskiouris/Dynasty-Ticker/pull/223) (landed as commit [e34d44f](https://github.com/nikoskiouris/Dynasty-Ticker/commit/e34d44ffd8da5d7114d551198a44096fdc3073cd))
 
+Superseded: 2026-11-13. The owner removed this feature (ticket 045). Restore it from git at df93556; see the 045 restore table.
+
 ## Status
 Done
 
@@ -31,3 +33,6 @@ Call says things like “Pay up for a proven TE starter.” Trade match can pair
 - Contender view: 2–5 named targets, each with owner, position hole they fill, and why now.
 - Tank view: this list hides or flips to “do not buy these.”
 - Targets are on other rosters in the loaded league, not a generic industry board.
+
+## Superseded
+Owner decision, Nov 13, 2026: features the redesign sketches do not show are deleted for now (ticket [045](045-delete-features-not-in-sketches.md)). This feature shipped as linked above, then was removed in [836aabe](https://github.com/nikoskiouris/Dynasty-Ticker/commit/836aabef15100e37fe4daab726bfa9cf6ab7cb2c). Restore with `git show df93556:<path>` using the 045 restore table.

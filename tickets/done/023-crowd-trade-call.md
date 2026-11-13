@@ -2,6 +2,8 @@
 
 Done: 2026-11-12, [#282](https://github.com/nikoskiouris/Dynasty-Ticker/pull/282) (landed as commit [2a97de5](https://github.com/nikoskiouris/Dynasty-Ticker/commit/2a97de5732d85c0c77a4a8a22b40969a1d76de38))
 
+Superseded: 2026-11-13. The owner removed this feature (ticket 045). Restore it from git at df93556; see the 045 restore table.
+
 ## Status
 Done
 
@@ -33,3 +35,6 @@ AGENTS.md: the market price, team fit, and why the other manager says yes stay s
 ## Leftover
 - Votes are stored per trade in Netlify Blobs ("trade-polls") and need VISIT_SALT; without it the panel says crowd votes are unavailable.
 - Not built: a public feed of trades asking for votes (the Reddit-style front page), comments, or voter reputation.
+
+## Superseded
+Owner decision, Nov 13, 2026: features the redesign sketches do not show are deleted for now (ticket [045](045-delete-features-not-in-sketches.md)). This feature shipped as linked above, then was removed in [d02415e](https://github.com/nikoskiouris/Dynasty-Ticker/commit/d02415e70225897fe63648cd3c5754405a153571). Restore with `git show df93556:<path>` using the 045 restore table.
