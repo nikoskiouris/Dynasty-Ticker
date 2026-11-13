@@ -3,6 +3,7 @@ import { renderToolPicker, moveLeagueControls } from "./modules/tool-picker.js";
 import { renderLeagueHub } from "./modules/league-hub.js";
 import { leagueArchive } from "./modules/league-archive.js";
 import { renderTradeLog, renderTradeLogRows } from "./modules/trade-log.js";
+import { renderLeagueHistory } from "./modules/league-history-page.js";
 import { renderTradeFairness } from "./modules/trade-fairness.js";
 import { safeStorage } from "./modules/safe-storage.js";
 import { forgetLastLeague, lastLeagueMarkup, readLastLeague, writeLastLeague } from "./modules/last-league.js";
@@ -1185,10 +1186,10 @@ function renderActivePage() {
     ensureLeagueArchive("all");
     const host = document.querySelector("#league-history-content");
     const archive = leagueArchive.snapshot;
-    if (host) host.innerHTML = `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
-      <p role="status">${escapeHtml(archiveCovers(archive, "all", state.leagueId)
-        ? `${archive.seasons.length} seasons loaded. Record book and awards are being built.`
-        : archiveErrorMessage || archiveProgressMessage || "Loading seasons…")}</p>`;
+    if (host) host.innerHTML = archiveCovers(archive, "all", state.leagueId)
+      ? renderLeagueHistory(archive)
+      : `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
+        <p role="status">${escapeHtml(archiveErrorMessage || archiveProgressMessage || "Loading seasons…")}</p>`;
     return;
   }
   if (page === "league" && room !== "team") return;
