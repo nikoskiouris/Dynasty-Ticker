@@ -8627,3 +8627,15 @@ body.launch-open .workspace { display:block; }
 .league-history-records > div { padding: .9rem; border: 1px solid var(--line, #ccc); border-radius: .6rem; min-width: 0; }
 .league-history-records dt { margin-bottom: .4rem; }
 .league-history-records dd { display: flex; flex-direction: column; gap: .2rem; margin: 0; overflow-wrap: anywhere; }
+
+
+/* History: head-to-head records are independently scrollable on small screens. */
+.league-history-h2h { white-space: nowrap; min-width: max-content; }
+.league-history-h2h th:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface, #fff); }
+.league-history-h2h td { text-align: center; }
+.league-history-h2h td a { display: inline-block; padding: .25rem .3rem; text-decoration: underline; text-underline-offset: .2rem; }
+.league-rivalry-details { display: grid; gap: .5rem; min-width: 0; }
+.league-rivalry-detail { overflow-wrap: anywhere; border-bottom: 1px solid var(--line, #ddd); padding: .5rem 0; scroll-margin-top: 5rem; }
+.league-rivalry-detail summary { cursor: pointer; font-weight: 600; }
+.league-rivalry-detail ul { margin: .5rem 0; padding-left: 1.25rem; }
+.league-rivalry-detail li { margin-bottom: .3rem; }
