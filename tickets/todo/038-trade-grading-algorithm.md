@@ -51,3 +51,7 @@ In the **same PR/commit as the work**:
 1. `git mv tickets/todo/<this file> tickets/done/`.
 2. Add a line at the very top, under the title: `Done: <YYYY-MM-DD>, <PR or commit link>`. Change **Status** to `Done`.
 3. Move this ticket's row in `tickets/README.md` from **To do** to **Done**, and point its link at `done/`.
+
+## Implementation checkpoint · 2026-11-13
+
+`docs/modules/trade-grade.js` added as the shared SF-only grade algorithm (commit `ee2ce6e`). Covers completed trades, hindsight and date-matched snapshot lenses, draft outcomes where attributable, missing prices, multi-team transfers, FAAB exclusion, and shared credited-total tiers. Still **Open**: manually compare at least five real trades and a drafted pick against Sleeper and the calculator; confirm chronological snapshot coverage and attach required demo. JavaScript syntax was checked; no test suite was created or run.
