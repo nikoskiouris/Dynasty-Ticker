@@ -47,3 +47,9 @@ In the **same PR/commit as the work**:
 1. `git mv tickets/todo/<this file> tickets/done/`.
 2. Add a line at the very top, under the title: `Done: <YYYY-MM-DD>, <PR or commit link>`. Change **Status** to `Done`.
 3. Move this ticket's row in `tickets/README.md` from **To do** to **Done**, and point its link at `done/`.
+
+## Implementation checkpoint · 2026-11-13
+
+Lineup and waiver scoring engines are committed and surfaced as provisional Historical Data awards: `league-lineup-awards.js`, `league-waiver-awards.js`, `league-operations-awards-page.js` (commits `dc3a218`, `49861e6`, `170a01c`, `c5a2904`, `a6a9b4c`, `2f086fb`, `2244c0a`, `deb231e`). Weekly lineups use the exact legal-slot solver, regular-season efficiency, bench-wasted points and losses recoverable by optimal lineup. Exact lineup evaluation is opt-in on Historical Data to avoid blocking the initial page. Waiver pickup stints use completed Sleeper transactions; starter points count only after documented acquisition until drop/transfer, with a current-value bonus for players still owned by that manager. Undated, unpriced, or incomplete rows are excluded with coverage notes; FAAB is reported separately.
+
+**Still Open:** compare one manager/week against Sleeper and ppts; verify IDP/custom slot legality; verify two starter weeks from a real picked-up player; verify acquisition-leg timing, FAAB fields and across-season retention; complete 390/820/1280 browser QA and required demo video. No automated tests were added or run. Do not move to Done until manual acceptance.
