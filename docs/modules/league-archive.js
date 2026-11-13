@@ -167,7 +167,7 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
     return result;
   }
 
-  async function load(leagueId, { scope = "core", currentCore = null, nflState = null, refresh = false, onProgress, signal } = {}) {
+  async function load(leagueId, { scope = "core", currentCore = null, preloadedSeasons = [], nflState = null, refresh = false, onProgress, signal } = {}) {
     const ownEpoch = ++epoch;
     controller?.abort();
     controller = new AbortController();
@@ -175,7 +175,7 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
     const abort = () => ownController.abort();
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) abort();
-    const result = { leagueId: String(leagueId), seasons: [], matchups: {}, transactions: {}, drafts: {}, issues: [], savedData: false, stale: false, loadedAt: null };
+    const result = { leagueId: String(leagueId), scope, seasons: [], matchups: {}, transactions: {}, drafts: {}, issues: [], savedData: false, stale: false, loadedAt: null };
     const issue = (row) => {
       if (!result.issues.some((previous) => previous.season === row.season && previous.resource === row.resource && previous.leagueId === row.leagueId)) result.issues.push(row);
     };
@@ -197,7 +197,13 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
       while (id && result.seasons.length < maxSeasons && !visited.has(id)) {
         visited.add(id);
         try {
-          const data = result.seasons.length === 0 && currentCore ? currentCore : await core(id, options);
+          // The desk has already loaded the historical league chain. Reuse its
+          // immutable core rows rather than requesting every season a second time.
+          const existing = preloadedSeasons.find((entry) =>
+            String(entry?.leagueId || entry?.league?.league_id) === id && entry?.league
+          );
+          const data = existing || (result.seasons.length === 0 && currentCore
+            ? currentCore : await core(id, options));
           checkSignal(ownController.signal);
           const entry = seasonEntry(data, result.seasons.length === 0);
           result.seasons.push(entry);
