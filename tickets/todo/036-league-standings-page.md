@@ -49,3 +49,7 @@ In the **same PR/commit as the work**:
 1. `git mv tickets/todo/<this file> tickets/done/`.
 2. Add a line at the very top, under the title: `Done: <YYYY-MM-DD>, <PR or commit link>`. Change **Status** to `Done`.
 3. Move this ticket's row in `tickets/README.md` from **To do** to **Done**, and point its link at `done/`.
+
+## Implementation checkpoint · 2026-11-13
+
+The dedicated standings URL now renders the existing season standings and odds model; division switching stays on that page (commit `6b0e903`). A visible, active page refreshes its current week matchups every two minutes, pausing when hidden and stopping after navigation (commit `7c1dd31`). Still **Open**: compare real records, luck, and playoff odds with Sleeper, check a live NFL window, screen-reader focus, 390/820/1280 px, and record demo. No automated tests were added or run.
