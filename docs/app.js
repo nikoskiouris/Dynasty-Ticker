@@ -1067,6 +1067,17 @@ function renderActivePage() {
     });
     return;
   }
+  if (page === "league" && room === "standings") {
+    const host = document.querySelector("#league-standings-content");
+    const model = getSeasonModel();
+    if (host) {
+      const sim = model ? getSimulation(model) : null;
+      host.innerHTML = `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
+        ${model ? `${renderStandingsPanel(model, sim)}${renderPlayoffOddsPanel(model, sim)}`
+          : '<p role="status">Standings are loading from Sleeper…</p>'}`;
+    }
+    return;
+  }
   if (page === "league" && room !== "team") return;
   if (page === "trades") {
     renderTradesRoom(room);
@@ -7187,7 +7198,8 @@ function handleWorkspaceClick(event) {
     }
     case "standings-view": {
       state.standingsView = target.dataset.view === "division" ? "division" : "overall";
-      renderStandingsRoom();
+      if (state.activePage === "league" && getRoom("league") === "standings") renderActivePage();
+      else renderStandingsRoom();
       break;
     }
     case "set-lens": {
