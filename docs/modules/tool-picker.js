@@ -5,7 +5,7 @@ export function renderToolPicker(host) {
   if (!host) return;
   const last = readLastLeague();
   const leagueHref = last ? `/l/${last.leagueId}` : '/leagues';
-  host.innerHTML = `<div class="tool-picker"><h1>Dynasty Ticker</h1><h2>Which tool to use?</h2><div id="landing-resume">${last ? `<a href="${leagueHref}">Back to ${escapeHtml(last.leagueName || 'your league')}</a>` : ''}</div><div class="tool-picker-cards"><a href="/trade"><strong>Trade Calc</strong><span>Is this trade fair?</span></a><a href="/players"><strong>Player Rankings</strong><span>Every player, ranked</span></a><a href="${leagueHref}"><strong>League History</strong><span>Your Sleeper league's story</span></a></div><p class="tool-picker-note">All info on this page is optimized for 12 team SF PPR Dynasty.</p></div>`;
+  host.innerHTML = `<div class="tool-picker"><h1>Dynasty Ticker</h1><h2>Which tool to use?</h2><div id="home-resume" class="home-resume">${last ? `<a href="${leagueHref}">Back to ${escapeHtml(last.leagueName || 'your league')}</a>` : ''}</div><div class="tool-picker-cards"><a href="/trade"><strong>Trade Calc</strong><span>Is this trade fair?</span></a><a href="/players"><strong>Player Rankings</strong><span>Every player, ranked</span></a><a href="${leagueHref}"><strong>League History</strong><span>Your Sleeper league's story</span></a></div><p class="tool-picker-note">All info on this page is optimized for 12 team SF PPR Dynasty.</p></div>`;
 }
 
 export function moveLeagueControls(host) {
