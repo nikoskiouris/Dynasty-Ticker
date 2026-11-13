@@ -5420,23 +5420,40 @@ function tradeTalkExamples() {
   ];
 }
 
+let smartTradeSide = "right";
 function renderTradeTalk() {
-  const example = tradeTalkLog.length
-    ? `Keep going: add my ${nextRookieDraftSeason() + 1} 2nd`
-    : `Describe a trade, like ${tradeTalkExamples()[0]}`;
-  return `
-    <section class="talk-box" aria-labelledby="trade-talk-label">
-      <form class="talk-form" data-trade-talk novalidate>
-        <label id="trade-talk-label" for="trade-talk-input" class="sr-only">Describe the trade in your own words</label>
-        <div class="talk-row">
-          <input id="trade-talk-input" name="say" type="text" maxlength="${TRADE_TALK_MAX}" placeholder="${escapeHtml(example)}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send" />
-          <button type="submit" class="talk-send" aria-label="Build trade"><span aria-hidden="true">↑</span></button>
-        </div>
-      </form>
-      <div id="talk-log" class="talk-log" aria-live="polite">${renderTradeTalkLog()}</div>
-      <p id="talk-toast" class="talk-toast" role="status" hidden></p>
-    </section>
-  `;
+  return `<section class="talk-box smart-trade-search" aria-labelledby="trade-talk-label">
+    <form class="talk-form" data-trade-talk novalidate>
+      <label id="trade-talk-label" for="trade-talk-input" class="sr-only">Add a player or pick, or describe a whole trade</label>
+      <div class="talk-row"><input id="trade-talk-input" name="say" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="smart-trade-list" data-input="smart-trade" maxlength="${TRADE_TALK_MAX}" placeholder="Add a player or pick, or type: Gibbs and a 1st for Nabers" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" /><button type="submit" class="talk-send" aria-label="Build trade">↑</button></div>
+      <div id="smart-trade-list" class="smart-trade-list" role="listbox" hidden></div>
+      <span id="smart-trade-count" class="sr-only" role="status" aria-live="polite"></span>
+    </form>
+    <div id="talk-log" class="talk-log" aria-live="polite">${renderTradeTalkLog()}</div><p id="talk-toast" class="talk-toast" role="status" hidden></p>
+  </section>`;
+}
+
+function refreshSmartTradeSearch(input) {
+  const list = el.calculatorShell?.querySelector("#smart-trade-list");
+  if (!list) return;
+  const query = input.value.trim();
+  const view = buildDraftView();
+  const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
+  const rows = query ? listValueCalcAssets(view.basis.values, names, { query, limit: 20, minSeason: nextRookieDraftSeason() }) : [];
+  list.innerHTML = rows.map((row, i) => `<div id="smart-option-${i}" class="smart-trade-option" role="option" aria-selected="false">${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}<span class="smart-trade-name">${escapeHtml(row.name)} <small>${formatNumber(row.value)}</small></span>${["right", "left"].map((side) => `<button type="button" class="calc-item smart-trade-add" data-action="smart-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType}" aria-label="Add ${escapeHtml(row.name)} to ${escapeHtml(draftReceivingTeam(side, view))}">→ ${side === "right" ? "Team 1" : "Team 2"}</button>`).join("")}</div>`).join("");
+  list.hidden = !rows.length;
+  input.setAttribute("aria-expanded", rows.length ? "true" : "false");
+  input.removeAttribute("aria-activedescendant");
+  const count = document.getElementById("smart-trade-count");
+  if (count) count.textContent = rows.length ? `${rows.length} options. Enter adds to Team 1. Shift Enter adds to Team 2.` : query ? "No matching assets. Enter to interpret a whole trade." : "";
+}
+
+function pickSmartTradeAsset(target) {
+  if (!target?.dataset?.assetId) return;
+  addDraftAsset(target.dataset.side, { assetId: target.dataset.assetId, name: target.dataset.name, assetType: target.dataset.kind });
+  patchTradeDraft();
+  const input = document.getElementById("trade-talk-input");
+  if (input) { input.value = ""; refreshSmartTradeSearch(input); input.focus({ preventScroll: true }); }
 }
 
 function renderTalkChip(chip) {
@@ -5731,7 +5748,9 @@ function handleTradeTalkSubmit(event) {
   event.preventDefault();
   const input = form.querySelector("#trade-talk-input");
   const say = input?.value || "";
-  if (input) input.value = "";
+  const first = form.querySelector(`[data-action="smart-add"][data-side="${smartTradeSide}"]`);
+  if (first && !/\b(for|offered|receive|give|swap)\b/i.test(say)) { pickSmartTradeAsset(first); return true; }
+  if (input) { input.value = ""; refreshSmartTradeSearch(input); }
   runTradeTalk(say);
   return true;
 }
@@ -6092,17 +6111,7 @@ function renderDraftPane(side, view) {
       ${left ? "" : `<div class="draft-partner-slot">${renderDraftPartnerPicker(view)}</div>`}
       <div class="calc-selected">${renderDraftTokens(side, view)}</div>
       <div class="draft-notes">${renderDraftNotes(side, view)}</div>
-      <div class="calc-search-wrap">
-        ${renderCalcSearchInput({
-          query,
-          side,
-          input: "value-search",
-          placeholder: draftSearchPlaceholder(side, view),
-          listId,
-          expanded,
-        })}
-        <div class="calc-list calc-suggest${query.trim() ? "" : " is-browse"}" id="${listId}" role="listbox">${suggestions}</div>
-      </div>
+      <button type="button" class="ghost-btn draft-add-focus" data-action="smart-focus" data-side="${side}">+ Add player or pick</button>
     </section>
   `;
 }
@@ -6998,6 +7007,28 @@ function handleCalcSearchFocus(event) {
 
 function handleWorkspaceKeydown(event) {
   if (event.isComposing) return;
+  const smart = event.target?.closest?.("[data-input='smart-trade']");
+  if (smart) {
+    const list = document.getElementById("smart-trade-list");
+    const rows = [...(list?.querySelectorAll(".smart-trade-option") || [])];
+    if (event.key === "Escape") { if (list) list.hidden = true; smart.setAttribute("aria-expanded", "false"); return; }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (!rows.length) return;
+      const index = rows.findIndex((row) => row.getAttribute("aria-selected") === "true");
+      const next = (index + (event.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length;
+      rows.forEach((row, i) => row.setAttribute("aria-selected", String(i === next)));
+      smart.setAttribute("aria-activedescendant", rows[next].id);
+      rows[next].scrollIntoView({ block: "nearest" });
+      return;
+    }
+    if (event.key === "Enter" && rows.length && !/\b(for|offered|receive|give|swap)\b/i.test(smart.value)) {
+      event.preventDefault();
+      const row = rows.find((item) => item.getAttribute("aria-selected") === "true") || rows[0];
+      pickSmartTradeAsset(row.querySelector(`[data-side="${event.shiftKey ? "left" : smartTradeSide}"]`));
+      return;
+    }
+  }
   const search = event.target?.closest?.("[data-input='value-search']");
   if (search && el.workspace?.contains(search)) {
     const side = search.dataset.side === "right" ? "right" : "left";
@@ -7018,6 +7049,7 @@ function handleWorkspaceKeydown(event) {
 }
 
 function handleWorkspacePointerDown(event) {
+  if (event.target?.closest?.("[data-action=smart-add]")) { event.preventDefault(); return; }
   if (!shouldArmCalcSuggestion(event, document)) {
     if (!shouldHoldCalcSearchFocus(event, document)) return;
     event.preventDefault();
@@ -7036,6 +7068,14 @@ function handleWorkspaceClick(event) {
   if (target.dataset.action === "league-home") return;
   const action = target.dataset.action;
   switch (action) {
+    case "smart-focus": {
+      smartTradeSide = target.dataset.side === "left" ? "left" : "right";
+      document.getElementById("trade-talk-input")?.focus({ preventScroll: true });
+      break;
+    }
+    case "smart-add":
+      pickSmartTradeAsset(target);
+      break;
     case "go": {
       if (target.dataset.room === "mock") state.mockFocus = null;
       openRoom(target.dataset.page, target.dataset.room);
@@ -7328,6 +7368,7 @@ function handleWorkspaceChange(event) {
 function handleWorkspaceInput(event) {
   const target = event.target.closest("[data-input]");
   if (!target || event.isComposing) return;
+  if (target.dataset.input === "smart-trade") { refreshSmartTradeSearch(target); return; }
   if (target.dataset.input === "value-search") {
     const side = target.dataset.side === "right" ? "right" : "left";
     if (side === "right") state.valueCalc.rightQuery = target.value;

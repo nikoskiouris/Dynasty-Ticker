@@ -8579,3 +8579,12 @@ body.launch-open .workspace { display:block; }
 .trade-fairness-sentence { text-align:center; margin-top:18px; }
 .trade-fairness.is-empty { opacity:.5; }
 @media(prefers-reduced-motion:reduce) { .trade-fairness-marker { transition:none; } }
+.smart-trade-search { position:relative; }
+.smart-trade-list { max-height:min(360px,40vh); overflow-y:auto; overscroll-behavior:contain; border:1px solid var(--border,#566278); border-radius:12px; margin-top:8px; }
+.smart-trade-list[hidden] { display:none; }
+.smart-trade-option { display:flex; align-items:center; gap:8px; padding:10px; border-bottom:1px solid var(--border,#566278); }
+.smart-trade-option[aria-selected=true] { outline:2px solid var(--accent,#5b78ff); outline-offset:-2px; }
+.smart-trade-name { flex:1; min-width:0; overflow-wrap:anywhere; }
+.smart-trade-name small { display:block; }
+.smart-trade-add { flex:0 0 auto; width:auto; min-height:44px; font-size:.75rem; padding:6px; }
+.draft-add-focus { margin:12px 0; }
