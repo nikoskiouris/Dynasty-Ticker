@@ -231,7 +231,6 @@ import {
   PRICE_FACTORS_LINE,
   UNAVAILABLE_PRICE_LINE,
   barLabel,
-  creditedTotalsLine,
   fewerBetterOffer,
   verdictCopy,
   verdictLineNamed,
@@ -5635,8 +5634,8 @@ function findEvenUpPick(view) {
   });
 }
 
-function evenUpLine(choice, side) {
-  const after = choice?.verdict ? verdictLineNamed(choice.verdict, { Give: "You give", Get: "You get" }) : "";
+function evenUpLine(choice, side, names = { Give: "You give", Get: "You get" }) {
+  const after = choice?.verdict ? verdictLineNamed(choice.verdict, names) : "";
   return evenUpCopy(choice, side, { afterLine: after });
 }
 
@@ -5679,9 +5678,9 @@ function renderDraftVerdict(view) {
   const copy = verdictCopy(verdict);
   // The headline is the full line ("Lopsided · Give side worth 89% more"), like the card.
   // Private /trade names the sides as the reader: "You give 136% more".
-  const label = bothSides
-    ? verdictLineNamed(verdict, { Give: `${draftReceivingTeam("left", view)} receives`, Get: `${draftReceivingTeam("right", view)} receives` })
-    : copy.label;
+  // Team 1 / Team 2 name the sides; the old Give/Get totals line is gone from /t.
+  const teamNames = { Give: `${draftReceivingTeam("left", view)} receives`, Get: `${draftReceivingTeam("right", view)} receives` };
+  const label = bothSides ? verdictLineNamed(verdict, teamNames) : copy.label;
   const sharedView = bothSides ? sharedVerdictFor(view) : null;
   // RECHECK4: on a cold /t the bars are sized on the credited totals the
   // verdict compares, with the stars credit as its own segment.
@@ -5707,9 +5706,9 @@ function renderDraftVerdict(view) {
       <div class="calc-summary-main">
         <span class="analytics-kicker">Market verdict</span>
         ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${verdictLineHtml(label)}</h3>`}
-        ${sharedView ? renderVerdictFinePrint(escapeHtml(sharedTotalsLine(model)), `
+        ${sharedView ? renderVerdictFinePrint("", `
           ${starsPremiumMarkup(model, { best, pick: bestPick, shared: true })}
-          ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpLine(evenUp, verdict.gap > 0 ? "Give" : "Get"))}</p>` : ""}
+          ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view), teamNames))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
         ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
@@ -5763,16 +5762,6 @@ function calcPointer(arrow) {
   return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
 }
 
-// Cold /t detail line: "Give 19,224 (11,811 + 7,413 for fewer, better pieces). Get 14,457."
-function sharedTotalsLine(model) {
-  const adj = model.adjustment;
-  return creditedTotalsLine({
-    giveListed: model.give,
-    getListed: model.get,
-    stars: adj ? adj.amount : 0,
-    starSide: adj ? (adj.side === "left" ? "give" : "get") : "",
-  });
-}
 
 // "Lopsided · Give side…": the dot gets real space on screen (the face's
 // word space is narrow), while the text stays the plain " · " line.
@@ -5813,7 +5802,7 @@ function renderVerdictFinePrint(leadHtml, inner) {
   const open = Boolean(state.verdictInfoOpen);
   return `
     <p class="calc-subline">${leadHtml} <button type="button" class="info-toggle verdict-info-toggle" data-action="verdict-info" aria-expanded="${open}" aria-controls="${id}">
-      <span aria-hidden="true">ⓘ</span><span class="sr-only">How this verdict works</span>
+      <span aria-hidden="true">ⓘ</span><span class="${leadHtml ? "sr-only" : "verdict-info-label"}">How this verdict works</span>
     </button></p>
     <div class="verdict-fine-print" id="${id}"${open ? "" : " hidden"}>${inner}</div>
   `;
