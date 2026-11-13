@@ -51,3 +51,7 @@ In the **same PR/commit as the work**:
 1. `git mv tickets/todo/<this file> tickets/done/`.
 2. Add a line at the very top, under the title: `Done: <YYYY-MM-DD>, <PR or commit link>`. Change **Status** to `Done`.
 3. Move this ticket's row in `tickets/README.md` from **To do** to **Done**, and point its link at `done/`.
+
+## Implementation checkpoint · 2026-11-13
+
+Searchable, season/team-filterable trade cards now use the cached Sleeper archive and shared grade engine. Completed two-team trades link to Trade Calc in a new tab, preserving the original tab's draft; used picks show the selected player where the draft slot is known (commits `6a8b865`, `d4dc696`, `ba846a7`, `bb97248`, `3be651d`, `309da31`). Still **Open**: history-price lens selector, full face/icon polish, live Sleeper comparison, 390/820/1280 px QA, and video. JavaScript syntax checked; no automated tests.
