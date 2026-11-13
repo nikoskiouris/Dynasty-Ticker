@@ -26,8 +26,11 @@ export function renderOperationsAwards(archive, { players = {}, values = {}, val
   const waiver = waiverAwards(archive, { values });
   const playerName = (id) => e(valueNames[`player:${id}`] || `Player ${id}`);
   const waiverPlayer = (row) => row
-    ? `<p><strong>${playerName(row.playerId)}</strong> · ${e(row.managerName)} (${e(row.season)}) · ${points(row.value)} current value</p>`
-    : '<p class="muted">No fully priced transaction found.</p>';
+    ? `<p><strong>${playerName(row.playerId)}</strong> · ${e(row.managerName)} (${e(row.season)}) ·
+      ${points(row.startedPoints)} started points + ${points(row.currentRosterValue)} value still owned</p>
+      ${row.starts.length ? `<p class="muted small">Weeks started: ${row.starts.slice(0, 2).map((game) =>
+        `${e(game.season)} W${game.week} (${points(game.points)} pts)`).join(", ")}</p>` : ""}`
+    : '<p class="muted">No fully sourced pickup found.</p>';
   return `<section class="workspace-panel">
     <h2>Lineup and waiver awards <span class="mini-chip">Historical estimate</span></h2>
     <p class="muted small">Eligible managers only. Missing player prices, eligible positions or weekly scores are excluded rather than treated as zero.</p>
@@ -36,15 +39,23 @@ export function renderOperationsAwards(archive, { players = {}, values = {}, val
         ? `<div><h3>Best lineup setter</h3>${person(lineup.best, (row) => `${percent(row.efficiency)} of optimal weekly points · ${row.weeks} weeks`)}</div>
            <div><h3>Worst lineup setter</h3>${person(lineup.worst, (row) => `${percent(row.efficiency)} of optimal weekly points · ${row.weeks} weeks`)}</div>`
         : '<div><h3>Lineup awards</h3><p class="muted small">Calculate legal optimal lineups using historical player points and roster eligibility.</p><button type="button" data-action="compute-lineup-awards">Calculate lineup awards</button></div>'}
-      <div><h3>Best waiver manager</h3>${person(waiver.best, (row) => `${points(row.averageNet)} avg net current value · ${row.moves} moves`)}</div>
-      <div><h3>Worst waiver manager</h3>${person(waiver.worst, (row) => `${points(row.averageNet)} avg net current value · ${row.moves} moves`)}</div>
-      <div><h3>Highest-value waiver pickup today</h3>${waiverPlayer(waiver.bestPickup)}</div>
-      <div><h3>Highest-value player released today</h3>${waiverPlayer(waiver.mostValuableDrop)}</div>
+      <div><h3>Best waiver manager</h3>${person(waiver.best, (row) => `${points(row.score)} score · ${points(row.startedPoints)} started points · ${row.adds} adds`)}</div>
+      <div><h3>Worst waiver manager</h3>${person(waiver.worst, (row) => `${points(row.score)} score · ${points(row.startedPoints)} started points · ${row.adds} adds`)}</div>
+      <div><h3>Highest-scoring waiver pickup</h3>${waiverPlayer(waiver.bestPickup)}</div>
+      <div><h3>FAAB efficiency</h3><p class="muted small">${waiver.best?.faabPerStartedPoint != null
+        ? `${points(waiver.best.faabPerStartedPoint)} FAAB units per started point for ${e(waiver.best.name)}`
+        : "No fully sourced FAAB cost-per-point figure for the leading eligible manager."}</p></div>
     </div>
+    <details><summary>Best pickup by manager</summary>
+      <ul>${waiver.standings.map((row) => `<li><strong>${e(row.name)}</strong>:
+        ${row.bestPickup ? waiverPlayer(row.bestPickup) : "No priced pickup"}
+        ${row.eligible ? "" : `<span class="muted">Not enough data (${row.adds} / ${waiver.minAdds} adds)</span>`}
+      </li>`).join("")}</ul>
+    </details>
     <details><summary>Scoring rules and coverage</summary>
       ${lineup ? `<p class="muted small">${e(lineup.method)}</p>` : ""}
       <p class="muted small">${e(waiver.method)}</p>
-      <p class="muted small">${lineup ? `Lineups: ${lineup.validWeeks} valid weekly team snapshots and ${lineup.unavailableWeeks} unavailable out of ${lineup.examinedWeeks}.` : "Lineup calculation not requested."} Waivers: ${waiver.evaluatedMoves} priced transaction sides and ${waiver.excludedMoves} excluded.</p>
+      <p class="muted small">${lineup ? `Lineups: ${lineup.validWeeks} valid weekly team snapshots and ${lineup.unavailableWeeks} unavailable out of ${lineup.examinedWeeks}.` : "Lineup calculation not requested."} Waivers: ${waiver.evaluatedAdds} priced pickups, ${waiver.unpricedAdds} unpriced, ${waiver.undatedAdds} without documented transaction weeks, and ${waiver.invalidWeeks} missing weekly lineup score rows.</p>
     </details>
   </section>`;
 }
