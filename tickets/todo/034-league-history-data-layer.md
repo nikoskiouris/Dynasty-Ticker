@@ -49,7 +49,7 @@ New module (suggested `docs/modules/league-archive.js`) exposing, per league cha
 ## Technical notes
 
 - Sleeper endpoints (public, read-only, documented at https://docs.sleeper.com): `/league/<id>`, `/league/<id>/users`, `/league/<id>/rosters`, `/league/<id>/matchups/<week>`, `/league/<id>/transactions/<round>`, `/league/<id>/traded_picks`, `/league/<id>/drafts`, `/draft/<id>/picks`, `/league/<id>/winners_bracket`, `/league/<id>/losers_bracket`, `/state/nfl`.
-- Files: `docs/app.js` (`loadLeagueCoreData`, `loadLeagueHistoryContext`, `loadSeasonWeeks`, `runLeagueLoad`, `resetSeasonState`, `invalidateSeasonCaches`), `docs/modules/sleeper.js` (`apiGetWithRetry`, `mapInChunks`, `previousLeagueId`, `sleeperLeaguePath`), `docs/modules/franchise.js`, `docs/modules/state.js`, `docs/modules/constants.js` (`MAX_HISTORY_SEASONS`), `docs/modules/sample-league.js` (the sample league invents people; history must use the same invented names).
+- Files: `docs/app.js` (`loadLeagueCoreData`, `loadLeagueHistoryContext`, `loadSeasonWeeks`, `runLeagueLoad`, `resetSeasonState`, `invalidateSeasonCaches`), `docs/modules/sleeper.js` (`apiGetWithRetry`, `mapInChunks`, `previousLeagueId`, `sleeperLeaguePath`), `docs/modules/franchise.js`, `docs/modules/state.js`, `docs/modules/constants.js` (`MAX_HISTORY_SEASONS`).
 - No unit tests (repo policy). Manual QA (Network tab + Sleeper app spot-checks) + demo video.
 
 ## Size estimate

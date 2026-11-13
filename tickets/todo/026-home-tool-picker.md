@@ -24,6 +24,7 @@ Today `/` opens the calculator (`ROUTES` "home" → trades/calculator), and a se
 
 ## Out of scope
 
+- The landing's "Try the sample league" action is deleted (owner decision Nov 13, ticket 045).
 - The landing's example trade and "hot on Sleeper" trend rows are **deleted**, per the owner decision of Nov 13 (ticket 045). The plain-words trade box moves into Trade Calc's smart search (028).
 
 ## Acceptance criteria (manual QA)

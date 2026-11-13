@@ -38,7 +38,7 @@ Building blocks that stay after ticket 045:
 
 - With an empty side, the button is disabled and says why.
 - For a lopsided trade, the advice names a concrete add (e.g. "Add a 2027 mid 2nd to Team 2 to make it Even"), and applying it moves the scale to Even or Close.
-- With the sample league connected and my team chosen, the "For your team" section appears and its lineup rank matches the My Team page.
+- With a real public 12-team dynasty league connected and my team chosen, the "For your team" section appears and its lineup rank matches the My Team page.
 - The advice never contradicts the scale's verdict.
 - The panel closes with Esc, ✕ or Back. The trade is unchanged unless a suggestion was applied.
 - Usable at 390, 820 and 1280 px.

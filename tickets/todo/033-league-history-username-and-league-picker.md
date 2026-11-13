@@ -14,7 +14,7 @@ Today this flow lives in the left control rail: `#username-search-form` / `#slee
   - "Enter your Sleeper username:" input + "Find my leagues" button (reuse validation, `league-search.js`, error copy).
   - "Select your league:" list of that user's leagues (current season first, then older), each showing league avatar, name, season, team count and format chip (e.g. "10-team · 1QB · Half PPR"). The chip only describes the league; values never change (044). Leagues that aren't 12-team SF PPR get the 044 caveat line on the hub.
   - Selecting a league navigates to `/l/:leagueId` (hub). The username's own roster becomes "my team" automatically (no extra dropdown) – fall back to a team picker only if the user isn't in that league.
-- Keep: "Paste a league ID instead" (collapsed), "Try the sample league", and "Recent: <last league>" shortcut.
+- Keep: "Paste a league ID instead" (collapsed) and the "Recent: <last league>" shortcut. **No "Try the sample league"**: the sample league is deleted (owner decision, Nov 13, ticket 045).
 - Remember username and last league (`safe-storage.js`, `last-league.js`) so returning visitors skip straight to the list or hub.
 - Error states: unknown username, no leagues, Sleeper down (`#sleeper-down`, `league-load-error.js`) – each with a clear retry.
 - Move the connect controls out of the left rail (rail nav is retired by ticket 025). `/connect` and `/connect?next=…` redirect here.
@@ -29,7 +29,7 @@ Today this flow lives in the left control rail: `#username-search-form` / `#slee
 - Choosing a league opens its hub; reloading `/l/<id>` keeps it; Back returns to the list.
 - A misspelt username shows "We can't find …" and keeps the text for editing.
 - A returning visitor sees their last league as a one-tap shortcut.
-- Pasting a league ID opens that league; the sample league link works.
+- Pasting a league ID opens that league. No sample-league link appears, and an old `/?sample=1` link lands here.
 - A half-built trade in Trade Calc is still there after connecting a league (AGENTS.md: never erase work).
 - 390/820/1280 px, keyboard-only and screen reader announce errors.
 
@@ -40,7 +40,7 @@ Today this flow lives in the left control rail: `#username-search-form` / `#slee
 ## Technical notes
 
 - Sleeper API (public, no key): `GET /v1/user/<username>`, `GET /v1/user/<user_id>/leagues/nfl/<season>`, `GET /v1/league/<league_id>`; wrapped by `createSleeperClient()`, `fetchUserLeagues()`, `dedupeLeagues()`, `preferLatestLeagues()`, `apiGetWithRetry()` in `docs/modules/sleeper.js`.
-- Files: `docs/index.html` (rail forms), `docs/app.js` (functions above, plus `searchUserLeagues`, `startFindLeaguesUi`, `stopFindLeaguesUi`, `collapseLeaguePicker`, `noteSearchedUser`, `unloadLeague`, `currentMeRosterId`), `docs/modules/league-search.js`, `league-load.js`, `league-load-error.js`, `last-league.js`, `sample-league.js`, `docs/_redirects`.
+- Files: `docs/index.html` (rail forms), `docs/app.js` (functions above, plus `searchUserLeagues`, `startFindLeaguesUi`, `stopFindLeaguesUi`, `collapseLeaguePicker`, `noteSearchedUser`, `unloadLeague`, `currentMeRosterId`), `docs/modules/league-search.js`, `league-load.js`, `league-load-error.js`, `last-league.js`, `docs/_redirects`.
 - No unit tests (repo policy). Manual QA + demo video.
 
 ## Size estimate

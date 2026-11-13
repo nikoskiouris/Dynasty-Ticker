@@ -45,7 +45,8 @@ Repo policy applies: **no unit tests and no automated test suites**. Acceptance 
 
 - **"Give real trade advice" (030):** use existing logic only. AI comes later and is out of scope for now.
 - **Rankings table (031):** has a **Value** column and **keeps picks**. **No 1QB toggle.**
-- **Features the sketches don't show** are **deleted for now** (ticket [045](todo/045-delete-features-not-in-sketches.md)): Find a trade, shop a player, buy-low/sell-high, win-now targets, move-on, next move, the contend/rebuild call, hot on Sleeper, the landing example trade, and crowd call. Restore any of them from git history; 045's PR records the last SHA for each.
+- **Features the sketches don't show** are **deleted for now** (ticket [045](todo/045-delete-features-not-in-sketches.md)): Find a trade, shop a player, buy-low/sell-high, win-now targets, move-on, next move, the contend/rebuild call, hot on Sleeper, the landing example trade, crowd call, and the **sample league**. Restore any of them from git history; 045's PR records the last SHA for each.
+- **Share a trade is kept**: the Share button, `/t/` links and the share card.
 - **One value system:** 12-team Superflex PPR dynasty only (ticket 044).
 
 ### Suggested order and dependencies
@@ -54,7 +55,7 @@ Repo policy applies: **no unit tests and no automated test suites**. Acceptance 
 | --- | --- | --- | --- | --- |
 | 1 | [024](todo/024-redesign-routes-and-page-shells.md) Routes and page shells | L | none | none; do it first |
 | 1b | [044](todo/044-one-value-system-12-team-sf-ppr.md) One value system: 12-team SF PPR | L | 024 | 045 |
-| 1b | [045](todo/045-delete-features-not-in-sketches.md) Delete features the sketches don't show | L | 024 | 044 |
+| 1b | [045](todo/045-delete-features-not-in-sketches.md) Delete features the sketches don't show (incl. sample league) | L | 024 | 044 |
 | 2 | [025](todo/025-global-slide-out-menu.md) Global menu | M | 024 | 026, 027, 031, 033 |
 | 2 | [026](todo/026-home-tool-picker.md) Home tool picker | S | 024, 025, 044, 045 | 027, 031, 033 |
 | 2 | [027](todo/027-trade-calc-two-column-layout.md) Trade Calc columns | M | 024, 044 | 025, 031, 033 |
@@ -80,7 +81,6 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 ### Still open for Niko
 
 - 031: values refresh daily on `develop`, but the live site updates only when a release is cut. Decide whether the "updated daily" footnote needs a deploy change.
-- 045: the Share-a-trade button and the sample league aren't in the sketches either. The default is to keep both (old links keep working; people can try the site without Sleeper). Delete them only if Niko says so.
 
 ## To do
 

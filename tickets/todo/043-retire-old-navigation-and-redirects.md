@@ -16,6 +16,8 @@ After the redesign, the old shell from ticket 020 / #195 is replaced: the tabs "
   - `history`, `hall`, `analytics`, `archive` → `/l/:id/history` (or `/leagues` with no league)
   - `week`, `matchups`, `now` → `/l/:id/standings`
   - `team`, `myteam`, `my-team`, `home` → `/l/:id/team`
+  - `/t/:code` and `/trade?give=…&get=…` stay as they are. **Share a trade is kept** (owner decision, Nov 13). Do not redirect or remove them.
+  - `?sample=1` → `/leagues` (if 045 hasn't done it).
   - `/connect` → `/leagues`; `/l/:id/ideas` → `/l/:id` (if 045 hasn't already done it).
 - Remove dead code and CSS for the retired nav and rail: `renderRoomNav`, `renderPhoneDesk`, `handlePhoneDeskClick`, `leavePhoneMenu`, `orderNavTabs`, `#control-rail` / `#phone-desk` / `desk-board-*` markup and styles, `NAV_TABS`, unused rooms in `PAGE_ROOMS` / `ROOM_LABELS` / `ROOM_HINTS`, and `league-format.js` room helpers if 044 has not already removed them. Keep anything still used.
 - Update `docs/sitemap.xml` and page `<title>`s.
@@ -31,6 +33,7 @@ After the redesign, the old shell from ticket 020 / #195 is replaced: the tabs "
 - No leftover empty rail, tab bar or phone section menu at 390, 820 or 1280 px. No console errors.
 - Bundle and CSS shrank: the PR notes before/after sizes of `docs/app.js` and `docs/styles.css`.
 - Back/Forward never leaves the site after following an old link.
+- An existing `/t/<code>` share link still opens the shared trade.
 
 ## Dependencies
 

@@ -26,7 +26,7 @@ Today `/l/:leagueId` opens My team (`renderTeamsPage()`); the header is `renderL
 
 ## Acceptance criteria (manual QA)
 
-- `/l/<id>` shows the league name, four buttons and the champion banner; the champion matches Sleeper's playoff bracket for that season (spot-check 2 leagues incl. the sample league).
+- `/l/<id>` shows the league name, four buttons and the champion banner; the champion matches Sleeper's playoff bracket for that season (spot-check 2 leagues incl. one first-year league if available).
 - A first-year league shows the "no champion yet" banner.
 - Each button opens its page; Back returns to the hub.
 - Reloading `/l/<id>` works without going through the username step.

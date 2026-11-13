@@ -18,6 +18,7 @@ Today the calculator is two panes "You give" / "You get" built by `renderDraftPa
 - When a league is connected and a partner chosen, replace "Team 1"/"Team 2" with the two team names (`renderTeamIdentity()`, `renderDraftPartnerPicker()`).
 - Each row: face (`renderPlayerFace()` in `player-face.js`; picks get the existing pick token), name (linking to the player page, `playerLinkHtml()`), position/age small text, and the **value** right-aligned (same number as Player Rankings – one price, `getAssetValue()`).
 - Each column shows its total (credited total incl. the existing "fewer, better pieces" extra, `creditedTotalsLine()` in `verdict-copy.js`), with remove (✕) per row and a Clear/Swap control (`swapValueCalcSides`, `clearValueCalcSides`).
+- **Share a trade stays** (owner decision, Nov 13): keep the Share button visible in the new layout (`shareDraftTrade()` / `draftShareCode()`). A shared link (`/t/:code`) opens with the same assets in the same Team 1 / Team 2 columns, and the share card names the sides the same way.
 - Each column keeps an "Add player or pick" input until ticket 028 replaces it with the single smart search.
 - Phone (390 px): columns stack (Team 1 then Team 2) or sit side by side with compact rows – choose the more readable one and show both in the PR video.
 
@@ -32,6 +33,7 @@ Today the calculator is two panes "You give" / "You get" built by `renderDraftPa
 - `/trade` shows "Team 1 Receives" and "Team 2 Receives" with an empty-state hint in each.
 - Adding Bijan Robinson to Team 1 and two 1sts to Team 2 shows faces, names, values and both totals; the values equal the ones on Player Rankings.
 - Removing, swapping and clearing work; Undo/restore notice still works; no SF/1QB control is shown anywhere on the page (`setDraftReplaced` / `renderDraftNotice`).
+- Press Share, open the copied link in a private window: same trade, same columns, same totals.
 - An old link `/trade?give=<id>&get=<id>` and an existing `/t/<code>` open with the assets on the correct sides.
 - Connecting a league mid-trade keeps the trade and swaps the headers to team names (AGENTS.md: never erase work).
 - 390, 820, 1280 px: no sideways scroll, names never overlap values.

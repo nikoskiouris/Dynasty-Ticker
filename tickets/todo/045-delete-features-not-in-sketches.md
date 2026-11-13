@@ -1,4 +1,4 @@
-# 045 · Delete features the sketches don't show (Find a trade, buy-low/sell-high, win-now, hot on Sleeper, and the rest)
+# 045 · Delete features the sketches don't show (Find a trade, buy-low/sell-high, win-now, hot on Sleeper, sample league, and the rest)
 
 **Status:** Open · **Priority:** P1 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
 
@@ -23,6 +23,7 @@ This overrides AGENTS.md "Keep capabilities, give each a clear home" for these f
 | **Hot on Sleeper / example trade / plain-words box on the landing** | `docs/modules/launch-landing.js` (`hotSleeperRows`, `launchExampleMarkup`, `exampleTradeFromValues`, `paintLaunchTrend`, `paintLaunchExample`, `openExampleTrade`); `#landing-talk-form` in `docs/ui/landing.html` (the plain-words parser itself stays; ticket 028 moves it into the smart search) |
 | **Crowd call poll** (ticket 023) | `docs/modules/trade-poll.js`, `netlify/lib/trade-poll.js`, `netlify/functions/trade-poll.js`, app.js `pollVoterId` … `pollCodeFrom`, `renderTradePoll*`, `netlify.toml` function route. Leave the Netlify Blobs store "trade-polls" alone (data, not code; deleting it is irreversible and needs Niko). |
 | **Rookie mock / draft "mock" room remnants** | app.js `state.mockFocus` / `#mock-fold` handlers (≈ l.7043), and `scripts/update_dynasty_rookie_mock.py` + its workflow/data if they exist only for that display |
+| **Sample league** (`?sample=1`, a real public league shown with invented managers). Owner decision, Nov 13, 2026: remove. | `docs/modules/sample-league.js` (`SAMPLE_LEAGUE_NAME`, `SAMPLE_MANAGERS`, `inventSample*`); `docs/modules/sample-voice.js` (`sampleRosterLabels`, `sampleDescription`, `ownerPossessive`, `SAMPLE_BANNED_VOICE`); `constants.js` `SAMPLE_LEAGUE_ID`; `state.js` `viewingSample`; `parse.js` `sampleRequested()` and the `sample` param in the league URL builder/parser; `history-route.js` `keepSample()` and the `sample` option (≈ l.357–390); `site.js` `SAMPLE_BANNER_KEY`, `sampleBannerDismissed`, `clearSampleBannerDismissal`, `sampleConnectEntryVisible`, `focusAfterSampleBannerDismiss`, and the `viewingSample` branch of the page description; app.js `sampleViewingLine`, `sampleVoice`, `openSampleConnect`, the `inventSampleCore` call in `loadLeagueCoreData`, `loadLeagueById(…, { sample })`, and every `state.viewingSample` branch (~75 matches; grep `sample`); HTML `#sample-banner`, `#sample-find-btn`, `#sample-chrome*`, `#sample-league-chip`, `[data-sample-chip]`, `[data-sample-find]` in `docs/index.html`, "Try the sample league" links in `docs/index.html` (landing ≈ l.249), `docs/ui/landing.html`, `docs/ui/league.html` (`#sample-league-link`) and `docs/404.html`; `.sample-*` rules in `docs/styles.css` (~28); `scripts/debug_invariants.mjs` imports `SAMPLE_LEAGUE_ID` as a sample id, so inline a literal league id there; `research/first-visit-tasks.md` mention of `/?sample=1`. Old `?sample=1` links must still land somewhere useful: strip the param and open League History (`/leagues`), not the sample league. |
 | **Power dashboard / roster grade "power" badges** not used by My Team (037) | `renderPowerDashboard`, `buildPowerBadges`, `formatPowerGrade`, `classifyPowerLane`, `calculateTradeXp`, `buildTradePowerBadges`; delete only what 037/030 do not reuse |
 
 ## Keep (the sketches imply them, or they keep old links working)
@@ -31,14 +32,13 @@ This overrides AGENTS.md "Keep capabilities, give each a clear home" for these f
 - Team impact of a trade (`buildDraftImpact`, `buildTradeImpactAnalysis`), used by trade advice (030).
 - Standings, playoff odds and luck (036).
 - Roster value and lineup helpers used by My Team (037) and awards (041/042).
-- Shared trade links `/t/:code`: they keep opening in Trade Calc (old links work). Flag for Niko: the Share button is not in the sketches. Default is to keep the button; delete it only if Niko says so.
-- Sample league (`?sample=1`): kept as a link on League History for people without a Sleeper account. Flag for Niko.
+- **Share a trade (owner decision, Nov 13, 2026: keep).** Keep all of it: the Share button on Trade Calc (`shareDraftTrade`, `shareDraftTradeOnce`, `draftShareCode`, `buildShareUrl`, `showShareToast`), `/t/:code` links (`loadSharedTrade`, `applyTradeRoute`, `docs/modules/trade-share.js`), the share-image/OG card (`netlify/lib/trade-share.js`, `netlify/functions/*`) and the shared-trade verdict head (`renderSharedVerdictHead`). Deleting crowd call must not break any of it. The crowd poll keys off share codes (`pollCodeFrom`), so remove only the poll pieces.
 
 ## Scope
 
 - Delete the code above, its CSS (`docs/styles.css`), HTML hooks, constants, state fields (`state.js`), analytics events, and unused imports. Grep for each removed export before deleting so nothing still calls it.
-- Redirect removed URLs (`/l/:id/ideas` → `/l/:id`) in `history-route.js` / `_redirects`.
-- Mark tickets 004, 005, 007, 008 and 023 with a `Superseded` line (owner removed the feature on Nov 13, 2026; restore from git) and 006 / 014 as superseded by the one-value-system rule (044), following AGENTS.md ticket rules.
+- Redirect removed URLs (`/l/:id/ideas` → `/l/:id`; `?sample=1` → `/leagues`) in `history-route.js` / `_redirects`.
+- Mark tickets 004, 005, 007, 008 and 023 (in `tickets/done/`) with a `Superseded` line (owner removed the feature on Nov 13, 2026; restore from git) and 006 / 014 as superseded by the one-value-system rule (044), following AGENTS.md ticket rules.
 - PR description: a restore table (feature → last SHA → files).
 
 ## Out of scope
@@ -48,7 +48,9 @@ This overrides AGENTS.md "Keep capabilities, give each a clear home" for these f
 
 ## Acceptance criteria (manual QA)
 
-- None of the deleted features appear anywhere on the site at 390, 820 or 1280 px. Walk every page with the sample league connected.
+- None of the deleted features appear anywhere on the site at 390, 820 or 1280 px. Walk every page with a real public 12-team dynasty league connected.
+- `/?sample=1` and `/l/<id>?sample=1` open League History (or that league, without invented names). No "sample" text, banner or chip remains anywhere.
+- Share a trade still works end to end: build a trade, press Share, open the link in a private window, and see the same trade, verdict and share card.
 - `/l/<id>/ideas` and any old deep link to a deleted room land on a working page.
 - No console errors. The DevTools Network tab shows no request to `/.netlify/functions/trade-poll`.
 - `docs/app.js` and `docs/styles.css` line counts drop. The PR states before and after.

@@ -23,7 +23,7 @@ A lot already exists on My team: `renderStandingsRoom()`, `renderStandingsPanel(
 
 ## Acceptance criteria (manual QA)
 
-- Records, PF and PA match Sleeper's standings for the sample league and one real league.
+- Records, PF and PA match Sleeper's standings for two real public leagues.
 - Luck values sum to roughly zero across the league and the ⓘ explanation is understandable.
 - During a live Sunday window, points update without a reload; switching tabs pauses polling (Network tab).
 - Before week 1 (or a league with no games yet) the page says standings start after week 1 instead of showing zeros.

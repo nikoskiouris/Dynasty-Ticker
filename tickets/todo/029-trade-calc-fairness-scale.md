@@ -21,7 +21,7 @@ Today the verdict is a headline + meter bars: `renderDraftVerdict(view)` → `va
   - **Lopsided** = Lopsided (> 28%)
 - Render a 7-stop horizontal scale under the columns; the marker sits on the correct stop on the winning team's side, and moves smoothly as assets change (respect `prefers-reduced-motion`).
 - Under the scale, one sentence from `verdictCopy()` that names the side: e.g. "Unfair · Team 1 receives 19% more". Keep the ⓘ explainer (`TIER_EXPLAINER`) and the "fewer, better pieces" fine print.
-- Use the same labels anywhere the verdict appears: shared `/t/` page, OG card text (`netlify/functions`, `trade-share.js` `cardVerdict()` / `shareMessage()`), so a shared trade and the calculator never disagree. Old wording may stay in alt text if needed for existing cards; say so in the PR.
+- **Share a trade stays** (owner decision, Nov 13), so the scale must also render on the shared `/t/` page. Use the same labels anywhere the verdict appears: shared `/t/` page, OG card text (`netlify/functions`, `trade-share.js` `cardVerdict()` / `shareMessage()`), so a shared trade and the calculator never disagree. Old wording may stay in alt text if needed for existing cards; say so in the PR.
 - Empty or one-sided trade: scale shows greyed with "Add players to both sides".
 - Accessible: scale is a read-only `role="meter"` (or img with label) announcing "Unfair, favors Team 1".
 

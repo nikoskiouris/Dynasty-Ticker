@@ -47,8 +47,8 @@ This ticket lays the plumbing only: the page ids, the URL map, and an empty shel
 
 - Typing each URL in the table into the address bar opens the right page with its heading; reloading stays on it.
 - Moving between pages with links, then pressing Back and Forward, walks the same pages in order and never leaves the site.
-- `/t/<code>` from an existing share still opens the shared trade in the calculator; `/trade?give=…&get=…` still prefills the trade.
-- `/l/<sample league id>` opens the league hub shell; `/l/<id>/team` opens the My Team shell.
+- Share a trade stays (owner decision, Nov 13): `/t/<code>` from an existing share still opens the shared trade in the calculator; `/trade?give=…&get=…` still prefills the trade.
+- `/l/<a real public league id>` opens the league hub shell; `/l/<id>/team` opens the My Team shell.
 - A screen reader (VoiceOver or NVDA) announces each page title on navigation.
 - No console errors on any page at 390, 820 and 1280 px wide.
 
