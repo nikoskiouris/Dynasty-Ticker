@@ -55,3 +55,10 @@ In the **same PR/commit as the work**:
 1. `git mv tickets/todo/<this file> tickets/done/`.
 2. Add a line at the very top, under the title: `Done: <YYYY-MM-DD>, <PR or commit link>`. Change **Status** to `Done`.
 3. Move this ticket's row in `tickets/README.md` from **To do** to **Done**, and point its link at `done/`.
+
+
+## Implementation checkpoint · 2026-11-13
+
+The trader-awards slice is implemented in `docs/modules/league-trader-awards.js` and `league-trader-awards-page.js` and rendered on Historical Data. It aggregates fully priced completed trade outcomes by manager identity, compares received/sent values through ticket 038's canonical hindsight grader, identifies the highest/lowest net value and best/worst single trade, applies the three-trade qualification threshold, and reports skipped unpriced trades instead of treating their values as zero. See commits `15c9a3e`, `c98f0ea`, `706b875`, `3095d13`.
+
+**Still open:** drafter scoring, the weighted best/worst manager composite, tie-break and pick-outcome manual spot checks, full-browser checks at 390/820/1280 widths and the required demo video. No automated test suites were created or run. Do not move this ticket to Done until those acceptance criteria are verified.
