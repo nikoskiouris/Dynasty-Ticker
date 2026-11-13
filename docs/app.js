@@ -700,6 +700,12 @@ if (runQueuedFind) scheduleBootFind(() => requestFindLeagues());
 
 function navigateTool(href) {
   const url = new URL(href, window.location.origin);
+  // Leaving a shared /t link: load the page fresh. The in-place switch kept
+  // the share's /t URL (or its /trade draft) and Back skipped the link.
+  if (state.sharedTrade && url.pathname !== window.location.pathname) {
+    window.location.assign(url.href);
+    return;
+  }
   if (url.pathname === "/players") { openPlayerBoard({ history: "push" }); return; }
   if (url.pathname === "/trade") {
     playersBoardOpen = false; state.ranks.selectedId = "";

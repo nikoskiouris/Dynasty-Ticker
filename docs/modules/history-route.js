@@ -422,9 +422,9 @@ export function pathForPlace({
   if (placePage === "league" && placeRoom === "hub" && LEAGUE_ID.test(String(leagueId || ""))) return urlPath("l", leagueId);
   if (sleeperId) href = playerPathname(sleeperId, playerName);
   else if (placePage === "trades" && placeRoom === "calculator" && landing && !give.length && !get.length) href = urlPath();
-  // The players board has its own address while the trade is empty, so a
-  // reload, Back, or a copied link opens the board, not a blank calculator.
-  else if (placePage === "trades" && placeRoom === "calculator" && playersBoard && !give.length && !get.length) href = urlPath("players");
+  // Player Rankings is its own page: /players stays /players even with a saved
+  // trade draft (the draft waits on /trade).
+  else if (placePage === "trades" && placeRoom === "calculator" && playersBoard) href = urlPath("players");
   else if (placePage === "trades" && placeRoom === "calculator") href = tradeHref(give, get, leagueId, { format });
   else if (leagueSegment && LEAGUE_ID.test(String(leagueId || ""))) {
     href = urlPath("l", leagueId, leagueSegment);
