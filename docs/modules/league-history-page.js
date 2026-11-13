@@ -2,6 +2,7 @@ import { escapeHtml, formatNumber } from "./html.js";
 import { championsWall, allTimeStandings, leagueRecordBook, leagueTrends } from "./league-records.js";
 import { renderRivalries } from "./league-rivalries-page.js";
 import { renderTrophyCases } from "./league-trophies-page.js";
+import { renderTraderAwards } from "./league-trader-awards-page.js";
 
 const e = (value) => escapeHtml(String(value ?? ""));
 const whole = (value) => Number.isFinite(Number(value)) ? formatNumber(Number(value)) : "—";
@@ -83,7 +84,7 @@ function renderTrends(rows) {
       </tr>`).join("")}</tbody></table></div></section>`;
 }
 
-export function renderLeagueHistory(archive) {
+export function renderLeagueHistory(archive, { valueNames = {}, values = {} } = {}) {
   const seasons = archive?.seasons || [];
   const leagueId = encodeURIComponent(String(archive?.leagueId || ""));
   const name = seasons[0]?.league?.name || "League";
@@ -105,9 +106,10 @@ export function renderLeagueHistory(archive) {
     ${renderRecords(book)}
     ${renderRivalries(archive)}
     ${renderTrends(leagueTrends(archive))}
-    ${renderTrophyCases(archive)}
+    ${renderTrophyCases(archive, { valueNames })}
+    ${renderTraderAwards(archive, { values, valueNames })}
     <section class="workspace-panel"><h2>More history</h2><p class="muted">
-      Best/worst manager, trader, drafter, lineup and waiver awards are not available yet.
+      Composite manager, rookie drafter, lineup-setting and waiver awards are not available yet.
       These sections require additional calculation and verification; no rankings have been inferred.</p></section>
   </div>`;
 }
