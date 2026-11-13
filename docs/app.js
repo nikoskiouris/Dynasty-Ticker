@@ -1050,6 +1050,7 @@ let archiveErrorMessage = "";
 let archiveProgressMessage = "";
 let tradeLogSearch = "";
 let tradeLogSeason = "";
+let tradeLogTeam = "";
 
 function archiveCovers(snapshot, scope, leagueId) {
   return String(snapshot?.leagueId || "") === String(leagueId)
@@ -1113,6 +1114,7 @@ function renderLeagueTradePage() {
     valueNames: state.valueBundles?.names || state.valueNameMap,
     players: state.players,
     query: tradeLogSearch,
+    team: tradeLogTeam,
   });
 }
 
@@ -1124,7 +1126,7 @@ function redrawLeagueTradeRows() {
   const entry = archive.seasons.find((item) => String(item.season) === season);
   const host = document.querySelector("#league-trade-results");
   if (host) host.innerHTML = renderTradeLogRows({
-    archive, entry, query: tradeLogSearch,
+    archive, entry, query: tradeLogSearch, team: tradeLogTeam,
     trades: archive.transactions?.[season] || [],
     values: state.valueBundles?.sf?.values || state.values,
     valueNames: state.valueBundles?.names || state.valueNameMap,
@@ -1138,9 +1140,15 @@ document.addEventListener("input", (event) => {
   redrawLeagueTradeRows(); // Keep the search input mounted and focused.
 });
 document.addEventListener("change", (event) => {
-  if (event.target?.id !== "league-trade-season") return;
-  tradeLogSeason = event.target.value || "";
-  redrawLeagueTradeRows();
+  if (event.target?.id === "league-trade-season") {
+    tradeLogSeason = event.target.value || "";
+    tradeLogTeam = "";
+    // Season changes re-create team choices; search text persists.
+    renderLeagueTradePage();
+  } else if (event.target?.id === "league-trade-team") {
+    tradeLogTeam = event.target.value || "";
+    redrawLeagueTradeRows();
+  }
 });
 
 function renderActivePage() {
@@ -3300,6 +3308,7 @@ function unloadLeague() {
   archiveErrorMessage = "";
   tradeLogSearch = "";
   tradeLogSeason = "";
+  tradeLogTeam = "";
   leagueLoader.drop();
   stopLivePolling();
   stopLeagueLoadingUi();
@@ -3407,6 +3416,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     archiveErrorMessage = "";
     tradeLogSearch = "";
     tradeLogSeason = "";
+    tradeLogTeam = "";
     state.transactions = [];
     state.transactionsLoaded = false;
     state.transactionsFailed = false;
