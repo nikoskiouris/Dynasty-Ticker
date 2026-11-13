@@ -54,7 +54,7 @@ export function forgetLastLeague(storage = globalThis.localStorage) {
 export function lastLeagueHref(entry) {
   const row = normalizeLastLeague(entry);
   if (!row) return "";
-  return `/l/${row.leagueId}/team${row.rosterId ? `?me=${row.rosterId}` : ""}`;
+  return `/l/${row.leagueId}${row.rosterId ? `?me=${row.rosterId}` : ""}`;
 }
 
 export function lastLeagueMarkup(entry) {
@@ -64,7 +64,7 @@ export function lastLeagueMarkup(entry) {
   const who = row.managerName ? `As ${row.managerName}. ` : "";
   return `
     <a class="launch-action launch-primary launch-resume-open" href="${escapeHtml(lastLeagueHref(row))}">
-      <strong>Open ${escapeHtml(name)} <span aria-hidden="true">›</span></strong>
+      <strong>Back to ${escapeHtml(name)} <span aria-hidden="true">›</span></strong>
       <span>${escapeHtml(who)}You opened it last time in this browser.</span>
     </a>
     <button type="button" class="link-btn launch-resume-forget" data-action="forget-last-league">Forget this league</button>

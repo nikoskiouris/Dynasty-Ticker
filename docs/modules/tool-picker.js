@@ -19,6 +19,7 @@ export function moveLeagueControls(host) {
     const node = document.getElementById(id);
     if (node) controls.append(node);
   });
+  try { const saved = localStorage.getItem('dt:sleeper-username'); const input = document.getElementById('sleeper-username'); if (saved && input && !input.value) input.value = saved; } catch {}
   const label = document.querySelector('label[for="sleeper-username"]');
   if (label) label.textContent = 'Enter your Sleeper username:';
   const button = document.getElementById('find-leagues-btn');

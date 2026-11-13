@@ -171,7 +171,7 @@ export function renderLeaguePickerMarkup(leagues, currentSeason, selectedId = ""
   return `
     <div class="league-picker-head">
       <span class="eyebrow">Your leagues</span>
-      <strong>Pick a league</strong>
+      <strong>Select your league:</strong>
     </div>
     <div class="league-picker-list">
       ${leagues.map((league) => {
@@ -183,7 +183,7 @@ export function renderLeaguePickerMarkup(leagues, currentSeason, selectedId = ""
             <span class="league-pick-avatar">${avatar ? `<img src="${escapeHtml(avatar)}" alt="${escapeHtml(league.name || "League")} logo">` : `<span aria-hidden="true">${escapeHtml((league.name || "L").slice(0, 1))}</span>`}</span>
             <span class="league-pick-copy">
               <strong>${escapeHtml(league.name || "Untitled league")}</strong>
-              <small>${escapeHtml(String(league.season || ""))} · ${Number(league.total_rosters || 0)} teams · ${escapeHtml(leagueTypeLabel(league))} · ${escapeHtml(leagueStatusLabel(league.status))}</small>
+              <small>${escapeHtml(String(league.season || ""))} · ${Number(league.total_rosters || 0)} teams · ${(league.roster_positions || []).includes("SUPER_FLEX") ? "Superflex" : "1QB"} · ${Number(league.scoring_settings?.rec) === 1 ? "PPR" : Number(league.scoring_settings?.rec) === 0.5 ? "Half PPR" : "Standard"} · ${escapeHtml(leagueStatusLabel(league.status))}</small>
             </span>
           </button>
         `;

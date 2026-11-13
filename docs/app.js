@@ -1,3 +1,5 @@
+import { mountSiteMenu } from "./modules/site-menu.js";
+import { renderToolPicker, moveLeagueControls } from "./modules/tool-picker.js";
 import { safeStorage } from "./modules/safe-storage.js";
 import { forgetLastLeague, lastLeagueMarkup, readLastLeague, writeLastLeague } from "./modules/last-league.js";
 import { BUY_SELL_MIN_GAMES, buildBuySellLists } from "./modules/buy-sell.js";
@@ -351,6 +353,8 @@ const TRENDING_LOOKBACK_HOURS = 24;
 const leagueStrengthCache = { key: "", baseline: null };
 const powerBoardCache = { key: "", profiles: null, context: null };
 let teamsPaintGeneration = 0;
+
+moveLeagueControls(document.querySelector("#leagues-page-content"));
 
 const el = {
   sleeperUsername: document.querySelector("#sleeper-username"),
@@ -804,7 +808,15 @@ if (bootRoute?.badLeague) {
   setActivePage(bootRoute.page, { history: "silent" });
 }
 bindInfoTips(document);
-void bootLaunchSurface();
+renderToolPicker(document.querySelector("#home-page-content"));
+mountSiteMenu({ navigate: navigateTool });
+document.addEventListener("click", event => {
+  const link = event.target.closest("#home-page-content a, #leagues-page-content a");
+  if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  const href = link.getAttribute("href");
+  if (!href?.startsWith("/")) return;
+  event.preventDefault(); navigateTool(href);
+});
 if (typeof history.scrollRestoration === "string") history.scrollRestoration = "manual";
 ensureRouteLive(document);
 // A focused heading already speaks its name. Drop a live announcement that says the same thing.
@@ -858,6 +870,25 @@ if (runQueuedFind) scheduleBootFind(() => requestFindLeagues());
 // ---------------------------------------------------------------------------
 // Desk navigation: three pages, each with a row of rooms
 // ---------------------------------------------------------------------------
+
+function navigateTool(href) {
+  const url = new URL(href, window.location.origin);
+  if (url.pathname === "/players") { openPlayerBoard({ history: "push" }); return; }
+  if (url.pathname === "/trade") {
+    playersBoardOpen = false; state.ranks.selectedId = "";
+    openRoom("trades", "calculator", { history: "push" }); return;
+  }
+  if (url.pathname === "/" || url.pathname === "/leagues") {
+    playersBoardOpen = false; state.ranks.selectedId = "";
+    setActivePage(url.pathname === "/" ? "home" : "leagues", { history: "push", scroll: "top", landing: "hide" }); return;
+  }
+  const id = url.pathname.match(/^\/l\/(\d+)/)?.[1];
+  if (id) {
+    state.pendingPlace = { page: "league", room: "hub" };
+    if (String(id) === String(state.leagueId)) openRoom("league", "hub", { history: "push" });
+    else void loadLeagueById(id);
+  }
+}
 
 function clampRoom(page, room) {
   return visibleRoomFor(page, room, state.league) || defaultRoomFor(page);
@@ -1024,7 +1055,8 @@ function renderActivePage() {
   renderLeagueHero();
   const page = state.activePage;
   const room = getRoom(page);
-  if (page === "home" || page === "leagues") return;
+  if (page === "home") { renderToolPicker(document.querySelector("#home-page-content")); return; }
+  if (page === "leagues") { moveLeagueControls(document.querySelector("#leagues-page-content")); return; }
   if (page === "league" && room !== "team") return;
   if (page === "trades") {
     renderTradesRoom(room);
@@ -2838,6 +2870,7 @@ function handleLeaguePickClick(event) {
   const leagueId = parseLeagueId(button.dataset.leagueId);
   if (!leagueId) return;
   if (el.leagueId) el.leagueId.value = leagueId;
+  state.pendingPlace = { page: "league", room: "hub" };
   void loadLeagueById(leagueId);
 }
 
@@ -2883,6 +2916,7 @@ function requestLoadLeague(event) {
   if (classified.kind === "league") {
     setFieldError(el.leagueId, el.leagueIdError, "");
     if (el.leagueId) el.leagueId.value = classified.leagueId;
+    state.pendingPlace = { page: "league", room: "hub" };
     void loadLeagueById(classified.leagueId);
     return;
   }
@@ -2917,6 +2951,7 @@ function requestFindLeagues(event) {
   setUsernameError("");
   if (classified.kind === "league") {
     if (el.leagueId) el.leagueId.value = classified.leagueId;
+    state.pendingPlace = { page: "league", room: "hub" };
     void loadLeagueById(classified.leagueId);
     return;
   }
@@ -2993,6 +3028,7 @@ async function runUserLeagueSearch(username) {
     const season = String(nflState?.league_season || nflState?.season || new Date().getUTCFullYear());
     const { user, leagues, failedSeasons = [] } = await fetchUserLeagues(sleeper, username, uniqueSeasons(season, 1));
     state.sleeperUser = user;
+    try { safeStorage("localStorage")?.setItem("dt:sleeper-username", username); } catch {}
     searchedUserNoted = false;
     state.userLeagues = sortUserLeagues(leagues, season);
     const failed = new Set(failedSeasons.map((item) => String(item)));
@@ -3005,11 +3041,6 @@ async function runUserLeagueSearch(username) {
     } else if (state.userLeagues.length === 0) {
       setStatus(`Found ${user.display_name || username}, but no NFL leagues for ${season}/${Number(season) - 1}.`, { error: true });
       setUsernameError(`No NFL leagues for ${season}/${Number(season) - 1}.`);
-    } else if (state.userLeagues.length === 1) {
-      autoloadId = String(state.userLeagues[0].league_id || "");
-      if (el.leagueId && autoloadId) el.leagueId.value = autoloadId;
-      setUsernameError("");
-      setStatus(`One league found. Opening ${state.userLeagues[0].name || "league"}…`, { loading: true });
     } else {
       setUsernameError("");
       setStatus(`Found ${state.userLeagues.length} leagues for ${user.display_name || username}. Pick one.`);

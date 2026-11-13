@@ -14,9 +14,9 @@ export const OG_IMAGE_URL = `${SITE_URL}og-image.jpg`;
 export const STORAGE_NOTICE_KEY = "dynasty_ticker_storage_notice";
 export const SAMPLE_BANNER_KEY = "dynasty_ticker_sample_banner_off";
 
-export const DEFAULT_TITLE = "Dynasty Ticker — Your Sleeper dynasty league";
+export const DEFAULT_TITLE = "Dynasty Ticker — Trade Calc, Player Rankings & League History";
 export const DEFAULT_DESCRIPTION =
-  "See what your players are worth, check a trade, and find your team's next move.";
+  "Trade Calc, Player Rankings and Sleeper League History. Values optimized for 12-team Superflex PPR dynasty.";
 
 export const PAGE_META = {
   league: {
