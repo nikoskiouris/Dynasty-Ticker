@@ -56,3 +56,7 @@ In the **same PR/commit as the work**:
 1. `git mv tickets/todo/<this file> tickets/done/`.
 2. Add a line at the very top, under the title: `Done: <YYYY-MM-DD>, <PR or commit link>`. Change **Status** to `Done`.
 3. Move this ticket's row in `tickets/README.md` from **To do** to **Done**, and point its link at `done/`.
+
+## Implementation checkpoint · 2026-11-13
+
+Initial Historical Data page now renders a champions wall, all-time manager standings, selected game/season records, and league trends from completed Sleeper season data (commits `b5d2b6b`, `68c626d`, `22f295d`, `c741074`). It reports partial missing history and leaves awards unranked. Still **Open**: head-to-head grid, rivalries, remaining records/streaks, manager trophy cases and awards (041/042), spot-checks, responsive/browser QA, demo video. No automated tests were added or run.
