@@ -67,7 +67,7 @@ function transactionEvents(archive) {
     for (const transaction of archive?.transactions?.[id(entry.season)] || []) {
       if (transaction?.status !== "complete"
         || !["waiver", "free_agent", "trade"].includes(transaction?.type)) continue;
-      const leg = Number(transaction.leg);
+      const leg = transaction.leg == null ? NaN : Number(transaction.leg);
       if (!Number.isInteger(leg) || leg < 0 || leg > 18) {
         if (["waiver", "free_agent"].includes(transaction.type)) {
           undatedAdds += Object.keys(transaction.adds || {}).length;
@@ -95,21 +95,26 @@ function transactionEvents(archive) {
   // A same-week trade's drop occurs before its add if timestamps tie.
   events.sort((a, b) => a.order - b.order || a.time - b.time
     || (a.action === "drop" ? -1 : 1));
+  const nextAddByPlayer = new Map();
+  const nextDropByOwner = new Map();
+  for (let index = events.length - 1; index >= 0; index--) {
+    const event = events[index];
+    const ownerKey = `${event.playerId}:${event.managerKey}`;
+    if (event.action === "add") {
+      event.endOrder = Math.min(
+        nextAddByPlayer.get(event.playerId) ?? Infinity,
+        nextDropByOwner.get(ownerKey) ?? Infinity,
+      );
+      nextAddByPlayer.set(event.playerId, event.order);
+    } else {
+      nextDropByOwner.set(ownerKey, event.order);
+    }
+  }
   return { events, undatedAdds };
 }
 
-function pickupScore(pickup, events, allStarts, owners, prices) {
-  const from = events.indexOf(pickup);
-  let end = Infinity;
-  for (let i = from + 1; i < events.length; i++) {
-    const next = events[i];
-    if (next.playerId !== pickup.playerId) continue;
-    if (next.action === "add"
-      || (next.action === "drop" && next.managerKey === pickup.managerKey)) {
-      end = next.order;
-      break;
-    }
-  }
+function pickupScore(pickup, allStarts, owners, prices) {
+  const end = pickup.endOrder ?? Infinity;
   let startedPoints = 0;
   const starts = [];
   for (const week of allStarts.get(pickup.managerKey) || []) {
@@ -141,7 +146,7 @@ export function waiverAwards(archive = {}, { values = {}, minAdds = 5 } = {}) {
   let unpricedAdds = 0;
   for (const event of events) {
     if (event.action !== "add" || !["waiver", "free_agent"].includes(event.transactionType)) continue;
-    const pickup = pickupScore(event, events, weeks, owners, prices);
+    const pickup = pickupScore(event, weeks, owners, prices);
     if (!pickup) { unpricedAdds++; continue; }
     pickups.push(pickup);
     if (!byManager.has(pickup.managerKey)) byManager.set(pickup.managerKey, {
