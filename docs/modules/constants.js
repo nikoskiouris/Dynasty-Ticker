@@ -11,8 +11,8 @@ export const SIM_ITERATIONS = 4000;
 // Check a trade and Find a trade are two rooms of the trades page; the player
 // board lives under Check a trade. Old page and room names stay as aliases so
 // existing links still open.
-export const PAGE_IDS = ["trades", "league"];
-export const DEFAULT_PAGE = "trades";
+export const PAGE_IDS = ["home", "trades", "leagues", "league"];
+export const DEFAULT_PAGE = "home";
 export const HOME_ROOM = "team";
 export const NAV_TABS = Object.freeze([
   { id: "check", page: "trades", room: "calculator", label: "Check a trade", hint: "Is this offer fair?" },
@@ -20,28 +20,39 @@ export const NAV_TABS = Object.freeze([
   { id: "team", page: "league", room: "team", label: "My team", hint: "Roster, standings, playoff odds" },
 ]);
 export const PAGE_LABELS = {
+  home: "Home",
+  leagues: "League History",
   trades: "Check a trade",
   league: "My team",
 };
 export const PAGE_HINTS = {
+  home: "Choose a tool",
+  leagues: "Choose your Sleeper league",
   trades: "Check a trade or find one",
   league: "Roster, standings, and playoff odds",
 };
 export const PAGE_ROOMS = {
+  home: ["home"],
+  leagues: ["picker"],
   trades: ["calculator", "find"],
-  league: ["team"],
+  league: ["hub", "standings", "team", "trades", "history"],
 };
 export const DEFAULT_ROOMS = {
+  home: "home",
+  leagues: "picker",
   trades: "calculator",
-  league: "team",
+  league: "hub",
 };
 export const ROOM_LABELS = {
+  home: { home: "Home" },
+  leagues: { picker: "League History" },
   trades: {
     calculator: "Check a trade",
     find: "Find a trade",
   },
   league: {
-    team: "My team",
+    hub: "League hub", standings: "Standings", trades: "Recent Trades", history: "Historical Data",
+    team: "My Team",
   },
 };
 export const ROOM_HINTS = {
@@ -63,7 +74,9 @@ export const PAGE_ALIASES = {
   trader: "trades",
   trade: "trades",
   league: "league",
-  home: "league",
+  home: "home",
+  leagues: "leagues",
+  connect: "leagues",
   now: "league",
   week: "league",
   teams: "league",
@@ -120,7 +133,7 @@ export const PLACE_ALIASES = {
   "all-in": { page: "league", room: "team" },
   allin: { page: "league", room: "team" },
   strategy: { page: "league", room: "team" },
-  standings: { page: "league", room: "team" },
+  standings: { page: "league", room: "standings" },
   odds: { page: "league", room: "team" },
   playoffs: { page: "league", room: "team" },
   scores: { page: "league", room: "team" },
@@ -132,7 +145,7 @@ export const PLACE_ALIASES = {
   rankings: { page: "league", room: "team" },
   awards: { page: "league", room: "team" },
   recap: { page: "league", room: "team" },
-  history: { page: "league", room: "team" },
+  history: { page: "league", room: "history" },
   hall: { page: "league", room: "team" },
   titles: { page: "league", room: "team" },
   seasons: { page: "league", room: "team" },
@@ -158,7 +171,7 @@ export const PLACE_ALIASES = {
   league: { page: "league", room: "team" },
   week: { page: "league", room: "team" },
   now: { page: "league", room: "team" },
-  home: { page: "league", room: "team" },
+  home: { page: "home", room: "home" },
   myteam: { page: "league", room: "team" },
   "my-team": { page: "league", room: "team" },
   teams: { page: "league", room: "team" },

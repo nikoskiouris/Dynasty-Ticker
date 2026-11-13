@@ -74,3 +74,11 @@ In the **same PR/commit as the work**:
 1. `git mv tickets/todo/<this file> tickets/done/`.
 2. Add a line at the very top, under the title: `Done: <YYYY-MM-DD>, <PR or commit link>`. Change **Status** to `Done`.
 3. Move this ticket's row in `tickets/README.md` from **To do** to **Done**, and point its link at `done/`.
+
+## Implementation checkpoint · 2026-11-13
+
+Routes, page shells, history wiring, heading selectors, SPA rewrites and sitemap are implemented. Rankings and player detail retain the existing `trades/calculator` rendering host internally; their URLs remain distinct, allowing 031/032 to replace the presentation without duplicating the calculator.
+
+Manual CLI inspection confirmed the twelve canonical/compatibility routes map to their expected page/room and back, trade query assets survive, legacy `fmt=1qb` is display-only, and sample entry resolves to League History. Changed JavaScript passes syntax checks; no automated tests were created or run.
+
+Browser acceptance remains pending: the only available cloud browser cannot reach the workspace preview (`ERR_CONNECTION_REFUSED`), and no screen recorder is exposed. Desktop/phone/iPad layout, browser Back/Forward, screen-reader behavior and the required demo have not been verified. Keep this ticket open until integrated browser QA is available.

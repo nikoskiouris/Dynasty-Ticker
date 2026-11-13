@@ -3,16 +3,19 @@
 export const ROUTE_LIVE_ID = "route-announcer";
 export const ROUTE_SITE_NAME = "Dynasty Ticker";
 export const ROUTE_TAB_LABELS = Object.freeze({
-  trades: "Check a trade",
+  home: "Home",
+  leagues: "League History",
+  trades: "Trade Calc",
   league: "My team",
 });
 export const ROUTE_ROOM_TITLES = Object.freeze({
-  team: "My team",
+  home: "Home", picker: "League History", hub: "League hub", standings: "Standings", trades: "Recent Trades", history: "Historical Data",
+  team: "My Team",
   find: "Find a trade",
   calculator: "Check a trade",
 });
 
-const PAGE_ROOTS = new Set(["trades", "league"]);
+const PAGE_ROOTS = new Set(["home", "leagues", "trades", "league"]);
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -112,7 +115,13 @@ export function focusViewHeading(root, { focusVisible = false } = {}) {
 
 // One heading per room. Waiting on a selector (not a node) survives re-renders.
 const ROOM_HEADINGS = Object.freeze({
-  "league:team": "#power-heading",
+  "home:home": "#home-heading",
+  "leagues:picker": "#leagues-heading",
+  "league:hub": "#league-hub-heading",
+  "league:standings": "#league-standings-heading",
+  "league:trades": "#league-trades-heading",
+  "league:history": "#league-history-heading",
+  "league:team": "#league-team-heading",
   "trades:calculator": "#calculator-section .calc-heading h2, #shared-trade-title",
   "trades:find": "#find-heading",
 });

@@ -8,5 +8,3 @@ https://www.dynastyticker.com/*  https://dynastyticker.com/:splat  301!
 /l/:id/league/  /l/:id/team  301!
 /l/:id/activity  /l/:id/team  301!
 /l/:id/activity/  /l/:id/team  301!
-/l/:id/history  /l/:id/team  301!
-/l/:id/history/  /l/:id/team  301!

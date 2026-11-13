@@ -193,6 +193,17 @@
   to = "/index.html"
   status = 200
 
+
+[[redirects]]
+  from = "/leagues"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/leagues/"
+  to = "/index.html"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/404.html"

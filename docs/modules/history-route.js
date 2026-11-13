@@ -17,13 +17,17 @@ export const HOME_PLACE = Object.freeze({
 // One line per route. Add a future section by appending a line.
 // :slug? is cosmetic. Closest current desk place is page + room.
 export const ROUTES = Object.freeze([
-  { name: "home", pattern: "/", page: "trades", room: "calculator" },
+  { name: "home", pattern: "/", page: "home", room: "home" },
   { name: "players", pattern: "/players", page: "trades", room: "calculator" },
   { name: "trade", pattern: "/trade", page: "trades", room: "calculator" },
-  { name: "connect", pattern: "/connect", page: "trades", room: "calculator" },
-  { name: "league", pattern: "/l/:leagueId", page: "league", room: "team" },
+  { name: "connect", pattern: "/connect", page: "leagues", room: "picker" },
+  { name: "leagues", pattern: "/leagues", page: "leagues", room: "picker" },
+  { name: "league", pattern: "/l/:leagueId", page: "league", room: "hub" },
+  { name: "standings", pattern: "/l/:leagueId/standings", page: "league", room: "standings" },
+  { name: "recentTrades", pattern: "/l/:leagueId/trades", page: "league", room: "trades" },
+  { name: "history", pattern: "/l/:leagueId/history", page: "league", room: "history" },
   { name: "team", pattern: "/l/:leagueId/team", page: "league", room: "team" },
-  { name: "ideas", pattern: "/l/:leagueId/ideas", page: "trades", room: "find" },
+  { name: "ideas", pattern: "/l/:leagueId/ideas", page: "league", room: "hub" },
   { name: "player", pattern: "/player/:sleeperId/:slug?", page: "trades", room: "calculator" },
   // A shared trade. The code is the trade (see trade-share.js). It opens the
   // calculator and stays /t/<code> until the trade is edited.
@@ -31,6 +35,7 @@ export const ROUTES = Object.freeze([
 ]);
 
 const LEAGUE_ROOM_SEGMENT = Object.freeze({
+  hub: "", standings: "standings", trades: "trades", history: "history",
   team: "team",
 });
 
@@ -115,9 +120,7 @@ export function tradeHref(give = [], get = [], leagueId = "", { format = "" } = 
   if (giveIds.length) bits.push(`give=${giveIds.map(publicTradeId).join(",")}`);
   if (getIds.length) bits.push(`get=${getIds.map(publicTradeId).join(",")}`);
   if (LEAGUE_ID.test(String(leagueId || ""))) bits.push(`league=${String(leagueId)}`);
-  // Superflex is the default. Without a league, a 1QB board rides in the link
-  // so a reload or a copied link checks the trade on the same prices.
-  else if (format === "oneQb" && (giveIds.length || getIds.length)) bits.push("fmt=1qb");
+  // Legacy fmt parameters are accepted on read but never written: one SF price set.
   const query = bits.join("&");
   return `${urlPath("trade")}${query ? `?${query}` : ""}`;
 }
@@ -247,7 +250,8 @@ export function matchRoute(pathname, search = "") {
         room: row.room,
         give: shared.give,
         get: shared.get,
-        format: shared.format,
+        format: "",
+        legacyFormat: shared.format === "oneQb" ? "oneQb" : "",
         shareCode,
       });
     }
@@ -263,7 +267,7 @@ export function matchRoute(pathname, search = "") {
       // "/trade?say=Gibbs for Nabers": a described trade. Read once, then the URL
       // becomes the usual give/get.
       say: row.name === "trade" ? String(params.get("say") || params.get("try") || "").trim().slice(0, 300) : "",
-      format: row.name === "trade" && String(params.get("fmt") || "").toLowerCase() === "1qb" ? "oneQb" : "",
+      legacyFormat: row.name === "trade" && String(params.get("fmt") || "").toLowerCase() === "1qb" ? "oneQb" : "",
       next: row.name === "connect" ? safeNext(params.get("next")) : "",
     });
   }
@@ -295,14 +299,15 @@ export function safeNext(value) {
   if (!hit || hit.name === "home" || hit.name === "connect") return "";
   if (hit.name === "player") return playerPathname(hit.playerId, hit.slug);
   if (hit.name === "trade") return tradeHref(hit.give, hit.get);
-  if (hit.name === "ideas") return urlPath("l", hit.leagueId, "ideas");
+  if (hit.page === "leagues") return urlPath("leagues");
+  if (hit.leagueId && hit.room === "hub") return urlPath("l", hit.leagueId);
   if (hit.leagueId && LEAGUE_ROOM_SEGMENT[hit.room]) return urlPath("l", hit.leagueId, LEAGUE_ROOM_SEGMENT[hit.room]);
   return "";
 }
 
-// Removed league rooms (This week, League, Activity, History) open that league's
+// Removed league rooms (This week, League, Activity) open that league's
 // My team. Netlify 301s the same paths in docs/_redirects; this covers the SPA.
-const REMOVED_LEAGUE_ROOM = /^\/l\/(\d{1,20})\/(?:week|league|activity|history)\/?$/;
+const REMOVED_LEAGUE_ROOM = /^\/l\/(\d{1,20})\/(?:week|league|activity)\/?$/;
 
 export function removedRoomRedirect(pathname) {
   const hit = REMOVED_LEAGUE_ROOM.exec(String(pathname || "").split("?")[0]);
@@ -314,13 +319,14 @@ export function resolveLocation(pathname = "/", search = "") {
   const [pathOnly, inline = ""] = String(pathname || "/").split("?");
   const params = new URLSearchParams(String(search || inline).replace(/^\?/, ""));
   if (params.get("ranks") === "1") {
-    return blankRoute({ name: "players", legacy: "ranks" });
+    return blankRoute({ name: "players", page: "trades", room: "calculator", legacy: "ranks" });
   }
+  if (params.get("sample") === "1" && !/^\/l\/\d+/.test(pathOnly)) return blankRoute({ name: "leagues", page: "leagues", room: "picker", legacy: "sample" });
   const hit = matchRoute(pathOnly, search || inline) || blankRoute({ unknown: true });
   // Old player links were `?asset=<id>` on the page you were already on.
   const assetId = sleeperIdFrom(params.get("asset") || "");
   if (assetId && (hit.name === "home" || hit.name === "players" || hit.unknown)) {
-    return blankRoute({ name: "player", playerId: assetId, legacy: "asset" });
+    return blankRoute({ name: "player", page: "trades", room: "calculator", playerId: assetId, legacy: "asset" });
   }
   return hit;
 }
@@ -366,6 +372,9 @@ export function pathForPlace({
     return urlPath("t", shareCode);
   }
   const leagueSegment = placePage === "league" ? LEAGUE_ROOM_SEGMENT[placeRoom] : "";
+  if (placePage === "home") return urlPath();
+  if (placePage === "leagues") return urlPath("leagues");
+  if (placePage === "league" && placeRoom === "hub" && LEAGUE_ID.test(String(leagueId || ""))) return urlPath("l", leagueId);
   if (sleeperId) href = playerPathname(sleeperId, playerName);
   else if (placePage === "trades" && placeRoom === "calculator" && landing && !give.length && !get.length) href = urlPath();
   // The players board has its own address while the trade is empty, so a
@@ -423,6 +432,8 @@ export const SPA_REWRITES = Object.freeze([
   "/players",
   "/trade",
   "/connect",
+  "/leagues",
+  "/leagues/",
   "/players/",
   "/trade/",
   "/connect/",

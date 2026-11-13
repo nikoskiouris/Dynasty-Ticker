@@ -791,26 +791,16 @@ window.addEventListener("resize", syncDeskRailOffset);
 if (bootRoute?.badLeague) {
   showLeagueNotFound();
 } else if (!(bootRoute?.leagueId || parseShareParams(window.location.search).leagueId)) {
-  const place = state.pendingPlace;
-  const waitingOnLeague = place?.page === "league";
-  if (!waitingOnLeague) state.pendingPlace = null;
-  const page = place?.page === "trades" ? "trades" : "players";
-  if (!waitingOnLeague && place?.page === page && place.room) setRoom(page, place.room);
+  const place = state.pendingPlace || { page: bootRoute.page, room: bootRoute.room };
+  state.pendingPlace = null;
+  const page = PAGE_IDS.includes(place?.page) ? place.page : DEFAULT_PAGE;
+  if (place?.room) setRoom(page, place.room);
   setActivePage(page, { history: "silent" });
-  const showRanks = Boolean(state.ranks.selectedId) || bootRoute?.name === "players" || bootRoute?.name === "trade" || bootRoute?.legacy === "ranks";
-  if (showRanks) document.querySelector("#landing")?.classList.add("hidden");
-  if (bootRoute?.unknown) {
-    document.querySelector("#landing")?.classList.remove("hidden");
-    if (typeof history?.replaceState === "function") {
-      history.replaceState({ ...historyPlaceNow(), pushed: false }, "", urlPath());
-    }
-  } else if (showRanks || bootRoute?.name === "trade" || bootRoute?.name === "player") {
-    updateUrlState({ mode: "replace" });
-  }
-} else if (bootRoute?.name === "player") {
-  // League is still loading. Hide the marketing page and wait for it.
-  document.querySelector("#landing")?.classList.add("hidden");
-  setActivePage(bootRoute.page || "players", { history: "silent" });
+  updateUrlState({ mode: "replace" });
+} else {
+  // A deep-linked league keeps its requested shell while data is loading.
+  setRoom(bootRoute.page, bootRoute.room);
+  setActivePage(bootRoute.page, { history: "silent" });
 }
 bindInfoTips(document);
 void bootLaunchSurface();
@@ -963,6 +953,7 @@ function setActivePage(page, { history = "replace", scroll = "preserve", prepare
   if (landing === "hide") document.querySelector("#landing")?.classList.add("hidden");
   if (landing === "show") document.querySelector("#landing")?.classList.remove("hidden");
   state.activePage = nextPage;
+  document.querySelector("#landing")?.classList.add("hidden");
   if (nextPage !== "trades") releaseRankBoardTools();
 
   PAGE_IDS.forEach((pageId) => {
@@ -1032,6 +1023,8 @@ function renderActivePage() {
   renderLeagueHero();
   const page = state.activePage;
   const room = getRoom(page);
+  if (page === "home" || page === "leagues") return;
+  if (page === "league" && room !== "team") return;
   if (page === "trades") {
     renderTradesRoom(room);
     if (room === "calculator") {
@@ -1350,7 +1343,7 @@ function bootFromUrl() {
   if (parsed.invalidLeague) showInvalidLeagueLink();
   if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
   const hashToken = String(window.location.hash || "").replace(/^#/, "");
-  const routeDrivesPlace = route.name !== "home" && !route.unknown && !route.badLeague;
+  const routeDrivesPlace = !route.unknown && !route.badLeague && !(route.name === "home" && (parsed.tab || hashToken));
   if (route.badLeague) {
     // Stay on /l/… The not-found state is painted after boot.
   } else if (route.name === "connect" && route.next) {
@@ -1423,7 +1416,8 @@ function historyPlaceNow() {
 }
 
 function deskUrlPath() {
-  if (connectAsked && !state.leagueId && landingVisible()) return "/connect?next=/";
+  if (state.activePage === "home") return "/";
+  if (state.activePage === "leagues") return "/leagues";
   const nextUrl = buildShareUrl({ origin: "" });
   return nextUrl || "/";
 }
@@ -1929,7 +1923,7 @@ function applyDeskPopState(historyState) {
     return;
   }
   if (!leagueId && state.leagueId) unloadLeague();
-  const showLanding = route.name === "home" || route.name === "connect";
+  const showLanding = false;
   document.querySelector("#landing")?.classList.toggle("hidden", !showLanding);
   if (!showLanding && (route.name === "players" || route.name === "player" || route.name === "trade" || route.leagueId)) {
     document.querySelector("#landing")?.classList.add("hidden");
@@ -1977,9 +1971,9 @@ function applyDeskPlaceFromHistory(parsed, historyState) {
     }
     setRoom(nextPage, nextView);
     applyPlayerRoute(historyState, parsed);
-    if (route.name === "home" || route.name === "connect" || route.unknown) {
+    if (route.name === "home" || route.name === "connect" || route.name === "leagues" || route.unknown) {
       state.ranks.selectedId = "";
-      document.querySelector("#landing")?.classList.remove("hidden");
+      document.querySelector("#landing")?.classList.add("hidden");
     }
     const snapshot = buildDeskHistorySnapshot(historyState || {});
     state.selectedTradeId = snapshot.selectedTradeId;
@@ -2463,10 +2457,9 @@ function connectedRosterId() {
 
 function goSiteHome({ history = "push" } = {}) {
   state.ranks.selectedId = "";
-  document.querySelector("#landing")?.classList.remove("hidden");
-  if (history === "push") prepareDeskPush();
-  setRoom("trades", "calculator");
-  setActivePage("trades", { history, scroll: "top", prepared: history === "push" });
+  playersBoardOpen = false;
+  setRoom("home", "home");
+  setActivePage("home", { history, scroll: "top" });
 }
 
 function isPhoneLayout() {
