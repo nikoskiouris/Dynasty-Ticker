@@ -24,7 +24,7 @@ Today the board lives under Check a trade (`/players`) as a card list: `buildRan
 - Clicking any player row (face or name) opens the player detail page (ticket 032).
 - Footnote under the table, using the real factors from `PRICE_FACTORS_LINE` (`verdict-copy.js`) and `player-values/README.md`:
   > "Our algorithm is based around age, role and opportunity, how well a player scores, how often he plays, his NFL team and draft capital, and how long players at his position usually stay good, plus many other factors, updated daily."
-  Link "How values work" to the existing explainer (`renderValueScaleExplainer()` in `value-scale.js`). Keep the freshness stamp (`renderValuesFreshness()`). Note: `.github/workflows/refresh-player-values.yml` refreshes values daily (cron `17 11 * * *`, 6:17 AM ET) on `develop`, but dynastyticker.com only picks them up when a release is cut (AGENTS.md "Live site releases"). "Updated daily" is only true on the live site if releases or the deploy schedule change; otherwise word it from the freshness stamp. Flag this to Niko in the PR.
+  Link "How values work" to the existing explainer (`renderValueScaleExplainer()` in `value-scale.js`). Keep the freshness stamp (`renderValuesFreshness()`). The footnote ends with "updated daily" exactly as written, with no caveat (owner decision, Nov 13, 2026). Values refresh daily via `.github/workflows/refresh-player-values.yml`.
 - With a league connected, the existing owner tag ("on your team" / manager name, `ownerLine()`) may stay as a small badge.
 
 ## Out of scope

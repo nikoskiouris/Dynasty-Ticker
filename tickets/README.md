@@ -48,6 +48,7 @@ Repo policy applies: **no unit tests and no automated test suites**. Acceptance 
 - **Features the sketches don't show** are **deleted for now** (ticket [045](todo/045-delete-features-not-in-sketches.md)): Find a trade, shop a player, buy-low/sell-high, win-now targets, move-on, next move, the contend/rebuild call, hot on Sleeper, the landing example trade, crowd call, and the **sample league**. Restore any of them from git history; 045's PR records the last SHA for each.
 - **Share a trade is kept**: the Share button, `/t/` links and the share card.
 - **One value system:** 12-team Superflex PPR dynasty only (ticket 044).
+- **Rankings footnote (031):** says "updated daily" as written, with no caveat.
 
 ### Suggested order and dependencies
 
@@ -77,10 +78,6 @@ Repo policy applies: **no unit tests and no automated test suites**. Acceptance 
 | 7 | [043](todo/043-retire-old-navigation-and-redirects.md) Retire old nav + redirects | M | 024–042, 044, 045 | none; do it last |
 
 Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one agent. Nearly every ticket touches `docs/app.js`. Keep new pages in their own `docs/modules/*.js` files to limit merge conflicts.
-
-### Still open for Niko
-
-- 031: values refresh daily on `develop`, but the live site updates only when a release is cut. Decide whether the "updated daily" footnote needs a deploy change.
 
 ## To do
 
