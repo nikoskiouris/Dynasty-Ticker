@@ -252,45 +252,6 @@ body.cold-share #route-title {
   min-height: 100dvh;
 }
 
-.mobile-chrome,
-.rail-backdrop,
-.mobile-rail-close,
-.phone-desk {
-  display: none;
-}
-
-.control-rail {
-  /* Fixed so Safari does not treat a sticky viewport-tall rail as extra page height. */
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  width: 300px;
-  height: 100vh;
-  height: 100dvh;
-  max-height: 100dvh;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: var(--section-gap);
-  background: var(--rail);
-  border-right: 3px solid var(--rail-line);
-  color: var(--rail-text);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-.brand-panel {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.35rem 0.15rem 0.9rem;
-  border-bottom: 1px solid var(--rail-line);
-}
-
 .brand-lockup {
   display: block;
   min-width: 0;
@@ -311,19 +272,6 @@ a.brand-lockup:hover {
   background: none;
   border: 0;
   box-shadow: none;
-}
-
-.brand-lockup--rail {
-  flex: 1 1 auto;
-}
-
-.brand-lockup--rail .brand-wordmark {
-  height: 1.35rem;
-}
-
-.brand-lockup--header .brand-wordmark {
-  height: 1.12rem;
-  margin-bottom: 0.12rem;
 }
 
 .rail-module {
@@ -537,8 +485,6 @@ button:focus-visible,
 textarea:focus-visible,
 summary:focus-visible,
 a:focus-visible,
-.page-tab:focus-visible,
-.room-tab:focus-visible,
 #open-public-ranks:focus-visible,
 .ranks-chip:focus-visible,
 .ranks-shelf-item:focus-visible,
@@ -594,9 +540,6 @@ button:hover {
 #load-league-btn:hover,
 #find-leagues-btn:hover,
 #landing-find-btn:hover,
-#generate-btn:hover,
-#match-generate-btn:hover,
-#sticky-find-btn:hover,
 .legal-btn:hover {
   filter: brightness(1.12);
 }
@@ -716,11 +659,8 @@ button.ghost-btn:hover {
 }
 
 body.league-switch-stale .workspace-header,
-body.league-switch-stale .mobile-chrome-title-row,
-body.league-switch-stale .desk-nav,
 body.league-switch-stale #ticker,
-body.league-switch-stale #ui-pages,
-body.league-switch-stale .sample-banner {
+body.league-switch-stale #ui-pages {
   opacity: 0.45;
 }
 
@@ -770,100 +710,6 @@ select.is-invalid {
   animation: spin 0.8s linear infinite;
 }
 
-.desk-nav {
-  position: sticky;
-  top: 0;
-  z-index: 8;
-  display: grid;
-  gap: 0;
-  border: 0;
-  border-radius: 0;
-  background: var(--bg);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  box-shadow: none;
-  overflow: hidden;
-}
-
-.workspace-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  padding: 0;
-  border-bottom: 3px solid var(--text);
-}
-
-.room-tab {
-  flex: 0 0 auto;
-  width: auto;
-  min-height: 0;
-  padding: 0.45rem 0.15rem;
-  margin-right: 1rem;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  color: var(--muted);
-  font-family: var(--font-body);
-  font-size: var(--fs-body);
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-  white-space: nowrap;
-  box-shadow: none;
-}
-
-.room-tab:hover {
-  transform: none;
-  filter: none;
-  border-color: var(--line-strong);
-  background: color-mix(in srgb, var(--text) 6%, transparent);
-  color: var(--text);
-}
-
-.room-tab.active,
-.room-tab.active:hover {
-  border-color: transparent;
-  border-bottom-color: var(--field);
-  background: transparent;
-  color: var(--text);
-}
-
-.room-tab:focus-visible {
-  outline: 2px solid var(--text);
-  outline-offset: 2px;
-}
-
-.page-tab {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  min-width: 0;
-  min-height: var(--btn-h);
-  padding: 0.45rem 0.75rem;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--muted);
-  text-align: left;
-  box-shadow: none;
-}
-
-.page-tab:hover {
-  transform: none;
-  filter: none;
-  border-color: transparent;
-  background: transparent;
-  color: var(--text);
-}
-
-.page-tab.active {
-  border-color: transparent;
-  background: transparent;
-  color: var(--text);
-  box-shadow: inset 0 -4px 0 var(--field);
-}
-
 .tab-copy {
   display: grid;
   gap: 0.02rem;
@@ -888,10 +734,6 @@ select.is-invalid {
   font-size: var(--fs-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.page-tab.active .tab-copy small {
-  color: var(--muted-strong);
 }
 
 .rail-footer {
@@ -984,41 +826,6 @@ select.is-invalid {
   margin-bottom: 0;
   color: var(--muted-strong);
   font-size: var(--fs-body-lg);
-}
-
-.state-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
-  margin: 0;
-}
-
-.state-grid div {
-  min-width: 0;
-  padding: 0.15rem 0 0.15rem 0.75rem;
-  border: 0;
-  border-left: 2px solid var(--text);
-  border-radius: 0;
-  background: transparent;
-  backdrop-filter: none;
-}
-
-.state-grid dt {
-  color: var(--muted);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.state-grid dd {
-  margin: 0.1rem 0 0;
-  overflow: hidden;
-  color: var(--text);
-  font-size: var(--fs-num);
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Ticker ------------------------------------------------------------------ */
@@ -1806,14 +1613,6 @@ body:not(.league-loaded) .workspace-header {
 
 /* Power board ------------------------------------------------------------- */
 
-.power-score {
-  font-family: var(--font-display);
-  font-synthesis: none;
-  font-size: var(--fs-num-lg);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
 /* ==========================================================================
    Teams explorer
    ========================================================================== */
@@ -2174,45 +1973,6 @@ a.inline-link:hover {
   background: var(--panel);
 }
 
-button.weekly-help-btn {
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 1.05rem;
-  min-width: 1.05rem;
-  height: 1.05rem;
-  min-height: 1.05rem;
-  padding: 0;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-sm);
-  background: var(--panel-soft);
-  color: var(--muted-strong);
-  box-shadow: none;
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  font-style: normal;
-  line-height: 1;
-}
-
-button.weekly-help-btn:hover,
-button.weekly-help-btn[aria-expanded="true"] {
-  transform: none;
-  filter: none;
-  border-color: var(--blue);
-  background: var(--blue-soft);
-  color: var(--blue);
-}
-
-.weekly-help-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 70;
-  display: grid;
-  place-items: start center;
-  padding: min(18vh, 6rem) 1rem 1rem;
-  background: color-mix(in srgb, var(--backdrop) 72%, transparent);
-}
-
 .weekly-help-pop {
   position: relative;
   z-index: 1;
@@ -2467,9 +2227,7 @@ button.weekly-help-btn[aria-expanded="true"] {
 
 .asset-pill,
 .asset-value-badge,
-.power-tier,
-.impact-verdict,
-.power-badge {
+.impact-verdict {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2595,11 +2353,6 @@ button.weekly-help-btn[aria-expanded="true"] {
   appearance: none;
 }
 
-.calc-search-wrap {
-  position: relative;
-  margin-top: auto;
-}
-
 .calc-suggest {
   position: absolute;
   z-index: 30;
@@ -2644,11 +2397,6 @@ button.weekly-help-btn[aria-expanded="true"] {
 }
 
 .calc-suggest.is-closed {
-  display: none;
-}
-
-.calculator-shell:has(.calc-search-wrap:focus-within) .calc-hint,
-.calculator-shell:has(.calc-suggest:not(:empty)) .calc-hint {
   display: none;
 }
 
@@ -2719,13 +2467,6 @@ button.weekly-help-btn[aria-expanded="true"] {
   gap: 0.9rem;
 }
 
-.calc-hint {
-  margin: 0;
-  padding: 1rem;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius-sm);
-}
-
 .calc-summary {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
@@ -2753,11 +2494,6 @@ button.weekly-help-btn[aria-expanded="true"] {
   background: linear-gradient(135deg, var(--team-a-soft), var(--panel-soft));
 }
 
-.calc-bar.is-bigger span,
-.calc-bar.is-bigger strong {
-  color: var(--text);
-}
-
 .calc-pointer {
   font-weight: 700;
 }
@@ -2773,10 +2509,6 @@ button.weekly-help-btn[aria-expanded="true"] {
 
 .meter-track.meter-split span {
   border-radius: 0;
-}
-
-.calc-bar .meter-track.meter-split span.meter-stars {
-  background: repeating-linear-gradient(135deg, var(--muted-strong) 0 3px, rgba(244, 241, 236, 0.35) 3px 6px);
 }
 
 @media (max-width: 620px) {
@@ -2809,40 +2541,6 @@ button.weekly-help-btn[aria-expanded="true"] {
   padding: 0.55rem 0.7rem;
   border-radius: var(--radius-sm);
   background: var(--panel-solid);
-}
-
-.calc-bars {
-  display: grid;
-  gap: 0.7rem;
-  align-content: center;
-}
-
-.calc-bar {
-  display: grid;
-  grid-template-columns: 5.4rem minmax(0, 1fr) 4rem;
-  gap: 0.6rem;
-  align-items: center;
-}
-
-.calc-bar span {
-  color: var(--muted);
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.calc-bar strong {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.calc-bar.team-a .meter-track span {
-  background: var(--team-a);
-}
-
-.calc-bar.team-b .meter-track span {
-  background: var(--team-b);
 }
 
 .calc-actions {
@@ -2978,23 +2676,6 @@ button.weekly-help-btn[aria-expanded="true"] {
 }
 
 /* Visible key for the hatched star premium segment. */
-.calc-legend {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--fs-xs);
-}
-
-.calc-legend-swatch {
-  display: inline-block;
-  flex: none;
-  width: 1.6rem;
-  height: 11px; /* 10–12px so the hatch reads as a key */
-  border-radius: var(--r-pill);
-  background: repeating-linear-gradient(135deg, var(--muted-strong) 0 3px, rgba(244, 241, 236, 0.35) 3px 6px);
-}
 
 .verdict-fine-print {
   display: grid;
@@ -3109,10 +2790,6 @@ button.weekly-help-btn[aria-expanded="true"] {
   box-shadow: none;
 }
 
-.calc-search-wrap:not(:focus-within) .calc-suggest.is-browse {
-  display: none;
-}
-
 .boot-error {
   margin: 1.25rem 0;
   padding: 1rem 1.1rem;
@@ -3191,76 +2868,6 @@ button.weekly-help-btn[aria-expanded="true"] {
 
 /* Trade cards ------------------------------------------------------------- */
 
-.idea-group {
-  display: grid;
-  gap: 0.8rem;
-}
-
-.idea-group + .idea-group {
-  margin-top: 0.9rem;
-}
-
-.idea-group-empty {
-  margin: 0;
-  padding: 0.9rem;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--panel-soft);
-}
-
-.match-needs,
-.trade-match-dashboard {
-  display: grid;
-  gap: 1rem;
-}
-
-.match-need-card,
-.match-partner-card {
-  display: grid;
-  gap: 0.7rem;
-  padding: 0.95rem 1rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--panel-soft);
-}
-
-.match-need-card p,
-.match-partner-card > p {
-  margin: 0;
-}
-
-.match-partner-card > h3 {
-  margin-bottom: 0;
-}
-
-.match-partner-card .trade-card,
-.match-trade-card {
-  background: var(--panel);
-}
-
-.match-trade-card {
-  display: grid;
-  gap: 0.35rem;
-  padding: 0.85rem 0.95rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-}
-
-.match-trade-offer,
-.match-trade-rank {
-  margin: 0;
-}
-
-.match-trade-offer {
-  font-size: var(--fs-body-lg);
-  font-weight: 700;
-}
-
-.match-trade-rank {
-  color: var(--muted-strong);
-  font-size: var(--fs-body);
-}
-
 .trade-card,
 .lineup-details {
   overflow: hidden;
@@ -3296,8 +2903,7 @@ button.weekly-help-btn[aria-expanded="true"] {
 }
 
 .impact-overview,
-.lineup-comparison-grid,
-.power-lanes {
+.lineup-comparison-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.85rem;
@@ -3432,120 +3038,6 @@ button.weekly-help-btn[aria-expanded="true"] {
    Scout card (power dashboard)
    ========================================================================== */
 
-.power-hero {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 1rem;
-  align-items: center;
-  padding: 1rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--panel-soft);
-}
-
-.power-score-ring {
-  --score: 70;
-  display: grid;
-  place-items: center;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at center, var(--panel-solid) 0 57%, transparent 58%),
-    conic-gradient(var(--blue) 0, var(--green) calc(var(--score) * 1%), rgba(127, 140, 170, 0.22) 0);
-}
-
-.power-score-ring {
-  width: 7rem;
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-
-.power-score-ring strong {
-  font-family: var(--font-display);
-  font-synthesis: none;
-  font-size: var(--fs-num-lg);
-  line-height: 1;
-}
-
-.power-score-ring span {
-  margin-top: -1.45rem;
-  color: var(--muted);
-  font-size: var(--fs-sm);
-  font-weight: 700;
-}
-
-.power-hero-copy {
-  min-width: 0;
-}
-
-.power-title-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  margin-bottom: 0.25rem;
-}
-
-.power-title-row h3,
-.power-hero-copy p {
-  margin-bottom: 0;
-}
-
-.power-hero-copy p {
-  color: var(--muted-strong);
-}
-
-.power-tier {
-  min-width: 2.1rem;
-  height: 2.1rem;
-  padding: 0 0.5rem;
-  background: var(--panel-solid);
-  color: var(--muted-strong);
-  border: 1px solid var(--line);
-  font-family: var(--font-display);
-  font-synthesis: none;
-  font-size: var(--fs-sm2);
-}
-
-.power-tier.elite {
-  border-color: transparent;
-  background: var(--green-soft);
-  color: var(--green);
-}
-
-.power-tier.strong {
-  border-color: transparent;
-  background: var(--blue-soft);
-  color: var(--blue);
-}
-
-.power-tier.watch {
-  border-color: transparent;
-  background: var(--amber-soft);
-  color: var(--amber);
-}
-
-.power-badge-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.7rem;
-}
-
-.power-badge {
-  min-height: 1.55rem;
-  padding: 0.24rem 0.55rem;
-  border: 1px solid transparent;
-  background: var(--blue-soft);
-  color: var(--blue);
-  font-size: var(--fs-xs);
-}
-
-.power-stat-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.7rem;
-}
-
 .power-stat {
   min-width: 0;
   padding: 0.8rem;
@@ -3587,8 +3079,7 @@ button.weekly-help-btn[aria-expanded="true"] {
   margin-bottom: 0.7rem;
 }
 
-.position-meter-list,
-.insight-list {
+.position-meter-list {
   display: grid;
   gap: 0.6rem;
 }
@@ -3616,26 +3107,6 @@ button.weekly-help-btn[aria-expanded="true"] {
   color: var(--muted);
   font-size: var(--fs-sm);
   font-weight: 600;
-}
-
-.insight-item {
-  padding: 0.68rem 0.72rem;
-  border-left: 3px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--panel-solid);
-}
-
-.insight-item strong {
-  font-size: var(--fs-sm2);
-}
-
-.insight-item span {
-  color: var(--muted);
-  font-size: var(--fs-sm2);
-}
-
-.insight-item[aria-busy="true"] span {
-  animation: pulse 1.6s ease-in-out infinite;
 }
 
 .green {
@@ -3713,15 +3184,10 @@ button.weekly-help-btn[aria-expanded="true"] {
     grid-template-columns: 270px minmax(0, 1fr);
   }
 
-  .control-rail {
-    width: 270px;
-  }
-
   .workspace-header {
     grid-template-columns: 1fr;
   }
 
-  .power-stat-grid,
   .sheet-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3738,9 +3204,6 @@ button.weekly-help-btn[aria-expanded="true"] {
 }
 
 @media (max-width: 860px) {
-  .page-tab {
-    min-height: var(--btn-h);
-  }
 
   .tab-copy small {
     display: none;
@@ -3754,7 +3217,6 @@ button.weekly-help-btn[aria-expanded="true"] {
   .sheet-grid,
   .calc-grid,
   .calc-summary,
-  .power-lanes,
   .impact-overview,
   .lineup-comparison-grid {
     grid-template-columns: 1fr;
@@ -3799,25 +3261,10 @@ button.weekly-help-btn[aria-expanded="true"] {
     font-size: var(--fs-h1);
   }
 
-  .control-rail,
   .workspace {
     padding: 0.75rem;
   }
 
-  .workspace-tabs {
-    gap: 0.2rem;
-  }
-
-  .page-tab {
-    justify-content: center;
-    gap: 0.4rem;
-    min-height: var(--btn-h);
-    padding: 0.4rem 0.5rem;
-  }
-
-  .state-grid,
-  .power-stat-grid,
-  .power-hero,
   .sheet-summary {
     grid-template-columns: 1fr;
   }
@@ -3828,13 +3275,8 @@ button.weekly-help-btn[aria-expanded="true"] {
   }
 
   .lineup-slot-item,
-  .bench-item,
-  .calc-bar {
+  .bench-item {
     grid-template-columns: 1fr;
-  }
-
-  .power-score-ring {
-    width: 6.3rem;
   }
 
   .league-avatar {
@@ -3853,10 +3295,6 @@ button.weekly-help-btn[aria-expanded="true"] {
     scroll-behavior: auto;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
-  }
-
-  body.rail-open {
-    overflow: hidden;
   }
 
   .app-frame {
@@ -3881,205 +3319,7 @@ button.weekly-help-btn[aria-expanded="true"] {
     grid-column: auto;
   }
 
-  .mobile-chrome {
-    position: fixed;
-    top: 0;
-    right: 0;
-    left: 0;
-    z-index: 30;
-    align-self: start;
-    display: grid;
-    transform: translateY(0);
-    transition: transform 180ms ease;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: var(--sp-1);
-    align-items: center;
-    height: auto;
-    min-height: 0;
-    margin: 0;
-    padding: var(--sp-1) max(var(--page-x), env(safe-area-inset-right)) var(--sp-1) max(var(--page-x), env(safe-area-inset-left));
-    padding-top: calc(var(--sp-1) + env(safe-area-inset-top));
-    background: var(--bg);
-    border-bottom: 1px solid var(--line);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  .mobile-chrome.is-away {
-    transform: translateY(-100%);
-    pointer-events: none;
-  }
-
-  .mobile-chrome.is-instant {
-    transition: none;
-  }
-
-  .desk-nav {
-    position: static;
-    top: auto;
-  }
-
-  .mobile-chrome-copy {
-    min-width: 0;
-  }
-
-  .mobile-chrome-copy #mobile-chrome-title {
-    display: block;
-    overflow: hidden;
-    margin: 0;
-    font-family: var(--font-display);
-    font-synthesis: none;
-    font-size: var(--fs-body);
-    font-weight: 700;
-    line-height: 1.15;
-    letter-spacing: 0;
-    text-transform: none;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .mobile-icon-btn {
-    display: grid;
-    place-items: center;
-    width: var(--btn-h);
-    min-width: var(--btn-h);
-    min-height: var(--btn-h);
-    padding: 0;
-    border: 1px solid var(--text);
-    border-radius: 0;
-    background: transparent;
-    color: var(--text);
-    box-shadow: none;
-  }
-
-  .mobile-icon-btn:hover {
-    transform: none;
-    filter: none;
-    border-color: var(--line-strong);
-    background: var(--panel-tint);
-  }
-
-  .menu-bars {
-    position: relative;
-    display: block;
-    width: 1.05rem;
-    height: 2px;
-    background: currentColor;
-    border-radius: var(--r-pill);
-  }
-
-  .menu-bars::before,
-  .menu-bars::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    width: 1.05rem;
-    height: 2px;
-    background: currentColor;
-    border-radius: var(--r-pill);
-  }
-
-  .menu-bars::before {
-    top: -5px;
-  }
-
-  .menu-bars::after {
-    top: 5px;
-  }
-
-  .mobile-chrome-actions {
-    display: flex;
-    gap: var(--sp-2);
-    align-items: center;
-  }
-
   /* Chain-link glyph: two offset rings. */
-
-  .mobile-share-feedback {
-    position: absolute;
-    right: max(0.75rem, env(safe-area-inset-right));
-    bottom: -1.5rem;
-    z-index: 21;
-  }
-
-  .rail-backdrop {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 40;
-    background: var(--backdrop);
-  }
-
-  .rail-backdrop.open {
-    display: block !important;
-  }
-
-  .control-rail {
-    /* Shut drawer is a zero-height layer. A viewport-tall overflow scroller resizes with the URL bar and yanks the page. */
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: auto;
-    z-index: 50;
-    width: min(21rem, calc(100vw - 2.5rem));
-    height: 0;
-    min-height: 0;
-    max-height: none;
-    overflow: hidden;
-    padding: 0;
-    background: var(--panel-solid);
-    border-right: 1px solid var(--rail-line);
-    border-bottom: 0;
-    box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    pointer-events: none;
-    transform: translateX(-110%);
-    transition: transform 180ms ease;
-  }
-
-  .control-rail.is-open,
-  body.rail-open .control-rail {
-    top: 0;
-    bottom: 0;
-    height: auto;
-    padding: 0.85rem;
-    padding-top: max(0.85rem, env(safe-area-inset-top));
-    padding-bottom: max(0.85rem, env(safe-area-inset-bottom));
-    box-shadow: var(--shadow);
-    pointer-events: auto;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    transform: translateX(0);
-  }
-
-  .mobile-rail-close {
-    display: grid;
-    place-items: center;
-    width: 2.35rem;
-    min-width: 2.35rem;
-    min-height: 2.35rem;
-    margin-left: auto;
-    padding: 0;
-    border: 1px solid var(--rail-line);
-    border-radius: 0;
-    background: var(--rail-2);
-    color: var(--rail-text);
-    font-size: var(--fs-h1);
-    line-height: 1;
-    box-shadow: none;
-  }
-
-  .mobile-rail-close:hover {
-    transform: none;
-    filter: none;
-    background: var(--hover-fill);
-  }
-
-  .brand-panel {
-    padding-top: 0.35rem;
-  }
 
   input,
   select,
@@ -4110,81 +3350,9 @@ button.weekly-help-btn[aria-expanded="true"] {
     display: none;
   }
 
-  .state-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.4rem;
-  }
-
-  .state-grid div {
-    padding: 0.5rem 0.45rem;
-  }
-
-  .state-grid dd {
-    font-size: var(--fs-sm2);
-  }
-
   /* Phone desk nav: sections live in the side board.
      Tap a section and its rooms drop open.
      The page itself is the info. */
-  .workspace-tabs {
-    display: none;
-  }
-
-  .phone-desk {
-    display: grid;
-    gap: 0;
-  }
-
-  .phone-desk-page {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    min-height: var(--row-h);
-    padding: 0 var(--sp-2);
-    border: 0;
-    border-bottom: 1px solid var(--rail-line);
-    border-radius: 0;
-    background: transparent;
-    color: var(--rail-text);
-    text-align: left;
-    box-shadow: none;
-  }
-
-  .phone-desk-page span:first-child {
-    font-family: var(--font-display);
-  font-synthesis: none;
-    font-size: var(--fs-h1);
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .phone-desk-page.active {
-    box-shadow: inset 3px 0 0 var(--field);
-  }
-
-  .phone-desk-room {
-    width: 100%;
-    min-height: 2.35rem;
-    padding: 0.4rem 0.35rem;
-    border: 0;
-    border-bottom: 1px solid var(--line);
-    border-radius: 0;
-    background: transparent;
-    color: var(--rail-muted);
-    text-align: left;
-    font-size: var(--fs-body-lg);
-    font-weight: 600;
-    box-shadow: none;
-  }
-
-  .phone-desk-room.active,
-  .phone-desk-room.active:hover {
-    color: var(--rail-text);
-    background: transparent;
-    box-shadow: inset 0 -2px 0 var(--field);
-  }
 
   .standings-table,
   .odds-table {
@@ -4198,7 +3366,6 @@ button.weekly-help-btn[aria-expanded="true"] {
     gap: 0.4rem;
   }
 
-  .power-stat-grid,
   .sheet-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4362,62 +3529,7 @@ button.weekly-help-btn[aria-expanded="true"] {
   color: var(--text);
 }
 
-/* Fixed on the desk so an empty dock is out of the flex column.
-   A static zero-height dock still takes the 1.75rem workspace gap (28px). */
-.site-dock {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 45;
-  display: grid;
-  gap: 0.55rem;
-  margin: 0;
-  padding: 0;
-  pointer-events: none;
-}
-
-.site-dock:has(> :not([hidden])) {
-  padding: 0 0.85rem max(0.85rem, env(safe-area-inset-bottom));
-}
-
-.site-dock > *:not([hidden]) {
-  pointer-events: auto;
-}
-
-body.rail-open .site-dock {
-  display: none;
-}
-
-.sticky-mobile-cta {
-  display: none;
-}
-
 @media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
-  .site-dock,
-  .sticky-mobile-cta,
-  #sticky-find-btn {
-    position: static;
-    top: auto;
-    right: auto;
-    bottom: auto;
-    left: auto;
-    transform: none;
-  }
-
-  .site-dock:not(:has(> :not([hidden]))) {
-    display: none;
-  }
-
-  .sticky-mobile-cta:not([hidden]) {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-
-  .sticky-mobile-cta button {
-    min-height: var(--btn-h);
-  }
 
   .legal-shell {
     width: min(52rem, calc(100% - 1.2rem));
@@ -4432,12 +3544,6 @@ body.rail-open .site-dock {
 /* ==========================================================================
    Desk call (tank / all-in / middle)
    ========================================================================== */
-
-.window-call-dashboard {
-  display: grid;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
 
 .trade-log {
   display: grid;
@@ -4621,53 +3727,6 @@ body.rail-open .site-dock {
     transition: none !important;
     animation: none !important;
   }
-
-  .mobile-chrome {
-    transition: none;
-  }
-}
-
-#home-btn {
-  min-width: 2.7rem;
-  padding-left: 0.7rem;
-  padding-right: 0.7rem;
-}
-
-#home-btn .home-glyph {
-  margin: 0 auto;
-}
-
-.home-glyph {
-  position: relative;
-  display: block;
-  width: 1.1rem;
-  height: 1.05rem;
-}
-
-.home-glyph::before,
-.home-glyph::after {
-  content: "";
-  position: absolute;
-  box-sizing: border-box;
-  border: 2px solid currentColor;
-}
-
-.home-glyph::before {
-  left: 50%;
-  top: 0.02rem;
-  width: 0.72rem;
-  height: 0.72rem;
-  border-bottom: 0;
-  transform: translateX(-50%) rotate(45deg);
-}
-
-.home-glyph::after {
-  left: 50%;
-  bottom: 0;
-  width: 0.64rem;
-  height: 0.46rem;
-  border-top: 0;
-  transform: translateX(-50%);
 }
 
 /* Player ranks ----------------------------------------------------------- */
@@ -4742,104 +3801,6 @@ body.rail-open .site-dock {
   font-size: var(--fs-h1);
   font-weight: 400;
   letter-spacing: -0.02em;
-}
-
-.sample-league-link {
-  color: inherit;
-  text-underline-offset: 0.15em;
-}
-
-.sample-league-chip {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  padding: 0.18rem 0.55rem;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-pill);
-  background: var(--panel);
-  color: var(--text);
-  font-size: var(--fs-sm2);
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
-  white-space: nowrap;
-}
-
-.sample-league-chip[hidden],
-.sample-chrome[hidden],
-.sample-banner[hidden],
-.sample-find-btn[hidden],
-.mobile-chrome-viewing[hidden] {
-  display: none;
-}
-
-.mobile-chrome-title-row,
-.sample-chrome-title-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-  min-width: 0;
-}
-
-.sample-find-btn {
-  width: auto;
-  margin: 0;
-  padding: 0.28rem 0.75rem;
-  min-height: var(--btn-h);
-  font-size: var(--fs-sm2);
-  white-space: nowrap;
-}
-
-#sample-find-btn {
-  margin-bottom: 0.75rem;
-}
-
-.mobile-chrome-title-row #mobile-chrome-title,
-.sample-chrome-title-row strong {
-  min-width: 0;
-}
-
-.mobile-chrome-viewing,
-.sample-chrome-viewing {
-  margin: 0;
-  color: var(--muted-strong);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.sample-chrome {
-  display: flex;
-  flex-direction: column;
-  gap: 0.12rem;
-  min-width: 0;
-}
-
-.sample-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.55rem 0.75rem;
-  margin: 0;
-  padding: 0.75rem 0.9rem;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-md);
-  background: var(--panel);
-}
-
-.sample-banner p {
-  flex: 1 1 16rem;
-  margin: 0;
-}
-
-body.viewing-sample .standings-row.you,
-body.viewing-sample .odds-row.you,
-body.viewing-sample .team-card.you,
-body.viewing-sample button.ranks-row.you,
-body.viewing-sample .team-identity.you {
-  background: transparent;
-  box-shadow: none;
 }
 
 .league-loaded .public-ranks {
@@ -5331,57 +4292,29 @@ button.ranks-row.you:hover {
 
 /* Landing owns the username search until the wide board is the control panel.
    Then the rail form is the way in, and the stage is the board. */
-body:not(.league-loaded):not(.board-tools-live) .control-rail .league-module,
 body:not(.league-loaded) #identity-section,
-body.league-loaded #landing,
-body.league-loaded .state-grid {
+body.league-loaded #landing {
   display: none;
 }
 /* Phone: the header's "Connect my league" opens the rail. With no landing
    on screen, the rail's own form is the way in, or the drawer is empty. */
-@media (max-width: 700px) {
-  body.rail-open:not(.league-loaded):not(.viewing-sample) .control-rail .league-module {
-    display: grid;
-  }
-}
 body.league-loaded .league-hero { padding-block: 0.35rem; }
 body.league-loaded .workspace-lede { display: none; }
 
 /* Before a league, an empty rail is a masthead.
    Players keeps a real board. Trade and My League open on the tool. */
 @media (min-width: 701px) {
-  body:not(.league-loaded):not(.board-tools-live) .app-frame {
+  body:not(.league-loaded) .app-frame {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  body:not(.league-loaded):not(.board-tools-live) .control-rail {
-    position: static;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 1rem;
-    width: auto;
-    height: auto;
-    min-height: 0;
-    max-height: none;
-    overflow: visible;
-    padding: var(--card-pad) var(--section-gap);
-    border-right: 0;
-    border-bottom: 3px solid var(--text);
-  }
-
-  body:not(.league-loaded):not(.board-tools-live) .brand-panel {
-    padding: 0;
-    border-bottom: 0;
-  }
-
-  body:not(.league-loaded):not(.board-tools-live) .rail-footer {
+  body:not(.league-loaded) .rail-footer {
     margin: 0 0 0 auto;
     padding: 0;
     border: 0;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) .workspace {
+  body:not(.league-loaded) .workspace {
     grid-column: 1;
   }
 }
@@ -5395,10 +4328,8 @@ body:not(.league-loaded):has(#landing:not(.hidden)) #league-page {
 /* Scores stay tabular. Chips and cards keep the soft product radius. */
 .sheet-value,
 .rank-number,
-.power-score,
 .asset-value-badge,
-.ranks-facts dd,
-.state-grid dd {
+.ranks-facts dd {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
@@ -5411,144 +4342,6 @@ body:not(.league-loaded):has(#landing:not(.hidden)) #league-page {
 
 /* Wide board shuts so the page fills the screen.
    Search and filters live in the board. The stage keeps the names. */
-.desk-board-close,
-.desk-board-open {
-  display: none;
-}
-
-.board-tools {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.board-tools[hidden] {
-  display: none !important;
-}
-
-.board-tools .eyebrow {
-  margin: 0;
-}
-
-.board-tools input {
-  border-color: var(--rail-line);
-  background: var(--rail-input);
-  color: var(--rail-text);
-}
-
-.board-tools input::placeholder {
-  color: var(--rail-placeholder);
-}
-
-.board-tools button.ranks-chip {
-  margin-right: 0;
-}
-
-html:not(.desk-shut) body.board-tools-live #landing {
-  display: none;
-}
-
-@media (min-width: 701px) and (min-height: 501px),
-       (min-width: 701px) and (hover: hover) {
-  .desk-board-close {
-    display: grid;
-    place-items: center;
-    flex: 0 0 auto;
-    width: 2.2rem;
-    min-width: 2.2rem;
-    min-height: 2.2rem;
-    margin-left: auto;
-    padding: 0;
-    border: 1px solid var(--rail-line);
-    border-radius: 0;
-    background: transparent;
-    color: var(--rail-text);
-    font-family: var(--font-display);
-  font-synthesis: none;
-    font-size: var(--fs-h1);
-    line-height: 1;
-    box-shadow: none;
-  }
-
-  .desk-board-close:hover {
-    transform: none;
-    filter: none;
-    background: var(--hover-fill);
-  }
-
-  html.desk-shut .app-frame {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  html.desk-shut .control-rail {
-    display: none !important;
-  }
-
-  html.desk-shut .workspace {
-    grid-column: 1;
-    padding-left: 3.3rem;
-  }
-
-  html.desk-shut .desk-board-open {
-    display: grid;
-    place-items: center;
-    position: fixed;
-    top: 0.85rem;
-    left: 0;
-    z-index: 25;
-    width: 2.4rem;
-    min-width: 2.4rem;
-    min-height: 2.6rem;
-    padding: 0;
-    border: 0;
-    border-right: 3px solid var(--field);
-    border-radius: 0;
-    background: #0c0c0e;
-    color: #f6f1e8;
-    box-shadow: none;
-  }
-
-  html.desk-shut .desk-board-open:hover {
-    transform: none;
-    filter: none;
-    background: #0c0c0e;
-    color: var(--field);
-  }
-
-  .desk-board-bars {
-    position: relative;
-    display: block;
-    width: 0.95rem;
-    height: 2px;
-    background: currentColor;
-  }
-
-  .desk-board-bars::before,
-  .desk-board-bars::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    width: 0.95rem;
-    height: 2px;
-    background: currentColor;
-  }
-
-  .desk-board-bars::before {
-    top: -5px;
-  }
-
-  .desk-board-bars::after {
-    top: 5px;
-  }
-
-  body.board-tools-live #ranks-section {
-    border-top: 0;
-    padding-top: 0.15rem;
-  }
-
-  body.board-tools-live #ranks-section > .panel-heading {
-    display: none;
-  }
-}
 
 /* Cold /t/<code> (M1): "Shared trade", the verdict, the sides, then a CTA.
    Model notes and price chips fold into "About these prices". */
@@ -5570,12 +4363,7 @@ html:not(.desk-shut) body.board-tools-live #landing {
   margin-bottom: var(--sp-4);
 }
 
-body.cold-share #mobile-chrome-title {
-  display: none;
-}
-
 /* Cold /t: read-only until "Edit this trade". */
-[data-shared-view="1"]:not([data-shared-editing="1"]) .calc-search-wrap,
 [data-shared-view="1"]:not([data-shared-editing="1"]) .selected-token-remove,
 [data-shared-view="1"]:not([data-shared-editing="1"]) .draft-partner-slot {
   display: none;
@@ -5703,20 +4491,6 @@ body.cold-share #mobile-chrome-title {
   gap: 0.5rem;
   margin: 0;
 }
-.power-score-note {
-  margin: 0.4rem 0 0;
-  font-size: var(--fs-sm);
-  color: var(--muted);
-}
-.power-badge-help {
-  margin-top: 0.5rem;
-  font-size: var(--fs-sm);
-  color: var(--muted);
-}
-.power-badge-help ul {
-  margin: 0.25rem 0 0;
-  padding-left: 1.1rem;
-}
 /* Phone: three lanes side by side left 0px for names. Stack them so names read. */
 
 /* Merged from product.css: these rules load last, as before. */
@@ -5760,22 +4534,6 @@ h1,
     min-height: 100vh;
   }
 
-  .control-rail {
-    background: transparent;
-    border-right: 0;
-    padding: var(--section-gap) var(--card-pad);
-    gap: 1rem;
-  }
-
-  .brand-panel {
-    border-bottom: 0;
-    padding-bottom: 0.2rem;
-  }
-
-  .brand-lockup--rail .brand-wordmark {
-    height: 1.55rem;
-  }
-
   .rail-module {
     border: 0;
     border-radius: var(--r-md);
@@ -5806,14 +4564,6 @@ h1,
     border-top: 0;
   }
 
-  #home-btn {
-    border-radius: var(--r-sm);
-    border: 1px solid var(--line-strong);
-    background: transparent;
-    color: var(--text);
-    min-height: var(--btn-h);
-  }
-
   .workspace {
     padding: var(--section-gap) var(--page-x) var(--section-gap);
     gap: var(--section-gap);
@@ -5839,78 +4589,11 @@ h1,
     box-shadow: var(--product-shadow);
   }
 
-  .state-grid {
-    gap: 0.7rem;
-  }
-
-  .state-grid > div {
-    padding: 0.85rem 1rem;
-    border: 0;
-    border-radius: var(--r-md);
-    background: var(--panel);
-    box-shadow: var(--product-shadow);
-  }
-
-  .desk-nav {
-    position: sticky;
-    top: 0.7rem;
-    z-index: 8;
-    border: 0;
-    border-radius: var(--r-sm);
-    background: color-mix(in srgb, var(--panel) 82%, transparent);
-    box-shadow: var(--product-shadow);
-    backdrop-filter: blur(16px);
-    overflow: visible;
-  }
-
-  .workspace-tabs {
-    padding: 0.35rem 0.45rem;
-  }
-
-  .page-tab {
-    min-height: 0;
-    padding: 0.55rem 1rem;
-    border-radius: var(--r-sm);
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .page-tab:hover {
-    background: var(--hover-fill);
-  }
-
-  .page-tab.active,
-  .page-tab.active:hover {
-    background: var(--text);
-    color: var(--bg);
-    box-shadow: none;
-  }
-
-  .page-tab.active .tab-copy small {
-    color: color-mix(in srgb, var(--bg) 72%, transparent);
-  }
-
   .tab-copy strong {
     font-family: var(--font-body);
     font-size: var(--fs-body);
     font-weight: 600;
     letter-spacing: 0;
-  }
-
-  .room-tab {
-    padding: 0.38rem 0.8rem;
-    margin-right: 0;
-    border: 1px solid transparent;
-    border-radius: var(--r-pill);
-    font-size: var(--fs-sm2);
-  }
-
-  .room-tab.active,
-  .room-tab.active:hover {
-    border-color: var(--line-strong);
-    border-bottom-color: var(--line-strong);
-    background: var(--panel-soft);
-    color: var(--text);
   }
 
   .ticker {
@@ -6003,101 +4686,39 @@ h1,
    -------------------------------------------------------------------------- */
 
 @media (min-width: 701px) {
-  body:not(.league-loaded):not(.board-tools-live) .app-frame {
+  body:not(.league-loaded) .app-frame {
     display: block;
     background: transparent;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) .control-rail {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 12;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    width: 100%;
-    height: auto;
-    min-height: 0;
-    max-height: none;
-    overflow: visible;
-    padding: var(--card-pad) var(--section-gap) 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  body:not(.league-loaded):not(.board-tools-live) .brand-panel {
-    padding: 0;
-  }
-
-  body:not(.league-loaded):not(.board-tools-live) .desk-board-close {
-    display: none;
-  }
-
-  body:not(.league-loaded):not(.board-tools-live) .rail-footer {
+  body:not(.league-loaded) .rail-footer {
     margin: 0;
     justify-self: end;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) .workspace {
+  body:not(.league-loaded) .workspace {
     grid-column: 1;
     width: min(1120px, calc(100% - 4rem));
     margin: 0 auto;
     padding: 6.5rem 0 5rem;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) .desk-nav {
-    position: absolute;
-    top: 1.15rem;
-    left: 50%;
-    z-index: 13;
-    transform: translateX(-50%);
-    width: max-content;
-    max-width: calc(100% - 22rem);
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    backdrop-filter: none;
-  }
-
-  body:not(.league-loaded):not(.board-tools-live) .workspace-tabs {
-    justify-content: center;
-  }
-
-  body:not(.league-loaded):not(.board-tools-live) .page-tab {
-    background: transparent;
-    color: var(--muted);
-  }
-
-  body:not(.league-loaded):not(.board-tools-live) .page-tab.active,
-  body:not(.league-loaded):not(.board-tools-live) .page-tab.active:hover {
-    background: transparent;
-    color: var(--text);
-    box-shadow: none;
-    border-radius: 0;
-  }
-
-  body:not(.league-loaded):not(.board-tools-live) .page-tab.active .tab-copy small {
-    color: var(--muted);
-  }
-
-  body:not(.league-loaded):not(.board-tools-live) .tab-copy small {
+  body:not(.league-loaded) .tab-copy small {
     display: none;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) .tab-copy strong {
+  body:not(.league-loaded) .tab-copy strong {
     font-family: var(--font-body);
     font-size: var(--fs-body-lg);
     font-weight: 500;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) .landing-search {
+  body:not(.league-loaded) .landing-search {
     width: min(640px, 100%);
     margin-top: 0.4rem;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) .landing-search label {
+  body:not(.league-loaded) .landing-search label {
     font-family: var(--font-display);
     font-style: normal;
     font-size: var(--fs-sm);
@@ -6107,49 +4728,49 @@ h1,
     color: var(--muted);
   }
 
-  body:not(.league-loaded):not(.board-tools-live) .landing-search-row {
+  body:not(.league-loaded) .landing-search-row {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.7rem;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) .landing-search-row input {
+  body:not(.league-loaded) .landing-search-row input {
     min-height: var(--input-h);
     text-align: left;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) #landing-find-btn {
+  body:not(.league-loaded) #landing-find-btn {
     min-height: var(--btn-h);
     padding-inline: 1.4rem;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) .landing-job-hint {
+  body:not(.league-loaded) .landing-job-hint {
     margin-inline: auto;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) #open-public-ranks {
+  body:not(.league-loaded) #open-public-ranks {
     margin-top: 0.85rem;
     min-height: 2.8rem;
     padding-inline: 1.15rem;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) #ranks-section {
+  body:not(.league-loaded) #ranks-section {
     background: transparent;
     box-shadow: none;
     padding-inline: 0;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) #ranks-section .panel-heading {
+  body:not(.league-loaded) #ranks-section .panel-heading {
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
   }
 
-  body:not(.league-loaded):not(.board-tools-live) #ranks-section .panel-heading h2 {
+  body:not(.league-loaded) #ranks-section .panel-heading h2 {
     font-size: var(--fs-h2);
   }
 
-  body:not(.league-loaded):not(.board-tools-live) #ranks-section .section-copy {
+  body:not(.league-loaded) #ranks-section .section-copy {
     text-align: center;
   }
 }
@@ -6159,66 +4780,17 @@ h1,
    -------------------------------------------------------------------------- */
 
 @media (min-width: 701px) {
-  body.league-loaded .app-frame,
-  body.board-tools-live .app-frame {
+  body.league-loaded .app-frame {
     display: block;
   }
 
-  body.league-loaded .control-rail,
-  body.board-tools-live .control-rail {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 12;
-    display: flex;
-    flex-flow: row wrap;
-    align-items: center;
-    gap: 0.75rem 1rem;
-    width: 100%;
-    height: auto;
-    min-height: 0;
-    max-height: none;
-    overflow: visible;
-    padding: 1.2rem 2.2rem 0.6rem;
-    border: 0;
-    background: color-mix(in srgb, var(--bg) 86%, transparent);
-    box-shadow: none;
-  }
-
-  body.league-loaded .workspace,
-  body.board-tools-live .workspace {
+  body.league-loaded .workspace {
     width: min(1120px, calc(100% - 3rem));
     margin: 0 auto;
     padding: 7.2rem 0 4.5rem;
   }
 
-  body.league-loaded .desk-nav,
-  body.board-tools-live .desk-nav {
-    position: absolute;
-    top: 1rem;
-    left: 50%;
-    z-index: 13;
-    width: max-content;
-    max-width: calc(100% - 24rem);
-    transform: translateX(-50%);
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    backdrop-filter: none;
-  }
-
-  body.league-loaded .page-tab.active,
-  body.league-loaded .page-tab.active:hover,
-  body.board-tools-live .page-tab.active,
-  body.board-tools-live .page-tab.active:hover {
-    background: transparent;
-    color: var(--text);
-    box-shadow: none;
-    border-radius: 0;
-  }
-
-  body.league-loaded .tab-copy small,
-  body.board-tools-live .tab-copy small {
+  body.league-loaded .tab-copy small {
     display: none;
   }
 
@@ -6265,19 +4837,6 @@ h1,
 
   body.league-loaded .rail-footer {
     margin: 0 0 0 auto;
-  }
-
-  #desk-board-close,
-  html.desk-shut .desk-board-open {
-    display: none !important;
-  }
-
-  html.desk-shut .control-rail {
-    display: flex !important;
-  }
-
-  html.desk-shut .workspace {
-    padding-left: 0;
   }
 }
 
@@ -6370,10 +4929,8 @@ button.ranks-shelf-item .player-face,
 }
 
 .calculator-shell,
-.trade-match-dashboard,
 .power-dashboard,
-.roster-sheet,
-.window-call-dashboard {
+.roster-sheet {
   gap: 1rem;
 }
 
@@ -6384,7 +4941,6 @@ button.ranks-shelf-item .player-face,
   box-shadow: var(--product-shadow);
 }
 
-.weekly-help-btn,
 .selected-token,
 .feedback-chip,
 .you-chip,
@@ -6412,21 +4968,6 @@ details.workspace-panel > summary,
    -------------------------------------------------------------------------- */
 
 @media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
-  .mobile-chrome {
-    border-bottom: 0;
-    background: var(--bg);
-  }
-
-  .mobile-icon-btn {
-    border-radius: var(--r-sm);
-    border-color: var(--line-strong);
-    background: var(--panel);
-  }
-
-  .mobile-chrome-copy #mobile-chrome-title {
-    font-size: var(--fs-h2);
-    font-weight: 400;
-  }
 
   .ranks {
     grid-template-columns: minmax(0, 1fr);
@@ -6481,8 +5022,7 @@ details.workspace-panel > summary,
     overflow-x: clip;
   }
 
-  #landing-find-btn,
-  #sticky-find-btn {
+  #landing-find-btn {
     min-height: var(--btn-h);
   }
 
@@ -6513,41 +5053,6 @@ details.workspace-panel > summary,
 
   button.ranks-row {
     border-radius: var(--r-sm);
-  }
-
-  .sticky-mobile-cta {
-    position: static;
-    padding: 0;
-    background: none;
-    border-top: 0;
-  }
-
-  #sticky-find-btn {
-    position: static;
-    border-radius: var(--r-sm);
-  }
-
-  body.viewing-sample .mobile-chrome {
-    height: auto;
-    max-height: none;
-    overflow: visible;
-    align-items: center;
-  }
-
-  body.viewing-sample .mobile-chrome-copy,
-  body.viewing-sample .mobile-chrome-title-row {
-    min-width: 0;
-    max-width: 100%;
-    overflow: visible;
-  }
-
-  body.viewing-sample .mobile-chrome-title-row #mobile-chrome-title {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  #sample-chrome {
-    display: none;
   }
 }
 
@@ -6596,92 +5101,32 @@ details.workspace-panel > summary,
 /* Wide and mid desktops: wordmark row, then an opaque sticky tab row.
    Tabs no longer sit on top of Find my leagues, Trade, or the team picker. */
 @media (min-width: 701px) {
-  body.league-loaded .control-rail,
-  body.board-tools-live .control-rail,
-  body:not(.league-loaded):not(.board-tools-live) .control-rail {
-    position: sticky;
-    top: 0;
-    left: auto;
-    z-index: 30;
-    display: flex;
-    flex-flow: row wrap;
-    align-items: center;
-    gap: 0.75rem 1rem;
-    width: 100%;
-    height: auto;
-    min-height: 0;
-    max-height: none;
-    overflow: visible;
-    padding: var(--card-pad) var(--section-gap);
-    border: 0;
-    border-bottom: 1px solid var(--line);
-    background: var(--bg);
-    box-shadow: none;
-  }
 
   body.league-loaded .workspace,
-  body.board-tools-live .workspace,
-  body:not(.league-loaded):not(.board-tools-live) .workspace {
+  body:not(.league-loaded) .workspace {
     width: min(1120px, calc(100% - 3rem));
     margin: 0 auto;
     padding-top: 1rem;
   }
 
-  body.league-loaded .desk-nav,
-  body.board-tools-live .desk-nav,
-  body:not(.league-loaded):not(.board-tools-live) .desk-nav {
-    order: -1;
-    position: sticky;
-    top: var(--desk-rail-height, 4.6rem);
-    left: auto;
-    z-index: 28;
-    transform: none;
-    width: 100%;
-    max-width: none;
-    border-radius: 0;
-    background: var(--bg);
-    box-shadow: none;
-    backdrop-filter: none;
-  }
-
-  body.viewing-sample:not(.sample-connect-open) .league-module {
-    display: none;
-  }
-
   /* The open list is in the top bar. Leave it in normal flow so it sits
      above the desk instead of sticking over the league header. */
-  body.league-loaded:has(#league-picker:not(.hidden)) .control-rail,
-  body.board-tools-live:has(#league-picker:not(.hidden)) .control-rail {
-    position: static;
-    z-index: auto;
-    background: var(--bg);
-  }
 
-  body.league-loaded:has(#league-picker:not(.hidden)) .league-module,
-  body.board-tools-live:has(#league-picker:not(.hidden)) .league-module {
+  body.league-loaded:has(#league-picker:not(.hidden)) .league-module {
     flex: 1 0 100%;
     align-items: stretch;
   }
 
-  body.league-loaded:has(#league-picker:not(.hidden)) #league-picker,
-  body.board-tools-live:has(#league-picker:not(.hidden)) #league-picker {
+  body.league-loaded:has(#league-picker:not(.hidden)) #league-picker {
     width: 100%;
   }
 
-  body.league-loaded #me-select,
-  body.board-tools-live #me-select {
+  body.league-loaded #me-select {
     width: min(16rem, 46vw);
   }
 
   /* /players and other public boards have no league rail. The empty wordmark
      strip was a 51px sticky bar. Phone .mobile-chrome scroll-reveal stays. */
-  body:not(.league-loaded):has(#landing.hidden) .control-rail {
-    display: none;
-  }
-
-  body:not(.league-loaded):has(#landing.hidden) .desk-nav {
-    top: 0;
-  }
 }
 
 /* Density lock. Tokens drive type, controls, rows, and cards. */
@@ -6765,17 +5210,12 @@ button.ranks-chip,
    28px chips use a deeper inset. Stacked rows are already 44px, so their
    ::before stays inside the row. The pseudo paints nothing, so the 2px
    focus outline stays visible. */
-.mobile-icon-btn,
-.mobile-rail-close,
 .selected-token-remove,
 #landing-find-btn,
 #find-leagues-btn,
 #load-league-btn,
 .ghost-btn,
 button.ghost-btn,
-.page-tab,
-.room-tab,
-.phone-desk-room,
 button.ranks-chip,
 .segmented button,
 details.workspace-panel > summary,
@@ -6786,8 +5226,6 @@ details.workspace-panel > summary,
 
 .ghost-btn,
 button.ghost-btn,
-.page-tab,
-.room-tab,
 details.workspace-panel > summary,
 .league-id-fallback summary {
   min-height: var(--btn-h);
@@ -6797,10 +5235,7 @@ details.workspace-panel > summary,
    -4px inset land at 42 and a -8px chip inset land at 41. Size the
    pseudo to --tap-min from that edge. It does not grow a target that
    is already tall enough. */
-.mobile-icon-btn::before,
-.mobile-rail-close::before,
-.selected-token-remove::before,
-button.weekly-help-btn::before {
+.selected-token-remove::before {
   content: "";
   position: absolute;
   left: min(0px, calc((100% - var(--tap-min)) / 2));
@@ -6814,13 +5249,8 @@ button.weekly-help-btn::before {
 #landing-find-btn::before,
 #find-leagues-btn::before,
 #load-league-btn::before,
-#sticky-find-btn::before,
-.sample-banner > button::before,
-.sample-find-btn::before,
 .ghost-btn::before,
 button.ghost-btn::before,
-.page-tab::before,
-.room-tab::before,
 button.ranks-chip::before,
 .segmented button::before,
 button.inline-link::before,
@@ -6838,25 +5268,17 @@ details.workspace-panel > summary::before,
   pointer-events: auto;
 }
 
-.phone-desk-room,
-.phone-desk-page,
-button.room-tab,
 button.ranks-row {
   min-height: var(--tap-min);
   padding-block: 0;
 }
 
-.sample-banner > button,
-.sample-find-btn,
-#sample-find-btn,
 #landing-find-btn,
 #find-leagues-btn,
-#load-league-btn,
-#sticky-find-btn {
+#load-league-btn {
   position: relative;
 }
 
-button.weekly-help-btn,
 button.inline-link,
 a.inline-link {
   position: relative;
@@ -6871,11 +5293,9 @@ input,
 .ranks-search,
 .calc-search,
 .landing-search-row input,
-body:not(.league-loaded):not(.board-tools-live) .landing-search-row input,
+body:not(.league-loaded) .landing-search-row input,
 body.league-loaded .league-module input,
-body.board-tools-live .league-module input,
 body.league-loaded #me-select,
-body.board-tools-live #me-select,
 select,
 select[data-change="lens-roster"] {
   min-height: var(--tap-min);
@@ -6889,25 +5309,12 @@ select[data-change="lens-roster"] {
   row-gap: calc(var(--tap-min) - var(--chip-h) + 2px);
 }
 
-.phone-desk-room::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: none;
-  pointer-events: auto;
-}
-
 #me-select {
   min-height: var(--tap-min);
 }
 
-.mobile-icon-btn:focus-visible,
-.mobile-rail-close:focus-visible,
 .ghost-btn:focus-visible,
-.page-tab:focus-visible,
-.room-tab:focus-visible,
 button.ranks-chip:focus-visible,
-.phone-desk-room:focus-visible,
 details.workspace-panel > summary:focus-visible,
 .league-id-fallback summary:focus-visible {
   z-index: 1;
@@ -6925,7 +5332,6 @@ details.workspace-panel > summary:focus-visible,
    clips a ::before that sticks out. The button box is the hit target.
    Sample-league and mock-draft links are inline text (~17px) unless the
    real elements grow to --tap-min. */
-a.sample-league-link,
 button.inline-link,
 a.inline-link {
   display: inline-flex;
@@ -6959,12 +5365,6 @@ a.inline-link {
 }
 
 /* Last word on the revealed phone bar. Earlier product rules used a translucent mix. */
-@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
-  header#mobile-chrome {
-    background: var(--bg);
-    background-color: var(--bg);
-  }
-}
 
 /* Launch landing. Heights match the loaded rows so the first paint does not jump. */
 .launch-wrap {
@@ -6982,57 +5382,6 @@ a.inline-link {
   color: var(--muted);
   font-size: var(--fs-sm2);
   margin: 0 0 var(--sp-4);
-}
-.launch-lab {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--sp-2);
-  margin: var(--sp-4) 0 var(--sp-1);
-  font-size: var(--fs-xs);
-  letter-spacing: var(--ls-label);
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.launch-lab a {
-  text-transform: none;
-  letter-spacing: 0;
-  color: var(--muted-strong);
-  font-size: var(--fs-sm);
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-}
-.launch-box {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-}
-.launch-example {
-  min-height: 360px;
-}
-.launch-trend {
-  min-height: 200px;
-}
-.launch-row {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  min-height: var(--row-h-compact);
-  padding: 0 var(--card-pad);
-  border-top: 1px solid var(--line);
-  color: inherit;
-  text-decoration: none;
-}
-.launch-box > .launch-row:first-child,
-.launch-side > .launch-row:first-of-type {
-  border-top: 0;
-}
-.launch-side {
-  padding: var(--sp-2) 0;
-}
-.launch-side + .launch-side {
-  border-top: 1px solid var(--line);
 }
 .launch .sh {
   display: flex;
@@ -7069,10 +5418,6 @@ a.inline-link {
   font-variant-numeric: var(--num);
   font-size: var(--fs-num);
 }
-.launch-verdict {
-  padding: var(--card-pad);
-  border-top: 1px solid var(--line);
-}
 .launch .vt {
   display: flex;
   justify-content: space-between;
@@ -7084,8 +5429,6 @@ a.inline-link {
   font-weight: 700;
   font-variant-numeric: var(--num);
 }
-.launch-verdict.fair .vt { color: var(--amber); }
-.launch-verdict.strong .vt { color: var(--text); }
 .launch .bar,
 .launch-meters {
   height: 6px;
@@ -7112,26 +5455,12 @@ a.inline-link {
   color: var(--muted-strong);
   font-size: var(--fs-sm);
 }
-.launch-sample {
-  margin: var(--sp-2) 0 0;
-  text-align: center;
-}
-.launch-sample a {
-  color: var(--muted-strong);
-  font-size: var(--fs-sm);
-}
-.launch-card-hit {
-  display: block;
-  color: inherit;
-  text-decoration: none;
-}
 .launch-connect {
   position: relative;
   height: var(--btn-h);
   margin-top: var(--sp-3);
 }
-.launch-connect::before,
-.launch-header-link::before {
+.launch-connect::before {
   content: "";
   position: absolute;
   inset: -4px 0;
@@ -7141,7 +5470,6 @@ a.inline-link {
   color: var(--text);
   border: 1px solid var(--line-strong);
 }
-.launch-row-skel .sk,
 .launch .sh .sk {
   display: block;
   height: 12px;
@@ -7149,41 +5477,10 @@ a.inline-link {
   border-radius: 4px;
   background: var(--panel-soft);
 }
-.launch-error {
-  padding: var(--card-pad);
-}
-.launch-empty {
-  padding: var(--card-pad);
-}
-.launch-header-link {
-  display: none;
-  position: relative;
-  align-items: center;
-  min-height: 44px;
-  font-size: var(--fs-sm2);
-  color: var(--muted-strong);
-  text-decoration: none;
-}
-body.launch-open .launch-header-link,
 body.launch-open #find-leagues-btn,
-body.launch-open #sticky-find-btn,
-body.launch-open #sample-find-btn,
-body.launch-open .sample-find-btn,
 body.launch-open #ranks-section,
-body.launch-open .desk-nav,
 body.launch-open #workspace-header,
-body.launch-open #sample-banner,
-body.launch-open .phone-desk,
-body.launch-open #mobile-rail-toggle,
-body.launch-open .mobile-chrome-title-row,
-body.launch-open .mobile-chrome-viewing,
-body.launch-open #desk-board-open,
-body.launch-open .desk-board-close,
-body.launch-open #mobile-rail-close,
-body.launch-open .sample-chrome,
-body.launch-open #ticker,
-body.launch-open .state-grid,
-body.launch-open #site-dock {
+body.launch-open #ticker {
   display: none !important;
 }
 button.info {
@@ -7244,33 +5541,9 @@ button.info {
     gap: var(--section-gap);
     align-items: start;
   }
-  .launch-trend-col {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .launch-trend-col .launch-lab {
-    margin-top: 0;
-  }
 }
 
 /* The home page is a starting point for every public task. */
-.launch-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-  margin: 0 0 var(--sp-4);
-  border-bottom: 1px solid var(--line);
-}
-.launch-nav a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 var(--sp-2);
-  color: var(--text);
-  text-decoration: none;
-  font-weight: 600;
-}
-.launch-start { display: grid; gap: var(--sp-2); }
 .launch-action {
   display: grid;
   gap: var(--sp-1);
@@ -7285,12 +5558,11 @@ button.info {
 .launch-action > span { color: var(--muted-strong); font-size: var(--fs-sm2); }
 .launch-action.launch-connect { height: auto; margin-top: 0; }
 .launch-action[hidden] { display: none; }
-.launch-action:hover, .launch-nav a:hover { background: var(--panel-soft); }
-.launch-action:focus-visible, .launch-nav a:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+.launch-action:hover { background: var(--panel-soft); }
+.launch-action:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
 
 /* Describe-a-trade box (calculator and landing). */
-.talk-box,
-.landing-talk {
+.talk-box {
   display: grid;
   gap: var(--sp-2);
   padding: var(--card-pad);
@@ -7300,60 +5572,18 @@ button.info {
   margin-bottom: var(--section-gap);
 }
 .talk-form { display: grid; gap: var(--sp-2); }
-.talk-label { display: grid; gap: 2px; }
-.landing-talk-hint {
-  color: var(--muted);
-  font-size: var(--fs-sm2);
-  margin: 0;
-}
-.talk-box,
-.landing-talk { border-color: var(--muted); }
-.landing-talk label {
-  font-size: var(--fs-body);
-  font-weight: var(--fw-semi);
-  color: var(--text);
-}
-.landing-talk-try {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2);
-}
-.landing-talk-try span { color: var(--muted); font-size: var(--fs-sm2); }
-.landing-talk-try { row-gap: calc(var(--tap-min) - var(--chip-h) + 2px); }
-.landing-talk-try button {
-  position: relative;
-  width: auto;
-  min-height: var(--chip-h);
-  padding: 2px 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-pill);
-  background: var(--panel-soft);
-  color: var(--text);
-  font-size: var(--fs-sm2);
-  font-weight: var(--fw-med);
-  text-align: left;
-}
-.landing-talk-try button::before {
-  content: "";
-  position: absolute;
-  inset: calc((var(--chip-h) - var(--tap-min)) / 2) 0;
-}
-.landing-talk-try button:hover { background: var(--panel-tint); }
-.talk-row,
-.landing-talk-row {
+.talk-box { border-color: var(--muted); }
+.talk-row {
   display: flex;
   gap: var(--sp-2);
 }
-.talk-row input,
-.landing-talk-row input {
+.talk-row input {
   flex: 1 1 auto;
   min-width: 0;
   min-height: var(--tap-min);
   font-size: 16px; /* 16px keeps iOS from zooming in on focus */
 }
-.talk-row button,
-.landing-talk-row button {
+.talk-row button {
   flex: 0 0 auto;
   width: auto;
   min-height: var(--tap-min);
@@ -7390,7 +5620,6 @@ button.talk-chip:hover { background: var(--panel-tint); }
   font-variant-numeric: var(--num);
   margin-left: 4px;
 }
-.landing-talk { max-width: 640px; margin: 0 0 var(--sp-4); }
 
 /* Trade page ------------------------------------------------------------- */
 /* One surface: whitespace and small gray labels group things, not borders. */
@@ -7403,36 +5632,8 @@ button.talk-chip:hover { background: var(--panel-tint); }
 .calc-heading h2 { margin: 0; font-size: var(--fs-h1); font-weight: var(--fw-bold); }
 .calc-heading .values-updated { flex-basis: 100%; margin: 0; }
 .calc-heading .draft-basis-row { display: flex; align-items: center; gap: var(--sp-2); }
-.draft-format-toggle {
-  display: inline-flex;
-  padding: 2px;
-  border-radius: var(--r-sm);
-  background: var(--panel-soft);
-}
-button.draft-format-btn {
-  position: relative;
-  width: auto;
-  min-height: 24px;
-  height: 24px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--r-xs);
-  background: transparent;
-  color: var(--muted);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-semi);
-}
-button.draft-format-btn.active { background: var(--text); color: var(--on-accent); }
 .draft-format-fixed { margin: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--text); }
 .draft-format-fixed span { font-weight: 400; color: var(--muted); }
-button.draft-format-btn::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc((100% - var(--tap-min)) / 2);
-  bottom: calc((100% - var(--tap-min)) / 2);
-}
 
 /* Composer: one input, Build inside it, suggestions underneath. */
 .talk-box {
@@ -7665,18 +5866,6 @@ button.talk-connect {
 .calc-pane .selected-token.is-mismatch { box-shadow: inset 3px 0 0 var(--amber); }
 
 /* The add field is a ghost row at the bottom of its list. */
-.calc-grid.has-meter .calc-search-wrap { margin: 0; padding: 0 var(--sp-2); }
-.calc-grid.has-meter .calc-search-wrap input {
-  min-height: var(--tap-min);
-  padding-left: var(--sp-2);
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
-  box-shadow: none;
-  color: var(--text);
-}
-.calc-grid.has-meter .calc-search-wrap input::placeholder { color: var(--muted); }
-.calc-grid.has-meter .calc-search-wrap input:focus { background: var(--panel); }
 
 /* Verdict meter: a thin two-color bar; See why opens per-asset bars inline. */
 .draft-meter { grid-column: 1 / -1; padding: 10px var(--sp-3) 6px; border-bottom: 1px solid var(--line); }
@@ -7768,8 +5957,7 @@ button.meter-head::before {
   .calc-grid.has-meter .calc-pane-head { position: static; }
 }
 
-button.ranks-chip,
-.room-tab { min-width: var(--tap-min); }
+button.ranks-chip { min-width: var(--tap-min); }
 
 /* The full breakdown under the trade is a plain section, not a second card. */
 .calculator-shell:not([data-shared-view="1"]) .calc-summary,
@@ -7784,7 +5972,6 @@ button.ranks-chip,
   background: none;
   box-shadow: none;
 }
-.calculator-shell:not([data-shared-view="1"]) .calc-hint { padding: 0; border: 0; color: var(--muted); font-size: var(--fs-sm2); }
 
 /* --------------------------------------------------------------------------
    Density: smaller tiles and type. Serif headlines stay quiet; the number is
@@ -7815,30 +6002,8 @@ button.ranks-chip,
   gap: 0.75rem;
 }
 
-.page-tab {
-  padding: 0.35rem 0.6rem;
-}
-
 .tab-copy small {
   font-size: 11px;
-}
-
-.power-hero {
-  gap: 0.75rem;
-  padding: 0.65rem 0.75rem;
-}
-
-.power-score-ring {
-  width: 4.75rem;
-}
-
-.power-score-ring span {
-  margin-top: -1rem;
-  font-size: var(--fs-xs);
-}
-
-.power-stat-grid {
-  gap: 0.5rem;
 }
 
 .power-stat {
@@ -7849,31 +6014,6 @@ button.ranks-chip,
 .power-stat strong {
   font-size: 18px;
   font-weight: 700;
-}
-
-.window-call-line {
-  margin: 0.5rem 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.6rem;
-  align-items: baseline;
-  font-size: var(--fs-body);
-}
-
-.window-call-line strong {
-  font-weight: 700;
-}
-
-.window-call-line.green strong {
-  color: var(--green);
-}
-
-.window-call-line.gold strong {
-  color: var(--amber);
-}
-
-.window-call-line.rose strong {
-  color: var(--red);
 }
 
 .sheet-row {
@@ -7904,33 +6044,12 @@ button.talk-chip {
     padding: 0.65rem 0.7rem;
   }
 
-  .power-stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.4rem;
-  }
-
   .power-stat strong {
     font-size: 16px;
   }
 
-  .power-score-ring {
-    width: 4rem;
-  }
-
   .draft-team-card {
     padding: 0.6rem 0.7rem;
-  }
-
-  .phone-desk-room {
-    display: grid;
-    gap: 2px;
-    text-align: left;
-  }
-
-  .phone-desk-room small {
-    color: var(--muted);
-    font-size: var(--fs-xs);
-    font-weight: 400;
   }
 }
 
@@ -8070,115 +6189,19 @@ button.talk-chip {
    Phone: a fixed three-item bottom bar on every page, no "Sections" drawer.
    The header chip "team · league ▾" opens the team/league controls.
    ------------------------------------------------------------------------- */
-.team-league-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  max-width: 100%;
-  min-height: 36px;
-  padding: 0.35rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--panel);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-sm, 0.875rem);
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
-.team-league-chip #team-league-chip-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.team-league-chip:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
-.phone-desk { display: none !important; }
-.sample-banner:empty { display: none !important; }
 
 .no-league-preview { display: grid; gap: 0.75rem; max-width: 36rem; }
 .no-league-points { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.25rem; }
 .no-league-connect { display: grid; gap: 0.35rem; }
 .no-league-row { display: flex; gap: 0.5rem; }
 .no-league-row input { flex: 1; min-width: 0; }
-.match-situation { margin: 0 0 0.75rem; }
-.match-trade-gain { margin: 0.25rem 0; font-weight: 600; color: var(--good, #4ade80); }
-.match-trade-band { margin: 0.25rem 0 0.5rem; color: var(--muted, #a1a1aa); }
-.match-trade-partner { margin: 0 0 0.25rem; }
-.match-idea-list { display: grid; gap: 0.75rem; }
-.match-more { margin-top: 0.75rem; }
-.match-partner-list { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; }
-#match-partners .match-partner-go { display: block; margin-top: 0.3rem; min-height: 44px; }
-.shop-select { width: 100%; max-width: 32rem; }
-.shop-results { display: grid; gap: 0.75rem; margin-top: 0.75rem; }
 .link-btn { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; font: inherit; cursor: pointer; min-height: 0; }
 
-@media (min-width: 701px) {
-  #mobile-rail-toggle.team-league-chip { display: none; }
-}
-
 @media (max-width: 700px), (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
-  html body .desk-nav,
-  html body.launch-open .desk-nav,
-  html body.league-loaded .desk-nav,
-  html body.board-tools-live .desk-nav,
-  html body:not(.league-loaded):not(.board-tools-live) .desk-nav {
-    display: block !important;
-    position: fixed !important;
-    top: auto !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    max-width: none !important;
-    transform: none !important;
-    z-index: 60 !important;
-    margin: 0 !important;
-    padding: 0 0 env(safe-area-inset-bottom) !important;
-    border: 0 !important;
-    border-top: 1px solid var(--line) !important;
-    border-radius: 0 !important;
-    background: var(--bg) !important;
-    box-shadow: none !important;
-  }
-  html body .desk-nav.hidden { display: block !important; }
-  html body .desk-nav .workspace-tabs {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0;
-    padding: 0 !important;
-    border: 0 !important;
-  }
-  html body .desk-nav .page-tab {
-    min-height: 56px;
-    padding: 0.4rem 0.25rem !important;
-    justify-content: center;
-    text-align: center;
-    border: 0 !important;
-    border-radius: 0 !important;
-  }
-  html body .desk-nav .page-tab small { display: none; }
-  html body .desk-nav .page-tab strong { font-size: 0.8rem; }
-  html body .desk-nav .page-tab.active { box-shadow: inset 0 3px 0 var(--text); }
   body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
-  .site-dock { bottom: calc(64px + env(safe-area-inset-bottom)) !important; }
-  html body header#mobile-chrome {
-    display: flex !important;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  html body header#mobile-chrome .mobile-chrome-copy { flex: 1 1 auto; min-width: 0; order: 1; }
-  html body header#mobile-chrome .mobile-chrome-title-row [data-sample-chip],
-  html body header#mobile-chrome .mobile-chrome-viewing { display: none !important; }
-  html body header#mobile-chrome #mobile-chrome-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #mobile-rail-toggle.team-league-chip { order: 2; flex: 0 1 auto; max-width: 58vw; margin-left: auto; }
   .no-league-row { flex-direction: column; }
 }
 .team-verdict { margin-bottom: 0.75rem; }
-.team-verdict .window-call-line { font-size: 1.15rem; margin: 0.15rem 0; }
-.next-move-card { display: grid; gap: 0.4rem; justify-items: start; padding: 0.85rem 1rem; margin: 0 0 1rem; border: 1px solid var(--line); border-radius: var(--r-md, 10px); background: var(--panel-soft, var(--panel)); }
-.next-move-line { margin: 0; }
 .league-format-details { margin-top: 0.75rem; }
 .league-format-details summary { cursor: pointer; }
 html:not([data-players-board]) #ranks-section { display: none !important; }
@@ -8217,27 +6240,9 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
 .launch-resume .launch-resume-open { justify-self: stretch; }
 .launch-resume-forget { min-height: 44px; padding: 0 0.25rem; font-size: var(--fs-sm, 0.875rem); color: var(--muted); }
 /* One primary at a time: with a league to reopen, Connect is a normal choice. */
-.launch-resume:not([hidden]) + .launch-start .launch-action.launch-primary { border-color: var(--line); }
 /* Ticket 004: buy low / sell high. */
-.buy-sell-grid { display: grid; gap: var(--sp-3, 0.75rem); grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
-.buy-sell-grid h3 { margin: 0 0 0.35rem; font-size: var(--fs-body, 1rem); }
-.buy-sell-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
-.buy-sell-row { display: grid; gap: 0.15rem; padding: 0.55rem 0.7rem; border: 1px solid var(--line); border-radius: var(--r-md, 10px); background: var(--panel-soft, var(--panel)); }
-.buy-sell-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
-.buy-sell-why { margin: 0; }
-.buy-sell-row .link-btn[data-action="player-shop"] { justify-self: start; min-height: 44px; }
 /* Ticket 007: move on from. */
-.move-on-card { display: grid; gap: 0.4rem; padding: 0.85rem 1rem; margin: 0 0 1rem; border: 1px solid var(--line); border-radius: var(--r-md, 10px); background: var(--panel-soft, var(--panel)); }
-.move-on-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
-.move-on-row { display: grid; gap: 0.15rem; }
-.move-on-row p { margin: 0; }
-.move-on-row .link-btn[data-action="player-shop"] { justify-self: start; min-height: 44px; }
 /* Tickets 005/008: win-now targets. */
-.win-now-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
-.win-now-row { display: grid; gap: 0.15rem; padding: 0.55rem 0.7rem; border: 1px solid var(--line); border-radius: var(--r-md, 10px); background: var(--panel-soft, var(--panel)); }
-.win-now-row p { margin: 0; }
-.win-now-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
-.win-now-row .link-btn[data-action="player-shop"] { justify-self: start; min-height: 44px; }
 /* Redraft / keeper leagues: the one price is the dynasty market. Say so where prices show. */
 .calc-market-caveat { margin: 0.15rem 0 0; max-width: 60ch; }
 /* The roster sheet's slot column is a fixed 3rem, so "Superflex" was cut to
@@ -8246,220 +6251,11 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
 #roster-sheet .sheet-slot-superflex .sheet-slot-full { display: none; }
 #roster-sheet .sheet-slot-superflex .sheet-slot-short { display: inline; }
 /* Crowd call (trade-poll.js): one slider, results after you vote. */
-.trade-poll {
-  margin-top: var(--sp-3);
-  padding: var(--sp-4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--panel-soft);
-}
-
-.trade-poll .poll-head h3 {
-  margin: 2px 0 var(--sp-1);
-  font-size: var(--fs-h2);
-}
-
-.trade-poll .poll-sub {
-  margin: 0 0 var(--sp-3);
-  color: var(--muted);
-  font-size: var(--fs-sm);
-}
-
-.poll-ends {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-semi);
-  color: var(--muted-strong);
-}
-
-.poll-ends span:last-child {
-  text-align: right;
-}
-
-.poll-range {
-  --poll-pos: 50%;
-  width: 100%;
-  height: var(--tap-min);
-  margin: var(--sp-1) 0 0;
-  background: transparent;
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-  touch-action: pan-y;
-}
-
-.poll-range::-webkit-slider-runnable-track {
-  height: 6px;
-  border-radius: 3px;
-  background:
-    linear-gradient(var(--text), var(--text)) 50% 50% / 2px 14px no-repeat,
-    linear-gradient(90deg, var(--green-soft), var(--line) 50%, var(--green-soft));
-}
-
-.poll-range::-moz-range-track {
-  height: 6px;
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--green-soft), var(--line) 50%, var(--green-soft));
-}
-
-.poll-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 26px;
-  height: 26px;
-  margin-top: -10px;
-  border-radius: 50%;
-  border: 2px solid var(--bg, #0c0c0e);
-  background: var(--text);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-}
-
-.poll-range::-moz-range-thumb {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 2px solid var(--bg, #0c0c0e);
-  background: var(--text);
-}
-
-.poll-range:focus-visible {
-  outline: 2px solid var(--text);
-  outline-offset: 2px;
-}
 
 /* Each label sits under its stop. The thumb travels 13px in from each edge. */
-.poll-ticks {
-  position: relative;
-  height: 1.4em;
-  font-size: var(--fs-xs);
-  line-height: var(--lh-tight);
-  color: var(--muted);
-}
-
-.poll-ticks span {
-  position: absolute;
-  top: 0;
-  left: calc(13px + (100% - 26px) * var(--i) / 8);
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-
-.poll-ticks span:first-child {
-  left: 0;
-  transform: none;
-}
-
-.poll-ticks span:last-child {
-  left: auto;
-  right: 0;
-  transform: none;
-}
-
-.poll-ticks .is-on {
-  color: var(--text);
-  font-weight: var(--fw-semi);
-}
-
-.poll-ticks .is-even {
-  font-weight: var(--fw-semi);
-}
-
-.poll-readout {
-  margin: var(--sp-3) 0 0;
-  font-size: var(--fs-h2);
-  font-weight: var(--fw-bold);
-  text-align: center;
-}
-
-.poll-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2) var(--sp-3);
-  margin-top: var(--sp-3);
-}
-
-.poll-vote-btn {
-  min-height: var(--tap-min);
-  min-width: 96px;
-  padding: 0 1.1rem;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--text);
-  color: var(--bg, #0c0c0e);
-  font: inherit;
-  font-weight: var(--fw-bold);
-  cursor: pointer;
-}
-
-.poll-vote-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.poll-count,
-.poll-mine,
-.poll-split {
-  color: var(--muted);
-  font-size: var(--fs-sm);
-}
-
-.poll-result {
-  margin: 0 0 var(--sp-3);
-  font-size: var(--fs-body-lg);
-}
-
-.poll-hist {
-  display: grid;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
-  align-items: end;
-  gap: 4px;
-  height: 72px;
-  margin: var(--sp-2) 0 0;
-  padding: 0 0 2px;
-  list-style: none;
-  border-bottom: 1px solid var(--line-strong);
-}
-
-.poll-hist li {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  height: 100%;
-}
-
-.poll-bar {
-  display: block;
-  width: 100%;
-  min-height: 2px;
-  border-radius: 3px 3px 0 0;
-  background: var(--line-strong);
-}
-
-.poll-hist li.is-mine .poll-bar {
-  background: var(--text);
-}
-
-.poll-split {
-  margin: var(--sp-2) 0 0;
-}
-
-.poll-note {
-  margin: var(--sp-2) 0 0;
-  color: var(--amber);
-  font-size: var(--fs-sm);
-}
-
-.trade-poll .poll-note.muted {
-  color: var(--muted);
-}
 
 @media (max-width: 620px) {
   /* Nine labels do not fit a phone. The readout under the slider says the stop. */
-  .poll-ticks span:not(.is-even) {
-    visibility: hidden;
-  }
 }
 
 /* Tool navigation: one modal drawer at every viewport. */
@@ -8487,7 +6283,6 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
 #league-entry-controls .module-heading { display:none; }
 #league-entry-controls .league-load-form { max-width:none; }
 #league-entry-controls .league-pick { width:100%; }
-body .control-rail, body #desk-board-open, body #desk-board-close, body #phone-desk, body #desk-nav, body #mobile-chrome { display:none !important; }
 body .app-frame { display:block; }
 body .workspace { margin:0; width:100%; max-width:1440px; padding:84px clamp(16px,4vw,52px) 32px; }
 body.launch-open .workspace { display:block; }
