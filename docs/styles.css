@@ -8649,3 +8649,10 @@ body.launch-open .workspace { display:block; }
 .league-trophy-card dl > div { display: flex; flex-direction: column; gap: .15rem; margin-top: .65rem; }
 .league-trophy-card dt { font-size: .8rem; color: var(--muted, #777); }
 .league-trophy-card dd { margin: 0; overflow-wrap: anywhere; }
+
+
+/* Historical Data: award cards (041/042). */
+.league-history-awards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: .75rem; }
+.league-history-awards > div { border: 1px solid var(--line, #ddd); border-radius: .7rem; padding: .9rem; min-width: 0; overflow-wrap: anywhere; }
+.league-history-awards h3 { font-size: 1rem; margin: 0 0 .45rem; }
+.league-history-awards p { margin: .3rem 0; }
