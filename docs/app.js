@@ -543,6 +543,12 @@ el.meSelect?.addEventListener("change", () => {
   renderSessionSnapshot();
   updateUrlState({ mode: "replace" });
 });
+// The hub's "Which team is yours?" picker drives the same Manager select.
+document.addEventListener("change", (event) => {
+  if (event.target?.id !== "hub-team-select" || !el.meSelect || !event.target.value) return;
+  applyMeSelectValue(event.target.value);
+  el.meSelect.dispatchEvent(new Event("change"));
+});
 document.addEventListener("submit", (event) => {
   const form = event.target.closest?.("[data-preview-connect]");
   if (!form) return;
@@ -642,7 +648,7 @@ bindInfoTips(document);
 renderToolPicker(document.querySelector("#home-page-content"));
 mountSiteMenu({ navigate: navigateTool });
 document.addEventListener("click", event => {
-  const link = event.target.closest("#home-page-content a, #leagues-page-content a");
+  const link = event.target.closest("#home-page-content a, #leagues-page-content a, #league-hub-content a");
   if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
   const href = link.getAttribute("href");
   if (!href?.startsWith("/")) return;
@@ -706,8 +712,10 @@ function navigateTool(href) {
   }
   const id = url.pathname.match(/^\/l\/(\d+)/)?.[1];
   if (id) {
-    state.pendingPlace = { page: "league", room: "hub" };
-    if (String(id) === String(state.leagueId)) openRoom("league", "hub", { history: "push" });
+    // Same league: switch rooms in place so the loaded league and team pick stay.
+    const room = resolveLocation(url.pathname, url.search).room || "hub";
+    state.pendingPlace = { page: "league", room };
+    if (String(id) === String(state.leagueId)) openRoom("league", room, { history: "push", scroll: "top" });
     else void loadLeagueById(id);
   }
 }
@@ -968,7 +976,12 @@ function renderActivePage() {
     const host = document.querySelector("#league-hub-content");
     if (host) host.innerHTML = renderLeagueHub({ league: state.league, leagueId: state.leagueId,
       seasons: archive?.leagueId === state.leagueId ? archive.seasons : state.leagueHistory,
-      myTeam: managerForRosterId(connectedRosterId())?.teamName || managerForRosterId(connectedRosterId())?.displayName || "",
+      myTeam: hubTeamName(),
+      myRosterId: connectedRosterId(),
+      teams: (state.normalizedRosters || []).map((roster) => ({
+        id: roster.rosterId,
+        name: roster.manager?.teamName || roster.manager?.displayName || `Team ${roster.rosterId}`,
+      })),
       model: getSeasonModel(), transactions: state.transactions, tradesLoaded: state.transactionsLoaded,
       loading: !(archive?.leagueId === state.leagueId || state.leagueHistory.length),
     });
@@ -2274,6 +2287,13 @@ function buildShareUrl(overrides = {}) {
 // "(you)" and the You chip mark the person who connected, never whichever
 // team is being viewed. A direct league link with no connected user marks
 // the team they picked themselves, and nothing until they pick.
+function hubTeamName() {
+  const rosterId = connectedRosterId();
+  if (!rosterId) return "";
+  const manager = managerForRosterId(rosterId);
+  return manager?.teamName || manager?.displayName || "";
+}
+
 function connectedRosterId() {
   const userId = String(state.sleeperUser?.user_id || "");
   if (userId) {

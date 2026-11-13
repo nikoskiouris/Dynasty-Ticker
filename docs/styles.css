@@ -6432,3 +6432,5 @@ body.launch-open .workspace { display:block; }
    under it (12px + 46px + gap) at every width. */
 html body.league-loaded .workspace,
 html body:not(.league-loaded) .workspace { padding-top: 70px; }
+.league-hub-pick { display:grid; gap:6px; margin:16px 0; }
+.league-hub-pick select { max-width:360px; }
