@@ -1,89 +1,180 @@
 import { resolveRosterIdentity } from "./franchise.js";
 
 const id = (value) => String(value ?? "").trim();
-const round2 = (number) => Math.round(number * 100) / 100;
-const isPrice = (number) => typeof number === "number" && Number.isFinite(number) && number >= 0;
+const round2 = (value) => Math.round(value * 100) / 100;
 const priceMap = (values) => values?.sf || values || {};
+const isPrice = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0;
 
 function manager(archive, entry, rosterId) {
-  const roster = (entry.rosters || []).find((item) => id(item.roster_id) === id(rosterId));
-  return resolveRosterIdentity(archive.franchiseIndex, {
-    userId: roster?.owner_id, leagueId: entry.leagueId, rosterId,
+  const roster = (entry?.rosters || []).find((row) => id(row.roster_id) === id(rosterId));
+  return resolveRosterIdentity(archive?.franchiseIndex, {
+    userId: roster?.owner_id, leagueId: entry?.leagueId, rosterId,
   });
 }
+function eventWeek(season, week) {
+  return Number(season) * 20 + Number(week);
+}
+function activeRosterPlayers(roster) {
+  return new Set(["players", "reserve", "taxi", "starters"]
+    .flatMap((field) => Array.isArray(roster?.[field]) ? roster[field] : []).map(id));
+}
+function currentOwnedBy(archive) {
+  const current = (archive?.seasons || []).slice()
+    .sort((a, b) => Number(b.season) - Number(a.season))[0];
+  const owners = new Map();
+  if (!current) return owners;
+  for (const roster of current.rosters || []) {
+    const identity = manager(archive, current, roster.roster_id);
+    if (!owners.has(identity.managerKey)) owners.set(identity.managerKey, new Set());
+    for (const playerId of activeRosterPlayers(roster)) owners.get(identity.managerKey).add(playerId);
+  }
+  return owners;
+}
 
-export function waiverAwards(archive = {}, {
-  values = {}, minMoves = 5,
-} = {}) {
-  const prices = priceMap(values);
-  const totals = new Map();
-  const pickups = [];
-  const drops = [];
-  let evaluatedMoves = 0;
-  let excludedMoves = 0;
-  for (const entry of archive.seasons || []) {
-    for (const transaction of archive.transactions?.[id(entry.season)] || []) {
-      if (!["waiver", "free_agent"].includes(transaction?.type)
-        || transaction?.status !== "complete") continue;
-      const rosterAssets = new Map();
-      const record = (rosterId, playerId, field) => {
-        const who = id(rosterId);
-        if (!who || !id(playerId)) return;
-        if (!rosterAssets.has(who)) rosterAssets.set(who, { adds: [], drops: [] });
-        rosterAssets.get(who)[field].push(id(playerId));
-      };
-      for (const [playerId, rosterId] of Object.entries(transaction.adds || {})) {
-        record(rosterId, playerId, "adds");
-      }
-      for (const [playerId, rosterId] of Object.entries(transaction.drops || {})) {
-        record(rosterId, playerId, "drops");
-      }
-      for (const [rosterId, assets] of rosterAssets) {
-        const involved = [...assets.adds, ...assets.drops];
-        if (!involved.length || involved.some((playerId) =>
-          !isPrice(prices[`player:${playerId}`]))) {
-          excludedMoves++;
+function weeklyStarts(archive) {
+  const weeks = new Map();
+  let invalidWeeks = 0;
+  for (const entry of archive?.seasons || []) {
+    for (const [week, rows] of Object.entries(archive?.matchups?.[id(entry.season)] || {})) {
+      const order = eventWeek(entry.season, week);
+      for (const row of rows || []) {
+        const starters = row?.starters;
+        const scores = row?.starters_points;
+        if (!Array.isArray(starters) || !Array.isArray(scores)
+          || starters.length !== scores.length || scores.some((point) =>
+            !Number.isFinite(Number(point)))) {
+          invalidWeeks++;
           continue;
         }
-        const entryUser = manager(archive, entry, rosterId);
-        if (!totals.has(entryUser.managerKey)) totals.set(entryUser.managerKey, {
-          key: entryUser.managerKey, name: entryUser.managerName, moves: 0,
-          net: 0, addedValue: 0, releasedValue: 0,
+        const identity = manager(archive, entry, row.roster_id);
+        const key = identity.managerKey;
+        if (!weeks.has(key)) weeks.set(key, []);
+        const started = new Map();
+        starters.forEach((playerId, index) => {
+          if (id(playerId) && id(playerId) !== "0") started.set(id(playerId), Number(scores[index]));
         });
-        const row = totals.get(entryUser.managerKey);
-        row.name = entryUser.managerName;
-        row.moves++;
-        evaluatedMoves++;
-        const addedValue = assets.adds.reduce((total, playerId) =>
-          total + prices[`player:${playerId}`], 0);
-        const releasedValue = assets.drops.reduce((total, playerId) =>
-          total + prices[`player:${playerId}`], 0);
-        row.net += addedValue - releasedValue;
-        row.addedValue += addedValue;
-        row.releasedValue += releasedValue;
-        for (const playerId of assets.adds) {
-          pickups.push({ season: id(entry.season), managerName: entryUser.managerName,
-            playerId, value: prices[`player:${playerId}`] });
+        weeks.get(key).push({ order, season: id(entry.season), week: Number(week), started });
+      }
+    }
+  }
+  return { weeks, invalidWeeks };
+}
+
+function transactionEvents(archive) {
+  const events = [];
+  let undatedAdds = 0;
+  for (const entry of archive?.seasons || []) {
+    for (const transaction of archive?.transactions?.[id(entry.season)] || []) {
+      if (transaction?.status !== "complete"
+        || !["waiver", "free_agent", "trade"].includes(transaction?.type)) continue;
+      const leg = Number(transaction.leg);
+      if (!Number.isInteger(leg) || leg < 0 || leg > 18) {
+        if (["waiver", "free_agent"].includes(transaction.type)) {
+          undatedAdds += Object.keys(transaction.adds || {}).length;
         }
-        for (const playerId of assets.drops) {
-          drops.push({ season: id(entry.season), managerName: entryUser.managerName,
-            playerId, value: prices[`player:${playerId}`] });
+        continue; // Never infer an acquisition week from its calendar date.
+      }
+      const time = Number(transaction.status_updated || transaction.created || 0);
+      const base = { season: id(entry.season), week: leg,
+        order: eventWeek(entry.season, leg), time, transactionId: id(transaction.transaction_id),
+        transactionType: transaction.type };
+      for (const [field, action] of [["drops", "drop"], ["adds", "add"]]) {
+        for (const [playerId, rosterId] of Object.entries(transaction[field] || {})) {
+          if (!id(playerId) || rosterId == null) continue;
+          const person = manager(archive, entry, rosterId);
+          const faabBid = Number(transaction?.settings?.waiver_bid);
+          events.push({ ...base, playerId: id(playerId), action,
+            managerKey: person.managerKey, managerName: person.managerName,
+            rosterId: id(rosterId), faabBid: action === "add" && transaction.type === "waiver"
+              && Number.isFinite(faabBid) && faabBid >= 0 ? faabBid : null,
+          });
         }
       }
     }
   }
-  const standings = [...totals.values()].map((row) => ({
-    ...row, eligible: row.moves >= minMoves, net: round2(row.net),
-    averageNet: row.moves ? round2(row.net / row.moves) : null,
-    addedValue: round2(row.addedValue), releasedValue: round2(row.releasedValue),
-  })).sort((a, b) => b.averageNet - a.averageNet || b.moves - a.moves);
+  // A same-week trade's drop occurs before its add if timestamps tie.
+  events.sort((a, b) => a.order - b.order || a.time - b.time
+    || (a.action === "drop" ? -1 : 1));
+  return { events, undatedAdds };
+}
+
+function pickupScore(pickup, events, allStarts, owners, prices) {
+  const from = events.indexOf(pickup);
+  let end = Infinity;
+  for (let i = from + 1; i < events.length; i++) {
+    const next = events[i];
+    if (next.playerId !== pickup.playerId) continue;
+    if (next.action === "add"
+      || (next.action === "drop" && next.managerKey === pickup.managerKey)) {
+      end = next.order;
+      break;
+    }
+  }
+  let startedPoints = 0;
+  const starts = [];
+  for (const week of allStarts.get(pickup.managerKey) || []) {
+    if (week.order < pickup.order || week.order >= end) continue;
+    if (!week.started.has(pickup.playerId)) continue;
+    const points = week.started.get(pickup.playerId);
+    startedPoints += points;
+    starts.push({ season: week.season, week: week.week, points: round2(points) });
+  }
+  const stillOwned = end === Infinity && Boolean(owners.get(pickup.managerKey)?.has(pickup.playerId));
+  const currentValue = stillOwned ? prices[`player:${pickup.playerId}`] : 0;
+  if (!isPrice(currentValue)) return null;
+  return { ...pickup, startedPoints: round2(startedPoints),
+    currentRosterValue: currentValue, score: round2(startedPoints + currentValue),
+    starts, stillOwned };
+}
+
+// Only documented waiver and free-agent adds count as pickups. Started points
+// are attributed from the acquisition leg until a recorded drop/trade/next add.
+// A current value bonus applies only when the same manager still owns the
+// pickup; FAAB remains a separate cost-per-started-point statistic.
+export function waiverAwards(archive = {}, { values = {}, minAdds = 5 } = {}) {
+  const prices = priceMap(values);
+  const owners = currentOwnedBy(archive);
+  const { weeks, invalidWeeks } = weeklyStarts(archive);
+  const { events, undatedAdds } = transactionEvents(archive);
+  const byManager = new Map();
+  const pickups = [];
+  let unpricedAdds = 0;
+  for (const event of events) {
+    if (event.action !== "add" || !["waiver", "free_agent"].includes(event.transactionType)) continue;
+    const pickup = pickupScore(event, events, weeks, owners, prices);
+    if (!pickup) { unpricedAdds++; continue; }
+    pickups.push(pickup);
+    if (!byManager.has(pickup.managerKey)) byManager.set(pickup.managerKey, {
+      key: pickup.managerKey, name: pickup.managerName,
+      adds: 0, startedPoints: 0, currentRosterValue: 0, score: 0,
+      faabSpent: 0, faabKnownAdds: 0, bestPickup: null,
+    });
+    const row = byManager.get(pickup.managerKey);
+    row.name = pickup.managerName;
+    row.adds++;
+    row.startedPoints += pickup.startedPoints;
+    row.currentRosterValue += pickup.currentRosterValue;
+    row.score += pickup.score;
+    if (pickup.faabBid != null) {
+      row.faabSpent += pickup.faabBid;
+      row.faabKnownAdds++;
+    }
+    if (!row.bestPickup || pickup.score > row.bestPickup.score) row.bestPickup = pickup;
+  }
+  const standings = [...byManager.values()].map((row) => ({
+    ...row, eligible: row.adds >= minAdds, score: round2(row.score),
+    startedPoints: round2(row.startedPoints),
+    currentRosterValue: round2(row.currentRosterValue),
+    faabSpent: round2(row.faabSpent),
+    faabPerStartedPoint: row.faabKnownAdds > 0 && row.startedPoints > 0
+      ? round2(row.faabSpent / row.startedPoints) : null,
+  })).sort((a, b) => b.score - a.score || b.startedPoints - a.startedPoints);
   const eligible = standings.filter((row) => row.eligible);
-  const highest = (rows) => rows.slice().sort((a, b) => b.value - a.value)[0] || null;
+  const bestPickup = pickups.slice().sort((a, b) => b.score - a.score)[0] || null;
   return {
-    best: eligible[0] || null,
-    worst: eligible.length > 1 ? eligible[eligible.length - 1] : null,
-    standings, bestPickup: highest(pickups), mostValuableDrop: highest(drops),
-    evaluatedMoves, excludedMoves, minMoves,
-    method: "Average net current player value (added minus released) per completed waiver or free-agent transaction; minimum 5 fully priced moves. FAAB is excluded. This is a hindsight proxy, not a prediction or a judgment at the time.",
+    best: eligible[0] || null, worst: eligible.length > 1 ? eligible[eligible.length - 1] : null,
+    standings, bestPickup, evaluatedAdds: pickups.length, unpricedAdds, undatedAdds,
+    invalidWeeks, minAdds,
+    method: "Waiver score = points earned in the manager's starting lineup after each documented free-agent/waiver pickup (until a recorded drop or transfer), plus the player's current SF value only if still rostered by that manager. Minimum 5 priced adds. FAAB cost is reported separately per started point when a bid is available; missing acquisition dates or values exclude pickups.",
   };
 }
