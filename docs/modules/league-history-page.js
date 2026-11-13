@@ -86,7 +86,7 @@ function renderTrends(rows) {
       </tr>`).join("")}</tbody></table></div></section>`;
 }
 
-export function renderLeagueHistory(archive, { valueNames = {}, values = {}, players = {} } = {}) {
+export function renderLeagueHistory(archive, { valueNames = {}, values = {}, players = {}, showLineup = false } = {}) {
   const seasons = archive?.seasons || [];
   const leagueId = encodeURIComponent(String(archive?.leagueId || ""));
   const name = seasons[0]?.league?.name || "League";
@@ -111,7 +111,7 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
     ${renderTrophyCases(archive, { valueNames })}
     ${renderTraderAwards(archive, { values, valueNames })}
     ${renderDrafterAwards(archive, { values, valueNames })}
-    ${renderOperationsAwards(archive, { players, values, valueNames })}
+    ${renderOperationsAwards(archive, { players, values, valueNames, showLineup })}
     <section class="workspace-panel"><h2>More history</h2><p class="muted">
       Composite manager awards are not available yet; a single overall rank needs validated category weights.
       These sections require additional calculation and verification; no rankings have been inferred.</p></section>
