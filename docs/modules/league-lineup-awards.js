@@ -9,14 +9,20 @@ const FLEX = Object.freeze({
   SUPER_FLEX: ["QB", "RB", "WR", "TE"],
   WRRB_FLEX: ["WR", "RB"],
   REC_FLEX: ["WR", "TE"],
-  IDP_FLEX: ["DL", "LB", "DB", "DE", "DT", "CB", "S"],
+  IDP_FLEX: ["DL", "LB", "DB", "DE", "DT", "NT", "EDGE", "CB", "S", "FS", "SS", "ILB", "OLB", "MLB"],
 });
 const slotSupported = (slot) => !BENCH.has(slot) &&
   (Boolean(FLEX[slot]) || /^(QB|RB|WR|TE|K|DEF|DL|LB|DB|DE|DT|CB|S|FS|SS|EDGE)$/.test(slot));
 
+const PARENT = Object.freeze({
+  DL: ["DE", "DT", "NT", "EDGE"],
+  DB: ["CB", "S", "FS", "SS"],
+  LB: ["ILB", "OLB", "MLB"],
+});
 function canFill(player, slot) {
-  if (FLEX[slot]) return player.positions.some((position) => FLEX[slot].includes(position));
-  return player.positions.includes(slot);
+  const eligible = FLEX[slot] || [slot];
+  return player.positions.some((position) => eligible.some((wanted) =>
+    position === wanted || PARENT[wanted]?.includes(position)));
 }
 
 function teamIdentity(archive, entry, rosterId) {
@@ -67,7 +73,9 @@ export function lineupAwards(archive = {}, { players = {}, minWeeks = 6 } = {}) 
     const slots = (entry.league?.roster_positions || []).map((value) => id(value).toUpperCase())
       .filter((slot) => !BENCH.has(slot));
     if (!slots.length || slots.some((slot) => !slotSupported(slot))) continue;
+    const playoffStart = Number(entry.league?.settings?.playoff_week_start) || 15;
     for (const [week, rows] of Object.entries(archive.matchups?.[id(entry.season)] || {})) {
+      if (Number(week) >= playoffStart) continue;
       for (const row of rows || []) {
         if (row?.roster_id == null) continue;
         examinedWeeks++;
@@ -79,7 +87,7 @@ export function lineupAwards(archive = {}, { players = {}, minWeeks = 6 } = {}) 
         const key = person.managerKey;
         if (!byManager.has(key)) byManager.set(key, {
           key, name: person.managerName, weeks: 0, actualPoints: 0,
-          optimalPoints: 0, pointsLeft: 0, worstWeek: null,
+          optimalPoints: 0, pointsLeft: 0, gamesLostToBench: 0, worstWeek: null,
         });
         const manager = byManager.get(key);
         manager.name = person.managerName;
@@ -87,6 +95,15 @@ export function lineupAwards(archive = {}, { players = {}, minWeeks = 6 } = {}) 
         manager.actualPoints += evaluated.actual;
         manager.optimalPoints += evaluated.optimal;
         manager.pointsLeft += evaluated.left;
+        const opponent = (rows || []).find((other) => other !== row
+          && row.matchup_id != null && id(other.matchup_id) === id(row.matchup_id)
+          && id(other.roster_id) !== rosterId);
+        if (opponent && Number.isFinite(Number(opponent.points))
+          && Number.isFinite(Number(row.points))
+          && Number(row.points) < Number(opponent.points)
+          && evaluated.optimal > Number(opponent.points)) {
+          manager.gamesLostToBench++;
+        }
         if (!manager.worstWeek || manager.worstWeek.left < evaluated.left) {
           manager.worstWeek = { season: id(entry.season), week: Number(week),
             pointsLeft: evaluated.left, actual: evaluated.actual, optimal: evaluated.optimal };
@@ -105,6 +122,6 @@ export function lineupAwards(archive = {}, { players = {}, minWeeks = 6 } = {}) 
     best: eligible[0] || null,
     worst: eligible.length > 1 ? eligible[eligible.length - 1] : null,
     standings, minWeeks, examinedWeeks, validWeeks, unavailableWeeks,
-    method: "Starter efficiency = points scored by the submitted lineup divided by the optimal legal lineup using the same rostered players and their Sleeper weekly points. At least 6 fully evaluated weeks required. Missing positions or weekly points exclude that week.",
+    method: "Regular season only. Starter efficiency = sum of submitted starter points divided by sum of optimal legal lineup points, using the exact My Team slot solver. 'Games lost to bench' counts losses whose optimal lineup would have outscored the actual opponent. At least 6 fully evaluated weeks required; missing positions or player points exclude that week.",
   };
 }
