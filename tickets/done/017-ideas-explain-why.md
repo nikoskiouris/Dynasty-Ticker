@@ -1,0 +1,31 @@
+# 017 · Trade ideas say what they do for you and why the other team would say yes
+
+Done: 2026-11-12, [#220](https://github.com/nikoskiouris/Dynasty-Ticker/pull/220) (landed as commit [3202e4a](https://github.com/nikoskiouris/Dynasty-Ticker/commit/3202e4a5e5b6fc91aa5c75e535b2527fd6ca44b2))
+
+## Status
+Done
+
+## Priority
+P1
+
+## Shipped
+#220
+
+## Area
+Find a trade → partners and shop/target cards (`renderMatchTradeCard`, `renderTradeCard`, `docs/modules/trade-match.js`)
+
+## Description
+Every partner card in "Try Hard or Die Hard" on 2026-09-25 read "Lineup rank stays put. Check depth, age, and picks in the calculator." That is not a reason to make the trade, and an unchanged rank does not mean the trade does nothing. Shop and target cards lead with a Power Quest score and XP.
+
+Each idea should state one supported benefit for you (the measure that moves: starter value, depth at a real hole, pick capital for a rebuild) and one plausible reason for the partner (their hole, their window). If neither is supported, show fewer ideas or an honest empty state.
+
+## Why
+Review trade now opens every two-team idea in the calculator (#97), so the idea card is the pitch and the calculator is the proof. The pitch is empty today.
+
+## Current product
+Partner cards: offer plus lineup rank. Shop/target cards: power score, XP, badges, value metrics.
+
+## Acceptance
+- No card says only that the rank stays put.
+- Each card names a benefit for you and a reason for them, both traceable to numbers the calculator shows.
+- A league where nothing fits shows an empty state, not filler.

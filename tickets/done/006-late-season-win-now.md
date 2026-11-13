@@ -1,0 +1,33 @@
+# 006 · Late-season win-now value
+
+Closed (superseded): 2026-11-13. See the Superseded section.
+
+## Status
+Superseded (closed, not built)
+
+## Priority
+P2 — marked MAYBE in the note
+
+## Area
+Teams / Trades / weekly value
+
+## Description
+Flag older or new-system players who may be quiet early and huge in the playoff weeks (example they gave: Stefon Diggs — new system, proven late-season performer).
+
+This is not the same as “old player = win now.” It is calendar-aware: usage or role that ramps, plus a history of finishing strong, plus this league’s playoff weeks.
+
+Ship only if 001 (weekly value) and 005 (win-now targets) exist; otherwise it is a vibes list.
+
+## Why
+“Late season win now value — players that are older and may get lower usage to begin the year but will provide immense value come playoffs or the weeks leading up (ex. Stefon Diggs, new system but proven playoff performer).”
+
+## Current product
+Nothing is playoff-week-aware at the player level. Window call uses season progress for tank vs all-in, not player usage curves.
+
+## Acceptance
+- A labeled “late-season” set, with why (role ramp, historical finish, playoff weeks).
+- Early-season board can rank these below every-week studs and still keep them on a contender’s radar.
+- If we cannot get role/usage history, do not ship a fake Diggs list.
+
+## Superseded
+Owner decisions, Nov 13, 2026: win-now features are deleted (ticket 045), and the site has one value system, 12-team Superflex PPR dynasty (ticket 044). A separate late-season value is not planned. Restore the idea from this file if it comes back.

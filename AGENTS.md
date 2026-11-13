@@ -26,6 +26,7 @@ Explicit current instructions from the owner win. If one conflicts with an older
 
 What follows from that:
 
+- **One value system (owner rule, Nov 13, 2026).** The site is optimized for 12-team Superflex PPR dynasty, and that is the only value system. No 1QB, other league sizes, TE premium or other scoring toggles, or alternate value modes. This overrides any older line here that says otherwise (see `tickets/todo/044-*`).
 - **One price.** Dynasty Ticker's generated full-PPR football forecast is the single published player price. Players, Trade, My League, trade matching, and the CLI read the same snapshot. Superflex vs 1QB may change QB value; RB/WR/TE stay shared at launch. TE/RB scoring premiums, star multipliers, crowd votes, and league-specific overlays never create a second player price. Package consolidation can change a trade verdict without changing listed player prices.
 - **Three questions stay separate:** the market price, whether it fits my team, and why the other manager would say yes.
 - **Never erase work.** League loads, team switches, Review trade, and Clear keep or restore the trade draft (`state.valueCalc`). An ownership mismatch is explained, not "fixed" by swapping players.
@@ -66,16 +67,16 @@ These apply to every agent (Cursor, Claude Code, or any other). How to record: `
 
 ## Tickets
 
-Board is `tickets/`. **Do not delete ticket files** when they ship.
+The board is `tickets/`. Open tickets live in `tickets/todo/` and finished ones in `tickets/done/`. The index is `tickets/README.md`. **Do not delete ticket files.**
 
-When a ticket is done:
+When a ticket is finished, the implementer must, in the **same PR or commit as the work**:
 
-1. Set `Status` to `Done` in the ticket file. Keep the rest of the file.
-2. Add a `Shipped` line with the PR (`#57`).
-3. Move the README row from Open to Done and link the PR.
-4. Manually confirm the ticket status and README row agree; do not add a ticket test.
+1. `git mv tickets/todo/<NNN-name>.md tickets/done/`.
+2. Add `Done: <YYYY-MM-DD>, <PR or commit link>` on the line under the ticket's title, and set `Status` to `Done`. Keep the rest of the file.
+3. Update `tickets/README.md`: move the row from To do to Done, point its link at `done/`, and fill in the Done column.
+4. Manually confirm the file location, the ticket status and the README row agree. Do not add a ticket test.
 
-If an old ticket's product guidance conflicts with Product purpose, add a `Superseded` note to that ticket. Do not delete it or rewrite its history.
+If an old ticket's product guidance conflicts with Product purpose, add a `Superseded` note to that ticket. Do not delete it or rewrite its history. A ticket dropped without being built moves to `tickets/done/` with Status `Superseded`.
 
 ## Live site releases
 

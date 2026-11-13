@@ -1,0 +1,46 @@
+# 010 · League is the product; rather is not the homepage
+
+Done: 2026-09-21, [#81](https://github.com/nikoskiouris/Dynasty-Ticker/pull/81)
+
+## Status
+Done
+
+## Shipped
+#81
+
+## Superseded
+Partly, 2026-09-25 (#92, #97). The league makes answers personal, but Players and the calculator must work first without one (AGENTS.md, Product purpose). "Calculator belongs as a small link after the league is loaded" no longer applies: Trade opens on the calculator for everyone. Rather staying off the first screen still holds.
+
+## Priority
+P0 — product positioning
+
+## Area
+Landing (`docs/index.html`, jobs copy, `landing-rather`)
+
+## Description
+The homepage should sell the league desk, not the crowd duel.
+
+Do:
+- Lead with loading *your* Sleeper league.
+- One short line that the product tracks the league (scores, rosters, trades, history) — better wording than “track everything about your league,” same idea.
+- Keep rather as a side / after-search toy, not the second hero column.
+
+Suggested direction for the line (pick one, or better):
+- “Load your Sleeper league. Scores, rosters, trades, and history in one desk.”
+- “Your dynasty league, live: the week, the window, the market.”
+
+Do not:
+- Make “Who would you rather have?” the thing you see first.
+- Open the calculator on landing (already true). Calculator belongs as a small link after the league is loaded (ticket 012).
+
+## Why
+“The main idea is still implementing your league, and maybe in some small descriptive text ‘track everything about your league’ with better wording obviously.”
+“It feels like the main thing I’d want to use but you’re making it not the priority vs the desk crowd like it’s a cool feature but idk why it’s the main page.”
+
+## Current product
+Landing heading is “What do you want to do?” Jobs are first in the HTML, but rather is a full hero column (`#landing-rather`) and tests require it on the landing page. Meta description is job-first, not league-first.
+
+## Acceptance
+- First screen: league promise + username search. Rather is secondary (below, collapsed, or “skip this”).
+- Copy says the product is your league, in one sentence a dynasty player would agree with.
+- Phone still puts search before rather (already attempted in CSS); desktop should match that priority.

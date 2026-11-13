@@ -1,0 +1,37 @@
+# 002 · Sit / start
+
+Done: 2026-09-20, [#60](https://github.com/nikoskiouris/Dynasty-Ticker/pull/60)
+
+## Status
+Done
+
+## Shipped
+#60
+
+## Priority
+P0
+
+## Area
+Teams → Roster (or a new weekly lineup room)
+
+## Depends on
+001-weekly-player-value
+
+## Description
+For the user’s roster this week, say who to start and who to sit. Use the weekly player value from ticket 001, this league’s roster slots, and bye/injury when we have them.
+
+Show the close calls (WR3 vs FLEX) with a one-line reason: matchup, target share, opponent, last-week usage. Do not dump a full rankings table as the answer.
+
+## Why
+Listed as a differentiator next to future rankings and buy-low/sell-high. Dynasty apps skip the weekly decision. This one should not.
+
+## Current product
+After #57, Optimal lineup is filled by weekly start chance (dynasty only breaks ties). Still no sit/start answer: no close-call reasons (WR3 vs FLEX), no bye/injury callout as the product. Recap still blames leftover bench points after the fact.
+
+## Acceptance
+- My team, this week: recommended starters vs bench, matching league roster slots.
+- Close calls have a reason tied to matchup or usage, not “higher dynasty value.”
+- Bye / missing opponent data does not silently start someone.
+
+## Superseded
+Cut in #195 (three tabs). The product now answers one question: which trade or roster move to make in my league. This feature was removed; the file stays for history.
