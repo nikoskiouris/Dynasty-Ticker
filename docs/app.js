@@ -244,14 +244,6 @@ import {
 } from "./modules/verdict-copy.js";
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import { GLOSSARY, bindInfoTips, infoTipMarkup, renderPriceLegend, valuesWorkText } from "./modules/info-tip.js";
-import {
-  EXAMPLE_GET,
-  EXAMPLE_GIVE,
-  hotSleeperRows,
-  launchErrorMarkup,
-  launchExampleMarkup,
-  launchTrendMarkup,
-} from "./modules/launch-landing.js";
 import { inventSampleCore } from "./modules/sample-league.js";
 import { decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
 import { chooseBestLineup, countStartableAtPosition } from "./modules/lineup.js";
@@ -375,7 +367,6 @@ const el = {
   landingFindBtn: document.querySelector("#landing-find-btn"),
   landingUsername: document.querySelector("#landing-username"),
   landingUsernameForm: document.querySelector("#landing-username-form"),
-  landingTalkForm: document.querySelector("#landing-talk-form"),
   landingUsernameError: document.querySelector("#landing-username-error"),
   landingJobs: document.querySelector("#landing-jobs"),
   landingJobHint: document.querySelector("#landing-job-hint"),
@@ -611,13 +602,6 @@ window.matchMedia(PHONE_LAYOUT_QUERY).addEventListener("change", () => {
   else releaseRankBoardTools();
 });
 el.landingUsernameForm?.addEventListener("submit", requestFindLeagues);
-el.landingTalkForm?.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const input = el.landingTalkForm.querySelector("input[name='say']");
-  const say = event.submitter?.name === "try" ? event.submitter.value : (input?.value || "");
-  if (input) input.value = "";
-  openTradeWithTalk(say);
-});
 el.stickyFindBtn?.addEventListener("click", (event) => {
   if (bootIsPending()) {
     event.preventDefault();
@@ -2331,37 +2315,7 @@ function launchValueBundle() {
   return pickValueBundle(state.valueBundles, "sf");
 }
 
-function paintLaunchExample() {
-  const host = document.querySelector("#launch-example");
-  if (!host) return;
-  const bundle = launchValueBundle();
-  const values = bundle?.values || {};
-  if (!Object.keys(values).length) {
-    host.innerHTML = launchErrorMarkup();
-    host.setAttribute("aria-busy", "false");
-    return;
-  }
-  host.innerHTML = launchExampleMarkup({
-    values,
-    names: bundle.nameMap || state.valueNameMap || {},
-    players: state.valueBundles?.players || {},
-    globalMaxValue: getGlobalMaxPlayerValue(values),
-  });
-  host.setAttribute("aria-busy", "false");
-}
 
-function paintLaunchTrend(failed = false) {
-  const host = document.querySelector("#launch-trend");
-  if (!host) return;
-  const bundle = launchValueBundle();
-  const rows = hotSleeperRows(state.launchTrending || [], {
-    values: bundle?.values || {},
-    names: bundle?.nameMap || state.valueNameMap || {},
-    players: state.valueBundles?.players || {},
-  });
-  host.innerHTML = launchTrendMarkup(rows, { failed });
-  host.setAttribute("aria-busy", "false");
-}
 
 function revealLaunchConnect() {
   const box = document.querySelector("#landing-connect");
@@ -2377,25 +2331,7 @@ function openLaunchConnect() {
   syncLaunchChrome();
 }
 
-function draftFromAssetIds(ids, side, draft) {
-  let next = draft;
-  for (const id of ids) {
-    next = addValueCalcItem(next, side, {
-      assetId: id,
-      name: state.valueNameMap?.[id] || id,
-    });
-  }
-  return next;
-}
 
-function openExampleTrade() {
-  let draft = emptyValueCalcState();
-  draft = draftFromAssetIds(EXAMPLE_GIVE, "left", draft);
-  draft = draftFromAssetIds(EXAMPLE_GET, "right", draft);
-  replaceDraft(draft);
-  openRoom("trades", "calculator", { history: "push", scroll: "top" });
-  syncLaunchChrome();
-}
 
 function openEmptyTrade() {
   // "Build a trade" starts fresh. An older draft stays one tap away (Restore draft).
@@ -2436,44 +2372,18 @@ function playerLinkHtml(asset) {
   return `<button type="button" class="link-btn player-link" data-action="open-player" data-asset-id="${escapeHtml(id)}">${name}</button>`;
 }
 
-function openLaunchPlayer(href) {
-  const raw = String(href || "");
-  const route = matchRoute(raw.split("?")[0], raw.includes("?") ? raw.slice(raw.indexOf("?")) : "");
-  if (route?.name === "player" && route.playerId) {
-    // Save the landing entry before the player is selected, so Back returns here.
-    prepareDeskPush();
-    state.ranks.selectedId = `player:${route.playerId}`;
-    document.querySelector("#landing")?.classList.add("hidden");
-    renderRankSurfaces();
-    if (!rankValuesReady() || !playerNoteContext?.previousSeason) void ensureRankExtras();
-    updateUrlState({ mode: "push" });
-    syncLaunchChrome();
-    syncDocumentMeta();
-    window.scrollTo(0, 0);
-    return;
-  }
-  if (route?.name === "trade") {
-    applyTradeRoute(route);
-    openRoom("trades", "calculator", { history: "push", scroll: "top" });
-    syncLaunchChrome();
-  }
-}
 
 function handleLaunchClick(event) {
-  const row = event.target?.closest?.("a.launch-row");
   const hit = event.target?.closest?.("[data-launch]");
-  const node = hit || row;
-  if (!node) return;
+  if (!hit) return;
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button) return;
-  const kind = hit?.getAttribute?.("data-launch") || "";
-  if (!kind && !row) return;
+  const kind = hit.getAttribute("data-launch") || "";
+  if (!kind) return;
   event.preventDefault();
-  if (kind === "example") openExampleTrade();
-  else if (kind === "empty") openEmptyTrade();
+  if (kind === "empty") openEmptyTrade();
   else if (kind === "players") openPlayerBoard({ history: "push" });
   else if (kind === "connect") openLaunchConnect();
   else if (kind === "retry") void bootLaunchSurface();
-  else if (row) openLaunchPlayer(row.getAttribute("href"));
 }
 
 function afterFirstPaint(fn) {
@@ -2513,24 +2423,9 @@ async function loadLaunchSurface() {
       }
     }
     relabelDraftNames();
-    paintLaunchExample();
   } catch (err) {
     console.warn("Launch values did not load", err);
-    const host = document.querySelector("#launch-example");
-    if (host) {
-      host.innerHTML = launchErrorMarkup();
-      host.setAttribute("aria-busy", "false");
-    }
   }
-  let trendFailed = false;
-  try {
-    const adds = await apiGetWithRetry("/players/nfl/trending/add?lookback_hours=168&limit=25", { timeoutMs: 9000, retries: 1 });
-    state.launchTrending = Array.isArray(adds) ? adds : [];
-  } catch {
-    state.launchTrending = [];
-    trendFailed = true;
-  }
-  paintLaunchTrend(trendFailed);
   syncLaunchChrome();
 }
 
@@ -5670,16 +5565,6 @@ function handleTradeTalkSubmit(event) {
   return true;
 }
 
-// Landing box and /trade?say=: open the calculator, then read the sentence.
-function openTradeWithTalk(text) {
-  const say = String(text || "").trim().slice(0, TRADE_TALK_MAX);
-  state.sharedTrade = null;
-  state.badShareLink = false;
-  state.droppedPlayerNote = "";
-  if (say) pendingTradeTalk = say;
-  openRoom("trades", "calculator", { history: "push", scroll: "top" });
-  syncLaunchChrome();
-}
 
 // Taps and background data refresh everything except the search boxes, so the
 // keyboard stays up on phones and iPads.
@@ -6760,16 +6645,7 @@ function handleWorkspaceClick(event) {
       pickSmartTradeAsset(target);
       break;
     case "go": {
-      if (target.dataset.room === "mock") state.mockFocus = null;
       openRoom(target.dataset.page, target.dataset.room);
-      if (target.dataset.openMock === "1" || target.dataset.room === "mock") {
-        window.requestAnimationFrame(() => {
-          const fold = document.querySelector("#mock-fold");
-          if (!fold) return;
-          fold.open = true;
-          fold.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-      }
       break;
     }
     case "open-public-ranks":
@@ -8983,7 +8859,6 @@ function applyValuationBundle(bundle, { rerender = true } = {}) {
   }
 
   relabelDraftNames();
-  paintLaunchExample();
   if (rerender) {
     requestActivePageRender();
     renderSessionSnapshot();
