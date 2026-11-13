@@ -49,7 +49,7 @@ export function championsWall(archive = {}) {
   });
 }
 
-function seasonGames(entry, archive) {
+export function seasonGames(entry, archive) {
   const byWeek = archive?.matchups?.[id(entry.season)] || {};
   const games = [];
   for (const [week, rows] of Object.entries(byWeek)) {
