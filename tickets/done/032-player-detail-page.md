@@ -1,6 +1,8 @@
 # 032 · Player detail page (full screen) with "Return to player rankings"
 
-**Status:** Open · **Priority:** P1 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [#289](https://github.com/nikoskiouris/Dynasty-Ticker/pull/289)
+
+**Status:** Done · **Priority:** P1 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 
