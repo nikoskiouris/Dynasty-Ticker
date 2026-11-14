@@ -1303,6 +1303,17 @@ function bootFromUrl() {
   const parsed = parseShareParams(window.location.search);
   if (parsed.invalidLeague) showInvalidLeagueLink();
   if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
+  else {
+    // /l/<id> carries no ?me=. Reloading the league you last opened keeps the
+    // team you picked instead of asking "Which team is yours?" again.
+    const bootLeagueId = String(route.leagueId || parsed.leagueId || "");
+    const last = bootLeagueId ? readLastLeague(safeStorage("localStorage")) : null;
+    if (last?.rosterId && String(last.leagueId) === bootLeagueId) {
+      state.pendingMeRosterId = last.rosterId;
+      // This browser's own earlier pick, not a team from someone's shared link.
+      state.pendingMeIsMine = true;
+    }
+  }
   const hashToken = String(window.location.hash || "").replace(/^#/, "");
   const routeDrivesPlace = !route.unknown && !route.badLeague && !(route.name === "home" && (parsed.tab || hashToken));
   if (route.badLeague) {
@@ -3670,13 +3681,16 @@ function hydrateManagerSelector({ syncUrl = true } = {}) {
     rawRosters: state.rosters,
     userPickedMe: state.mePickedByUser,
   });
+  const restoredMine = Boolean(state.pendingMeIsMine && chosen && String(chosen.rosterId) === String(state.pendingMeRosterId));
   state.pendingMeRosterId = null;
+  state.pendingMeIsMine = false;
   el.meSelect.innerHTML = renderMeSelectOptions(
     state.normalizedRosters,
     chosen?.rosterId,
   );
   if (chosen) {
     state.meRosterId = chosen.rosterId;
+    if (restoredMine) state.mePickedByUser = true;
     applyMeSelectValue(chosen.rosterId);
   } else {
     state.meRosterId = null;
