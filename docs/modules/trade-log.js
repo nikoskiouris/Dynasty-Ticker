@@ -95,13 +95,14 @@ export function renderTradeLogRows({
   }).join("");
 }
 
-export function renderTradeLog({ season = "", seasons = [], query = "", team = "", ...context } = {}) {
+export function renderTradeLog({ season = "", seasons = [], query = "", team = "", caveat = "", ...context } = {}) {
   const choices = seasons.map((item) => `<option value="${escapeHtml(item)}"${text(season) === text(item) ? " selected" : ""}>${escapeHtml(item)}</option>`).join("");
   const teams = (context.entry?.rosters || []).map((roster) => ({
     id: text(roster.roster_id), label: rosterLabel(roster.roster_id, context.entry),
   })).sort((a, b) => a.label.localeCompare(b.label));
   const teamOptions = teams.map((row) => `<option value="${escapeHtml(row.id)}"${row.id === team ? " selected" : ""}>${escapeHtml(row.label)}</option>`).join("");
   return `<p><a href="/l/${encodeURIComponent(context.archive?.leagueId || context.entry?.leagueId || "")}">← League</a></p>
+    ${caveat ? `<p class="muted small calc-market-caveat">${escapeHtml(caveat)} Grades use those values.</p>` : ""}
     <div class="workspace-panel">
       <label for="league-trade-search">Search a player or pick</label>
       <input id="league-trade-search" type="search" placeholder="Search a player" autocomplete="off" value="${escapeHtml(query)}">
