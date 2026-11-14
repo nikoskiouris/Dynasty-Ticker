@@ -297,6 +297,9 @@ import {
   restoreTriggerFocus,
   routeAnnouncement,
   routeDocumentTitle,
+  ROUTE_PLAYERS_TITLE,
+  ROUTE_ROOM_TITLES,
+  ROUTE_TAB_LABELS,
   } from "./modules/route-a11y.js";
 
 const routeFocus = createRouteFocusMemory();
@@ -2325,14 +2328,18 @@ function goSiteHome({ history = "push" } = {}) {
 
 function guestRouteHeading() {
   const path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
-  if (playersBoardShown()) return "Players";
-  if (path === "/trade" || path === "/players" || state.activePage === "trades") return "Check a trade";
+  // The page's hidden h1 names the page on screen (the redesign's names).
+  const player = state.ranks?.selectedId ? routedPlayerName() : "";
+  if (player) return player;
+  if (playersBoardShown()) return ROUTE_PLAYERS_TITLE;
+  if (path === "/trade" || path === "/players" || state.activePage === "trades") return ROUTE_ROOM_TITLES.calculator;
+  if (state.activePage === "leagues") return ROUTE_ROOM_TITLES.picker;
   return "Dynasty Ticker";
 }
 
 function routeHeadingText() {
   if (state.leagueId && state.activePage === "league") {
-    return "My team";
+    return ROUTE_ROOM_TITLES[getRoom("league")] || ROUTE_TAB_LABELS.league;
   }
   return guestRouteHeading();
 }
@@ -3761,7 +3768,7 @@ function rosterHasNoPlayers(roster) {
 
 function emptyRosterLine() {
   return state.league?.status === "pre_draft"
-    ? "No players yet: this league hasn't drafted. Nothing to score until it does. Check a trade still works."
+    ? "No players yet: this league hasn't drafted. Nothing to score until it does. Trade Calc still works."
     : "No players on this roster, so there is nothing to score.";
 }
 
@@ -5219,7 +5226,7 @@ function renderBadShareNotice() {
     <div class="share-broken" role="alert">
       <h3>This trade link is broken or expired</h3>
       <p>Part of the link may be missing. Ask for a new link, or check the trade yourself.</p>
-      <a class="ghost-btn" href="/trade">Check a trade</a>
+      <a class="ghost-btn" href="/trade">Open Trade Calc</a>
     </div>
   `;
 }
