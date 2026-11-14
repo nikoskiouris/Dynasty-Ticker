@@ -143,6 +143,17 @@ if (typeof window !== "undefined") {
     }
   });
   window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && tradeAdviceOpen()) { event.preventDefault(); closeTradeAdvice(); }
+    if (!tradeAdviceOpen()) return;
+    if (event.key === "Escape") { event.preventDefault(); closeTradeAdvice(); return; }
+    if (event.key !== "Tab") return;
+    // aria-modal: keep Tab inside the panel.
+    const panel = host.querySelector(".trade-advice-panel");
+    const items = [...panel.querySelectorAll("button, a[href]")].filter((node) => !node.disabled);
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || active === panel || !panel.contains(active))) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && (active === last || !panel.contains(active))) { event.preventDefault(); first.focus(); }
   });
 }
