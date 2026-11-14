@@ -998,10 +998,13 @@ function renderActivePage() {
     const model = getSeasonModel();
     if (host) {
       const sim = model ? getSimulation(model) : null;
-      const live = model?.currentWeekEntry?.isLive;
+      const savedAt = state.seasonSavedAt || state.leagueSavedAt;
+      const live = model?.currentWeekEntry?.isLive && !savedAt;
       host.innerHTML = `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
         <h2>${escapeHtml(state.leagueName || "League")} standings</h2>
-        <p class="muted small">${live ? `Live · Week ${model.currentWeek}` : `Week ${model?.currentWeek || "—"}`} · Updates every 2 minutes while this page is visible.</p>
+        <p class="muted small">${live ? `Live · Week ${model.currentWeek}` : `Week ${model?.currentWeek || "—"}`}${savedAt ? "" : " · Updates every 2 minutes while this page is visible."}</p>
+        ${savedAt ? `<p class="league-saved-note" role="status">${escapeHtml(savedLeagueNote(savedAt))}</p>` : ""}
+        ${!model && state.seasonLoadError ? `<p role="status">${escapeHtml(state.seasonLoadError)}</p>` : ""}
         ${model ? `${renderStandingsPanel(model, sim)}${renderPlayoffOddsPanel(model, sim)}`
           : '<p role="status">Standings are loading from Sleeper…</p>'}`;
     }
@@ -3004,6 +3007,7 @@ function resetSeasonState() {
   state.seasonWeekRows = new Map();
   state.seasonLoaded = false;
   state.seasonLoadError = "";
+  state.seasonSavedAt = null;
   state.pickProjectionReady = false;
   projectedPickKey = "";
   projectedPlaceState = { key: "", lookup: null };
@@ -3024,11 +3028,30 @@ async function loadSeasonWeeks(leagueId, league) {
   ));
   if (String(state.leagueId) !== String(leagueId)) return;
   let loaded = 0;
+  const fresh = {};
   settled.forEach((result) => {
     if (result.status !== "fulfilled") return;
     loaded += 1;
+    fresh[result.value.week] = result.value.rows;
     state.seasonWeekRows.set(Number(result.value.week), result.value.rows);
   });
+  const savedKey = `matchups:${leagueId}:${league?.season || ""}`;
+  if (loaded === weeks.length) {
+    void saveDeskSnapshot(savedKey, fresh);
+    state.seasonSavedAt = null;
+  } else {
+    // Sleeper unreachable: fill missing weeks from the last full load, labelled.
+    const saved = await readDeskSnapshot(savedKey);
+    if (String(state.leagueId) !== String(leagueId)) return;
+    let filled = 0;
+    for (const week of weeks) {
+      if (state.seasonWeekRows.has(week) || !Array.isArray(saved?.data?.[week])) continue;
+      state.seasonWeekRows.set(week, saved.data[week]);
+      filled += 1;
+    }
+    loaded += filled;
+    state.seasonSavedAt = filled ? saved.savedAt : null;
+  }
   state.seasonLoaded = loaded > 0;
   state.seasonLoadError = loaded > 0 ? "" : "Sleeper did not return matchups for the current season.";
   invalidateSeasonCaches();
@@ -3133,9 +3156,9 @@ function startStandingsPolling() {
   schedule();
 }
 
-function savedLeagueNote() {
-  if (!state.leagueSavedAt) return "";
-  const date = new Date(state.leagueSavedAt);
+function savedLeagueNote(savedAt = state.leagueSavedAt) {
+  if (!savedAt) return "";
+  const date = new Date(savedAt);
   const when = Number.isNaN(date.getTime()) ? "an earlier visit"
     : date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   return `Sleeper can't be reached. Showing saved data from ${when}.`;
