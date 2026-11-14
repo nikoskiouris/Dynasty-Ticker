@@ -108,9 +108,19 @@ export function marketCaveat(league) {
   const teams = Number(league.total_rosters);
   const slots = (league.roster_positions || []).map((slot) => String(slot).trim().toUpperCase());
   const sf = slots.some((slot) => ["SUPER_FLEX", "SUPERFLEX", "OP"].includes(slot)) || slots.filter((slot) => slot === "QB").length >= 2;
-  const ppr = Number(league.scoring_settings?.rec) === 1;
+  const rec = Number(league.scoring_settings?.rec);
+  const ppr = rec === 1;
   const dynasty = leagueTypeId(league) === "dynasty";
   if (teams === 12 && sf && ppr && dynasty) return "";
-  const shape = [Number.isFinite(teams) && teams > 0 ? `${teams}-team` : "custom-size", sf ? "Superflex" : "1QB", ppr ? "PPR" : "custom scoring", leagueTypeLabel(league).toLowerCase()].join(" ");
-  return `Values are built for 12-team Superflex PPR dynasty. Your league is ${shape}, so treat QB values with care.`;
+  const scoring = ppr ? "PPR" : rec === 0.5 ? "Half PPR" : rec === 0 ? "non-PPR" : "custom scoring";
+  const shape = [Number.isFinite(teams) && teams > 0 ? `${teams}-team` : "custom-size", sf ? "Superflex" : "1QB", scoring, leagueTypeLabel(league).toLowerCase()].join(" ");
+  // Name what differs, not just QBs: each gap affects different prices.
+  const care = [
+    !sf && "QB values (they assume Superflex)",
+    !ppr && "pass-catcher values (they assume full PPR)",
+    !(teams === 12) && "depth and pick values (they assume 12 teams)",
+    !dynasty && "long-term values (they assume dynasty)",
+  ].filter(Boolean);
+  const list = care.length > 1 ? `${care.slice(0, -1).join(", ")} and ${care[care.length - 1]}` : care[0];
+  return `Values are built for 12-team Superflex PPR dynasty. Your league is ${shape}, so treat ${list} with care.`;
 }
