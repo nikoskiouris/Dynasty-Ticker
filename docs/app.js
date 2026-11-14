@@ -4375,6 +4375,28 @@ function writeRosterSheet(html) {
   el.rosterSheet.innerHTML = html;
 }
 
+// Fantasy points per player this season from Sleeper matchups (players_points),
+// final weeks only, wherever he was rostered. Null until matchups load.
+let seasonPointsCache = { key: "", value: null };
+function seasonPlayerPoints() {
+  const model = getSeasonModel();
+  const through = Number(model?.finalThroughWeek) || 0;
+  if (!state.seasonLoaded || through < 1) return null;
+  const key = `${state.leagueId}|${weekRowsFingerprint(state.seasonWeekRows)}|${through}`;
+  if (seasonPointsCache.key === key) return seasonPointsCache.value;
+  const points = new Map();
+  for (const [week, rows] of state.seasonWeekRows) {
+    if (Number(week) > through) continue;
+    for (const row of rows || []) {
+      for (const [playerId, value] of Object.entries(row?.players_points || {})) {
+        if (Number.isFinite(Number(value))) points.set(String(playerId), (points.get(String(playerId)) || 0) + Number(value));
+      }
+    }
+  }
+  seasonPointsCache = { key, value: { points, through } };
+  return seasonPointsCache.value;
+}
+
 function renderRosterSheet() {
   const section = document.querySelector("#roster-sheet-section");
   const roster = getLensRoster();
@@ -4416,6 +4438,7 @@ function renderRosterSheet() {
   const benchRows = roster.assets
     .filter((asset) => asset.assetType === "player" && !strength.lineup.some((entry) => entry.asset?.assetId === asset.assetId))
     .sort((a, b) => getAssetValue(b, values) - getAssetValue(a, values));
+  const seasonPoints = seasonPlayerPoints();
   const renderPlayerRow = (asset, slotLabel, extra = {}) => {
     const playerId = playerIdFromAssetId(asset.assetId);
     const nickname = roster.nicknames?.[playerId];
@@ -4444,6 +4467,7 @@ function renderRosterSheet() {
             <strong class="mono">${formatNumber(getAssetValue(asset, values))}</strong>
             ${renderPlayerValueMarks(asset, values)}
           </span>
+          ${seasonPoints ? `<span class="season-points" title="Fantasy points this season, final weeks only, on any team">${formatPoints(seasonPoints.points.get(playerId) || 0)} pts</span>` : ""}
         </span>
       </div>
     `;
@@ -4458,6 +4482,7 @@ function renderRosterSheet() {
     </div>
     ${renderValuesFreshness(valuesFreshness())}
     ${state.league && marketCaveat(state.league) ? `<p class="muted small calc-market-caveat">${escapeHtml(marketCaveat(state.league))}</p>` : ""}
+    ${seasonPoints ? `<p class="muted small">Pts: fantasy points this season through week ${seasonPoints.through}, on any team, from Sleeper.</p>` : ""}
     ${renderValueScaleExplainer()}
     <div class="sheet-grid">
       <section class="sheet-column">
