@@ -403,6 +403,9 @@ let connectNextPlace = null;
 const REPLACED_DRAFT_KEY = "dynasty_ticker_trade_draft_replaced_v1";
 let draftReplaced = readReplacedDraft();
 // The full players board is open (Look up a player / All players).
+// The player page heading (#player-detail-name); older cards used h2.
+// Declared up here: focusColdPlayerHeading runs during boot.
+const PLAYER_HEADING_SELECTOR = "#player-detail-name, .ranks-card h2, .player-week-sheet h2";
 let playersBoardOpen = false;
 // One prices load for the calculator alone (see ensureCalcPrices).
 let calcPricesPromise = null;
@@ -1475,10 +1478,15 @@ function focusLeagueRoomHeading(room) {
   run();
 }
 
+// Opening a player from a row or link moves focus to his name, as a route change does.
+function focusOpenedPlayerHeading() {
+  focusHeadingWhenPresent(document, PLAYER_HEADING_SELECTOR, { maxMs: 8000, takeover: true });
+}
+
 function focusColdPlayerHeading() {
   if (!coldPlayerHeading || !appBooted) return;
   armHeadingFollow();
-  focusHeadingWhenPresent(document, ".ranks-card h2, .player-week-sheet h2", {
+  focusHeadingWhenPresent(document, PLAYER_HEADING_SELECTOR, {
     onStuck() {
       if (!rankExtrasSettled) return;
       coldPlayerHeading = false;
@@ -2174,6 +2182,7 @@ function openPlayerPage(assetId) {
   syncLaunchChrome();
   syncDocumentMeta();
   window.scrollTo(0, 0);
+  focusOpenedPlayerHeading();
 }
 
 function playerLinkHtml(asset) {
@@ -6229,6 +6238,7 @@ function handleWorkspaceClick(event) {
       updateUrlState({ mode: "push" });
       syncLaunchChrome();
       document.querySelector(".ranks-card")?.scrollIntoView({ block: "nearest" });
+      focusOpenedPlayerHeading();
       break;
     }
     case "rank-close":
