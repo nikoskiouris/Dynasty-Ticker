@@ -66,7 +66,7 @@ Repo policy applies: **no unit tests and no automated test suites**. Acceptance 
 | 3 | [028](todo/028-trade-calc-smart-search.md) Smart search | M | 027 | 029, 032, 034 |
 | 3 | [032](todo/032-player-detail-page.md) Player detail page | L | 024, 031, 044 | 028, 029, 034 |
 | 3 | [034](todo/034-league-history-data-layer.md) League data layer | L | 033 | 028, 029, 032 |
-| 4 | [035](todo/035-league-hub.md) League hub | M | 033, 034 | 030, 036, 038 |
+| 4 | [035](done/035-league-hub.md) League hub | M | 033, 034 | 030, 036, 038 |
 | 4 | [038](todo/038-trade-grading-algorithm.md) Trade grading | M | 034, 044 (029 wording) | 035, 036, 037 |
 | 4 | [030](todo/030-trade-calc-real-trade-advice.md) Trade advice (no AI) | M | 027, 029, 044, 045 | 035–038 |
 | 5 | [036](todo/036-league-standings-page.md) Standings + luck | M | 033, 035 | 037, 039 |
@@ -92,7 +92,6 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 | [032](todo/032-player-detail-page.md) | Player detail page (full screen) with "Return to player rankings" | P1 | L |
 | [033](todo/033-league-history-username-and-league-picker.md) | League History entry: "Enter your Sleeper username" → "Select your league" | P0 | M |
 | [034](todo/034-league-history-data-layer.md) | League History data layer: all seasons, matchups, transactions, drafts (cached) | P0 | L |
-| [035](todo/035-league-hub.md) | League hub: League Name, "What to see?" and the RECENT WINNER banner | P0 | M |
 | [036](todo/036-league-standings-page.md) | Standings page: live standings with luck factor | P1 | M |
 | [037](todo/037-league-my-team-page.md) | My Team page: team name, interesting stats and player superlatives | P1 | M |
 | [038](todo/038-trade-grading-algorithm.md) | Trade grading algorithm (shared by Recent Trades and Historical Data) | P0 | M |
@@ -128,6 +127,7 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 | [023](done/023-crowd-trade-call.md) | Crowd call: other managers drag one slider to say who a trade favors | P1 | 2026-11-12, [#282](https://github.com/nikoskiouris/Dynasty-Ticker/pull/282) (landed as commit [2a97de5](https://github.com/nikoskiouris/Dynasty-Ticker/commit/2a97de5732d85c0c77a4a8a22b40969a1d76de38)). Feature removed 2026-11-13 (045); restore from df93556 |
 | [025](done/025-global-slide-out-menu.md) | Global slide-out menu (hamburger drawer) on every page | P0 | 2026-11-13, [487ffcc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/487ffcc65ddf5d5dd42b7d35ec6bac21c88becc8), [c81aa5d](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c81aa5d7162a94f59092191505c96a3e3bf9d56c), [570bd19](https://github.com/nikoskiouris/Dynasty-Ticker/commit/570bd19d06b2c5b67a7b3cc7340dc109ab4f1277), [5b6dad0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/5b6dad0b05df7c0aa44d688a60ec1e56d24048c7), [04bc198](https://github.com/nikoskiouris/Dynasty-Ticker/commit/04bc1985dd3bcf46b85d236865745dea2bfc265b) |
 | [026](done/026-home-tool-picker.md) | Home page: "Which tool to use?" tool picker | P0 | 2026-11-13, [487ffcc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/487ffcc65ddf5d5dd42b7d35ec6bac21c88becc8), [c81aa5d](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c81aa5d7162a94f59092191505c96a3e3bf9d56c), [6dd4c3c](https://github.com/nikoskiouris/Dynasty-Ticker/commit/6dd4c3c3ea43ab15b21c6ebabc199745f7993fcc) |
+| [035](done/035-league-hub.md) | League hub: League Name, "What to see?" and the RECENT WINNER banner | P0 | 2026-11-14, [#296](https://github.com/nikoskiouris/Dynasty-Ticker/pull/296) |
 | [043](done/043-retire-old-navigation-and-redirects.md) | Retire the three-tab desk: old nav, rail, redirects, clean-up | P1 | 2026-11-13, [428f5d0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/428f5d0e6544b6cf129992fffb7265e2556b11cc), [96401dc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/96401dcf2786a4f2fb24c83956f993ac5529f3ab), [5b6dad0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/5b6dad0b05df7c0aa44d688a60ec1e56d24048c7) |
 | [045](done/045-delete-features-not-in-sketches.md) | Delete features the sketches don't show (Find a trade, buy-low/sell-high, win-now, hot on Sleeper, and the rest) | P1 | 2026-11-13, [836aabe](https://github.com/nikoskiouris/Dynasty-Ticker/commit/836aabef15100e37fe4daab726bfa9cf6ab7cb2c), [d02415e](https://github.com/nikoskiouris/Dynasty-Ticker/commit/d02415e70225897fe63648cd3c5754405a153571), [300d220](https://github.com/nikoskiouris/Dynasty-Ticker/commit/300d2209e37490ce5c8c52776285402889e7ed40), [c48cfd8](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c48cfd84fc43c4a4d4d7afda7f693fe1e7302ca3), [96401dc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/96401dcf2786a4f2fb24c83956f993ac5529f3ab) |
 Several PRs above (#213, #220–#223, #282) show as closed on GitHub, but their work landed on `develop` as the linked commits.
