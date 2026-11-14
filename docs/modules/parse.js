@@ -194,7 +194,12 @@ export function buildShareParams({
   if (meRosterId) params.set("me", String(meRosterId));
   const place = resolveDeskPlace({ tab, view });
   if (place.page !== DEFAULT_PAGE) params.set("tab", place.page);
-  if (place.room !== defaultRoomFor(place.page)) params.set("view", place.room);
+  // Omit view only when tab alone lands on this room. ?tab=league alone is an
+  // old My team link, so the league hub must say view=hub.
+  const tabOnly = resolveDeskPlace({ tab: params.get("tab") || "", view: "" });
+  if (place.room !== defaultRoomFor(place.page) || tabOnly.page !== place.page || tabOnly.room !== place.room) {
+    params.set("view", place.room);
+  }
   if (Number.isFinite(Number(week)) && Number(week) > 0) params.set("week", String(week));
   if (tone && tone !== "desk") params.set("tone", String(tone));
   if (place.room === "ranks" && isRankAssetId(asset)) params.set("asset", String(asset));
