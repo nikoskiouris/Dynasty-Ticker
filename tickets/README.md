@@ -54,7 +54,7 @@ Repo policy applies: **no unit tests and no automated test suites**. Acceptance 
 
 | Step | Ticket | Size | Depends on | Can run in parallel with |
 | --- | --- | --- | --- | --- |
-| 1 | [024](todo/024-redesign-routes-and-page-shells.md) Routes and page shells | L | none | none; do it first |
+| 1 | [024](done/024-redesign-routes-and-page-shells.md) Routes and page shells | L | none | none; do it first |
 | 1b | [044](todo/044-one-value-system-12-team-sf-ppr.md) One value system: 12-team SF PPR | L | 024 | 045 |
 | 1b | [045](done/045-delete-features-not-in-sketches.md) Delete features the sketches don't show (incl. sample league) | L | 024 | 044 |
 | 2 | [025](done/025-global-slide-out-menu.md) Global menu | M | 024 | 026, 027, 031, 033 |
@@ -83,7 +83,6 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 
 | ID | Ticket | Priority | Size |
 | --- | --- | --- | --- |
-| [024](todo/024-redesign-routes-and-page-shells.md) | Redesign foundation: new page map, routes, and empty page shells | P0 | L |
 | [027](todo/027-trade-calc-two-column-layout.md) | Trade Calc: "Team 1 Receives" / "Team 2 Receives" two-column layout | P0 | M |
 | [028](todo/028-trade-calc-smart-search.md) | Trade Calc: one "smart search bar" at the top | P1 | M |
 | [029](todo/029-trade-calc-fairness-scale.md) | Trade Calc: symmetric fairness scale (Lopsided … Even … Lopsided) | P0 | M |
@@ -126,6 +125,7 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 | [020](done/020-three-tabs.md) | Simplify to three tabs: Check a trade, Find a trade, My team | P0 | 2026-10-30, [#195](https://github.com/nikoskiouris/Dynasty-Ticker/pull/195) |
 | [022](done/022-player-values-backtested.md) | Player values are a forecast that is checked against history | P0 | 2026-11-12, [#284](https://github.com/nikoskiouris/Dynasty-Ticker/pull/284) |
 | [023](done/023-crowd-trade-call.md) | Crowd call: other managers drag one slider to say who a trade favors | P1 | 2026-11-12, [#282](https://github.com/nikoskiouris/Dynasty-Ticker/pull/282) (landed as commit [2a97de5](https://github.com/nikoskiouris/Dynasty-Ticker/commit/2a97de5732d85c0c77a4a8a22b40969a1d76de38)). Feature removed 2026-11-13 (045); restore from df93556 |
+| [024](done/024-redesign-routes-and-page-shells.md) | Redesign foundation: new page map, routes, and empty page shells | P0 | 2026-11-14, [#290](https://github.com/nikoskiouris/Dynasty-Ticker/pull/290) |
 | [025](done/025-global-slide-out-menu.md) | Global slide-out menu (hamburger drawer) on every page | P0 | 2026-11-13, [487ffcc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/487ffcc65ddf5d5dd42b7d35ec6bac21c88becc8), [c81aa5d](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c81aa5d7162a94f59092191505c96a3e3bf9d56c), [570bd19](https://github.com/nikoskiouris/Dynasty-Ticker/commit/570bd19d06b2c5b67a7b3cc7340dc109ab4f1277), [5b6dad0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/5b6dad0b05df7c0aa44d688a60ec1e56d24048c7), [04bc198](https://github.com/nikoskiouris/Dynasty-Ticker/commit/04bc1985dd3bcf46b85d236865745dea2bfc265b) |
 | [026](done/026-home-tool-picker.md) | Home page: "Which tool to use?" tool picker | P0 | 2026-11-13, [487ffcc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/487ffcc65ddf5d5dd42b7d35ec6bac21c88becc8), [c81aa5d](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c81aa5d7162a94f59092191505c96a3e3bf9d56c), [6dd4c3c](https://github.com/nikoskiouris/Dynasty-Ticker/commit/6dd4c3c3ea43ab15b21c6ebabc199745f7993fcc) |
 | [043](done/043-retire-old-navigation-and-redirects.md) | Retire the three-tab desk: old nav, rail, redirects, clean-up | P1 | 2026-11-13, [428f5d0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/428f5d0e6544b6cf129992fffb7265e2556b11cc), [96401dc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/96401dcf2786a4f2fb24c83956f993ac5529f3ab), [5b6dad0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/5b6dad0b05df7c0aa44d688a60ec1e56d24048c7) |
