@@ -82,7 +82,9 @@ function transactionEvents(archive) {
         for (const [playerId, rosterId] of Object.entries(transaction[field] || {})) {
           if (!id(playerId) || rosterId == null) continue;
           const person = manager(archive, entry, rosterId);
-          const faabBid = Number(transaction?.settings?.waiver_bid);
+          // Bids mean FAAB dollars only in a season Sleeper ran as FAAB (waiver_type 2).
+          const faabSeason = Number(entry?.league?.settings?.waiver_type) === 2;
+          const faabBid = faabSeason ? Number(transaction?.settings?.waiver_bid ?? 0) : NaN;
           events.push({ ...base, playerId: id(playerId), action,
             managerKey: person.managerKey, managerName: person.managerName,
             rosterId: id(rosterId), faabBid: action === "add" && transaction.type === "waiver"
@@ -122,8 +124,9 @@ function pickupScore(pickup, allStarts, owners, prices) {
     if (!week.started.has(pickup.playerId)) continue;
     const points = week.started.get(pickup.playerId);
     startedPoints += points;
-    starts.push({ season: week.season, week: week.week, points: round2(points) });
+    starts.push({ season: week.season, week: week.week, order: week.order, points: round2(points) });
   }
+  starts.sort((a, b) => a.order - b.order);
   const stillOwned = end === Infinity && Boolean(owners.get(pickup.managerKey)?.has(pickup.playerId));
   const currentValue = stillOwned ? prices[`player:${pickup.playerId}`] : 0;
   if (!isPrice(currentValue)) return null;
@@ -152,7 +155,7 @@ export function waiverAwards(archive = {}, { values = {}, minAdds = 5 } = {}) {
     if (!byManager.has(pickup.managerKey)) byManager.set(pickup.managerKey, {
       key: pickup.managerKey, name: pickup.managerName,
       adds: 0, startedPoints: 0, currentRosterValue: 0, score: 0,
-      faabSpent: 0, faabKnownAdds: 0, bestPickup: null,
+      faabSpent: 0, faabKnownAdds: 0, faabStartedPoints: 0, bestPickup: null,
     });
     const row = byManager.get(pickup.managerKey);
     row.name = pickup.managerName;
@@ -163,6 +166,7 @@ export function waiverAwards(archive = {}, { values = {}, minAdds = 5 } = {}) {
     if (pickup.faabBid != null) {
       row.faabSpent += pickup.faabBid;
       row.faabKnownAdds++;
+      row.faabStartedPoints += pickup.startedPoints;
     }
     if (!row.bestPickup || pickup.score > row.bestPickup.score) row.bestPickup = pickup;
   }
@@ -171,8 +175,10 @@ export function waiverAwards(archive = {}, { values = {}, minAdds = 5 } = {}) {
     startedPoints: round2(row.startedPoints),
     currentRosterValue: round2(row.currentRosterValue),
     faabSpent: round2(row.faabSpent),
-    faabPerStartedPoint: row.faabKnownAdds > 0 && row.startedPoints > 0
-      ? round2(row.faabSpent / row.startedPoints) : null,
+    faabStartedPoints: round2(row.faabStartedPoints),
+    // Same pickups on both sides: FAAB-season bids over those pickups' started points.
+    faabPerStartedPoint: row.faabKnownAdds > 0 && row.faabStartedPoints > 0
+      ? round2(row.faabSpent / row.faabStartedPoints) : null,
   })).sort((a, b) => b.score - a.score || b.startedPoints - a.startedPoints);
   const eligible = standings.filter((row) => row.eligible);
   const bestPickup = pickups.slice().sort((a, b) => b.score - a.score)[0] || null;
@@ -180,6 +186,6 @@ export function waiverAwards(archive = {}, { values = {}, minAdds = 5 } = {}) {
     best: eligible[0] || null, worst: eligible.length > 1 ? eligible[eligible.length - 1] : null,
     standings, bestPickup, evaluatedAdds: pickups.length, unpricedAdds, undatedAdds,
     invalidWeeks, minAdds,
-    method: "Waiver score = points earned in the manager's starting lineup after each documented free-agent/waiver pickup (until a recorded drop or transfer), plus the player's current SF value only if still rostered by that manager. Minimum 5 priced adds. FAAB cost is reported separately per started point when a bid is available; missing acquisition dates or values exclude pickups.",
+    method: "Waiver score = points earned in the manager's starting lineup after each documented free-agent/waiver pickup (until a recorded drop or transfer), plus the player's current SF value only if still rostered by that manager. Minimum 5 priced adds. FAAB cost per started point uses only pickups made in FAAB seasons, over those pickups' own started points; missing acquisition dates or values exclude pickups.",
   };
 }
