@@ -1,6 +1,8 @@
 # 027 · Trade Calc: "Team 1 Receives" / "Team 2 Receives" two-column layout
 
-**Status:** Open · **Priority:** P0 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [#291](https://github.com/nikoskiouris/Dynasty-Ticker/pull/291)
+
+**Status:** Done · **Priority:** P0 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 

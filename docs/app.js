@@ -5379,7 +5379,9 @@ function draftItemMeta(item) {
     return season ? `${season} pick` : "Pick";
   }
   const record = playerRecordFor(facePlayerId(item));
-  return [record.position, record.age ? `${record.age} years` : "", record.team].filter(Boolean).join(" · ");
+  // One decimal, as on Player Rankings and the player page (24.6, not 24.59).
+  const age = Number(record.age);
+  return [record.position, age > 0 ? `${age.toFixed(1)} years` : "", record.team].filter(Boolean).join(" · ");
 }
 
 // Per-piece breakdown, shown under the verdict's "Why?".
