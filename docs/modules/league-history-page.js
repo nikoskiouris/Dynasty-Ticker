@@ -5,6 +5,7 @@ import { renderTrophyCases } from "./league-trophies-page.js";
 import { renderTraderAwards } from "./league-trader-awards-page.js";
 import { renderOperationsAwards } from "./league-operations-awards-page.js";
 import { renderDrafterAwards } from "./league-drafter-awards-page.js";
+import { renderManagerAward } from "./league-manager-award.js";
 
 const e = (value) => escapeHtml(String(value ?? ""));
 const whole = (value) => Number.isFinite(Number(value)) ? formatNumber(Number(value)) : "—";
@@ -112,8 +113,6 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
     ${renderTraderAwards(archive, { values, valueNames })}
     ${renderDrafterAwards(archive, { values, valueNames })}
     ${renderOperationsAwards(archive, { players, values, valueNames, showLineup })}
-    <section class="workspace-panel"><h2>More history</h2><p class="muted">
-      Composite manager awards are not available yet; a single overall rank needs validated category weights.
-      These sections require additional calculation and verification; no rankings have been inferred.</p></section>
+    ${renderManagerAward(archive, { values, valueNames })}
   </div>`;
 }
