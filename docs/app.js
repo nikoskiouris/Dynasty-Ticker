@@ -2084,7 +2084,8 @@ function restoreHistoryScroll(historyState) {
 // Ticket 018: home offers the last real league and team this browser opened.
 function rememberLastLeague() {
   if (!state.leagueId) return;
-  const me = getMyRoster();
+  // Save a team only when it is really yours; a later visit restores it as yours.
+  const me = connectedRosterId() ? getMyRoster() : null;
   writeLastLeague({
     leagueId: state.leagueId,
     leagueName: state.leagueName,
@@ -4207,7 +4208,7 @@ function renderStandingsRow(team, sim, { showLine, position, divisionLeader = fa
   if (odds?.eliminated) badges.push(`<span class="mini-chip rose">Out</span>`);
   const streakLabel = team.streak?.length ? team.streak.label : "—";
   return `
-    <div class="standings-row ${String(team.rosterId) === String(state.meRosterId) ? "you" : ""} ${showLine ? "playoff-line" : ""}" data-action="set-lens-teams" data-roster-id="${escapeHtml(team.rosterId)}">
+    <div class="standings-row ${String(team.rosterId) === connectedRosterId() ? "you" : ""} ${showLine ? "playoff-line" : ""}" data-action="set-lens-teams" data-roster-id="${escapeHtml(team.rosterId)}">
       <span class="rank-number">${position}</span>
       <div class="standings-team">
         ${renderTeamIdentity(team.rosterId, { showTeamName: false })}
@@ -4286,7 +4287,7 @@ function renderOddsRow(row, sim) {
   if (row.eliminated) flags.push(`<span class="mini-chip rose">Eliminated</span>`);
   if (!row.clinched && !row.eliminated && sim.byeCount > 0 && row.byePct >= 50) flags.push(`<span class="mini-chip">Bye ${percentLabel(row.byePct)}</span>`);
   return `
-    <div class="odds-row ${String(row.rosterId) === String(state.meRosterId) ? "you" : ""}">
+    <div class="odds-row ${String(row.rosterId) === connectedRosterId() ? "you" : ""}">
       <div class="odds-team">
         ${renderTeamIdentity(row.rosterId, { showTeamName: false })}
         <span class="standings-badges">${flags.join("")}</span>
