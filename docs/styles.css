@@ -6442,3 +6442,6 @@ html body:not(.league-loaded) .workspace { padding-top: 70px; }
   .odds-team .team-identity { flex-basis: 100%; }
   .odds-team .standings-badges:empty { display: none; }
 }
+@media (max-width: 620px) {
+  .odds-head > span { white-space: nowrap; }
+}
