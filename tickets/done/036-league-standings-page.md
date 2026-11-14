@@ -1,6 +1,8 @@
 # 036 · Standings page: live standings with luck factor
 
-**Status:** Open · **Priority:** P1 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [#297](https://github.com/nikoskiouris/Dynasty-Ticker/pull/297)
+
+**Status:** Done · **Priority:** P1 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 
