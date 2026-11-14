@@ -27,6 +27,8 @@ const BOTH_SIDES = new Set(["Dead even", "Fair, leans Get", "Fair, leans Give", 
 // Upper bounds (inclusive) on the unrounded "% more". The sentence may ceil past them.
 export const TIER_BANDS = Object.freeze({ even: 5, edge: 14, favors: 28 });
 const LABEL = Object.freeze({ even: "Even", edge: "Close", favors: "Unfair", lopsided: "Lopsided" });
+// The fairness scale's words for each tier, for anything that names a tier.
+export const TIER_LABELS = LABEL;
 
 // The ⓘ explainer line for the tiers.
 export const TIER_EXPLAINER = `How the verdict reads: one side's total, including the extra for fewer, better pieces, is compared with the other's. Within ${TIER_BANDS.even}% is Even, up to ${TIER_BANDS.edge}% more is Close, up to ${TIER_BANDS.favors}% more is Unfair, and more than ${TIER_BANDS.favors}% is lopsided.`;

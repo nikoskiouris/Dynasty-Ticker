@@ -1,6 +1,7 @@
 import { escapeHtml, formatNumber, ownerPossessive } from "./html.js";
 import { gradeTrade, tradeAssets } from "./trade-grade.js";
 import { tradeHref } from "./history-route.js";
+import { TIER_LABELS } from "./verdict-copy.js";
 
 const text = (value) => String(value ?? "").trim();
 const fullName = (raw) => text(raw?.full_name || [raw?.first_name, raw?.last_name].filter(Boolean).join(" "));
@@ -84,7 +85,7 @@ export function renderTradeLogRows({
     return `<article class="workspace-panel trade-log-card">
       <div class="panel-heading"><div><span class="eyebrow">${escapeHtml(dateLabel)}</span>
         <h2>${escapeHtml(sides.map((side) => rosterLabel(side.rosterId, entry)).join(" / ") || "Trade")}</h2></div>
-        <span class="mini-chip">${graded.available ? escapeHtml(graded.tier) : "Price unavailable"}</span></div>
+        <span class="mini-chip">${graded.available ? escapeHtml(TIER_LABELS[graded.tier] || (graded.tier === "multi-team" ? "Multi-team" : graded.tier)) : "Price unavailable"}</span></div>
       <div class="trade-log-parties">${parties}</div>
       ${calcHref ? `<p><a href="${escapeHtml(calcHref)}" target="_blank" rel="noopener noreferrer">Open in Trade Calc (new tab)</a> <span class="muted small">Keeps your current draft intact.</span></p>` : ""}
       <details><summary>How was this graded?</summary><p class="muted small">Today's 12-team Superflex PPR values, including any adjustment for fewer, better pieces. This measures value today, not whether the trade was a good decision at the time.</p>
