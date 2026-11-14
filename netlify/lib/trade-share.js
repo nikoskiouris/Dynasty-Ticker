@@ -69,8 +69,9 @@ export function shareText(summary, { today = null } = {}) {
   }
   return {
     title: `${list(summary.give)} for ${list(summary.get)}: ${verdictText}`.slice(0, 160),
-    description: `${side("give", "Give")} vs ${side("get", "get")}. Prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, ${summary.formatLabel}.${today ? ` Today: ${cardVerdict(today).line}.` : ""} Check your own trade free at Dynasty Ticker.`,
-    alt: `${verdictText}. Give ${n(summary.giveCredited)}, get ${n(summary.getCredited)}.`,
+    // Same names as the title and the app: the get side is what Team 1 receives.
+    description: `${side("get", "Team 1 receives")} vs ${side("give", "Team 2 receives")}. Prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, ${summary.formatLabel}.${today ? ` Today: ${cardVerdict(today).line}.` : ""} Check your own trade free at Dynasty Ticker.`,
+    alt: `${verdictText}. Team 1 receives ${n(summary.getCredited)}, Team 2 receives ${n(summary.giveCredited)}.`,
   };
 }
 
