@@ -1,6 +1,8 @@
 # 033 · League History entry: "Enter your Sleeper username" → "Select your league"
 
-**Status:** Open · **Priority:** P0 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [#295](https://github.com/nikoskiouris/Dynasty-Ticker/pull/295)
+
+**Status:** Done · **Priority:** P0 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 
