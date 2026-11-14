@@ -1,4 +1,5 @@
 import { resolveRosterIdentity } from "./franchise.js";
+import { buildSeasonModel } from "./standings.js";
 
 // League history draws facts from each Sleeper season rather than projecting
 // today's teams backward. Every source carries its original season/week.
@@ -22,6 +23,34 @@ function isCompleted(entry) { return entry?.league?.status === "complete"; }
 function finish(entry) {
   if (!isCompleted(entry)) return null;
   return (entry.winnersBracket || []).find((match) => number(match.p) === 1 && match.w != null) || null;
+}
+
+// One Standings model per season with matchups: the same luck (real wins
+// minus all-play expected wins) and records the Standings page shows.
+const modelCache = new WeakMap();
+export function seasonModels(archive = {}) {
+  if (modelCache.has(archive)) return modelCache.get(archive);
+  const models = new Map();
+  for (const entry of archive.seasons || []) {
+    const byWeek = archive.matchups?.[id(entry.season)];
+    if (!byWeek || !Object.keys(byWeek).length) continue;
+    const weekRows = new Map(Object.entries(byWeek).map(([week, rows]) => [Number(week), rows || []]));
+    const model = buildSeasonModel({ league: entry.league, rosters: entry.rosters || [], users: entry.users || [], weekRows });
+    if (model.hasComputedGames) models.set(id(entry.season), model);
+  }
+  modelCache.set(archive, models);
+  return models;
+}
+
+function longestRun(results, outcome) {
+  let best = null, run = null;
+  for (const row of results.slice().sort((a, b) => a.week - b.week)) {
+    if (row.result === outcome) {
+      run = run ? { ...run, length: run.length + 1, to: row.week } : { length: 1, from: row.week, to: row.week };
+      if (!best || run.length > best.length) best = run;
+    } else run = null;
+  }
+  return best;
 }
 
 export function championsWall(archive = {}) {
@@ -104,17 +133,33 @@ export function leagueRecordBook(archive = {}) {
     set("mostInLoss", { ...base, team: loser.name, opponent: winner.name, value: loser.points }, true);
     set("fewestInWin", { ...base, team: winner.name, opponent: loser.name, value: winner.points }, false);
   }
+  // Streaks run inside one regular season, from the same results as Standings.
+  for (const entry of archive.seasons || []) {
+    const model = seasonModels(archive).get(id(entry.season));
+    if (!model) continue;
+    for (const team of model.teams.values()) {
+      for (const [key, outcome] of [["winStreak", "W"], ["loseStreak", "L"]]) {
+        const run = longestRun(team.results || [], outcome);
+        if (run) set(key, { season: id(entry.season), leagueId: id(entry.leagueId),
+          team: rosterName(entry, team.rosterId), value: run.length, weeks: `Weeks ${run.from}–${run.to}` }, true);
+      }
+    }
+  }
   // A team has a season record even when matchup-by-week data is unavailable.
+  // Best/worst records count finished regular seasons only: 9-0 in week 10 is not a season.
   for (const entry of archive.seasons || []) {
     for (const roster of entry.rosters || []) {
       const record = rosterRecord(roster);
       set("highSeasonPF", { season: id(entry.season), leagueId: id(entry.leagueId),
         team: rosterName(entry, roster.roster_id), value: round2(record.pf) }, true);
-      set("bestSeasonRecord", { season: id(entry.season), leagueId: id(entry.leagueId),
+      if (!isCompleted(entry)) continue;
+      const seasonRecord = { season: id(entry.season), leagueId: id(entry.leagueId),
         team: rosterName(entry, roster.roster_id),
         value: record.wins + record.losses + record.ties
           ? round2((record.wins + record.ties / 2) / (record.wins + record.losses + record.ties) * 100) : NaN,
-        record: `${record.wins}-${record.losses}-${record.ties}` }, true);
+        record: `${record.wins}-${record.losses}-${record.ties}` };
+      set("bestSeasonRecord", seasonRecord, true);
+      set("worstSeasonRecord", seasonRecord, false);
     }
   }
   return { records, gamesRead: allGames.length, seasonsRead: (archive.seasons || []).length };
@@ -125,7 +170,8 @@ export function allTimeStandings(archive = {}) {
   const index = archive.franchiseIndex;
   for (const entry of archive.seasons || []) {
     const final = finish(entry);
-    const playoffTeams = new Set((entry.winnersBracket || []).flatMap((game) => [id(game.t1), id(game.t2), id(game.w), id(game.l)]).filter(Boolean));
+    // Sleeper publishes an in-season bracket from current seeds; only a finished season's bracket is a playoff trip.
+    const playoffTeams = new Set((isCompleted(entry) ? entry.winnersBracket || [] : []).flatMap((game) => [id(game.t1), id(game.t2), id(game.w), id(game.l)]).filter(Boolean));
     for (const roster of entry.rosters || []) {
       const rosterId = id(roster.roster_id);
       const identity = resolveRosterIdentity(index, { userId: roster.owner_id,
@@ -134,6 +180,7 @@ export function allTimeStandings(archive = {}) {
       if (!byManager.has(key)) byManager.set(key, {
         key, name: identity.managerName, seasons: 0, wins: 0, losses: 0, ties: 0,
         pf: 0, pa: 0, playoffAppearances: 0, titles: 0, finals: 0,
+        luck: 0, luckSeasons: 0, finishTotal: 0, finishSeasons: 0,
       });
       const total = byManager.get(key);
       const record = rosterRecord(roster);
@@ -147,10 +194,15 @@ export function allTimeStandings(archive = {}) {
       if (playoffTeams.has(rosterId)) total.playoffAppearances += 1;
       if (final && id(final.w) === rosterId) total.titles += 1;
       if (final && (id(final.w) === rosterId || id(final.l) === rosterId)) total.finals += 1;
+      const team = seasonModels(archive).get(id(entry.season))?.teams.get(rosterId);
+      if (team) { total.luck += team.luck; total.luckSeasons += 1; }
+      if (team && isCompleted(entry)) { total.finishTotal += team.rank; total.finishSeasons += 1; }
     }
   }
   return [...byManager.values()].map((row) => ({
     ...row, pf: round2(row.pf), pa: round2(row.pa),
+    luck: row.luckSeasons ? round2(row.luck) : null,
+    avgFinish: row.finishSeasons ? Math.round(row.finishTotal / row.finishSeasons * 10) / 10 : null,
     winPct: row.wins + row.losses + row.ties ? round2((row.wins + row.ties / 2) /
       (row.wins + row.losses + row.ties) * 100) : null,
   })).sort((a, b) => b.titles - a.titles || b.winPct - a.winPct || b.pf - a.pf);
