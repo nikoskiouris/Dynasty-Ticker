@@ -1,6 +1,8 @@
 # 024 · Redesign foundation: new page map, routes, and empty page shells
 
-**Status:** Open · **Priority:** P0 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [63125d0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/63125d0) (page names announced, QA: [#290](https://github.com/nikoskiouris/Dynasty-Ticker/pull/290))
+
+**Status:** Done · **Priority:** P0 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
 **Source:** Niko's 11 hand sketches, Nov 13, 2026 (UI redesign set, tickets 024–045)
 
 ## Context / sketch description

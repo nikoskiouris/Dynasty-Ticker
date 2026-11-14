@@ -6,12 +6,12 @@ export const ROUTE_TAB_LABELS = Object.freeze({
   home: "Home",
   leagues: "League History",
   trades: "Trade Calc",
-  league: "My team",
+  league: "League hub",
 });
 export const ROUTE_ROOM_TITLES = Object.freeze({
   home: "Home", picker: "League History", hub: "League hub", standings: "Standings", trades: "Recent Trades", history: "Historical Data",
   team: "My Team",
-  calculator: "Check a trade",
+  calculator: "Trade Calc",
 });
 
 const PAGE_ROOTS = new Set(["home", "leagues", "trades", "league"]);
@@ -20,7 +20,7 @@ function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-export const ROUTE_PLAYERS_TITLE = "Players";
+export const ROUTE_PLAYERS_TITLE = "Player Rankings";
 
 export function routeDocumentTitle({ playerName = "", tab = "", room = "", playersBoard = false, siteName = ROUTE_SITE_NAME } = {}) {
   const player = clean(playerName);
