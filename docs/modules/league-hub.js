@@ -1,4 +1,22 @@
 import { escapeHtml } from './html.js';
+import { ordinal } from './standings.js';
+
+// What this league plays, in one chip: "14-team · 1QB · PPR · TE bonus".
+// It describes the league only; every value still uses the one 12-team
+// Superflex PPR dynasty set (ticket 044).
+export function leagueFormat(league) {
+  const slots = (league?.roster_positions || []).map(slot => String(slot).toUpperCase());
+  const superflex = slots.includes('SUPER_FLEX') || slots.includes('OP') || slots.filter(slot => slot === 'QB').length >= 2;
+  const scoring = league?.scoring_settings || {};
+  const rec = Number(scoring.rec);
+  const ppr = rec >= 1 ? 'PPR' : rec >= 0.5 ? 'Half PPR' : Number.isFinite(rec) ? 'Standard' : '';
+  const teBonus = Number(scoring.bonus_rec_te) > 0;
+  const teams = Number(league?.total_rosters) || 0;
+  const type = Number(league?.settings?.type);
+  const mode = type === 2 ? 'Dynasty' : type === 1 ? 'Keeper' : 'Redraft';
+  const chip = [teams ? `${teams}-team` : '', superflex ? 'SF' : '1QB', ppr, teBonus ? 'TE bonus' : '', mode].filter(Boolean).join(' · ');
+  return { chip };
+}
 
 // A regular-season leader is not a champion. Only a completed title match counts.
 export function recentChampion(seasons = []) {
@@ -29,13 +47,20 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
   const id = encodeURIComponent(leagueId || league.league_id);
   const winner = recentChampion(seasons);
   const recent = transactions.filter(row => row.type === 'trade' && row.status === 'complete' && Number(row.status_updated || row.created) >= Date.now() - 30 * 86400000).length;
+  const mine = myRosterId ? model?.teams?.get?.(String(myRosterId)) : null;
+  const standingsTeaser = mine?.recordLabel && mine?.rank
+    ? `You're ${mine.recordLabel}, ${ordinal(mine.rank)}${model?.finalThroughWeek ? ` through week ${model.finalThroughWeek}` : ''}`
+    : model?.finalThroughWeek ? `Through week ${model.finalThroughWeek}` : 'Records, playoff odds and luck';
+  const format = leagueFormat(league);
+  // The 044 caveat (marketCaveat) when the league differs; otherwise the plain rule.
+  const valuesLine = caveat || 'Values: 12-team Superflex PPR dynasty.';
   const links = [
-    ['standings', 'Standings', model?.finalThroughWeek ? `Through week ${model.finalThroughWeek}` : 'Records, playoff odds and luck'],
+    ['standings', 'Standings', standingsTeaser],
     ['team', 'My Team', myTeam || 'Pick your team above to see your roster'],
     ['trades', 'Recent Trades', tradesLoaded ? `${recent} completed trades in the last 30 days` : 'Browse completed league trades'],
     ['history', 'Historical Data', loading ? 'Loading seasons…' : `${seasons.length} seasons of records`],
   ];
-  return `<header class="league-hub-header">${league.avatar ? `<img width="64" height="64" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(league.avatar)}">` : ''}<h2>${escapeHtml(league.name || 'Your league')}</h2><p>${escapeHtml(league.season)} · ${Number(league.total_rosters) || '—'} teams · Values: 12-team Superflex PPR dynasty</p>${caveat ? `<p>${escapeHtml(caveat)}</p>` : ''}<a href="/leagues">Change league</a></header>
+  return `<header class="league-hub-header">${league.avatar ? `<img width="64" height="64" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(league.avatar)}">` : ''}<h2>${escapeHtml(league.name || 'Your league')}</h2><p>${escapeHtml(league.season)} · <span class="league-format-chip">${escapeHtml(format.chip)}</span></p><p class="muted small">${escapeHtml(valuesLine)}</p><a href="/leagues">Change league</a></header>
   ${renderTeamPick({ myTeam, myRosterId, teams })}
   <h2>What to see?</h2><nav class="league-hub-grid" aria-label="League pages">${links.map(([path, label, teaser]) => `<a class="workspace-panel" href="/l/${id}/${path}"><h3>${label}</h3><p>${escapeHtml(teaser)}</p></a>`).join('')}</nav>
   <section class="workspace-panel league-winner" aria-label="Recent winner">${winner ? `${winner.avatar ? `<img width="48" height="48" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(winner.avatar)}">` : ''}<h2>RECENT WINNER: ★ ${escapeHtml(winner.name)} ★</h2><p>${escapeHtml(winner.season)} champion</p>` : `<h2>${loading ? 'Loading recent winner…' : 'No champion yet'}</h2><p>${loading ? 'Checking completed seasons and playoff brackets.' : 'First season in progress, or Sleeper has not published a completed championship bracket.'}</p>`}</section>`;

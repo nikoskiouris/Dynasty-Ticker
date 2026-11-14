@@ -983,6 +983,7 @@ function renderActivePage() {
       seasons: archive?.leagueId === state.leagueId ? archive.seasons : state.leagueHistory,
       myTeam: hubTeamName(),
       myRosterId: connectedRosterId(),
+      caveat: marketCaveat(state.league),
       teams: (state.normalizedRosters || []).map((roster) => ({
         id: roster.rosterId,
         name: roster.manager?.teamName || roster.manager?.displayName || `Team ${roster.rosterId}`,
