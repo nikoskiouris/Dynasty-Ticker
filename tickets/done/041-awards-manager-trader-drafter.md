@@ -1,6 +1,8 @@
 # 041 · All-time awards I: best/worst manager, trader, drafter, and the all-time best/worst trade
 
-**Status:** Open · **Priority:** P1 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [#310](https://github.com/nikoskiouris/Dynasty-Ticker/pull/310)
+
+**Status:** Done · **Priority:** P1 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 
