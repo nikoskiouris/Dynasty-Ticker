@@ -6435,3 +6435,13 @@ html body:not(.league-loaded) .workspace { padding-top: 70px; }
 .league-hub-pick { display:grid; gap:6px; margin:16px 0; }
 .league-hub-pick select { max-width:360px; }
 .calc-subline .verdict-info-toggle:has(.verdict-info-label) { display:inline-flex; gap:6px; align-items:center; margin:0; font-size:var(--fs-sm); }
+/* 037: My Team header and superlative cards. */
+.team-header { margin-bottom: 16px; }
+.team-header-row { display: flex; align-items: center; gap: 12px; }
+.team-header-row h2 { margin: 0; }
+.team-header-row p { margin: 2px 0 0; }
+.team-superlatives { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.team-superlative { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-soft); min-width: 0; }
+.team-superlative h3 { margin: 2px 0; font-size: var(--fs-body); }
+.team-superlative p { margin: 0; }
+.team-superlative .eyebrow { margin: 0; }
