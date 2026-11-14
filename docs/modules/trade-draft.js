@@ -140,7 +140,10 @@ export function describeDraftItem(row, { ownerName = "", kind = "player", voice 
   }
 }
 
-export function draftTeamSummary(context, { leftCount = 0, rightCount = 0, partnerName = "", splitNames = [], voice = null } = {}) {
+export function draftTeamSummary(context, { leftCount = 0, rightCount = 0, partnerName = "", splitNames = [], voice = null, giveColumn = "", getColumn = "" } = {}) {
+  // Name the columns as the page labels them ("Dev Hours receives"), not the old You give / You get.
+  const give = giveColumn ? `“${giveColumn}”` : "You give";
+  const get = getColumn ? `“${getColumn}”` : "You get";
   if (!context) return "";
   if (context.needsTeam) {
     return voice?.roster
@@ -153,14 +156,16 @@ export function draftTeamSummary(context, { leftCount = 0, rightCount = 0, partn
     const from = names.length ? names.join(" and ") : "more than one team";
     return voice
       ? `The other side has pieces from ${from}. Team impact needs one partner.`
-      : `You get pieces from ${from}. Team impact needs one partner.`;
+      : `${getColumn ? `${get} has` : "You get"} pieces from ${from}. Team impact needs one partner.`;
   }
   if (context.mismatched > 0) {
     const n = context.mismatched;
     const fit = `${n} ${n === 1 ? "piece does" : "pieces do"} not fit yet. The market verdict above still counts every piece.`;
     return voice?.draftNeedPieces
       ? `${voice.draftNeedPieces} ${fit}`
-      : `Team impact needs You give from your roster and You get from one team. ${fit}`;
+      : giveColumn && getColumn
+        ? `Team impact needs your players in ${give} and one other team's players in ${get}. ${fit}`
+        : `Team impact needs You give from your roster and You get from one team. ${fit}`;
   }
   return partnerName ? `With ${partnerName}.` : "";
 }
