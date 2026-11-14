@@ -1,6 +1,8 @@
 # 028 · Trade Calc: one "smart search bar" at the top
 
-**Status:** Open · **Priority:** P1 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [b057bc3](https://github.com/nikoskiouris/Dynasty-Ticker/commit/b057bc3) (QA and reply wording: [#294](https://github.com/nikoskiouris/Dynasty-Ticker/pull/294))
+
+**Status:** Done · **Priority:** P1 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 

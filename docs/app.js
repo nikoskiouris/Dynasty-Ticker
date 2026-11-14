@@ -5001,8 +5001,6 @@ function runTradeTalk(text) {
     return;
   }
   const result = applyTradeTalk(state.valueCalc, plan);
-  const giveLabel = "You give";
-  const getLabel = "You get";
   const changed = draftAssetKey(result.draft) !== draftAssetKey(state.valueCalc)
     || result.draft.partnerRosterId !== state.valueCalc.partnerRosterId;
   if (changed) {
@@ -5011,6 +5009,9 @@ function runTradeTalk(text) {
     else setDraft(result.draft);
   }
   const after = buildDraftView();
+  // Name the sides the way the columns do: "Team 2 receives: Gibbs".
+  const giveLabel = `${draftReceivingTeam("left", after)} receives`;
+  const getLabel = `${draftReceivingTeam("right", after)} receives`;
   const lines = tradeTalkReply(plan, result, { giveLabel, getLabel });
   const groups = plan.asks.map((ask) => ({
     ask: true,
@@ -5678,7 +5679,6 @@ function renderDraftVerdict(view) {
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (bothSides) noteTradeChecked(draft);
-  const them = view.partner?.manager?.displayName || "them";
   const { verdict, adjustment } = model;
   // One verdict wording everywhere (verdict-copy.js): app, /t, card, meta, share text.
   const copy = verdictCopy(verdict);
@@ -5697,9 +5697,9 @@ function renderDraftVerdict(view) {
   const maxSide = Math.max(bars.give.total, bars.get.total, 1);
   // Same metric and bands as the headline (verdict-copy.js).
   const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpPick(view) : null;
-  const evenSide = verdict.gap > 0 ? "You" : (view.partner ? them : "They");
-  const giveLabel = sharedView ? "Give side" : "You give";
-  const getLabel = sharedView ? "Get side" : "You get";
+  // "Why?" names the sides like the columns (Team 2 Receives / Team 1 Receives).
+  const giveLabel = teamNames.Give;
+  const getLabel = teamNames.Get;
   const creditedRows = (adjustment?.side === "left" ? draft.left : draft.right).map((item) => {
     const hit = view.priced?.get(String(item.uid));
     return { name: hit?.asset?.name || item.name || "", value: hit?.value || 0, uid: String(item.uid || "") };
@@ -5718,7 +5718,7 @@ function renderDraftVerdict(view) {
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
         ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
-        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpLine(evenUp, evenSide))}</p>` : ""}
+        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view), teamNames))}</p>` : ""}
         <details class="calc-method calc-why">
           <summary>Why?</summary>
           ${bothSides ? renderDraftMeterWhy(view, {
