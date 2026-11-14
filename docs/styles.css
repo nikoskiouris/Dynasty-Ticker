@@ -3235,12 +3235,12 @@ a.inline-link:hover {
     text-align: left;
   }
 
+  /* iPad portrait keeps points for; phones (700px) drop it. */
   .standings-head,
   .standings-row {
-    grid-template-columns: 2rem minmax(0, 1.7fr) 3.6rem 3.2rem;
+    grid-template-columns: 2rem minmax(0, 1.7fr) 3.6rem 4.4rem 3.2rem;
   }
 
-  .col-pf,
   .col-streak {
     display: none;
   }
@@ -3358,6 +3358,11 @@ a.inline-link:hover {
   .standings-row {
     grid-template-columns: 1.7rem minmax(0, 1fr) 3.4rem 2.8rem;
     gap: 0.4rem;
+  }
+
+  .standings-head .col-pf,
+  .standings-row .col-pf {
+    display: none;
   }
 
   .sheet-summary {
@@ -6435,3 +6440,6 @@ html body:not(.league-loaded) .workspace { padding-top: 70px; }
 .league-hub-pick { display:grid; gap:6px; margin:16px 0; }
 .league-hub-pick select { max-width:360px; }
 .calc-subline .verdict-info-toggle:has(.verdict-info-label) { display:inline-flex; gap:6px; align-items:center; margin:0; font-size:var(--fs-sm); }
+/* 036: before any final game, the empty table is hidden behind a plain note. */
+.standings-table[hidden] { display: none !important; }
+.standings-not-started { margin: 0.75rem 0; }

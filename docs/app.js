@@ -1000,7 +1000,7 @@ function renderActivePage() {
       const live = model?.currentWeekEntry?.isLive;
       host.innerHTML = `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
         <h2>${escapeHtml(state.leagueName || "League")} standings</h2>
-        <p class="muted small">${live ? `Live · Week ${model.currentWeek}` : `Week ${model?.currentWeek || "—"}`} · Updates every 2 minutes while this page is visible.</p>
+        <p class="muted small">${state.league?.status === "pre_draft" ? "This league hasn't drafted yet." : `${live ? `Live · Week ${model.currentWeek}` : `Week ${model?.currentWeek || "—"}`} · Updates every 2 minutes while this page is visible.`}</p>
         ${model ? `${renderStandingsPanel(model, sim)}${renderPlayoffOddsPanel(model, sim)}`
           : '<p role="status">Standings are loading from Sleeper…</p>'}`;
     }
@@ -4043,6 +4043,22 @@ function luckClass(luck) {
   return luck > 0 ? "up" : "down";
 }
 
+// Luck in plain words (ticket 036), with real numbers.
+function luckLine(team) {
+  const expected = Number(team?.expectedWins) || 0;
+  const actual = Number(team?.headToHeadWins) || 0;
+  return `Playing every team every week: ${expected.toFixed(1)} wins. Actual: ${actual}. Luck ${formatLuck(actual - expected)}.`;
+}
+
+function luckExplainer(model) {
+  const base = "If you'd played every team every week, you'd have X wins. You actually have Y. Luck = Y − X. Above zero means your schedule helped; below zero means it hurt.";
+  const mine = state.meRosterId != null ? model?.teams?.get?.(String(state.meRosterId)) : null;
+  if (!mine?.gamesPlayed) return base;
+  const expected = Number(mine.expectedWins) || 0;
+  const actual = Number(mine.headToHeadWins) || 0;
+  return `If you'd played every team every week, you'd have ${expected.toFixed(1)} wins. You actually have ${actual}. Luck = ${actual} − ${expected.toFixed(1)} = ${formatLuck(actual - expected)}. Above zero means your schedule helped; below zero means it hurt.`;
+}
+
 function formatLuck(luck) {
   if (!Number.isFinite(luck)) return "—";
   return `${luck > 0 ? "+" : ""}${luck.toFixed(1)}`;
@@ -4174,16 +4190,17 @@ function renderStandingsPanel(model, sim) {
       </div>
       <div class="standings-legend muted small">
         <span>All-play: record against every team each week.</span>
-        <span>Luck: real wins minus all-play expected wins.</span>
+        <span>Luck: real wins minus all-play expected wins. ${infoTipMarkup({ id: "pop-standings-luck", label: "What luck means", text: luckExplainer(model) })}</span>
         ${model.medianGames ? "<span>Includes weekly median games.</span>" : ""}
       </div>
-      <div class="standings-table">
+      ${!hasGames ? `<p class="standings-not-started">Standings start after week ${model.startWeek || 1}'s games are final. Until then there are no records to rank.</p>` : ""}
+      <div class="standings-table"${hasGames ? "" : " hidden"}>
         <div class="standings-head">
           <span>#</span><span>Team</span><span>Record</span><span class="col-pf">Points</span><span class="col-pa">Pts against</span><span class="col-streak">Streak</span><span class="col-allplay">All-play</span><span class="col-luck">Luck</span>
         </div>
         ${rowsHtml}
       </div>
-      ${!hasGames ? `<p class="muted small">No finalized games yet. Projected wins come from ${sim ? sim.iterations.toLocaleString() : "the"} simulated seasons.</p>` : ""}
+      ${!hasGames && sim ? `<p class="muted small">Projected wins from ${sim.iterations.toLocaleString()} simulated seasons are under Playoff odds.</p>` : ""}
     </section>
   `;
 }
@@ -4209,7 +4226,7 @@ function renderStandingsRow(team, sim, { showLine, position, divisionLeader = fa
       <span class="mono col-pa">${team.gamesPlayed ? formatPoints(team.pa) : "—"}</span>
       <span class="streak col-streak ${team.streak?.type === "W" ? "up" : team.streak?.type === "L" ? "down" : ""}">${streakLabel}</span>
       <span class="mono col-allplay">${team.allPlayGames ? escapeHtml(team.allPlayRecord) : "—"}</span>
-      <span class="mono luck col-luck ${luckClass(team.luck)}">${team.gamesPlayed ? formatLuck(team.luck) : "—"}</span>
+      <span class="mono luck col-luck ${luckClass(team.luck)}"${team.gamesPlayed ? ` title="${escapeHtml(luckLine(team))}"` : ""}>${team.gamesPlayed ? formatLuck(team.luck) : "—"}</span>
     </div>
   `;
 }
