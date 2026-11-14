@@ -256,7 +256,7 @@ export function evenUpPickChoice(gap, picks = [], { scoreAdded = null } = {}) {
     if (!(value > 0) || !pick?.name) continue;
     if (!score) {
       const miss = Math.abs(value - need);
-      if (!best || miss < best.miss) best = { name: String(pick.name), value, miss };
+      if (!best || miss < best.miss) best = { assetId: String(pick.assetId || ""), name: String(pick.name), value, miss };
       continue;
     }
     const scored = score(value) || {};
@@ -265,7 +265,7 @@ export function evenUpPickChoice(gap, picks = [], { scoreAdded = null } = {}) {
     if (!Number.isFinite(afterGap) || !Number.isFinite(pct)) continue;
     const miss = Math.abs(afterGap);
     const closes = pct <= EVEN_UP_FAIR_PCT;
-    const candidate = { name: String(pick.name), value, miss, closes, gap: need, afterGap, pct, verdict: scored.verdict || null };
+    const candidate = { assetId: String(pick.assetId || ""), name: String(pick.name), value, miss, closes, gap: need, afterGap, pct, verdict: scored.verdict || null };
     const betterClose = Boolean(best) && closes && !best.closes;
     const tighter = Boolean(best) && closes === best.closes && (miss < best.miss || (miss === best.miss && value < best.value));
     if (!best || betterClose || tighter) best = candidate;
