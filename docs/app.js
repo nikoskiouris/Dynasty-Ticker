@@ -645,7 +645,14 @@ if (bootRoute?.badLeague) {
 }
 bindInfoTips(document);
 renderToolPicker(document.querySelector("#home-page-content"));
-mountSiteMenu({ navigate: navigateTool });
+mountSiteMenu({
+  navigate(href) {
+    navigateTool(href);
+    // A menu pick is a route change: move focus to the new page's heading
+    // once it has painted.
+    requestAnimationFrame(() => focusClickedRoute());
+  },
+});
 document.addEventListener("click", event => {
   const link = event.target.closest("#home-page-content a, #leagues-page-content a, #league-hub-content a");
   if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;

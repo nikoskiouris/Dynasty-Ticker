@@ -89,7 +89,10 @@ function visibleHeading(root, selector) {
   if (root.matches?.(selector) && !isHidden(root)) return root;
   const nodes = root.querySelectorAll?.(selector) || [];
   for (const node of nodes) {
-    if (!isHidden(node)) return node;
+    // Hidden by attribute/class, or by CSS (display: none has no boxes).
+    if (isHidden(node)) continue;
+    if (typeof node.getClientRects === "function" && node.getClientRects().length === 0) continue;
+    return node;
   }
   return null;
 }
@@ -105,7 +108,7 @@ export function focusViewHeading(root, { focusVisible = false } = {}) {
 
 // One heading per room. Waiting on a selector (not a node) survives re-renders.
 const ROOM_HEADINGS = Object.freeze({
-  "home:home": "#home-heading",
+  "home:home": "#home-heading, .tool-picker h1",
   "leagues:picker": "#leagues-heading",
   "league:hub": "#league-hub-heading",
   "league:standings": "#league-standings-heading",
@@ -129,7 +132,10 @@ export function headingSelectorFor(place = {}) {
 function firstVisible(doc, selector) {
   const nodes = doc?.querySelectorAll?.(selector) || [];
   for (const node of nodes) {
-    if (!isHidden(node)) return node;
+    // Hidden by attribute/class, or by CSS (display: none has no boxes).
+    if (isHidden(node)) continue;
+    if (typeof node.getClientRects === "function" && node.getClientRects().length === 0) continue;
+    return node;
   }
   return null;
 }
@@ -147,8 +153,9 @@ function mayMoveFocus(doc, active, takeover = false) {
   if (takeover && inLeagueIdForm(active)) return true;
   // A room change hides the previous room. Focus is still on that heading until
   // the browser drops it, and the next room heading has to take over.
-  const tag = String(active.tagName || "");
-  return (tag === "H1" || tag === "H2" || tag === "H3") && isHidden(active);
+  // The same goes for the control that opened the route (a player name on My
+  // Team): once its page is hidden, focus there helps no one.
+  return isHidden(active);
 }
 
 let headingWatch = 0;
