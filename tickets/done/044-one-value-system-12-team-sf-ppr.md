@@ -1,6 +1,8 @@
 # 044 · One value system: 12-team Superflex PPR dynasty only
 
-**Status:** Open · **Priority:** P0 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [5217d5c](https://github.com/nikoskiouris/Dynasty-Ticker/commit/5217d5c) (legacy share links and QA: [#301](https://github.com/nikoskiouris/Dynasty-Ticker/pull/301))
+
+**Status:** Done · **Priority:** P0 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
 **Order:** foundation. Do it right after 024 and before any ticket that shows a value (026–032, 037–042).
 
 ## Context / owner rule
