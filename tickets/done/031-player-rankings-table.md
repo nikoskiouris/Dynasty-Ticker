@@ -1,6 +1,8 @@
 # 031 · Player Rankings page: ranked table + "how our algorithm works" footnote
 
-**Status:** Open · **Priority:** P0 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [#288](https://github.com/nikoskiouris/Dynasty-Ticker/pull/288)
+
+**Status:** Done · **Priority:** P0 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 
