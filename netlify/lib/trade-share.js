@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  LEGACY_FORMAT_NOTE,
   cardVerdict,
   decodeTradeShare,
   isPriceStamp,
@@ -49,7 +50,7 @@ export function codeFromPath(pathname, { suffix = "" } = {}) {
 // so the text, the card and the % never disagree (H2 in review-164).
 // today: the live board's summary when prices moved since the link was made.
 // The preview then says both, in the same neutral words.
-export function shareText(summary, { today = null } = {}) {
+export function shareText(summary, { today = null, legacy = false } = {}) {
   const list = (rows) => rows.map((row) => row.name).join(", ");
   const verdict = cardVerdict(summary);
   const n = (value) => Math.round(value).toLocaleString("en-US");
@@ -69,14 +70,17 @@ export function shareText(summary, { today = null } = {}) {
   }
   return {
     title: `${list(summary.give)} for ${list(summary.get)}: ${verdictText}`.slice(0, 160),
-    description: `${side("give", "Give")} vs ${side("get", "get")}. Prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, ${summary.formatLabel}.${today ? ` Today: ${cardVerdict(today).line}.` : ""} Check your own trade free at Dynasty Ticker.`,
+    description: legacy
+      // A 1QB link: today's SF prices, said plainly. Never "as of" the share date.
+      ? `${side("give", "Give")} vs ${side("get", "get")}. ${LEGACY_FORMAT_NOTE} Check your own trade free at Dynasty Ticker.`
+      : `${side("give", "Give")} vs ${side("get", "get")}. Prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, ${summary.formatLabel}.${today ? ` Today: ${cardVerdict(today).line}.` : ""} Check your own trade free at Dynasty Ticker.`,
     alt: `${verdictText}. Give ${n(summary.giveCredited)}, get ${n(summary.getCredited)}.`,
   };
 }
 
 // Swap the page's default social tags for the trade's. Bots read these without JS.
-export function injectShareMeta(html, { summary, today = null, code, origin = SITE_ORIGIN, version = "" }) {
-  const { title, description, alt } = shareText(summary, { today });
+export function injectShareMeta(html, { summary, today = null, legacy = false, code, origin = SITE_ORIGIN, version = "" }) {
+  const { title, description, alt } = shareText(summary, { today, legacy });
   const url = `${origin}${sharePath(code)}`;
   const image = `${origin}${shareImagePath(code, version)}`;
   const tags = [
@@ -196,7 +200,9 @@ export async function summaryForCode(code, deps = {}) {
     decoded.stamp ? (deps.loadSnapshot || loadSnapshot)(decoded.stamp, deps) : null,
   ]);
   const today = shareSummary(decoded, payload, names);
-  const shared = snapshot ? shareSummary(decoded, snapshot, names, payload) : null;
+  // 1QB codes were shared on prices we no longer publish; an SF snapshot from
+  // that day is not what the sender saw.
+  const shared = snapshot && !decoded.legacyFormat ? shareSummary(decoded, snapshot, names, payload) : null;
   const summary = shared || today;
   return {
     decoded,
@@ -204,6 +210,7 @@ export async function summaryForCode(code, deps = {}) {
     today,
     summary,
     same: shared ? sameVerdict(shared, today) : true,
+    legacy: Boolean(decoded.legacyFormat),
     version: shared ? decoded.stamp : valuesVersion(payload),
   };
 }
@@ -236,7 +243,7 @@ export function createSharePageHandler(deps = {}) {
     }
     const hit = await summaryForCode(code, deps).catch(() => null);
     // A valid code whose lookup failed still opens the trade, with the default tags.
-    const body = hit?.summary ? injectShareMeta(html, { summary: hit.summary, today: hit.same ? null : hit.today, code, origin, version: hit.version }) : html;
+    const body = hit?.summary ? injectShareMeta(html, { summary: hit.summary, today: hit.same ? null : hit.today, legacy: hit.legacy, code, origin, version: hit.version }) : html;
     return new Response(body, {
       status: 200,
       headers: {
