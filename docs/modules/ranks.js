@@ -114,7 +114,11 @@ export function buildRankBoard({
     if (position && !SKILL_POSITIONS.has(position)) continue;
     const name = playerName(assetId, names, raw);
     if (!name) continue;
-    const age = playerAgeFromNfl(raw) ?? (Number.isFinite(Number(model?.age)) ? Number(model.age) : null);
+    // The values file carries a decimal age (24.6); Sleeper's directory a whole
+    // number. Prefer the values file so the table reads the same with or
+    // without a league loaded.
+    const modelAge = Number(model?.age);
+    const age = Number.isFinite(modelAge) && modelAge > 0 ? modelAge : playerAgeFromNfl(raw);
     const team = String(raw?.team || model?.team || "").trim().toUpperCase();
     const pickEqual = closestPick(value, picks);
     const tape = marketTape({ confidence: model?.confidence, kind: "player" });
@@ -134,6 +138,8 @@ export function buildRankBoard({
       raw,
       ...(typeof detailFor === "function" ? detailFor(playerId, raw) : {}),
       owner: owners?.[assetId] || null,
+      // Sleeper's game status ("IR", "Out", "Questionable") for the player page.
+      injuryStatus: String(raw?.injury_status || "").trim(),
       note: typeof noteFor === "function" ? String(noteFor(playerId, raw) || "") : "",
       photoUrl: sleeperPlayerThumbUrl(playerId),
       initials: playerInitials(name),

@@ -404,6 +404,7 @@ const REPLACED_DRAFT_KEY = "dynasty_ticker_trade_draft_replaced_v1";
 let draftReplaced = readReplacedDraft();
 // The full players board is open (Look up a player / All players).
 let playersBoardOpen = false;
+let playerGameStatusPromise = null;
 // One prices load for the calculator alone (see ensureCalcPrices).
 let calcPricesPromise = null;
 // Describe-a-trade box: the last message and its reply (memory only), and a
@@ -1240,6 +1241,7 @@ async function ensureRankExtras() {
         .catch(() => null);
     }
     if (rankContextPromise) await rankContextPromise;
+    await loadPlayerGameStatus();
   } catch (err) {
     console.warn("Could not load player ranks", err);
     // Remember the miss so the next paint shows it instead of fetching again.
@@ -1276,6 +1278,25 @@ async function ensureCalcPrices() {
   await calcPricesPromise;
   rankBoardCache = { key: "", rows: [] };
   if (state.activePage === "trades" && getRoom("trades") === "calculator") renderTradeDraft();
+}
+
+// The player page shows Sleeper's game status (IR, Out). That lives in the
+// small slim directory (~40 KB), which otherwise loads only with a league.
+// It fills gaps only: the values file's decimal ages and teams stay.
+function loadPlayerGameStatus() {
+  if (!state.ranks?.selectedId || slimDirectory) return Promise.resolve();
+  if (!playerGameStatusPromise) {
+    playerGameStatusPromise = loadSlimPlayersFile()
+      .catch(() => null)
+      .then((slim) => {
+        playerGameStatusPromise = null;
+        if (!slim || !Object.keys(slim).length) return;
+        state.players = mergePlayerRecords(slim, state.players);
+        rankBoardCache = { key: "", rows: [] };
+        if (state.ranks?.selectedId && ranksBoardVisible()) renderRankSurfaces();
+      });
+  }
+  return playerGameStatusPromise;
 }
 
 function openPlayerBoard({ history = "push" } = {}) {
@@ -2170,6 +2191,7 @@ function openPlayerPage(assetId) {
   setActivePage("trades", { history: "silent", scroll: "top" });
   renderRankSurfaces();
   if (!rankValuesReady() || !playerNoteContext?.previousSeason) void ensureRankExtras();
+  else void loadPlayerGameStatus();
   updateUrlState({ mode: "push" });
   syncLaunchChrome();
   syncDocumentMeta();
@@ -5989,7 +6011,8 @@ function addDraftFromPlayers(assetId, name, kind) {
   playersBoardOpen = false;
   // Player detail always adds to Team 1 Receives. Ownership is context, not
   // permission to move the owner's existing draft or swap this action's side.
-  addDraftAsset("left", { assetId, name, assetType: kind === "pick" ? "pick" : "player" });
+  // Team 1 Receives is the get side ("right"); Team 2 Receives is give (027).
+  addDraftAsset("right", { assetId, name, assetType: kind === "pick" ? "pick" : "player" });
   openRoom("trades", "calculator");
 }
 
@@ -6226,6 +6249,7 @@ function handleWorkspaceClick(event) {
       // so the player card is on screen. Back still returns to the landing.
       document.querySelector("#landing")?.classList.add("hidden");
       renderRankSurfaces();
+      void loadPlayerGameStatus();
       updateUrlState({ mode: "push" });
       syncLaunchChrome();
       document.querySelector(".ranks-card")?.scrollIntoView({ block: "nearest" });
