@@ -68,7 +68,11 @@ export function renderTradeLogRows({
         || ![first, second].includes(asset.sender))) return "";
       const give = snapshot.assets.filter((asset) => asset.receiver === second).map((asset) => asset.assetId);
       const get = snapshot.assets.filter((asset) => asset.receiver === first).map((asset) => asset.assetId);
-      return give.length && get.length ? tradeHref(give, get, archive?.leagueId || "") : "";
+      // No ?league=: Trade Calc frames a league trade as you vs a partner, so a
+      // trade between two other teams opened with the wrong team names on
+      // each column. The pieces here are market picks and players, so the
+      // plain calculator (Team 1 / Team 2) shows the right sides and prices.
+      return give.length && get.length ? tradeHref(give, get, "") : "";
     })();
     const parties = sides.map((side) => {
       const received = side.received.map((asset) => assetLabel(asset, context));
