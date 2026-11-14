@@ -207,6 +207,11 @@ export function evenUpCopy(choice, side, { afterLine = "" } = {}) {
   if (!choice) return "";
   const who = side === "Give" || side === "Get" ? `The ${side} side` : String(side || "They");
   const verb = who === "You" || who === "They" ? "add" : "adds";
+  // A scored choice already counts the fewer-better-pieces credit: when it
+  // closes, name it and the verdict after, even if its price is far from the raw gap.
+  if (choice.closes && Number.isFinite(Number(choice.pct))) {
+    return `${who} ${verb} a ${choice.name} (${formatNumber(choice.value)}).${afterLine ? ` After that: ${afterLine}.` : ""}`;
+  }
   // Cite a pick only when its price is close to the gap.
   const near = Number(choice.value) > 0 && Number(choice.gap) > 0
     && choice.value <= choice.gap * 1.5 && choice.value >= choice.gap * 0.67;
