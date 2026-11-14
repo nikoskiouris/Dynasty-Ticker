@@ -6277,6 +6277,7 @@ body.launch-open .workspace { display:block; }
 .rankings-table .rank-face-col { width:48px; }
 .rankings-table tbody th { font-weight:500; }
 .rank-name-link { text-align:left; font-weight:700; }
+.rank-narrow-label { display:none; }
 .rank-position-tag,.rank-owner { display:block; font-size:.7rem; opacity:.7; margin-top:3px; }
 .rank-table-value { font-weight:750; }
 .rank-pick-token { width:32px; height:32px; display:grid; place-items:center; border:1px solid currentColor; border-radius:50%; font-size:.75rem; }
@@ -6286,8 +6287,10 @@ body.launch-open .workspace { display:block; }
  .rankings-table thead th { font-size:.6rem; }
  .rankings-table .rank-face-col { width:28px; }
  .rankings-table .rank-team-col,.rank-wide-label { display:none; }
+ .rank-narrow-label { display:inline; }
  .rankings-table thead th:nth-child(2) { width:33%; }
- .rankings-table .player-face,.rank-pick-token { width:24px; height:24px; }
+ /* .player-face-sm pins min/max width at 40px; override all of it or the face spills over the name. */
+ .rankings-table .player-face,.rankings-table .player-face > .player-face-photo,.rank-pick-token { width:24px; height:24px; min-width:24px; max-width:24px; min-height:24px; max-height:24px; flex-basis:24px; }
  .rank-name-link { font-size:.72rem; }
 }
 
