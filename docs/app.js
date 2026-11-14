@@ -119,6 +119,7 @@ import {
   renderPowerStat,
   } from "./modules/roster-markup.js";
 import { facePlayerId, playerIdFromAssetId, renderPlayerFace, renderPlayerLabel } from "./modules/player-face.js";
+import { buildTeamSuperlatives, latestStartersFor } from "./modules/team-superlatives.js";
 import {
   addValueCalcItem,
   clearValueCalcSides,
@@ -4309,6 +4310,67 @@ function renderTeamsPage() {
   }
   renderPowerDashboard();
   renderRosterSheet();
+  renderTeamExtras();
+}
+
+// Ticket 037: who this team is, and its player superlatives.
+function renderTeamExtras() {
+  const header = document.querySelector("#team-header");
+  const section = document.querySelector("#team-superlatives-section");
+  const host = document.querySelector("#team-superlatives");
+  const roster = getLensRoster();
+  if (!roster) {
+    if (header) header.innerHTML = "";
+    section?.classList.add("hidden");
+    return;
+  }
+  const model = getSeasonModel();
+  const standing = model?.teams?.get?.(String(roster.rosterId));
+  const manager = roster.manager || {};
+  if (header) {
+    const record = standing?.recordLabel && (standing.wins + standing.losses + standing.ties) > 0
+      ? `${standing.recordLabel} · ${ordinal(standing.rank)} of ${model.standings.length}`
+      : "";
+    header.innerHTML = `
+      <p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
+      <div class="team-header-row">
+        ${renderAvatar(manager, { size: "md" })}
+        <div>
+          <h2>${escapeHtml(manager.teamName || manager.displayName || "Team")}</h2>
+          <p class="muted small">${escapeHtml([manager.teamName ? manager.displayName : "", record].filter(Boolean).join(" · "))}</p>
+        </div>
+      </div>`;
+  }
+  if (!host || !section) return;
+  const playerIds = (roster.assets || []).filter((asset) => asset.assetType === "player").map((asset) => playerIdFromAssetId(asset.assetId)).filter(Boolean);
+  const bundlePlayers = state.valueBundles?.players || {};
+  const ages = {};
+  playerIds.concat(latestStartersFor(state.seasonWeekRows, roster.rosterId, model?.finalThroughWeek)).forEach((id) => {
+    const age = Number(bundlePlayers[`player:${id}`]?.age ?? state.players?.[id]?.age);
+    if (age > 0) ages[id] = age;
+  });
+  const names = withPlayerDirectoryNames(state.valueBundles?.names || state.valueNameMap || {}, state.players);
+  const cards = buildTeamSuperlatives({
+    rosterId: roster.rosterId,
+    rosterPlayerIds: playerIds,
+    weekRows: state.seasonWeekRows,
+    throughWeek: model?.finalThroughWeek,
+    values: state.valueBundles?.sf?.values || state.values || {},
+    names,
+    ages,
+    history: state.valueHistory,
+    latestStarters: latestStartersFor(state.seasonWeekRows, roster.rosterId, model?.finalThroughWeek),
+  });
+  section.classList.toggle("hidden", cards.length === 0);
+  host.innerHTML = cards.map((card) => `
+    <article class="team-superlative">
+      ${renderPlayerFace(card.playerId, card.name, { size: "md" })}
+      <div>
+        <p class="eyebrow">${escapeHtml(card.title)}</p>
+        <h3>${playerLinkHtml({ assetId: `player:${card.playerId}`, name: card.name })}</h3>
+        <p class="muted small">${escapeHtml(card.why)}</p>
+      </div>
+    </article>`).join("");
 }
 
 function teamsRosterVisible() {
@@ -4323,6 +4385,7 @@ async function finishTeamsPagePaint(generation) {
     if (generation !== teamsPaintGeneration || !teamsRosterVisible()) return;
     renderPowerDashboard();
     renderRosterSheet();
+    renderTeamExtras();
   } catch (err) {
     console.warn("Teams page failed to rank rosters", err);
   }
