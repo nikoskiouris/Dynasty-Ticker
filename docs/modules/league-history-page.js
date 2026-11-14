@@ -86,7 +86,7 @@ function renderTrends(rows) {
       </tr>`).join("")}</tbody></table></div></section>`;
 }
 
-export function renderLeagueHistory(archive, { valueNames = {}, values = {}, players = {}, showLineup = false } = {}) {
+export function renderLeagueHistory(archive, { valueNames = {}, values = {}, players = {}, showLineup = false, savedNote = "" } = {}) {
   const seasons = archive?.seasons || [];
   const leagueId = encodeURIComponent(String(archive?.leagueId || ""));
   const name = seasons[0]?.league?.name || "League";
@@ -98,6 +98,7 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
     <p><a href="/l/${leagueId}">← League</a></p>
     <header><h2>${e(name)} All-Time</h2><p class="muted">${e(range)}</p>
       <p class="muted small">12-team Superflex PPR is the only player-value reference. Game records and titles come from Sleeper.</p>
+      ${savedNote ? `<p class="league-saved-note" role="status">${e(savedNote)}</p>` : ""}
     </header>
     ${issues.length ? `<section class="workspace-panel" aria-label="Incomplete league data"><h2>Some history is unavailable</h2>
       <ul>${issues.slice(0, 12).map((issue) => `<li>${e(issue.message || "A Sleeper request failed")}</li>`).join("")}</ul>

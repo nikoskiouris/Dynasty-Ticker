@@ -1,7 +1,7 @@
 import { mountSiteMenu } from "./modules/site-menu.js";
 import { renderToolPicker, moveLeagueControls } from "./modules/tool-picker.js";
 import { renderLeagueHub } from "./modules/league-hub.js";
-import { leagueArchive } from "./modules/league-archive.js";
+import { leagueArchive, readDeskSnapshot, saveDeskSnapshot } from "./modules/league-archive.js";
 import { renderTradeLog, renderTradeLogRows } from "./modules/trade-log.js";
 import { renderLeagueHistory } from "./modules/league-history-page.js";
 import { renderTradeFairness } from "./modules/trade-fairness.js";
@@ -989,6 +989,7 @@ function renderActivePage() {
       })),
       model: getSeasonModel(), transactions: state.transactions, tradesLoaded: state.transactionsLoaded,
       loading: !(archive?.leagueId === state.leagueId || state.leagueHistory.length),
+      savedNote: savedLeagueNote(),
     });
     return;
   }
@@ -1018,6 +1019,7 @@ function renderActivePage() {
           values: state.valueBundles?.sf?.values || state.values || {},
           players: state.players || {},
           showLineup: showLineupAwards,
+          savedNote: savedLeagueNote(),
         })
       : `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
         <p role="status">${escapeHtml(archiveErrorMessage || archiveProgressMessage || "Loading seasons…")}</p>`;
@@ -2788,7 +2790,9 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
 
     const [coreData, nflState] = await Promise.all([
       loadLeagueCoreData(leagueId),
-      apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => null),
+      apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 })
+        .then((row) => { if (row?.season) void saveDeskSnapshot("nfl-state", row); return row; })
+        .catch(async () => (await readDeskSnapshot("nfl-state"))?.data || null),
     ]);
     if (!leagueLoader.isCurrent(token)) return;
     const { league, users, rosters, tradedPicks, drafts } = coreData;
@@ -2875,6 +2879,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.leagueId = leagueId;
     state.leagueName = league?.name || `League ${leagueId}`;
     state.league = league;
+    state.leagueSavedAt = coreData.savedAt || null;
     state.users = users;
     state.rosters = rosters;
     state.tradedPicks = tradedPicks;
@@ -3128,6 +3133,14 @@ function startStandingsPolling() {
   schedule();
 }
 
+function savedLeagueNote() {
+  if (!state.leagueSavedAt) return "";
+  const date = new Date(state.leagueSavedAt);
+  const when = Number.isNaN(date.getTime()) ? "an earlier visit"
+    : date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  return `Sleeper can't be reached. Showing saved data from ${when}.`;
+}
+
 async function loadLeagueCoreData(leagueId) {
   const endpointPlan = [
     { key: "league", label: "league profile", path: sleeperLeaguePath(leagueId) },
@@ -3161,6 +3174,9 @@ async function loadLeagueCoreData(leagueId) {
   if (sleeperLeagueMissing(settled[0])) throw leagueNotFoundError(leagueId);
 
   if (failures.length > 0) {
+    // Sleeper unreachable: a league opened before still shows, marked as saved.
+    const saved = await readDeskSnapshot(`core:${leagueId}`);
+    if (saved?.data?.league) return { ...saved.data, savedAt: saved.savedAt };
     throw new Error(`Failed to load: ${failures.join("; ")}`);
   }
 
@@ -3173,6 +3189,7 @@ async function loadLeagueCoreData(leagueId) {
     winnersBracket: Array.isArray(byKey.winnersBracket) ? byKey.winnersBracket : [],
     losersBracket: Array.isArray(byKey.losersBracket) ? byKey.losersBracket : [],
   };
+  void saveDeskSnapshot(`core:${leagueId}`, core);
   return core;
 }
 
