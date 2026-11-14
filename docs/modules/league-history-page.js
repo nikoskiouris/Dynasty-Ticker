@@ -75,14 +75,25 @@ function renderRecords(book) {
 
 function renderTrends(rows) {
   if (!rows.length) return "";
+  const max = (key) => Math.max(1, ...rows.map((row) => Number(row[key]) || 0));
+  const bar = (row, key, text) => {
+    const value = Number(row[key]);
+    if (!Number.isFinite(value) || row[key] == null) return "—";
+    const width = Math.max(2, Math.round(value / max(key) * 100));
+    return `<span class="trend-cell">${text}<span class="trend-bar" aria-hidden="true"><span style="width:${width}%"></span></span></span>`;
+  };
+  const moves = (row, key) => row.transactionsLoaded ? bar(row, key, whole(row[key])) : "—";
   return `<section class="workspace-panel"><h2>League trends</h2>
+    <p class="muted small">Parity = 100 − (season points spread ÷ the top team's points × 100); higher means a closer league. It is a summary of points scored, not a strength rating. The current season is partial.</p>
     <div class="league-history-scroll" role="region" aria-label="Season statistics table" tabindex="0">
       <table class="league-history-table"><thead><tr><th scope="col">Season</th>
-      <th scope="col">Avg weekly score</th><th scope="col">Trades</th><th scope="col">Waiver & free-agent moves</th>
+      <th scope="col">Avg weekly score</th><th scope="col">Parity</th><th scope="col">Points spread</th><th scope="col">Trades</th><th scope="col">Picks traded</th><th scope="col">Waiver & free-agent moves</th>
       <th scope="col">Games counted</th></tr></thead><tbody>
       ${rows.map((row) => `<tr><th scope="row">${e(row.season)}</th>
         <td>${row.averageScore == null ? "—" : decimal(row.averageScore)}</td>
-        <td>${whole(row.trades)}</td><td>${whole(row.waivers)}</td><td>${whole(row.games)}</td>
+        <td>${row.parity == null ? "—" : whole(row.parity)}</td>
+        <td>${row.pointsSpread == null ? "—" : whole(row.pointsSpread)}</td>
+        <td>${moves(row, "trades")}</td><td>${moves(row, "picksTraded")}</td><td>${moves(row, "waivers")}</td><td>${whole(row.games)}</td>
       </tr>`).join("")}</tbody></table></div></section>`;
 }
 

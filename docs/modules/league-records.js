@@ -164,7 +164,17 @@ export function leagueTrends(archive = {}) {
       row.type === "waiver" || row.type === "free_agent").length;
     const games = seasonGames(entry, archive);
     const scores = games.flatMap((game) => game.teams.map((team) => team.points));
-    return { season, trades, waivers, games: games.length,
+    // Draft picks that changed hands in this season's completed trades.
+    const picksTraded = (archive.transactions?.[season] || []).filter((row) => row.type === "trade")
+      .reduce((total, row) => total + (Array.isArray(row.draft_picks) ? row.draft_picks.length : 0), 0);
+    // Parity: 100 − (season points spread ÷ top season points × 100). Higher = closer league.
+    const pf = (entry.rosters || []).map((roster) => rosterRecord(roster).pf).filter((value) => value > 0);
+    const top = pf.length ? Math.max(...pf) : 0;
+    const spread = pf.length ? top - Math.min(...pf) : null;
+    return { season, trades, waivers, picksTraded, games: games.length,
+      transactionsLoaded: Array.isArray(archive.transactions?.[season]),
+      pointsSpread: spread == null ? null : round2(spread),
+      parity: top > 0 ? Math.round(100 - spread / top * 100) : null,
       averageScore: scores.length ? round2(scores.reduce((total, score) => total + score, 0) / scores.length) : null };
   });
 }

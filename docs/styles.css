@@ -6435,3 +6435,8 @@ html body:not(.league-loaded) .workspace { padding-top: 70px; }
 .league-hub-pick { display:grid; gap:6px; margin:16px 0; }
 .league-hub-pick select { max-width:360px; }
 .calc-subline .verdict-info-toggle:has(.verdict-info-label) { display:inline-flex; gap:6px; align-items:center; margin:0; font-size:var(--fs-sm); }
+
+/* League trends inline bars (ticket 040) */
+.trend-cell { display: inline-flex; flex-direction: column; gap: 3px; min-width: 64px; }
+.trend-bar { display: block; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.trend-bar > span { display: block; height: 100%; background: var(--blue); }
