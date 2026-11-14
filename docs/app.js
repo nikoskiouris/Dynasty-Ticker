@@ -238,7 +238,7 @@ import {
 } from "./modules/verdict-copy.js";
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import { GLOSSARY, bindInfoTips, infoTipMarkup, renderPriceLegend, valuesWorkText } from "./modules/info-tip.js";
-import { decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
+import { LEGACY_FORMAT_NOTE, decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
 import { chooseBestLineup, countStartableAtPosition } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
@@ -2050,7 +2050,10 @@ function sharedVerdictFor(view) {
   const entry = activeSharedTrade(view.draft);
   if (!entry || !state.valueBundles) return null;
   const today = shareSummary(entry.decoded, state.valueBundles);
-  const shared = entry.snapshot ? shareSummary(entry.decoded, entry.snapshot, {}, state.valueBundles) : null;
+  // A 1QB code was shared on 1QB prices we no longer publish. An old SF
+  // snapshot is not what the sender saw, so do not print it as "Shared on".
+  const legacy = Boolean(entry.decoded?.legacyFormat);
+  const shared = entry.snapshot && !legacy ? shareSummary(entry.decoded, entry.snapshot, {}, state.valueBundles) : null;
   const moved = Boolean(shared) && !sameVerdict(shared, today);
   if (entry.settled && !entry.reported) {
     entry.reported = true;
@@ -2060,8 +2063,9 @@ function sharedVerdictFor(view) {
     today,
     shared: moved ? shared : null,
     date: stampLabel(entry.decoded.stamp),
+    legacy,
     // A link shared on today's prices is current, not "no longer saved".
-    missing: entry.snapshotState === "missing" && !sharedOnCurrentPrices(entry.decoded.stamp),
+    missing: !legacy && entry.snapshotState === "missing" && !sharedOnCurrentPrices(entry.decoded.stamp),
   };
 }
 
@@ -5779,7 +5783,7 @@ function verdictLineHtml(line) {
 // compact two-row compare (sharer's date, then today in bold) and one line.
 function renderSharedVerdictHead(shared) {
   if (!shared.shared) {
-    const note = shared.missing ? missingBoardNote(shared.date) : "";
+    const note = shared.legacy ? LEGACY_FORMAT_NOTE : shared.missing ? missingBoardNote(shared.date) : "";
     return `<h3>${verdictLineHtml(shared.today.label)}</h3>${note ? `<p class="calc-shared-note">${escapeHtml(note)}</p>` : ""}`;
   }
   return `
