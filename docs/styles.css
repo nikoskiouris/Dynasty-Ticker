@@ -6279,6 +6279,7 @@ body.launch-open .workspace { display:block; }
 .rank-name-link { text-align:left; font-weight:700; }
 .rank-position-tag,.rank-owner { display:block; font-size:.7rem; opacity:.7; margin-top:3px; }
 .rank-table-value { font-weight:750; }
+.rank-narrow-label { display:none; }
 .rank-pick-token { width:32px; height:32px; display:grid; place-items:center; border:1px solid currentColor; border-radius:50%; font-size:.75rem; }
 .rankings-footnote { margin-top:24px; font-size:.8rem; line-height:1.6; color:var(--muted,#a7b2c1); }
 @media(max-width:560px) {
@@ -6286,6 +6287,7 @@ body.launch-open .workspace { display:block; }
  .rankings-table thead th { font-size:.6rem; }
  .rankings-table .rank-face-col { width:28px; }
  .rankings-table .rank-team-col,.rank-wide-label { display:none; }
+ .rank-narrow-label { display:inline; }
  .rankings-table thead th:nth-child(2) { width:33%; }
  .rankings-table .player-face,.rank-pick-token { width:24px; height:24px; }
  .rank-name-link { font-size:.72rem; }
