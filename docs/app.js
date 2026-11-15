@@ -5130,7 +5130,6 @@ function addTalkChip(target) {
     assetType: target.dataset.kind === "pick" ? "pick" : "player",
     leagueId: target.dataset.leagueId || "",
   });
-  if (added) rememberTalkChange(`add ${target.dataset.name}`, before, state.valueCalc);
   const label = side === "right" ? ("You get") : ("You give");
   const after = buildDraftView();
   const last = tradeTalkLog[0];
@@ -5138,6 +5137,7 @@ function addTalkChip(target) {
   // "Jefferson and a first for Chase" asks twice. Answering one keeps the other.
   const answered = target.closest(".talk-choice")?.getAttribute("aria-label") || "";
   const groups = (last?.groups || []).filter((group) => !group.ask || group.title !== answered);
+  if (added) rememberTalkChange(`add ${target.dataset.name}`, before, state.valueCalc);
   const waiting = groups.some((group) => group.ask);
   tradeTalkLog = [{
     say: last?.say || target.dataset.name || "",
