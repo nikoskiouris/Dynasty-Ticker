@@ -205,6 +205,17 @@ export function sameMoney(rows, assetId, radius = 2) {
   return list.slice(start, end).filter((row) => row.assetId !== assetId);
 }
 
+// A sortable column header: a button inside the th, aria-sort on the th.
+function sortHeader(key, label, view = {}, cls = "") {
+  const sort = view?.sort || "rank";
+  const active = key === "age" ? sort.startsWith("age") : sort === key;
+  const next = key === "age" ? (sort === "age-asc" ? "age-desc" : "age-asc") : key;
+  const ariaSort = !active ? "none" : sort === "age-desc" ? "descending" : sort === "rank" ? "descending" : "ascending";
+  const arrow = active ? (sort === "age-desc" || sort === "rank" ? " ↓" : " ↑") : "";
+  const hint = key === "age" ? (next === "age-asc" ? "youngest first" : "oldest first") : key === "team" ? "A to Z" : "highest value first";
+  return `<th scope="col"${cls ? ` class="${cls}"` : ""} aria-sort="${ariaSort}"><button type="button" class="rank-sort-btn" data-action="rank-sort" data-sort="${next}" aria-label="Sort by ${escapeHtml(label.replace(/<[^>]+>/g, ""))}, ${hint}">${label}${arrow}</button></th>`;
+}
+
 export function rankView({
   rows = [],
   query = "",
@@ -220,8 +231,10 @@ export function rankView({
   shown = RANK_PAGE_SIZE,
   history = null,
   updated = null,
+  sort = "rank",
 } = {}) {
-  const visible = filterRankRows(rows, { query, position });
+  const sortKey = RANK_SORTS.includes(sort) ? sort : "rank";
+  const visible = sortRankRows(filterRankRows(rows, { query, position }), sortKey);
   const pageCount = Math.max(RANK_PAGE_SIZE, Number(shown) || RANK_PAGE_SIZE);
   const selected = rows.find((row) => row.assetId === selectedId) || null;
   let card = null;
@@ -255,7 +268,27 @@ export function rankView({
     leagueOpen: Boolean(leagueOpen),
     history,
     updated: updated || null,
+    sort: sortKey,
   };
+}
+
+// Rank (value) is the default order. Age and Team re-sort the filtered list;
+// picks have neither, so they go last. Ties keep value order.
+export const RANK_SORTS = Object.freeze(["rank", "age-asc", "age-desc", "team"]);
+export function sortRankRows(rows, sort = "rank") {
+  const list = Array.isArray(rows) ? rows : [];
+  if (sort === "rank") return list;
+  const age = (row) => (row.kind !== "pick" && Number.isFinite(Number(row.age)) && Number(row.age) > 0 ? Number(row.age) : null);
+  const team = (row) => (row.kind === "pick" ? null : String(row.team || "FA"));
+  const keyed = list.map((row, index) => ({ row, index }));
+  keyed.sort((a, b) => {
+    const x = sort === "team" ? team(a.row) : age(a.row);
+    const y = sort === "team" ? team(b.row) : age(b.row);
+    if (x == null || y == null) return (x == null) - (y == null) || a.index - b.index;
+    const diff = sort === "team" ? String(x).localeCompare(String(y)) : sort === "age-desc" ? y - x : x - y;
+    return diff || a.index - b.index;
+  });
+  return keyed.map(({ row }) => row);
 }
 
 export function renderPlayerConnect() {
@@ -300,7 +333,7 @@ export function renderRanksBody(view) {
   if (view?.card) return renderPlayerPage(view.card, view);
   if (view?.missing) return `<article class="player-detail" role="status"><button type="button" class="ghost-btn player-return" data-action="player-rankings-return">Return to player rankings</button><h1>We can't find that player</h1><p>The link may be old, or we have no price for him right now. Dynasty Ticker does not guess one.</p></article>`;
   const rows = Array.isArray(view?.rows) ? view.rows : [];
-  const table = rows.length ? `<div class="rankings-table-wrap"><table class="rankings-table"><caption class="sr-only">Player Rankings · 12-team Superflex PPR dynasty</caption><thead><tr><th scope="col" class="rank-face-col"><span class="sr-only">Face</span></th><th scope="col">Player</th><th scope="col"><span class="rank-wide-label">Overall </span>Rank</th><th scope="col"><span class="rank-wide-label">Position </span>Rank</th><th scope="col">Age</th><th scope="col" class="rank-team-col">Team</th><th scope="col">Value</th></tr></thead><tbody>${rows.map(renderRankTableRow).join("")}</tbody></table></div>` : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
+  const table = rows.length ? `<div class="rankings-table-wrap"><table class="rankings-table"><caption class="sr-only">Player Rankings · 12-team Superflex PPR dynasty</caption><thead><tr><th scope="col" class="rank-face-col"><span class="sr-only">Face</span></th><th scope="col">Player</th>${sortHeader("rank", '<span class="rank-wide-label">Overall </span>Rank', view)}<th scope="col"><span class="rank-wide-label">Position </span>Rank</th>${sortHeader("age", "Age", view)}${sortHeader("team", "Team", view, "rank-team-col")}<th scope="col">Value</th></tr></thead><tbody>${rows.map(renderRankTableRow).join("")}</tbody></table></div>` : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
   const more = Number(view?.hidden) > 0 ? `<button type="button" class="ghost-btn ranks-more" data-action="ranks-more">Show more</button>` : "";
   return `${table}${more}<footer class="rankings-footnote"><p>Our algorithm is based around age, role and opportunity, how well a player scores, how often he plays, his NFL team and draft capital, and how long players at his position usually stay good, plus many other factors, updated daily.</p>${renderValueScaleExplainer()}${renderValuesFreshness(view?.updated, { align: "end" })}</footer>`;
 }

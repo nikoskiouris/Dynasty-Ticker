@@ -1150,6 +1150,7 @@ function rankViewModel() {
     rows: cachedRankRows(),
     query: state.ranks?.query || "",
     position: state.ranks?.position || "ALL",
+    sort: state.ranks?.sort || "rank",
     shown: state.ranks?.shown || RANK_PAGE_SIZE,
     format: activeRankFormat(),
     leagueFormat: state.league ? "sf" : "",
@@ -6253,6 +6254,13 @@ function handleWorkspaceClick(event) {
         break;
       }
       goSiteHome({ history: "push" });
+      break;
+    case "rank-sort":
+      state.ranks.sort = target.dataset.sort || "rank";
+      state.ranks.shown = RANK_PAGE_SIZE;
+      renderRankSurfaces();
+      document.querySelector(`.rankings-table [data-action="rank-sort"][data-sort]`)?.closest("table")
+        ?.querySelector('th[aria-sort="ascending"] button, th[aria-sort="descending"] button')?.focus({ preventScroll: true });
       break;
     case "rank-pos":
       state.ranks.position = target.dataset.pos || "ALL";
