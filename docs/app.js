@@ -8746,14 +8746,65 @@ async function loadPlayerNoteContext() {
   return { nflPlayers, seasonStats, draftPicks, currentSeason, previousSeason };
 }
 
+// Player notes read only these fields. A finished season's stats never
+// change, so a slim copy is kept in the browser instead of re-downloading
+// Sleeper's ~1.2 MB file on every Players visit.
+const NOTE_STAT_FIELDS = ["gp", "gms_active", "pts_ppr", "pass_yd", "pass_td", "pass_int", "rush_yd", "rush_td", "rec", "rec_yd", "rec_td", "fgm", "fga"];
+const SEASON_STATS_KEY = "dt-season-stats-v1";
+
+function slimSeasonStats(stats) {
+  const slim = {};
+  for (const [playerId, row] of Object.entries(stats || {})) {
+    if (!row || typeof row !== "object") continue;
+    const kept = {};
+    for (const field of NOTE_STAT_FIELDS) {
+      const value = Number(row[field]);
+      if (row[field] != null && Number.isFinite(value)) kept[field] = value;
+    }
+    if (Object.keys(kept).length) slim[playerId] = kept;
+  }
+  return slim;
+}
+
+function readSavedSeasonStats(year) {
+  try {
+    const raw = safeStorage("localStorage")?.getItem(`${SEASON_STATS_KEY}:${year}`);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" && Object.keys(parsed).length ? parsed : null;
+  } catch { return null; }
+}
+
+function saveSeasonStats(year, slim) {
+  try {
+    const storage = safeStorage("localStorage");
+    if (!storage) return;
+    // One finished season at a time: drop older copies first.
+    for (let index = storage.length - 1; index >= 0; index -= 1) {
+      const key = storage.key(index);
+      if (key?.startsWith(`${SEASON_STATS_KEY}:`) && key !== `${SEASON_STATS_KEY}:${year}`) storage.removeItem(key);
+    }
+    storage.setItem(`${SEASON_STATS_KEY}:${year}`, JSON.stringify(slim));
+  } catch { /* Storage full or blocked: memory cache still works this visit. */ }
+}
+
 async function loadSeasonStats(season) {
   const year = String(season || "").trim();
   if (!year) return {};
   if (seasonStatsCache.season === year && seasonStatsCache.stats) {
     return seasonStatsCache.stats;
   }
+  // Only Sleeper's NFL state says a season is over; the calendar year can be
+  // ahead of it in January.
+  const currentSeason = Number(state.nflState?.league_season || state.nflState?.season);
+  const finished = Number.isFinite(currentSeason) && Number(year) < currentSeason;
+  const saved = finished ? readSavedSeasonStats(year) : null;
+  if (saved) {
+    seasonStatsCache = { season: year, stats: saved };
+    return saved;
+  }
   const stats = await apiGet(`/stats/nfl/regular/${encodeURIComponent(year)}`, { timeoutMs: 20000 });
-  const payload = stats && typeof stats === "object" ? stats : {};
+  const payload = slimSeasonStats(stats && typeof stats === "object" ? stats : {});
+  if (finished) saveSeasonStats(year, payload);
   seasonStatsCache = { season: year, stats: payload };
   return payload;
 }
