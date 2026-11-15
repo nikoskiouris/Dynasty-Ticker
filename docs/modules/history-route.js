@@ -406,6 +406,7 @@ export function pathForPlace({
   landing = false,
   playersBoard = false,
   format = "",
+  lensRosterId = null,
 } = {}) {
   const placePage = page || tab;
   const placeRoom = room || view;
@@ -428,6 +429,10 @@ export function pathForPlace({
   else if (placePage === "trades" && placeRoom === "calculator") href = tradeHref(give, get, leagueId, { format });
   else if (leagueSegment && LEAGUE_ID.test(String(leagueId || ""))) {
     href = urlPath("l", leagueId, leagueSegment);
+    // Viewing another manager's team: the address names it, so reload and
+    // shared links open the same team.
+    const lens = Number(lensRosterId);
+    if (placeRoom === "team" && Number.isFinite(lens) && lens > 0) href += `?team=${lens}`;
   }
   return rememberLeague(href, leagueId);
 }

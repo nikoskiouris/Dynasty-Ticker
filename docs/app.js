@@ -1303,6 +1303,7 @@ function bootFromUrl() {
   const parsed = parseShareParams(window.location.search);
   if (parsed.invalidLeague) showInvalidLeagueLink();
   if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
+  if (parsed.teamRosterId) state.pendingLensRosterId = parsed.teamRosterId;
   const hashToken = String(window.location.hash || "").replace(/^#/, "");
   const routeDrivesPlace = !route.unknown && !route.badLeague && !(route.name === "home" && (parsed.tab || hashToken));
   if (route.badLeague) {
@@ -1859,6 +1860,7 @@ function applyDeskPopState(historyState) {
     if (!state.pendingPlace.page && parsed.tab) state.pendingPlace = { page: parsed.tab, room: parsed.view };
     if (parsed.week) state.pendingWeek = parsed.week;
     if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
+    if (parsed.teamRosterId) state.pendingLensRosterId = parsed.teamRosterId;
     void loadLeagueById(leagueId, { fromHistory: true });
     return;
   }
@@ -2269,6 +2271,7 @@ function buildShareUrl(overrides = {}) {
     playerId,
     playerName: routedPlayerName(),
     leagueId: state.leagueId,
+    lensRosterId: state.lensRosterId,
     give: draftSideIds("left"),
     get: draftSideIds("right"),
     shareCode: activeShareCode(),
@@ -2895,6 +2898,11 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     // route with "/" for a moment (an extra "/" pageview and landing_view).
     // showAppPages below writes the real route.
     hydrateManagerSelector({ syncUrl: false });
+    if (state.pendingLensRosterId != null) {
+      // Only a roster in this league; an unknown ?team= is dropped from the URL.
+      if (findNormalizedRoster(state.pendingLensRosterId)) setLensRoster(state.pendingLensRosterId);
+      state.pendingLensRosterId = null;
+    }
     renderSessionSnapshot();
     el.identitySection?.classList.remove("hidden");
     if (state.pendingWeek) {
@@ -6289,11 +6297,13 @@ function handleWorkspaceClick(event) {
     case "set-lens": {
       setLensRoster(target.dataset.rosterId);
       renderActivePage();
+      updateUrlState({ mode: "replace" });
       break;
     }
     case "lens-me": {
       setLensRoster(state.meRosterId);
       renderActivePage();
+      updateUrlState({ mode: "replace" });
       break;
     }
     case "set-lens-teams": {
@@ -6427,6 +6437,7 @@ function handleWorkspaceChange(event) {
     case "lens-roster": {
       setLensRoster(target.value);
       renderActivePage();
+      updateUrlState({ mode: "replace" });
       break;
     }
     case "draft-partner": {
