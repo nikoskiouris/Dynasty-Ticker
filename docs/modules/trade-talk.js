@@ -733,10 +733,10 @@ function listNames(items) {
 export function tradeTalkReply(plan, result, { giveLabel = "You give", getLabel = "You get" } = {}) {
   const lines = [];
   const bySide = (side) => result.added.filter((add) => add.side === side);
+  if (plan.intent === "partner") lines.push(`Trading with ${plan.partnerName || "that team"}. Add what you would give and what you want.`);
   if (plan.intent === "empty") lines.push("Describe a trade, like “Gibbs and a 2027 1st for Nabers.”");
   if (plan.intent === "clear") lines.push("Cleared both sides. Restore draft brings it back.");
   if (plan.intent === "flip") lines.push("Flipped the sides.");
-  if (plan.intent === "partner") lines.push(`Trading with ${plan.partnerName || "that team"}. Add what you would give and what you want.`);
   if (result.removed.length) lines.push(`Took out ${listNames(result.removed)}.`);
   const give = bySide("left");
   const get = bySide("right");
