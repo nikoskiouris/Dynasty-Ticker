@@ -129,7 +129,8 @@ export function resolvePickProjection({
   };
 }
 
-// "2027 1st (1.04), projected to finish 9th of 12 from YianGhan"
+// "2027 1st (1.04) from YianGhan, projected 9th of 12": the projection is
+// where that team (the pick's original owner) finishes, so it follows the name.
 // A later year with no slot: "2028 1st from YianGhan".
 // A mock prospect name is not part of the sentence.
 export function formatPickLabel(pick = {}) {
@@ -145,9 +146,9 @@ export function formatPickLabel(pick = {}) {
   const tier = formatPickBucketLabel(pick.bucket);
   const head = [season, tier, ordinal(round)].filter(Boolean).join(" ");
   const slotBit = hasSlot ? ` (${formatPickSlotLabel(round, slot)})` : "";
-  const basis = hasPlace ? `, projected to finish ${ordinal(rank)} of ${total}` : "";
   const whose = ownerName ? ` from ${ownerName}` : "";
-  return `${head}${slotBit}${basis}${whose}`;
+  const basis = hasPlace ? `${ownerName ? "," : " ·"} projected ${ordinal(rank)} of ${total}` : "";
+  return `${head}${slotBit}${whose}${basis}`;
 }
 
 function slotRank(row) {
