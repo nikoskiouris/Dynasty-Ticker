@@ -5718,6 +5718,7 @@ function renderDraftVerdict(view) {
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
         ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
+        ${bothSides && adjustment?.amount > 0 ? `<p class="calc-extra muted small">Counts ${escapeHtml(formatNumber(adjustment.amount))} extra for fewer, better pieces in what ${escapeHtml(draftReceivingTeam(adjustment.side === "left" ? "left" : "right", view))} receives. The column totals leave it out.</p>` : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpLine(evenUp, evenSide))}</p>` : ""}
         <details class="calc-method calc-why">
           <summary>Why?</summary>
