@@ -6890,18 +6890,19 @@ function buildPositionPowerSummary(roster, values, league, context, position) {
   const covered = positionRoomIsCovered(roster, values, league, position);
   // The rank decides the word. A covered room used to read "stable" even at
   // 12th of 12, beside a Next move that says to upgrade it.
+  // Plain words: "edge" alone did not say what it was an edge in.
   const label = percentile >= 0.72
-    ? "edge"
+    ? "Strength"
     : percentile <= 0.42
-      ? (covered ? "starters covered, upgrade target" : "upgrade target")
-      : "stable";
+      ? (covered ? "Starters covered, upgrade target" : "Upgrade target")
+      : "Middle of the league";
   return {
     position,
     value,
     percentile,
     rank,
     rankLabel: `${ordinal(rank)} / ${context.totalTeams}`,
-    label: `${label} • ${formatNumber(value)}`,
+    label: `${label} · starters worth ${formatNumber(value)}`,
   };
 }
 
