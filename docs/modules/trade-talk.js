@@ -437,7 +437,6 @@ function inferPartner(plan, ctx) {
 
 const GET_LEAD = /\b(?:got offered|was offered|been offered|being offered|i'm offered|im offered|am offered|(?:they|he|she|someone|somebody)(?:\s+(?:offered|offers|is offering|are offering)|(?:'s|s|'re|re) offering)|offered me|offers me|offering me|offer me|gives me|give me|giving me|i get|i'd get|id get|i receive|i'm getting|im getting|getting|receiving|receive)\b\s*/;
 const GIVE_LEAD = /^(?:[a-z0-9@_.,']+\s+){0,3}?(?:i traded|traded|i gave up|gave up|i gave|gave|i sold|sold|i give|i'd give|id give|i trade|i'm trading|im trading|trading|trade|i offer|i offered|offering|offer|sell|selling|send|sending|give|giving|i do|do)\b\s*/;
-const NAMED_OFFER = /^([a-z0-9@_.']+)\s+(?:offers|offered|is offering|offering|gives|gave|will give|would give|sends|sent|proposes|proposed)\s+/;
 const RIGHT_VERB = /^(?:add|adds|throw in|throws in|toss in|include|includes|give|gives|kick in|kicks in)\b\s*/;
 const RIGHT_ADD = /^(?:(?:they|he|she|them)\s+(?:add|adds|throw in|throws in|toss in|include|includes|give|gives|kick in|kicks in)|ask for|ask them for|have them add|make them add|i want|i get|get|request|and they add)\b\s*/;
 const PRONOUNS = new Set(["me", "him", "her", "them", "my", "his", "their", "us", "it"]);
@@ -620,7 +619,7 @@ export function parseTradeTalk(message, ctx = {}) {
     let firstSide = "left";
     let lead = "";
     // "zim8box offers McConkey for my 1st": a named manager's offer is what I get.
-    const namedOffer = first.match(NAMED_OFFER);
+    const namedOffer = first.match(/^([a-z0-9@_.']+)\s+(?:offers|offered|is offering|offering|gives|gave|will give|would give|sends|sent|proposes|proposed)\s+/);
     const offerer = namedOffer && findManager(namedOffer[1], context.managers);
     const getLead = offerer && String(offerer.rosterId) !== String(context.meRosterId ?? "")
       ? Object.assign([namedOffer[0].slice(namedOffer[1].length)], { index: namedOffer[1].length })
