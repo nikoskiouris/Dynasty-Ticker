@@ -20,6 +20,12 @@ export function playersAndPicksLabel(count) {
   return n === 1 ? "1 player or pick" : `${formatNumber(n)} players & picks`;
 }
 
+// "1 game", "3 games". many defaults to one + "s".
+export function countLabel(count, one, many = `${one}s`) {
+  const n = Number(count) || 0;
+  return `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+}
+
 export function formatSignedNumber(value) {
   const numericValue = Number(value) || 0;
   return `${numericValue > 0 ? "+" : ""}${formatNumber(numericValue)}`;
