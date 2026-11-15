@@ -186,10 +186,10 @@ export function buildRankBoard({
 
 export function filterRankRows(rows, { query = "", position = "ALL" } = {}) {
   const want = foldRankQuery(query);
-  // "jsn" also finds Jaxon Smith-Njigba, and still finds any name containing "jsn".
-  const alias = foldRankQuery(playerAliasName(query));
   const pos = String(position || "ALL").toUpperCase();
   const floor = want ? RANK_SEARCH_FLOOR : (pos === "ALL" ? RANK_LIST_FLOOR : RANK_POSITION_FLOOR);
+  // "jsn" also finds Jaxon Smith-Njigba, and still finds any name containing "jsn".
+  const alias = foldRankQuery(playerAliasName(query));
   return (Array.isArray(rows) ? rows : []).filter((row) => {
     if (pos === "PICK" && row.kind !== "pick") return false;
     if (pos !== "ALL" && pos !== "PICK" && row.position !== pos) return false;
