@@ -723,6 +723,12 @@ function listNames(items) {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
+// "Marvin Harrison Jr." already ends the sentence; don't print "Jr..".
+export function endSentence(text) {
+  const line = String(text || "").trimEnd();
+  return /[.!?]$/.test(line) ? line : `${line}.`;
+}
+
 // Plain lines for the reply bubble. The verdict line is added by the caller.
 export function tradeTalkReply(plan, result, { giveLabel = "You give", getLabel = "You get" } = {}) {
   const lines = [];
@@ -730,16 +736,16 @@ export function tradeTalkReply(plan, result, { giveLabel = "You give", getLabel 
   if (plan.intent === "empty") lines.push("Describe a trade, like “Gibbs and a 2027 1st for Nabers.”");
   if (plan.intent === "clear") lines.push("Cleared both sides. Restore draft brings it back.");
   if (plan.intent === "flip") lines.push("Flipped the sides.");
-  if (result.removed.length) lines.push(`Took out ${listNames(result.removed)}.`);
+  if (result.removed.length) lines.push(endSentence(`Took out ${listNames(result.removed)}`));
   const give = bySide("left");
   const get = bySide("right");
   if (plan.intent === "trade" || plan.intent === "shop") {
-    if (give.length) lines.push(`${giveLabel}: ${listNames(give)}.`);
-    if (get.length) lines.push(`${getLabel}: ${listNames(get)}.`);
+    if (give.length) lines.push(endSentence(`${giveLabel}: ${listNames(give)}`));
+    if (get.length) lines.push(endSentence(`${getLabel}: ${listNames(get)}`));
   } else {
     // "Added 2028 2nd to You give." read oddly; name the side as a label.
-    if (give.length) lines.push(`${giveLabel}: added ${listNames(give)}.`);
-    if (get.length) lines.push(`${getLabel}: added ${listNames(get)}.`);
+    if (give.length) lines.push(endSentence(`${giveLabel}: added ${listNames(give)}`));
+    if (get.length) lines.push(endSentence(`${getLabel}: added ${listNames(get)}`));
   }
   (plan.notes || []).forEach((note) => lines.push(note));
   if (result.skipped.length) lines.push(`${listNames(result.skipped)} ${result.skipped.length === 1 ? "is" : "are"} already in the trade.`);
