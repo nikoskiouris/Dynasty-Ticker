@@ -2107,6 +2107,13 @@ document.addEventListener("click", (event) => {
   event.preventDefault();
   forgetLastLeague();
   renderLandingResume();
+  // Home's tool picker reads the same record: redraw it without the league.
+  const home = document.querySelector("#home-page-content");
+  if (home?.contains(forget)) {
+    renderToolPicker(home);
+    home.querySelector(".tool-picker-cards a")?.focus?.({ preventScroll: true });
+    return;
+  }
   document.querySelector(".launch-connect")?.focus({ preventScroll: true });
 });
 
