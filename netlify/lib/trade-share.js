@@ -18,6 +18,7 @@ export const SHARE_NAMES_KEY = "sleeper-player-names-v1";
 const NAMES_TTL_MS = 24 * 60 * 60 * 1000;
 const VALUES_TTL_MS = 10 * 60 * 1000;
 export const SITE_ORIGIN = "https://dynastyticker.com";
+export const CARD_DESIGN = "c2"; // c2: columns named Team 1 / Team 2 receives
 export const PAGE_CACHE = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
 export const CARD_CACHE = "public, max-age=31536000, immutable";
 export const PAGE_CSP = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'";
@@ -78,7 +79,9 @@ export function shareText(summary, { today = null } = {}) {
 export function injectShareMeta(html, { summary, today = null, code, origin = SITE_ORIGIN, version = "" }) {
   const { title, description, alt } = shareText(summary, { today });
   const url = `${origin}${sharePath(code)}`;
-  const image = `${origin}${shareImagePath(code, version)}`;
+  // The card URL is cached as immutable. The design suffix changes when the
+  // card's look or wording changes, so links fetch the new card.
+  const image = `${origin}${shareImagePath(code, `${version || ""}${CARD_DESIGN}`)}`;
   const tags = [
     `<meta property="og:title" content="${escapeMarkup(title)}" />`,
     `<meta property="og:description" content="${escapeMarkup(description)}" />`,
