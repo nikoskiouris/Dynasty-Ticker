@@ -4814,7 +4814,7 @@ function refreshSmartTradeSearch(input) {
   const view = buildDraftView();
   const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
   const rows = query ? listValueCalcAssets(view.basis.values, names, { query, limit: 20, minSeason: nextRookieDraftSeason() }) : [];
-  list.innerHTML = rows.map((row, i) => `<div id="smart-option-${i}" class="smart-trade-option" role="option" aria-selected="false">${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}<span class="smart-trade-name">${escapeHtml(row.name)} <small>${formatNumber(row.value)}</small></span>${["right", "left"].map((side) => `<button type="button" class="calc-item smart-trade-add" data-action="smart-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType}" aria-label="Add ${escapeHtml(row.name)} to ${escapeHtml(draftReceivingTeam(side, view))}">→ ${side === "right" ? "Team 1" : "Team 2"}</button>`).join("")}</div>`).join("");
+  list.innerHTML = rows.map((row, i) => `<div id="smart-option-${i}" class="smart-trade-option" role="option" aria-selected="false">${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}<span class="smart-trade-name">${escapeHtml(row.name)} <small>${formatNumber(row.value)}</small></span>${["right", "left"].map((side) => `<button type="button" class="calc-item smart-trade-add" data-action="smart-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType}" aria-label="Add ${escapeHtml(row.name)} to ${escapeHtml(draftReceivingTeam(side, view))}" title="${escapeHtml(draftReceivingTeam(side, view))} receives">→ ${escapeHtml(shortTeamLabel(draftReceivingTeam(side, view)))}</button>`).join("")}</div>`).join("");
   list.hidden = !rows.length;
   input.setAttribute("aria-expanded", rows.length ? "true" : "false");
   input.removeAttribute("aria-activedescendant");
@@ -5240,6 +5240,12 @@ function renderDraftNotice() {
       </div>
     </div>
   `;
+}
+
+// The add buttons name the column the same way its header does, kept short.
+function shortTeamLabel(name) {
+  const text = String(name || "").trim();
+  return text.length > 14 ? `${text.slice(0, 13).trimEnd()}…` : text;
 }
 
 function draftReceivingTeam(side, view) {
