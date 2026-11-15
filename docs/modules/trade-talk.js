@@ -241,6 +241,11 @@ function splitPieces(text) {
 // Owner words in front of a piece: "my", "his", "their", "chris's".
 function pullOwner(piece, managers, meRosterId) {
   let text = piece.replace(PIECE_FILLER, "").trim();
+  // "a 2nd from them", "a 1st from me": the owner said after the piece.
+  const fromThem = text.match(/^(.+?)\s+(?:from|of)\s+(?:them|him|her|theirs|his)$/);
+  if (fromThem) return { text: fromThem[1].replace(PIECE_FILLER, "").trim(), owner: "partner" };
+  const fromMe = text.match(/^(.+?)\s+(?:from (?:me|us)|of mine|of ours)$/);
+  if (fromMe) return { text: fromMe[1].replace(PIECE_FILLER, "").trim(), owner: "me" };
   const mine = text.match(/^(?:my|mine|our)\s+(.*)$/);
   if (mine) return { text: mine[1], owner: "me" };
   const theirs = text.match(/^(?:his|her|their|them|theirs)\s+(.*)$/);
