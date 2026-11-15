@@ -120,8 +120,9 @@ const ROUTE_TEMPLATES = [
   [/^\/players\/?$/, "/players"],
   [/^\/trade\/?$/, "/trade"],
   [/^\/connect\/?$/, "/connect"],
+  [/^\/leagues\/?$/, "/leagues"],
   [/^\/l\/[^/]+\/?$/, "/l/:id"],
-  [/^\/l\/[^/]+\/(team|ideas|league|week|activity|history)\/?$/, "/l/:id/$1"],
+  [/^\/l\/[^/]+\/(team|standings|trades|ideas|league|week|activity|history)\/?$/, "/l/:id/$1"],
   [/^\/player\/[^/]+(?:\/[^/]*)?\/?$/, "/player/:id"],
   [/^\/t\/[^/]+\/?$/, "/t/:code"],
 ];
