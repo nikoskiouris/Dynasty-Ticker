@@ -551,6 +551,12 @@ export function parseTradeTalk(message, ctx = {}) {
     return plan;
   };
 
+  // "Trade with zim8box", "with zim8box": pick the partner, keep the pieces.
+  if (partner && (!body || /^(?:trade|trading|a trade|deal|a deal|talk|talking|negotiate|negotiating|start)$/.test(body))) {
+    const plan = blankPlan("partner");
+    plan.partnerName = partner.displayName || partner.teamName || "";
+    return finish(plan);
+  }
   if (!body) return finish(blankPlan(asked ? "verdict" : "empty"));
   if (/^(?:clear|reset|start over|new trade|empty)(?: it| the trade| everything| all| both sides)?$/.test(body)) return finish(blankPlan("clear"));
   if (/^(?:flip|swap|switch|reverse)(?: it| the trade| sides| the sides| them)?$/.test(body)) return finish(blankPlan("flip"));
@@ -730,6 +736,7 @@ export function tradeTalkReply(plan, result, { giveLabel = "You give", getLabel 
   if (plan.intent === "empty") lines.push("Describe a trade, like “Gibbs and a 2027 1st for Nabers.”");
   if (plan.intent === "clear") lines.push("Cleared both sides. Restore draft brings it back.");
   if (plan.intent === "flip") lines.push("Flipped the sides.");
+  if (plan.intent === "partner") lines.push(`Trading with ${plan.partnerName || "that team"}. Add what you would give and what you want.`);
   if (result.removed.length) lines.push(`Took out ${listNames(result.removed)}.`);
   const give = bySide("left");
   const get = bySide("right");
