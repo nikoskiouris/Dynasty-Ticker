@@ -435,8 +435,8 @@ function inferPartner(plan, ctx) {
   return ctx.managers.find((manager) => String(manager.rosterId) === id)?.rosterId ?? null;
 }
 
-const GET_LEAD = /\b(?:got offered|was offered|been offered|being offered|i'm offered|im offered|am offered|(?:they|he|she|someone|somebody)(?:\s+(?:(?:offered|offers|offer|would give|will give)(?:\s+me)?|is offering|are offering)|(?:'s|s|'re|re) offering)|offered me|offers me|offering me|offer me|gives me|give me|giving me|i get|i'd get|id get|i receive|i'm getting|im getting|getting|receiving|receive)\b\s*/;
-const GIVE_LEAD = /^(?:[a-z0-9@_.,']+\s+){0,3}?(?:i traded|traded|i gave up|gave up|i gave|gave|i sold|sold|i give|i'd give|id give|i trade|i'm trading|im trading|trading|trade|i offer|i offered|offering|offer|sell|selling|send|sending|give|giving|i do|do)\b\s*/;
+const GET_LEAD = /\b(?:got offered|was offered|been offered|being offered|i'm offered|im offered|am offered|(?:they|he|she|someone|somebody)(?:\s+(?:(?:offered|offers|offer|would give|will give)(?:\s+me)?|is offering|are offering)|(?:'s|s|'re|re) offering)|offered me|offers me|offering me|offer me|gives me|give me|giving me|i get|i'd get|id get|i receive|i'm getting|im getting|getting|receiving|receive|^offered|i'd buy|id buy|i buy|buy|buying|acquire|acquiring)\b\s*/;
+const GIVE_LEAD = /^(?:[a-z0-9@_.,']+\s+){0,3}?(?:trade away|trading away|i traded|traded|i gave up|gave up|i gave|gave|i sold|sold|i give|i'd give|id give|i trade|i'm trading|im trading|trading|trade|deal|dealing|i offer|i offered|offering|offer|sell|selling|send|sending|give|giving|i do|do)\b\s*/;
 const RIGHT_VERB = /^(?:add|adds|throw in|throws in|toss in|include|includes|give|gives|kick in|kicks in)\b\s*/;
 const RIGHT_ADD = /^(?:(?:they|he|she|them)\s+(?:add|adds|throw in|throws in|toss in|include|includes|give|gives|kick in|kicks in)|ask for|ask them for|have them add|make them add|i want|i get|get|request|and they add)\b\s*/;
 const PRONOUNS = new Set(["me", "him", "her", "them", "my", "his", "their", "us", "it"]);
@@ -574,6 +574,15 @@ export function parseTradeTalk(message, ctx = {}) {
     compared = true;
   }
 
+  // "give Bijan get Gibbs", "I give up Bijan and get Gibbs", "I receive Gibbs,
+  // give Bijan": the same trade as "I give Bijan for Gibbs".
+  if (!/\bfor\b/.test(body)) {
+    const giveGet = body.match(/^(?:i\s+)?(?:give up|give|send|trade away)\s+(.+?)\s*(?:,|;|\band\b)?\s+(?:i\s+)?(?:get back|get|receive)\s+(.+)$/);
+    const getGive = body.match(/^(?:i\s+)?(?:get|receive)\s+(.+?)\s*(?:,|;|\band\b)?\s+(?:i\s+)?(?:give up|give|send)\s+(.+)$/);
+    if (giveGet) body = `i give ${giveGet[1]} for ${giveGet[2]}`;
+    else if (getGive) body = `i get ${getGive[1]} for ${getGive[2]}`;
+  }
+
   const replace = body.match(/^(?:swap|replace|change|sub|switch|trade)\s+(?:out\s+)?(.+?)\s+(?:for|with|to|into)\s+(.+)$/);
   if (replace && findInDraft(replace[1], context.draft, context).length) {
     const plan = blankPlan("replace");
@@ -596,7 +605,7 @@ export function parseTradeTalk(message, ctx = {}) {
   }
 
   const shop = body.match(/^(?:what|who)\s+(?:could|can|would|might|should|do)\s+i\s+(?:get|ask for|target|land)\s+(?:back\s+)?for\s+(.+)$/)
-    || body.match(/^(?:shop|sell|move|price check|value of)\s+(.+)$/)
+    || body.match(/^(?:shop|sell|move|price check|value of)\s+(?!.*\bfor\b)(.+)$/)
     || body.match(/^what(?:'s| is| are|s)\s+(.+?)\s+worth$/)
     // "How much is Gibbs worth", "Nabers value", "Gibbs worth?", "is Gibbs good".
     || body.match(/^how much (?:is|are)\s+(.+?)(?:\s+worth)?$/)
@@ -647,8 +656,20 @@ export function parseTradeTalk(message, ctx = {}) {
     if (leadPartner) plan.partnerRosterId = leadPartner.rosterId;
     // "London and a 2nd for Puka" with no "I give" / "they offer" and no league
     // to read ownership from: the sides are a guess. The reply offers a flip.
-    plan.sidesGuessed = !getLead && !lead && !context.connected;
-    if (!getLead && !lead && ownershipFlip(plan, context)) {
+    // "Gibbs for my Bijan", "his Gibbs for Bijan": owner words say which
+    // side is yours when no "I give" / "they offer" did.
+    const owned = (text, re) => splitPieces(text).some((piece) => re.test(piece.replace(PIECE_FILLER, "").trim()));
+    const MINE = /^(?:my|mine|our)\s/;
+    const THEIRS = /^(?:his|her|their|them|theirs)\s/;
+    const ownerFlip = !getLead && !lead
+      && ((owned(split[2], MINE) && !owned(first, MINE)) || (owned(first, THEIRS) && !owned(split[2], THEIRS)));
+    if (ownerFlip) {
+      plan.adds = plan.adds.map((add) => ({ ...add, side: add.side === "left" ? "right" : "left" }));
+      plan.asks = plan.asks.map((ask) => ({ ...ask, side: ask.side === "left" ? "right" : "left" }));
+    }
+    plan.sidesGuessed = !getLead && !lead && !context.connected && !ownerFlip
+      && !owned(first, MINE) && !owned(split[2], THEIRS);
+    if (!getLead && !lead && !ownerFlip && ownershipFlip(plan, context)) {
       plan.adds = plan.adds.map((add) => ({ ...add, side: add.side === "left" ? "right" : "left" }));
       plan.asks = plan.asks.map((ask) => ({ ...ask, side: ask.side === "left" ? "right" : "left" }));
     }
