@@ -4819,7 +4819,7 @@ function refreshSmartTradeSearch(input) {
   input.setAttribute("aria-expanded", rows.length ? "true" : "false");
   input.removeAttribute("aria-activedescendant");
   const count = document.getElementById("smart-trade-count");
-  if (count) count.textContent = rows.length ? `${rows.length} options. Enter adds to ${draftReceivingTeam("right", view)}. Shift Enter adds to ${draftReceivingTeam("left", view)}.` : query ? "No matching assets. Enter to interpret a whole trade." : "";
+  if (count) count.textContent = rows.length ? `${rows.length} ${rows.length === 1 ? "option" : "options"}. Enter adds to ${draftReceivingTeam("right", view)}. Shift Enter adds to ${draftReceivingTeam("left", view)}.` : query ? "No matching assets. Enter to interpret a whole trade." : "";
 }
 
 function pickSmartTradeAsset(target) {
