@@ -311,7 +311,9 @@ function renderRankTableRow(row) {
   const attrs = `data-action="${action}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${escapeHtml(row.kind)}"`;
   const face = pick ? `<span class="rank-pick-token" aria-label="Draft pick">P</span>` : renderPlayerFace(row.playerId, row.name, { size: "sm" });
   const owner = row.owner?.mine ? "On your team" : row.owner?.name || "";
-  return `<tr><td class="rank-face-col"><button type="button" class="link-btn" ${attrs} aria-label="${escapeHtml(row.name)}">${face}</button></td><th scope="row"><button type="button" class="link-btn rank-name-link" ${attrs}>${escapeHtml(row.name)}</button><small class="rank-position-tag">${escapeHtml(row.position || "")}</small>${owner ? `<small class="rank-owner">${escapeHtml(owner)}</small>` : ""}</th><td>${row.overallRank || "—"}</td><td>${escapeHtml(row.boardRank || "—")}</td><td>${!pick && Number.isFinite(row.age) ? Number(row.age).toFixed(1) : "—"}</td><td class="rank-team-col">${pick ? "—" : escapeHtml(row.team || "FA")}</td><td class="rank-table-value">${escapeHtml(formatNumber(row.value))}</td></tr>`;
+  // A pick has no page: its row adds the pick to the trade, so say so.
+  const label = pick ? `Add ${row.name} to a trade` : row.name;
+  return `<tr><td class="rank-face-col"><button type="button" class="link-btn" ${attrs} aria-label="${escapeHtml(label)}">${face}</button></td><th scope="row"><button type="button" class="link-btn rank-name-link" ${attrs}${pick ? ` aria-label="${escapeHtml(label)}"` : ""}>${escapeHtml(row.name)}${pick ? ' <span class="rank-add-hint" aria-hidden="true">＋ Trade</span>' : ""}</button><small class="rank-position-tag">${escapeHtml(row.position || "")}</small>${owner ? `<small class="rank-owner">${escapeHtml(owner)}</small>` : ""}</th><td>${row.overallRank || "—"}</td><td>${escapeHtml(row.boardRank || "—")}</td><td>${!pick && Number.isFinite(row.age) ? Number(row.age).toFixed(1) : "—"}</td><td class="rank-team-col">${pick ? "—" : escapeHtml(row.team || "FA")}</td><td class="rank-table-value">${escapeHtml(formatNumber(row.value))}</td></tr>`;
 }
 
 function renderRanksShelf(rows) {
