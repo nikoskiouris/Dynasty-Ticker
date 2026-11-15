@@ -409,6 +409,10 @@ let calcPricesPromise = null;
 // Describe-a-trade box: the last message and its reply (memory only), and a
 // sentence typed before prices loaded.
 let tradeTalkLog = [];
+// What the talk box changed, newest last, so "undo" can take it back.
+let tradeTalkUndo = [];
+const TRADE_TALK_UNDO_MAX = 10;
+const TRADE_TALK_UNDO = /^(?:undo|undo (?:that|it|this|last)|go back|take (?:that|it) back|never ?mind|nvm)$/;
 let pendingTradeTalk = "";
 // Picking a suggestion cancels the click. Swallow the follow-up so it cannot
 // land on Clear both sides after the list re-renders.
@@ -4979,6 +4983,10 @@ function runTradeTalk(text) {
     renderTradeDraft();
     return;
   }
+  if (TRADE_TALK_UNDO.test(say.toLowerCase().replace(/[.!?]+$/, "").trim())) {
+    undoTradeTalk(say);
+    return;
+  }
   const view = buildDraftView();
   const ctx = tradeTalkContext(view);
   const plan = parseTradeTalk(say, ctx);
@@ -5006,6 +5014,7 @@ function runTradeTalk(text) {
   const changed = draftAssetKey(result.draft) !== draftAssetKey(state.valueCalc)
     || result.draft.partnerRosterId !== state.valueCalc.partnerRosterId;
   if (changed) {
+    rememberTalkChange(say, state.valueCalc, result.draft);
     if (plan.intent === "clear") replaceDraft(result.draft, "Cleared both sides.");
     else if (plan.replace) replaceDraft(result.draft, "Built a new trade from what you typed.");
     else setDraft(result.draft);
@@ -5080,14 +5089,48 @@ function runTradeTalk(text) {
   showTalkToast(sticky ? [] : lines);
 }
 
+function talkDraftKey(draft) {
+  return `${draftAssetKey(draft)}|${draft?.partnerRosterId ?? ""}`;
+}
+
+function rememberTalkChange(say, before, after) {
+  tradeTalkUndo.push({ say, before, afterKey: talkDraftKey(after) });
+  if (tradeTalkUndo.length > TRADE_TALK_UNDO_MAX) tradeTalkUndo.shift();
+}
+
+// Undo only takes back the talk box's own last change. If the trade was edited
+// another way since then, rolling back would erase that work, so it says so.
+function undoTradeTalk(say) {
+  const last = tradeTalkUndo[tradeTalkUndo.length - 1];
+  let line;
+  let undone = false;
+  if (!last) {
+    line = "Nothing to undo. Undo takes back what you typed or tapped here.";
+  } else if (talkDraftKey(state.valueCalc) !== last.afterKey) {
+    tradeTalkUndo = [];
+    line = "The trade was changed outside this box since then, so there is nothing here to undo.";
+  } else {
+    tradeTalkUndo.pop();
+    setDraft(last.before);
+    undone = true;
+    line = `Undid “${last.say}”.`;
+  }
+  tradeTalkLog = [{ say, lines: [line], sticky: !undone, groups: [], next: tradeTalkNext(buildDraftView()) }];
+  patchTradeDraft(["left", "right"]);
+  patchTradeTalkLog();
+  showTalkToast(undone ? [line] : []);
+}
+
 function addTalkChip(target) {
   const side = target.dataset.side === "right" ? "right" : "left";
+  const before = state.valueCalc;
   const added = addDraftAsset(side, {
     assetId: target.dataset.assetId,
     name: target.dataset.name,
     assetType: target.dataset.kind === "pick" ? "pick" : "player",
     leagueId: target.dataset.leagueId || "",
   });
+  if (added) rememberTalkChange(`add ${target.dataset.name}`, before, state.valueCalc);
   const label = side === "right" ? ("You get") : ("You give");
   const after = buildDraftView();
   const last = tradeTalkLog[0];
