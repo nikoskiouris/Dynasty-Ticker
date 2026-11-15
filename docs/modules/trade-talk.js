@@ -435,7 +435,7 @@ function inferPartner(plan, ctx) {
   return ctx.managers.find((manager) => String(manager.rosterId) === id)?.rosterId ?? null;
 }
 
-const GET_LEAD = /\b(?:got offered|was offered|been offered|being offered|i'm offered|im offered|am offered|(?:they|he|she|someone|somebody)(?:\s+(?:offered|offers|is offering|are offering)|(?:'s|s|'re|re) offering)|offered me|offers me|offering me|offer me|gives me|give me|giving me|i get|i'd get|id get|i receive|i'm getting|im getting|getting|receiving|receive)\b\s*/;
+const GET_LEAD = /\b(?:got offered|was offered|been offered|being offered|i'm offered|im offered|am offered|(?:they|he|she|someone|somebody)(?:\s+(?:(?:offered|offers|offer|would give|will give)(?:\s+me)?|is offering|are offering)|(?:'s|s|'re|re) offering)|offered me|offers me|offering me|offer me|gives me|give me|giving me|i get|i'd get|id get|i receive|i'm getting|im getting|getting|receiving|receive)\b\s*/;
 const GIVE_LEAD = /^(?:[a-z0-9@_.,']+\s+){0,3}?(?:i traded|traded|i gave up|gave up|i gave|gave|i sold|sold|i give|i'd give|id give|i trade|i'm trading|im trading|trading|trade|i offer|i offered|offering|offer|sell|selling|send|sending|give|giving|i do|do)\b\s*/;
 const RIGHT_VERB = /^(?:add|adds|throw in|throws in|toss in|include|includes|give|gives|kick in|kicks in)\b\s*/;
 const RIGHT_ADD = /^(?:(?:they|he|she|them)\s+(?:add|adds|throw in|throws in|toss in|include|includes|give|gives|kick in|kicks in)|ask for|ask them for|have them add|make them add|i want|i get|get|request|and they add)\b\s*/;
