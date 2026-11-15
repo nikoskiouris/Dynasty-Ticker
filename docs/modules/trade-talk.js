@@ -613,6 +613,17 @@ export function parseTradeTalk(message, ctx = {}) {
     return finish(plan);
   }
 
+  // "Nabers", then "for Gibbs": the other half of the trade already started.
+  // Adds to the empty side and keeps what is there.
+  const forOnly = body.match(/^(?:for|in exchange for|in return for)\s+(.+)$/);
+  if (forOnly) {
+    const plan = blankPlan("add");
+    const draft = context.draft || {};
+    const side = draft.right?.length && !draft.left?.length ? "left" : "right";
+    absorb(plan, piecesWithSide(forOnly[1], side, context, partner, index));
+    return finish(plan);
+  }
+
   const split = body.match(/^(.*?)\s+(?:for|in exchange for|in return for)\s+(.+)$/);
   if (split && split[1].trim()) {
     let first = split[1];
