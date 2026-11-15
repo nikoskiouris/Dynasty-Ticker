@@ -6288,6 +6288,9 @@ body.launch-open .workspace { display:block; }
  .rankings-table .rank-team-col,.rank-wide-label { display:none; }
  .rankings-table thead th:nth-child(2) { width:33%; }
  .rankings-table .player-face,.rank-pick-token { width:24px; height:24px; }
+ /* .player-face-sm pins 40px with min/max sizes; without these the photo spills over the name. */
+ .rankings-table .player-face { min-width:24px; max-width:24px; min-height:24px; max-height:24px; flex-basis:24px; }
+ .rankings-table .player-face > .player-face-photo { width:24px; height:24px; }
  .rank-name-link { font-size:.72rem; }
 }
 
