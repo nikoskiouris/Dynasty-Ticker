@@ -43,12 +43,11 @@
         <p>Dynasty Ticker is the open-source project at <a href="https://github.com/nikoskiouris/Dynasty-Ticker">github.com/nikoskiouris/Dynasty-Ticker</a>. Contact is GitHub issues on that repo, not a mailbox or street address.</p>
 
         <h2>What the app fetches</h2>
-        <p>When you search a username or load a league, your browser calls the public Sleeper API for league, roster, matchup, draft, transaction, and player data. Rankings and a Sleeper trade-market file are bundled as static files in this repo. We do not proxy that traffic.</p>
+        <p>When you search a username or load a league, your browser calls the public Sleeper API for league, roster, matchup, draft, transaction, and player data. Player values, their recent price history, NFL draft data and a slim NFL player list are bundled as static files in this repo. We do not proxy that traffic.</p>
 
         <h2>What stays on your device</h2>
         <p>The ticker uses <strong>browser localStorage</strong>, not cookies:</p>
         <ul>
-          <li>Whether the left board is open or closed</li>
           <li>A short-lived cache of Sleeper NFL player metadata (in IndexedDB when it is too big for localStorage)</li>
           <li>The last Sleeper league you opened here (league id and name, your team id and manager name), so the home page can offer to open it again. “Forget this league” on the home page removes it.</li>
           <li>The last Sleeper username you searched, so the search box is filled in next time.</li>
