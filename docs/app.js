@@ -8700,7 +8700,11 @@ function syncDocumentMeta() {
     playersBoard: place.playersBoard,
   });
   const room = state.leagueId ? getRoom() : "";
-  const description = buildPageDescription({
+  // Players board and player pages live in the trades room but are not the calculator.
+  const boardDescription = place.playerName
+    ? `${place.playerName}: dynasty value, rank and why, on 12-team Superflex PPR values.`
+    : place.playersBoard ? "Every player and pick, ranked by 12-team Superflex PPR dynasty value." : "";
+  const description = boardDescription || buildPageDescription({
       page: state.leagueId ? state.activePage : (place.titleTab || ""),
       leagueName: state.leagueName,
       loaded: Boolean(state.leagueId),
