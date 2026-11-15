@@ -5043,14 +5043,16 @@ function runTradeTalk(text) {
       notOwnerRosterId: partnerId == null ? ctx.meRosterId : null,
     });
     const partnerName = partnerId != null ? findNormalizedRoster(partnerId)?.manager?.displayName : "";
-    lines.push(`Worth ${formatNumber(after.give)} on our board. Tap a player to check him, or type what they offered.`);
     if (neighbors.length) {
+      lines.push(`Worth ${formatNumber(after.give)} on our board. Tap a player to check him, or type what they offered.`);
       groups.push({
         title: partnerName ? `Single players on ${partnerName}’s roster priced near that` : "Single players priced near that",
         chips: neighbors.map((row) => ({ ...row, side: "right" })),
       });
     } else if (partnerName) {
-      lines.push(`${partnerName} has no single player priced near that. Try a package.`);
+      lines.push(`Worth ${formatNumber(after.give)} on our board. ${partnerName} has no single player priced near that. Try a package, or type what they offered.`);
+    } else {
+      lines.push(`Worth ${formatNumber(after.give)} on our board. No single player is priced near that, so a fair return is a package. Type what they offered.`);
     }
   }
   if (!bothSides && plan.intent === "verdict") {
