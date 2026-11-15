@@ -35,16 +35,25 @@ export function completedLeagueTrades(trades = []) {
     .sort((a, b) => Number(b.status_updated || b.created || 0) - Number(a.status_updated || a.created || 0));
 }
 
+const ORDINAL_WORDS = { first: "1st", second: "2nd", third: "3rd", fourth: "4th", fifth: "5th" };
+function foldSearch(value) {
+  return text(value).toLowerCase()
+    .replace(/\b(first|second|third|fourth|fifth)s?\b/g, (word, base) => ORDINAL_WORDS[base])
+    .replace(/[^a-z0-9]/g, "");
+}
+
 export function renderTradeLogRows({
   trades = [], entry = null, archive = null, values = {}, valueNames = {}, players = {}, query = "", team = "",
 } = {}) {
   const context = { valueNames, players, entry };
   const searchable = text(query).toLowerCase();
+  const want = foldSearch(searchable);
   const rows = completedLeagueTrades(trades).filter((trade) => {
     const snapshot = tradeAssets(trade);
     if (team && !snapshot.rosterIds.includes(team)) return false;
     if (!searchable) return true;
-    return snapshot.assets.some((asset) => assetLabel(asset, context).toLowerCase().includes(searchable)
+    // "dj moore" finds D.J. Moore, "2027 second" finds a 2027 2nd.
+    return snapshot.assets.some((asset) => (want && foldSearch(assetLabel(asset, context)).includes(want))
       || asset.assetId.toLowerCase().includes(searchable));
   });
   if (!rows.length) return `<p class="muted" role="status">${searchable || team ? "No trades match these filters." : "No completed trades yet this season."}</p>`;
