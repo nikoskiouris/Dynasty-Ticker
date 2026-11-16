@@ -28,7 +28,7 @@ export function renderOperationsAwards(archive, { players = {}, values = {}, val
   const waiverPlayer = (row) => row
     ? `<p><strong>${playerName(row.playerId)}</strong> · ${e(row.managerName)} (${e(row.season)}) ·
       ${points(row.startedPoints)} started points + ${points(row.currentRosterValue)} value still owned</p>
-      ${row.starts.length ? `<p class="muted small">Weeks started: ${row.starts.slice(0, 2).map((game) =>
+      ${row.starts.length ? `<p class="muted small">Started ${row.starts.length} week${row.starts.length === 1 ? "" : "s"}, first ${row.starts.slice(0, 2).map((game) =>
         `${e(game.season)} W${game.week} (${points(game.points)} pts)`).join(", ")}</p>` : ""}`
     : '<p class="muted">No fully sourced pickup found.</p>';
   return `<section class="workspace-panel">
@@ -43,7 +43,7 @@ export function renderOperationsAwards(archive, { players = {}, values = {}, val
       <div><h3>Worst waiver manager</h3>${person(waiver.worst, (row) => `${points(row.score)} score · ${points(row.startedPoints)} started points · ${row.adds} adds`)}</div>
       <div><h3>Highest-scoring waiver pickup</h3>${waiverPlayer(waiver.bestPickup)}</div>
       <div><h3>FAAB efficiency</h3><p class="muted small">${waiver.best?.faabPerStartedPoint != null
-        ? `${points(waiver.best.faabPerStartedPoint)} FAAB units per started point for ${e(waiver.best.name)}`
+        ? `${e(waiver.best.name)} spent ${points(waiver.best.faabSpent)} FAAB on ${waiver.best.faabKnownAdds} bid pickup${waiver.best.faabKnownAdds === 1 ? "" : "s"} that scored ${points(waiver.best.faabStartedPoints)} started points: ${Number(waiver.best.faabPerStartedPoint).toFixed(2)} FAAB per point.`
         : "No fully sourced FAAB cost-per-point figure for the leading eligible manager."}</p></div>
     </div>
     <details><summary>Best pickup by manager</summary>

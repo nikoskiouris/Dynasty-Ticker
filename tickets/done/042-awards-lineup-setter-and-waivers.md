@@ -1,6 +1,8 @@
 # 042 · All-time awards II: best/worst lineup setter and best/worst waiver work
 
-**Status:** Open · **Priority:** P2 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [#307](https://github.com/nikoskiouris/Dynasty-Ticker/pull/307)
+
+**Status:** Done · **Priority:** P2 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 
