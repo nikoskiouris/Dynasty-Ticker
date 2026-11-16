@@ -47,7 +47,8 @@ const count = (value) => Math.round(Number(value) || 0).toLocaleString("en-US");
 function sideColumn(summary, key, x, measure, bigger = "") {
   const rows = summary[key];
   const credited = key === "give" ? summary.giveCredited : summary.getCredited;
-  const label = key === "give" ? "YOU GIVE" : "YOU GET";
+  // Same names as the verdict line and the app: the get side is what Team 1 receives.
+  const label = key === "give" ? "TEAM 2 RECEIVES" : "TEAM 1 RECEIVES";
   const shown = rows.slice(0, MAX_ROWS);
   const more = rows.length - shown.length;
   const right = x + COL_W - PAD_X;
