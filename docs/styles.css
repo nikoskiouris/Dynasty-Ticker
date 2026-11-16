@@ -6535,4 +6535,11 @@ main details > summary::before {
   right: 0;
   top: min(0px, calc((100% - var(--tap-min)) / 2));
   bottom: min(0px, calc((100% - var(--tap-min)) / 2));
+
+/* Player Rankings: the sticky table header paints above the rows' faces, and
+   stops below the fixed ☰ button (12px + 46px) wherever the table runs
+   underneath it. */
+.rankings-table thead th { z-index: 3; }
+@media (max-width: 1239px) {
+  .rankings-table thead th { top: 64px; }
 }
