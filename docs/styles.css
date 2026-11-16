@@ -6495,3 +6495,12 @@ html body:not(.league-loaded) .workspace { padding-top: 70px; }
 .face-link { cursor: pointer; display: inline-flex; }
 #roster-sheet .sheet-player > .face-link { grid-row: span 2; grid-column: 1; }
 #roster-sheet .sheet-player:has(> .face-link) > :not(.face-link) { grid-column: 2; }
+
+/* Phones: a BYE / clinched chip goes under the name so the name is not cut to "ben…". */
+@media (max-width: 620px) {
+  .odds-team { flex-wrap: wrap; row-gap: 2px; }
+  .odds-team .team-identity { flex-basis: 100%; }
+  .odds-team .standings-badges:empty { display: none; }
+}
+  .odds-head > span { white-space: nowrap; }
+}
