@@ -1,4 +1,4 @@
-import { escapeHtml, formatNumber } from "./html.js";
+import { countLabel, escapeHtml, formatNumber } from "./html.js";
 import { lineupAwards } from "./league-lineup-awards.js";
 import { waiverAwards } from "./league-waiver-awards.js";
 
@@ -36,11 +36,11 @@ export function renderOperationsAwards(archive, { players = {}, values = {}, val
     <p class="muted small">Eligible managers only. Missing player prices, eligible positions or weekly scores are excluded rather than treated as zero.</p>
     <div class="league-history-awards">
       ${lineup
-        ? `<div><h3>Best lineup setter</h3>${person(lineup.best, (row) => `${percent(row.efficiency)} optimal · ${row.weeks} weeks · ${row.gamesLostToBench} games lost to bench`)}</div>
-           <div><h3>Worst lineup setter</h3>${person(lineup.worst, (row) => `${percent(row.efficiency)} optimal · ${row.weeks} weeks · ${row.gamesLostToBench} games lost to bench · worst ${row.worstWeek?.season} W${row.worstWeek?.week}: ${points(row.worstWeek?.pointsLeft)} pts left`)}</div>`
+        ? `<div><h3>Best lineup setter</h3>${person(lineup.best, (row) => `${percent(row.efficiency)} optimal · ${countLabel(row.weeks, "week")} · ${countLabel(row.gamesLostToBench, "game")} lost to bench`)}</div>
+           <div><h3>Worst lineup setter</h3>${person(lineup.worst, (row) => `${percent(row.efficiency)} optimal · ${countLabel(row.weeks, "week")} · ${countLabel(row.gamesLostToBench, "game")} lost to bench · worst ${row.worstWeek?.season} W${row.worstWeek?.week}: ${points(row.worstWeek?.pointsLeft)} pts left`)}</div>`
         : '<div><h3>Lineup awards</h3><p class="muted small">Calculate legal optimal lineups using historical player points and roster eligibility.</p><button type="button" data-action="compute-lineup-awards">Calculate lineup awards</button></div>'}
-      <div><h3>Best waiver manager</h3>${person(waiver.best, (row) => `${points(row.score)} score · ${points(row.startedPoints)} started points · ${row.adds} adds`)}</div>
-      <div><h3>Worst waiver manager</h3>${person(waiver.worst, (row) => `${points(row.score)} score · ${points(row.startedPoints)} started points · ${row.adds} adds`)}</div>
+      <div><h3>Best waiver manager</h3>${person(waiver.best, (row) => `${points(row.score)} score · ${points(row.startedPoints)} started points · ${countLabel(row.adds, "add")}`)}</div>
+      <div><h3>Worst waiver manager</h3>${person(waiver.worst, (row) => `${points(row.score)} score · ${points(row.startedPoints)} started points · ${countLabel(row.adds, "add")}`)}</div>
       <div><h3>Highest-scoring waiver pickup</h3>${waiverPlayer(waiver.bestPickup)}</div>
       <div><h3>FAAB efficiency</h3><p class="muted small">${waiver.best?.faabPerStartedPoint != null
         ? `${e(waiver.best.name)} spent ${points(waiver.best.faabSpent)} FAAB on ${waiver.best.faabKnownAdds} bid pickup${waiver.best.faabKnownAdds === 1 ? "" : "s"} that scored ${points(waiver.best.faabStartedPoints)} started points: ${Number(waiver.best.faabPerStartedPoint).toFixed(2)} FAAB per point.`

@@ -1,4 +1,4 @@
-import { escapeHtml, formatNumber } from "./html.js";
+import { countLabel, escapeHtml, formatNumber } from "./html.js";
 import { headToHeadHistory, rivalryHighlights } from "./league-rivalries.js";
 
 const e = (value) => escapeHtml(String(value ?? ""));
@@ -24,7 +24,7 @@ export function renderRivalries(archive) {
       ${wins}–${losses}${pair.ties ? `–${pair.ties}` : ""}</a></td>`;
   }).join("")}</tr>`).join("");
   const detail = history.pairs.map((pair) => `<details id="${ids.get(pair.key)}" class="league-rivalry-detail">
-    <summary>${e(pair.firstName)} vs. ${e(pair.secondName)} · ${pair.meetings} games
+    <summary>${e(pair.firstName)} vs. ${e(pair.secondName)} · ${countLabel(pair.meetings, "game")}
       (${pair.firstWins}–${pair.secondWins}${pair.ties ? `–${pair.ties}` : ""})</summary>
     <ul>${pair.games.map((game) => `<li>${e(game.season)} · Week ${number(game.week)}
       ${game.playoff ? "(playoffs)" : ""} · ${points(game.firstPoints)}–${points(game.secondPoints)}</li>`).join("")}</ul>

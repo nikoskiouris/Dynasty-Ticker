@@ -1,4 +1,4 @@
-import { escapeHtml, formatNumber } from "./html.js";
+import { countLabel, escapeHtml, formatNumber } from "./html.js";
 import { traderAwards } from "./league-trader-awards.js";
 
 const e = (value) => escapeHtml(String(value ?? ""));
@@ -35,6 +35,6 @@ export function renderTraderAwards(archive, { values = {}, valueNames = {} } = {
       <table class="league-history-table"><thead><tr><th scope="col">Manager</th>
         <th scope="col">Graded trades</th><th scope="col">Net value</th><th scope="col">Positive net share</th></tr></thead>
         <tbody>${rows}</tbody></table></div>` : '<p class="muted">No historical trades could be graded yet.</p>'}
-    <p class="muted small">${awards.tradesGraded} trades graded · ${awards.tradesSkipped} excluded because a complete price was unavailable. Missing prices are never treated as zero.</p>
+    <p class="muted small">${countLabel(awards.tradesGraded, "trade")} graded · ${awards.tradesSkipped} excluded because a complete price was unavailable. Missing prices are never treated as zero.</p>
   </section>`;
 }
