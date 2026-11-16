@@ -6206,8 +6206,10 @@ button.talk-chip {
 .league-format-details { margin-top: 0.75rem; }
 .league-format-details summary { cursor: pointer; }
 html:not([data-players-board]) #ranks-section { display: none !important; }
-/* Look up a player / All players: the board comes first, the trade below it. */
+/* /players is its own page (tickets 024, 031): the rankings alone. The trade
+   draft stays saved; "Add to a trade" and "Check a trade with…" open /trade. */
 html[data-players-board]:not([data-player-page]) [data-room-panel="calculator"] > #ranks-section { order: -1; }
+html[data-players-board]:not([data-player-page]) #calculator-section { display: none !important; }
 .calc-why { margin-top: 0.5rem; }
 .calc-why > summary { cursor: pointer; font-weight: 600; }
 
