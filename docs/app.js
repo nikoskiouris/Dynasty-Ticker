@@ -5101,14 +5101,36 @@ function renderTradeTalk() {
   </section>`;
 }
 
+// Focusing the empty add box shows the browsed team's roster again.
+document.addEventListener("focusin", (event) => {
+  const input = event.target?.closest?.("[data-input='smart-trade']");
+  if (input && !input.value.trim()) refreshSmartTradeSearch(input);
+});
+
+// "Browse" a team: with the box empty, the list shows that team's roster
+// (priced players and picks, by value), minus pieces already in the trade.
+function partnerRosterRows(view) {
+  const partnerId = view.context?.partnerRosterId ?? view.draft?.partnerRosterId;
+  if (!view.basis.connected || partnerId == null || partnerId === "") return [];
+  const roster = findNormalizedRoster(partnerId);
+  if (!roster) return [];
+  const taken = new Set([...(view.draft.left || []), ...(view.draft.right || [])].map((item) => String(item.assetId)));
+  return (roster.assets || [])
+    .filter((asset) => !taken.has(String(asset.assetId)) && (asset.assetType === "pick" || isTradeEligibleAsset(asset)))
+    .map((asset) => ({ assetId: asset.assetId, name: asset.name, value: getAssetValue(asset, view.basis.values), assetType: asset.assetType === "pick" ? "pick" : "player", leagueId: asset.assetType === "pick" ? state.leagueId : "" }))
+    .filter((row) => row.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 25);
+}
+
 function refreshSmartTradeSearch(input) {
   const list = el.calculatorShell?.querySelector("#smart-trade-list");
   if (!list) return;
   const query = input.value.trim();
   const view = buildDraftView();
   const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
-  const rows = query ? listValueCalcAssets(view.basis.values, names, { query, limit: 20, minSeason: nextRookieDraftSeason() }) : [];
-  list.innerHTML = rows.map((row, i) => `<div id="smart-option-${i}" class="smart-trade-option" role="option" aria-selected="false">${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}<span class="smart-trade-name">${escapeHtml(row.name)} <small>${formatNumber(row.value)}</small></span>${["right", "left"].map((side) => `<button type="button" class="calc-item smart-trade-add" data-action="smart-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType}" aria-label="Add ${escapeHtml(row.name)} to ${escapeHtml(draftReceivingTeam(side, view))}" title="${escapeHtml(draftReceivingTeam(side, view))} receives">→ ${escapeHtml(shortTeamLabel(draftReceivingTeam(side, view)))}</button>`).join("")}</div>`).join("");
+  const rows = query ? listValueCalcAssets(view.basis.values, names, { query, limit: 20, minSeason: nextRookieDraftSeason() }) : partnerRosterRows(view);
+  list.innerHTML = rows.map((row, i) => `<div id="smart-option-${i}" class="smart-trade-option" role="option" aria-selected="false">${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}<span class="smart-trade-name">${escapeHtml(row.name)} <small>${formatNumber(row.value)}</small></span>${["right", "left"].map((side) => `<button type="button" class="calc-item smart-trade-add" data-action="smart-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""} aria-label="Add ${escapeHtml(row.name)} to ${escapeHtml(draftReceivingTeam(side, view))}" title="${escapeHtml(draftReceivingTeam(side, view))} receives">→ ${escapeHtml(shortTeamLabel(draftReceivingTeam(side, view)))}</button>`).join("")}</div>`).join("");
   list.hidden = !rows.length;
   input.setAttribute("aria-expanded", rows.length ? "true" : "false");
   input.removeAttribute("aria-activedescendant");
@@ -5118,7 +5140,7 @@ function refreshSmartTradeSearch(input) {
 
 function pickSmartTradeAsset(target) {
   if (!target?.dataset?.assetId) return;
-  addDraftAsset(target.dataset.side, { assetId: target.dataset.assetId, name: target.dataset.name, assetType: target.dataset.kind });
+  addDraftAsset(target.dataset.side, { assetId: target.dataset.assetId, name: target.dataset.name, assetType: target.dataset.kind, leagueId: target.dataset.leagueId || "" });
   patchTradeDraft();
   const input = document.getElementById("trade-talk-input");
   if (input) { input.value = ""; refreshSmartTradeSearch(input); input.focus({ preventScroll: true }); }
@@ -6855,6 +6877,13 @@ function handleWorkspaceChange(event) {
       const partner = Number(target.value);
       setDraft({ ...state.valueCalc, partnerRosterId: Number.isFinite(partner) && partner > 0 ? partner : null });
       patchTradeDraft(["right"]);
+      // Show the chosen team's roster in the add box.
+      const input = document.getElementById("trade-talk-input");
+      if (input && partner > 0) {
+        input.value = "";
+        input.focus({ preventScroll: true });
+        refreshSmartTradeSearch(input);
+      }
       break;
     }
     default:
