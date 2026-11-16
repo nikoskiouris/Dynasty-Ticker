@@ -24,7 +24,7 @@ export function renderTraderAwards(archive, { values = {}, valueNames = {} } = {
     : "Not enough fully priced historical trades";
   return `<section class="workspace-panel">
     <h2>Trade awards · hindsight only</h2>
-    <p class="muted small">${e(awards.basis)}; each net is the value received minus value sent, including the same package credit as Trade Calc. The trader leader is ranked by cumulative net, with win rate as a tie-breaker. Minimum ${awards.minTrades} fully priced trades per manager. This is not proof of trading skill.</p>
+    <p class="muted small">${e(awards.basis)}; each net is the value received minus value sent, including the same package credit as Trade Calculator. The trader leader is ranked by cumulative net, with win rate as a tie-breaker. Minimum ${awards.minTrades} fully priced trades per manager. This is not proof of trading skill.</p>
     <dl class="league-history-records">
       <div><dt>Highest cumulative net</dt><dd>${namedSide(awards.best)}</dd></div>
       <div><dt>Lowest cumulative net</dt><dd>${namedSide(awards.worst)}</dd></div>
