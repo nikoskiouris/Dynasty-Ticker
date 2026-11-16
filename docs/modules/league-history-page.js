@@ -20,6 +20,9 @@ const RECORD_LABELS = Object.freeze({
   fewestInWin: "Fewest points in a win",
   highSeasonPF: "Most points in a season",
   bestSeasonRecord: "Best regular-season record",
+  worstSeasonRecord: "Worst regular-season record",
+  winStreak: "Longest winning streak",
+  loseStreak: "Longest losing streak",
 });
 
 function renderChampions(seasons) {
@@ -40,17 +43,20 @@ function renderChampions(seasons) {
 function renderAllTime(rows) {
   if (!rows.length) return "";
   return `<section class="workspace-panel"><h2>All-time standings</h2>
-    <p class="muted small">By Sleeper manager account across the loaded seasons. A team renamed by the same manager counts once; ownership changes remain separate.</p>
+    <p class="muted small">By Sleeper manager account across the loaded seasons. A team renamed by the same manager counts once; ownership changes remain separate. Avg finish: regular-season place in finished seasons. Luck: real wins minus all-play expected wins, summed over seasons with Sleeper matchups.</p>
     <div class="league-history-scroll" role="region" aria-label="All-time standings table" tabindex="0">
       <table class="league-history-table"><thead><tr>
         <th scope="col">Manager</th><th scope="col">Seasons</th><th scope="col">W-L-T</th><th scope="col">Win %</th>
         <th scope="col">PF</th><th scope="col">PA</th><th scope="col">Playoffs</th><th scope="col">Titles</th><th scope="col">Finals</th>
+        <th scope="col">Avg finish</th><th scope="col">Luck</th>
       </tr></thead><tbody>
       ${rows.map((row) => `<tr><th scope="row">${e(row.name)}</th>
         <td>${whole(row.seasons)}</td><td>${whole(row.wins)}–${whole(row.losses)}–${whole(row.ties)}</td>
         <td>${row.winPct == null ? "—" : `${decimal(row.winPct)}%`}</td>
         <td>${whole(row.pf)}</td><td>${whole(row.pa)}</td>
         <td>${whole(row.playoffAppearances)}</td><td>${whole(row.titles)}</td><td>${whole(row.finals)}</td>
+        <td>${row.avgFinish == null ? "—" : row.avgFinish.toFixed(1)}</td>
+        <td>${row.luck == null ? "—" : `${row.luck > 0 ? "+" : ""}${row.luck.toFixed(1)}`}</td>
       </tr>`).join("")}</tbody></table>
     </div></section>`;
 }
@@ -65,8 +71,9 @@ function renderRecords(book) {
       const item = book.records[key];
       const season = safeSeason(item.season);
       const week = Number(item.week);
-      const where = [season, Number.isInteger(week) && week > 0 ? `Week ${week}` : ""].filter(Boolean).join(" · ");
-      const value = key === "bestSeasonRecord" ? `${decimal(item.value)}% (${e(item.record)})` : whole(item.value);
+      const where = [season, Number.isInteger(week) && week > 0 ? `Week ${week}` : item.weeks || ""].filter(Boolean).join(" · ");
+      const value = key === "bestSeasonRecord" || key === "worstSeasonRecord" ? `${decimal(item.value)}% (${e(item.record)})`
+        : key === "winStreak" || key === "loseStreak" ? `${whole(item.value)} game${item.value === 1 ? "" : "s"}` : whole(item.value);
       return `<div><dt>${e(label)}</dt><dd><strong>${value}</strong>
         <span>${e(item.team)}${item.opponent ? ` vs. ${e(item.opponent)}` : ""}</span>
         <span class="muted small">${e(where)}</span></dd></div>`;
