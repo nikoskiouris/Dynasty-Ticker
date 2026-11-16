@@ -5344,6 +5344,13 @@ function runTradeTalk(text) {
   const giveLabel = `${draftReceivingTeam("left", after)} receives`;
   const getLabel = `${draftReceivingTeam("right", after)} receives`;
   const lines = tradeTalkReply(plan, result, { giveLabel, getLabel });
+  // "Trade with X" while the other side holds someone else's players: the
+  // trade stays with that owner. Say so instead of claiming the switch.
+  const heldBy = after.context?.partnerRosterId;
+  if (plan.intent === "partner" && heldBy != null && String(heldBy) !== String(plan.partnerRosterId)) {
+    const owner = findNormalizedRoster(heldBy)?.manager?.displayName || "another team";
+    lines.splice(0, lines.length, `The other side already has ${owner}’s players, so this trade stays with ${owner}. Clear it or take those out to trade with ${plan.partnerName || "that team"}.`);
+  }
   const groups = plan.asks.map((ask) => ({
     ask: true,
     title: ask.question || `Which one for “${ask.text}”?`,
