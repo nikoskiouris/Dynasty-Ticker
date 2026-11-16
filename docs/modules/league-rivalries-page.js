@@ -1,9 +1,10 @@
+import { formatPoints } from "./standings.js";
 import { countLabel, escapeHtml, formatNumber } from "./html.js";
 import { headToHeadHistory, rivalryHighlights } from "./league-rivalries.js";
 
 const e = (value) => escapeHtml(String(value ?? ""));
 const number = (value) => formatNumber(Number(value) || 0);
-const points = (value) => Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "—";
+const points = (value) => formatPoints(value);
 
 export function renderRivalries(archive) {
   const history = headToHeadHistory(archive);

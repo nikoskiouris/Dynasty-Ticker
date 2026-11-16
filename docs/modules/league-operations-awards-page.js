@@ -1,9 +1,13 @@
+import { formatPoints } from "./standings.js";
 import { countLabel, escapeHtml, formatNumber } from "./html.js";
 import { lineupAwards } from "./league-lineup-awards.js";
 import { waiverAwards } from "./league-waiver-awards.js";
 
 const e = (value) => escapeHtml(String(value ?? ""));
-const points = (value) => Number.isFinite(Number(value)) ? formatNumber(Math.round(Number(value))) : "—";
+// Fantasy points to the hundredth, as Sleeper shows them. FAAB, dynasty value
+// and the waiver score stay whole numbers.
+const points = (value) => formatPoints(value);
+const dollars = (value) => Number.isFinite(Number(value)) ? formatNumber(Math.round(Number(value))) : "—";
 const percent = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}%` : "—";
 let lastArchive, lastPlayers, lastLineup;
 function cachedLineup(archive, players) {
@@ -27,7 +31,7 @@ export function renderOperationsAwards(archive, { players = {}, values = {}, val
   const playerName = (id) => e(valueNames[`player:${id}`] || `Player ${id}`);
   const waiverPlayer = (row) => row
     ? `<p><strong>${playerName(row.playerId)}</strong> · ${e(row.managerName)} (${e(row.season)}) ·
-      ${points(row.startedPoints)} started points + ${points(row.currentRosterValue)} value still owned</p>
+      ${points(row.startedPoints)} started points + ${dollars(row.currentRosterValue)} value still owned</p>
       ${row.starts.length ? `<p class="muted small">Started ${row.starts.length} week${row.starts.length === 1 ? "" : "s"}, first ${row.starts.slice(0, 2).map((game) =>
         `${e(game.season)} W${game.week} (${points(game.points)} pts)`).join(", ")}</p>` : ""}`
     : '<p class="muted">No fully sourced pickup found.</p>';
@@ -39,11 +43,11 @@ export function renderOperationsAwards(archive, { players = {}, values = {}, val
         ? `<div><h3>Best lineup setter</h3>${person(lineup.best, (row) => `${percent(row.efficiency)} optimal · ${countLabel(row.weeks, "week")} · ${countLabel(row.gamesLostToBench, "game")} lost to bench`)}</div>
            <div><h3>Worst lineup setter</h3>${person(lineup.worst, (row) => `${percent(row.efficiency)} optimal · ${countLabel(row.weeks, "week")} · ${countLabel(row.gamesLostToBench, "game")} lost to bench · worst ${row.worstWeek?.season} W${row.worstWeek?.week}: ${points(row.worstWeek?.pointsLeft)} pts left`)}</div>`
         : '<div><h3>Lineup awards</h3><p class="muted small">Calculate legal optimal lineups using historical player points and roster eligibility.</p><button type="button" data-action="compute-lineup-awards">Calculate lineup awards</button></div>'}
-      <div><h3>Best waiver manager</h3>${person(waiver.best, (row) => `${points(row.score)} score · ${points(row.startedPoints)} started points · ${countLabel(row.adds, "add")}`)}</div>
-      <div><h3>Worst waiver manager</h3>${person(waiver.worst, (row) => `${points(row.score)} score · ${points(row.startedPoints)} started points · ${countLabel(row.adds, "add")}`)}</div>
+      <div><h3>Best waiver manager</h3>${person(waiver.best, (row) => `${dollars(row.score)} score · ${points(row.startedPoints)} started points · ${countLabel(row.adds, "add")}`)}</div>
+      <div><h3>Worst waiver manager</h3>${person(waiver.worst, (row) => `${dollars(row.score)} score · ${points(row.startedPoints)} started points · ${countLabel(row.adds, "add")}`)}</div>
       <div><h3>Highest-scoring waiver pickup</h3>${waiverPlayer(waiver.bestPickup)}</div>
       <div><h3>FAAB efficiency</h3><p class="muted small">${waiver.best?.faabPerStartedPoint != null
-        ? `${e(waiver.best.name)} spent ${points(waiver.best.faabSpent)} FAAB on ${waiver.best.faabKnownAdds} bid pickup${waiver.best.faabKnownAdds === 1 ? "" : "s"} that scored ${points(waiver.best.faabStartedPoints)} started points: ${Number(waiver.best.faabPerStartedPoint).toFixed(2)} FAAB per point.`
+        ? `${e(waiver.best.name)} spent ${dollars(waiver.best.faabSpent)} FAAB on ${waiver.best.faabKnownAdds} bid pickup${waiver.best.faabKnownAdds === 1 ? "" : "s"} that scored ${points(waiver.best.faabStartedPoints)} started points: ${Number(waiver.best.faabPerStartedPoint).toFixed(2)} FAAB per point.`
         : "No fully sourced FAAB cost-per-point figure for the leading eligible manager."}</p></div>
     </div>
     <details><summary>Best pickup by manager</summary>
