@@ -1,6 +1,8 @@
 # 030 · Trade Calc: "New: Give real trade advice" button (existing logic, no AI)
 
-**Status:** Open · **Priority:** P1 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [#305](https://github.com/nikoskiouris/Dynasty-Ticker/pull/305)
+
+**Status:** Done · **Priority:** P1 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 

@@ -2,6 +2,7 @@ import { mountSiteMenu } from "./modules/site-menu.js";
 import { renderToolPicker, moveLeagueControls } from "./modules/tool-picker.js";
 import { renderLeagueHub } from "./modules/league-hub.js";
 import { leagueArchive, readDeskSnapshot, saveDeskSnapshot } from "./modules/league-archive.js";
+import { buildTradeAdvice, closeTradeAdvice, onTradeAdviceBack, openTradeAdvice, renderTradeAdviceButton, renderTradeAdvicePanel, tradeAdviceOpen } from "./modules/trade-advice.js";
 import { renderTradeLog, renderTradeLogRows } from "./modules/trade-log.js";
 import { renderLeagueHistory } from "./modules/league-history-page.js";
 import { renderTradeFairness } from "./modules/trade-fairness.js";
@@ -4886,6 +4887,7 @@ function paintTradeDraft() {
       <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
       ${renderValuesFreshness(valuesFreshness())}
       ${state.leagueId && state.league && marketCaveat(state.league) ? `<p class="muted small calc-market-caveat">${escapeHtml(marketCaveat(state.league))}</p>` : ""}
+      <span id="trade-advice-slot" class="trade-advice-slot">${renderTradeAdviceButton({ ready: tradeAdviceReady(view) })}</span>
     </div>
     ${renderTradeTalk()}
     <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
@@ -5336,7 +5338,92 @@ function patchTradeDraft(listSides = []) {
   if (verdict) verdict.innerHTML = renderDraftVerdict(view);
   const team = host.querySelector("#draft-team");
   if (team) team.innerHTML = renderDraftTeam(view);
+  const adviceSlot = host.querySelector("#trade-advice-slot");
+  if (adviceSlot) adviceSlot.innerHTML = renderTradeAdviceButton({ ready: tradeAdviceReady(view) });
+  if (tradeAdviceOpen()) {
+    if (tradeAdviceReady(view)) openTradeAdvice(renderTradeAdvicePanel(tradeAdviceSections(view)));
+    else closeTradeAdvice();
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Trade advice panel (ticket 030): the calculator's own verdict, even-up
+// search and team impact, gathered in one place. No AI.
+function tradeAdviceReady(view) {
+  return view.draft.left.length > 0 && view.draft.right.length > 0;
+}
+
+function tradeAdviceSections(view) {
+  const { verdict } = view.model;
+  const teamNames = { Give: `${draftReceivingTeam("left", view)} receives`, Get: `${draftReceivingTeam("right", view)} receives` };
+  const more = verdictCopy(verdict).more;
+  const fair = more != null && more <= EVEN_UP_OFFER_ABOVE;
+  const found = fair ? null : findEvenUpPick(view);
+  // A pick that barely moves the gap is not advice: offer it only when it
+  // closes the gap or narrows it by at least 10 points.
+  const helps = found && (found.closes || !Number.isFinite(Number(found.pct)) || more == null || more - Number(found.pct) >= 10);
+  const choice = helps ? found : null;
+  // findEvenUpPick adds to the Give (left) column when that side is short.
+  const side = verdict.gap > 0 ? "left" : "right";
+  const giver = draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view);
+  // Name the pick and the verdict after adding it, scored the same way as the scale.
+  const after = choice?.verdict ? verdictLineNamed(choice.verdict, teamNames) : "";
+  const evenUp = choice ? {
+    line: after
+      ? `${giver} adds a ${choice.name} (${formatNumber(choice.value)}). After that: ${after}.`
+      : evenUpLine(choice, giver, teamNames),
+    side,
+    receiver: draftReceivingTeam(side, view),
+    assetId: choice.assetId || "",
+    name: choice.name,
+    closes: Boolean(choice.closes),
+  } : null;
+  let team = { connected: Boolean(view.basis.connected) };
+  if (team.connected) {
+    const idea = view.context?.ready ? buildDraftImpact(view) : null;
+    const mySide = idea?.impactAnalysis?.mySide || null;
+    team = {
+      ...team,
+      ready: Boolean(mySide),
+      mySide,
+      partnerName: view.partner ? draftReceivingTeam("left", view) : "",
+      waiting: draftTeamSummary(view.context, {
+        leftCount: view.draft.left.length,
+        rightCount: view.draft.right.length,
+        partnerName: view.partner?.manager?.displayName || "",
+      }),
+    };
+  }
+  return buildTradeAdvice({ verdictLine: verdictLineNamed(verdict, teamNames), fair, evenUp, team,
+    lighter: draftReceivingTeam(side, view) });
+}
+
+onTradeAdviceBack(() => {
+  // Back over the panel's history entry: keep the URL on the current trade.
+  if (state.activePage === "trades" && getRoom("trades") === "calculator") updateUrlState({ mode: "replace" });
+});
+
+document.addEventListener("click", (event) => {
+  const target = event.target.closest?.("[data-action^='trade-advice-']");
+  if (!target) return;
+  const view = buildDraftView();
+  switch (target.dataset.action) {
+    case "trade-advice-open":
+      if (!tradeAdviceReady(view)) return;
+      openTradeAdvice(renderTradeAdvicePanel(tradeAdviceSections(view)), { trigger: target });
+      break;
+    case "trade-advice-close":
+      closeTradeAdvice();
+      break;
+    case "trade-advice-apply":
+      if (addDraftAsset(target.dataset.side === "right" ? "right" : "left", {
+        assetId: target.dataset.assetId, name: target.dataset.name, assetType: "pick", leagueId: "",
+      })) patchTradeDraft([]); // repaints the panel with the new verdict
+      break;
+    default:
+      break;
+  }
+});
 
 function patchDraftSuggestions(side, view = buildDraftView()) {
   const list = el.calculatorShell?.querySelector(`#value-list-${side}`);

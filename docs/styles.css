@@ -6456,3 +6456,29 @@ html body:not(.league-loaded) .workspace { padding-top: 70px; }
 .team-superlative h3 { margin: 2px 0; font-size: var(--fs-body); }
 .team-superlative p { margin: 0; }
 .team-superlative .eyebrow { margin: 0; }
+
+/* Trade advice panel (ticket 030) ---------------------------------------- */
+.trade-advice-slot { margin-left: auto; display: flex; flex-flow: row wrap; align-items: center; gap: var(--sp-2); }
+.trade-advice-btn .mini-chip { margin-right: 4px; }
+.trade-advice-btn[disabled] { opacity: .55; cursor: not-allowed; }
+.trade-advice-hint { flex-basis: 100%; text-align: right; }
+.trade-advice[hidden] { display: none; }
+.trade-advice-backdrop { position: fixed; inset: 0; z-index: 900; background: rgba(0, 0, 0, .45); }
+.trade-advice-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 901;
+  width: min(420px, 100vw); overflow-y: auto; overscroll-behavior: contain;
+  padding: 16px; background: var(--panel); color: var(--text);
+  border-left: 1px solid var(--line-strong); box-shadow: var(--product-shadow);
+}
+.trade-advice-panel:focus { outline: none; }
+.trade-advice-panel header { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.trade-advice-panel h2 { margin: 0; font-size: var(--fs-h2); }
+.trade-advice-panel header .ghost-btn { min-width: var(--tap-min); min-height: var(--tap-min); }
+.trade-advice-section { border-top: 1px solid var(--line); padding: 12px 0; }
+.trade-advice-section h3 { margin: 0 0 6px; font-size: var(--fs-body); }
+.trade-advice-section p { margin: 0 0 6px; }
+.trade-advice-section .ghost-btn, .trade-advice-section a { display: inline-flex; align-items: center; min-height: var(--tap-min); margin: 4px 0 6px; }
+@media (max-width: 560px) {
+  .trade-advice-slot { margin-left: 0; flex-basis: 100%; }
+  .trade-advice-hint { text-align: left; }
+}
