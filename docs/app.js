@@ -1029,7 +1029,8 @@ function renderActivePage() {
       caveat: marketCaveat(state.league),
       teams: (state.normalizedRosters || []).map((roster) => ({
         id: roster.rosterId,
-        name: roster.manager?.teamName || roster.manager?.displayName || `Team ${roster.rosterId}`,
+        // "Dev Hours (benhipp52)": people know their username better than a team name.
+        name: hubTeamOptionName(roster),
       })),
       model: getSeasonModel(), transactions: state.transactions, tradesLoaded: state.transactionsLoaded,
       loading: !(archive?.leagueId === state.leagueId || state.leagueHistory.length),
@@ -2401,6 +2402,13 @@ function buildShareUrl(overrides = {}) {
 // "(you)" and the You chip mark the person who connected, never whichever
 // team is being viewed. A direct league link with no connected user marks
 // the team they picked themselves, and nothing until they pick.
+function hubTeamOptionName(roster) {
+  const team = String(roster?.manager?.teamName || "").trim();
+  const user = String(roster?.manager?.displayName || "").trim();
+  if (team && user && team.toLowerCase() !== user.toLowerCase()) return `${team} (${user})`;
+  return team || user || `Team ${roster?.rosterId}`;
+}
+
 function hubTeamName() {
   const rosterId = connectedRosterId();
   if (!rosterId) return "";
