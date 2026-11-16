@@ -329,7 +329,9 @@ export function draftSummaryLine(draft) {
   const give = names(draft?.left);
   const get = names(draft?.right);
   if (!give.length && !get.length) return "";
-  return `${give.join(", ") || "nothing"} for ${get.join(", ") || "nothing"}`;
+  // One side only: "Bijan Robinson", not "nothing for Bijan Robinson".
+  if (!give.length || !get.length) return [...give, ...get].join(", ");
+  return `${give.join(", ")} for ${get.join(", ")}`;
 }
 
 // Where to land once a league opens: keep the page a visitor was working on.
