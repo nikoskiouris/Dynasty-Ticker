@@ -307,8 +307,11 @@ export function playoffLockStatus(model) {
       remainingByTeam.set(rosterId, remainingByTeam.get(rosterId) + 1);
     });
   });
+  // A median league adds one more result per remaining week: win or lose
+  // against the week's median score.
+  const perGame = model.medianGames ? 2 : 1;
   const rows = teams.map((team) => {
-    const remaining = remainingByTeam.get(String(team.rosterId)) || 0;
+    const remaining = (remainingByTeam.get(String(team.rosterId)) || 0) * perGame;
     const winPts = Number(team.wins || 0) + 0.5 * Number(team.ties || 0);
     return {
       rosterId: String(team.rosterId),
@@ -370,8 +373,16 @@ export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEF
   const byeCount = bracketByeCount(playoffTeams);
   const seedType = Number(model.seedType) || 0;
   const remaining = model.remainingGames
-    .map(({ game }) => [teamIndex.get(game.sides[0].rosterId), teamIndex.get(game.sides[1].rosterId)])
+    .map(({ week, game }) => [teamIndex.get(game.sides[0].rosterId), teamIndex.get(game.sides[1].rosterId), week])
     .filter(([a, b]) => Number.isInteger(a) && Number.isInteger(b));
+  // Games grouped by week (already in week order), so a median league can
+  // score each week's median game from that week's simulated scores.
+  const remainingWeeks = [];
+  remaining.forEach(([a, b, week]) => {
+    const last = remainingWeeks[remainingWeeks.length - 1];
+    if (last && last.week === week) last.pairs.push([a, b]);
+    else remainingWeeks.push({ week, pairs: [[a, b]] });
+  });
   const playoffsDecided = model.seasonComplete;
   // Draw a season-long talent for each roster so remaining weeks do not
   // collapse a small scoring edge into a fake 100% lock.
@@ -396,16 +407,27 @@ export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEF
     const ties = teams.map((team) => team.ties);
     const pf = teams.map((team) => team.pf);
     const seasonMeans = dist.map((row) => randomNormal(rng, row.mean, row.meanStd || 0));
-    remaining.forEach(([a, b]) => {
-      const scoreA = randomNormal(rng, seasonMeans[a], dist[a].std);
-      const scoreB = randomNormal(rng, seasonMeans[b], dist[b].std);
-      pf[a] += scoreA;
-      pf[b] += scoreB;
-      if (scoreA > scoreB) wins[a] += 1;
-      else if (scoreB > scoreA) wins[b] += 1;
-      else {
-        ties[a] += 1;
-        ties[b] += 1;
+    remainingWeeks.forEach(({ pairs }) => {
+      const weekScores = [];
+      pairs.forEach(([a, b]) => {
+        const scoreA = randomNormal(rng, seasonMeans[a], dist[a].std);
+        const scoreB = randomNormal(rng, seasonMeans[b], dist[b].std);
+        pf[a] += scoreA;
+        pf[b] += scoreB;
+        if (scoreA > scoreB) wins[a] += 1;
+        else if (scoreB > scoreA) wins[b] += 1;
+        else {
+          ties[a] += 1;
+          ties[b] += 1;
+        }
+        weekScores.push([a, scoreA], [b, scoreB]);
+      });
+      if (model.medianGames && weekScores.length >= 2) {
+        const mid = median(weekScores.map(([, score]) => score));
+        weekScores.forEach(([index, score]) => {
+          if (score > mid) wins[index] += 1;
+          else if (score === mid) ties[index] += 1;
+        });
       }
     });
 
