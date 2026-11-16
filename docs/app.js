@@ -4785,10 +4785,14 @@ function setDraftReplaced(next) {
 function setDraft(next, { keepNotice = false } = {}) {
   // "Restore draft / Keep new" goes away on the next change to the trade.
   if (!keepNotice) setDraftReplaced(null);
+  // The first edit of a received /t trade gets its own history entry, so Back
+  // returns to the trade that was shared instead of leaving the site.
+  const leavingShared = Boolean(activeSharedTrade(state.valueCalc)) && !activeSharedTrade(next);
+  if (leavingShared) prepareDeskPush();
   state.valueCalc = next;
   writeStoredDraft(next);
   if (state.activePage === "trades" && getRoom("trades") === "calculator") {
-    updateUrlState({ mode: "replace" });
+    updateUrlState(leavingShared ? { mode: "push", force: true } : { mode: "replace" });
   }
 }
 
