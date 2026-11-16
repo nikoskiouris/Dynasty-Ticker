@@ -19,17 +19,20 @@ export const DEFAULT_DESCRIPTION =
 export const PAGE_META = {
   league: {
     title: PAGE_LABELS.league,
-    description: "Your roster value, draft picks, standings, and playoff odds.",
+    description: "Your Sleeper league at a glance: standings, your team, recent trades and all-time history.",
   },
   trades: {
     title: PAGE_LABELS.trades,
-    description: "One calculator: you give and you get. Find a deal that opens in that same calculator.",
+    description: "Is this trade fair? Build both sides and get one verdict on 12-team Superflex PPR dynasty values.",
   },
 };
 
 const ROOM_DESCRIPTIONS = {
   league: {
-    team: "Roster value, draft picks, standings, and playoff odds.",
+    standings: "Standings, all-play luck and playoff odds from your Sleeper matchups.",
+    team: "Your roster's value, position ranks and draft picks.",
+    trades: "Every completed trade in your league, graded on today's values.",
+    history: "All-time standings, champions, records, rivalries and awards.",
   },
   trades: {
     calculator: "You give and you get. Same verdict with or without a league. A league adds roster picks and team impact.",
