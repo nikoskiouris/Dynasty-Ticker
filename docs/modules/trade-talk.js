@@ -441,6 +441,7 @@ const GET_LEAD = /\b(?:got offered|was offered|been offered|being offered|i'm of
 const GIVE_LEAD = /^(?:[a-z0-9@_.,']+\s+){0,3}?(?:trade away|trading away|i traded|traded|i gave up|gave up|i gave|gave|i sold|sold|i give|i'd give|id give|i trade|i'm trading|im trading|trading|trade|deal|dealing|i offer|i offered|offering|offer|sell|selling|send|sending|give|giving|i do|do)\b\s*/;
 const RIGHT_VERB = /^(?:add|adds|throw in|throws in|toss in|include|includes|give|gives|kick in|kicks in)\b\s*/;
 const RIGHT_ADD = /^(?:(?:they|he|she|them)\s+(?:add|adds|throw in|throws in|toss in|include|includes|give|gives|kick in|kicks in)|ask for|ask them for|have them add|make them add|i want|i get|get|request|and they add)\b\s*/;
+const GIVE_ADD = /^(?:i give|i'd give|id give|i'll give|ill give|i'm giving|im giving|give|giving|i send|i'd send|i'll send|send|sending|i trade|i'd trade|trade|trading|i offer|i'd offer|offer|offering)\b\s*/;
 const PRONOUNS = new Set(["me", "him", "her", "them", "my", "his", "their", "us", "it"]);
 
 // Players first, so "Pickens and his 2nd" reads "his" as Pickens's team.
@@ -695,6 +696,14 @@ export function parseTradeTalk(message, ctx = {}) {
   } else if (rightAdd) {
     side = "right";
     rest = rest.slice(rightAdd[0].length).trim();
+  } else if (/^(?:give|send|offer)\s+me\b/.test(rest)) {
+    // "Give me Puka" names what comes back.
+    side = "right";
+    rest = rest.replace(/^(?:give|send|offer)\s+me\b\s*/, "");
+  } else if (GIVE_ADD.test(rest)) {
+    // "Give Bijan", "I'd send a 2nd", "trade Pickens": my side, like "Bijan for ...".
+    side = "left";
+    rest = rest.replace(GIVE_ADD, "");
   } else {
     rest = rest.replace(/^(?:add|plus|also|and|throw in|toss in|include|put in|tack on|i add|i'll add|ill add|i throw in)\b\s*/, "");
   }
