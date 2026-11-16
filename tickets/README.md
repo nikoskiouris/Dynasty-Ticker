@@ -76,7 +76,7 @@ Repo policy applies: **no unit tests and no automated test suites**. Acceptance 
 | 4 | [035](done/035-league-hub.md) League hub | M | 033, 034 | 030, 036, 038 |
 | 4 | [038](todo/038-trade-grading-algorithm.md) Trade grading | M | 034, 044 (029 wording) | 035, 036, 037 |
 | 4 | [030](todo/030-trade-calc-real-trade-advice.md) Trade advice (no AI) | M | 027, 029, 044, 045 | 035–038 |
-| 5 | [036](todo/036-league-standings-page.md) Standings + luck | M | 033, 035 | 037, 039 |
+| 5 | [036](done/036-league-standings-page.md) Standings + luck | M | 033, 035 | 037, 039 |
 | 5 | [037](todo/037-league-my-team-page.md) My Team superlatives | M | 033, 035, 044, 045 (034 for some) | 036, 039 |
 | 5 | [039](todo/039-league-recent-trades-page.md) Recent Trades | M | 034, 035, 038 | 036, 037 |
 | 6 | [040](todo/040-historical-data-page-all-time-records.md) Historical Data page | L | 034, 035, 036 | 041 (after its shell) |
@@ -92,7 +92,6 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 | --- | --- | --- | --- |
 | [030](todo/030-trade-calc-real-trade-advice.md) | Trade Calc: "New: Give real trade advice" button (existing logic, no AI) | P1 | M |
 | [034](todo/034-league-history-data-layer.md) | League History data layer: all seasons, matchups, transactions, drafts (cached) | P0 | L |
-| [036](todo/036-league-standings-page.md) | Standings page: live standings with luck factor | P1 | M |
 | [037](todo/037-league-my-team-page.md) | My Team page: team name, interesting stats and player superlatives | P1 | M |
 | [038](todo/038-trade-grading-algorithm.md) | Trade grading algorithm (shared by Recent Trades and Historical Data) | P0 | M |
 | [039](todo/039-league-recent-trades-page.md) | Recent Trades page: league trade log with search and trade grades | P1 | M |
@@ -135,6 +134,7 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 | [028](done/028-trade-calc-smart-search.md) | Trade Calc: one "smart search bar" at the top | P1 | 2026-11-14, [#294](https://github.com/nikoskiouris/Dynasty-Ticker/pull/294) |
 | [033](done/033-league-history-username-and-league-picker.md) | League History entry: "Enter your Sleeper username" → "Select your league" | P0 | 2026-11-14, [#295](https://github.com/nikoskiouris/Dynasty-Ticker/pull/295) |
 | [035](done/035-league-hub.md) | League hub: League Name, "What to see?" and the RECENT WINNER banner | P0 | 2026-11-14, [#296](https://github.com/nikoskiouris/Dynasty-Ticker/pull/296) |
+| [036](done/036-league-standings-page.md) | Standings page: live standings with luck factor | P1 | 2026-11-14, [#297](https://github.com/nikoskiouris/Dynasty-Ticker/pull/297) |
 | [043](done/043-retire-old-navigation-and-redirects.md) | Retire the three-tab desk: old nav, rail, redirects, clean-up | P1 | 2026-11-13, [428f5d0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/428f5d0e6544b6cf129992fffb7265e2556b11cc), [96401dc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/96401dcf2786a4f2fb24c83956f993ac5529f3ab), [5b6dad0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/5b6dad0b05df7c0aa44d688a60ec1e56d24048c7) |
 | [045](done/045-delete-features-not-in-sketches.md) | Delete features the sketches don't show (Find a trade, buy-low/sell-high, win-now, hot on Sleeper, and the rest) | P1 | 2026-11-13, [836aabe](https://github.com/nikoskiouris/Dynasty-Ticker/commit/836aabef15100e37fe4daab726bfa9cf6ab7cb2c), [d02415e](https://github.com/nikoskiouris/Dynasty-Ticker/commit/d02415e70225897fe63648cd3c5754405a153571), [300d220](https://github.com/nikoskiouris/Dynasty-Ticker/commit/300d2209e37490ce5c8c52776285402889e7ed40), [c48cfd8](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c48cfd84fc43c4a4d4d7afda7f693fe1e7302ca3), [96401dc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/96401dcf2786a4f2fb24c83956f993ac5529f3ab) |
 Several PRs above (#213, #220–#223, #282) show as closed on GitHub, but their work landed on `develop` as the linked commits.
