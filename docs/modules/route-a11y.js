@@ -118,7 +118,7 @@ const ROOM_HEADINGS = Object.freeze({
 
 export function headingSelectorFor(place = {}) {
   const overlay = String(place.overlay || "");
-  if (overlay === "player" || place.playerId) return ".ranks-card h2, .player-week-sheet h2";
+  if (overlay === "player" || place.playerId) return "#player-detail-name, .ranks-card h2, .player-week-sheet h2";
   const page = place.page || place.tab || "";
   const room = String(place.view || "");
   if (place.playersBoard && page === "trades" && room === "calculator") return "#ranks-section .panel-heading h2";
@@ -147,8 +147,9 @@ function mayMoveFocus(doc, active, takeover = false) {
   if (takeover && inLeagueIdForm(active)) return true;
   // A room change hides the previous room. Focus is still on that heading until
   // the browser drops it, and the next room heading has to take over.
-  const tag = String(active.tagName || "");
-  return (tag === "H1" || tag === "H2" || tag === "H3") && isHidden(active);
+  // The same goes for the control that opened the route (a player name on My
+  // Team): once its page is hidden, focus there helps no one.
+  return isHidden(active);
 }
 
 let headingWatch = 0;
