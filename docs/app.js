@@ -669,7 +669,7 @@ mountSiteMenu({
     requestAnimationFrame(() => focusClickedRoute());
   },
 });
-// In-page links (#league-rivalry-3 from the head-to-head grid): scroll to the
+// In-page links (#some-id): scroll to the
 // target and open it when it is a <details>, without a history entry.
 document.addEventListener("click", (event) => {
   const link = event.target.closest?.('a[href^="#"]');

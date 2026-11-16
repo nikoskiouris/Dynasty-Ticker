@@ -2,6 +2,7 @@ import { escapeHtml, formatNumber } from "./html.js";
 import { championsWall, allTimeStandings, leagueRecordBook, leagueTrends } from "./league-records.js";
 import { formatPoints } from "./standings.js";
 import { renderRivalries } from "./league-rivalries-page.js";
+import { renderMostTraded } from "./league-most-traded.js";
 import { renderTrophyCases } from "./league-trophies-page.js";
 import { renderTraderAwards } from "./league-trader-awards-page.js";
 import { renderOperationsAwards } from "./league-operations-awards-page.js";
@@ -130,6 +131,7 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
     ${renderRecords(book)}
     ${renderRivalries(archive)}
     ${renderTrends(leagueTrends(archive))}
+    ${renderMostTraded(archive, { values, valueNames, players })}
     ${renderTrophyCases(archive, { valueNames })}
     ${renderTraderAwards(archive, { values, valueNames })}
     ${renderDrafterAwards(archive, { values, valueNames })}
