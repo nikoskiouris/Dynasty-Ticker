@@ -4626,7 +4626,10 @@ function renderRosterSheet() {
       <div class="${rowClass}" data-player-id="${escapeHtml(playerId)}">
         ${sheetSlotMarkup(extra.slot, slotLabel)}
         <div class="sheet-player">
-          ${renderPlayerFace(playerId, asset.name, { size: "sm" })}
+          ${/^player:\d+$/.test(String(asset.assetId || ""))
+            // The face opens the player page too; the name button stays the keyboard target.
+            ? `<span class="face-link" data-action="open-player" data-asset-id="${escapeHtml(asset.assetId)}">${renderPlayerFace(playerId, asset.name, { size: "sm" })}</span>`
+            : renderPlayerFace(playerId, asset.name, { size: "sm" })}
           <strong>${playerLinkHtml(asset)}${nickname ? ` <em class="nickname">“${escapeHtml(nickname)}”</em>` : ""}</strong>
           ${meta ? `<span>${meta}</span>` : ""}
         </div>
