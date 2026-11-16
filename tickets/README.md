@@ -150,7 +150,7 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 | [044](done/044-one-value-system-12-team-sf-ppr.md) | One value system: 12-team Superflex PPR dynasty only | P0 | 2026-11-14, [#301](https://github.com/nikoskiouris/Dynasty-Ticker/pull/301) |
 | [045](done/045-delete-features-not-in-sketches.md) | Delete features the sketches don't show (Find a trade, buy-low/sell-high, win-now, hot on Sleeper, and the rest) | P1 | 2026-11-13, [836aabe](https://github.com/nikoskiouris/Dynasty-Ticker/commit/836aabef15100e37fe4daab726bfa9cf6ab7cb2c), [d02415e](https://github.com/nikoskiouris/Dynasty-Ticker/commit/d02415e70225897fe63648cd3c5754405a153571), [300d220](https://github.com/nikoskiouris/Dynasty-Ticker/commit/300d2209e37490ce5c8c52776285402889e7ed40), [c48cfd8](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c48cfd84fc43c4a4d4d7afda7f693fe1e7302ca3), [96401dc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/96401dcf2786a4f2fb24c83956f993ac5529f3ab) |
 | [046](done/046-light-mode-again.md) | Turn off dark mode: Dynasty Ticker is light mode again | P1 | 2026-11-16, [#390](https://github.com/nikoskiouris/Dynasty-Ticker/pull/390) |
-| [047](done/047-players-header-wrap.md) | /players: Rank and Age sort buttons break mid-word on phones | P2 | 2026-11-16, PR link pending |
+| [047](done/047-players-header-wrap.md) | /players: Rank and Age sort buttons break mid-word on phones | P2 | 2026-11-16, [#392](https://github.com/nikoskiouris/Dynasty-Ticker/pull/392) |
 Several PRs above (#213, #220–#223, #282) show as closed on GitHub, but their work landed on `develop` as the linked commits.
 
 ## Closed (superseded, not built)

@@ -1,6 +1,6 @@
 # 047 · /players: Rank and Age sort buttons break mid-word on phones
 
-Done: 2026-11-16, PR link pending
+Done: 2026-11-16, [#392](https://github.com/nikoskiouris/Dynasty-Ticker/pull/392)
 
 **Status:** Done · **Priority:** P2 · **Size:** S · **Owner:** Cursor
 
