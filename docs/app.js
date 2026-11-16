@@ -6306,8 +6306,9 @@ function showShareToast(text) {
     toast = document.createElement("div");
     toast.id = "share-toast";
     toast.className = "share-toast";
-    toast.setAttribute("role", "status");
-    toast.setAttribute("aria-live", "polite");
+    // Visual only: the share button's own status line already announces it,
+    // so a second live region made screen readers say "Link copied" twice.
+    toast.setAttribute("aria-hidden", "true");
     document.body.appendChild(toast);
   }
   toast.textContent = text;
