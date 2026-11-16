@@ -1,6 +1,8 @@
 # 029 · Trade Calc: symmetric fairness scale (Lopsided … Even … Lopsided)
 
-**Status:** Open · **Priority:** P0 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [ffe95d5](https://github.com/nikoskiouris/Dynasty-Ticker/commit/ffe95d5) (QA and close: [#293](https://github.com/nikoskiouris/Dynasty-Ticker/pull/293))
+
+**Status:** Done · **Priority:** P0 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 
