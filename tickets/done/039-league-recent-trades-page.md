@@ -1,6 +1,8 @@
 # 039 · Recent Trades page: league trade log with search and trade grades
 
-**Status:** Open · **Priority:** P1 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [#299](https://github.com/nikoskiouris/Dynasty-Ticker/pull/299)
+
+**Status:** Done · **Priority:** P1 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 
