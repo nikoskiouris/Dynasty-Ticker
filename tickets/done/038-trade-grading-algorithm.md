@@ -1,6 +1,8 @@
 # 038 · Trade grading algorithm (shared by Recent Trades and Historical Data)
 
-**Status:** Open · **Priority:** P0 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [#300](https://github.com/nikoskiouris/Dynasty-Ticker/pull/300)
+
+**Status:** Done · **Priority:** P0 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 
