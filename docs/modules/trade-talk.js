@@ -1,3 +1,4 @@
+import { PLAYER_ALIASES } from "./player-aliases.js";
 import { formatGenericPickAssetLabel, parsePickAssetId } from "./values.js";
 import {
   expandPickSlotQuery,
@@ -22,29 +23,7 @@ export const TRADE_TALK_EXAMPLES = Object.freeze([
 ]);
 
 // Normalized nickname -> normalized full name.
-export const PLAYER_ALIASES = Object.freeze({
-  cmc: "christian mccaffrey",
-  arsb: "amon ra st brown",
-  "sun god": "amon ra st brown",
-  jsn: "jaxon smith njigba",
-  btj: "brian thomas",
-  mhj: "marvin harrison",
-  ajb: "aj brown",
-  jj: "justin jefferson",
-  jjeff: "justin jefferson",
-  jt: "jonathan taylor",
-  kw3: "kenneth walker",
-  dk: "dk metcalf",
-  tmac: "terry mclaurin",
-  tmcl: "terry mclaurin",
-  tet: "tetairoa mcmillan",
-  hollywood: "marquise brown",
-  "a j brown": "aj brown",
-  "d k metcalf": "dk metcalf",
-  "c j stroud": "cj stroud",
-  "t j hockenson": "tj hockenson",
-  "j k dobbins": "jk dobbins",
-});
+export { PLAYER_ALIASES };
 
 const NAME_SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv", "v"]);
 const ROUND_WORDS = {

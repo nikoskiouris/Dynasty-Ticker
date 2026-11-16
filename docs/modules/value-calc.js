@@ -1,3 +1,4 @@
+import { playerAliasName } from "./player-aliases.js";
 import {
   formatGenericPickAssetLabel,
   formatPickBucketLabel,
@@ -115,7 +116,11 @@ export function valueCalcAssetMatchesQuery(row, query) {
   // Emoji or punctuation only: nothing to match, so show "No matching".
   if (!tokens.length) return !String(query || "").trim();
   const words = searchWords(valueCalcAssetSearchText(row));
-  return tokens.every((token) => words.some((word) => wordMatchesToken(word, token)));
+  const hit = (list) => list.every((token) => words.some((word) => wordMatchesToken(word, token)));
+  if (hit(tokens)) return true;
+  // "jsn" finds Jaxon Smith-Njigba too.
+  const alias = playerAliasName(query);
+  return Boolean(alias) && hit(searchWords(alias));
 }
 
 function sortValueCalcRows(a, b) {
