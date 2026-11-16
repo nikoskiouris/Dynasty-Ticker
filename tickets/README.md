@@ -67,6 +67,9 @@ Repo policy applies: **no unit tests and no automated test suites**. Acceptance 
 | 3 | [029](done/029-trade-calc-fairness-scale.md) Fairness scale | M | 027, 044 | 028, 032, 034 |
 | 3 | [028](todo/028-trade-calc-smart-search.md) Smart search | M | 027 | 029, 032, 034 |
 | 3 | [032](done/032-player-detail-page.md) Player detail page | L | 024, 031, 044 | 028, 029, 034 |
+| 3 | [029](todo/029-trade-calc-fairness-scale.md) Fairness scale | M | 027, 044 | 028, 032, 034 |
+| 3 | [028](done/028-trade-calc-smart-search.md) Smart search | M | 027 | 029, 032, 034 |
+| 3 | [032](todo/032-player-detail-page.md) Player detail page | L | 024, 031, 044 | 028, 029, 034 |
 | 3 | [034](todo/034-league-history-data-layer.md) League data layer | L | 033 | 028, 029, 032 |
 | 4 | [035](todo/035-league-hub.md) League hub | M | 033, 034 | 030, 036, 038 |
 | 4 | [038](todo/038-trade-grading-algorithm.md) Trade grading | M | 034, 044 (029 wording) | 035, 036, 037 |
@@ -85,7 +88,6 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 
 | ID | Ticket | Priority | Size |
 | --- | --- | --- | --- |
-| [028](todo/028-trade-calc-smart-search.md) | Trade Calc: one "smart search bar" at the top | P1 | M |
 | [030](todo/030-trade-calc-real-trade-advice.md) | Trade Calc: "New: Give real trade advice" button (existing logic, no AI) | P1 | M |
 | [033](todo/033-league-history-username-and-league-picker.md) | League History entry: "Enter your Sleeper username" → "Select your league" | P0 | M |
 | [034](todo/034-league-history-data-layer.md) | League History data layer: all seasons, matchups, transactions, drafts (cached) | P0 | L |
@@ -130,6 +132,7 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 | [032](done/032-player-detail-page.md) | Player detail page (full screen) with "Return to player rankings" | P1 | 2026-11-14, [#289](https://github.com/nikoskiouris/Dynasty-Ticker/pull/289) |
 | [027](done/027-trade-calc-two-column-layout.md) | Trade Calc: "Team 1 Receives" / "Team 2 Receives" two-column layout | P0 | 2026-11-14, [#291](https://github.com/nikoskiouris/Dynasty-Ticker/pull/291) |
 | [029](done/029-trade-calc-fairness-scale.md) | Trade Calc: symmetric fairness scale (Lopsided … Even … Lopsided) | P0 | 2026-11-14, [#293](https://github.com/nikoskiouris/Dynasty-Ticker/pull/293) |
+| [028](done/028-trade-calc-smart-search.md) | Trade Calc: one "smart search bar" at the top | P1 | 2026-11-14, [#294](https://github.com/nikoskiouris/Dynasty-Ticker/pull/294) |
 | [043](done/043-retire-old-navigation-and-redirects.md) | Retire the three-tab desk: old nav, rail, redirects, clean-up | P1 | 2026-11-13, [428f5d0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/428f5d0e6544b6cf129992fffb7265e2556b11cc), [96401dc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/96401dcf2786a4f2fb24c83956f993ac5529f3ab), [5b6dad0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/5b6dad0b05df7c0aa44d688a60ec1e56d24048c7) |
 | [045](done/045-delete-features-not-in-sketches.md) | Delete features the sketches don't show (Find a trade, buy-low/sell-high, win-now, hot on Sleeper, and the rest) | P1 | 2026-11-13, [836aabe](https://github.com/nikoskiouris/Dynasty-Ticker/commit/836aabef15100e37fe4daab726bfa9cf6ab7cb2c), [d02415e](https://github.com/nikoskiouris/Dynasty-Ticker/commit/d02415e70225897fe63648cd3c5754405a153571), [300d220](https://github.com/nikoskiouris/Dynasty-Ticker/commit/300d2209e37490ce5c8c52776285402889e7ed40), [c48cfd8](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c48cfd84fc43c4a4d4d7afda7f693fe1e7302ca3), [96401dc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/96401dcf2786a4f2fb24c83956f993ac5529f3ab) |
 Several PRs above (#213, #220–#223, #282) show as closed on GitHub, but their work landed on `develop` as the linked commits.
