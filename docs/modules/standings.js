@@ -834,10 +834,19 @@ export function formatRecord(team) {
   return `${team.wins}-${team.losses}${team.ties ? `-${team.ties}` : ""}`;
 }
 
-export function formatPoints(value) {
+// Fantasy points the way Sleeper shows them: two decimals, always. Sleeper
+// keeps scores in whole hundredths (fpts + fpts_decimal), so round half-up on
+// hundredths. The tiny nudge stops 1.005 (stored as 1.00499...) rounding down.
+export function roundPoints(value) {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return "—";
-  return numeric.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  if (!Number.isFinite(numeric)) return NaN;
+  return (Math.sign(numeric) * Math.round(Math.abs(numeric) * 100 + 1e-6)) / 100;
+}
+
+export function formatPoints(value) {
+  const rounded = roundPoints(value);
+  if (!Number.isFinite(rounded)) return "—";
+  return rounded.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function ordinal(rank) {

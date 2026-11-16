@@ -1,5 +1,6 @@
 import { escapeHtml, formatNumber } from "./html.js";
 import { championsWall, allTimeStandings, leagueRecordBook, leagueTrends } from "./league-records.js";
+import { formatPoints } from "./standings.js";
 import { renderRivalries } from "./league-rivalries-page.js";
 import { renderTrophyCases } from "./league-trophies-page.js";
 import { renderTraderAwards } from "./league-trader-awards-page.js";
@@ -54,7 +55,7 @@ function renderAllTime(rows) {
       ${rows.map((row) => `<tr><th scope="row">${e(row.name)}</th>
         <td>${whole(row.seasons)}</td><td>${whole(row.wins)}–${whole(row.losses)}–${whole(row.ties)}</td>
         <td>${row.winPct == null ? "—" : `${decimal(row.winPct)}%`}</td>
-        <td>${whole(row.pf)}</td><td>${whole(row.pa)}</td>
+        <td>${formatPoints(row.pf)}</td><td>${formatPoints(row.pa)}</td>
         <td>${whole(row.playoffAppearances)}</td><td>${whole(row.titles)}</td><td>${whole(row.finals)}</td>
         <td>${row.avgFinish == null ? "—" : row.avgFinish.toFixed(1)}</td>
         <td>${row.luck == null ? "—" : `${row.luck > 0 ? "+" : ""}${row.luck.toFixed(1)}`}</td>
@@ -74,7 +75,7 @@ function renderRecords(book) {
       const week = Number(item.week);
       const where = [season, Number.isInteger(week) && week > 0 ? `Week ${week}` : item.weeks || ""].filter(Boolean).join(" · ");
       const value = key === "bestSeasonRecord" || key === "worstSeasonRecord" ? `${decimal(item.value)}% (${e(item.record)})`
-        : key === "winStreak" || key === "loseStreak" ? `${whole(item.value)} game${item.value === 1 ? "" : "s"}` : whole(item.value);
+        : key === "winStreak" || key === "loseStreak" ? `${whole(item.value)} game${item.value === 1 ? "" : "s"}` : formatPoints(item.value);
       return `<div><dt>${e(label)}</dt><dd><strong>${value}</strong>
         <span>${e(item.team)}${item.opponent ? ` vs. ${e(item.opponent)}` : ""}</span>
         <span class="muted small">${e(where)}</span></dd></div>`;
@@ -98,9 +99,9 @@ function renderTrends(rows) {
       <th scope="col">Avg weekly score</th><th scope="col">Parity</th><th scope="col">Points spread</th><th scope="col">Trades</th><th scope="col">Picks traded</th><th scope="col">Waiver & free-agent moves</th>
       <th scope="col">Games counted</th></tr></thead><tbody>
       ${rows.map((row) => `<tr><th scope="row">${e(row.season)}</th>
-        <td>${row.averageScore == null ? "—" : decimal(row.averageScore)}</td>
+        <td>${row.averageScore == null ? "—" : formatPoints(row.averageScore)}</td>
         <td>${row.parity == null ? "—" : whole(row.parity)}</td>
-        <td>${row.pointsSpread == null ? "—" : whole(row.pointsSpread)}</td>
+        <td>${row.pointsSpread == null ? "—" : formatPoints(row.pointsSpread)}</td>
         <td>${moves(row, "trades")}</td><td>${moves(row, "picksTraded")}</td><td>${moves(row, "waivers")}</td><td>${whole(row.games)}</td>
       </tr>`).join("")}</tbody></table></div></section>`;
 }
