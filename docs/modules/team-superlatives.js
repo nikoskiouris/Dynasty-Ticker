@@ -51,6 +51,7 @@ export function buildTeamSuperlatives({
   ages = {},
   history = null,
   latestStarters = [],
+  acquisitions = null,
 } = {}) {
   const nameOf = (id) => String(names[`player:${id}`] || names[id] || "").trim();
   const cards = [];
@@ -89,7 +90,55 @@ export function buildTeamSuperlatives({
     const young = sorted[sorted.length - 1];
     cards.push({ key: "youngest", title: "Youngest starter", playerId: young.id, name: nameOf(young.id), why: `${round1(young.age)} years old.` });
   }
+  // Best young asset: the highest value at 24 or younger.
+  const young = priced.filter((row) => Number(ages[row.id]) > 0 && Number(ages[row.id]) <= 24);
+  if (young[0]) cards.push({ key: "young", title: "Best young asset", playerId: young[0].id, name: nameOf(young[0].id), why: `Worth ${formatNumber(young[0].value)} at ${round1(ages[young[0].id])}.` });
+
+  // How players got here, from the league archive's loaded seasons. Hidden
+  // until it loads; only players still on this roster count.
+  const bestOf = (map) => (map ? priced.find((row) => map.has(row.id)) : null);
+  const drafted = bestOf(acquisitions?.drafted);
+  if (drafted) {
+    const pick = acquisitions.drafted.get(drafted.id);
+    cards.push({ key: "drafted", title: "Best recent draft pick", playerId: drafted.id, name: nameOf(drafted.id), why: `Taken ${pick.label} in the ${pick.season} draft; worth ${formatNumber(drafted.value)} now. Drafts checked: ${acquisitions.span}.` });
+  }
+  const pickup = bestOf(acquisitions?.waivered);
+  if (pickup) {
+    const add = acquisitions.waivered.get(pickup.id);
+    cards.push({ key: "pickup", title: "Best recent waiver pickup", playerId: pickup.id, name: nameOf(pickup.id), why: `Added ${add.type === "free_agent" ? "as a free agent" : "off waivers"} in ${add.season}${add.week ? ` week ${add.week}` : ""}; worth ${formatNumber(pickup.value)} now. Seasons checked: ${acquisitions.span}.` });
+  }
   return cards;
+}
+
+// Draft picks made and waiver/free-agent adds by this roster, from the league
+// archive (seasons it has loaded). Latest event per player wins.
+export function rosterAcquisitions(archive, rosterId) {
+  if (!archive) return null;
+  const id = String(rosterId);
+  const drafted = new Map();
+  const waivered = new Map();
+  for (const entry of archive.seasons || []) {
+    const season = String(entry.season);
+    for (const draft of archive.drafts?.[season] || []) {
+      for (const pick of draft.picks || []) {
+        if (String(pick.roster_id) !== id || !pick.player_id) continue;
+        const slot = Number(pick.draft_slot) || 0;
+        const label = slot ? `${pick.round}.${String(slot).padStart(2, "0")}` : `in round ${pick.round}`;
+        if (!drafted.has(String(pick.player_id))) drafted.set(String(pick.player_id), { season: String(draft.season || season), round: pick.round, label });
+      }
+    }
+    for (const move of archive.transactions?.[season] || []) {
+      if (move.type !== "waiver" && move.type !== "free_agent") continue;
+      for (const [playerId, to] of Object.entries(move.adds || {})) {
+        if (String(to) !== id || waivered.has(playerId)) continue;
+        waivered.set(playerId, { season, week: Number(move.leg) || 0, type: move.type });
+      }
+    }
+  }
+  // Only seasons whose moves loaded: the cards say which.
+  const years = (archive.seasons || []).map((entry) => String(entry.season)).filter((season) => archive.transactions?.[season] || archive.drafts?.[season]).map(Number).sort((a, b) => a - b);
+  const span = years.length ? (years[0] === years[years.length - 1] ? String(years[0]) : `${years[0]}–${years[years.length - 1]}`) : "";
+  return { drafted, waivered, span };
 }
 
 // Start-to-sit record for the stat strip: last final week's starters.

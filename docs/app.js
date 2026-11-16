@@ -120,7 +120,7 @@ import {
   renderPowerStat,
   } from "./modules/roster-markup.js";
 import { facePlayerId, playerIdFromAssetId, renderPlayerFace, renderPlayerLabel } from "./modules/player-face.js";
-import { buildTeamSuperlatives, latestStartersFor } from "./modules/team-superlatives.js";
+import { buildTeamSuperlatives, latestStartersFor, rosterAcquisitions } from "./modules/team-superlatives.js";
 import {
   addValueCalcItem,
   clearValueCalcSides,
@@ -4470,6 +4470,15 @@ function renderTeamsPage() {
 }
 
 // Ticket 037: who this team is, and its player superlatives.
+// Draft and waiver history for the superlatives. Loads the archive's recent
+// seasons (cached after the first visit); the cards wait until it lands.
+function teamAcquisitions(rosterId) {
+  const archive = leagueArchive.snapshot;
+  if (archiveCovers(archive, "recent", state.leagueId)) return rosterAcquisitions(archive, rosterId);
+  ensureLeagueArchive("recent");
+  return null;
+}
+
 function renderTeamExtras() {
   const header = document.querySelector("#team-header");
   const section = document.querySelector("#team-superlatives-section");
@@ -4516,6 +4525,7 @@ function renderTeamExtras() {
     ages,
     history: state.valueHistory,
     latestStarters: latestStartersFor(state.seasonWeekRows, roster.rosterId, model?.finalThroughWeek),
+    acquisitions: teamAcquisitions(roster.rosterId),
   });
   section.classList.toggle("hidden", cards.length === 0);
   host.innerHTML = cards.map((card) => `
