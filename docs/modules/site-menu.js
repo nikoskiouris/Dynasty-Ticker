@@ -33,7 +33,8 @@ export function mountSiteMenu({ navigate, document: doc = document, window: win 
     doc.body.style.overflow = oldOverflow;
     inerted.forEach(([node, value]) => { node.inert = value; });
     inerted = [];
-    button.focus({ preventScroll: true });
+    // Closing to go somewhere: the new page's heading takes focus, not this button.
+    if (!afterClose) button.focus({ preventScroll: true });
     const next = afterClose;
     afterClose = null;
     next?.();

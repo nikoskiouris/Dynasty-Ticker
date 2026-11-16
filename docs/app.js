@@ -654,7 +654,14 @@ if (bootRoute?.badLeague) {
 }
 bindInfoTips(document);
 renderToolPicker(document.querySelector("#home-page-content"));
-mountSiteMenu({ navigate: navigateTool });
+mountSiteMenu({
+  navigate(href) {
+    navigateTool(href);
+    // A menu pick is a route change: move focus to the new page's heading
+    // once it has painted.
+    requestAnimationFrame(() => focusClickedRoute());
+  },
+});
 // In-page links (#league-rivalry-3 from the head-to-head grid): scroll to the
 // target and open it when it is a <details>, without a history entry.
 document.addEventListener("click", (event) => {
