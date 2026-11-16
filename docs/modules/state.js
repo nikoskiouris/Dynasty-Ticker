@@ -3,8 +3,8 @@ import { PAGE_IDS, DEFAULT_PAGE, DEFAULT_ROOMS } from "./constants.js";
 import { emptyValueCalcState } from "./value-calc.js";
 
 export const PLAYERS_CACHE_KEY = "fda_players_nfl_cache_v1";
-export const DEFAULT_THEME = "dark";
-export const THEME_COLOR = "#0c0c0e";
+export const DEFAULT_THEME = "light";
+export const THEME_COLOR = "#f7f5f1";
 
 export function emptyDealBoard() {
   return {

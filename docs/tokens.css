@@ -35,7 +35,7 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Dynasty Ticker density tokens: dark theme. Drop in before styles.css overrides. */
+/* Dynasty Ticker density tokens: light theme. Drop in before styles.css overrides. */
 :root {
   /* fonts */
   --font-ui: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -100,23 +100,23 @@
   --header-h: 44px;
   --content-max: 1120px;
   /* colors (existing develop values) */
-  --bg: #0c0c0e;
-  --panel: #141416;
-  --panel-soft: #1c1c1f;
-  --panel-tint: rgba(244, 241, 236, 0.06);
-  --line: rgba(244, 241, 236, 0.12);
-  --line-strong: rgba(244, 241, 236, 0.32);
-  --text: #f4f1ec;
-  --muted: #a89e96;
-  --muted-strong: #e4dcd4;
-  --on-accent: #141210;
-  --green: #3dcc8a;
-  --green-soft: rgba(61, 204, 138, 0.16);
-  --red: #ff7a72;
-  --red-soft: rgba(255, 122, 114, 0.16);
-  --amber: #f0c36a;
-  --violet: #8eb6ff;
-  --teal: #e7b4bc;
+  --bg: #f7f5f1;
+  --panel: #ffffff;
+  --panel-soft: #efece7;
+  --panel-tint: rgba(20, 18, 16, 0.04);
+  --line: rgba(20, 18, 16, 0.12);
+  --line-strong: rgba(20, 18, 16, 0.32);
+  --text: #141210;
+  --muted: #6b625b;
+  --muted-strong: #3a332e;
+  --on-accent: #faf8f5;
+  --green: #13794c;
+  --green-soft: rgba(19, 121, 76, 0.12);
+  --red: #c0362c;
+  --red-soft: rgba(192, 54, 44, 0.1);
+  --amber: #8f5f00;
+  --violet: #2f5bb8;
+  --teal: #9c3d50;
   --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--text);
 }
 
