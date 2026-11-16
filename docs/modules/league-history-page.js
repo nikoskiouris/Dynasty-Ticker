@@ -44,7 +44,7 @@ function renderChampions(seasons) {
 function renderAllTime(rows) {
   if (!rows.length) return "";
   return `<section class="workspace-panel"><h2>All-time standings</h2>
-    <p class="muted small">By Sleeper manager account across the loaded seasons. A team renamed by the same manager counts once; ownership changes remain separate. Avg finish: regular-season place in finished seasons. Luck: real wins minus all-play expected wins, summed over seasons with Sleeper matchups.</p>
+    <p class="muted small">By Sleeper manager account across the loaded seasons. A team renamed by the same manager counts once; ownership changes remain separate. Avg finish: regular-season place in finished seasons. Luck: real wins minus all-play expected wins, summed over seasons with Sleeper matchups. Sorted by titles, then win %.</p>
     <div class="league-history-scroll" role="region" aria-label="All-time standings table" tabindex="0">
       <table class="league-history-table"><thead><tr>
         <th scope="col">Manager</th><th scope="col">Seasons</th><th scope="col">W-L-T</th><th scope="col">Win %</th>
