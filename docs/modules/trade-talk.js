@@ -423,10 +423,36 @@ const RIGHT_ADD = /^(?:(?:they|he|she|them)\s+(?:add|adds|throw in|throws in|tos
 const GIVE_ADD = /^(?:i give|i'd give|id give|i'll give|ill give|i'm giving|im giving|give|giving|i send|i'd send|i'll send|send|sending|i trade|i'd trade|trade|trading|i offer|i'd offer|offer|offering)\b\s*/;
 const PRONOUNS = new Set(["me", "him", "her", "them", "my", "his", "their", "us", "it"]);
 
+// "2028 1st and 3rd", "my 2028 1st and 2nd": a pick listed right after a
+// dated pick shares its year (and its "my"/"their"), as people mean it.
+const PICK_OWNER_WORD = /^(?:my|their|his|her)\b/;
+const PICK_ROUND_WORD = /\b(?:\d+(?:st|nd|rd|th)s?|firsts?|seconds?|thirds?|fourths?|fifths?)\b/;
+function carryPickYear(pieces, season) {
+  let year = "";
+  let owner = "";
+  return pieces.map((piece) => {
+    // "my 2028 1st", "zim8box's 2nd": read the pick past its owner word.
+    if (!parsePickPhrase(piece.replace(/^(?:my|their|his|her|[a-z0-9@_.]+'s?)\s+/, ""), { season })) {
+      year = "";
+      owner = "";
+      return piece;
+    }
+    const dated = piece.match(/\b20\d{2}\b/);
+    if (dated) {
+      year = dated[0];
+      owner = (piece.match(PICK_OWNER_WORD) || [""])[0];
+      return piece;
+    }
+    if (!year || /\b\d{2}\b|next year|this year|future/.test(piece) || !PICK_ROUND_WORD.test(piece)) return piece;
+    const withYear = piece.replace(PICK_ROUND_WORD, (round) => `${year} ${round}`);
+    return owner && !PICK_OWNER_WORD.test(withYear) ? `${owner} ${withYear.replace(/^(?:a|an|the)\s+/, "")}` : withYear;
+  });
+}
+
 // Players first, so "Pickens and his 2nd" reads "his" as Pickens's team.
 function piecesWithSide(text, side, ctx, partner, index) {
   const out = { adds: [], asks: [], misses: [], notes: [], partner: null };
-  const pieces = splitPieces(text);
+  const pieces = carryPickYear(splitPieces(text), ctx.season);
   const isPick = (piece) => Boolean(parsePickPhrase(pullOwner(piece, ctx.managers, ctx.meRosterId).text, { season: ctx.season }));
   const hits = new Map();
   const run = (piece, i) => {
