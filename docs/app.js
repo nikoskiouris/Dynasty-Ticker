@@ -5411,8 +5411,9 @@ function addTalkChip(target) {
     assetType: target.dataset.kind === "pick" ? "pick" : "player",
     leagueId: target.dataset.leagueId || "",
   });
-  const label = side === "right" ? ("You get") : ("You give");
   const after = buildDraftView();
+  // Name the column as its header does: "Added Bijan Robinson to Team 1 receives."
+  const label = `${draftReceivingTeam(side, after)} receives`;
   const last = tradeTalkLog[0];
   const line = added ? `Added ${target.dataset.name} to ${label}.` : `${target.dataset.name} is already in the trade.`;
   // "Jefferson and a first for Chase" asks twice. Answering one keeps the other.
