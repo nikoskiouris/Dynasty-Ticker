@@ -3976,8 +3976,10 @@ function renderPowerDashboard() {
     el.powerDashboard.innerHTML = `<p class="muted">Choose your team to see its roster.</p>`;
     return;
   }
+  // "Viewing as": look at any team's page from My Team (ticket 037).
+  const lensPicker = state.normalizedRosters.length > 1 ? renderLensPicker(meRoster, { label: "Viewing" }) : "";
   if (rosterHasNoPlayers(meRoster)) {
-    el.powerDashboard.innerHTML = `<p class="power-empty muted" role="status">${escapeHtml(emptyRosterLine())}</p>`;
+    el.powerDashboard.innerHTML = `${lensPicker}<p class="power-empty muted" role="status">${escapeHtml(emptyRosterLine())}</p>`;
     return;
   }
   if (!rosterGradeReady(meRoster) || !pricesReady()) {
@@ -3990,6 +3992,7 @@ function renderPowerDashboard() {
   const profile = profiles.find((entry) => String(entry.rosterId) === String(meRoster.rosterId))
     || buildTeamPowerProfile({ roster: meRoster, values: state.values, league: state.league, context });
   el.powerDashboard.innerHTML = `
+    ${lensPicker}
     <section class="power-lane">
       <h3>Position ranks</h3>
       <div class="position-meter-list">
