@@ -5049,8 +5049,9 @@ function tradeTalkNext(view) {
   const more = draft.left.length && draft.right.length ? verdictCopy(view.model.verdict).more : null;
   if (more != null && more > EVEN_UP_OFFER_ABOVE && gap) {
     const pick = findEvenUpPick(view);
-    const near = pick && Number(pick.value) > 0 && pick.value <= Math.abs(gap) * 1.5 && pick.value >= Math.abs(gap) * 0.67;
-    if (pick?.closes && near && pick.name) {
+    // closes is scored with the stars credit, so it holds even when the pick's
+    // price is far from the raw gap.
+    if (pick?.closes && pick.name) {
       candidates.push(gap > 0 ? `add a ${pick.name}` : `they add a ${pick.name}`);
     } else {
       const partnerId = view.context?.partnerRosterId ?? null;
