@@ -1,6 +1,6 @@
 # 048 · League History: drop the head-to-head pair list, add "Most traded players"
 
-Done: 2026-11-16, PR_LINK
+Done: 2026-11-16, [#394](https://github.com/nikoskiouris/Dynasty-Ticker/pull/394)
 
 **Status:** Done · **Priority:** P2 · **Size:** S · **Owner:** Cursor
 
