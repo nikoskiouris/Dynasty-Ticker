@@ -413,6 +413,8 @@ let draftReplaced = readReplacedDraft();
 const PLAYER_HEADING_SELECTOR = "#player-detail-name, .ranks-card h2, .player-week-sheet h2";
 let playersBoardOpen = false;
 let playerGameStatusPromise = null;
+// Set for one draft write: open Trade Calc as a new history entry.
+let draftPushNext = false;
 // One prices load for the calculator alone (see ensureCalcPrices).
 let calcPricesPromise = null;
 // Describe-a-trade box: the last message and its reply (memory only), and a
@@ -4788,11 +4790,15 @@ function setDraft(next, { keepNotice = false } = {}) {
   // The first edit of a received /t trade gets its own history entry, so Back
   // returns to the trade that was shared instead of leaving the site.
   const leavingShared = Boolean(activeSharedTrade(state.valueCalc)) && !activeSharedTrade(next);
+  // An add from a player page or the rankings opens Trade Calc as a new place
+  // (rank-calc already saved the page it came from).
+  const pushNow = leavingShared || draftPushNext;
+  draftPushNext = false;
   if (leavingShared) prepareDeskPush();
   state.valueCalc = next;
   writeStoredDraft(next);
   if (state.activePage === "trades" && getRoom("trades") === "calculator") {
-    updateUrlState(leavingShared ? { mode: "push", force: true } : { mode: "replace" });
+    updateUrlState(pushNow ? { mode: "push", force: true } : { mode: "replace" });
   }
 }
 
@@ -6647,9 +6653,14 @@ function handleWorkspaceClick(event) {
       renderRankSurfaces();
       break;
     case "rank-calc":
+      // Save the player page / rankings as its own history entry first, so
+      // Back from the trade returns to it instead of skipping it.
+      prepareDeskPush();
+      draftPushNext = true;
       state.ranks.selectedId = "";
       syncPlayerPageFlag();
       addDraftFromPlayers(target.dataset.assetId, target.dataset.name, target.dataset.kind);
+      draftPushNext = false;
       break;
     case "open-player": {
       openPlayerPage(target.dataset.assetId);
