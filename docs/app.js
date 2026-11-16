@@ -6209,6 +6209,8 @@ function renderDraftTeam(view) {
     rightCount: draft.right.length,
     partnerName,
     splitNames,
+    giveColumn: `${draftReceivingTeam("left", view)} receives`,
+    getColumn: `${draftReceivingTeam("right", view)} receives`,
   });
   if (!context?.ready) {
     if (isDraftEmpty(draft)) return "";
