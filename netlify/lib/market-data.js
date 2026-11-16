@@ -83,13 +83,7 @@ export async function readMarketFile(rel, { store = null, now = Date.now(), read
 export function createMarketHandler({ getStore = () => null } = {}) {
   return async function marketHandler(req) {
     const url = new URL(req.url);
-    // A Netlify rewrite hands the function the original request URL
-    // (/data/player_values.json), not the rewrite target, so read the file
-    // from the path. ?file= still works for a direct call.
-    const fromPath = url.pathname.replace(/^\/+/, "");
-    const rel = fromPath.startsWith("data/")
-      ? fromPath
-      : `data/${String(url.searchParams.get("file") || "").replace(/^\/+/, "")}`;
+    const rel = `data/${String(url.searchParams.get("file") || "").replace(/^\/+/, "")}`;
     if (!isMarketFile(rel)) return new Response("Not found", { status: 404 });
     let store = null;
     try {
