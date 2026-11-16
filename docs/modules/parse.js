@@ -224,6 +224,7 @@ export function parseShareParams(search) {
   const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
   const league = String(params.get("league") || "").trim();
   const me = Number(params.get("me"));
+  const team = Number(params.get("team"));
   const rawTab = params.get("tab") || "";
   const rawView = params.get("view") || "";
   const week = Number(params.get("week"));
@@ -237,6 +238,8 @@ export function parseShareParams(search) {
     leagueId: parsedLeague,
     invalidLeague,
     meRosterId: Number.isFinite(me) && me > 0 ? me : null,
+    // My Team showing another roster: /l/<id>/team?team=<roster id>.
+    teamRosterId: Number.isFinite(team) && team > 0 ? team : null,
     asset: place.room === "ranks" && isRankAssetId(asset) ? asset : "",
     // `tab` stays "" when the URL did not ask for a place, so boot can fall
     // back to the hash or the default without treating it as a request.

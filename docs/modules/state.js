@@ -101,6 +101,7 @@ export function createState() {
     },
     dealBoard: emptyDealBoard(),
     pendingMeRosterId: null,
+    pendingLensRosterId: null,
     pendingJobId: "",
     // { page, room } parsed from the URL before the league finishes loading.
     pendingPlace: null,
