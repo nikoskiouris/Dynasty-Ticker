@@ -128,7 +128,8 @@ function curvePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
   };
 }
 
-// Adding a piece to a side never makes that side worth less in the verdict.
+// Adding a piece to a side never makes that side worth less in the verdict,
+// and a throw-in never adds more than its own price to that side.
 // The stud curve alone broke that: a straight swap stays at listed prices, so
 // a 500-point throw-in on the other side switched the curve on and could turn
 // "you give 28% more" into "you give 70% more". Each side's pieces, best
@@ -154,6 +155,12 @@ export function calculatePackageAdjustment({ myValues, theirValues, globalMaxVal
         value = step.myAdjustedValue - step.theirAdjustedValue;
         value = Math.min(value, lead[i][j - 1]);
         value = Math.max(value, lead[i - 1][j]);
+        // A throw-in (any piece after a side's best) is worth at most its own
+        // price to the side that gets it. Without this, a 600-point add-on next
+        // to Gibbs switched the stud curve on and moved Gibbs-for-Bijan from
+        // "5% more" to "27% more".
+        if (j > 1) value = Math.max(value, lead[i][j - 1] - theirs[j - 1]);
+        if (i > 1) value = Math.min(value, lead[i - 1][j] + mine[i - 1]);
       }
       lead[i].push(value);
     }
