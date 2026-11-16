@@ -318,7 +318,9 @@ function resolvePick(pick, { side, ownerRosterId, ctx }) {
   const seasonKnown = ctx.catalog.some((row) => row.assetType === "pick" && row.ownerRosterId != null && Number(row.season) === pick.season);
   if (ctx.connected && seasonKnown) {
     let rows = leaguePicks;
-    const wanted = ownerRosterId ?? (side === "left" ? ctx.meRosterId : ctx.partnerRosterId);
+    // "Any team" stores an empty partner id: that is no team, not a team with no picks.
+    const realId = (value) => (value == null || String(value).trim() === "" || !(Number(value) > 0) ? null : value);
+    const wanted = realId(ownerRosterId) ?? realId(side === "left" ? ctx.meRosterId : ctx.partnerRosterId);
     if (wanted != null) {
       rows = rows.filter((row) => String(row.ownerRosterId) === String(wanted));
       if (!rows.length) {
