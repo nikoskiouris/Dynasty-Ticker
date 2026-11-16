@@ -620,7 +620,12 @@ export function parseTradeTalk(message, ctx = {}) {
     let first = split[1];
     let firstSide = "left";
     let lead = "";
-    const getLead = first.match(GET_LEAD);
+    // "zim8box offers McConkey for my 1st": a named manager's offer is what I get.
+    const namedOffer = first.match(/^([a-z0-9@_.']+)\s+(?:offers|offered|is offering|offering|gives|gave|will give|would give|sends|sent|proposes|proposed)\s+/);
+    const offerer = namedOffer && findManager(namedOffer[1], context.managers);
+    const getLead = offerer && String(offerer.rosterId) !== String(context.meRosterId ?? "")
+      ? Object.assign([namedOffer[0].slice(namedOffer[1].length)], { index: namedOffer[1].length })
+      : first.match(GET_LEAD);
     if (getLead) {
       lead = first.slice(0, getLead.index);
       first = first.slice(getLead.index + getLead[0].length);
