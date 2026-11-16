@@ -928,6 +928,7 @@ function renderLeagueTradePage() {
     players: state.players,
     query: tradeLogSearch,
     team: tradeLogTeam,
+    caveat: marketCaveat(state.league),
   });
 }
 
@@ -1030,6 +1031,7 @@ function renderActivePage() {
           players: state.players || {},
           showLineup: showLineupAwards,
           savedNote: savedLeagueNote(),
+          caveat: marketCaveat(state.league),
         })
       : `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
         <p role="status">${escapeHtml(archiveErrorMessage || archiveProgressMessage || "Loading seasons…")}</p>`;
