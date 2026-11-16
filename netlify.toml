@@ -66,20 +66,9 @@
   status = 200
   force = true
 
-# Daily values without a deploy (netlify/lib/market-data.js). Forced, so the
-# function answers even though the static files exist; it serves the newer of
-# the copy the daily refresh published to Blobs and the copy in this release.
-[[redirects]]
-  from = "/data/player_values.json"
-  to = "/.netlify/functions/market?file=player_values.json"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/data/price-history/:file"
-  to = "/.netlify/functions/market?file=price-history/:file"
-  status = 200
-  force = true
+# The market function (netlify/lib/market-data.js) is not routed yet: its
+# rewrite lost the file name on Netlify and /data/player_values.json 404'd
+# (release prod-2026-11-16). Static /data files serve until it is fixed.
 
 # Shared trades. /t/:code returns index.html with that trade's og: and
 # twitter: tags so bots read them without JS. /og/t/:file is the card image.
