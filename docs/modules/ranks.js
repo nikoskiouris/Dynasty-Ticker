@@ -189,8 +189,22 @@ export function buildRankBoard({
   });
 }
 
+// People type picks the way they say them: "2027 first", "1st round pick".
+// Pick rows are named "2027 1st", so map ordinals and drop filler words.
+const ORDINAL_WORDS = { first: "1st", second: "2nd", third: "3rd", fourth: "4th", fifth: "5th" };
+export function pickQueryWords(value) {
+  let text = String(value || "").toLowerCase()
+    .replace(/\b(first|second|third|fourth|fifth)\b/g, (word) => ORDINAL_WORDS[word])
+    .replace(/[\u2018\u2019']\s*(\d\d)\b/g, "20$1"); // '27 -> 2027
+  const ordinal = text.match(/\b[1-5](st|nd|rd|th)\b/)?.[0];
+  if (!ordinal) return text;
+  // "first round 2028" and "2028 1st round pick" both mean the "2028 1st" row.
+  const year = text.match(/\b20\d\d\b/)?.[0];
+  return year ? `${year} ${ordinal}` : text.replace(/\b(rounds?|rounders?|rd|picks?)\b/g, " ");
+}
+
 export function filterRankRows(rows, { query = "", position = "ALL" } = {}) {
-  const want = foldRankQuery(query);
+  const want = foldRankQuery(pickQueryWords(query));
   const pos = String(position || "ALL").toUpperCase();
   const floor = want ? RANK_SEARCH_FLOOR : (pos === "ALL" ? RANK_LIST_FLOOR : RANK_POSITION_FLOOR);
   return (Array.isArray(rows) ? rows : []).filter((row) => {
