@@ -6337,8 +6337,10 @@ function addDraftFromPlayers(assetId, name, kind) {
   // Player detail always adds to Team 1 Receives. Ownership is context, not
   // permission to move the owner's existing draft or swap this action's side.
   // Team 1 Receives is the get side ("right"); Team 2 Receives is give (027).
-  addDraftAsset("right", { assetId, name, assetType: kind === "pick" ? "pick" : "player" });
+  const added = addDraftAsset("right", { assetId, name, assetType: kind === "pick" ? "pick" : "player" });
   openRoom("trades", "calculator");
+  // Say what changed: the trade may already have had pieces in it.
+  if (added) showTalkToast([`Added ${name || "it"} to ${draftReceivingTeam("right", buildDraftView())} receives.`]);
 }
 
 function openCalculatorWith(rosterId) {
