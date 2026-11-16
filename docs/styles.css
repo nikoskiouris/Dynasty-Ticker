@@ -6543,3 +6543,5 @@ main details > summary::before {
 @media (max-width: 1239px) {
   .rankings-table thead th { top: 64px; }
 }
+.rank-sort-btn { all: unset; cursor: pointer; font: inherit; color: inherit; white-space: nowrap; }
+.rank-sort-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
