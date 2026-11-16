@@ -78,6 +78,7 @@ export function createState() {
     },
     nflState: null,
     leagueSavedAt: null,
+    seasonSavedAt: null,
     seasonWeekRows: new Map(),
     seasonLoaded: false,
     seasonLoadError: "",
