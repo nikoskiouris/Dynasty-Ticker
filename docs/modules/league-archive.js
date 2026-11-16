@@ -74,6 +74,19 @@ async function writeCache(key, row) {
   } catch { return false; }
 }
 
+// The desk's own league load keeps one saved copy per league (and the NFL
+// week) so an outage after a first visit can still show the hub and history,
+// labelled as saved.
+export async function saveDeskSnapshot(key, data) {
+  if (!key || data == null) return false;
+  return writeCache(`desk:${key}`, { data, savedAt: Date.now() });
+}
+
+export async function readDeskSnapshot(key) {
+  const row = key ? await readCache(`desk:${key}`) : null;
+  return row?.data != null ? { data: row.data, savedAt: row.savedAt } : null;
+}
+
 function closedSeason(league, nflState) {
   if (league?.status === "complete") return true;
   const current = Number(nflState?.season || new Date().getUTCFullYear());
@@ -265,3 +278,23 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
 }
 
 export const leagueArchive = createLeagueArchive();
+
+// Manual QA helper (ticket 034): run __dtArchive() in the console to compare
+// each season's counts with the Sleeper app.
+export function archiveSummary(archive = leagueArchive.snapshot) {
+  if (!archive) return null;
+  return archive.seasons.map((entry) => {
+    const moves = archive.transactions[entry.season];
+    const weeks = archive.matchups[entry.season];
+    return {
+      season: entry.season,
+      leagueId: entry.leagueId,
+      weeks: weeks ? Object.keys(weeks).length : null,
+      trades: moves ? moves.filter((row) => row.type === "trade").length : null,
+      waiverMoves: moves ? moves.filter((row) => row.type === "waiver" || row.type === "free_agent").length : null,
+      drafts: archive.drafts[entry.season]?.length ?? null,
+      draftPicks: archive.drafts[entry.season]?.reduce((sum, draft) => sum + (draft.picks?.length || 0), 0) ?? null,
+    };
+  });
+}
+if (typeof window !== "undefined") window.__dtArchive = () => archiveSummary();

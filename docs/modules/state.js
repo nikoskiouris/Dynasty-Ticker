@@ -77,6 +77,7 @@ export function createState() {
       rightManagerKey: "",
     },
     nflState: null,
+    leagueSavedAt: null,
     seasonWeekRows: new Map(),
     seasonLoaded: false,
     seasonLoadError: "",

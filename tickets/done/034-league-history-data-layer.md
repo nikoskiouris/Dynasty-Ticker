@@ -1,6 +1,8 @@
 # 034 · League History data layer: all seasons, matchups, transactions, drafts (cached)
 
-**Status:** Open · **Priority:** P0 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [#302](https://github.com/nikoskiouris/Dynasty-Ticker/pull/302)
+
+**Status:** Done · **Priority:** P0 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 
