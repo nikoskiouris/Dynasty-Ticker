@@ -6507,3 +6507,32 @@ html body:not(.league-loaded) .workspace { padding-top: 70px; }
 .standings-row[role="link"] { cursor: pointer; }
 .standings-row[role="link"]:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .rank-add-hint { display: inline-block; text-decoration: none; margin-left: 6px; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); white-space: nowrap; }
+
+/* More hit areas, the same way as above: an empty ::before grows the target
+   to --tap-min on the block axis, so the look and layout do not change.
+   Inline text links and disclosure summaries the rule above did not cover. */
+.rank-name-link,
+.link-btn.player-link,
+main p > a:only-child:not(.legal-btn),
+.league-hub-header a,
+#league-trade-results a,
+#league-trade-results summary,
+.league-history-page details > summary,
+main details > summary {
+  position: relative;
+}
+.rank-name-link::before,
+.link-btn.player-link::before,
+main p > a:only-child:not(.legal-btn)::before,
+.league-hub-header a::before,
+#league-trade-results a::before,
+#league-trade-results summary::before,
+.league-history-page details > summary::before,
+main details > summary::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: min(0px, calc((100% - var(--tap-min)) / 2));
+  bottom: min(0px, calc((100% - var(--tap-min)) / 2));
+}
