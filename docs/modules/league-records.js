@@ -78,9 +78,27 @@ export function championsWall(archive = {}) {
   });
 }
 
+// A playoff game is a winners-bracket matchup. Consolation and toilet-bowl
+// games are played in the same weeks but are not playoff meetings.
+function bracketPairs(entry) {
+  const start = number(entry.league?.settings?.playoff_week_start || 15);
+  const twoWeekFinal = number(entry.league?.settings?.playoff_round_type) === 1;
+  const pairs = new Set();
+  for (const game of entry.winnersBracket || []) {
+    if (game?.t1 == null || game?.t2 == null) continue;
+    const key = [id(game.t1), id(game.t2)].sort().join("-");
+    const week = start + number(game.r) - 1;
+    pairs.add(`${week}:${key}`);
+    if (twoWeekFinal) pairs.add(`${week + 1}:${key}`);
+  }
+  return pairs;
+}
+
 export function seasonGames(entry, archive) {
   const byWeek = archive?.matchups?.[id(entry.season)] || {};
   const games = [];
+  const playoffPairs = bracketPairs(entry);
+  const playoffStart = number(entry.league?.settings?.playoff_week_start || 15);
   for (const [week, rows] of Object.entries(byWeek)) {
     const byMatchup = new Map();
     for (const row of rows || []) {
@@ -95,7 +113,9 @@ export function seasonGames(entry, archive) {
       const left = Number(a.points), right = Number(b.points);
       if (!Number.isFinite(left) || !Number.isFinite(right) || (left === 0 && right === 0)) continue;
       games.push({ season: id(entry.season), leagueId: id(entry.leagueId), week: number(week),
-        playoff: number(week) >= number(entry.league?.settings?.playoff_week_start || 15),
+        playoff: number(week) >= playoffStart && (playoffPairs.size
+          ? playoffPairs.has(`${number(week)}:${[id(a.roster_id), id(b.roster_id)].sort().join("-")}`)
+          : true),
         teams: [
           { rosterId: id(a.roster_id), name: rosterName(entry, a.roster_id), points: left },
           { rosterId: id(b.roster_id), name: rosterName(entry, b.roster_id), points: right },
