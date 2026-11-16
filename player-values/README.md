@@ -16,7 +16,7 @@ For each player the forecast answers one question a season at a time: how many f
 
 ```
 value =
-  sum over the next six seasons of games (
+  sum over the next eight seasons of games (
     discount ^ years_until_that_season_kicks_off *
     expected_points_above_replacement(season)
   )
@@ -24,7 +24,7 @@ value =
 
 The fixed display conversion is **20 points per discounted point of lineup advantage**. It is one ruler across dates; values are never renormalized to make the top player equal 10,000.
 
-The annual discount is **0.85** and the horizon is **six seasons of games**. Those are product choices, not discovered constants; `config.json` owns them. The backtest does not test them. The horizon was eight seasons until November 2026. Seasons seven and eight are where the forecast knows least, and they were enough to rank young players with ordinary production above proven stars (Tetairoa McMillan over Amon-Ra St. Brown).
+The annual discount is **0.85** and the horizon is **eight seasons of games**. Those are product choices, not discovered constants; `config.json` owns them. The backtest does not test them.
 
 Every price is the sum of its forecast seasons. The snapshot lists them under `players[...].forecast`, with data-integrity validation during generation.
 
@@ -46,7 +46,7 @@ A player's season is three numbers, all measured against the replacement line:
 - **pace**: the same rate over a full 16 games, so an injured star still reads as a star
 - **games**: the share of the season he played
 
-Next season's three numbers are forecast from his last two seasons, his age, and, through his second year, his NFL draft slot. The relationship is a ridge regression, fit separately for QB, RB, WR, and TE, on the **15 most recent seasons** only. Football has changed since 1999: young players keep about a third less of their value five years out than they did in the 2000s. A forecast trained on old careers runs high.
+Next season's three numbers are forecast from his last two seasons, his age, and, through his third year, his NFL draft slot. The relationship is a ridge regression, fit separately for QB, RB, WR, and TE, on the **15 most recent seasons** only. Football has changed since 1999: young players keep about a third less of their value five years out than they did in the 2000s. A forecast trained on old careers runs high.
 
 There is no free constant. A player earns expected value through recent production or recent games, so someone who has left the league fades to zero instead of collecting an average forever. A missed season is zeros, not the end: the season before still counts, and the forecast expects most players back.
 
@@ -60,15 +60,15 @@ Three safeguards sit on the fitted line. None of them adds value by hand.
 
 ### Quarterback level
 
-Quarterbacks are the one position whose forecast falls away too fast. In the rolling backtest (every kickoff 2012-2024 with an outcome for that season) they went on to score 1.01, 1.00, 1.02, 1.07, 1.11, and 1.25 times their forecast in seasons one to six ahead: right for three seasons, then low. Receivers and tight ends ran slightly high instead, and running backs had no steady miss. `positionLevel.QB` in `config.json` multiplies each quarterback forecast season by that measured ratio (seasons past the list use its last entry). Because the ratios come from the same backtest that scores the model, the quarterback level in the saved report is calibrated by construction, not tested out of sample. Rookie picks are not scaled.
+Quarterbacks are the one position whose forecast falls away too fast. In the rolling backtest (every kickoff 2012-2024 with an outcome for that season) they went on to score 1.00, 0.99, 0.99, 1.04, 1.09, 1.23, 1.41, and 1.57 times their forecast in seasons one to eight ahead: right for three seasons, then low. Seasons seven and eight rest on fewer kickoffs (2012-2018 and 2012-2017). Receivers and tight ends ran slightly high instead, and running backs had no steady miss. `positionLevel.QB` in `config.json` multiplies each quarterback forecast season by that measured ratio (seasons past the list use its last entry). Because the ratios come from the same backtest that scores the model, the quarterback level in the saved report is calibrated by construction, not tested out of sample. Rookie picks are not scaled.
 
 ### Chained forward
 
-The forecast for next season becomes the input for the season after, for six seasons. Each step ages the player one year. Because each step is an expected value that is linear in his own numbers, chaining keeps it an expected value. There is no "survival" switch that turns a player off for good.
+The forecast for next season becomes the input for the season after, for eight seasons. Each step ages the player one year. Because each step is an expected value that is linear in his own numbers, chaining keeps it an expected value. There is no "survival" switch that turns a player off for good.
 
 ### Rookies and young players
 
-Before a rookie has played, his forecast is his draft slot: what past players at his position and slot went on to do. Draft slot still counts in year two, then stops: by then a player has shown what he is. Until November 2026 it counted through year three, which ranked second-year picks with ordinary production beside proven stars (Ashton Jeanty over Jahmyr Gibbs and Bijan Robinson). The backtest scores the shorter window only slightly lower (five-season rank correlation 0.638 before, 0.633 after), so this is a product choice like the horizon. In year two the slot counts separately for the share of last season a player missed, because a high pick who sat out is not the same as one who played poorly. In the data, first-round receivers who missed most of their rookie year went on to less, not more.
+Before a rookie has played, his forecast is his draft slot: what past players at his position and slot went on to do. Draft slot keeps counting through year three and fades as real seasons arrive. In those years the slot counts separately for the share of last season a player missed, because a high pick who sat out is not the same as one who played poorly. In the data, first-round receivers who missed most of their rookie year went on to less, not more.
 
 An earlier pick is never forecast below a later one. A pick earlier than any the position has produced is priced like the earliest one it has.
 
@@ -78,7 +78,7 @@ Before kickoff the current season is the forecast. After week 17 it is what happ
 
 What carries into next season's forecast is more cautious about a hot start. When a player is running above his kickoff forecast, the season handed to next year's forecast blends his pace with a full 17 weeks of the kickoff forecast (`carryForwardShrinkWeeks`), not 4. Replayed at week 10, players running 100+ points of pace above their kickoff forecast went on to score 89%, 80% and 88% of forecast over the next three seasons when the hot half was carried forward at face value, and 98%, 90% and 100% with this. Players running below their kickoff forecast did not show the same miss, so they keep the 4-week blend. Next-season rank correlation is unchanged (0.679, 0.678) and next-season realized over forecast moved from 0.93 to 0.96. This is why a half-season breakout (Matthew Golden in 2026) no longer prices like a proven top-10 player.
 
-Weeks already played are spent, so a price eases down through the season. A seventh season fills in behind, so the forecast always covers six seasons of games.
+Weeks already played are spent, so a price eases down through the season. A ninth season fills in behind, so the forecast always covers eight seasons of games.
 
 A weekly Out, Doubtful, or Questionable tag trims the weeks left. IR cuts them in half. Those multipliers are set by hand and are not tested.
 
@@ -148,7 +148,7 @@ python3 player-values/backtest.py            # print the report
 python3 player-values/backtest.py --write    # also save validation.json
 ```
 
-The backtest rebuilds the whole forecast at each past kickoff from earlier games only, then compares it with the points above replacement those players produced over the next one, three, five, and six seasons. It runs the same replay for two naive forecasts: he repeats last season, and he repeats a blend of his last two. The players scored are the top 200 by last season plus recent early draft picks, chosen before the outcome is known.
+The backtest rebuilds the whole forecast at each past kickoff from earlier games only, then compares it with the points above replacement those players produced over the next one, three, five, and eight seasons. It runs the same replay for two naive forecasts: he repeats last season, and he repeats a blend of his last two. The players scored are the top 200 by last season plus recent early draft picks, chosen before the outcome is known.
 
 It reports two things.
 

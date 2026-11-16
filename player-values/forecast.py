@@ -24,7 +24,7 @@ FORMATS = ("sf",)
 SEASON_GAMES = 16          # games a team plays inside fantasy weeks 1-17
 FANTASY_WEEKS = 17
 MAX_PICK = 300             # an undrafted player sits at the end of the board
-ROOKIE_EXPERIENCE = 1      # draft slot informs the rookie year and the year after it, then real seasons take over
+ROOKIE_EXPERIENCE = 3      # draft slot still informs the forecast through year 3
 INJURY_MULTIPLIER = {"IR": 0.50, "OUT": 0.90, "DOUBTFUL": 0.90, "QUESTIONABLE": 0.95}
 
 
@@ -106,15 +106,11 @@ def state_features(knots, age, cur, prev, hinges):
 
 
 def capital_features(exp, cap, played):
-    """Draft slot matters most before a player has played, and stops counting after year two.
+    """Draft slot matters most before a player has played, and fades out after year three.
 
-    In year two one extra term counts the slot again for the share of last
-    season a player missed. A top pick who sat out is still mostly a top pick.
-    One who played has shown what he is. Counting the slot into years three and
-    four ranked second-year picks with ordinary production beside proven stars
-    (Ashton Jeanty over Jahmyr Gibbs and Bijan Robinson in November 2026); the
-    backtest scores the shorter window only slightly lower, so this is a product
-    choice, like the horizon.
+    In years one to three one extra term counts the slot again for the share of
+    last season a player missed. A top pick who sat out is still mostly a top
+    pick. One who played has shown what he is.
     """
     row = [0.0] * N_CAPITAL
     if exp <= 0:
@@ -207,7 +203,7 @@ def fit_group(samples, knots, ridge=1.0, hinge_percentiles=(0.85,), calibration_
         scaled = _solve(gram, rhs)
         coefficients.append([value / scale for value, scale in zip(scaled, scales)])
     n_state = width - N_CAPITAL
-    # Earliest draft slot this position has actually produced: among rookies, and among second-year players.
+    # Earliest draft slot this position has actually produced: among rookies, and among years one to three.
     earliest = {
         0: min([s["pick"] for s in samples if s["exp"] == 0] or [1]),
         1: min([s["pick"] for s in samples if 1 <= s["exp"] <= ROOKIE_EXPERIENCE] or [1]),
@@ -279,7 +275,7 @@ def _calibrate(curve, value):
 def _capital_tables(coef, earliest):
     """Expected contribution of draft slot for picks 1..MAX_PICK.
 
-    One table for rookies, then for each later year the slot still counts a pair: last
+    One table for rookies, then for each of years one to three a pair: last
     season fully missed and last season fully played. A fitted curve can wiggle
     and can run away past the data, so every table is held to three rules. A
     pick earlier than any this position has seen is priced like the earliest one
@@ -591,10 +587,10 @@ def season_start(season, known=None):
 
 def value_player(model, age, exp, pick, last, prior, observed, season, weeks_elapsed, as_of, config, injury=1.0,
                  kickoff=None, established=None):
-    """Discounted expected advantage over the next `horizonYears` seasons of games.
+    """Discounted expected advantage over the next eight seasons of games.
 
     The current season counts only for the weeks left. Once it is under way a
-    season fills in behind it, so the horizon always covers the same number of seasons.
+    ninth season fills in behind it, so the horizon is always eight seasons long.
     Each future season is discounted by how far away its kickoff is today, which
     keeps a value from jumping when the calendar rolls over.
     """
@@ -645,7 +641,7 @@ def value_player(model, age, exp, pick, last, prior, observed, season, weeks_ela
 
 
 def rookie_value(model, pick, config, age=None):
-    """What a rookie is worth on the day his first season kicks off: the same ruler as everyone else."""
+    """What a rookie is worth on the day his first season kicks off: the same eight-season ruler as everyone else."""
     horizon = int(config["horizonYears"])
     discount = float(config["annualDiscount"])
     start_age = default_age(0) if age is None else age

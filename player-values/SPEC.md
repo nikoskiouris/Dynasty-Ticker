@@ -19,13 +19,13 @@ Shipped rules:
 - Each reference team keeps at most 3 quarterbacks in Superflex. The alternative is the best player left outside that roster. If the historical pool is smaller than the cap, the alternative is the last rostered player. Replacement is never zero. A quarterback's game counts only when he threw at least 10 passes, so a kneel-down does not set the line. The line is the median of the last 14 seasons.
 - A player with no game since the previous season is left out. So is a player drafted two or more years ago who never played. `active: false` and retired or inactive statuses with no team are left out.
 - Sleeper joins nflverse on `gsis_id`, then ESPN id, then name, and every join is checked against the birthday. A second player with the same name at another position does not block the match. A namesake born years apart, or an id that points at a different player, is not used. Points are offensive productivity only: passing, rushing, and receiving. Tackles, sacks, passes defended, return yards, return scores, and opponent defense are not inputs. A defensive chart still counts the weeks that have real targets or carries, and those weeks are scored from the offensive box score.
-- A season is three numbers against the replacement line: points banked, the full-season pace, and the share of games played. Next season is forecast from the last two seasons, age, and, through year two, NFL draft slot. A missed season is zeros. It is not an exit. For the share of last season a player missed, his pace is read from the level he had established in the three seasons before.
+- A season is three numbers against the replacement line: points banked, the full-season pace, and the share of games played. Next season is forecast from the last two seasons, age, and, through year three, NFL draft slot. A missed season is zeros. It is not an exit. For the share of last season a player missed, his pace is read from the level he had established in the three seasons before.
 - There is no hand-set bonus for past finishes, draft capital, role security, or youth. The v1 rules that did that were removed: in the backtest they did not improve the order of players, and the forecast they sat on put too much value in the current season and too little in later ones.
 - A better season never forecasts less. An earlier pick is never forecast below a later one.
 - Quarterback forecast seasons are scaled by what quarterbacks went on to score over forecast in the rolling backtest (`positionLevel`), because their forecast fell away too fast after season three.
 - A future pick is the rookie it becomes: every drafted QB, RB, WR, and TE of the last 10 classes is forecast like a player, each class is ordered by that value, and the slot averages are discounted for the wait until kickoff. Means, not medians.
 - During the season the weeks left blend this season's pace with the kickoff forecast. A player running above his kickoff forecast carries that into next season with a 17-week blend instead of 4. Weeks played are spent. A weekly Out tag trims what is left. IR cuts it in half.
-- The backtest rebuilds the forecast at every kickoff since 2012 from earlier games only. It measures order and level at one, three, five, and six seasons against two naive forecasts. It does not test trade-market prices, the discount, the replacement definition, or the pick board against real rookie drafts.
+- The backtest rebuilds the forecast at every kickoff since 2012 from earlier games only. It measures order and level at one, three, five, and eight seasons against two naive forecasts. It does not test trade-market prices, the discount, the replacement definition, or the pick board against real rookie drafts.
 
 The owner-defined scope is one 12-team Superflex full-PPR dynasty market. No alternate scoring or league-size value maps. No imported KTC values or other dynasty price targets. League settings never reprice a player.
 
@@ -64,7 +64,7 @@ Do not add a separate youth bonus, talent bonus, team multiplier, or injury pena
 | Reference lineup | 1 QB, 2 RB, 3 WR, 1 TE, 2 FLEX; SF version adds 1 Superflex slot | Proposed internal assumption |
 | Reference bench | 12 bench slots; replacement estimates also model roster allocation | Proposed internal assumption |
 | Fantasy schedule | Weeks 1–17; actual games and byes respected | Proposed internal assumption |
-| Forecast horizon | 6 seasons, including remaining current season (8 until Nov 2026) | Provisional setting |
+| Forecast horizon | 8 seasons, including remaining current season | Provisional setting |
 | Annual time factor | 0.85 per year of delay | Provisional preference/calibration setting |
 | Display conversion | 20 displayed points per discounted point of lineup advantage | Arbitrary fixed scale |
 | Star multiplier | None | Design choice |
@@ -307,7 +307,7 @@ Instead, assign inputs to specific conditional forecasts. Train separate models 
 | PPR reception contribution | 1.0 | Fixed scoring rule |
 | Passing/rushing/receiving scoring | Section 2 | Fixed scoring rules |
 | Annual discount | 0.85 | Provisional preference parameter; test and calibrate |
-| Explicit career horizon | 6 seasons (8 until Nov 2026) | Provisional computational choice; test tail sensitivity |
+| Explicit career horizon | 8 seasons | Provisional computational choice; test tail sensitivity |
 | Opportunity recency half-life | 17 played games over the last 34 | Dynasty role. A month does not replace a season |
 | Efficiency recency half-life | 32 played games over the last 48 | Longer ability history than the current role |
 | Team-context recency half-life | 17 team games | One week does not define the offense; coaching changes still need a separate feed |

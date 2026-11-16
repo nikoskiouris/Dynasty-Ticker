@@ -3,7 +3,7 @@
 
 For each past season the forecast is rebuilt using only games played before that
 season's kickoff, then compared with the full-PPR points above replacement those
-players produced over the next one, three, five, and six seasons. The same
+players produced over the next one, three, five, and eight seasons. The same
 replay is run for two naive forecasts, so "better than guessing" has a number.
 
     python3 player-values/backtest.py              # print the report

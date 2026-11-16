@@ -27,7 +27,7 @@ Product purpose and how to choose between competing asks live in `AGENTS.md`. Fi
 There is one player-value system: `player-values/`.
 
 - One published map: **12-team Superflex full-PPR dynasty**.
-- Each player gets a forecast of full-PPR points above a replacement player, one season at a time, for six seasons of games. It is learned from the 15 most recent NFL seasons: his last two seasons, his age, and, through year two, his draft slot.
+- Each player gets a forecast of full-PPR points above a replacement player, one season at a time, for eight seasons of games. It is learned from the 15 most recent NFL seasons: his last two seasons, his age, and, through year three, his draft slot.
 - Value is that forecast, discounted by how far away each season is, converted with one fixed 20× display ruler. Every price is the sum of the seasons listed beside it.
 - Rookies and future picks use the same ruler. A pick is priced as the rookie it becomes.
 - All players and picks use that single reference league. Connected league settings never select another price map.
