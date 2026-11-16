@@ -4618,12 +4618,16 @@ function renderRosterSheet() {
     `;
   };
 
+  const league = teamStripRanks(roster, values);
+  const rankNote = (rank) => league && rank ? `<small class="power-stat-rank">${ordinal(rank)} of ${league.teams}</small>` : "";
+  const age = (value) => Number.isFinite(value) ? `${value.toFixed(1)}y` : "N/A";
   writeRosterSheet(`
     <div class="sheet-summary">
-      ${renderPowerStat("Starters", formatNumber(strength.starterValue))}
-      ${renderPowerStat("Bench", formatNumber(strength.benchValue))}
-      ${showPicks ? renderPowerStat("Draft picks", formatNumber(summary.pickValue)) : ""}
-      ${renderPowerStat("Avg age", summary.averageAgeLabel)}
+      ${renderPowerStat("Total value", formatNumber(strength.totalValue), "", rankNote(league?.totalRank))}
+      ${renderPowerStat("Starters", formatNumber(strength.starterValue), "", rankNote(league?.starterRank))}
+      ${renderPowerStat("Bench", formatNumber(strength.benchValue), "", rankNote(league?.benchRank))}
+      ${showPicks ? renderPowerStat("Draft picks", formatNumber(summary.pickValue), "", rankNote(league?.pickRank)) : ""}
+      ${renderPowerStat("Starter age", age(league?.starterAge), "", league && Number.isFinite(league.leagueStarterAge) ? `<small class="power-stat-rank">League avg ${age(league.leagueStarterAge)}</small>` : "")}
     </div>
     ${renderValuesFreshness(valuesFreshness())}
     ${state.league && marketCaveat(state.league) ? `<p class="muted small calc-market-caveat">${escapeHtml(marketCaveat(state.league))}</p>` : ""}
@@ -7504,6 +7508,40 @@ function getCachedLeagueStrengthBaseline({ league, rosters, values } = {}) {
   leagueStrengthCache.key = key;
   leagueStrengthCache.baseline = baseline;
   return baseline;
+}
+
+// My Team stat strip: each total ranked against the league, from the same
+// baseline the trade team impact uses, so "Starters 1st" means the same thing.
+function teamStripRanks(roster, values) {
+  const rosters = state.normalizedRosters || [];
+  if (rosters.length < 2) return null;
+  const baseline = getCachedLeagueStrengthBaseline({ league: state.league, rosters, values });
+  const rows = rosters.map((team) => {
+    const metrics = baseline.metricsByRosterId.get(team.rosterId);
+    const ages = (metrics?.lineup || []).map((entry) => entry.asset && playerAgeForAsset(entry.asset)).filter(Number.isFinite);
+    return {
+      rosterId: String(team.rosterId),
+      total: Number(metrics?.totalValue) || 0,
+      bench: Number(metrics?.benchValue) || 0,
+      picks: summarizeRosterAssets(team, values).pickValue,
+      starterAge: ages.length ? ages.reduce((sum, value) => sum + value, 0) / ages.length : NaN,
+    };
+  });
+  const rankBy = (key) => {
+    const order = rows.slice().sort((a, b) => b[key] - a[key]);
+    return order.findIndex((row) => row.rosterId === String(roster.rosterId)) + 1 || null;
+  };
+  const mine = rows.find((row) => row.rosterId === String(roster.rosterId));
+  const ages = rows.map((row) => row.starterAge).filter(Number.isFinite);
+  return {
+    teams: rosters.length,
+    starterRank: baseline.ranks.get(roster.rosterId) || null,
+    totalRank: rankBy("total"),
+    benchRank: rankBy("bench"),
+    pickRank: rankBy("picks"),
+    starterAge: mine?.starterAge,
+    leagueStarterAge: ages.length ? ages.reduce((sum, value) => sum + value, 0) / ages.length : NaN,
+  };
 }
 
 function buildLeagueStrengthBaseline({ league, rosters, values }) {

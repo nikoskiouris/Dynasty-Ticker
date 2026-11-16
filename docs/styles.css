@@ -1661,9 +1661,11 @@ body:not(.league-loaded) .workspace-header {
 
 .sheet-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.7rem;
 }
+.power-stat .power-stat-rank { display: block; margin-top: 4px; font-weight: 600; }
+.power-stat:nth-child(5) { border-left-color: var(--red); }
 
 .sheet-grid {
   display: grid;
