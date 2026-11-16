@@ -33,7 +33,7 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
     ['standings', 'Standings', model?.finalThroughWeek ? `Through week ${model.finalThroughWeek}` : 'Records, playoff odds and luck'],
     ['team', 'My Team', myTeam || 'Pick your team above to see your roster'],
     ['trades', 'Recent Trades', tradesLoaded ? `${recent} completed trades in the last 30 days` : 'Browse completed league trades'],
-    ['history', 'Historical Data', loading ? 'Loading seasons…' : `${seasons.length} seasons of records`],
+    ['history', 'Historical Data', loading ? 'Loading seasons…' : `${seasons.length} ${seasons.length === 1 ? "season" : "seasons"} of records`],
   ];
   return `<header class="league-hub-header">${league.avatar ? `<img width="64" height="64" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(league.avatar)}">` : ''}<h2>${escapeHtml(league.name || 'Your league')}</h2><p>${escapeHtml(league.season)} · ${Number(league.total_rosters) || '—'} teams · Values: 12-team Superflex PPR dynasty</p>${caveat ? `<p>${escapeHtml(caveat)}</p>` : ''}<a href="/leagues">Change league</a></header>
   ${renderTeamPick({ myTeam, myRosterId, teams })}
