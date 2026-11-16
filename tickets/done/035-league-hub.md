@@ -1,6 +1,8 @@
 # 035 · League hub: League Name, "What to see?" and the RECENT WINNER banner
 
-**Status:** Open · **Priority:** P0 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-14, [#296](https://github.com/nikoskiouris/Dynasty-Ticker/pull/296)
+
+**Status:** Done · **Priority:** P0 · **Size:** M · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 
