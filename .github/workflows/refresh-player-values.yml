@@ -80,3 +80,21 @@ jobs:
           git commit -m "data: refresh independent player values [skip netlify]"
           git pull --rebase origin develop
           git push origin HEAD:develop
+
+      # The live site serves the newer of the release's files and these
+      # (netlify/lib/market-data.js), so checked values reach dynastyticker.com
+      # every day without a production deploy. Set the repository variable
+      # MARKET_PUBLISH to "off" to stop it.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install the Netlify Blobs client
+        run: npm ci --omit=dev --ignore-scripts
+
+      - name: Publish today's checked values to the live site (no deploy)
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          MARKET_PUBLISH: ${{ vars.MARKET_PUBLISH }}
+        run: node scripts/publish_market_blobs.mjs

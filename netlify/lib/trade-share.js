@@ -1,3 +1,5 @@
+import { isMarketFile, MARKET_STORE, readMarketFile } from "./market-data.js";
+import { getStore as getBlobStore } from "@netlify/blobs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -113,7 +115,20 @@ export function injectShareMeta(html, { summary, today = null, legacy = false, c
 let valuesCache = null;
 let namesCache = null;
 
+function marketStore() {
+  try {
+    return getBlobStore(MARKET_STORE);
+  } catch {
+    return null;
+  }
+}
+
 async function readSiteFile(rel, origin) {
+  // Prices and dated snapshots: the same newest copy the app gets.
+  if (isMarketFile(rel)) {
+    const file = await readMarketFile(rel, { store: marketStore() });
+    if (file) return file.text;
+  }
   for (const base of [process.cwd(), join(process.cwd(), "..")]) {
     try {
       return await readFile(join(base, "docs", rel), "utf8");
