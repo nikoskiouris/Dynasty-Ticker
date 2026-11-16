@@ -382,13 +382,14 @@ function sideForOwner(rosterId, ctx) {
 function resolvePiece(raw, { side, ctx, partner, index }) {
   const owned = pullOwner(raw, ctx.managers, ctx.meRosterId);
   const ownerRosterId = ownerFor(owned, ctx, partner);
-  const pieceSide = side || sideForOwner(ownerRosterId, ctx) || (owned.owner === "partner" ? "right" : "");
+  const pieceSide = side || sideForOwner(ownerRosterId, ctx)
+    || (owned.owner === "partner" ? "right" : owned.owner === "me" ? "left" : "");
   const pick = parsePickPhrase(owned.text, { season: ctx.season });
   if (pick) {
-    const hit = resolvePick(pick, { side: pieceSide || "left", ownerRosterId, ctx });
+    const hit = resolvePick(pick, { side: pieceSide || ctx.defaultSide || "right", ownerRosterId, ctx });
     if (hit.reason) return { miss: { text: raw, reason: hit.reason } };
-    if (hit.options) return { ask: { text: raw, side: pieceSide || "right", options: hit.options.map(asDraftAsset), question: hit.question } };
-    return { adds: hit.picks.map((row) => ({ side: pieceSide || "left", asset: asDraftAsset(row) })), partner: owned.manager || null, note: hit.note || "" };
+    if (hit.options) return { ask: { text: raw, side: pieceSide || ctx.defaultSide || "right", options: hit.options.map(asDraftAsset), question: hit.question } };
+    return { adds: hit.picks.map((row) => ({ side: pieceSide || ctx.defaultSide || "right", asset: asDraftAsset(row) })), partner: owned.manager || null, note: hit.note || "" };
   }
   const found = resolvePlayer(owned.text, index, { ownerRosterId, preferRostered: ctx.connected });
   // "My Gibbs and Taylor for Allen": on the give side only one Taylor is mine,
@@ -561,6 +562,7 @@ export function parseTradeTalk(message, ctx = {}) {
   let { body, partner, unknown } = pullPartner(chatter, context.managers, context.meRosterId);
   if (partner) context.partnerRosterId = partner.rosterId;
   const finish = (plan) => {
+    plan.defaultSide = context.defaultSide === "left" ? "left" : "right";
     plan.asked = asked;
     plan.unknownPartner = unknown;
     if (partner && plan.partnerRosterId == null) plan.partnerRosterId = partner.rosterId;
@@ -767,8 +769,9 @@ export function parseTradeTalk(message, ctx = {}) {
   return finish(plan);
 }
 
-// Apply a plan to the draft. Never invents a side: a piece with no side goes to
-// You give, the same default as the search box.
+// Apply a plan to the draft. A piece with no side (no verb, no owner) goes
+// where Enter in the search box puts one: plan.defaultSide, Team 1 receives
+// unless the visitor switched the search to the other team.
 export function applyTradeTalk(draft, plan) {
   let next = draft || emptyValueCalcState();
   const added = [];
@@ -785,7 +788,7 @@ export function applyTradeTalk(draft, plan) {
     if (next !== before) removed.push(gone);
   });
   plan.adds.forEach((add) => {
-    const side = add.side === "right" ? "right" : "left";
+    const side = add.side === "right" || add.side === "left" ? add.side : (plan.defaultSide === "left" ? "left" : "right");
     if (valueCalcHasAsset(next, add.asset)) {
       skipped.push({ ...add, side });
       return;

@@ -5216,7 +5216,7 @@ function tradeTalkNext(view) {
     // closes is scored with the stars credit, so it holds even when the pick's
     // price is far from the raw gap.
     if (pick?.closes && pick.name) {
-      candidates.push(gap > 0 ? `add a ${pick.name}` : `they add a ${pick.name}`);
+      candidates.push(gap > 0 ? `give a ${pick.name}` : `they add a ${pick.name}`);
     } else {
       const partnerId = view.context?.partnerRosterId ?? null;
       const [player] = priceNeighbors(ctx.catalog, Math.abs(gap), {
@@ -5225,7 +5225,7 @@ function tradeTalkNext(view) {
         notOwnerRosterId: gap > 0 ? partnerId : ctx.meRosterId,
         limit: 1,
       });
-      if (player) candidates.push(gap > 0 ? `add ${player.name}` : `they add ${player.name}`);
+      if (player) candidates.push(gap > 0 ? `give ${player.name}` : `they add ${player.name}`);
     }
   }
   const givePlayer = draft.left.find((item) => item.assetType !== "pick");
@@ -5300,6 +5300,8 @@ function tradeTalkContext(view) {
       : [],
     meRosterId: me ? me.rosterId : null,
     partnerRosterId: view.context?.partnerRosterId ?? draft.partnerRosterId ?? null,
+    // A typed piece with no side lands where Enter on a search match would.
+    defaultSide: smartTradeSide,
     season: nextRookieDraftSeason(),
     connected: basis.connected,
     draft,
