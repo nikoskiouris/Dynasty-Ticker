@@ -6484,3 +6484,8 @@ html body:not(.league-loaded) .workspace { padding-top: 70px; }
   .trade-advice-slot { margin-left: 0; flex-basis: 100%; }
   .trade-advice-hint { text-align: left; }
 }
+
+/* League trends inline bars (ticket 040) */
+.trend-cell { display: inline-flex; flex-direction: column; gap: 3px; min-width: 64px; }
+.trend-bar { display: block; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.trend-bar > span { display: block; height: 100%; background: var(--blue); }

@@ -88,6 +88,8 @@ Repo policy applies: **no unit tests and no automated test suites**. Acceptance 
 | 5 | [037](todo/037-league-my-team-page.md) My Team superlatives | M | 033, 035, 044, 045 (034 for some) | 036, 039 |
 | 5 | [039](done/039-league-recent-trades-page.md) Recent Trades | M | 034, 035, 038 | 036, 037 |
 | 6 | [040](todo/040-historical-data-page-all-time-records.md) Historical Data page | L | 034, 035, 036 | 041 (after its shell) |
+| 5 | [039](todo/039-league-recent-trades-page.md) Recent Trades | M | 034, 035, 038 | 036, 037 |
+| 6 | [040](done/040-historical-data-page-all-time-records.md) Historical Data page | L | 034, 035, 036 | 041 (after its shell) |
 | 6 | [041](todo/041-awards-manager-trader-drafter.md) Awards I | L | 034, 038, 040, 044 | 042 |
 | 6 | [042](done/042-awards-lineup-setter-and-waivers.md) Awards II | M | 034, 040 | 041 |
 | 6 | [041](done/041-awards-manager-trader-drafter.md) Awards I | L | 034, 038, 040, 044 | 042 |
@@ -101,7 +103,6 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 | ID | Ticket | Priority | Size |
 | --- | --- | --- | --- |
 | [037](todo/037-league-my-team-page.md) | My Team page: team name, interesting stats and player superlatives | P1 | M |
-| [040](todo/040-historical-data-page-all-time-records.md) | Historical Data page: "<League Name> All-Time" records and timelines | P1 | L |
 
 ## Done
 
@@ -144,6 +145,7 @@ Sizes: S is about half a day, M is 1–2 days, and L is 3 or more days for one a
 | [030](done/030-trade-calc-real-trade-advice.md) | Trade Calc: "New: Give real trade advice" button (existing logic, no AI) | P1 | 2026-11-14, [#305](https://github.com/nikoskiouris/Dynasty-Ticker/pull/305) |
 | [042](done/042-awards-lineup-setter-and-waivers.md) | All-time awards II: best/worst lineup setter and best/worst waiver work | P2 | 2026-11-14, [#307](https://github.com/nikoskiouris/Dynasty-Ticker/pull/307) |
 | [041](done/041-awards-manager-trader-drafter.md) | All-time awards I: best/worst manager, trader, drafter, and the all-time best/worst trade | P1 | 2026-11-14, [#310](https://github.com/nikoskiouris/Dynasty-Ticker/pull/310) |
+| [040](done/040-historical-data-page-all-time-records.md) | Historical Data page: "<League Name> All-Time" records and timelines | P1 | 2026-11-15, [#311](https://github.com/nikoskiouris/Dynasty-Ticker/pull/311) |
 | [043](done/043-retire-old-navigation-and-redirects.md) | Retire the three-tab desk: old nav, rail, redirects, clean-up | P1 | 2026-11-13, [428f5d0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/428f5d0e6544b6cf129992fffb7265e2556b11cc), [96401dc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/96401dcf2786a4f2fb24c83956f993ac5529f3ab), [5b6dad0](https://github.com/nikoskiouris/Dynasty-Ticker/commit/5b6dad0b05df7c0aa44d688a60ec1e56d24048c7) |
 | [044](done/044-one-value-system-12-team-sf-ppr.md) | One value system: 12-team Superflex PPR dynasty only | P0 | 2026-11-14, [#301](https://github.com/nikoskiouris/Dynasty-Ticker/pull/301) |
 | [045](done/045-delete-features-not-in-sketches.md) | Delete features the sketches don't show (Find a trade, buy-low/sell-high, win-now, hot on Sleeper, and the rest) | P1 | 2026-11-13, [836aabe](https://github.com/nikoskiouris/Dynasty-Ticker/commit/836aabef15100e37fe4daab726bfa9cf6ab7cb2c), [d02415e](https://github.com/nikoskiouris/Dynasty-Ticker/commit/d02415e70225897fe63648cd3c5754405a153571), [300d220](https://github.com/nikoskiouris/Dynasty-Ticker/commit/300d2209e37490ce5c8c52776285402889e7ed40), [c48cfd8](https://github.com/nikoskiouris/Dynasty-Ticker/commit/c48cfd84fc43c4a4d4d7afda7f693fe1e7302ca3), [96401dc](https://github.com/nikoskiouris/Dynasty-Ticker/commit/96401dcf2786a4f2fb24c83956f993ac5529f3ab) |

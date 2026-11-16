@@ -1,6 +1,8 @@
 # 040 · Historical Data page: "<League Name> All-Time" records and timelines
 
-**Status:** Open · **Priority:** P1 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
+Done: 2026-11-15, [#311](https://github.com/nikoskiouris/Dynasty-Ticker/pull/311) (with [#304](https://github.com/nikoskiouris/Dynasty-Ticker/pull/304); merge both)
+
+**Status:** Done · **Priority:** P1 · **Size:** L · **Owner:** unassigned (Chief Of Staff or Claude)
 
 ## Context / sketch description
 
