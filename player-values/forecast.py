@@ -526,6 +526,7 @@ def fit_models(rows_by_player, meta, rookie_year, replacement_for, origins, conf
             credit=float(settings["missedGamesCredit"]),
         )
         models[group]["origins"] = [min(origins), max(origins)]
+        models[group]["position"] = group[0]
     return models
 
 
@@ -614,7 +615,8 @@ def value_player(model, age, exp, pick, last, prior, observed, season, weeks_ela
         # breakouts carried forward at face value went on to score well under
         # their forecast; players running below it did not need the same.
         _rest, final = current_season(preseason, observed, elapsed, carry, injury)
-    path =project(model, age + 1, exp + 1, pick, final, last, horizon, max(final[1], established * decay))
+    path = project(model, age + 1, exp + 1, pick, final, last, horizon, max(final[1], established * decay))
+    level = list(config.get("positionLevel", {}).get(model.get("position") or "", []))
     forecast = []
     total = 0.0
     for step in range(horizon + 1):
@@ -624,6 +626,10 @@ def value_player(model, age, exp, pick, last, prior, observed, season, weeks_ela
         else:
             expected = path[step - 1][0]
             weight = elapsed / FANTASY_WEEKS if step == horizon else 1.0
+        if level:
+            # What this position went on to score over its forecast, season by
+            # season ahead, in the rolling backtest. Seasons past the list use its last entry.
+            expected *= float(level[min(step, len(level) - 1)])
         years = years_until(season_start(season + step, kickoff), as_of)
         factor = discount ** years
         discounted = expected * weight * factor

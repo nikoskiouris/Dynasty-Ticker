@@ -58,6 +58,10 @@ Three safeguards sit on the fitted line. None of them adds value by hand.
 - The line can bend at three high pace levels, because the best seasons regress the hardest.
 - A last step moves each forecast level to what players at that level actually averaged. It narrows a tendency to run high on the very best players. It does not remove it: the report shows the top dozen still about 10% high.
 
+### Quarterback level
+
+Quarterbacks are the one position whose forecast falls away too fast. In the rolling backtest (every kickoff 2012-2024 with an outcome for that season) they went on to score 1.01, 1.00, 1.02, 1.07, 1.11, and 1.25 times their forecast in seasons one to six ahead: right for three seasons, then low. Receivers and tight ends ran slightly high instead, and running backs had no steady miss. `positionLevel.QB` in `config.json` multiplies each quarterback forecast season by that measured ratio (seasons past the list use its last entry). Because the ratios come from the same backtest that scores the model, the quarterback level in the saved report is calibrated by construction, not tested out of sample. Rookie picks are not scaled.
+
 ### Chained forward
 
 The forecast for next season becomes the input for the season after, for six seasons. Each step ages the player one year. Because each step is an expected value that is linear in his own numbers, chaining keeps it an expected value. There is no "survival" switch that turns a player off for good.

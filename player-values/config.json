@@ -15,6 +15,9 @@
   },
   "referenceBenchSlots": 12,
   "qbRosterCapPerTeam": 3,
+  "positionLevel": {
+    "QB": [1.0, 1.0, 1.02, 1.07, 1.11, 1.25]
+  },
   "replacementSeasons": 14,
   "qbStartAttempts": 10,
   "oneYearModel": {
