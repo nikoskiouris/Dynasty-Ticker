@@ -2,7 +2,6 @@ import { safeStorage } from "./safe-storage.js";
 import { DEFAULT_ROOMS, PAGE_LABELS } from "./constants.js";
 import { roomDescriptionFor, roomHintFor, roomLabelFor } from "./league-format.js";
 import { normalizeDeskTab, normalizeRoom } from "./parse.js";
-import { sampleDescription, sampleRosterLabels } from "./sample-voice.js";
 
 export const SITE_NAME = "Dynasty Ticker";
 export const SITE_ORIGIN = "https://dynastyticker.com";
@@ -12,26 +11,28 @@ export const REPO_URL = "https://github.com/nikoskiouris/Dynasty-Ticker";
 export const CONTACT_URL = `${REPO_URL}/issues`;
 export const OG_IMAGE_URL = `${SITE_URL}og-image.jpg`;
 export const STORAGE_NOTICE_KEY = "dynasty_ticker_storage_notice";
-export const SAMPLE_BANNER_KEY = "dynasty_ticker_sample_banner_off";
 
-export const DEFAULT_TITLE = "Dynasty Ticker — Your Sleeper dynasty league";
+export const DEFAULT_TITLE = "Dynasty Ticker — Trade Calc, Player Rankings & League History";
 export const DEFAULT_DESCRIPTION =
-  "See what your players are worth, check a trade, and find your team's next move.";
+  "Trade Calc, Player Rankings and Sleeper League History. Values optimized for 12-team Superflex PPR dynasty.";
 
 export const PAGE_META = {
   league: {
     title: PAGE_LABELS.league,
-    description: "Your roster value, draft picks, standings, and playoff odds.",
+    description: "Your Sleeper league at a glance: standings, your team, recent trades and all-time history.",
   },
   trades: {
     title: PAGE_LABELS.trades,
-    description: "One calculator: you give and you get. Find a deal that opens in that same calculator.",
+    description: "Is this trade fair? Build both sides and get one verdict on 12-team Superflex PPR dynasty values.",
   },
 };
 
 const ROOM_DESCRIPTIONS = {
   league: {
-    team: "Roster value, draft picks, standings, and playoff odds.",
+    standings: "Standings, all-play luck and playoff odds from your Sleeper matchups.",
+    team: "Your roster's value, position ranks and draft picks.",
+    trades: "Every completed trade in your league, graded on today's values.",
+    history: "All-time standings, champions, records, rivalries and awards.",
   },
   trades: {
     calculator: "You give and you get. Same verdict with or without a league. A league adds roster picks and team impact.",
@@ -71,15 +72,8 @@ export function buildPageDescription({
   loaded = false,
   room = "",
   league = null,
-  viewingSample = false,
-  ownerName = "",
 } = {}) {
   const name = String(leagueName || "").trim();
-  if (viewingSample) {
-    const voice = sampleRosterLabels({ viewingSample: true, ownerName });
-    const custom = sampleDescription({ page, room, voice });
-    if (custom) return loaded && name ? `${custom} Now open: ${name}.` : custom;
-  }
   const pageMeta = pageMetaFor({ page, room, league });
   if (loaded && name && pageMeta) return `${pageMeta.description} Now open: ${name}.`;
   return pageMeta?.description || DEFAULT_DESCRIPTION;
@@ -143,42 +137,9 @@ export function applyStorageNoticeHidden(notice, dismissed) {
   notice.classList?.toggle?.("hidden", hide);
 }
 
-// Banner dismiss lasts this visit only. A stored flag must not hide it next time.
-export function sampleBannerDismissed(memoryFlag = false) {
-  return Boolean(memoryFlag);
-}
 
-export function clearSampleBannerDismissal(storage = safeStorage("sessionStorage")) {
-  try {
-    storage?.removeItem(SAMPLE_BANNER_KEY);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
-export function sampleConnectEntryVisible({ sampleOn = false, bannerDismissed = false } = {}) {
-  return Boolean(sampleOn && bannerDismissed);
-}
 
-export function focusAfterSampleBannerDismiss(doc = globalThis.document) {
-  if (!doc || typeof doc.getElementById !== "function") return null;
-  const workspace = doc.getElementById("workspace");
-  const username = doc.getElementById("sleeper-username");
-  const target = workspace || username;
-  if (!target || target === doc.body) return null;
-  if (target === workspace && target.getAttribute("tabindex") == null) {
-    target.setAttribute("tabindex", "-1");
-  }
-  if (typeof target.focus === "function") {
-    try {
-      target.focus({ preventScroll: true });
-    } catch {
-      target.focus();
-    }
-  }
-  return target;
-}
 
 function setMetaContent(doc, attr, key, value) {
   const node = doc.querySelector(`meta[${attr}="${key}"]`);

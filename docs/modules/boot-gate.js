@@ -43,7 +43,7 @@ export function isFindLeagueButton(button) {
   const action = button.dataset?.action || button.getAttribute?.("data-action") || "";
   if (action === "find-my-leagues") return true;
   const id = button.id || "";
-  if (id === "find-leagues-btn" || id === "landing-find-btn" || id === "sticky-find-btn") return true;
+  if (id === "find-leagues-btn" || id === "landing-find-btn") return true;
   const idle = button.dataset?.idleLabel || button.getAttribute?.("data-idle-label") || "";
   return idle === FIND_IDLE;
 }

@@ -43,44 +43,6 @@ export function tradablePickSeason(nflState = null, now = new Date()) {
 // Shared default so calls without a name map reuse one lookup cache entry.
 const NO_NAMES = Object.freeze({});
 
-// Sleeper "Reception Bonus - TE" stacks on top of `rec`. Missing/zero is not TEP.
-const TE_REC_BONUS_KEYS = ["bonus_rec_te", "rec_te", "bonus_te_rec"];
-
-function normalizeRosterSlotToken(slot) {
-  return String(slot || "")
-    .trim()
-    .toUpperCase()
-    .replace(/[\s-]+/g, "_");
-}
-
-export function leagueHasSuperflex(league) {
-  const slots = Array.isArray(league?.roster_positions) ? league.roster_positions : [];
-  const normalized = slots.map(normalizeRosterSlotToken);
-  if (normalized.some((slot) => slot === "SUPER_FLEX" || slot === "SUPERFLEX" || slot === "OP")) return true;
-  return normalized.filter((slot) => slot === "QB").length >= 2;
-}
-
-export function tepLevelFromScoring(scoring = {}) {
-  let extra = 0;
-  for (const key of TE_REC_BONUS_KEYS) {
-    if (!Object.prototype.hasOwnProperty.call(scoring, key)) continue;
-    const value = Number(scoring[key]);
-    if (Number.isFinite(value) && value > extra) extra = value;
-  }
-  if (extra >= 1.5) return 3;
-  if (extra >= 1) return 2;
-  if (extra >= 0.5) return 1;
-  return 0;
-}
-
-export function tepLevel(league) {
-  return tepLevelFromScoring(league?.scoring_settings || {});
-}
-
-export function selectValueFormat(league) {
-  return leagueHasSuperflex(league) ? "sf" : "oneQb";
-}
-
 export function parseCsvValues(csvText) {
   const rows = String(csvText || "").trim().split("\n");
   const values = {};
@@ -133,11 +95,9 @@ function formatPayload(payload) {
 
 export function pickValueBundle(payload, format) {
   if (!payload || typeof payload !== "object") return { values: {}, nameMap: {} };
-  if (payload.sf || payload.oneQb) {
-    // Missing 1QB evidence stays empty. Never price a 1QB league with Superflex.
-    const selected = format === "oneQb"
-      ? formatPayload(payload.oneQb)
-      : formatPayload(payload.sf);
+  if (payload.sf) {
+    // Archived dual-format snapshots are tolerated; only their SF map is read.
+    const selected = formatPayload(payload.sf);
     const values = selected?.values && typeof selected.values === "object" ? selected.values : selected || {};
     return {
       values,
@@ -586,14 +546,12 @@ async function loadValuationBundles(fetchImpl) {
     throw new Error(`Unsupported player-value model: ${payload.modelVersion || "missing"}`);
   }
   const sf = coerceValueMap(payload.sf || {});
-  const oneQb = coerceValueMap(payload.oneQb || {});
   const names = plainPickNames(payload.names && typeof payload.names === "object"
     ? payload.names
-    : { ...sf.nameMap, ...oneQb.nameMap });
+    : sf.nameMap);
   const lastModified = response?.headers?.get?.("last-modified") || "";
   return {
     sf: { values: sf.values, nameMap: { ...names, ...sf.nameMap } },
-    oneQb: { values: oneQb.values, nameMap: { ...names, ...oneQb.nameMap } },
     names,
     players: payload.players && typeof payload.players === "object" ? payload.players : {},
     meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {},

@@ -140,7 +140,10 @@ export function describeDraftItem(row, { ownerName = "", kind = "player", voice 
   }
 }
 
-export function draftTeamSummary(context, { leftCount = 0, rightCount = 0, partnerName = "", splitNames = [], voice = null } = {}) {
+export function draftTeamSummary(context, { leftCount = 0, rightCount = 0, partnerName = "", splitNames = [], voice = null, giveColumn = "", getColumn = "" } = {}) {
+  // Name the columns as the page labels them ("Dev Hours receives"), not the old You give / You get.
+  const give = giveColumn ? `“${giveColumn}”` : "You give";
+  const get = getColumn ? `“${getColumn}”` : "You get";
   if (!context) return "";
   if (context.needsTeam) {
     return voice?.roster
@@ -153,14 +156,16 @@ export function draftTeamSummary(context, { leftCount = 0, rightCount = 0, partn
     const from = names.length ? names.join(" and ") : "more than one team";
     return voice
       ? `The other side has pieces from ${from}. Team impact needs one partner.`
-      : `You get pieces from ${from}. Team impact needs one partner.`;
+      : `${getColumn ? `${get} has` : "You get"} pieces from ${from}. Team impact needs one partner.`;
   }
   if (context.mismatched > 0) {
     const n = context.mismatched;
     const fit = `${n} ${n === 1 ? "piece does" : "pieces do"} not fit yet. The market verdict above still counts every piece.`;
     return voice?.draftNeedPieces
       ? `${voice.draftNeedPieces} ${fit}`
-      : `Team impact needs You give from your roster and You get from one team. ${fit}`;
+      : giveColumn && getColumn
+        ? `Team impact needs your players in ${give} and one other team's players in ${get}. ${fit}`
+        : `Team impact needs You give from your roster and You get from one team. ${fit}`;
   }
   return partnerName ? `With ${partnerName}.` : "";
 }
@@ -256,7 +261,7 @@ export function evenUpPickChoice(gap, picks = [], { scoreAdded = null } = {}) {
     if (!(value > 0) || !pick?.name) continue;
     if (!score) {
       const miss = Math.abs(value - need);
-      if (!best || miss < best.miss) best = { name: String(pick.name), value, miss };
+      if (!best || miss < best.miss) best = { assetId: String(pick.assetId || ""), name: String(pick.name), value, miss };
       continue;
     }
     const scored = score(value) || {};
@@ -265,7 +270,7 @@ export function evenUpPickChoice(gap, picks = [], { scoreAdded = null } = {}) {
     if (!Number.isFinite(afterGap) || !Number.isFinite(pct)) continue;
     const miss = Math.abs(afterGap);
     const closes = pct <= EVEN_UP_FAIR_PCT;
-    const candidate = { name: String(pick.name), value, miss, closes, gap: need, afterGap, pct, verdict: scored.verdict || null };
+    const candidate = { assetId: String(pick.assetId || ""), name: String(pick.name), value, miss, closes, gap: need, afterGap, pct, verdict: scored.verdict || null };
     const betterClose = Boolean(best) && closes && !best.closes;
     const tighter = Boolean(best) && closes === best.closes && (miss < best.miss || (miss === best.miss && value < best.value));
     if (!best || betterClose || tighter) best = candidate;
@@ -324,7 +329,9 @@ export function draftSummaryLine(draft) {
   const give = names(draft?.left);
   const get = names(draft?.right);
   if (!give.length && !get.length) return "";
-  return `${give.join(", ") || "nothing"} for ${get.join(", ") || "nothing"}`;
+  // One side only: "Bijan Robinson", not "nothing for Bijan Robinson".
+  if (!give.length || !get.length) return [...give, ...get].join(", ");
+  return `${give.join(", ")} for ${get.join(", ")}`;
 }
 
 // Where to land once a league opens: keep the page a visitor was working on.

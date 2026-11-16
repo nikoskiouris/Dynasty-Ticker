@@ -12,6 +12,7 @@ const PAGE_FILES = [
   "./ui/landing.html",
   "./ui/trades.html",
   "./ui/league.html",
+  "./ui/page-shells.html",
 ];
 
 const host = document.querySelector("#ui-pages");
@@ -51,16 +52,7 @@ try {
     return response.text();
   }));
   if (!host) throw new Error("Missing #ui-pages");
-  const paintedExample = document.querySelector("#launch-example");
-  const paintedHtml = paintedExample?.getAttribute("aria-busy") === "false" ? paintedExample.innerHTML : "";
   mountHtmlPreservingUsernames(host, parts.join("\n"), document);
-  if (paintedHtml) {
-    const nextExample = document.querySelector("#launch-example");
-    if (nextExample) {
-      nextExample.innerHTML = paintedHtml;
-      nextExample.setAttribute("aria-busy", "false");
-    }
-  }
   armBootChrome();
 } catch (err) {
   showBootError();

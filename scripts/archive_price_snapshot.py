@@ -2,12 +2,12 @@
 """Archive the current board so shared links and trends read one price history.
 
 Writes docs/data/price-history/<YYYYMMDDHHmm>.json (UTC, from player_values.json
-asOf) with only asOf, sf, and oneQb. An existing stamp is never rewritten.
+asOf) with only asOf and sf. An existing stamp is never rewritten.
 The same asOf writes nothing.
 
 Also rewrites docs/data/price-history/index.json (schemaVersion 1) when the
 stamp list changes, so the site can fetch the window without listing the
-directory. Snapshot files stay {asOf, sf, oneQb}. The index is not a second store.
+directory. Snapshot files stay {asOf, sf}. The index is not a second store.
 
 Drops a snapshot more than 90 days older than the newest one. The newest file
 is always kept.
@@ -108,9 +108,8 @@ def write_index(history: Path, models: dict[str, str] | None = None) -> None:
         "retentionDays": RETENTION_DAYS,
         "schema": {
             "snapshot": "docs/data/price-history/<YYYYMMDDHHmm>.json",
-            "snapshotKeys": ["asOf", "sf", "oneQb"],
+            "snapshotKeys": ["asOf", "sf"],
             "dates": "filename and asOf are UTC; the calendar day is YYYY-MM-DD",
-            "oneQb": "full 1QB price map, same asset ids as sf",
             "retention": "drop a file more than 90 days older than the newest; always keep the newest",
             "modelVersion": "index rows name the model that priced the snapshot; a row without one is football-forecast-v1",
         },
@@ -130,7 +129,7 @@ def archive(values_path: Path = VALUES, history: Path = HISTORY, keep: int | Non
     target = history / f"{stamp}.json"
     models = {}
     if not target.exists():
-        snapshot = {"asOf": data["asOf"], "sf": data["sf"], "oneQb": data["oneQb"]}
+        snapshot = {"asOf": data["asOf"], "sf": data["sf"]}
         target.write_text(json.dumps(snapshot, separators=(",", ":"), sort_keys=True) + "\n")
         if data.get("modelVersion"):
             models[stamp] = str(data["modelVersion"])

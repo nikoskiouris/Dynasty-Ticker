@@ -20,6 +20,12 @@ export function playersAndPicksLabel(count) {
   return n === 1 ? "1 player or pick" : `${formatNumber(n)} players & picks`;
 }
 
+// "1 game", "3 games". many defaults to one + "s".
+export function countLabel(count, one, many = `${one}s`) {
+  const n = Number(count) || 0;
+  return `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+}
+
 export function formatSignedNumber(value) {
   const numericValue = Number(value) || 0;
   return `${numericValue > 0 ? "+" : ""}${formatNumber(numericValue)}`;
@@ -128,4 +134,11 @@ export function withArticle(word) {
   // Letters read by name that start with a vowel sound: A, E, F, H, I, L, M, N, O, R, S, X.
   const spelled = /^[A-Z]{2,}$/.test(text) ? /^[AEFHILMNORSX]/.test(text) : /^[aeiou]/i.test(text);
   return `${spelled ? "an" : "a"} ${text}`;
+}
+
+// "Sam" -> "Sam's", "Chris" -> "Chris'".
+export function ownerPossessive(name) {
+  const clean = String(name || "").trim();
+  if (!clean) return "";
+  return /s$/i.test(clean) ? `${clean}'` : `${clean}'s`;
 }

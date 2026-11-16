@@ -37,20 +37,22 @@
       <main class="legal-card legal-prose">
         <p class="eyebrow">Privacy</p>
         <h1>What this ticker stores, and what it never sees.</h1>
-        <p class="muted">Last updated November 7, 2026. Dynasty Ticker is a static website at <a href="https://dynastyticker.com/">dynastyticker.com</a>. It talks to Sleeper from your browser. There is no Dynasty Ticker account.</p>
+        <p class="muted">Last updated November 15, 2026. Dynasty Ticker is a static website at <a href="https://dynastyticker.com/">dynastyticker.com</a>. It talks to Sleeper from your browser. There is no Dynasty Ticker account.</p>
 
         <h2>Who we are</h2>
         <p>Dynasty Ticker is the open-source project at <a href="https://github.com/nikoskiouris/Dynasty-Ticker">github.com/nikoskiouris/Dynasty-Ticker</a>. Contact is GitHub issues on that repo, not a mailbox or street address.</p>
 
         <h2>What the app fetches</h2>
-        <p>When you search a username or load a league, your browser calls the public Sleeper API for league, roster, matchup, draft, transaction, and player data. Rankings and a Sleeper trade-market file are bundled as static files in this repo. We do not proxy that traffic.</p>
+        <p>When you search a username or load a league, your browser calls the public Sleeper API for league, roster, matchup, draft, transaction, and player data. Player values, their recent price history, NFL draft data and a slim NFL player list are bundled as static files in this repo. We do not proxy that traffic.</p>
 
         <h2>What stays on your device</h2>
         <p>The ticker uses <strong>browser localStorage</strong>, not cookies:</p>
         <ul>
-          <li>Whether the left board is open or closed</li>
           <li>A short-lived cache of Sleeper NFL player metadata (in IndexedDB when it is too big for localStorage)</li>
-          <li>The last Sleeper league you opened here (league id and name, your team id and manager name), so the home page can offer to open it again. “Forget this league” on the home page removes it. The sample league is never saved.</li>
+          <li>Last season's NFL player stats from Sleeper (only the totals player notes use), kept once that season is over so they are not downloaded again</li>
+          <li>The last Sleeper league you opened here (league id and name, your team id and manager name), so the home page can offer to open it again. “Forget this league” on the home page removes it.</li>
+          <li>The last Sleeper username you searched, so the search box is filled in next time.</li>
+          <li>League history you opened (matchups, trades and waiver moves, drafts, brackets), cached in IndexedDB (localStorage if that is unavailable) so it does not reload from Sleeper. Finished seasons are kept until you clear site data; the current season refreshes after 6 hours.</li>
         </ul>
         <p>The trade you are building (player and pick ids, names, and the team you picked to browse) sits in <strong>session storage</strong> for this tab only, so a reload or connecting Sleeper does not erase it. So does the trade you last cleared or replaced, so Restore draft still works after a reload. It is gone when you close the tab. It is never sent anywhere.</p>
         <p>Clear site data in your browser to wipe the local copy.</p>
@@ -62,7 +64,7 @@
         <p>The host adds these to per-day totals. To count unique visitors for a day, it may keep a shortened hash of a secret, the date, your IP address, and your browser. The date is part of the hash, so you are a different hash the next day. The raw address is not stored. The totals are not shown on the site. Do Not Track or Global Privacy Control in your browser turns these notes off. The host and the Sleeper API may still log ordinary request metadata on their side.</p>
 
         <h2>Searched usernames</h2>
-        <p>When you search a Sleeper username and one of that user's leagues actually opens, the live site adds that username to a list on the site host. Next to it the host keeps the public Sleeper user id, when it was first and last opened, and how many times. A later open updates that same row. Every other username already on the list stays. A typo never opens a league, so it is not saved. The saved name is the one Sleeper returns, so a misspelling stays the same person instead of a new one. The league id is not saved. The list is not shown anywhere on the site.</p>
+        <p>When you search a Sleeper username and one of that user's leagues actually opens, the live site adds that username to a list on the site host. Next to it the host keeps the public Sleeper user id, when it was first and last opened, and how many times. A later open updates that same row. Every other username already on the list stays. A typo never opens a league, so it is not saved. The saved name is the one Sleeper returns, so a misspelling stays the same person instead of a new one. Before saving, the host looks the username up on Sleeper’s public API and saves it only if that account exists (and matches the Sleeper user id the page sent). The list keeps at most 50,000 names. The league id is not saved. The list is not shown anywhere on the site.</p>
 
         <h2>Share links</h2>
         <p>A shared trade link (<code>/t/…</code>) holds the trade itself: Sleeper player and pick ids, the scoring format, and the date the prices were taken. Trade and league addresses (<code>/trade?give=…&amp;get=…</code>, <code>/l/&lt;league id&gt;/team?me=&lt;team&gt;</code>) name public Sleeper ids the same way. Anyone with a link sees the same public view. There are no secrets to put in a URL.</p>

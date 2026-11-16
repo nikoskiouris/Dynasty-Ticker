@@ -33,7 +33,7 @@
     var action = button.getAttribute("data-action") || "";
     if (action === "find-my-leagues") return true;
     var id = button.id || "";
-    if (id === "find-leagues-btn" || id === "landing-find-btn" || id === "sticky-find-btn") return true;
+    if (id === "find-leagues-btn" || id === "landing-find-btn") return true;
     return (button.getAttribute("data-idle-label") || "") === "Connect my league";
   }
 

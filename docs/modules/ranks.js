@@ -1,3 +1,5 @@
+import { playerAliasName } from "./player-aliases.js";
+import { renderPlayerPage } from "./player-page.js";
 import { escapeHtml, formatNumber } from "./html.js";
 import {
   playerValueTrend,
@@ -14,13 +16,13 @@ import { isInactivePlayerAsset, parsePickAssetId, upcomingDraftSeason } from "./
 import { playerInitials, sleeperPlayerThumbUrl } from "./player-face.js";
 import { playerAgeFromNfl } from "./player-notes.js";
 
-export const RANK_PAGE_SIZE = 48;
+export const RANK_PAGE_SIZE = 50;
 export const RANK_LIST_FLOOR = 1500;
 export const RANK_POSITION_FLOOR = 700;
 // A typed name finds any priced player; browsing lists keep their floors.
 export const RANK_SEARCH_FLOOR = 0;
 export const RANK_POSITIONS = Object.freeze(["ALL", "QB", "RB", "WR", "TE", "PICK"]);
-export const RANK_FORMATS = Object.freeze(["sf", "oneQb"]);
+export const RANK_FORMATS = Object.freeze(["sf"]);
 const SKILL_POSITIONS = new Set(["QB", "RB", "WR", "TE"]);
 const PICK_BUCKET_TIE = { any: 0, mid: 1, late: 2, early: 3 };
 const PICK_CLOSE_RATIO = 0.08;
@@ -33,7 +35,7 @@ export function isRankAssetId(value) {
 }
 
 export function rankFormatLabel(format) {
-  return format === "oneQb" ? "1QB" : "Superflex";
+  return "12-team Superflex PPR dynasty";
 }
 
 export function foldRankQuery(value) {
@@ -81,12 +83,7 @@ export function ownerLine(owner, { leagueOpen = false, kind = "player" } = {}) {
 }
 
 export function rankBoardNote({ format = "sf", leagueFormat = "", caveat = "" } = {}) {
-  const base = "Our estimate, scored with a point per catch. Same number in every trade and on My team. Open a player to see the closest draft pick.";
-  const peek = leagueFormat && format && format !== leagueFormat
-    ? ` Peeking at ${rankFormatLabel(format)}. Your league is ${rankFormatLabel(leagueFormat)}.`
-    : "";
-  const extra = caveat ? ` ${caveat}` : "";
-  return `${base}${peek}${extra}`;
+  return `Values: 12-team Superflex PPR dynasty.${caveat ? ` ${caveat}` : ""}`;
 }
 
 export function buildRankBoard({
@@ -96,6 +93,7 @@ export function buildRankBoard({
   nflPlayers = {},
   owners = {},
   noteFor = null,
+  detailFor = null,
   minPickSeason = upcomingDraftSeason(),
 } = {}) {
   const picks = collectRankPicks(values, minPickSeason);
@@ -112,14 +110,18 @@ export function buildRankBoard({
     const playerId = assetId.slice("player:".length);
     const raw = nflPlayers?.[playerId] || nflPlayers?.[String(playerId)] || null;
     if (raw && isInactivePlayerAsset({ assetType: "player", raw })) continue;
-    const position = playerPosition(raw);
+    const model = modelPlayers?.[assetId] || null;
+    const position = playerPosition(raw) || String(model?.position || "").toUpperCase();
     if (position && !SKILL_POSITIONS.has(position)) continue;
     const name = playerName(assetId, names, raw);
     if (!name) continue;
-    const age = playerAgeFromNfl(raw);
-    const team = String(raw?.team || "").trim().toUpperCase();
+    // The values file carries a decimal age (24.6); Sleeper's directory a whole
+    // number. Prefer the values file so the table reads the same with or
+    // without a league loaded.
+    const modelAge = Number(model?.age);
+    const age = Number.isFinite(modelAge) && modelAge > 0 ? modelAge : playerAgeFromNfl(raw);
+    const team = String(raw?.team || model?.team || "").trim().toUpperCase();
     const pickEqual = closestPick(value, picks);
-    const model = modelPlayers?.[assetId] || null;
     const tape = marketTape({ confidence: model?.confidence, kind: "player" });
     players.push({
       assetId,
@@ -134,7 +136,11 @@ export function buildRankBoard({
       pickLine: pickEqualLine(value, pickEqual, bestPick),
       tape,
       model,
+      raw,
+      ...(typeof detailFor === "function" ? detailFor(playerId, raw) : {}),
       owner: owners?.[assetId] || null,
+      // Sleeper's game status ("IR", "Out", "Questionable") for the player page.
+      injuryStatus: String(raw?.injury_status || "").trim(),
       note: typeof noteFor === "function" ? String(noteFor(playerId, raw) || "") : "",
       photoUrl: sleeperPlayerThumbUrl(playerId),
       initials: playerInitials(name),
@@ -167,34 +173,49 @@ export function buildRankBoard({
 
   const rows = [...players, ...pickRows].sort(byRankValue);
   const positionCounts = Object.create(null);
-  let playerOverall = 0;
+
   return rows.map((row, index) => {
     // A zero price ties with hundreds of others; a rank there means nothing.
-    const ranked = row.kind === "player" && Number(row.value) > 0;
+    const ranked = Number(row.value) >= 0;
     const positionRank = ranked && row.position
       ? (positionCounts[row.position] = (positionCounts[row.position] || 0) + 1)
       : null;
-    if (ranked) playerOverall += 1;
     return {
       ...row,
       positionRank,
-      overallRank: ranked ? playerOverall : null,
+      overallRank: ranked ? index + 1 : null,
       boardRank: positionRank ? `${row.position}${positionRank}` : "",
       listIndex: index,
     };
   });
 }
 
+// People type picks the way they say them: "2027 first", "1st round pick".
+// Pick rows are named "2027 1st", so map ordinals and drop filler words.
+const ORDINAL_WORDS = { first: "1st", second: "2nd", third: "3rd", fourth: "4th", fifth: "5th" };
+export function pickQueryWords(value) {
+  let text = String(value || "").toLowerCase()
+    .replace(/\b(first|second|third|fourth|fifth)\b/g, (word) => ORDINAL_WORDS[word])
+    .replace(/[\u2018\u2019']\s*(\d\d)\b/g, "20$1"); // '27 -> 2027
+  const ordinal = text.match(/\b[1-5](st|nd|rd|th)\b/)?.[0];
+  if (!ordinal) return text;
+  // "first round 2028" and "2028 1st round pick" both mean the "2028 1st" row.
+  const year = text.match(/\b20\d\d\b/)?.[0];
+  return year ? `${year} ${ordinal}` : text.replace(/\b(rounds?|rounders?|rd|picks?)\b/g, " ");
+}
+
 export function filterRankRows(rows, { query = "", position = "ALL" } = {}) {
-  const want = foldRankQuery(query);
+  const want = foldRankQuery(pickQueryWords(query));
   const pos = String(position || "ALL").toUpperCase();
   const floor = want ? RANK_SEARCH_FLOOR : (pos === "ALL" ? RANK_LIST_FLOOR : RANK_POSITION_FLOOR);
+  // "jsn" also finds Jaxon Smith-Njigba, and still finds any name containing "jsn".
+  const alias = foldRankQuery(playerAliasName(query));
   return (Array.isArray(rows) ? rows : []).filter((row) => {
     if (pos === "PICK" && row.kind !== "pick") return false;
     if (pos !== "ALL" && pos !== "PICK" && row.position !== pos) return false;
-    if (want && !foldRankQuery(row.name).includes(want)) return false;
+    if (want && !foldRankQuery(row.name).includes(want) && !(alias && row.kind !== "pick" && foldRankQuery(row.name).includes(alias))) return false;
     if (row.kind === "pick") return true;
-    return Number(row.value) >= floor;
+    return Number(row.value) >= 0;
   }).map((row, index) => ({ ...row, listRank: index + 1 }));
 }
 
@@ -205,6 +226,17 @@ export function sameMoney(rows, assetId, radius = 2) {
   const start = Math.max(0, index - radius);
   const end = Math.min(list.length, index + radius + 1);
   return list.slice(start, end).filter((row) => row.assetId !== assetId);
+}
+
+// A sortable column header: a button inside the th, aria-sort on the th.
+function sortHeader(key, label, view = {}, cls = "") {
+  const sort = view?.sort || "rank";
+  const active = key === "age" ? sort.startsWith("age") : sort === key;
+  const next = key === "age" ? (sort === "age-asc" ? "age-desc" : "age-asc") : key;
+  const ariaSort = !active ? "none" : sort === "age-desc" ? "descending" : sort === "rank" ? "descending" : "ascending";
+  const arrow = active ? (sort === "age-desc" || sort === "rank" ? " ↓" : " ↑") : "";
+  const hint = key === "age" ? (next === "age-asc" ? "youngest first" : "oldest first") : key === "team" ? "A to Z" : "highest value first";
+  return `<th scope="col"${cls ? ` class="${cls}"` : ""} aria-sort="${ariaSort}"><button type="button" class="rank-sort-btn" data-action="rank-sort" data-sort="${next}" aria-label="Sort by ${escapeHtml(label.replace(/<[^>]+>/g, ""))}, ${hint}">${label}${arrow}</button></th>`;
 }
 
 export function rankView({
@@ -222,8 +254,10 @@ export function rankView({
   shown = RANK_PAGE_SIZE,
   history = null,
   updated = null,
+  sort = "rank",
 } = {}) {
-  const visible = filterRankRows(rows, { query, position });
+  const sortKey = RANK_SORTS.includes(sort) ? sort : "rank";
+  const visible = sortRankRows(filterRankRows(rows, { query, position }), sortKey);
   const pageCount = Math.max(RANK_PAGE_SIZE, Number(shown) || RANK_PAGE_SIZE);
   const selected = rows.find((row) => row.assetId === selectedId) || null;
   let card = null;
@@ -231,7 +265,7 @@ export function rankView({
     const leagueValue = typeof leagueValueFor === "function" ? Number(leagueValueFor(selected)) : NaN;
     card = {
       ...selected,
-      neighbors: sameMoney(rows, selected.assetId),
+      neighbors: sameMoney(rows.filter(row => row.kind === "player"), selected.assetId, 3),
       leagueValue: Number.isFinite(leagueValue) && leagueValue > 0 ? Math.round(leagueValue) : null,
     };
   }
@@ -246,7 +280,7 @@ export function rankView({
     failed: Boolean(failed),
     query,
     position: RANK_POSITIONS.includes(position) ? position : "ALL",
-    format: format === "oneQb" ? "oneQb" : "sf",
+    format: "sf",
     note: rankBoardNote({ format, leagueFormat, caveat }),
     rows: visible.slice(0, pageCount),
     hidden: Math.max(0, visible.length - pageCount),
@@ -257,7 +291,27 @@ export function rankView({
     leagueOpen: Boolean(leagueOpen),
     history,
     updated: updated || null,
+    sort: sortKey,
   };
+}
+
+// Rank (value) is the default order. Age and Team re-sort the filtered list;
+// picks have neither, so they go last. Ties keep value order.
+export const RANK_SORTS = Object.freeze(["rank", "age-asc", "age-desc", "team"]);
+export function sortRankRows(rows, sort = "rank") {
+  const list = Array.isArray(rows) ? rows : [];
+  if (sort === "rank") return list;
+  const age = (row) => (row.kind !== "pick" && Number.isFinite(Number(row.age)) && Number(row.age) > 0 ? Number(row.age) : null);
+  const team = (row) => (row.kind === "pick" ? null : String(row.team || "FA"));
+  const keyed = list.map((row, index) => ({ row, index }));
+  keyed.sort((a, b) => {
+    const x = sort === "team" ? team(a.row) : age(a.row);
+    const y = sort === "team" ? team(b.row) : age(b.row);
+    if (x == null || y == null) return (x == null) - (y == null) || a.index - b.index;
+    const diff = sort === "team" ? String(x).localeCompare(String(y)) : sort === "age-desc" ? y - x : x - y;
+    return diff || a.index - b.index;
+  });
+  return keyed.map(({ row }) => row);
 }
 
 export function renderPlayerConnect() {
@@ -274,9 +328,6 @@ export function renderRanksToolbar(view) {
       <input class="ranks-search" type="search" aria-label="Search players and picks" placeholder="Search players and picks" value="${escapeHtml(view?.query || "")}" data-input="ranks-search" data-ranks-query autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
       <div class="ranks-filters" role="group" aria-label="Position">
         ${RANK_POSITIONS.map((pos) => renderRankChip("rank-pos", "pos", pos, pos === "ALL" ? "All" : (pos === "PICK" ? "Picks" : pos), view?.position)).join("")}
-      </div>
-      <div class="ranks-filters" role="group" aria-label="Format">
-        ${RANK_FORMATS.map((format) => renderRankChip("rank-format", "format", format, rankFormatLabel(format), view?.format)).join("")}
       </div>
       <p class="ranks-note muted">${escapeHtml(view?.note || "")}</p>
       ${renderValueScaleExplainer()}
@@ -302,24 +353,23 @@ export function renderRanksMarkup(view) {
 }
 
 export function renderRanksBody(view) {
-  const card = view?.card
-    ? renderRankCard(view.card, view)
-    : view?.missing
-      ? `<article class="ranks-card ranks-missing" role="status">
-          <h2>We can't find that player</h2>
-          <p class="muted">The link may be old, or we have no price for him right now. Dynasty Ticker does not guess one.</p>
-          <div class="ranks-card-actions"><button type="button" data-action="open-public-ranks">Search players</button></div>
-        </article>`
-      : "";
+  if (view?.card) return renderPlayerPage(view.card, view);
+  if (view?.missing) return `<article class="player-detail" role="status"><button type="button" class="ghost-btn player-return" data-action="player-rankings-return">Return to player rankings</button><h1>We can't find that player</h1><p>The link may be old, or we have no price for him right now. Dynasty Ticker does not guess one.</p></article>`;
   const rows = Array.isArray(view?.rows) ? view.rows : [];
-  const list = rows.length
-    ? `<div class="ranks-list">${rows.map((row) => renderRankRow(row, row.assetId === view?.card?.assetId, view)).join("")}</div>`
-    : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
-  const more = Number(view?.hidden) > 0
-    ? `<button type="button" class="ghost-btn ranks-more" data-action="ranks-more">Show more</button>`
-    : "";
-  const freshness = renderValuesFreshness(view?.updated, { align: "end" });
-  return `${renderRanksShelf(rows)}${card}${freshness}${list}${more}`;
+  const table = rows.length ? `<div class="rankings-table-wrap"><table class="rankings-table"><caption class="sr-only">Player Rankings · 12-team Superflex PPR dynasty</caption><thead><tr><th scope="col" class="rank-face-col"><span class="sr-only">Face</span></th><th scope="col">Player</th>${sortHeader("rank", '<span class="rank-wide-label">Overall </span>Rank', view)}<th scope="col"><span class="rank-wide-label">Position </span><span class="rank-narrow-label">Pos. </span>Rank</th>${sortHeader("age", "Age", view)}${sortHeader("team", "Team", view, "rank-team-col")}<th scope="col">Value</th></tr></thead><tbody>${rows.map(renderRankTableRow).join("")}</tbody></table></div>` : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
+  const more = Number(view?.hidden) > 0 ? `<button type="button" class="ghost-btn ranks-more" data-action="ranks-more">Show more</button>` : "";
+  return `${table}${more}<footer class="rankings-footnote"><p>Our algorithm is based around age, role and opportunity, how well a player scores, how often he plays, his NFL team and draft capital, and how long players at his position usually stay good, plus many other factors, updated daily.</p>${renderValueScaleExplainer()}${renderValuesFreshness(view?.updated, { align: "end" })}</footer>`;
+}
+
+function renderRankTableRow(row) {
+  const pick = row.kind === "pick";
+  const action = pick ? "rank-calc" : "rank-open";
+  const attrs = `data-action="${action}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${escapeHtml(row.kind)}"`;
+  const face = pick ? `<span class="rank-pick-token" aria-label="Draft pick">P</span>` : renderPlayerFace(row.playerId, row.name, { size: "sm" });
+  const owner = row.owner?.mine ? "On your team" : row.owner?.name || "";
+  // A pick has no page: its row adds the pick to the trade, so say so.
+  const label = pick ? `Add ${row.name} to a trade` : row.name;
+  return `<tr><td class="rank-face-col"><button type="button" class="link-btn" ${attrs} aria-label="${escapeHtml(label)}">${face}</button></td><th scope="row"><button type="button" class="link-btn rank-name-link" ${attrs}${pick ? ` aria-label="${escapeHtml(label)}"` : ""}>${escapeHtml(row.name)}${pick ? ' <span class="rank-add-hint" aria-hidden="true">＋ Trade</span>' : ""}</button><small class="rank-position-tag">${escapeHtml(row.position || "")}</small>${owner ? `<small class="rank-owner">${escapeHtml(owner)}</small>` : ""}</th><td>${row.overallRank || "—"}</td><td>${escapeHtml(row.boardRank || "—")}</td><td>${!pick && Number.isFinite(row.age) ? Number(row.age).toFixed(1) : "—"}</td><td class="rank-team-col">${pick ? "—" : escapeHtml(row.team || "FA")}</td><td class="rank-table-value">${escapeHtml(formatNumber(row.value))}</td></tr>`;
 }
 
 function renderRanksShelf(rows) {

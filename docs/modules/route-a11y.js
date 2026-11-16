@@ -3,22 +3,24 @@
 export const ROUTE_LIVE_ID = "route-announcer";
 export const ROUTE_SITE_NAME = "Dynasty Ticker";
 export const ROUTE_TAB_LABELS = Object.freeze({
-  trades: "Check a trade",
-  league: "My team",
+  home: "Home",
+  leagues: "League History",
+  trades: "Trade Calc",
+  league: "League hub",
 });
 export const ROUTE_ROOM_TITLES = Object.freeze({
-  team: "My team",
-  find: "Find a trade",
-  calculator: "Check a trade",
+  home: "Home", picker: "League History", hub: "League hub", standings: "Standings", trades: "Recent Trades", history: "Historical Data",
+  team: "My Team",
+  calculator: "Trade Calc",
 });
 
-const PAGE_ROOTS = new Set(["trades", "league"]);
+const PAGE_ROOTS = new Set(["home", "leagues", "trades", "league"]);
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-export const ROUTE_PLAYERS_TITLE = "Players";
+export const ROUTE_PLAYERS_TITLE = "Player Rankings";
 
 export function routeDocumentTitle({ playerName = "", tab = "", room = "", playersBoard = false, siteName = ROUTE_SITE_NAME } = {}) {
   const player = clean(playerName);
@@ -31,19 +33,10 @@ export function routeDocumentTitle({ playerName = "", tab = "", room = "", playe
   return "";
 }
 
-function placeChanged(before, place) {
-  if (!before?.tab) return false;
-  return before.tab !== place.tab
-    || before.view !== place.view
-    || String(before.playerId || "") !== String(place.playerId || "");
-}
-
 export function routeAnnouncement(place = {}, before = {}) {
   const overlay = String(place.overlay || "");
   const player = clean(place.playerName);
-  const changed = placeChanged(before, place);
   if (overlay === "trade") return "Trade";
-  if (overlay === "rail" && !changed) return "Menu";
   if (overlay === "player" || player) return player || "Player";
   if (place.playersBoard && place.view === "calculator") return ROUTE_PLAYERS_TITLE;
   const roomLabel = ROUTE_ROOM_TITLES[place.view] || "";
@@ -96,7 +89,10 @@ function visibleHeading(root, selector) {
   if (root.matches?.(selector) && !isHidden(root)) return root;
   const nodes = root.querySelectorAll?.(selector) || [];
   for (const node of nodes) {
-    if (!isHidden(node)) return node;
+    // Hidden by attribute/class, or by CSS (display: none has no boxes).
+    if (isHidden(node)) continue;
+    if (typeof node.getClientRects === "function" && node.getClientRects().length === 0) continue;
+    return node;
   }
   return null;
 }
@@ -112,14 +108,20 @@ export function focusViewHeading(root, { focusVisible = false } = {}) {
 
 // One heading per room. Waiting on a selector (not a node) survives re-renders.
 const ROOM_HEADINGS = Object.freeze({
-  "league:team": "#power-heading",
+  "home:home": "#home-heading, .tool-picker h1",
+  "leagues:picker": "#leagues-heading",
+  "league:hub": "#league-hub-heading",
+  "league:standings": "#league-standings-heading",
+  "league:trades": "#league-trades-heading",
+  "league:history": "#league-history-heading",
+  "league:team": "#league-team-heading",
   "trades:calculator": "#calculator-section .calc-heading h2, #shared-trade-title",
   "trades:find": "#find-heading",
 });
 
 export function headingSelectorFor(place = {}) {
   const overlay = String(place.overlay || "");
-  if (overlay === "player" || place.playerId) return ".ranks-card h2, .player-week-sheet h2";
+  if (overlay === "player" || place.playerId) return "#player-detail-name, .ranks-card h2, .player-week-sheet h2";
   const page = place.page || place.tab || "";
   const room = String(place.view || "");
   if (place.playersBoard && page === "trades" && room === "calculator") return "#ranks-section .panel-heading h2";
@@ -130,16 +132,12 @@ export function headingSelectorFor(place = {}) {
 function firstVisible(doc, selector) {
   const nodes = doc?.querySelectorAll?.(selector) || [];
   for (const node of nodes) {
-    if (!isHidden(node)) return node;
+    // Hidden by attribute/class, or by CSS (display: none has no boxes).
+    if (isHidden(node)) continue;
+    if (typeof node.getClientRects === "function" && node.getClientRects().length === 0) continue;
+    return node;
   }
   return null;
-}
-
-function railOpen(doc) {
-  const body = doc?.body;
-  if (!body) return false;
-  if (typeof body.classList?.contains === "function" && body.classList.contains("rail-open")) return true;
-  return classListHas(body, "rail-open");
 }
 
 function inLeagueIdForm(active) {
@@ -153,16 +151,11 @@ function mayMoveFocus(doc, active, takeover = false) {
   if (active.id === "workspace") return true;
   // Back after a league-id switch leaves focus in that form. The restored room heading takes it.
   if (takeover && inLeagueIdForm(active)) return true;
-  // Closing the phone menu parks focus on Sections. The room heading should take it.
-  if ((active.id === "mobile-rail-toggle" || active.id === "mobile-rail-close") && !railOpen(doc)) return true;
   // A room change hides the previous room. Focus is still on that heading until
   // the browser drops it, and the next room heading has to take over.
-  const tag = String(active.tagName || "");
-  if ((tag === "H1" || tag === "H2" || tag === "H3") && isHidden(active)) return true;
-  const cls = typeof active.className === "string" ? active.className : "";
-  return cls.split(/\s+/).some((name) => (
-    name === "room-tab" || name === "page-tab" || name === "phone-desk-room" || name === "phone-desk-page"
-  ));
+  // The same goes for the control that opened the route (a player name on My
+  // Team): once its page is hidden, focus there helps no one.
+  return isHidden(active);
 }
 
 let headingWatch = 0;
@@ -353,7 +346,6 @@ function pageRoot(doc, page) {
 export function headingRootFor(doc, place = {}, before = {}) {
   if (!doc?.querySelector) return null;
   const overlay = String(place.overlay || "");
-  const changed = placeChanged(before, place);
   if (overlay === "player" || place.playerId) {
     return doc.querySelector(".ranks-card")
       || doc.querySelector(".player-week-sheet")
@@ -369,7 +361,6 @@ export function headingRootFor(doc, place = {}, before = {}) {
       || doc.querySelector("[data-room-panel='activity']")
       || pageRoot(doc, place.page);
   }
-  if (overlay === "rail" && !changed) return doc.querySelector("#control-rail");
   if (overlay === "public-ranks") {
     return doc.querySelector("#public-ranks") || pageRoot(doc, place.page);
   }

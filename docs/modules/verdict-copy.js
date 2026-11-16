@@ -19,7 +19,6 @@
 // on private /trade. publicTone (fair | strong) colours only the tier on the
 // public card and cold /t; direction is shown by placement and a pointer.
 import { valueCalcVerdict } from "./value-calc.js";
-import { DEFAULT_FAIRNESS_PCT } from "./constants.js";
 import { formatNumber } from "./html.js";
 
 // Labels valueCalcVerdict gives when both sides are filled in.
@@ -27,16 +26,18 @@ const BOTH_SIDES = new Set(["Dead even", "Fair, leans Get", "Fair, leans Give", 
 
 // Upper bounds (inclusive) on the unrounded "% more". The sentence may ceil past them.
 export const TIER_BANDS = Object.freeze({ even: 5, edge: 14, favors: 28 });
-const LABEL = Object.freeze({ even: "Fair trade", edge: "Fair, slight edge", favors: "Favors one side", lopsided: "Lopsided" });
+const LABEL = Object.freeze({ even: "Even", edge: "Close", favors: "Unfair", lopsided: "Lopsided" });
+// The fairness scale's words for each tier, for anything that names a tier.
+export const TIER_LABELS = LABEL;
 
 // The ⓘ explainer line for the tiers.
-export const TIER_EXPLAINER = `How the verdict reads: one side's total, including the extra for fewer, better pieces, is compared with the other's. Within ${TIER_BANDS.even}% is a fair trade, up to ${TIER_BANDS.edge}% more is a fair, slight edge, up to ${TIER_BANDS.favors}% more favors one side, and more than ${TIER_BANDS.favors}% is lopsided.`;
+export const TIER_EXPLAINER = `How the verdict reads: one side's total, including the extra for fewer, better pieces, is compared with the other's. Within ${TIER_BANDS.even}% is Even, up to ${TIER_BANDS.edge}% more is Close, up to ${TIER_BANDS.favors}% more is Unfair, and more than ${TIER_BANDS.favors}% is lopsided.`;
 
 // Plain words for the extra on the side that has fewer, better pieces.
 // Pending Designer. The numbers stay in the callers.
 export const FEWER_BETTER_LABEL = "Fewer, better pieces";
 export const FEWER_BETTER_ADDEND = "for fewer, better pieces";
-export const PRICE_FACTORS_LINE = "The price uses age, role, how well a player plays, how often they play, their team, where they were drafted, and how long players at that position usually stay good. Connecting a league never changes a player's price.";
+export const PRICE_FACTORS_LINE = "Values use one 12-team Superflex PPR dynasty reference league. The price uses age, role, how well a player plays, how often they play, their team, where they were drafted, and how long players at that position usually stay good. Connecting a league never changes a player's price.";
 export const UNAVAILABLE_PRICE_LINE = "Unavailable means we do not have a price for that player or pick right now. Dynasty Ticker does not guess one.";
 export const FEWER_BETTER_LINE = "Fewer, better pieces are worth extra compared with the same total split into smaller pieces. That extra changes the trade verdict, not any player's listed price.";
 
@@ -100,7 +101,7 @@ const TEN_X_MORE = 900;
 
 // "You give" / "You get" / "They give" read as a sentence without "worth":
 // "You give 136% more". A side name ("Give side") keeps "worth".
-const VERB_NAME = /^(?:you|they) (?:give|get)$/i;
+const VERB_NAME = /^(?:(?:you|they) (?:give|get)|.+ receives)$/i;
 
 function worthMorePhrase(name, more) {
   const worth = VERB_NAME.test(String(name)) ? "" : "worth ";
@@ -123,10 +124,10 @@ export function verdictCopy(verdict) {
   const hit = { tier: tierForMore(more) };
   const side = right > left ? "Get" : left > right ? "Give" : "";
   // Say which side, never "one side".
-  hit.label = hit.tier === "favors" && side ? `Favors ${side} side` : LABEL[hit.tier];
+  hit.label = LABEL[hit.tier];
   const detail = hit.tier === "even"
     ? `within ${TIER_BANDS.even}%`
-    : worthMorePhrase(`${side} side`, more);
+    : worthMorePhrase(side === "Get" ? "Team 1 receives" : "Team 2 receives", more);
   const tone = hit.tier === "even" || hit.tier === "edge" ? "fair" : side === "Get" ? "good" : "bad";
   return {
     tier: hit.tier,
@@ -154,7 +155,7 @@ export function verdictLineNamed(verdict, names = {}) {
   if (!copy.tier || copy.tier === "even" || !copy.side) return copy.line;
   const name = String(names[copy.side] || `${copy.side} side`);
   // "Favors You give" does not read; a verb name keeps the plain tier label.
-  const label = copy.tier === "favors" ? (VERB_NAME.test(name) ? LABEL.favors : `Favors ${name}`) : copy.label;
+  const label = copy.label;
   return `${label} · ${worthMorePhrase(name, copy.more)}`;
 }
 
@@ -197,27 +198,8 @@ export function oldPctToMore(oldPct) {
   return round1((p / (100 - p)) * 100);
 }
 
-// Launch default: Trade Lab's balanced setting (DEFAULT_FAIRNESS_PCT 20) is
-// pinned at exactly 25% more, its old reach, not rounded up to 28. 25 is
-// inside the Favors band, so no default idea shows a tier above Favors.
-export const DEFAULT_IDEA_LIMIT_MORE = 25;
 
-export function ideaLimitMore(oldPct) {
-  if (Number(oldPct) === DEFAULT_FAIRNESS_PCT) return DEFAULT_IDEA_LIMIT_MORE;
-  const more = oldPctToMore(oldPct);
-  if (more <= TIER_BANDS.even) return TIER_BANDS.even;
-  if (more <= TIER_BANDS.edge) return TIER_BANDS.edge;
-  if (more <= TIER_BANDS.favors) return TIER_BANDS.favors;
-  return more;
-}
 
-// The shown metric for two package values, as the whole number a chip prints.
-// 1000 when a side is empty. Filters compare this same number.
-export function ideaGapMore(a, b) {
-  const more = percentMore(a, b);
-  if (more == null || !(Number(a) > 0) || !(Number(b) > 0)) return 1000;
-  return displayMore(more);
-}
 
 // "Even it up" / "To make it fair". side names who adds: "You", "They", a
 // manager's name, or "Give" / "Get" on a shared link. Every branch says who
@@ -227,6 +209,11 @@ export function evenUpCopy(choice, side, { afterLine = "" } = {}) {
   if (!choice) return "";
   const who = side === "Give" || side === "Get" ? `The ${side} side` : String(side || "They");
   const verb = who === "You" || who === "They" ? "add" : "adds";
+  // A scored choice already counts the fewer-better-pieces credit: when it
+  // closes, name it and the verdict after, even if its price is far from the raw gap.
+  if (choice.closes && Number.isFinite(Number(choice.pct))) {
+    return `${who} ${verb} a ${choice.name} (${formatNumber(choice.value)}).${afterLine ? ` After that: ${afterLine}.` : ""}`;
+  }
   // Cite a pick only when its price is close to the gap.
   const near = Number(choice.value) > 0 && Number(choice.gap) > 0
     && choice.value <= choice.gap * 1.5 && choice.value >= choice.gap * 0.67;

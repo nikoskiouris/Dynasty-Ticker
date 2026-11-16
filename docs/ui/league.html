@@ -1,32 +1,34 @@
 <div id="league-page" class="workspace-page app-page hidden" role="tabpanel" aria-labelledby="league-tab" data-page="league">
-  <div class="room" data-room-panel="team">
+  <section class="room hidden" data-room-panel="hub"><h1 id="league-hub-heading" tabindex="-1">League hub</h1><div id="league-hub-content"><p>Coming soon: your league at a glance.</p></div></section>
+  <section class="room hidden" data-room-panel="standings"><h1 id="league-standings-heading" tabindex="-1">Standings</h1><div id="league-standings-content"><p>Coming soon: standings and luck.</p></div></section>
+  <section class="room hidden" data-room-panel="trades"><h1 id="league-trades-heading" tabindex="-1">Recent Trades</h1><div id="league-trades-content"><p>Coming soon: your league trade log.</p></div></section>
+  <section class="room hidden" data-room-panel="history"><h1 id="league-history-heading" tabindex="-1">Historical Data</h1><div id="league-history-content"><p>Coming soon: all-time records.</p></div></section>
+  <div class="room" data-room-panel="team"><h1 id="league-team-heading" tabindex="-1">My Team</h1>
+    <div id="team-header" class="team-header"></div>
     <div id="start-dashboard" class="dashboard start-dashboard hidden"></div>
     <section class="workspace-panel" id="power-section">
       <div class="panel-heading">
-        <h2 id="power-heading" tabindex="-1">Outlook</h2>
+        <h2 id="power-heading" tabindex="-1">Your team</h2>
       </div>
-      <div id="window-call-dashboard" class="window-call-dashboard"></div>
-      <div id="next-move" class="next-move"></div>
-      <div id="move-on" class="move-on"></div>
       <div id="power-dashboard" class="power-dashboard">
         <div class="empty-cta">
           <h2 class="empty-cta-title">Connect your league to see your team.</h2>
-          <p class="muted">Type your Sleeper username. No name yet? <a id="sample-league-link" class="sample-league-link" href="./?sample=1">See the sample league</a>.</p>
+          <p class="muted">Type your Sleeper username.</p>
           <button type="button" data-action="find-my-leagues" data-idle-label="Connect my league" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
         </div>
       </div>
+    </section>
+    <section class="workspace-panel hidden" id="team-superlatives-section" aria-labelledby="team-superlatives-heading">
+      <div class="panel-heading">
+        <h2 id="team-superlatives-heading">Superlatives</h2>
+      </div>
+      <div id="team-superlatives" class="team-superlatives"></div>
     </section>
     <section class="workspace-panel hidden" id="roster-sheet-section">
       <div class="panel-heading">
         <h2 id="roster-sheet-heading">Roster</h2>
       </div>
       <div id="roster-sheet" class="roster-sheet"></div>
-    </section>
-    <section class="workspace-panel hidden" id="team-score-section">
-      <div class="panel-heading">
-        <h2 id="team-score-heading">Roster value score</h2>
-      </div>
-      <div id="team-score" class="team-score"></div>
     </section>
     <div id="standings-dashboard" class="dashboard"></div>
   </div>

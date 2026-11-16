@@ -1,0 +1,43 @@
+# 003 · Future dynasty rankings: names one year out, not pick labels
+
+Done: 2026-09-20, [#61](https://github.com/nikoskiouris/Dynasty-Ticker/pull/61)
+
+## Status
+Done
+
+## Shipped
+#61
+
+## Priority
+P0 — starred in the note
+
+## Area
+Values / pick vault / power / rather
+
+## Description
+Hybrid, not a replacement. Keep the pick. Do not turn a 2027 1st into a fake Jeremiah Smith stock.
+
+For the next rookie class only (one year out, not 2028+), a 1st or 2nd shows:
+- the pick (2027 1st / 2027 2nd)
+- whose it is (original owner)
+- what place that roster is now
+- who Dynasty Nerds mock at that slot, in parentheses
+
+Example: `2027 2nd from Niko · 12th place (2.01 Justice Haynes)`. 12th is standings place. 2.01 is the slot (overall pick 13 in a 12-team draft). 12th pick is 1.12.
+
+Source is the Dynasty Nerds 12-team Superflex TEP 2-round mock. Refresh that page weekly. Dynasty slot comes from current place (last now = 1.01 / 2.01). Skill positions only (QB/RB/WR/TE). 3rd-round picks stay pick labels with no player name. College names get no trade value. The number on the row is still the pick’s market price.
+
+Keep current-year drafted names as they are (Cam Ward on a used 2026 1st). Later years stay pick labels.
+
+## Why
+“Future dynasty rankings — just a year out (instead of saying 2027 1st it says Jeremiah Smith with a value maybe just a ranking rather than a numeric value).”
+
+## Current product
+Used picks can show the drafted player plus value. Undrafted future picks stay “2027 1st from X” with a pick-market number. Next-year 1sts and 2nds overlay the Dynasty Nerds name.
+
+## Acceptance
+- Next-year 1sts and 2nds still read as a pick, with owner, current place, and mocked name in parentheses.
+- 3rds and later years stay pick labels.
+- Rank is the manager’s current place, not a made-up 8,400 college value.
+- Source of the stored mock is named on the pick vault.
+- Board refreshes from Dynasty Nerds weekly without a Netlify production deploy.

@@ -3,7 +3,10 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PAGE_IDS, PAGE_ROOMS, SAMPLE_LEAGUE_ID } from "../docs/modules/constants.js";
+import { PAGE_IDS, PAGE_ROOMS } from "../docs/modules/constants.js";
+
+// Any real-looking Sleeper league id works for these parse checks.
+const TEST_LEAGUE_ID = "1360686137898700800";
 import { DESK_JOBS, DESK_MORE_JOBS } from "../docs/modules/jobs.js";
 import { chooseBestLineup } from "../docs/modules/lineup.js";
 import { rosterPointsFor } from "../docs/modules/draft-order.js";
@@ -69,10 +72,10 @@ check("regex capture groups", () => {
 });
 
 check("embedded league ids", () => {
-  const prose = parseLeagueId(`notes ${SAMPLE_LEAGUE_ID} please`);
-  if (prose !== SAMPLE_LEAGUE_ID) return `prose id came back ${prose}`;
-  const draft = classifyLeagueInput(`https://sleeper.app/draft/${SAMPLE_LEAGUE_ID}`);
-  if (draft.kind !== "league" || draft.leagueId !== SAMPLE_LEAGUE_ID) {
+  const prose = parseLeagueId(`notes ${TEST_LEAGUE_ID} please`);
+  if (prose !== TEST_LEAGUE_ID) return `prose id came back ${prose}`;
+  const draft = classifyLeagueInput(`https://sleeper.app/draft/${TEST_LEAGUE_ID}`);
+  if (draft.kind !== "league" || draft.leagueId !== TEST_LEAGUE_ID) {
     return `draft url classified as ${JSON.stringify(draft)}`;
   }
   const user = classifyLeagueInput("https://sleeper.app/u/NikoSkiouris");
@@ -88,7 +91,7 @@ check("share links round-trip every room", () => {
       const url = buildShareUrl({
         origin: "https://dynastyticker.com",
         pathname: "/",
-        leagueId: SAMPLE_LEAGUE_ID,
+        leagueId: TEST_LEAGUE_ID,
         tab: page,
         view: room,
       });

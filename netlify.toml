@@ -66,10 +66,18 @@
   status = 200
   force = true
 
-# Crowd call on a trade (opinion only, never a price). Reads and votes.
+# Daily values without a deploy (netlify/lib/market-data.js). Forced, so the
+# function answers even though the static files exist; it serves the newer of
+# the copy the daily refresh published to Blobs and the copy in this release.
 [[redirects]]
-  from = "/api/trade-poll"
-  to = "/.netlify/functions/trade-poll"
+  from = "/data/player_values.json"
+  to = "/.netlify/functions/market?file=player_values.json"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/data/price-history/:file"
+  to = "/.netlify/functions/market?file=price-history/:file"
   status = 200
   force = true
 
@@ -190,6 +198,17 @@
 
 [[redirects]]
   from = "/l/"
+  to = "/index.html"
+  status = 200
+
+
+[[redirects]]
+  from = "/leagues"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/leagues/"
   to = "/index.html"
   status = 200
 

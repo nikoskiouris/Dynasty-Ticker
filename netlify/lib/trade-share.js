@@ -1,6 +1,9 @@
+import { isMarketFile, MARKET_STORE, readMarketFile } from "./market-data.js";
+import { getStore as getBlobStore } from "@netlify/blobs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  LEGACY_FORMAT_NOTE,
   cardVerdict,
   decodeTradeShare,
   isPriceStamp,
@@ -18,6 +21,7 @@ export const SHARE_NAMES_KEY = "sleeper-player-names-v1";
 const NAMES_TTL_MS = 24 * 60 * 60 * 1000;
 const VALUES_TTL_MS = 10 * 60 * 1000;
 export const SITE_ORIGIN = "https://dynastyticker.com";
+export const CARD_DESIGN = "c2"; // c2: columns named Team 1 / Team 2 receives
 export const PAGE_CACHE = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
 export const CARD_CACHE = "public, max-age=31536000, immutable";
 export const PAGE_CSP = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'";
@@ -49,7 +53,7 @@ export function codeFromPath(pathname, { suffix = "" } = {}) {
 // so the text, the card and the % never disagree (H2 in review-164).
 // today: the live board's summary when prices moved since the link was made.
 // The preview then says both, in the same neutral words.
-export function shareText(summary, { today = null } = {}) {
+export function shareText(summary, { today = null, legacy = false } = {}) {
   const list = (rows) => rows.map((row) => row.name).join(", ");
   const verdict = cardVerdict(summary);
   const n = (value) => Math.round(value).toLocaleString("en-US");
@@ -69,16 +73,22 @@ export function shareText(summary, { today = null } = {}) {
   }
   return {
     title: `${list(summary.give)} for ${list(summary.get)}: ${verdictText}`.slice(0, 160),
-    description: `${side("give", "Give")} vs ${side("get", "get")}. Prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, ${summary.formatLabel}.${today ? ` Today: ${cardVerdict(today).line}.` : ""} Check your own trade free at Dynasty Ticker.`,
-    alt: `${verdictText}. Give ${n(summary.giveCredited)}, get ${n(summary.getCredited)}.`,
+    // Same names as the title and the app: the get side is what Team 1 receives.
+    description: legacy
+      // A 1QB link: today's SF prices, said plainly. Never "as of" the share date.
+      ? `${side("get", "Team 1 receives")} vs ${side("give", "Team 2 receives")}. ${LEGACY_FORMAT_NOTE} Check your own trade free at Dynasty Ticker.`
+      : `${side("get", "Team 1 receives")} vs ${side("give", "Team 2 receives")}. Prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, ${summary.formatLabel}.${today ? ` Today: ${cardVerdict(today).line}.` : ""} Check your own trade free at Dynasty Ticker.`,
+    alt: `${verdictText}. Team 1 receives ${n(summary.getCredited)}, Team 2 receives ${n(summary.giveCredited)}.`,
   };
 }
 
 // Swap the page's default social tags for the trade's. Bots read these without JS.
-export function injectShareMeta(html, { summary, today = null, code, origin = SITE_ORIGIN, version = "" }) {
-  const { title, description, alt } = shareText(summary, { today });
+export function injectShareMeta(html, { summary, today = null, legacy = false, code, origin = SITE_ORIGIN, version = "" }) {
+  const { title, description, alt } = shareText(summary, { today, legacy });
   const url = `${origin}${sharePath(code)}`;
-  const image = `${origin}${shareImagePath(code, version)}`;
+  // The card URL is cached as immutable. The design suffix changes when the
+  // card's look or wording changes, so links fetch the new card.
+  const image = `${origin}${shareImagePath(code, `${version || ""}${CARD_DESIGN}`)}`;
   const tags = [
     `<meta property="og:title" content="${escapeMarkup(title)}" />`,
     `<meta property="og:description" content="${escapeMarkup(description)}" />`,
@@ -105,7 +115,20 @@ export function injectShareMeta(html, { summary, today = null, code, origin = SI
 let valuesCache = null;
 let namesCache = null;
 
+function marketStore() {
+  try {
+    return getBlobStore(MARKET_STORE);
+  } catch {
+    return null;
+  }
+}
+
 async function readSiteFile(rel, origin) {
+  // Prices and dated snapshots: the same newest copy the app gets.
+  if (isMarketFile(rel)) {
+    const file = await readMarketFile(rel, { store: marketStore() });
+    if (file) return file.text;
+  }
   for (const base of [process.cwd(), join(process.cwd(), "..")]) {
     try {
       return await readFile(join(base, "docs", rel), "utf8");
@@ -176,7 +199,7 @@ export async function loadSnapshot(stamp, { origin = SITE_ORIGIN } = {}) {
   let payload = null;
   try {
     payload = JSON.parse(await readSiteFile(snapshotPath(stamp).slice(1), origin));
-    if (!payload?.sf || !payload?.oneQb) payload = null;
+    if (!payload?.sf) payload = null;
   } catch {
     payload = null;
   }
@@ -196,7 +219,9 @@ export async function summaryForCode(code, deps = {}) {
     decoded.stamp ? (deps.loadSnapshot || loadSnapshot)(decoded.stamp, deps) : null,
   ]);
   const today = shareSummary(decoded, payload, names);
-  const shared = snapshot ? shareSummary(decoded, snapshot, names, payload) : null;
+  // 1QB codes were shared on prices we no longer publish; an SF snapshot from
+  // that day is not what the sender saw.
+  const shared = snapshot && !decoded.legacyFormat ? shareSummary(decoded, snapshot, names, payload) : null;
   const summary = shared || today;
   return {
     decoded,
@@ -204,6 +229,7 @@ export async function summaryForCode(code, deps = {}) {
     today,
     summary,
     same: shared ? sameVerdict(shared, today) : true,
+    legacy: Boolean(decoded.legacyFormat),
     version: shared ? decoded.stamp : valuesVersion(payload),
   };
 }
@@ -236,7 +262,7 @@ export function createSharePageHandler(deps = {}) {
     }
     const hit = await summaryForCode(code, deps).catch(() => null);
     // A valid code whose lookup failed still opens the trade, with the default tags.
-    const body = hit?.summary ? injectShareMeta(html, { summary: hit.summary, today: hit.same ? null : hit.today, code, origin, version: hit.version }) : html;
+    const body = hit?.summary ? injectShareMeta(html, { summary: hit.summary, today: hit.same ? null : hit.today, legacy: hit.legacy, code, origin, version: hit.version }) : html;
     return new Response(body, {
       status: 200,
       headers: {

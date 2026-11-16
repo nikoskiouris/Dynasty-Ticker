@@ -18,7 +18,6 @@ export function emptyDealBoard() {
 export function createState() {
   return {
     leagueId: "",
-    viewingSample: false,
     leagueName: "",
     league: null,
     users: [],
@@ -32,7 +31,6 @@ export function createState() {
     meRosterId: null,
     mePickedByUser: false,
     targetAsset: null,
-    shopAsset: null,
     valuationsPromise: null,
     values: {},
     valueNameMap: {},
@@ -79,6 +77,8 @@ export function createState() {
       rightManagerKey: "",
     },
     nflState: null,
+    leagueSavedAt: null,
+    seasonSavedAt: null,
     seasonWeekRows: new Map(),
     seasonLoaded: false,
     seasonLoadError: "",
@@ -97,17 +97,11 @@ export function createState() {
     ranks: {
       query: "",
       position: "ALL",
-      format: "",
       selectedId: "",
-    },
-    tradeMatch: {
-      key: "",
-      loading: false,
-      error: "",
-      payload: null,
     },
     dealBoard: emptyDealBoard(),
     pendingMeRosterId: null,
+    pendingLensRosterId: null,
     pendingJobId: "",
     // { page, room } parsed from the URL before the league finishes loading.
     pendingPlace: null,
@@ -116,7 +110,7 @@ export function createState() {
     sleeperUser: null,
     userLeagues: [],
     value: "sf",
-    valueBundles: { sf: { values: {}, nameMap: {} }, oneQb: { values: {}, nameMap: {} }, names: {} },
+    valueBundles: { sf: { values: {}, nameMap: {} }, names: {} },
     valueHistory: null,
   };
 }

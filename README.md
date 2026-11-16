@@ -4,8 +4,8 @@ Dynasty Ticker helps a Sleeper dynasty manager answer three questions: what is t
 
 ## What is in this repo
 - **Web app:** `docs/` — the site at [dynastyticker.com](https://dynastyticker.com/).
-- **Modules:** `docs/modules/` — routing, Sleeper client, values, verdict copy, trade talk, trade match, season engine.
-- **Functions:** `netlify/` — shared-trade pages and cards (`/t/<code>`), first-party page counts, the searched-username list.
+- **Modules:** `docs/modules/` — routing, Sleeper client, values, verdict copy, trade talk, rankings, league history, season engine.
+- **Functions:** `netlify/` — shared-trade pages and cards (`/t/<code>`), the daily player-value file (`market`), first-party page counts, the searched-username list.
 - **Player values:** `player-values/` — the forecast, the builder, and the backtest.
 - **Agent coding policy:** `.cursor/skills/no-unit-tests/SKILL.md` — no unit tests or automated test suite.
 
@@ -13,47 +13,46 @@ Dynasty Ticker helps a Sleeper dynasty manager answer three questions: what is t
 
 Open `docs/` locally (`npm run serve`) or [dynastyticker.com](https://dynastyticker.com/).
 
-Home offers four ways in: type a trade in plain words ("Gibbs and a 1st for Nabers"), connect a Sleeper username, try the sample league (`/?sample=1`, invented managers), or look up a player.
+Home is a tool picker with three tools, and the ☰ menu reaches every page. Trade Calc and Player Rankings work before a league is connected.
 
-### Tabs
-Three tabs, one bar at every width. Check a trade and the players board work before a league is connected.
+1. **Trade Calc** (`/trade?give=…&get=…`) — two columns (Team 1 receives / Team 2 receives) and one trade draft. Type a whole trade in plain words in the talk box ("Gibbs and a 1st for Nabers", "zim8box offers McConkey for my 1st", "undo") or add pieces by search. One verdict on a fairness scale (Even, Close, Unfair, Lopsided), the reason under **Why?**, and, with a league, who owns each piece and Team impact. Connecting Sleeper keeps the trade. **Share trade** makes a `/t/<code>` link with its own preview card.
+2. **Player Rankings** (`/players`) — every priced player and pick, sortable, with search (nicknames like JSN work). Player pages (`/player/<sleeper id>`) show the price, the season-by-season reason for it, its trend, production, and similar values.
+3. **League History** (`/leagues`, then `/l/<league>`) — enter a Sleeper username or league ID. The league hub links to **Standings** (luck, playoff odds), **My Team** (position ranks, best lineup, bench, picks, superlatives), **Recent Trades** (graded on today's values) and **Historical Data** (champions, all-time standings, records, head-to-head, trends, awards).
 
-1. **Check a trade** (`/trade?give=…&get=…`) — one calculator (you give / you get) and one trade draft. Describe a trade in plain words or add pieces by search. One verdict ("You give 12% more"), the reason under **Why?**, and, with a league, who owns each piece and both rosters' lineup impact. Connecting Sleeper keeps the trade. **Share trade** makes a `/t/<code>` link with its own preview card.
-2. **Find a trade** (`/l/<league>/ideas`) — ideas for your team, Shop a player (fair offers from the league), and the best partners. **Review trade** opens the idea in Check a trade.
-3. **My team** (`/l/<league>/team`) — the contend-or-rebuild call with playoff odds, your next move, position ranks, best lineup, bench and picks, standings and playoff odds.
-
-The players board and player pages (`/player/<sleeper id>`) show each price, its trend, and similar values. Old links (`?tab=…`, `?view=ranks`, removed rooms) still open the closest page.
+Old links (`?tab=…`, `?view=ranks`, removed rooms like Find a trade) still open the closest page.
 
 Product purpose and how to choose between competing asks live in `AGENTS.md`. First-visit usability tasks live in `research/first-visit-tasks.md`.
 
 ### Value source
 There is one player-value system: `player-values/`.
 
-- Two published maps: **1QB full PPR** and **Superflex full PPR**.
+- One published map: **12-team Superflex full-PPR dynasty**.
 - Each player gets a forecast of full-PPR points above a replacement player, one season at a time, for eight seasons of games. It is learned from the 15 most recent NFL seasons: his last two seasons, his age, and, through year three, his draft slot.
 - Value is that forecast, discounted by how far away each season is, converted with one fixed 20× display ruler. Every price is the sum of the seasons listed beside it.
 - Rookies and future picks use the same ruler. A pick is priced as the rookie it becomes.
-- RB/WR/TE use the same player value in both formats. Superflex changes QB scarcity; future pick values can also differ by format.
+- All players and picks use that single reference league. Connected league settings never select another price map.
 - No imported external dynasty rankings, fitted trade-market prices, TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices, or hand-set bonuses for youth, draft capital, or past finishes feed the published player price.
-- Check a trade, Find a trade, My team, the players board and the share cards all read `docs/data/player_values.json`.
-- League trade history and crowd votes remain useful context/preferences, but they do not create a second player price.
+- Trade Calc, Player Rankings, player pages, League History and the share cards all read `docs/data/player_values.json`.
+- League trade history is useful context, but it does not create a second player price.
 - Package consolidation credit can still affect a trade verdict without changing any player's listed price.
 
 The running math and its caveats live in `player-values/README.md`; the target design is `player-values/SPEC.md`. `python3 player-values/backtest.py` rebuilds the forecast at every past kickoff from earlier games only and scores it against what players went on to do, beside two naive forecasts. The report lives in `player-values/validation.json` and on the snapshot `meta.validation` object. It tests the order and level of football production. It does not test trade-market prices.
 
-Refresh with `python3 player-values/build.py`. `python3 scripts/check_market_files.py` checks the committed file. A live publish and the player-value refresh fail if it is older than 21 days. The refresh validates before atomically replacing the last good snapshot. The 2027 Superflex rookie mock remains a separate display feature and refreshes with `python3 scripts/update_dynasty_rookie_mock.py`.
+Refresh with `python3 player-values/build.py`. `python3 scripts/check_market_files.py` checks the committed file. A live publish and the player-value refresh fail if it is older than 21 days. The refresh validates before atomically replacing the last good snapshot.
+
+The daily refresh (`.github/workflows/refresh-player-values.yml`) commits the new snapshot to `develop` and publishes the same checked files to the `market-data` Netlify Blobs store (`scripts/publish_market_blobs.mjs`). On the live site, `/data/player_values.json` and `/data/price-history/*` go through the `market` function, which serves the newer of that copy and the release's own copy. So values on dynastyticker.com update daily without a deploy. The repository variable `MARKET_PUBLISH=off` turns that off.
 
 ## Live site (dynastyticker.com)
 
 The live app is a static site on **Netlify**. Public URL: `https://dynastyticker.com/`. That is the product. `develop` is the integration branch. Unreleased work stays on `develop` until a release.
 
-**Work on `develop`. Live site updates only when `develop` is merged into `prod`.** That merge cuts a GitHub Release. GitHub Actions then scrapes market files and uploads with the Netlify CLI. Merges to `develop` (or leftover `main`) do not publish the live site.
+**Work on `develop`. Site code updates only when `develop` is merged into `prod`.** That merge cuts a GitHub Release, and GitHub Actions uploads it with the Netlify CLI. Merges to `develop` (or leftover `main`) do not publish the live site. Player values are the exception: they reach the live site daily (see Value source).
 
 **github.io is not the app.** Do not treat `nikoskiouris.github.io` as Dynasty Ticker or as a preview of `develop`. After dynastyticker.com is serving this desk, turn GitHub Pages off in the repo settings, or replace the leftover Pages site with a 301 to `https://dynastyticker.com/`. Do not add a Pages custom domain. This repo no longer publishes `docs/` to Pages.
 
 Netlify emails on a GitHub merge do **not** mean credits were spent. On credit plans, a **successful production deploy** costs 15 credits. Skipped, canceled, and failed git deploys cost 0, but they still start a job and still email you. **Stop builds** (not “stop auto publishing”) is the switch that prevents the job from existing. This repo turns that on through the Netlify API. Bandwidth, web requests, and functions still use credits when people visit the site.
 
-1. GitHub → **Settings → General → Default branch:** `develop`. Scheduled jobs run only from the default branch. While that setting stays on `main`, the Tuesday player-value refresh and the Monday rookie-mock refresh never start, and `docs/data` goes stale.
+1. GitHub → **Settings → General → Default branch:** `develop`. Scheduled jobs run only from the default branch. While that setting stays on `main`, the daily player-value refresh never starts, and `docs/data` goes stale.
 2. Open [Netlify](https://app.netlify.com/), sign up with GitHub, **Add new site → Import an existing project**, pick this repo.
 3. Netlify reads `netlify.toml` (`publish = docs`). First deploy gives a `*.netlify.app` URL.
 4. **Domain management → Add custom domain:** `dynastyticker.com` and `www.dynastyticker.com`.

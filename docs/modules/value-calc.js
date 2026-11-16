@@ -1,3 +1,4 @@
+import { playerAliasName } from "./player-aliases.js";
 import {
   formatGenericPickAssetLabel,
   formatPickBucketLabel,
@@ -115,7 +116,11 @@ export function valueCalcAssetMatchesQuery(row, query) {
   // Emoji or punctuation only: nothing to match, so show "No matching".
   if (!tokens.length) return !String(query || "").trim();
   const words = searchWords(valueCalcAssetSearchText(row));
-  return tokens.every((token) => words.some((word) => wordMatchesToken(word, token)));
+  const hit = (list) => list.every((token) => words.some((word) => wordMatchesToken(word, token)));
+  if (hit(tokens)) return true;
+  // "jsn" finds Jaxon Smith-Njigba too.
+  const alias = playerAliasName(query);
+  return Boolean(alias) && hit(searchWords(alias));
 }
 
 function sortValueCalcRows(a, b) {
@@ -209,11 +214,51 @@ export function listValueCalcAssets(values = {}, names = {}, { query = "", limit
   const want = new Set(kinds);
   const rows = [];
   if (want.has("player")) rows.push(...listValueCalcPlayerRows(values, names));
-  if (want.has("pick")) rows.push(...listGenericPicks(values, names, { minSeason }));
-  return sliceValueCalcRows(
-    rows.filter((row) => valueCalcAssetMatchesQuery(row, query)).sort(sortValueCalcRows),
-    limit
-  );
+  if (want.has("pick")) {
+    const picks = listGenericPicks(values, names, { minSeason });
+    rows.push(...picks);
+    // "2027 1st" names no slot. Offer the plain round pick too, so Enter does not
+    // quietly add the Early 1st, the priciest slot.
+    if (String(query || "").trim() && !PICK_SLOT_WORD.test(String(query))) {
+      const floor = Number(minSeason);
+      const listed = new Set(picks.map((pick) => pick.assetId));
+      Object.entries(values).forEach(([assetId, value]) => {
+        const meta = parsePickAssetId(assetId);
+        if (!meta || meta.bucket !== "any" || listed.has(assetId) || !isGenericPickAssetId(assetId)) return;
+        if (!Number.isFinite(Number(value)) || (Number.isFinite(floor) && Number(meta.season) < floor)) return;
+        rows.push({
+          assetId,
+          name: names[assetId] || formatGenericPickAssetLabel(assetId),
+          value: Number(value),
+          assetType: "pick",
+          season: meta.season,
+          round: meta.round,
+          bucket: meta.bucket,
+          bucketLabel: formatPickBucketLabel(meta.bucket),
+        });
+      });
+    }
+  }
+  const sorted = rows.filter((row) => valueCalcAssetMatchesQuery(row, query)).sort(sortValueCalcRows);
+  return sliceValueCalcRows(plainRoundFirst(sorted), limit);
+}
+
+const PICK_SLOT_WORD = /\b(?:early|mid|middle|late|\d{1,2}\.\d{1,2})\b/i;
+
+// The plain round pick sits just ahead of its own Early/Mid/Late slots.
+function plainRoundFirst(rows) {
+  const out = [];
+  rows.forEach((row) => {
+    if (row.assetType === "pick" && row.bucket === "any") {
+      const at = out.findIndex((other) => other.assetType === "pick" && other.season === row.season && other.round === row.round);
+      if (at >= 0) {
+        out.splice(at, 0, row);
+        return;
+      }
+    }
+    out.push(row);
+  });
+  return out;
 }
 
 export function listValueCalcPlayers(values = {}, names = {}, options = {}) {
@@ -330,7 +375,7 @@ export function valueCalcVerdict(leftTotal, rightTotal, { leftCount = null, righ
   return { left, right, gap, pct, label, tone };
 }
 
-// Seat wording for a sample league. The published line is verdictCopy, which stays Give/Get.
+// Seat wording ("Favors you"). The published line is verdictCopy, which stays Give/Get.
 export function draftVerdictLabel(verdict, { them = "them", getFavor = "your", favorName = "" } = {}) {
   const label = String(verdict?.label || "");
   const other = String(them || "them");

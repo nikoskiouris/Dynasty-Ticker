@@ -10,6 +10,30 @@ export const SEARCHED_USERS_KEY = "searched-users.csv";
 export const SEARCHED_USERS_COLUMNS = Object.freeze(["username", "user_id", "first_seen", "last_seen", "searches"]);
 export const SEARCHED_USERS_HEADER = SEARCHED_USERS_COLUMNS.join(",");
 export const SEARCHED_USERS_MAX_WRITE_RETRIES = 8;
+// One CSV blob is rewritten on every save, so it has a ceiling.
+export const SEARCHED_USERS_MAX_ROWS = 50000;
+const SLEEPER_USER_URL = "https://api.sleeper.app/v1/user/";
+
+// Only a real Sleeper account is saved, under the name Sleeper returns. A
+// posted name that Sleeper does not know (or whose id does not match) is not.
+export async function verifySleeperUser(username, userId = "", { fetchImpl = globalThis.fetch, timeoutMs = 4000 } = {}) {
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const res = await fetchImpl(`${SLEEPER_USER_URL}${encodeURIComponent(username)}`, { signal: controller?.signal });
+    if (!res?.ok) return null;
+    const user = await res.json().catch(() => null);
+    const name = cleanSleeperUsername(user?.username);
+    const id = cleanSleeperUserId(user?.user_id);
+    if (!name || !id || name !== username) return null;
+    if (userId && userId !== id) return null;
+    return { username: name, userId: id };
+  } catch {
+    return null;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 // No commas, quotes, or spaces, and no leading = + - @, so a cell can never
 // break the CSV or run as a spreadsheet formula.
@@ -81,6 +105,7 @@ export function applySearchedUser(text, { username, userId = "", now = new Date(
     if (!row.firstSeen) row.firstSeen = stamp;
     if (id) row.userId = id;
   } else {
+    if (rows.length >= SEARCHED_USERS_MAX_ROWS) return null; // full: keep what is saved
     rows.push({ username: name, userId: id, firstSeen: stamp, lastSeen: stamp, searches: 1 });
   }
   const rendered = renderSearchedUsers(rows);
@@ -130,6 +155,7 @@ export function createSearchedUserHandler({
   getStore,
   nowFn = () => new Date(),
   allowedOrigins = DEFAULT_ORIGINS,
+  verifyUser = verifySleeperUser,
 } = {}) {
   return async function searchedUserHandler(req) {
     // Write-only. The list is never served back over HTTP.
@@ -146,9 +172,11 @@ export function createSearchedUserHandler({
     }
 
     const body = await readVisitBody(req);
-    const username = cleanSleeperUsername(body.username);
-    if (!username) return jsonResponse({ error: "username" }, { status: 400 });
-    const userId = cleanSleeperUserId(body.userId);
+    const posted = cleanSleeperUsername(body.username);
+    if (!posted) return jsonResponse({ error: "username" }, { status: 400 });
+    const verified = await verifyUser(posted, cleanSleeperUserId(body.userId));
+    if (!verified) return jsonResponse({ ok: true, skipped: "unverified" });
+    const { username, userId } = verified;
 
     let store;
     try {
@@ -169,6 +197,7 @@ export function createSearchedUserHandler({
       let next;
       try {
         next = applySearchedUser(snapshot.text, { username, userId, now });
+        if (next === null) return jsonResponse({ ok: true, skipped: "full" });
         if (await writeSearchedUsersSnapshot(store, next, snapshot)) return jsonResponse({ ok: true });
       } catch {
         return jsonResponse({ error: "store", retryable: true }, { status: 503 });

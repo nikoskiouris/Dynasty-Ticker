@@ -20,9 +20,7 @@ export const ANALYTICS_EVENTS = Object.freeze({
   trade_checked: Object.freeze({ mode: Object.freeze(["league", "public"]) }),
   share_tapped: Object.freeze({ method: Object.freeze(["webshare", "copy"]) }),
   t_opened: Object.freeze({ drift: Object.freeze(["yes", "no"]) }),
-  league_connected: Object.freeze({ sample: Object.freeze(["yes", "no"]) }),
-  // Crowd call on a trade: where the vote was cast, never the vote itself.
-  poll_voted: Object.freeze({ mode: Object.freeze(["shared", "draft"]) }),
+  league_connected: Object.freeze({}),
   // Describe-a-trade box. The kind of message only, never the words typed.
   trade_described: Object.freeze({
     intent: Object.freeze(["trade", "add", "remove", "replace", "shop", "clear", "flip", "verdict", "empty"]),
@@ -122,8 +120,9 @@ const ROUTE_TEMPLATES = [
   [/^\/players\/?$/, "/players"],
   [/^\/trade\/?$/, "/trade"],
   [/^\/connect\/?$/, "/connect"],
+  [/^\/leagues\/?$/, "/leagues"],
   [/^\/l\/[^/]+\/?$/, "/l/:id"],
-  [/^\/l\/[^/]+\/(team|ideas|league|week|activity|history)\/?$/, "/l/:id/$1"],
+  [/^\/l\/[^/]+\/(team|standings|trades|ideas|league|week|activity|history)\/?$/, "/l/:id/$1"],
   [/^\/player\/[^/]+(?:\/[^/]*)?\/?$/, "/player/:id"],
   [/^\/t\/[^/]+\/?$/, "/t/:code"],
 ];
