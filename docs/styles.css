@@ -6415,7 +6415,7 @@ body.launch-open .workspace { display:block; }
 
 /* History: head-to-head records are independently scrollable on small screens. */
 .league-history-h2h { white-space: nowrap; min-width: max-content; }
-.league-history-h2h th:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface, #fff); }
+.league-history-h2h th:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); }
 .league-history-h2h td { text-align: center; }
 .league-history-h2h td a { display: inline-block; padding: .25rem .3rem; text-decoration: underline; text-underline-offset: .2rem; }
 .league-rivalry-details { display: grid; gap: .5rem; min-width: 0; }
