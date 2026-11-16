@@ -6491,3 +6491,4 @@ html body:not(.league-loaded) .workspace { padding-top: 70px; }
 .trend-cell { display: inline-flex; flex-direction: column; gap: 3px; min-width: 64px; }
 .trend-bar { display: block; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
 .trend-bar > span { display: block; height: 100%; background: var(--blue); }
+.sheet-metrics .season-points { display: block; text-align: right; color: var(--muted); font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; }
