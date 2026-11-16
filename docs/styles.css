@@ -6446,3 +6446,13 @@ html body:not(.league-loaded) .workspace { padding-top: 70px; }
 /* 036: before any final game, the empty table is hidden behind a plain note. */
 .standings-table[hidden] { display: none !important; }
 .standings-not-started { margin: 0.75rem 0; }
+/* 037: My Team header and superlative cards. */
+.team-header { margin-bottom: 16px; }
+.team-header-row { display: flex; align-items: center; gap: 12px; }
+.team-header-row h2 { margin: 0; }
+.team-header-row p { margin: 2px 0 0; }
+.team-superlatives { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.team-superlative { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-soft); min-width: 0; }
+.team-superlative h3 { margin: 2px 0; font-size: var(--fs-body); }
+.team-superlative p { margin: 0; }
+.team-superlative .eyebrow { margin: 0; }

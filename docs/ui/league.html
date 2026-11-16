@@ -4,6 +4,7 @@
   <section class="room hidden" data-room-panel="trades"><h1 id="league-trades-heading" tabindex="-1">Recent Trades</h1><div id="league-trades-content"><p>Coming soon: your league trade log.</p></div></section>
   <section class="room hidden" data-room-panel="history"><h1 id="league-history-heading" tabindex="-1">Historical Data</h1><div id="league-history-content"><p>Coming soon: all-time records.</p></div></section>
   <div class="room" data-room-panel="team"><h1 id="league-team-heading" tabindex="-1">My Team</h1>
+    <div id="team-header" class="team-header"></div>
     <div id="start-dashboard" class="dashboard start-dashboard hidden"></div>
     <section class="workspace-panel" id="power-section">
       <div class="panel-heading">
@@ -16,6 +17,12 @@
           <button type="button" data-action="find-my-leagues" data-idle-label="Connect my league" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
         </div>
       </div>
+    </section>
+    <section class="workspace-panel hidden" id="team-superlatives-section" aria-labelledby="team-superlatives-heading">
+      <div class="panel-heading">
+        <h2 id="team-superlatives-heading">Superlatives</h2>
+      </div>
+      <div id="team-superlatives" class="team-superlatives"></div>
     </section>
     <section class="workspace-panel hidden" id="roster-sheet-section">
       <div class="panel-heading">
