@@ -6270,9 +6270,12 @@ function buildDraftOfferText(view) {
   const list = (items) => items.map((item) => `${item.name} (${formatNumber(view.priceOf(item))})`).join(", ") || "nothing";
   const partnerName = view.partner?.manager?.displayName || "them";
   const { verdict, adjustment } = view.model;
-  // Same metric and bands as the headline: "Favors one side · My side worth 25% more".
-  const mySide = "my side";
-  const line = verdictLineNamed(verdict, { Give: `${mySide.charAt(0).toUpperCase()}${mySide.slice(1)}`, Get: view.partner?.manager?.displayName ? `${partnerName}'s side` : "The other side" });
+  // Same metric, bands and names as the headline: "Lopsided · benhipp52 receives 170% more".
+  const meName = view.me?.manager?.displayName || "I";
+  const line = verdictLineNamed(verdict, {
+    Give: view.partner?.manager?.displayName ? `${partnerName} receives` : "The other side receives",
+    Get: `${meName} receives`,
+  });
   const creditSide = adjustment?.side === "left" ? ("my side") : "their side";
   const credit = adjustment ? ` ${fewerBetterOffer(formatNumber(adjustment.amount), creditSide)}` : "";
   return `Trade idea: ${view.me?.manager?.displayName || "I"} sends ${list(view.draft.left)} to ${partnerName} for ${list(view.draft.right)}. Market ${formatNumber(view.give)} vs ${formatNumber(view.get)}.${credit} ${line}. Dynasty Ticker prices, ${rankFormatLabel(view.basis.format)}.`;
