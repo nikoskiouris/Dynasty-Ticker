@@ -652,6 +652,22 @@ if (bootRoute?.badLeague) {
 bindInfoTips(document);
 renderToolPicker(document.querySelector("#home-page-content"));
 mountSiteMenu({ navigate: navigateTool });
+// In-page links (#league-rivalry-3 from the head-to-head grid): scroll to the
+// target and open it when it is a <details>, without a history entry.
+document.addEventListener("click", (event) => {
+  const link = event.target.closest?.('a[href^="#"]');
+  if (!link || event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  const hash = link.getAttribute("href");
+  if (!hash || hash === "#" || hash === "#workspace") return;
+  let target = null;
+  try { target = document.getElementById(decodeURIComponent(hash.slice(1))); } catch { target = null; }
+  if (!target) return;
+  event.preventDefault();
+  if (target.tagName === "DETAILS") target.open = true;
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  const focusable = target.tagName === "DETAILS" ? target.querySelector("summary") : target;
+  focusable?.focus?.({ preventScroll: true });
+});
 document.addEventListener("click", event => {
   const link = event.target.closest("#home-page-content a, #leagues-page-content a, #league-hub-content a");
   if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
@@ -673,6 +689,9 @@ window.addEventListener("popstate", (event) => {
   // Skip to content only adds #workspace. That is not a desk move, and the
   // page-heading focus would take the workspace the link just targeted.
   if (window.location.hash === "#workspace" && !event.state?.tab) return;
+  // Any other in-page #anchor (history grid cells, matchup details) is not a
+  // desk move either: a stateless hash entry must not route to home.
+  if (!event.state && window.location.hash) return;
   const raw = event.state?.idx;
   const next = Number.isFinite(Number(raw)) ? Number(raw) : Math.max(0, routeFocus.index() - 1);
   const before = routePlaceNow();
