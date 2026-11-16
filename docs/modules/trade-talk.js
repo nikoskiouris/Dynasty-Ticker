@@ -615,7 +615,19 @@ export function parseTradeTalk(message, ctx = {}) {
   const remove = body.match(/^(?:remove|drop|take out|take off|minus|scratch|cut|nix|delete|lose|get rid of|no|without|pull)\s+(.+)$/)
     || body.match(/^take\s+(.+?)\s+(?:out|off)$/);
   if (remove) {
+    // "Remove everything" is a clear; Restore draft brings it back.
+    if (/^(?:all|everything|it all|all of it|both sides|the whole (?:thing|trade))$/.test(remove[1].trim())) return finish(blankPlan("clear"));
     const plan = blankPlan("remove");
+    // "Remove the picks", "drop my picks": every pick on that side, or on both.
+    const allPicks = remove[1].trim().match(/^(?:(?:all|both|the|of|my|their|his|her)\s+)*picks$/);
+    if (allPicks) {
+      const whose = /\bmy\b/.test(remove[1]) ? "left" : /\b(?:their|his|her)\b/.test(remove[1]) ? "right" : "";
+      const picks = ["left", "right"].filter((side) => !whose || side === whose)
+        .flatMap((side) => (context.draft?.[side] || []).filter((item) => item.assetType === "pick" || String(item.assetId || "").startsWith("pick:")).map((item) => ({ side, uid: item.uid, name: item.name })));
+      if (!picks.length) plan.misses.push({ text: remove[1].trim(), reason: "No picks in the trade." });
+      plan.removes.push(...picks);
+      return finish(plan);
+    }
     splitPieces(remove[1]).forEach((piece) => {
       const found = findInDraft(piece, context.draft, context);
       if (!found.length) plan.misses.push({ text: piece, reason: "Not in the trade." });
