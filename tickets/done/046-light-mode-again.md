@@ -1,6 +1,6 @@
 # 046 · Turn off dark mode: Dynasty Ticker is light mode again
 
-Done: 2026-11-16, [cursor/light-mode-92bf](https://github.com/nikoskiouris/Dynasty-Ticker/tree/cursor/light-mode-92bf)
+Done: 2026-11-16, [#390](https://github.com/nikoskiouris/Dynasty-Ticker/pull/390)
 
 **Status:** Done · **Priority:** P1 · **Size:** S · **Owner:** Cursor
 
