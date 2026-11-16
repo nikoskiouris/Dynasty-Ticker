@@ -23,4 +23,4 @@ This folder owns Dynasty Ticker's player-value system.
 - A missed season lowers a price. It does not end the forecast.
 - On the day a rookie can first play, he is worth what his pick was.
 - A price does not jump when the season turns over, and a new model version is not shown as every player moving.
-- The forecast is rebuilt at past kickoffs from earlier games only and must beat "he repeats last season" at one, three, five, and eight seasons. The saved report must be for the model that ships.
+- The forecast is rebuilt at past kickoffs from earlier games only and must beat "he repeats last season" at one, three, five, and six seasons. The saved report must be for the model that ships.

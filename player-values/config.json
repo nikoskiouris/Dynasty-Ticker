@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "modelVersion": "football-forecast-v2",
   "annualDiscount": 0.85,
-  "horizonYears": 8,
+  "horizonYears": 6,
   "displayScale": 20,
   "referenceTeams": 12,
   "referenceLineup": {
@@ -81,7 +81,7 @@
       1,
       3,
       5,
-      8
+      6
     ],
     "midSeasonWeek": 10
   },
