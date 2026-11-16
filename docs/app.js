@@ -2131,7 +2131,8 @@ function restoreHistoryScroll(historyState) {
 // Ticket 018: home offers the last real league and team this browser opened.
 function rememberLastLeague() {
   if (!state.leagueId) return;
-  const me = getMyRoster();
+  // Save a team only when it is really yours; a later visit restores it as yours.
+  const me = connectedRosterId() ? getMyRoster() : null;
   writeLastLeague({
     leagueId: state.leagueId,
     leagueName: state.leagueName,
@@ -3758,6 +3759,10 @@ function hydrateManagerSelector({ syncUrl = true } = {}) {
     userPickedMe: state.mePickedByUser,
   });
   const restoredMine = Boolean(state.pendingMeIsMine && chosen && String(chosen.rosterId) === String(state.pendingMeRosterId));
+  // ?me= in the URL is a team someone chose (hub links carry it): count it as a pick.
+  if (chosen && state.pendingMeRosterId != null && String(chosen.rosterId) === String(state.pendingMeRosterId)) {
+    state.mePickedByUser = true;
+  }
   state.pendingMeRosterId = null;
   state.pendingMeIsMine = false;
   el.meSelect.innerHTML = renderMeSelectOptions(
@@ -3960,9 +3965,14 @@ function renderRosterDirectory(roster) {
   `);
 }
 
+// My Team shows a team the user chose (or is), never the select's default.
+function myTeamPageRoster() {
+  return state.lensRosterId != null || connectedRosterId() ? getLensRoster() : null;
+}
+
 function renderPowerDashboard() {
   if (!el.powerDashboard) return;
-  const meRoster = getLensRoster();
+  const meRoster = myTeamPageRoster();
   if (el.powerHeading) {
     // Viewing another manager from the standings: say whose team this is.
     const lens = getLensRoster();
@@ -3973,7 +3983,7 @@ function renderPowerDashboard() {
       : "Your team";
   }
   if (!meRoster || state.normalizedRosters.length === 0) {
-    el.powerDashboard.innerHTML = `<p class="muted">Choose your team to see its roster.</p>`;
+    el.powerDashboard.innerHTML = `<p class="muted">Choose your team to see its roster.${state.leagueId ? ` <a href="/l/${encodeURIComponent(state.leagueId)}">Pick it on the league hub</a>.` : ""}</p>`;
     return;
   }
   // "Viewing as": look at any team's page from My Team (ticket 037).
@@ -4308,7 +4318,7 @@ function renderStandingsRow(team, sim, { showLine, position, divisionLeader = fa
   if (odds?.eliminated) badges.push(`<span class="mini-chip rose">Out</span>`);
   const streakLabel = team.streak?.length ? team.streak.label : "—";
   return `
-    <div class="standings-row ${String(team.rosterId) === String(state.meRosterId) ? "you" : ""} ${showLine ? "playoff-line" : ""}" data-action="set-lens-teams" data-roster-id="${escapeHtml(team.rosterId)}">
+    <div class="standings-row ${String(team.rosterId) === connectedRosterId() ? "you" : ""} ${showLine ? "playoff-line" : ""}" data-action="set-lens-teams" data-roster-id="${escapeHtml(team.rosterId)}">
       <span class="rank-number">${position}</span>
       <div class="standings-team">
         ${renderTeamIdentity(team.rosterId, { showTeamName: false })}
@@ -4387,7 +4397,7 @@ function renderOddsRow(row, sim) {
   if (row.eliminated) flags.push(`<span class="mini-chip rose">Eliminated</span>`);
   if (!row.clinched && !row.eliminated && sim.byeCount > 0 && row.byePct >= 50) flags.push(`<span class="mini-chip">Bye ${percentLabel(row.byePct)}</span>`);
   return `
-    <div class="odds-row ${String(row.rosterId) === String(state.meRosterId) ? "you" : ""}">
+    <div class="odds-row ${String(row.rosterId) === connectedRosterId() ? "you" : ""}">
       <div class="odds-team">
         ${renderTeamIdentity(row.rosterId, { showTeamName: false })}
         <span class="standings-badges">${flags.join("")}</span>
@@ -4571,7 +4581,7 @@ function seasonPlayerPoints() {
 
 function renderRosterSheet() {
   const section = document.querySelector("#roster-sheet-section");
-  const roster = getLensRoster();
+  const roster = myTeamPageRoster();
   if (!state.leagueId || !roster) {
     section?.classList.add("hidden");
     writeRosterSheet("");
@@ -4790,7 +4800,9 @@ function draftAssetFor(item, context) {
 function buildDraftView() {
   const basis = draftBasis();
   const draft = state.valueCalc;
-  const me = basis.connected ? getMyRoster() : null;
+  // Only a team the user actually is (Sleeper account or their pick). The
+  // manager select's default first option is not "you".
+  const me = basis.connected && connectedRosterId() ? getMyRoster() : null;
   const context = basis.connected
     ? resolveDraftContext({ draft, rosters: state.normalizedRosters, meRosterId: me ? me.rosterId : null, leagueId: state.leagueId })
     : null;
