@@ -2155,7 +2155,12 @@ function sharedVerdictFor(view) {
 
 function canonicalizePlayerUrl(playerId, name) {
   if (applyingHistory || typeof history?.replaceState !== "function") return;
-  if (matchRoute(window.location.pathname)?.name !== "player") return;
+  const route = matchRoute(window.location.pathname);
+  if (route?.name !== "player") return;
+  // Only tidy this player's own address (/player/9509 -> /player/9509/bijan-robinson).
+  // Opening another player is a new entry; rewriting here would overwrite the
+  // page you came from, and Back would skip it.
+  if (route.playerId && String(route.playerId) !== String(playerId).replace(/^player:/, "")) return;
   const next = playerPathname(playerId, name);
   if (!next || next === window.location.pathname) return;
   history.replaceState(history.state, "", `${next}${window.location.search}`);
@@ -6656,7 +6661,9 @@ function handleWorkspaceClick(event) {
       void loadPlayerGameStatus();
       updateUrlState({ mode: "push" });
       syncLaunchChrome();
-      document.querySelector(".ranks-card")?.scrollIntoView({ block: "nearest" });
+      // A player page (from Similar player values) starts at the top.
+      if (document.documentElement.hasAttribute("data-player-page")) window.scrollTo(0, 0);
+      else document.querySelector(".ranks-card")?.scrollIntoView({ block: "nearest" });
       focusOpenedPlayerHeading();
       break;
     }
