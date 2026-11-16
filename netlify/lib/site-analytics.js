@@ -35,8 +35,8 @@ export const READ_TOKEN_MIN_LENGTH = 24;
 // "visit" is the pageview. The rest are the #167 events, same names and props.
 export const COLLECT_EVENTS = Object.freeze(["visit", ...Object.keys(ANALYTICS_EVENTS)]);
 export const PAGE_TEMPLATES = Object.freeze([
-  "/", "/players", "/trade", "/connect",
-  "/l/:id", "/l/:id/team", "/l/:id/ideas", "/l/:id/league", "/l/:id/week", "/l/:id/activity", "/l/:id/history",
+  "/", "/players", "/trade", "/connect", "/leagues",
+  "/l/:id", "/l/:id/team", "/l/:id/standings", "/l/:id/trades", "/l/:id/ideas", "/l/:id/league", "/l/:id/week", "/l/:id/activity", "/l/:id/history",
   "/player/:id", "/t/:code", "/other",
 ]);
 export const CHANNELS = Object.freeze(["direct", "social", "search", "other"]);
