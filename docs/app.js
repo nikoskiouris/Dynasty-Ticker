@@ -2776,9 +2776,13 @@ async function loadLeague() {
   const classified = classifyLeagueInput(el.leagueId?.value);
   const leagueId = classified.kind === "league" ? classified.leagueId : parseLeagueId(el.leagueId?.value);
   if (!leagueId) {
-    setFieldError(el.leagueId, el.leagueIdError, "Search your Sleeper username, or paste a league ID / URL.");
-    setStatus("Search your Sleeper username, or paste a league ID / URL.", { error: true });
-    (el.sleeperUsername || el.leagueId)?.focus();
+    // Say what was wrong, and keep focus on the field that has the error.
+    const message = String(el.leagueId?.value || "").trim()
+      ? "That isn't a Sleeper league ID or league link. Paste the long number from the league's URL, or search your username above."
+      : "Paste a Sleeper league ID or link, or search your username above.";
+    setFieldError(el.leagueId, el.leagueIdError, message);
+    setStatus(message, { error: true });
+    (el.leagueId || el.sleeperUsername)?.focus();
     return;
   }
   if (el.leagueId) el.leagueId.value = leagueId;
