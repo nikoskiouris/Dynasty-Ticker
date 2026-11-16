@@ -607,7 +607,14 @@ def value_player(model, age, exp, pick, last, prior, observed, season, weeks_ela
     established = max(established, last[1])
     preseason = predict_next(model, age, exp, pick, last, prior, established)
     rest, final = current_season(preseason, observed, elapsed, shrink, injury)
-    path = project(model, age + 1, exp + 1, pick, final, last, horizon, max(final[1], established * decay))
+    carry = float(config["oneYearModel"].get("carryForwardShrinkWeeks", shrink))
+    if carry != shrink and observed[1] > preseason[1]:
+        # A player running above his kickoff forecast carries less of that into
+        # next year than the weeks left get. Replayed at week 10, half-season
+        # breakouts carried forward at face value went on to score well under
+        # their forecast; players running below it did not need the same.
+        _rest, final = current_season(preseason, observed, elapsed, carry, injury)
+    path =project(model, age + 1, exp + 1, pick, final, last, horizon, max(final[1], established * decay))
     forecast = []
     total = 0.0
     for step in range(horizon + 1):

@@ -35,6 +35,7 @@
     "establishedDecay": 0.85,
     "missedGamesCredit": 1.0,
     "inSeasonShrinkWeeks": 4,
+    "carryForwardShrinkWeeks": 17,
     "ageKnots": {
       "QB": [
         24,

@@ -23,7 +23,7 @@ Shipped rules:
 - There is no hand-set bonus for past finishes, draft capital, role security, or youth. The v1 rules that did that were removed: in the backtest they did not improve the order of players, and the forecast they sat on put too much value in the current season and too little in later ones.
 - A better season never forecasts less. An earlier pick is never forecast below a later one.
 - A future pick is the rookie it becomes: every drafted QB, RB, WR, and TE of the last 10 classes is forecast like a player, each class is ordered by that value, and the slot averages are discounted for the wait until kickoff. Means, not medians.
-- During the season the weeks left blend this season's pace with the kickoff forecast. Weeks played are spent. A weekly Out tag trims what is left. IR cuts it in half.
+- During the season the weeks left blend this season's pace with the kickoff forecast. A player running above his kickoff forecast carries that into next season with a 17-week blend instead of 4. Weeks played are spent. A weekly Out tag trims what is left. IR cuts it in half.
 - The backtest rebuilds the forecast at every kickoff since 2012 from earlier games only. It measures order and level at one, three, five, and six seasons against two naive forecasts. It does not test trade-market prices, the discount, the replacement definition, or the pick board against real rookie drafts.
 
 The owner-defined scope is one 12-team Superflex full-PPR dynasty market. No alternate scoring or league-size value maps. No imported KTC values or other dynasty price targets. League settings never reprice a player.
