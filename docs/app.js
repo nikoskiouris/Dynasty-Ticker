@@ -6220,6 +6220,8 @@ function handleWorkspaceClick(event) {
         return;
       }
       routeFocus.remember(target);
+      // Return to player rankings comes back to this filter and this scroll.
+      if (playersBoardOpen && !state.ranks.selectedId) rankingsReturnScroll = window.scrollY || 0;
       prepareDeskPush();
       state.ranks.selectedId = id;
       // Hide the landing after the history entry is saved, then drop launch chrome
