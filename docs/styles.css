@@ -6504,3 +6504,5 @@ html body:not(.league-loaded) .workspace { padding-top: 70px; }
 }
   .odds-head > span { white-space: nowrap; }
 }
+.standings-row[role="link"] { cursor: pointer; }
+.standings-row[role="link"]:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }

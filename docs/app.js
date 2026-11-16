@@ -4355,7 +4355,7 @@ function renderStandingsRow(team, sim, { showLine, position, divisionLeader = fa
   if (odds?.eliminated) badges.push(`<span class="mini-chip rose">Out</span>`);
   const streakLabel = team.streak?.length ? team.streak.label : "—";
   return `
-    <div class="standings-row ${String(team.rosterId) === connectedRosterId() ? "you" : ""} ${showLine ? "playoff-line" : ""}" data-action="set-lens-teams" data-roster-id="${escapeHtml(team.rosterId)}">
+    <div class="standings-row ${String(team.rosterId) === connectedRosterId() ? "you" : ""} ${showLine ? "playoff-line" : ""}" data-action="set-lens-teams" data-roster-id="${escapeHtml(team.rosterId)}" role="link" tabindex="0" aria-label="${escapeHtml(`${position}. ${team.name}, ${team.recordLabel}. Open team page`)}">
       <span class="rank-number">${position}</span>
       <div class="standings-team">
         ${renderTeamIdentity(team.rosterId, { showTeamName: false })}
@@ -6466,6 +6466,13 @@ function handleCalcSearchFocus(event) {
 
 function handleWorkspaceKeydown(event) {
   if (event.isComposing) return;
+  // Clickable rows (Standings) are role="link": Enter opens them like a click.
+  const row = event.target?.closest?.('[role="link"][data-action]');
+  if (row && row === event.target && event.key === "Enter") {
+    event.preventDefault();
+    row.click();
+    return;
+  }
   const smart = event.target?.closest?.("[data-input='smart-trade']");
   if (smart) {
     const list = document.getElementById("smart-trade-list");
