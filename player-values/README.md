@@ -58,9 +58,17 @@ Three safeguards sit on the fitted line. None of them adds value by hand.
 - The line can bend at three high pace levels, because the best seasons regress the hardest.
 - A last step moves each forecast level to what players at that level actually averaged. It narrows a tendency to run high on the very best players. It does not remove it: the report shows the top dozen still about 10% high.
 
-### Chained forward
+### Each later season, read from today
 
-The forecast for next season becomes the input for the season after, for eight seasons. Each step ages the player one year. Because each step is an expected value that is linear in his own numbers, chaining keeps it an expected value. There is no "survival" switch that turns a player off for good.
+Season two through nine each have their own equation, fit the same way as the one-year model: what players in the same state went on to do that many seasons later. The age curve, injuries, players leaving the league, and the pull toward the middle are all in those outcomes, once.
+
+Model v2 chained the one-year forecast instead: next season's forecast became the input for the season after. That treated an already-regressed forecast as a season played, so it regressed again every year. The repeated shrinking swamped age: a 24-year-old and a 32-year-old coming off similar seasons faded the same way. In the backtest, v2 under-forecast young players' later seasons and over-forecast older players'.
+
+The equations for seasons two to nine are fit together, with each coefficient a smooth curve in how far out the season is, so a thin year of data cannot make one season jump against its neighbours.
+
+During the season, later seasons are read two ways: from the last finished season, and from where this season is likely to end. The second counts for the share of fantasy weeks played. At kickoff no forecast is read as if it had been played; after week 17 the finished season stands in for itself, so nothing jumps when the season turns over.
+
+There is no "survival" switch that turns a player off for good.
 
 ### Rookies and young players
 
@@ -197,7 +205,7 @@ The filename is the UTC stamp `YYYYMMDDHHmm` from `asOf`. `sf` is the full price
 ```json
 {
   "schemaVersion": 1,
-  "modelVersion": "football-forecast-v2",
+  "modelVersion": "football-forecast-v3",
   "asOf": "...",
   "generatedAt": "...",
   "sf": {"player:...": 0, "pick:...": 0},

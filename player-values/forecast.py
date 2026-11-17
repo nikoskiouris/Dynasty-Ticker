@@ -1,13 +1,14 @@
 """The football forecast behind Dynasty Ticker's player values.
 
-One question, asked a year at a time: given what a player did in his last two
-seasons, his age, and (while he is new) where he was drafted, how many full-PPR
-points above a replacement player should we expect from him next season?
+One question, asked for each coming season: given what a player did in his last
+two seasons, his age, and (while he is new) where he was drafted, how many
+full-PPR points above a replacement player should we expect from him that season?
 
-That one-year answer is learned from the most recent seasons only, then chained
-forward: next year's expected season becomes the input for the year after. The
-relationship is linear in the player's own numbers, so chaining expected values
-stays an expected value. Nothing here is a hand-set bonus or penalty.
+Each season ahead has its own answer, learned from the most recent seasons only:
+what players in the same state went on to do one, two, ... nine seasons later.
+Seasons two and beyond are fit together so the answer changes smoothly with
+distance. A forecast is never fed back in as if it were a season played. Nothing
+here is a hand-set bonus or penalty.
 
 Standard library only. `build.py` supplies the data; `backtest.py` scores this
 file against what players went on to do.
@@ -167,42 +168,48 @@ def _percentile(values, q):
     return ordered[low] * (1 - (index - low)) + ordered[high] * (index - low)
 
 
-def fit_group(samples, knots, ridge=1.0, hinge_percentiles=(0.85,), calibration_cuts=(), decay=0.85, credit=0.0):
-    """Fit the three one-year equations for one position group.
-
-    samples: dicts with age, exp, cap, cur, prev, and target (next season's state).
-    Ridge regression on columns scaled to unit size, so one penalty means the same
-    thing for games shares and for point totals.
-    """
-    paces = [s["cur"][1] for s in samples if s["cur"][1] > 0]
-    hinges = [_percentile(paces, q) if paces else 0.0 for q in hinge_percentiles]
-    design = [
+def _design(samples, knots, hinges, credit):
+    return [
         state_features(knots, s["age"], _with_credit(s["cur"], s["established"], credit), s["prev"], hinges)
         + capital_features(s["exp"], s["cap"], s["cur"][2])
         for s in samples
     ]
+
+
+def _moments(design, samples):
+    """Cross-products of the design columns with each other and with each of the three targets."""
     width = len(design[0])
     columns = [[row[j] for row in design] for j in range(width)]
-    count = len(samples)
-    scales = []
-    for column in columns:
-        size = math.sqrt(sum(map(mul, column, column)) / count)
-        scales.append(size if size > 0 else 1.0)
-    columns = [[value / scale for value in column] for column, scale in zip(columns, scales)]
     gram = [[0.0] * width for _ in range(width)]
     for j in range(width):
         for k in range(j, width):
             total = sum(map(mul, columns[j], columns[k]))
             gram[j][k] = total
             gram[k][j] = total
-        gram[j][j] += ridge
-    coefficients = []
+    rhs = []
     for index in range(3):
         target = [s["target"][index] for s in samples]
-        rhs = [sum(map(mul, column, target)) for column in columns]
-        scaled = _solve(gram, rhs)
-        coefficients.append([value / scale for value, scale in zip(scaled, scales)])
-    n_state = width - N_CAPITAL
+        rhs.append([sum(map(mul, column, target)) for column in columns])
+    return gram, rhs
+
+
+def _ridge(gram, rhs, count, ridge):
+    """Ridge regression on columns scaled to unit size, so one penalty means the same
+    thing for games shares and for point totals."""
+    width = len(gram)
+    scales = [math.sqrt(gram[j][j] / count) if gram[j][j] > 0 else 1.0 for j in range(width)]
+    scaled = [[gram[j][k] / (scales[j] * scales[k]) for k in range(width)] for j in range(width)]
+    for j in range(width):
+        scaled[j][j] += ridge
+    coefficients = []
+    for vector in rhs:
+        solution = _solve(scaled, [value / scale for value, scale in zip(vector, scales)])
+        coefficients.append([value / scale for value, scale in zip(solution, scales)])
+    return coefficients
+
+
+def _assemble(coefficients, samples, knots, hinges, decay, credit, calibration_cuts):
+    n_state = len(coefficients[0]) - N_CAPITAL
     # Earliest draft slot this position has actually produced: among rookies, and among years one to three.
     earliest = {
         0: min([s["pick"] for s in samples if s["exp"] == 0] or [1]),
@@ -211,7 +218,7 @@ def fit_group(samples, knots, ridge=1.0, hinge_percentiles=(0.85,), calibration_
     model = {
         "knots": tuple(knots),
         "hinges": hinges,
-        "samples": count,
+        "samples": len(samples),
         "establishedDecay": float(decay),
         "missedGamesCredit": float(credit),
         "earliestPick": earliest[0],
@@ -230,6 +237,69 @@ def fit_group(samples, knots, ridge=1.0, hinge_percentiles=(0.85,), calibration_
                 calibration_cuts,
             )
     return model
+
+
+def pace_hinges(samples, hinge_percentiles):
+    paces = [s["cur"][1] for s in samples if s["cur"][1] > 0]
+    return [_percentile(paces, q) if paces else 0.0 for q in hinge_percentiles]
+
+
+def fit_group(samples, knots, ridge=1.0, hinge_percentiles=(0.85,), calibration_cuts=(), decay=0.85, credit=0.0):
+    """Fit the three one-year equations for one position group.
+
+    samples: dicts with age, exp, cap, cur, prev, and target (next season's state).
+    """
+    hinges = pace_hinges(samples, hinge_percentiles)
+    gram, rhs = _moments(_design(samples, knots, hinges, credit), samples)
+    coefficients = _ridge(gram, rhs, len(samples), ridge)
+    return _assemble(coefficients, samples, knots, hinges, decay, credit, calibration_cuts)
+
+
+def fit_later_seasons(by_ahead, knots, hinges, ridge=1.0, calibration_cuts=(), decay=0.85, credit=0.0, degree=2):
+    """Fit the equations for two or more seasons ahead together.
+
+    by_ahead[k] holds the samples whose target is k + 2 seasons out. Each
+    coefficient is a smooth curve (degree `degree`) in how far out the season is,
+    so a thin, noisy year cannot make one season of a forecast jump against its
+    neighbours. Returns one model per season ahead, built like the one-year model.
+    """
+    last = max(len(by_ahead) - 1, 1)
+    powers = range(degree + 1)
+    blocks = []
+    count = 0
+    for ahead, samples in enumerate(by_ahead):
+        gram, rhs = _moments(_design(samples, knots, hinges, credit), samples)
+        blocks.append((ahead / last, gram, rhs))
+        count += len(samples)
+    width = len(blocks[0][1])
+    size = width * len(powers)
+    gram = [[0.0] * size for _ in range(size)]
+    rhs = [[0.0] * size for _ in range(3)]
+    for t, block, vectors in blocks:
+        for d1 in powers:
+            for d2 in powers:
+                weight = t ** (d1 + d2)
+                if not weight:
+                    continue
+                for j in range(width):
+                    row = gram[d1 * width + j]
+                    source = block[j]
+                    for k in range(width):
+                        row[d2 * width + k] += weight * source[k]
+            weight = t ** d1
+            if weight:
+                for index in range(3):
+                    for j in range(width):
+                        rhs[index][d1 * width + j] += weight * vectors[index][j]
+    stacked = _ridge(gram, rhs, count, ridge)
+    models = []
+    for ahead, samples in enumerate(by_ahead):
+        t = ahead / last
+        coefficients = [
+            [sum(coef[d * width + j] * t ** d for d in powers) for j in range(width)] for coef in stacked
+        ]
+        models.append(_assemble(coefficients, samples, knots, hinges, decay, credit, calibration_cuts))
+    return models
 
 
 def _calibration_curve(fitted, actual, cuts):
@@ -372,17 +442,23 @@ def predict_next(model, age, exp, pick, cur, prev, established=None):
 
 
 def project(model, age, exp, pick, cur, prev, steps, established=None):
-    """Chain the one-year forecast. Returns the expected state for each coming season."""
+    """Expected state for each coming season, every one read straight from today's state.
+
+    Season k ahead has its own fitted equation: what players in this state went
+    on to do k seasons later. A forecast is never fed back in as if it were a
+    season he played. Doing that shrinks him toward the middle again every year,
+    and the shrinking swamps the age curve: a 24-year-old and a 31-year-old
+    with the same season would fade the same way.
+    """
     decay = model["establishedDecay"]
     if established is None:
         established = established_pace([cur[1], prev[1]], decay)
     established = max(established, cur[1])
+    horizons = model.get("horizons") or [model]
     path = []
     for step in range(steps):
-        nxt = predict_next(model, age + step, exp + step, pick, cur, prev, established)
-        path.append(nxt)
-        prev, cur = cur, nxt
-        established = max(nxt[1], established * decay)
+        fitted = horizons[min(step, len(horizons) - 1)]
+        path.append(predict_next(fitted, age, exp, pick, cur, prev, established))
     return path
 
 
@@ -464,14 +540,18 @@ def default_age(exp):
     return 22.5 + max(0, exp)
 
 
-def training_samples(rows_by_player, meta, rookie_year, replacement_for, origins, decay=0.85):
+def training_samples(rows_by_player, meta, rookie_year, replacement_for, origins, decay=0.85, horizons=1):
     """One sample per player per origin season: his state entering it and what he then did.
+
+    `targets` holds what he did in the origin season and each one after it, as
+    far as `horizons` seasons out, while those seasons are finished (None past that).
 
     replacement_for(origin) is the replacement line as it stood entering that
     season. State and outcome are both measured against that one line, which is
     how a published value works: today's line, held for the whole forecast.
     """
     samples = defaultdict(list)
+    last_finished = max(origins)
     for origin in origins:
         replacement = replacement_for(origin)
         for pid, position in universe(origin, rows_by_player, rookie_year, meta).items():
@@ -500,6 +580,10 @@ def training_samples(rows_by_player, meta, rookie_year, replacement_for, origins
                     "cur": season_state(by_season.get(origin - 1), line),
                     "prev": season_state(by_season.get(origin - 2), line),
                     "target": season_state(by_season.get(origin), line),
+                    "targets": [
+                        season_state(by_season.get(origin + ahead), line) if origin + ahead <= last_finished else None
+                        for ahead in range(horizons)
+                    ],
                 })
     return samples
 
@@ -507,21 +591,33 @@ def training_samples(rows_by_player, meta, rookie_year, replacement_for, origins
 def fit_models(rows_by_player, meta, rookie_year, replacement_for, origins, config):
     settings = config["oneYearModel"]
     decay = float(settings["establishedDecay"])
-    samples = training_samples(rows_by_player, meta, rookie_year, replacement_for, origins, decay)
+    # One equation per season ahead, plus one: mid-season, the season after the
+    # horizon is still read from the last finished season.
+    horizons = int(config["horizonYears"]) + 1
+    samples = training_samples(rows_by_player, meta, rookie_year, replacement_for, origins, decay, horizons)
     models = {}
     for group, group_samples in samples.items():
-        if len(group_samples) < 200:
-            raise RuntimeError(f"Too few seasons to fit {group}: {len(group_samples)}")
-        models[group] = fit_group(
-            group_samples,
-            settings["ageKnots"][group[0]],
-            ridge=float(settings["ridge"]),
-            hinge_percentiles=[float(value) for value in settings["paceHingePercentiles"]],
-            calibration_cuts=[float(value) for value in settings.get("calibrationCuts") or []],
-            decay=decay,
-            credit=float(settings["missedGamesCredit"]),
-        )
-        models[group]["origins"] = [min(origins), max(origins)]
+        by_ahead = []
+        for ahead in range(horizons):
+            usable = [dict(s, target=s["targets"][ahead]) for s in group_samples if s["targets"][ahead] is not None]
+            if len(usable) < 200:
+                raise RuntimeError(f"Too few seasons to fit {group} {ahead + 1} seasons ahead: {len(usable)}")
+            by_ahead.append(usable)
+        knots = settings["ageKnots"][group[0]]
+        options = {
+            "ridge": float(settings["ridge"]),
+            "calibration_cuts": [float(value) for value in settings.get("calibrationCuts") or []],
+            "decay": decay,
+            "credit": float(settings["missedGamesCredit"]),
+        }
+        hinge_percentiles = [float(value) for value in settings["paceHingePercentiles"]]
+        first = fit_group(by_ahead[0], knots, hinge_percentiles=hinge_percentiles, **options)
+        later = fit_later_seasons(by_ahead[1:], knots, first["hinges"], **options)
+        fitted = [first] + later
+        for model, usable in zip(fitted, by_ahead):
+            model["origins"] = [min(s["origin"] for s in usable), max(s["origin"] for s in usable)]
+        models[group] = first
+        first["horizons"] = fitted
     return models
 
 
@@ -603,7 +699,13 @@ def value_player(model, age, exp, pick, last, prior, observed, season, weeks_ela
     established = max(established, last[1])
     preseason = predict_next(model, age, exp, pick, last, prior, established)
     rest, final = current_season(preseason, observed, elapsed, shrink, injury)
-    path = project(model, age + 1, exp + 1, pick, final, last, horizon, max(final[1], established * decay))
+    # Later seasons are read two ways: from the last finished season, and from where
+    # this one is likely to end. The second counts for the share of this season played,
+    # so at kickoff no forecast is read as if it had been played, and after week 17
+    # the finished season stands in for itself.
+    played = elapsed / FANTASY_WEEKS
+    direct = project(model, age, exp, pick, last, prior, horizon + 1, established)
+    after = project(model, age + 1, exp + 1, pick, final, last, horizon, max(final[1], established * decay))
     forecast = []
     total = 0.0
     for step in range(horizon + 1):
@@ -611,8 +713,8 @@ def value_player(model, age, exp, pick, last, prior, observed, season, weeks_ela
             expected = rest
             weight = 1.0
         else:
-            expected = path[step - 1][0]
-            weight = elapsed / FANTASY_WEEKS if step == horizon else 1.0
+            expected = (1.0 - played) * direct[step][0] + played * after[step - 1][0]
+            weight = played if step == horizon else 1.0
         years = years_until(season_start(season + step, kickoff), as_of)
         factor = discount ** years
         discounted = expected * weight * factor

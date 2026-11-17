@@ -4,9 +4,9 @@ Prepared September 28, 2026.
 
 ## What is running
 
-`player-values/forecast.py` is the shipped model (`football-forecast-v2`). `build.py` feeds it and writes `docs/data/player_values.json`. `backtest.py` scores it. The running math is in `player-values/README.md`:
+`player-values/forecast.py` is the shipped model (`football-forecast-v3`). `build.py` feeds it and writes `docs/data/player_values.json`. `backtest.py` scores it. The running math is in `player-values/README.md`:
 
-- a one-year forecast of full-PPR points above a 12-team reference replacement, learned from the 15 most recent seasons and chained forward for eight seasons of games
+- a one-year forecast of full-PPR points above a 12-team reference replacement, learned from the 15 most recent seasons, with a separate equation for each later season (fit jointly so it changes smoothly with distance), over eight seasons of games
 - annual discount 0.85, owned by `config.json`, applied by how far away each kickoff is
 - display scale 20, the one Superflex ruler
 - one shared RB/WR/TE price; Superflex changes the QB alternative only
@@ -19,7 +19,7 @@ Shipped rules:
 - Each reference team keeps at most 3 quarterbacks in Superflex. The alternative is the best player left outside that roster. If the historical pool is smaller than the cap, the alternative is the last rostered player. Replacement is never zero. A quarterback's game counts only when he threw at least 10 passes, so a kneel-down does not set the line. The line is the median of the last 14 seasons.
 - A player with no game since the previous season is left out. So is a player drafted two or more years ago who never played. `active: false` and retired or inactive statuses with no team are left out.
 - Sleeper joins nflverse on `gsis_id`, then ESPN id, then name, and every join is checked against the birthday. A second player with the same name at another position does not block the match. A namesake born years apart, or an id that points at a different player, is not used. Points are offensive productivity only: passing, rushing, and receiving. Tackles, sacks, passes defended, return yards, return scores, and opponent defense are not inputs. A defensive chart still counts the weeks that have real targets or carries, and those weeks are scored from the offensive box score.
-- A season is three numbers against the replacement line: points banked, the full-season pace, and the share of games played. Next season is forecast from the last two seasons, age, and, through year three, NFL draft slot. A missed season is zeros. It is not an exit. For the share of last season a player missed, his pace is read from the level he had established in the three seasons before.
+- A season is three numbers against the replacement line: points banked, the full-season pace, and the share of games played. Each coming season is forecast directly from the last two seasons, age, and, through year three, NFL draft slot, with its own equation; a forecast is never fed back in as a season played. A missed season is zeros. It is not an exit. For the share of last season a player missed, his pace is read from the level he had established in the three seasons before.
 - There is no hand-set bonus for past finishes, draft capital, role security, or youth. The v1 rules that did that were removed: in the backtest they did not improve the order of players, and the forecast they sat on put too much value in the current season and too little in later ones.
 - A better season never forecasts less. An earlier pick is never forecast below a later one.
 - A future pick is the rookie it becomes: every drafted QB, RB, WR, and TE of the last 10 classes is forecast like a player, each class is ordered by that value, and the slot averages are discounted for the wait until kickoff. Means, not medians.
@@ -394,7 +394,7 @@ Value a fantasy rookie pick as a probability-weighted choice among the players l
 
 Do not add a second 12% annual pick discount if the same delay is already accounted for in the discounted contribution model. Do not assume future classes are equally strong once credible evidence exists.
 
-Shipped v2 forecasts every drafted rookie of the last 10 classes like a player and orders each class by that forecast, for the one Superflex reference league. A rookie's age does not change his forecast yet. Published bucket prices are still held so a later pick cannot outrank an earlier one. The app's fallback for a year missing from the snapshot uses the same 0.85 annual discount as `config.json`.
+Shipped v3 forecasts every drafted rookie of the last 10 classes like a player and orders each class by that forecast, for the one Superflex reference league. A rookie's age does not change his forecast yet. Published bucket prices are still held so a later pick cannot outrank an earlier one. The app's fallback for a year missing from the snapshot uses the same 0.85 annual discount as `config.json`.
 
 ## 13. Optional market price from our own evidence
 
