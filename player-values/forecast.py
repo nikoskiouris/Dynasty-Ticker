@@ -614,7 +614,9 @@ def value_player(model, age, exp, pick, last, prior, observed, season, weeks_ela
     floor = float(config["oneYearModel"].get("carryForwardGamesFloor", 0.0))
     final_a, final_q, final_g = final
     pre_a, pre_q, pre_g = preseason
-    if floor > 0 and final_g < pre_g and pre_g > 0:
+    # Tested on running backs, receivers, and tight ends only. A quarterback short
+    # of games is as often a backup or a rookie not yet starting as an injury.
+    if floor > 0 and final_g < pre_g and pre_g > 0 and model.get("position") != "QB":
         # Games lost this season (an injury, IR) count for less in next year's
         # forecast: the share carried forward moves `floor` of the way back to the
         # kickoff forecast's, and those games come back at the kickoff pace.
