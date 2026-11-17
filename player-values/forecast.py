@@ -611,6 +611,21 @@ def value_player(model, age, exp, pick, last, prior, observed, season, weeks_ela
         # breakouts carried forward at face value went on to score well under
         # their forecast; players running below it did not need the same.
         _rest, final = current_season(preseason, observed, elapsed, carry, injury)
+    floor = float(config["oneYearModel"].get("carryForwardGamesFloor", 0.0))
+    final_a, final_q, final_g = final
+    pre_a, pre_q, pre_g = preseason
+    if floor > 0 and final_g < pre_g and pre_g > 0:
+        # Games lost this season (an injury, IR) count for less in next year's
+        # forecast: the share carried forward moves `floor` of the way back to the
+        # kickoff forecast's, and those games come back at the kickoff pace.
+        # Replayed at week 10, players with four or fewer games and a strong
+        # kickoff forecast went on to score 1.40x their next-season forecast.
+        back = floor * (pre_g - final_g)
+        final = (
+            final_a + back * max(final_q, pre_q),
+            final_q + back / (final_g + back) * max(0.0, pre_q - final_q),
+            final_g + back,
+        )
     path = project(model, age + 1, exp + 1, pick, final, last, horizon, max(final[1], established * decay))
     level = list(config.get("positionLevel", {}).get(model.get("position") or "", []))
     forecast = []

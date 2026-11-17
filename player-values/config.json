@@ -39,6 +39,7 @@
     "missedGamesCredit": 1.0,
     "inSeasonShrinkWeeks": 4,
     "carryForwardShrinkWeeks": 17,
+    "carryForwardGamesFloor": 0.5,
     "ageKnots": {
       "QB": [
         24,
