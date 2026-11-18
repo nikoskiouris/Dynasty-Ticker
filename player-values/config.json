@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "modelVersion": "football-forecast-v2",
+  "modelVersion": "forecast-consensus-blend-v1",
   "annualDiscount": 0.85,
   "horizonYears": 8,
   "displayScale": 20,
