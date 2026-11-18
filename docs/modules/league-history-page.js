@@ -107,7 +107,7 @@ function renderTrends(rows) {
       </tr>`).join("")}</tbody></table></div></section>`;
 }
 
-export function renderLeagueHistory(archive, { valueNames = {}, values = {}, players = {}, showLineup = false, savedNote = "", caveat = "" } = {}) {
+export function renderLeagueHistory(archive, { valueNames = {}, values = {}, players = {}, peaks = null, showLineup = false, savedNote = "", caveat = "" } = {}) {
   const seasons = archive?.seasons || [];
   const leagueId = encodeURIComponent(String(archive?.leagueId || ""));
   const name = seasons[0]?.league?.name || "League";
@@ -130,7 +130,7 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
     ${renderRecords(book)}
     ${renderRivalries(archive)}
     ${renderTrends(leagueTrends(archive))}
-    ${renderMostTraded(archive, { values, valueNames, players })}
+    ${renderMostTraded(archive, { values, valueNames, players, peaks })}
     ${renderTrophyCases(archive, { valueNames })}
     ${renderTraderAwards(archive, { values, valueNames })}
     ${renderDrafterAwards(archive, { values, valueNames })}

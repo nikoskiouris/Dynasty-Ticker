@@ -81,6 +81,7 @@ import {
   NFL_PLAYERS_SLIM_PATH,
   playersFromValueSnapshot,
   fetchPriceHistory,
+  fetchPeakValues,
   PRICE_HISTORY_INDEX_PATH,
   getAssetValue as marketAssetValue,
   isEstimatedAsset as marketIsEstimated,
@@ -1055,6 +1056,10 @@ function renderActivePage() {
   if (page === "league" && room === "trades") { renderLeagueTradePage(); return; }
   if (page === "league" && room === "history") {
     ensureLeagueArchive("all");
+    if (state.valuePeaks === undefined) {
+      state.valuePeaks = null;
+      fetchPeakValues().then((peaks) => { state.valuePeaks = peaks || {}; renderActivePage(); }).catch(() => { state.valuePeaks = {}; });
+    }
     const host = document.querySelector("#league-history-content");
     const archive = leagueArchive.snapshot;
     if (host) host.innerHTML = archiveCovers(archive, "all", state.leagueId)
@@ -1062,6 +1067,7 @@ function renderActivePage() {
           valueNames: state.valueBundles?.names || state.valueNameMap || {},
           values: state.valueBundles?.sf?.values || state.values || {},
           players: state.players || {},
+          peaks: state.valuePeaks || null,
           showLineup: showLineupAwards,
           savedNote: savedLeagueNote(),
           caveat: marketCaveat(state.league),
