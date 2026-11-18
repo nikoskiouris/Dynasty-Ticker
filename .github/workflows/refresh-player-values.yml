@@ -51,6 +51,11 @@ jobs:
       - name: Re-score the forecast when a new season of results is in
         run: python3 player-values/backtest.py --write --if-stale
 
+      # The price mixes the forecast with the expert consensus. The mix is learned
+      # from past seasons and refit when a season has finished. Most days this does nothing.
+      - name: Re-learn the forecast/consensus mix when a new season of results is in
+        run: python3 player-values/blend.py --write --if-stale
+
       - name: Build independent values
         run: python3 player-values/build.py
 
@@ -63,15 +68,17 @@ jobs:
           # Restore those files so the stamp matches the published board and
           # archive_price_snapshot.py writes nothing.
           if python3 scripts/prices_unchanged.py; then
-            git checkout -- docs/data/player_values.json player-values/validation.json
+            git checkout -- docs/data/player_values.json player-values/validation.json player-values/blend.json
             echo "No price change. Leaving generatedAt alone."
           fi
           python3 scripts/archive_price_snapshot.py
 
       - name: Commit refreshed snapshot
         run: |
-          git add docs/data/player_values.json player-values/validation.json docs/data/price-history docs/data/nfl_players_slim.json
-          if git diff --cached --quiet -- docs/data/player_values.json player-values/validation.json docs/data/price-history docs/data/nfl_players_slim.json; then
+          # consensus_boards.csv.gz gains each new expert board; blend.json changes once a season.
+          files="docs/data/player_values.json player-values/validation.json player-values/blend.json player-values/consensus_boards.csv.gz docs/data/price-history docs/data/nfl_players_slim.json"
+          git add $files
+          if git diff --cached --quiet -- $files; then
             echo "No player-value changes."
             exit 0
           fi

@@ -80,6 +80,24 @@ A weekly Out, Doubtful, or Questionable tag trims the weeks left. IR cuts them i
 
 Each future season is discounted by how far away its kickoff is on the pricing date. That date is the Tuesday of the current week, so prices move when games or the week change, not every midnight. Nothing jumps when the season turns over: the day after week 17 and the first day of the next league year price the same future the same way. `backtest.py` and the snapshot check it by construction: a rookie at kickoff and his pick use the same function.
 
+## Price: forecast and expert consensus
+
+Owner decision, Nov 18, 2026. The football forecast is one input, not the whole price. The published price mixes it with the FantasyPros dynasty Superflex expert consensus, as published by DynastyProcess (`github.com/dynastyprocess/data`, `db_fpecr_latest.csv`, type `dsf`).
+
+```
+price = share(position) * forecast + (1 - share(position)) * consensus on the forecast's scale
+```
+
+- **One scale.** The consensus is a ranking, not a value. `consensus.py` sorts the forecast's values for everyone priced that day and hands them out in consensus order: the experts' No. 1 gets the largest forecast value, No. 2 the next. Players the experts do not list keep the forecast's order below everyone they do. The consensus decides who gets which value; the spread of values stays the forecast's.
+- **A learned share.** `blend.py` replays every past kickoff and week-10 date with an archived consensus board (since October 2020), rebuilds the forecast from earlier games only, and fits the forecast's share by position to the points above replacement players went on to score over the next three seasons. Positions are pulled toward one shared share. Nothing is hand-set.
+- **Checked on unseen seasons.** Each season is scored with a share learned only from outcomes finished before it began. The result is in `blend.json` under `holdout` and in the snapshot under `meta.price`.
+- **Why.** At the same dates, the forecast and the consensus were about equally good at ordering players, and each was wrong in its own places: the forecast trusted hot starts and marked down injured players too much; the consensus overrated young quarterbacks and cold starts. The mix beat both.
+- **What it does not cover.** Future picks are priced by the forecast alone. The share is learned on three-season outcomes and applied to the eight-season price. A consensus board older than three weeks stops the build.
+
+`consensus_boards.csv.gz` archives every Superflex dynasty board (scrape date, FantasyPros id, rank). It was seeded from DynastyProcess's archive; the daily refresh adds each new board. `blend.py --write --if-stale` refits the share once a season has finished.
+
+The player page shows both parts of each price and the share. The season-by-season bars are the forecast's part.
+
 ## Replacement
 
 Replacement is estimated from a **12-team reference league**, not a hard-coded QB18/RB48 lookup. The builder allocates:
@@ -125,7 +143,7 @@ The builder downloads public nflverse weekly player statistics from 1999 on, plu
 - A player with no game since the season before last is left out. So is a player drafted two or more years ago who never played. `active: false` and retired or inactive statuses with no team are left out.
 - Prices use the offensive box score only. Defensive stats, return scores, and opponent defense are not inputs. A two-way player charted on defense still counts on weeks with targets or carries.
 
-No KTC value, completed-trade fitted price, crowd-vote shift, or other fantasy-market ranking is an input. Upstream files and hashes are recorded in snapshot metadata.
+No KTC value, completed-trade fitted price, or crowd-vote shift is an input. The expert consensus enters only through the learned mix described under Price. Upstream files and hashes are recorded in snapshot metadata.
 
 ## Known lean
 
@@ -197,7 +215,7 @@ The filename is the UTC stamp `YYYYMMDDHHmm` from `asOf`. `sf` is the full price
 ```json
 {
   "schemaVersion": 1,
-  "modelVersion": "football-forecast-v2",
+  "modelVersion": "forecast-consensus-blend-v1",
   "asOf": "...",
   "generatedAt": "...",
   "sf": {"player:...": 0, "pick:...": 0},

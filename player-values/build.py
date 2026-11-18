@@ -28,8 +28,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import forecast  # noqa: E402
+import consensus  # noqa: E402
 
 REPO = ROOT.parent
+BLEND = ROOT / "blend.json"
+MAX_CONSENSUS_AGE_DAYS = 21
 CONFIG = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
 OUTPUT = REPO / "docs" / "data" / "player_values.json"
 SLIM_PLAYERS_OUTPUT = REPO / "docs" / "data" / "nfl_players_slim.json"
@@ -1107,6 +1110,16 @@ def validate(bundle):
             value = (replacement.get(fmt) or {}).get(position)
             if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
                 raise RuntimeError(f"Replacement for {fmt} {position} is not a real player: {value}")
+    for asset_id in sf_players:
+        parts = bundle["players"].get(asset_id, {}).get("price")
+        if not parts:
+            raise RuntimeError(f"Price without its parts: {asset_id}")
+        share = parts["forecastShare"]
+        expected = share * parts["forecast"] + (1 - share) * parts["consensus"]
+        if abs(expected - bundle["sf"][asset_id]) > 2:
+            raise RuntimeError(f"Price {asset_id} is not its learned mix: {bundle['sf'][asset_id]} vs {expected:.0f}")
+    if not bundle.get("meta", {}).get("price", {}).get("consensusBoardDate"):
+        raise RuntimeError("Price published without the date of the consensus board it used")
     for fmt in forecast.FORMATS:
         _assert_pick_order(bundle[fmt])
     for asset_id, label in REQUIRED_ASSETS.items():
@@ -1194,9 +1207,46 @@ def model_summary(world):
     return output
 
 
+def load_blend():
+    """The learned mix (blend.py --write). No price is published without one for this model."""
+    report = json.loads(BLEND.read_text(encoding="utf-8"))
+    if report.get("modelVersion") != CONFIG["modelVersion"]:
+        raise RuntimeError(f"blend.json is for {report.get('modelVersion')}, not {CONFIG['modelVersion']}. Run player-values/blend.py --write.")
+    return report
+
+
+def load_consensus(cache, refresh, as_of):
+    """Today's expert board keyed by Sleeper id. A board more than three weeks old stops the build."""
+    ids = consensus.load_ids(fetch(cache, "dp_playerids.csv", consensus.IDS_URL, refresh=refresh))
+    day, ranks = consensus.latest_board(fetch(cache, "dp_fpecr_latest.csv", consensus.LATEST_URL, refresh=refresh))
+    age = (as_of - date.fromisoformat(day)).days
+    if age > MAX_CONSENSUS_AGE_DAYS:
+        raise RuntimeError(f"The expert consensus board is {age} days old ({day}). Not pricing on it.")
+    return day, ranks, consensus.by_sleeper_id(ranks, ids)
+
+
+def price_players(projected, ranks, mix):
+    """Each player's price: the learned share of his forecast plus the rest from the consensus, one scale."""
+    values = {aid: row["sf"] for aid, row in projected.items()}
+    listed = {aid: ranks[aid.split(":", 1)[1]] for aid in values if aid.split(":", 1)[1] in ranks}
+    market = consensus.on_forecast_scale(values, listed)
+    output = {}
+    for aid, row in projected.items():
+        share = float(mix[row["position"]])
+        output[aid] = {
+            "price": consensus.blend(values[aid], market[aid], share),
+            "forecast": values[aid],
+            "consensus": market[aid],
+            "consensusRank": listed.get(aid),
+            "forecastShare": share,
+        }
+    return output
+
+
 def build(cache, refresh=True, today=None):
     today = today or datetime.now(timezone.utc).date()
     inputs = load_inputs(cache, refresh=refresh, today=today)
+    mix_report = load_blend()
     current_season = inputs["currentSeason"]
     current_week = inputs["currentWeek"]
     rows = summaries(inputs["meta"], inputs["weekly"])
@@ -1288,7 +1338,7 @@ def build(cache, refresh=True, today=None):
             },
             "validation": validation_summary(),
             "sourceManifest": manifest(inputs["sourcePaths"]),
-            "status": "provisional football forecast",
+            "status": "learned blend: football forecast and expert consensus",
             "notInputs": [
                 "KTC values",
                 "Sleeper trade-fitted prices",
@@ -1309,9 +1359,28 @@ def build(cache, refresh=True, today=None):
         },
     }
 
-    for aid, row in projected.items():
-        sf_value = max(0, round(row["sf"] * scale))
-        bundle["sf"][aid] = sf_value
+    board_day, board_ranks, ranks = load_consensus(cache, refresh, as_of)
+    priced = price_players(projected, ranks, mix_report["forecastShare"])
+    for aid, row in priced.items():
+        bundle["sf"][aid] = max(0, round(row["price"] * scale))
+        player_meta[aid]["price"] = {
+            "forecast": max(0, round(row["forecast"] * scale)),
+            "consensus": max(0, round(row["consensus"] * scale)),
+            "consensusRank": None if row["consensusRank"] is None else round(row["consensusRank"], 2),
+            "forecastShare": row["forecastShare"],
+        }
+    holdout = mix_report["holdout"]["mean"]
+    bundle["meta"]["price"] = {
+        "method": "learned blend of the football forecast and the expert consensus, by position",
+        "forecastShare": mix_report["forecastShare"],
+        "consensusSource": consensus.SOURCE,
+        "consensusBoardDate": board_day,
+        "learnedThroughSeason": mix_report["dataThroughSeason"],
+        "holdoutRankCorrelation": holdout["rankCorrelation"],
+        "holdoutErrorShare": holdout["errorShare"],
+        "picks": "future picks are priced by the football forecast alone",
+    }
+    archived = consensus.archive_board(board_day, board_ranks)
 
     slot_values, classes = rookie_slot_values(world, inputs["meta"], current_season)
     picks = pick_values(slot_values, as_of, kickoff)
@@ -1330,6 +1399,9 @@ def build(cache, refresh=True, today=None):
         "displayScale": scale,
         "pricingDate": as_of.isoformat(),
         "validation": bundle["meta"]["validation"].get("status"),
+        "consensusBoard": board_day,
+        "consensusArchived": archived,
+        "forecastShare": mix_report["forecastShare"],
     }, indent=2))
 
 

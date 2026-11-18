@@ -26,7 +26,7 @@ Shipped rules:
 - During the season the weeks left blend this season's pace with the kickoff forecast. Weeks played are spent. A weekly Out tag trims what is left. IR cuts it in half.
 - The backtest rebuilds the forecast at every kickoff since 2012 from earlier games only. It measures order and level at one, three, five, and eight seasons against two naive forecasts. It does not test trade-market prices, the discount, the replacement definition, or the pick board against real rookie drafts.
 
-The owner-defined scope is one 12-team Superflex full-PPR dynasty market. No alternate scoring or league-size value maps. No imported KTC values or other dynasty price targets. League settings never reprice a player.
+The owner-defined scope is one 12-team Superflex full-PPR dynasty market. No alternate scoring or league-size value maps. Owner decision, Nov 18, 2026: the price is a learned blend of this football forecast and the FantasyPros dynasty Superflex expert consensus (see `player-values/README.md`, Price). No KTC values or other imported dynasty prices beyond that consensus. League settings never reprice a player.
 
 ## 1. What the number means
 
@@ -310,7 +310,7 @@ Instead, assign inputs to specific conditional forecasts. Train separate models 
 | Opportunity recency half-life | 17 played games over the last 34 | Dynasty role. A month does not replace a season |
 | Efficiency recency half-life | 32 played games over the last 48 | Longer ability history than the current role |
 | Team-context recency half-life | 17 team games | One week does not define the offense; coaching changes still need a separate feed |
-| External dynasty-price contribution | 0 | No KTC or imported dynasty prices |
+| External dynasty-price contribution | Learned share by position (`blend.json`) | FantasyPros Superflex expert consensus only; no KTC |
 | Independent age bonus | 0 | Age already changes future performance and survival |
 | Independent team bonus | 0 | Context already changes opportunities and rates |
 | Independent injury penalty | 0 | Health already changes games, role, and conditional performance |
