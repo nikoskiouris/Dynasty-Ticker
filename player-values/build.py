@@ -771,6 +771,10 @@ def value_player(world, pid, position, age, exp, pick, elapsed, as_of, injury=1.
         total, rows, detail = forecast.value_player(
             model, age, exp, pick, last, prior, observed, season, elapsed, as_of, CONFIG, injury, kickoff, established
         )
+        # Forecast PPR points: points above replacement, plus a replacement's points
+        # per game for the games he is expected to play. An expected value, not a median.
+        for row in rows:
+            row["expectedPoints"] = round(row["expectedAdvantage"] * row["weight"] + line * row["expectedGames"], 1)
         output[fmt] = {
             "total": total,
             "forecast": rows,
