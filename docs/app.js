@@ -6077,8 +6077,7 @@ function findEvenUpOptions(view) {
 }
 
 function evenUpOptionsLine(options, side, names = { Give: "You give", Get: "You get" }) {
-  const afterLines = options.map((option) => option.choice?.verdict ? verdictLineNamed(option.choice.verdict, names) : "");
-  return evenUpOptionsCopy(options, side, { afterLines });
+  return evenUpOptionsCopy(options, side);
 }
 
 function evenUpLine(choice, side, names = { Give: "You give", Get: "You get" }) {

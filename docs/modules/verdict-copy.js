@@ -235,18 +235,14 @@ export function evenUpCopy(choice, side, { afterLine = "" } = {}) {
   return `${closest} ${why}`;
 }
 
-// "Even it up": "Team 2 adds Jaxon Smith-Njigba (14,524) → Even or 2027 Early
-// 1st (10,002) → Lopsided". The pick is always listed; options that make it
-// fair come first. afterLines: the verdict line after each option.
-export function evenUpOptionsCopy(options, side, { afterLines = [] } = {}) {
+// "Even it up": "Team 2 adds Jaxon Smith-Njigba (14,524) or 2027 Early 1st
+// (10,002)". The pick is always listed; options that make it fair come first.
+export function evenUpOptionsCopy(options, side) {
   const list = (options || []).filter((option) => option?.choice?.name);
   if (!list.length) return "";
   const who = side === "Give" || side === "Get" ? `The ${side} side` : String(side || "They");
   const verb = who === "You" || who === "They" ? "add" : "adds";
   const ordered = list.slice().sort((x, y) => Number(Boolean(y.choice.closes)) - Number(Boolean(x.choice.closes)));
-  const item = (option) => {
-    const tier = (afterLines[list.indexOf(option)] || "").split(" · ")[0];
-    return `${option.choice.name} (${formatNumber(option.choice.value)})${tier ? ` → ${tier}` : ""}`;
-  };
+  const item = (option) => `${option.choice.name} (${formatNumber(option.choice.value)})`;
   return `${who} ${verb} ${ordered.map(item).join(" or ")}`;
 }
