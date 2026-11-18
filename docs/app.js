@@ -5090,16 +5090,6 @@ function restoreTradeTalkInput(host, snap) {
   }
 }
 
-function tradeTalkExamples() {
-  const season = nextRookieDraftSeason();
-  return [
-    `Gibbs and a ${season} 1st for Nabers`,
-    `add my ${season + 1} 2nd`,
-    "swap Nabers for Puka",
-    "what could I get for Bijan",
-  ];
-}
-
 let smartTradeSide = "right";
 function renderTradeTalk() {
   return `<section class="talk-box smart-trade-search" aria-labelledby="trade-talk-label">
@@ -5170,7 +5160,7 @@ function renderTalkSayChips(texts, label) {
 // Confirmations ("Added Josh Allen to You give.") flash as a toast. Anything
 // that needs an answer or explains a miss stays on screen.
 function renderTradeTalkLog() {
-  if (!tradeTalkLog.length) return renderTalkSayChips(tradeTalkExamples(), "Examples");
+  if (!tradeTalkLog.length) return "";
   return tradeTalkLog.slice(0, 1).map((turn) => `
     <div class="talk-turn">
       ${turn.sticky && turn.lines.length ? `<div class="talk-lines">${turn.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>` : ""}
