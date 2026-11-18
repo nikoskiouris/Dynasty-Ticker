@@ -31,15 +31,15 @@ const LABEL = Object.freeze({ even: "Even", edge: "Close", favors: "Unfair", lop
 export const TIER_LABELS = LABEL;
 
 // The ⓘ explainer line for the tiers.
-export const TIER_EXPLAINER = `How the verdict reads: one side's total, including the extra for fewer, better pieces, is compared with the other's. Within ${TIER_BANDS.even}% is Even, up to ${TIER_BANDS.edge}% more is Close, up to ${TIER_BANDS.favors}% more is Unfair, and more than ${TIER_BANDS.favors}% is lopsided.`;
+export const TIER_EXPLAINER = `Even: within ${TIER_BANDS.even}%. Close: up to ${TIER_BANDS.edge}%. Unfair: up to ${TIER_BANDS.favors}%. Lopsided: more than that.`;
 
 // Plain words for the extra on the side that has fewer, better pieces.
 // Pending Designer. The numbers stay in the callers.
 export const FEWER_BETTER_LABEL = "Fewer, better pieces";
 export const FEWER_BETTER_ADDEND = "for fewer, better pieces";
-export const PRICE_FACTORS_LINE = "Values use one 12-team Superflex PPR dynasty reference league. The price uses age, role, how well a player plays, how often they play, their team, where they were drafted, and how long players at that position usually stay good. Connecting a league never changes a player's price.";
+export const PRICE_FACTORS_LINE = "Connecting a league never changes a player's price.";
 export const UNAVAILABLE_PRICE_LINE = "Unavailable means we do not have a price for that player or pick right now. Dynasty Ticker does not guess one.";
-export const FEWER_BETTER_LINE = "Fewer, better pieces are worth extra compared with the same total split into smaller pieces. That extra changes the trade verdict, not any player's listed price.";
+export const FEWER_BETTER_LINE = "Fewer, better pieces are worth extra. This changes the verdict, not listed prices.";
 
 // side: "give" or "get", the side that has the best player and gets the extra.
 // opts.pick: the best asset is a draft pick, so say "piece" instead of "player".
@@ -233,4 +233,15 @@ export function evenUpCopy(choice, side, { afterLine = "" } = {}) {
     ? `It covers ${formatNumber(choice.value)} of a ${formatNumber(choice.gap)} gap, so it does not close.`
     : `It is ${formatNumber(choice.value - choice.gap)} more than the ${formatNumber(choice.gap)} gap.`;
   return `${closest} ${why}`;
+}
+
+// "Even it up": "Team 2 adds Jaxon Smith-Njigba or 2027 Early 1st". The pick is always listed; options that make it fair come first.
+export function evenUpOptionsCopy(options, side) {
+  const list = (options || []).filter((option) => option?.choice?.name);
+  if (!list.length) return "";
+  const who = side === "Give" || side === "Get" ? `The ${side} side` : String(side || "They");
+  const verb = who === "You" || who === "They" ? "add" : "adds";
+  const ordered = list.slice().sort((x, y) => Number(Boolean(y.choice.closes)) - Number(Boolean(x.choice.closes)));
+  const item = (option) => option.choice.name;
+  return `${who} ${verb} ${ordered.map(item).join(" or ")}`;
 }

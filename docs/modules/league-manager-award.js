@@ -110,7 +110,7 @@ export function renderManagerAward(archive, { values = {}, valueNames = {} } = {
     : '<p class="muted">Not enough history: managers need 2 finished seasons.</p>';
   return `<section class="workspace-panel">
     <h2>Manager awards <span class="mini-chip">Heuristic</span></h2>
-    <p class="muted small">A weighted score, not a fact or a probability. Results 50% (win % and playoff trips, finals, titles; a title counts as 3 trips), points 20% (points per game vs the league average), roster building 30% (trade net, draft surplus and waiver score, each where the manager qualifies). Each part is a z-score among managers with ${award.minSeasons}+ finished seasons: 0 is the league middle, +1 is one standard deviation better. Missing parts are left out, not counted as zero. Graded on today's 12-team Superflex PPR values.</p>
+    <p class="muted small">Score = results 50% (wins, playoffs, titles), points scored 20%, roster building 30% (trades, drafts, waivers). 0 is league average. Needs ${award.minSeasons}+ finished seasons. Not a probability.</p>
     <div class="league-history-awards">
       <div><h3>Best manager</h3>${line(award.best)}</div>
       <div><h3>Worst manager</h3>${line(award.worst)}</div>

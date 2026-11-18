@@ -82,6 +82,6 @@ export function drafterAwards(archive, values) {
     best: eligible[0] || null,
     worst: eligible.length > 1 ? eligible[eligible.length - 1] : null,
     leaders: eligible, comparablePicks, tooEarly, missingPrices,
-    method: "Average present-day player value above/below nearby draft slots (±3) in the same draft type, minimum 3 comparable peers and 3 graded picks per manager. Current-season picks excluded.",
+    method: "Average current value of the player picked, versus players taken within 3 slots. Needs 3 graded picks.",
   };
 }

@@ -4,7 +4,6 @@ import { escapeHtml, formatNumber } from "./html.js";
 import {
   playerValueTrend,
   renderTrendSoon,
-  renderValueScaleExplainer,
   renderValueTierBadge,
   renderValueTrend,
   renderValuesFreshness,
@@ -330,7 +329,6 @@ export function renderRanksToolbar(view) {
         ${RANK_POSITIONS.map((pos) => renderRankChip("rank-pos", "pos", pos, pos === "ALL" ? "All" : (pos === "PICK" ? "Picks" : pos), view?.position)).join("")}
       </div>
       <p class="ranks-note muted">${escapeHtml(view?.note || "")}</p>
-      ${renderValueScaleExplainer()}
     </div>
   `;
 }
@@ -358,7 +356,7 @@ export function renderRanksBody(view) {
   const rows = Array.isArray(view?.rows) ? view.rows : [];
   const table = rows.length ? `<div class="rankings-table-wrap"><table class="rankings-table"><caption class="sr-only">Player Rankings · 12-team Superflex PPR dynasty</caption><thead><tr><th scope="col" class="rank-face-col"><span class="sr-only">Face</span></th><th scope="col">Player</th>${sortHeader("rank", '<span class="rank-wide-label">Overall </span>Rank', view)}<th scope="col"><span class="rank-wide-label">Position </span><span class="rank-narrow-label">Pos. </span>Rank</th>${sortHeader("age", "Age", view)}${sortHeader("team", "Team", view, "rank-team-col")}<th scope="col">Value</th></tr></thead><tbody>${rows.map(renderRankTableRow).join("")}</tbody></table></div>` : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
   const more = Number(view?.hidden) > 0 ? `<button type="button" class="ghost-btn ranks-more" data-action="ranks-more">Show more</button>` : "";
-  return `${table}${more}<footer class="rankings-footnote"><p>Our algorithm is based around age, role and opportunity, how well a player scores, how often he plays, his NFL team and draft capital, and how long players at his position usually stay good, plus many other factors, updated daily.</p>${renderValueScaleExplainer()}${renderValuesFreshness(view?.updated, { align: "end" })}</footer>`;
+  return `${table}${more}<footer class="rankings-footnote"><p>Built from age, role, production, availability, team, draft capital and how long players at his position last. Updated daily.</p>${renderValuesFreshness(view?.updated, { align: "end" })}</footer>`;
 }
 
 function renderRankTableRow(row) {

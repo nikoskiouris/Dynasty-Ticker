@@ -37,12 +37,11 @@ export function renderOperationsAwards(archive, { players = {}, values = {}, val
     : '<p class="muted">No fully sourced pickup found.</p>';
   return `<section class="workspace-panel">
     <h2>Lineup and waiver awards <span class="mini-chip">Historical estimate</span></h2>
-    <p class="muted small">Eligible managers only. Missing player prices, eligible positions or weekly scores are excluded rather than treated as zero.</p>
     <div class="league-history-awards">
       ${lineup
         ? `<div><h3>Best lineup setter</h3>${person(lineup.best, (row) => `${percent(row.efficiency)} optimal · ${countLabel(row.weeks, "week")} · ${countLabel(row.gamesLostToBench, "game")} lost to bench`)}</div>
            <div><h3>Worst lineup setter</h3>${person(lineup.worst, (row) => `${percent(row.efficiency)} optimal · ${countLabel(row.weeks, "week")} · ${countLabel(row.gamesLostToBench, "game")} lost to bench · worst ${row.worstWeek?.season} W${row.worstWeek?.week}: ${points(row.worstWeek?.pointsLeft)} pts left`)}</div>`
-        : '<div><h3>Lineup awards</h3><p class="muted small">Calculate legal optimal lineups using historical player points and roster eligibility.</p><button type="button" data-action="compute-lineup-awards">Calculate lineup awards</button></div>'}
+        : '<div><h3>Lineup awards</h3><button type="button" data-action="compute-lineup-awards">Calculate lineup awards</button></div>'}
       <div><h3>Best waiver manager</h3>${person(waiver.best, (row) => `${dollars(row.score)} score · ${points(row.startedPoints)} started points · ${countLabel(row.adds, "add")}`)}</div>
       <div><h3>Worst waiver manager</h3>${person(waiver.worst, (row) => `${dollars(row.score)} score · ${points(row.startedPoints)} started points · ${countLabel(row.adds, "add")}`)}</div>
       <div><h3>Highest-scoring waiver pickup</h3>${waiverPlayer(waiver.bestPickup)}</div>
@@ -59,7 +58,7 @@ export function renderOperationsAwards(archive, { players = {}, values = {}, val
     <details><summary>Scoring rules and coverage</summary>
       ${lineup ? `<p class="muted small">${e(lineup.method)}</p>` : ""}
       <p class="muted small">${e(waiver.method)}</p>
-      <p class="muted small">${lineup ? `Lineups: ${lineup.validWeeks} valid weekly team snapshots and ${lineup.unavailableWeeks} unavailable out of ${lineup.examinedWeeks}.` : "Lineup calculation not requested."} Waivers: ${waiver.evaluatedAdds} priced pickups, ${waiver.unpricedAdds} unpriced, ${waiver.undatedAdds} without documented transaction weeks, and ${waiver.invalidWeeks} missing weekly lineup score rows.</p>
+      <p class="muted small">${lineup ? `Lineups: ${lineup.validWeeks} valid weekly team snapshots and ${lineup.unavailableWeeks} unavailable out of ${lineup.examinedWeeks}.` : "Lineup awards not calculated yet."} Waivers: ${waiver.evaluatedAdds} priced pickups; ${waiver.unpricedAdds + waiver.undatedAdds + waiver.invalidWeeks} skipped for missing data.</p>
     </details>
   </section>`;
 }

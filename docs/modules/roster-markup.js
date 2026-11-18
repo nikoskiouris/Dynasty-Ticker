@@ -34,7 +34,6 @@ export function renderPositionMeter(position) {
       <div class="meter-track" aria-hidden="true">
         <span style="width:${width}%"></span>
       </div>
-      <p>${escapeHtml(position?.label)}</p>
     </div>
   `;
 }
@@ -43,7 +42,7 @@ export function renderPositionMeter(position) {
 // The score and its tag ("Middle of the pack") rank roster value only. Say so,
 // or an 8-0 team reads "Middle of the pack" as a judgment of its season.
 export const POWER_SCORE_NOTE =
-  "Dynasty roster value against this league: starters, bench, picks, position balance and age. It ignores your record. A rough score, not a probability.";
+  "Roster value compared with this league: starters, bench, picks, balance and age. Ignores your record. Not a probability.";
 
 
 export function renderAvatar(manager, { size = "md", className = "" } = {}) {

@@ -46,7 +46,7 @@ function renderChampions(seasons) {
 function renderAllTime(rows) {
   if (!rows.length) return "";
   return `<section class="workspace-panel"><h2>All-time standings</h2>
-    <p class="muted small">By Sleeper manager account across the loaded seasons. A team renamed by the same manager counts once; ownership changes remain separate. Avg finish: regular-season place in finished seasons. Luck: real wins minus all-play expected wins, summed over seasons with Sleeper matchups. Sorted by titles, then win %.</p>
+    <p class="muted small">Luck is actual wins minus expected wins.</p>
     <div class="league-history-scroll" role="region" aria-label="All-time standings table" tabindex="0">
       <table class="league-history-table"><thead><tr>
         <th scope="col">Manager</th><th scope="col">Seasons</th><th scope="col">W-L-T</th><th scope="col">Win %</th>
@@ -94,7 +94,7 @@ function renderTrends(rows) {
   };
   const moves = (row, key) => row.transactionsLoaded ? bar(row, key, whole(row[key])) : "—";
   return `<section class="workspace-panel"><h2>League trends</h2>
-    <p class="muted small">Parity = 100 − (season points spread ÷ the top team's points × 100); higher means a closer league. It is a summary of points scored, not a strength rating. The current season is partial.</p>
+    <p class="muted small">Higher parity means a closer league.</p>
     <div class="league-history-scroll" role="region" aria-label="Season statistics table" tabindex="0">
       <table class="league-history-table"><thead><tr><th scope="col">Season</th>
       <th scope="col">Avg weekly score</th><th scope="col">Parity</th><th scope="col">Points spread</th><th scope="col">Trades</th><th scope="col">Picks traded</th><th scope="col">Waiver & free-agent moves</th>
@@ -107,7 +107,7 @@ function renderTrends(rows) {
       </tr>`).join("")}</tbody></table></div></section>`;
 }
 
-export function renderLeagueHistory(archive, { valueNames = {}, values = {}, players = {}, showLineup = false, savedNote = "", caveat = "" } = {}) {
+export function renderLeagueHistory(archive, { valueNames = {}, values = {}, players = {}, peaks = null, showLineup = false, savedNote = "", caveat = "" } = {}) {
   const seasons = archive?.seasons || [];
   const leagueId = encodeURIComponent(String(archive?.leagueId || ""));
   const name = seasons[0]?.league?.name || "League";
@@ -118,7 +118,6 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
   return `<div class="league-history-page">
     <p><a href="/l/${leagueId}">← League</a></p>
     <header><h2>${e(name)} All-Time</h2><p class="muted">${e(range)}</p>
-      <p class="muted small">12-team Superflex PPR is the only player-value reference. Game records and titles come from Sleeper.</p>
       ${savedNote ? `<p class="league-saved-note" role="status">${e(savedNote)}</p>` : ""}
       ${caveat ? `<p class="muted small calc-market-caveat">${e(caveat)} Value-based awards use those values.</p>` : ""}
     </header>
@@ -131,7 +130,7 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
     ${renderRecords(book)}
     ${renderRivalries(archive)}
     ${renderTrends(leagueTrends(archive))}
-    ${renderMostTraded(archive, { values, valueNames, players })}
+    ${renderMostTraded(archive, { values, valueNames, players, peaks })}
     ${renderTrophyCases(archive, { valueNames })}
     ${renderTraderAwards(archive, { values, valueNames })}
     ${renderDrafterAwards(archive, { values, valueNames })}

@@ -15,13 +15,6 @@ import {
 
 export const TRADE_TALK_MAX = 300;
 
-export const TRADE_TALK_EXAMPLES = Object.freeze([
-  "Gibbs and a 2027 1st for Nabers",
-  "add my 2028 2nd",
-  "swap Nabers for Puka",
-  "what could I get for Bijan",
-]);
-
 // Normalized nickname -> normalized full name.
 export { PLAYER_ALIASES };
 
