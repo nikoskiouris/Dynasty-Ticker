@@ -34,7 +34,6 @@ export function renderPositionMeter(position) {
       <div class="meter-track" aria-hidden="true">
         <span style="width:${width}%"></span>
       </div>
-      <p>${escapeHtml(position?.label)}</p>
     </div>
   `;
 }
