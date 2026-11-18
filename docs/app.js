@@ -5784,7 +5784,7 @@ function requestDraftPlayerNames() {
 
 function renderDraftTokens(side, view) {
   const items = view.draft[side] || [];
-  if (!items.length) return `<p class="muted calc-empty-side">Add a player or pick to this team.</p>`;
+  if (!items.length) return `<p class="muted calc-empty-side">Nothing yet</p>`;
   const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
   return items.map((rawItem) => {
     const price = view.priced.get(String(rawItem.uid));
@@ -5868,11 +5868,11 @@ function renderDraftPane(side, view) {
       <header class="calc-pane-head">
         <div class="draft-pane-title">${renderDraftPaneTitle(side, view)}</div>
         <div class="calc-pane-total">${renderDraftTotal(side, view)}</div>
+        <button type="button" class="ghost-btn btn-sm draft-add-focus" data-action="smart-focus" data-side="${side}" aria-label="Add player or pick to ${escapeHtml(draftReceivingTeam(side, view))}">+ Add</button>
       </header>
       ${left ? "" : `<div class="draft-partner-slot">${renderDraftPartnerPicker(view)}</div>`}
       <div class="calc-selected">${renderDraftTokens(side, view)}</div>
       <div class="draft-notes">${renderDraftNotes(side, view)}</div>
-      <button type="button" class="ghost-btn draft-add-focus" data-action="smart-focus" data-side="${side}">+ Add player or pick</button>
     </section>
   `;
 }
