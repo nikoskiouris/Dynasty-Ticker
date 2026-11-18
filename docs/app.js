@@ -5099,7 +5099,7 @@ function renderTradeTalk() {
       <div id="smart-trade-list" class="smart-trade-list" role="listbox" hidden></div>
       <span id="smart-trade-count" class="sr-only" role="status" aria-live="polite"></span>
     </form>
-    <div id="talk-log" class="talk-log" aria-live="polite">${renderTradeTalkLog()}</div><p id="talk-toast" class="talk-toast" role="status" hidden></p>
+    <div id="talk-log" class="talk-log" aria-live="polite">${renderTradeTalkLog()}</div><p id="talk-toast" class="sr-only" role="status" hidden></p>
   </section>`;
 }
 
