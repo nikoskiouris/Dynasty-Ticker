@@ -6061,9 +6061,8 @@ function findEvenUpOptions(view) {
     const taken = new Set([...view.draft.left, ...view.draft.right].map((item) => String(item.assetId)));
     const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
     const near = listValueCalcAssets(view.basis.values, names, { kinds: ["player"], limit: 2000 })
-      .filter((row) => !taken.has(String(row.assetId)) && row.value >= need * 0.3 && row.value <= need * 2)
-      .sort((x, y) => Math.abs(x.value - need) - Math.abs(y.value - need))
-      .slice(0, 40);
+      .filter((row) => !taken.has(String(row.assetId)) && row.value >= need * 0.3 && row.value <= need * 4)
+      .sort((x, y) => Math.abs(x.value - need) - Math.abs(y.value - need));
     player = evenUpTradePick({ giveValues: give, getValues: get, picks: near, globalMaxValue });
   }
   const options = [];

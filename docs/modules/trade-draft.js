@@ -271,8 +271,14 @@ export function evenUpPickChoice(gap, picks = [], { scoreAdded = null } = {}) {
     const miss = Math.abs(afterGap);
     const closes = pct <= EVEN_UP_FAIR_PCT;
     const candidate = { assetId: String(pick.assetId || ""), name: String(pick.name), value, miss, closes, gap: need, afterGap, pct, verdict: scored.verdict || null };
+    // Among add-ons that make it fair, suggest the one priced nearest the raw
+    // gap, not the one that lands nearest exactly even (that picked a 7,227
+    // pick for a 1,776 gap). If none is fair, the one that gets closest.
+    const off = Math.abs(value - need);
     const betterClose = Boolean(best) && closes && !best.closes;
-    const tighter = Boolean(best) && closes === best.closes && (miss < best.miss || (miss === best.miss && value < best.value));
+    const tighter = Boolean(best) && closes === best.closes && (closes
+      ? (off < Math.abs(best.value - need) || (off === Math.abs(best.value - need) && miss < best.miss))
+      : (miss < best.miss || (miss === best.miss && value < best.value)));
     if (!best || betterClose || tighter) best = candidate;
   }
   if (!best) return null;
