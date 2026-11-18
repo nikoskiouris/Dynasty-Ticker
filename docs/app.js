@@ -235,6 +235,7 @@ import {
   verdictCopy,
   verdictLineNamed,
   evenUpCopy,
+  evenUpOptionsCopy,
 } from "./modules/verdict-copy.js";
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import { GLOSSARY, bindInfoTips, infoTipMarkup, renderPriceLegend, valuesWorkText } from "./modules/info-tip.js";
@@ -5539,7 +5540,9 @@ function tradeAdviceSections(view) {
   const teamNames = { Give: `${draftReceivingTeam("left", view)} receives`, Get: `${draftReceivingTeam("right", view)} receives` };
   const more = verdictCopy(verdict).more;
   const fair = more != null && more <= EVEN_UP_OFFER_ABOVE;
-  const found = fair ? null : findEvenUpPick(view);
+  const options = fair ? null : findEvenUpOptions(view);
+  // The button adds the best single option: one that closes, else the nearest.
+  const found = options ? options.map((option) => option.choice).sort((x, y) => (Number(Boolean(y.closes)) - Number(Boolean(x.closes))) || (x.miss - y.miss))[0] : null;
   // A pick that barely moves the gap is not advice: offer it only when it
   // closes the gap or narrows it by at least 10 points.
   const helps = found && (found.closes || !Number.isFinite(Number(found.pct)) || more == null || more - Number(found.pct) >= 10);
@@ -5548,11 +5551,8 @@ function tradeAdviceSections(view) {
   const side = verdict.gap > 0 ? "left" : "right";
   const giver = draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view);
   // Name the pick and the verdict after adding it, scored the same way as the scale.
-  const after = choice?.verdict ? verdictLineNamed(choice.verdict, teamNames) : "";
   const evenUp = choice ? {
-    line: after
-      ? `${giver} adds a ${choice.name} (${formatNumber(choice.value)}). After that: ${after}.`
-      : evenUpLine(choice, giver, teamNames),
+    line: evenUpOptionsLine(options, giver, teamNames),
     side,
     receiver: draftReceivingTeam(side, view),
     assetId: choice.assetId || "",
@@ -6047,6 +6047,36 @@ function findEvenUpPick(view) {
   });
 }
 
+// The closest pick and the closest player that even the trade up. Players are
+// prefiltered to a price band around the gap, then scored like picks.
+function findEvenUpOptions(view) {
+  const pick = findEvenUpPick(view);
+  const give = view.draft.left.map(view.priceOf);
+  const get = view.draft.right.map(view.priceOf);
+  const globalMaxValue = getGlobalMaxPlayerValue(view.basis.values);
+  const model = draftVerdictModel(give.map(Number), get.map(Number), { globalMaxValue });
+  const need = Math.abs(Number(model.verdict.gap) || 0);
+  let player = null;
+  if (need > 0 && give.length && get.length) {
+    const taken = new Set([...view.draft.left, ...view.draft.right].map((item) => String(item.assetId)));
+    const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
+    const near = listValueCalcAssets(view.basis.values, names, { kinds: ["player"], limit: 2000 })
+      .filter((row) => !taken.has(String(row.assetId)) && row.value >= need * 0.3 && row.value <= need * 2)
+      .sort((x, y) => Math.abs(x.value - need) - Math.abs(y.value - need))
+      .slice(0, 40);
+    player = evenUpTradePick({ giveValues: give, getValues: get, picks: near, globalMaxValue });
+  }
+  const options = [];
+  if (pick) options.push({ kind: "pick", choice: pick });
+  if (player) options.push({ kind: "player", choice: player });
+  return options.length ? options : null;
+}
+
+function evenUpOptionsLine(options, side, names = { Give: "You give", Get: "You get" }) {
+  const afterLines = options.map((option) => option.choice?.verdict ? verdictLineNamed(option.choice.verdict, names) : "");
+  return evenUpOptionsCopy(options, side, { afterLines });
+}
+
 function evenUpLine(choice, side, names = { Give: "You give", Get: "You get" }) {
   const after = choice?.verdict ? verdictLineNamed(choice.verdict, names) : "";
   return evenUpCopy(choice, side, { afterLine: after });
@@ -6093,7 +6123,7 @@ function renderDraftVerdict(view) {
   const bars = sharedBarSegments(model, null);
   const maxSide = Math.max(bars.give.total, bars.get.total, 1);
   // Same metric and bands as the headline (verdict-copy.js).
-  const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpPick(view) : null;
+  const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpOptions(view) : null;
   // "Why?" names the sides like the columns (Team 2 Receives / Team 1 Receives).
   const giveLabel = teamNames.Give;
   const getLabel = teamNames.Get;
@@ -6111,12 +6141,12 @@ function renderDraftVerdict(view) {
         ${sharedView ? renderSharedVerdictHead(sharedView) : `<h3>${verdictLineHtml(label)}</h3>`}
         ${sharedView ? renderVerdictFinePrint("", `
           ${starsPremiumMarkup(model, { best, pick: bestPick, shared: true })}
-          ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view), teamNames))}</p>` : ""}
+          ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view), teamNames))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
         ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
         ${bothSides && adjustment?.amount > 0 ? `<p class="calc-extra muted small">Counts ${escapeHtml(formatNumber(adjustment.amount))} extra for fewer, better pieces in what ${escapeHtml(draftReceivingTeam(adjustment.side === "left" ? "left" : "right", view))} receives. The column totals leave it out.</p>` : ""}
-        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view), teamNames))}</p>` : ""}
+        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view), teamNames))}</p>` : ""}
         ${renderDraftMethod(view)}`}
       </div>
       <div class="calc-actions">
