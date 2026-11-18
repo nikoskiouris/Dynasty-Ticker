@@ -5152,11 +5152,6 @@ function renderTalkChip(chip) {
   return `<button type="button" class="talk-chip" data-action="talk-add" data-side="${chip.side === "right" ? "right" : "left"}" data-asset-id="${escapeHtml(chip.assetId)}" data-name="${escapeHtml(chip.name)}" data-kind="${chip.assetType === "pick" ? "pick" : "player"}"${chip.leagueId ? ` data-league-id="${escapeHtml(chip.leagueId)}"` : ""}>${escapeHtml(chip.label || chip.name)}${chip.value ? ` <span class="talk-chip-value">${formatNumber(chip.value)}</span>` : ""}</button>`;
 }
 
-function renderTalkSayChips(texts, label) {
-  if (!texts?.length) return "";
-  return `<div class="talk-chips talk-next" role="group" aria-label="${escapeHtml(label)}">${texts.map((text) => `<button type="button" class="talk-chip talk-example" data-action="talk-example" data-say="${escapeHtml(text)}">${escapeHtml(text)}</button>`).join("")}</div>`;
-}
-
 // Confirmations ("Added Josh Allen to You give.") flash as a toast. Anything
 // that needs an answer or explains a miss stays on screen.
 function renderTradeTalkLog() {
@@ -5171,7 +5166,6 @@ function renderTradeTalkLog() {
           <div class="talk-chips">${group.chips.map(renderTalkChip).join("")}</div>
         </div>
       `).join("")}
-      ${renderTalkSayChips(turn.next, "Keep going")}
     </div>
   `).join("");
 }
