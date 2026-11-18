@@ -80,23 +80,31 @@ A weekly Out, Doubtful, or Questionable tag trims the weeks left. IR cuts them i
 
 Each future season is discounted by how far away its kickoff is on the pricing date. That date is the Tuesday of the current week, so prices move when games or the week change, not every midnight. Nothing jumps when the season turns over: the day after week 17 and the first day of the next league year price the same future the same way. `backtest.py` and the snapshot check it by construction: a rookie at kickoff and his pick use the same function.
 
-## Price: forecast and expert consensus
+## Price: forecast and market
 
-Owner decision, Nov 18, 2026. The football forecast is one input, not the whole price. The published price mixes it with the FantasyPros dynasty Superflex expert consensus, as published by DynastyProcess (`github.com/dynastyprocess/data`, `db_fpecr_latest.csv`, type `dsf`).
+Owner decision, Nov 18, 2026. The football forecast is one input, not the whole price. The published price mixes it with the Superflex dynasty market:
+
+| Source | Board | History |
+|---|---|---|
+| FantasyPros expert consensus, via DynastyProcess (`db_fpecr_latest.csv`, type `dsf`) | Dynasty Superflex ranks | Every weekly board since Oct 2020 (`consensus_boards.csv.gz`) |
+| KeepTradeCut (`keeptradecut.com/dynasty-rankings`, `superflexValues`) | Superflex crowd values | Archived from Nov 2026 (`market_boards.csv.gz`) |
+| FantasyCalc (`numQbs=2&numTeams=12&ppr=1`) | 12-team Superflex PPR trade values | Archived from Nov 2026 (`market_boards.csv.gz`) |
+
+One-QB boards are never read. **The site never names a source** (owner rule): served files say "market".
 
 ```
-price = share(position) * forecast + (1 - share(position)) * consensus on the forecast's scale
+price = share(position) * forecast + (1 - share(position)) * market
+market = average over the sources that list him of (that source's order, on the forecast's scale)
 ```
 
-- **One scale.** The consensus is a ranking, not a value. `consensus.py` sorts the forecast's values for everyone priced that day and hands them out in consensus order: the experts' No. 1 gets the largest forecast value, No. 2 the next. Players the experts do not list keep the forecast's order below everyone they do. The consensus decides who gets which value; the spread of values stays the forecast's.
-- **A learned share.** `blend.py` replays every past kickoff and week-10 date with an archived consensus board (since October 2020), rebuilds the forecast from earlier games only, and fits the forecast's share by position to the points above replacement players went on to score over the next three seasons. Positions are pulled toward one shared share. Nothing is hand-set.
+- **One scale.** A source is a ranking. `consensus.py` sorts the forecast's values for everyone priced that day and hands them out in that source's order: its No. 1 gets the largest forecast value. Players a source does not list keep the forecast's order below everyone it does. Sources are then averaged with equal weight.
+- **A learned share.** `blend.py` replays every past kickoff and week-10 date with an archived FantasyPros board (since October 2020), rebuilds the forecast from earlier games only, and fits the forecast's share by position to the points above replacement players went on to score over the next three seasons. Positions are pulled toward one shared share. Nothing is hand-set.
 - **Checked on unseen seasons.** Each season is scored with a share learned only from outcomes finished before it began. The result is in `blend.json` under `holdout` and in the snapshot under `meta.price`.
-- **Why.** At the same dates, the forecast and the consensus were about equally good at ordering players, and each was wrong in its own places: the forecast trusted hot starts and marked down injured players too much; the consensus overrated young quarterbacks and cold starts. The mix beat both.
-- **What it does not cover.** Future picks are priced by the forecast alone. The share is learned on three-season outcomes and applied to the eight-season price. A consensus board older than three weeks stops the build.
+- **What is not tested yet.** KTC and FantasyCalc have no archive before Nov 2026, so their equal weight inside the market is a default, not a learned value, and the share was learned against FantasyPros alone. Their daily boards are archived so that, once outcomes exist, each source can be scored the same way.
+- **Why.** At the same dates, the forecast and the FantasyPros consensus were about equally good at ordering players, and each was wrong in its own places: the forecast trusted hot starts and marked down injured players too much; the consensus overrated young quarterbacks and cold starts. The mix beat both.
+- **Coverage.** Future picks are priced by the forecast alone. The share is learned on three-season outcomes and applied to the eight-season price. A FantasyPros board older than three weeks stops the build; a KTC or FantasyCalc board that cannot be read is left out that day and the build says so.
 
-`consensus_boards.csv.gz` archives every Superflex dynasty board (scrape date, FantasyPros id, rank). It was seeded from DynastyProcess's archive; the daily refresh adds each new board. `blend.py --write --if-stale` refits the share once a season has finished.
-
-The player page shows both parts of each price and the share. The season-by-season bars are the forecast's part.
+`blend.py --write --if-stale` refits the share once a season has finished. The player page shows both parts of each price and the share. The season chart shows the forecast's expected points above replacement before the time discount.
 
 ## Replacement
 
@@ -143,7 +151,7 @@ The builder downloads public nflverse weekly player statistics from 1999 on, plu
 - A player with no game since the season before last is left out. So is a player drafted two or more years ago who never played. `active: false` and retired or inactive statuses with no team are left out.
 - Prices use the offensive box score only. Defensive stats, return scores, and opponent defense are not inputs. A two-way player charted on defense still counts on weeks with targets or carries.
 
-No KTC value, completed-trade fitted price, or crowd-vote shift is an input. The expert consensus enters only through the learned mix described under Price. Upstream files and hashes are recorded in snapshot metadata.
+No completed-trade fitted price or crowd-vote shift is an input. Public dynasty boards (KTC included) enter only through the learned mix described under Price. Upstream files and hashes are recorded in snapshot metadata.
 
 ## Known lean
 

@@ -6325,7 +6325,8 @@ body.launch-open .workspace { display:block; }
 .player-price-parts dt { font-size:.8rem; color:var(--muted,#a7b2c1); }
 .player-price-parts dd { margin:4px 0 0; font-size:1.25rem; font-weight:700; font-variant-numeric:tabular-nums; }
 .player-detail-grid h3 { font-size:1rem; margin:20px 0 4px; }
-.player-forecast-row { display:grid; grid-template-columns:40px 1fr 56px; gap:8px; align-items:center; font-variant-numeric:tabular-nums; }
+.player-forecast-row { display:grid; grid-template-columns:92px 1fr 48px; gap:8px; align-items:center; font-variant-numeric:tabular-nums; }
+.player-forecast-row.is-partial .player-forecast-track > span { opacity:.45; }
 .player-forecast-row small { grid-column:2/4; color:var(--muted,#a7b2c1); font-size:.7rem; }
 .player-forecast-track { height:12px; border-radius:6px; background:var(--line,#293441); overflow:hidden; }
 .player-forecast-track > span { display:block; height:100%; min-width:1px; background:var(--accent,#55d7a5); }

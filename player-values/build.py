@@ -1115,10 +1115,10 @@ def validate(bundle):
         if not parts:
             raise RuntimeError(f"Price without its parts: {asset_id}")
         share = parts["forecastShare"]
-        expected = share * parts["forecast"] + (1 - share) * parts["consensus"]
+        expected = share * parts["forecast"] + (1 - share) * parts["market"]
         if abs(expected - bundle["sf"][asset_id]) > 2:
             raise RuntimeError(f"Price {asset_id} is not its learned mix: {bundle['sf'][asset_id]} vs {expected:.0f}")
-    if not bundle.get("meta", {}).get("price", {}).get("consensusBoardDate"):
+    if not bundle.get("meta", {}).get("price", {}).get("marketBoardDate"):
         raise RuntimeError("Price published without the date of the consensus board it used")
     for fmt in forecast.FORMATS:
         _assert_pick_order(bundle[fmt])
@@ -1225,19 +1225,45 @@ def load_consensus(cache, refresh, as_of):
     return day, ranks, consensus.by_sleeper_id(ranks, ids)
 
 
-def price_players(projected, ranks, mix):
-    """Each player's price: the learned share of his forecast plus the rest from the consensus, one scale."""
+def load_other_boards(cache, refresh, projected, names):
+    """The other Superflex boards, keyed by Sleeper id. A source that cannot be read is skipped, not guessed."""
+    ktc_ids = consensus.load_ktc_ids(cache / "dp_playerids.csv")
+    by_name = {}
+    for aid, row in projected.items():
+        key = consensus._name_key(names.get(aid), row["position"])
+        by_name[key] = None if key in by_name else aid.split(":", 1)[1]
+    by_name = {key: value for key, value in by_name.items() if value}
+    boards = {}
+    readers = (
+        ("ktc", "ktc_rankings.html", consensus.KTC_URL, lambda path: consensus.ktc_board(path, ktc_ids, by_name)),
+        ("fantasycalc", "fantasycalc_values.json", consensus.FANTASYCALC_URL, consensus.fantasycalc_board),
+    )
+    for source, name, url, read in readers:
+        try:
+            values = read(fetch(cache, name, url, refresh=refresh))
+        except Exception as error:  # noqa: BLE001 - a broken source is reported and left out
+            print(f"warning: {source} board not used: {error}", file=sys.stderr)
+            continue
+        if len(values) >= 150:
+            boards[source] = consensus.ranks_from_values(values)
+        else:
+            print(f"warning: {source} board has only {len(values)} players; not used", file=sys.stderr)
+    return boards
+
+
+def price_players(projected, boards, mix):
+    """Each player's price: the learned share of his forecast plus the rest from the market, one scale."""
     values = {aid: row["sf"] for aid, row in projected.items()}
-    listed = {aid: ranks[aid.split(":", 1)[1]] for aid in values if aid.split(":", 1)[1] in ranks}
-    market = consensus.on_forecast_scale(values, listed)
+    keyed = [{f"player:{sid}": rank for sid, rank in board.items() if f"player:{sid}" in values} for board in boards]
+    market = consensus.market_on_forecast_scale(values, keyed)
     output = {}
     for aid, row in projected.items():
         share = float(mix[row["position"]])
         output[aid] = {
             "price": consensus.blend(values[aid], market[aid], share),
             "forecast": values[aid],
-            "consensus": market[aid],
-            "consensusRank": listed.get(aid),
+            "market": market[aid],
+            "marketRank": consensus.market_rank(aid, keyed),
             "forecastShare": share,
         }
     return output
@@ -1338,9 +1364,8 @@ def build(cache, refresh=True, today=None):
             },
             "validation": validation_summary(),
             "sourceManifest": manifest(inputs["sourcePaths"]),
-            "status": "learned blend: football forecast and expert consensus",
+            "status": "learned blend: football forecast and Superflex dynasty market",
             "notInputs": [
-                "KTC values",
                 "Sleeper trade-fitted prices",
                 "crowd-vote price shifts",
                 "league-specific prices",
@@ -1360,27 +1385,34 @@ def build(cache, refresh=True, today=None):
     }
 
     board_day, board_ranks, ranks = load_consensus(cache, refresh, as_of)
-    priced = price_players(projected, ranks, mix_report["forecastShare"])
+    others = load_other_boards(cache, refresh, projected, names)
+    priced = price_players(projected, [ranks] + list(others.values()), mix_report["forecastShare"])
     for aid, row in priced.items():
         bundle["sf"][aid] = max(0, round(row["price"] * scale))
         player_meta[aid]["price"] = {
             "forecast": max(0, round(row["forecast"] * scale)),
-            "consensus": max(0, round(row["consensus"] * scale)),
-            "consensusRank": None if row["consensusRank"] is None else round(row["consensusRank"], 2),
+            "market": max(0, round(row["market"] * scale)),
+            "marketRank": None if row["marketRank"] is None else round(row["marketRank"], 1),
             "forecastShare": row["forecastShare"],
         }
     holdout = mix_report["holdout"]["mean"]
+    # Served with the site: no source names here (owner rule). They live in player-values/.
     bundle["meta"]["price"] = {
-        "method": "learned blend of the football forecast and the expert consensus, by position",
+        "method": "learned blend of the football forecast and the Superflex dynasty market, by position",
         "forecastShare": mix_report["forecastShare"],
-        "consensusSource": consensus.SOURCE,
-        "consensusBoardDate": board_day,
+        "marketSources": 1 + len(others),
+        "marketBoardDate": board_day,
         "learnedThroughSeason": mix_report["dataThroughSeason"],
-        "holdoutRankCorrelation": holdout["rankCorrelation"],
-        "holdoutErrorShare": holdout["errorShare"],
+        "holdoutRankCorrelation": {
+            "forecast": holdout["rankCorrelation"]["forecast"],
+            "market": holdout["rankCorrelation"]["consensus"],
+            "blend": holdout["rankCorrelation"]["blend"],
+        },
         "picks": "future picks are priced by the football forecast alone",
     }
     archived = consensus.archive_board(board_day, board_ranks)
+    for source, board in others.items():
+        consensus.archive_market_board(source, as_of.isoformat(), board)
 
     slot_values, classes = rookie_slot_values(world, inputs["meta"], current_season)
     picks = pick_values(slot_values, as_of, kickoff)
@@ -1399,7 +1431,8 @@ def build(cache, refresh=True, today=None):
         "displayScale": scale,
         "pricingDate": as_of.isoformat(),
         "validation": bundle["meta"]["validation"].get("status"),
-        "consensusBoard": board_day,
+        "marketBoard": board_day,
+        "otherMarketBoards": sorted(others),
         "consensusArchived": archived,
         "forecastShare": mix_report["forecastShare"],
     }, indent=2))
