@@ -235,28 +235,18 @@ export function evenUpCopy(choice, side, { afterLine = "" } = {}) {
   return `${closest} ${why}`;
 }
 
-// "Even it up": the closest pick, always, plus a starter-level player when he
-// alone makes it fair. options: [{ kind: "pick" | "player", choice }], scored
-// with the stud credit. afterLines: the verdict after each option.
+// "Even it up": "Team 2 adds Jaxon Smith-Njigba (14,524) → Even or 2027 Early
+// 1st (10,002) → Lopsided". The pick is always listed; options that make it
+// fair come first. afterLines: the verdict line after each option.
 export function evenUpOptionsCopy(options, side, { afterLines = [] } = {}) {
   const list = (options || []).filter((option) => option?.choice?.name);
   if (!list.length) return "";
   const who = side === "Give" || side === "Get" ? `The ${side} side` : String(side || "They");
   const verb = who === "You" || who === "They" ? "add" : "adds";
-  const label = (option) => `${option.kind === "pick" ? "a " : ""}${option.choice.name} (${formatNumber(option.choice.value)})`;
-  const after = (option) => afterLines[list.indexOf(option)] || "";
-  const pick = list.find((option) => option.kind === "pick");
-  const player = list.find((option) => option.kind === "player");
-  if (pick?.choice.closes) {
-    const shown = player ? [pick, player] : [pick];
-    const same = shown.every((option) => after(option) && after(option) === after(pick));
-    return `${who} ${verb} ${shown.map(label).join(" or ")}.${same ? ` After that: ${after(pick)}.` : ""}`;
-  }
-  const mid = /^(?:You|They|The) /.test(`${who} `) ? who.charAt(0).toLowerCase() + who.slice(1) : who;
-  const tierAfter = (option) => after(option).split(" · ")[0];
-  const pickLine = !pick ? "" : player
-    ? `Best pick: ${label(pick)}${tierAfter(pick) ? `, still ${tierAfter(pick)}` : ""}.`
-    : `No single pick closes this gap. Closest: ${mid} ${verb} ${label(pick)}${after(pick) ? `, then ${after(pick)}` : ""}.`;
-  if (player) return `${who} ${verb} ${label(player)}.${after(player) ? ` After that: ${after(player)}.` : ""}${pickLine ? ` ${pickLine}` : ""}`;
-  return pickLine;
+  const ordered = list.slice().sort((x, y) => Number(Boolean(y.choice.closes)) - Number(Boolean(x.choice.closes)));
+  const item = (option) => {
+    const tier = (afterLines[list.indexOf(option)] || "").split(" · ")[0];
+    return `${option.choice.name} (${formatNumber(option.choice.value)})${tier ? ` → ${tier}` : ""}`;
+  };
+  return `${who} ${verb} ${ordered.map(item).join(" or ")}`;
 }

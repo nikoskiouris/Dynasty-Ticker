@@ -6373,7 +6373,8 @@ body.launch-open .workspace { display:block; }
 .calculator-shell .calc-pane .calc-empty-side { margin: 0; padding: 2px 0; font-size: var(--fs-sm); }
 .calc-pane-head .calc-pane-total small { display: none; }
 .calculator-shell .calc-pane, .calculator-shell .calc-selected { min-height: 0; }
-.calc-verdict .trade-fairness { padding-top: 8px; }
+.calc-verdict .trade-fairness { padding-top: 8px; padding-bottom: 0; }
+.calc-verdict .trade-fairness-sentence { margin-bottom: 4px; }
 
 
 /* League History · Recent Trades (ticket 039). Cards stay within the viewport. */
