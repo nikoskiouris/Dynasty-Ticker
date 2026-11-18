@@ -34,7 +34,7 @@ export function buildTradeAdvice({ verdictLine = "", fair = false, evenUp = null
       title: "How to make it fair",
       lines: [evenUp.line],
       action: evenUp.assetId ? { side: evenUp.side, assetId: evenUp.assetId, name: evenUp.name, label: `Add ${evenUp.name} to ${evenUp.receiver}` } : null,
-      note: evenUp.closes ? "" : "No single pick lands it in the fair band. Adding a player may get closer.",
+      note: evenUp.closes ? "" : "No single player or pick lands it in the fair band.",
     });
   } else {
     sections.push({ id: "fair", title: "How to make it fair", lines: [`No single pick gets this near fair. Try adding a player for ${lighter || "the side that gets less"}.`] });

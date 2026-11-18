@@ -234,3 +234,14 @@ export function evenUpCopy(choice, side, { afterLine = "" } = {}) {
     : `It is ${formatNumber(choice.value - choice.gap)} more than the ${formatNumber(choice.gap)} gap.`;
   return `${closest} ${why}`;
 }
+
+// "Even it up": "Team 2 adds Jaxon Smith-Njigba or 2027 Early 1st". The pick is always listed; options that make it fair come first.
+export function evenUpOptionsCopy(options, side) {
+  const list = (options || []).filter((option) => option?.choice?.name);
+  if (!list.length) return "";
+  const who = side === "Give" || side === "Get" ? `The ${side} side` : String(side || "They");
+  const verb = who === "You" || who === "They" ? "add" : "adds";
+  const ordered = list.slice().sort((x, y) => Number(Boolean(y.choice.closes)) - Number(Boolean(x.choice.closes)));
+  const item = (option) => option.choice.name;
+  return `${who} ${verb} ${ordered.map(item).join(" or ")}`;
+}
