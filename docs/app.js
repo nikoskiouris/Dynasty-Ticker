@@ -5223,15 +5223,9 @@ function tradeTalkNext(view) {
   return keep;
 }
 
-function setTradeTalkPlaceholder() {
-  const input = el.calculatorShell?.querySelector("#trade-talk-input");
-  if (input && tradeTalkLog.length) input.placeholder = `Keep going: add my ${nextRookieDraftSeason() + 1} 2nd`;
-}
-
 function patchTradeTalkLog() {
   const log = el.calculatorShell?.querySelector("#talk-log");
   if (log) log.innerHTML = renderTradeTalkLog();
-  setTradeTalkPlaceholder();
 }
 
 function tradeTalkContext(view) {
