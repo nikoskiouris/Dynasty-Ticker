@@ -14,7 +14,7 @@ export const HOME_ROOM = "team";
 export const PAGE_LABELS = {
   home: "Home",
   leagues: "League History",
-  trades: "Trade Calc",
+  trades: "Trade Calculator",
   league: "League hub",
 };
 export const PAGE_HINTS = {
@@ -39,7 +39,7 @@ export const ROOM_LABELS = {
   home: { home: "Home" },
   leagues: { picker: "League History" },
   trades: {
-    calculator: "Trade Calc",
+    calculator: "Trade Calculator",
   },
   league: {
     hub: "League hub", standings: "Standings", trades: "Recent Trades", history: "Historical Data",

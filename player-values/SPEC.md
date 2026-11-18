@@ -22,11 +22,12 @@ Shipped rules:
 - A season is three numbers against the replacement line: points banked, the full-season pace, and the share of games played. Next season is forecast from the last two seasons, age, and, through year three, NFL draft slot. A missed season is zeros. It is not an exit. For the share of last season a player missed, his pace is read from the level he had established in the three seasons before.
 - There is no hand-set bonus for past finishes, draft capital, role security, or youth. The v1 rules that did that were removed: in the backtest they did not improve the order of players, and the forecast they sat on put too much value in the current season and too little in later ones.
 - A better season never forecasts less. An earlier pick is never forecast below a later one.
+- Quarterback forecast seasons are scaled to the historical rolling-backtest level (`positionLevel`); this is in-sample calibration, not out-of-sample validation.
 - A future pick is the rookie it becomes: every drafted QB, RB, WR, and TE of the last 10 classes is forecast like a player, each class is ordered by that value, and the slot averages are discounted for the wait until kickoff. Means, not medians.
-- During the season the weeks left blend this season's pace with the kickoff forecast. Weeks played are spent. A weekly Out tag trims what is left. IR cuts it in half.
+- During the season the weeks left blend this season's pace with the kickoff forecast. A breakout above his kickoff pace carries into next year with a 17-week blend instead of four. For RB, WR, and TE, some games lost this season are restored toward their kickoff expectation before forecasting next year. Weeks played are spent. A weekly Out tag trims what is left. IR cuts it in half.
 - The backtest rebuilds the forecast at every kickoff since 2012 from earlier games only. It measures order and level at one, three, five, and eight seasons against two naive forecasts. It does not test trade-market prices, the discount, the replacement definition, or the pick board against real rookie drafts.
 
-The owner-defined scope is one 12-team Superflex full-PPR dynasty market. No alternate scoring or league-size value maps. No imported KTC values or other dynasty price targets. League settings never reprice a player.
+The owner-defined scope is one 12-team Superflex full-PPR dynasty market. No alternate scoring or league-size value maps. Owner decision, Nov 18, 2026: the price is a learned blend of this football forecast and the Superflex dynasty market: FantasyPros expert consensus, KeepTradeCut Superflex values and FantasyCalc 12-team Superflex PPR values (see `player-values/README.md`, Price). Superflex boards only. The site never names those sources. League settings never reprice a player.
 
 ## 1. What the number means
 
@@ -310,7 +311,7 @@ Instead, assign inputs to specific conditional forecasts. Train separate models 
 | Opportunity recency half-life | 17 played games over the last 34 | Dynasty role. A month does not replace a season |
 | Efficiency recency half-life | 32 played games over the last 48 | Longer ability history than the current role |
 | Team-context recency half-life | 17 team games | One week does not define the offense; coaching changes still need a separate feed |
-| External dynasty-price contribution | 0 | No KTC or imported dynasty prices |
+| External dynasty-price contribution | Learned share by position (`blend.json`) | Superflex market boards, averaged on the forecast's scale |
 | Independent age bonus | 0 | Age already changes future performance and survival |
 | Independent team bonus | 0 | Context already changes opportunities and rates |
 | Independent injury penalty | 0 | Health already changes games, role, and conditional performance |

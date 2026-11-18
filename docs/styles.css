@@ -6320,7 +6320,38 @@ body.launch-open .workspace { display:block; }
 .player-detail-facts > div { display:flex; justify-content:space-between; gap:12px; }
 .player-detail-facts dd { margin:0; font-weight:700; }
 .player-forecast { display:grid; gap:12px; }
-.player-forecast-row { display:grid; grid-template-columns:40px 1fr 56px; gap:8px; align-items:center; font-variant-numeric:tabular-nums; }
+.player-price-parts { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0 8px; }
+.player-price-parts div { border:1px solid var(--line,#293441); border-radius:10px; padding:10px 12px; }
+.player-price-parts dt { font-size:.8rem; color:var(--muted,#a7b2c1); }
+.player-price-parts dd { margin:4px 0 0; font-size:1.25rem; font-weight:700; font-variant-numeric:tabular-nums; }
+.player-detail-grid h3 { font-size:1rem; margin:20px 0 4px; }
+.player-forecast-row { display:grid; grid-template-columns:92px 1fr 48px; gap:8px; align-items:center; font-variant-numeric:tabular-nums; }
+.player-forecast-row.is-partial .player-forecast-track > span { opacity:.45; }
+.forecast-mode { position:relative; }
+.forecast-mode > input { position:absolute; left:0; top:0; width:1px; height:1px; margin:0; opacity:0; pointer-events:none; }
+.forecast-mode > label { display:inline-block; padding:6px 12px; margin:4px 6px 8px 0; border:1px solid var(--line,#293441); border-radius:999px; font-size:.85rem; cursor:pointer; }
+.forecast-mode > input:checked + label { background:var(--ink,#111); color:var(--paper,#fff); border-color:var(--ink,#111); }
+.forecast-mode > input:focus-visible + label { outline:2px solid var(--accent,#55d7a5); outline-offset:2px; }
+.forecast-mode .bar-full, .forecast-mode .pts-full, .forecast-mode .forecast-note-full { display:none; }
+.forecast-mode .forecast-mode-full:checked ~ .player-forecast .bar-full,
+.forecast-mode .forecast-mode-full:checked ~ .player-forecast .pts-full,
+.forecast-mode .forecast-mode-full:checked ~ .forecast-note-full { display:inline; }
+.forecast-mode .forecast-mode-full:checked ~ .player-forecast .bar-full { display:block; }
+.forecast-mode .forecast-mode-full:checked ~ .player-forecast .bar-risk,
+.forecast-mode .forecast-mode-full:checked ~ .player-forecast .pts-risk,
+.forecast-mode .forecast-mode-full:checked ~ .forecast-note-risk { display:none; }
+.forecast-mode .forecast-note-full { display:none; }
+.forecast-mode .forecast-mode-full:checked ~ .forecast-note-full { display:block; }
+.player-forecast-row b { font-weight:inherit; }
+.player-forecast .player-forecast-track { position:relative; overflow:visible; }
+.player-forecast .player-forecast-track > span { border-radius:6px; }
+.forecast-line { position:absolute; top:-3px; bottom:-3px; width:2px; margin-left:-1px; background:var(--ink,#111); border-radius:1px; }
+.forecast-mode .line-full { display:none; }
+.forecast-mode .forecast-mode-full:checked ~ .player-forecast .line-full { display:block; }
+.forecast-mode .forecast-mode-full:checked ~ .player-forecast .line-risk { display:none; }
+.forecast-legend { display:flex; gap:8px; align-items:flex-start; }
+.forecast-legend-mark { flex:0 0 2px; width:2px; height:14px; margin-top:3px; background:var(--ink,#111); }
+.player-forecast-row small strong { font-weight:700; color:var(--ink,inherit); }
 .player-forecast-row small { grid-column:2/4; color:var(--muted,#a7b2c1); font-size:.7rem; }
 .player-forecast-track { height:12px; border-radius:6px; background:var(--line,#293441); overflow:hidden; }
 .player-forecast-track > span { display:block; height:100%; min-width:1px; background:var(--accent,#55d7a5); }
@@ -6346,7 +6377,7 @@ body.launch-open .workspace { display:block; }
 .league-winner { margin-top: 1rem; overflow-wrap: anywhere; text-align: center; }
 .league-hub-header { overflow-wrap: anywhere; }
 @media (max-width: 480px) { .league-hub-grid { grid-template-columns: 1fr; } }
-/* Trade Calc: receiving teams keep the original give/get storage semantics. */
+/* Trade Calculator: receiving teams keep the original give/get storage semantics. */
 .calc-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
 .calc-pane { min-width:0; }
 /* Asset rows use the shared face / name over meta / value / × grid (.calc-pane .selected-token). */
@@ -6416,12 +6447,15 @@ body.launch-open .workspace { display:block; }
 .league-history-h2h { white-space: nowrap; min-width: max-content; }
 .league-history-h2h th:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); }
 .league-history-h2h td { text-align: center; }
-.league-history-h2h td a { display: inline-block; padding: .25rem .3rem; text-decoration: underline; text-underline-offset: .2rem; }
-.league-rivalry-details { display: grid; gap: .5rem; min-width: 0; }
-.league-rivalry-detail { overflow-wrap: anywhere; border-bottom: 1px solid var(--line, #ddd); padding: .5rem 0; scroll-margin-top: 5rem; }
-.league-rivalry-detail summary { cursor: pointer; font-weight: 600; }
-.league-rivalry-detail ul { margin: .5rem 0; padding-left: 1.25rem; }
-.league-rivalry-detail li { margin-bottom: .3rem; }
+
+/* History: most traded players. */
+.league-most-traded-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 1rem 1.5rem; }
+.league-most-traded-lists h3 { margin: 0 0 .25rem; }
+.league-most-traded { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.league-most-traded li { display: flex; align-items: baseline; gap: .75rem; padding: .65rem .8rem; border: 1px solid var(--line, #ccc); border-radius: .6rem; min-width: 0; }
+.league-most-traded-rank { min-width: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.league-most-traded-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.league-most-traded-count { white-space: nowrap; }
 
 
 /* Historical league: expandable manager trophy summaries. */
@@ -6534,6 +6568,7 @@ main details > summary::before {
   right: 0;
   top: min(0px, calc((100% - var(--tap-min)) / 2));
   bottom: min(0px, calc((100% - var(--tap-min)) / 2));
+}
 
 /* Player Rankings: the sticky table header paints above the rows' faces, and
    stops below the fixed ☰ button (12px + 46px) wherever the table runs

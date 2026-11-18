@@ -9,7 +9,7 @@ export const INFO_PHONE_MAX_WIDTH = 700;
 export function valuesWorkText(date = "") {
   const when = String(date || "").trim();
   const updated = when ? ` Updated ${when}.` : "";
-  return `Values are built for 12-team Superflex PPR dynasty from our own football forecast: a player's last two seasons, his age, and early on his draft slot. Not crowd votes. Same number everywhere on the site.${updated}`;
+  return `Values are built for 12-team Superflex PPR dynasty from a learned mix of our own football forecast (a player's last two seasons, his age, and early on his draft slot) and where Superflex dynasty rankings put him. Same number everywhere on the site.${updated}`;
 }
 
 // Plain words for terms a first-time or non-native reader may not know.
@@ -169,7 +169,7 @@ export function bindInfoTips(doc = globalThis.document) {
 }
 
 const PRICE_LEGEND = {
-  model: ["Value", "Same number on Trade Calc, Player Rankings, and My Team."],
+  model: ["Value", "Same number on Trade Calculator, Player Rankings, and My Team."],
   package: ["Stars", "One great player is worth more than several average players that add up to the same total. This changes the trade verdict. Player prices stay the same."],
 };
 

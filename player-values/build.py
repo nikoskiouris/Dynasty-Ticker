@@ -28,8 +28,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import forecast  # noqa: E402
+import consensus  # noqa: E402
 
 REPO = ROOT.parent
+BLEND = ROOT / "blend.json"
+MAX_CONSENSUS_AGE_DAYS = 21
 CONFIG = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
 OUTPUT = REPO / "docs" / "data" / "player_values.json"
 SLIM_PLAYERS_OUTPUT = REPO / "docs" / "data" / "nfl_players_slim.json"
@@ -768,6 +771,12 @@ def value_player(world, pid, position, age, exp, pick, elapsed, as_of, injury=1.
         total, rows, detail = forecast.value_player(
             model, age, exp, pick, last, prior, observed, season, elapsed, as_of, CONFIG, injury, kickoff, established
         )
+        # Forecast PPR points: points above replacement, plus a replacement's points
+        # per game for the games he is expected to play. An expected value, not a median.
+        for row in rows:
+            row["expectedPoints"] = round(row["expectedAdvantage"] * row["weight"] + line * row["expectedGames"], 1)
+            # Playing every game can never forecast fewer points than the forecast that allows for missed ones.
+            row["healthyPoints"] = round(max(row["expectedPoints"], (row["expectedPace"] / forecast.SEASON_GAMES + line) * row["possibleGames"]), 1)
         output[fmt] = {
             "total": total,
             "forecast": rows,
@@ -1107,6 +1116,16 @@ def validate(bundle):
             value = (replacement.get(fmt) or {}).get(position)
             if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
                 raise RuntimeError(f"Replacement for {fmt} {position} is not a real player: {value}")
+    for asset_id in sf_players:
+        parts = bundle["players"].get(asset_id, {}).get("price")
+        if not parts:
+            raise RuntimeError(f"Price without its parts: {asset_id}")
+        share = parts["forecastShare"]
+        expected = share * parts["forecast"] + (1 - share) * parts["market"]
+        if abs(expected - bundle["sf"][asset_id]) > 2:
+            raise RuntimeError(f"Price {asset_id} is not its learned mix: {bundle['sf'][asset_id]} vs {expected:.0f}")
+    if not bundle.get("meta", {}).get("price", {}).get("marketBoardDate"):
+        raise RuntimeError("Price published without the date of the consensus board it used")
     for fmt in forecast.FORMATS:
         _assert_pick_order(bundle[fmt])
     for asset_id, label in REQUIRED_ASSETS.items():
@@ -1194,9 +1213,116 @@ def model_summary(world):
     return output
 
 
+def starter_counts():
+    """How many players at each position start in a week of the 12-team Superflex reference league."""
+    lineup = CONFIG["referenceLineup"]
+    teams = int(CONFIG["referenceTeams"])
+    return {
+        "QB": teams * (int(lineup["QB"]) + int(lineup.get("SUPER_FLEX", 0))),
+        "RB": teams * int(lineup["RB"]),
+        "WR": teams * int(lineup["WR"]),
+        "TE": teams * int(lineup["TE"]),
+    }
+
+
+def add_forecast_comparisons(player_meta):
+    """Give every forecast season what it takes to compare players, on the player page.
+
+    rank / healthyRank  his rank at his position for that season's forecast points
+    line / healthyLine  that season's points for the last weekly starter at his position
+    scale               one bar length per position: the most any full season at that position is forecast
+    Both views (with injury risk, plays every game) are ranked on their own numbers.
+    """
+    starters = starter_counts()
+    seasons = defaultdict(list)
+    for aid, info in player_meta.items():
+        for index, row in enumerate(info["forecast"]["sf"]):
+            seasons[(info["position"], index)].append(row)
+    scale = defaultdict(float)
+    for (position, _index), rows in seasons.items():
+        for key, rank_key, line_key in (("expectedPoints", "rank", "line"), ("healthyPoints", "healthyRank", "healthyLine")):
+            ordered = sorted(rows, key=lambda row: -row[key])
+            for rank, row in enumerate(ordered, 1):
+                row[rank_key] = rank
+            cut = ordered[min(starters[position], len(ordered)) - 1][key] if ordered else 0.0
+            for row in rows:
+                row[line_key] = round(cut, 1)
+        for row in rows:
+            if row["weight"] >= 1 and row["possibleGames"] >= SEASON_FULL_GAMES:
+                scale[position] = max(scale[position], row["healthyPoints"], row["expectedPoints"])
+    for info in player_meta.values():
+        info["forecastScale"] = {"position": info["position"], "max": round(scale[info["position"]], 1), "starters": starters[info["position"]]}
+
+
+SEASON_FULL_GAMES = forecast.SEASON_GAMES
+
+
+def load_blend():
+    """The learned mix (blend.py --write). No price is published without one for this model."""
+    report = json.loads(BLEND.read_text(encoding="utf-8"))
+    if report.get("modelVersion") != CONFIG["modelVersion"]:
+        raise RuntimeError(f"blend.json is for {report.get('modelVersion')}, not {CONFIG['modelVersion']}. Run player-values/blend.py --write.")
+    return report
+
+
+def load_consensus(cache, refresh, as_of):
+    """Today's expert board keyed by Sleeper id. A board more than three weeks old stops the build."""
+    ids = consensus.load_ids(fetch(cache, "dp_playerids.csv", consensus.IDS_URL, refresh=refresh))
+    day, ranks = consensus.latest_board(fetch(cache, "dp_fpecr_latest.csv", consensus.LATEST_URL, refresh=refresh))
+    age = (as_of - date.fromisoformat(day)).days
+    if age > MAX_CONSENSUS_AGE_DAYS:
+        raise RuntimeError(f"The expert consensus board is {age} days old ({day}). Not pricing on it.")
+    return day, ranks, consensus.by_sleeper_id(ranks, ids)
+
+
+def load_other_boards(cache, refresh, projected, names):
+    """The other Superflex boards, keyed by Sleeper id. A source that cannot be read is skipped, not guessed."""
+    ktc_ids = consensus.load_ktc_ids(cache / "dp_playerids.csv")
+    by_name = {}
+    for aid, row in projected.items():
+        key = consensus._name_key(names.get(aid), row["position"])
+        by_name[key] = None if key in by_name else aid.split(":", 1)[1]
+    by_name = {key: value for key, value in by_name.items() if value}
+    boards = {}
+    readers = (
+        ("ktc", "ktc_rankings.html", consensus.KTC_URL, lambda path: consensus.ktc_board(path, ktc_ids, by_name)),
+        ("fantasycalc", "fantasycalc_values.json", consensus.FANTASYCALC_URL, consensus.fantasycalc_board),
+    )
+    for source, name, url, read in readers:
+        try:
+            values = read(fetch(cache, name, url, refresh=refresh))
+        except Exception as error:  # noqa: BLE001 - a broken source is reported and left out
+            print(f"warning: {source} board not used: {error}", file=sys.stderr)
+            continue
+        if len(values) >= 150:
+            boards[source] = consensus.ranks_from_values(values)
+        else:
+            print(f"warning: {source} board has only {len(values)} players; not used", file=sys.stderr)
+    return boards
+
+
+def price_players(projected, boards, mix):
+    """Each player's price: the learned share of his forecast plus the rest from the market, one scale."""
+    values = {aid: row["sf"] for aid, row in projected.items()}
+    keyed = [{f"player:{sid}": rank for sid, rank in board.items() if f"player:{sid}" in values} for board in boards]
+    market = consensus.market_on_forecast_scale(values, keyed)
+    output = {}
+    for aid, row in projected.items():
+        share = float(mix[row["position"]])
+        output[aid] = {
+            "price": consensus.blend(values[aid], market[aid], share),
+            "forecast": values[aid],
+            "market": market[aid],
+            "marketRank": consensus.market_rank(aid, keyed),
+            "forecastShare": share,
+        }
+    return output
+
+
 def build(cache, refresh=True, today=None):
     today = today or datetime.now(timezone.utc).date()
     inputs = load_inputs(cache, refresh=refresh, today=today)
+    mix_report = load_blend()
     current_season = inputs["currentSeason"]
     current_week = inputs["currentWeek"]
     rows = summaries(inputs["meta"], inputs["weekly"])
@@ -1288,9 +1414,8 @@ def build(cache, refresh=True, today=None):
             },
             "validation": validation_summary(),
             "sourceManifest": manifest(inputs["sourcePaths"]),
-            "status": "provisional football forecast",
+            "status": "learned blend: football forecast and Superflex dynasty market",
             "notInputs": [
-                "KTC values",
                 "Sleeper trade-fitted prices",
                 "crowd-vote price shifts",
                 "league-specific prices",
@@ -1309,9 +1434,35 @@ def build(cache, refresh=True, today=None):
         },
     }
 
-    for aid, row in projected.items():
-        sf_value = max(0, round(row["sf"] * scale))
-        bundle["sf"][aid] = sf_value
+    board_day, board_ranks, ranks = load_consensus(cache, refresh, as_of)
+    others = load_other_boards(cache, refresh, projected, names)
+    priced = price_players(projected, [ranks] + list(others.values()), mix_report["forecastShare"])
+    for aid, row in priced.items():
+        bundle["sf"][aid] = max(0, round(row["price"] * scale))
+        player_meta[aid]["price"] = {
+            "forecast": max(0, round(row["forecast"] * scale)),
+            "market": max(0, round(row["market"] * scale)),
+            "marketRank": None if row["marketRank"] is None else round(row["marketRank"], 1),
+            "forecastShare": row["forecastShare"],
+        }
+    holdout = mix_report["holdout"]["mean"]
+    # Served with the site: no source names here (owner rule). They live in player-values/.
+    bundle["meta"]["price"] = {
+        "method": "learned blend of the football forecast and the Superflex dynasty market, by position",
+        "forecastShare": mix_report["forecastShare"],
+        "marketSources": 1 + len(others),
+        "marketBoardDate": board_day,
+        "learnedThroughSeason": mix_report["dataThroughSeason"],
+        "holdoutRankCorrelation": {
+            "forecast": holdout["rankCorrelation"]["forecast"],
+            "market": holdout["rankCorrelation"]["consensus"],
+            "blend": holdout["rankCorrelation"]["blend"],
+        },
+        "picks": "future picks are priced by the football forecast alone",
+    }
+    archived = consensus.archive_board(board_day, board_ranks)
+    for source, board in others.items():
+        consensus.archive_market_board(source, as_of.isoformat(), board)
 
     slot_values, classes = rookie_slot_values(world, inputs["meta"], current_season)
     picks = pick_values(slot_values, as_of, kickoff)
@@ -1319,6 +1470,7 @@ def build(cache, refresh=True, today=None):
     bundle["sf"].update(picks["sf"])
     bundle["names"].update(picks["names"])
 
+    add_forecast_comparisons(player_meta)
     validate(bundle)
     atomic_json(OUTPUT, bundle)
     write_slim_players(inputs["sleeper"], teams_by_id=published_player_teams())
@@ -1330,6 +1482,10 @@ def build(cache, refresh=True, today=None):
         "displayScale": scale,
         "pricingDate": as_of.isoformat(),
         "validation": bundle["meta"]["validation"].get("status"),
+        "marketBoard": board_day,
+        "otherMarketBoards": sorted(others),
+        "consensusArchived": archived,
+        "forecastShare": mix_report["forecastShare"],
     }, indent=2))
 
 

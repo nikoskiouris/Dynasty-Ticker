@@ -13,9 +13,9 @@ Dynasty Ticker helps a Sleeper dynasty manager answer three questions: what is t
 
 Open `docs/` locally (`npm run serve`) or [dynastyticker.com](https://dynastyticker.com/).
 
-Home is a tool picker with three tools, and the ☰ menu reaches every page. Trade Calc and Player Rankings work before a league is connected.
+Home is a tool picker with three tools, and the ☰ menu reaches every page. Trade Calculator and Player Rankings work before a league is connected.
 
-1. **Trade Calc** (`/trade?give=…&get=…`) — two columns (Team 1 receives / Team 2 receives) and one trade draft. Type a whole trade in plain words in the talk box ("Gibbs and a 1st for Nabers", "zim8box offers McConkey for my 1st", "undo") or add pieces by search. One verdict on a fairness scale (Even, Close, Unfair, Lopsided), the reason under **Why?**, and, with a league, who owns each piece and Team impact. Connecting Sleeper keeps the trade. **Share trade** makes a `/t/<code>` link with its own preview card.
+1. **Trade Calculator** (`/trade?give=…&get=…`) — two columns (Team 1 receives / Team 2 receives) and one trade draft. Type a whole trade in plain words in the talk box ("Gibbs and a 1st for Nabers", "zim8box offers McConkey for my 1st", "undo") or add pieces by search. One verdict on a fairness scale (Even, Close, Unfair, Lopsided), the reason under **Why?**, and, with a league, who owns each piece and Team impact. Connecting Sleeper keeps the trade. **Share trade** makes a `/t/<code>` link with its own preview card.
 2. **Player Rankings** (`/players`) — every priced player and pick, sortable, with search (nicknames like JSN work). Player pages (`/player/<sleeper id>`) show the price, the season-by-season reason for it, its trend, production, and similar values.
 3. **League History** (`/leagues`, then `/l/<league>`) — enter a Sleeper username or league ID. The league hub links to **Standings** (luck, playoff odds), **My Team** (position ranks, best lineup, bench, picks, superlatives), **Recent Trades** (graded on today's values) and **Historical Data** (champions, all-time standings, records, head-to-head, trends, awards).
 
@@ -32,7 +32,7 @@ There is one player-value system: `player-values/`.
 - Rookies and future picks use the same ruler. A pick is priced as the rookie it becomes.
 - All players and picks use that single reference league. Connected league settings never select another price map.
 - No imported external dynasty rankings, fitted trade-market prices, TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices, or hand-set bonuses for youth, draft capital, or past finishes feed the published player price.
-- Trade Calc, Player Rankings, player pages, League History and the share cards all read `docs/data/player_values.json`.
+- Trade Calculator, Player Rankings, player pages, League History and the share cards all read `docs/data/player_values.json`.
 - League trade history is useful context, but it does not create a second player price.
 - Package consolidation credit can still affect a trade verdict without changing any player's listed price.
 

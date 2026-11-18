@@ -3,7 +3,7 @@ import { getGlobalMaxPlayerValue, resolvePickAssetValue } from "./values.js";
 import { percentMore, tierForMore } from "./verdict-copy.js";
 
 // Ticket 038. All prices are from the one 12-team Superflex PPR board.
-// Grade table, on the SAME credited totals and % more as Trade Calc:
+// Grade table, on the SAME credited totals and % more as Trade Calculator:
 //   Even (<=5%): B/B; Close (<=14%): B+/B-; Unfair (<=28%): A-/C;
 //   Lopsided (<=60%): A/D; Lopsided (>60%): A+/F.
 // These grades describe today's asset value, not a prediction that a trade

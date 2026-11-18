@@ -58,6 +58,10 @@ Three safeguards sit on the fitted line. None of them adds value by hand.
 - The line can bend at three high pace levels, because the best seasons regress the hardest.
 - A last step moves each forecast level to what players at that level actually averaged. It narrows a tendency to run high on the very best players. It does not remove it: the report shows the top dozen still about 10% high.
 
+### Quarterback level
+
+Quarterbacks are the one position whose forecast falls away too fast. In the rolling backtest (every kickoff 2012-2024 with an outcome for that season) they went on to score 1.00, 0.99, 0.99, 1.04, 1.09, 1.23, 1.41, and 1.57 times their forecast in seasons one to eight ahead: right for three seasons, then low. Seasons seven and eight rest on fewer kickoffs (2012-2018 and 2012-2017). Receivers and tight ends ran slightly high instead, and running backs had no steady miss. `positionLevel.QB` in `config.json` multiplies each quarterback forecast season by that measured ratio (seasons past the list use its last entry). Because the ratios come from the same backtest that scores the model, the quarterback level in the saved report is calibrated by construction, not tested out of sample. Rookie picks are not scaled.
+
 ### Chained forward
 
 The forecast for next season becomes the input for the season after, for eight seasons. Each step ages the player one year. Because each step is an expected value that is linear in his own numbers, chaining keeps it an expected value. There is no "survival" switch that turns a player off for good.
@@ -72,6 +76,10 @@ An earlier pick is never forecast below a later one. A pick earlier than any the
 
 Before kickoff the current season is the forecast. After week 17 it is what happened. In between, the weeks left are a blend: this season's pace counts `weeks / (weeks + 4)` against the kickoff forecast. The backtest replays week 10 of every season to check that the blend beats ignoring this season and beats trusting it alone.
 
+What carries into next season's forecast is more cautious about a hot start. When a player is running above his kickoff forecast, the season handed to next year's forecast blends his pace with a full 17 weeks of the kickoff forecast (`carryForwardShrinkWeeks`), not 4. Replayed at week 10, players running 100+ points of pace above their kickoff forecast went on to score 89%, 80% and 88% of forecast over the next three seasons when the hot half was carried forward at face value, and 98%, 90% and 100% with this. Players running below their kickoff forecast did not show the same miss, so they keep the 4-week blend. Next-season rank correlation is unchanged (0.679, 0.678) and next-season realized over forecast moved from 0.93 to 0.96. This is why a half-season breakout (Matthew Golden in 2026) no longer prices like a proven top-10 player.
+
+Games lost this season count for less in next year's forecast. When a running back, receiver, or tight end is on track to play fewer games than his kickoff forecast expected (an injury, IR), the games share carried into next year moves half of the way back to the kickoff forecast's (`carryForwardGamesFloor`), and those games come back at his kickoff pace. Replayed at week 10, players with four or fewer games and a kickoff pace forecast of 170 or more went on to score 1.40, 1.52, and 1.24 times their forecast over the next three seasons without this, and 1.12, 1.13, and 0.96 with it. Next-season rank correlation is unchanged (0.681, 0.679). Moving all the way back over-corrected (0.93, 0.88, 0.74) and cost rank correlation, so it is half. Quarterbacks are left out: a quarterback short of games is as often a backup or a rookie not yet starting, and that case was not tested.
+
 Weeks already played are spent, so a price eases down through the season. A ninth season fills in behind, so the forecast always covers eight seasons of games.
 
 A weekly Out, Doubtful, or Questionable tag trims the weeks left. IR cuts them in half. Those multipliers are set by hand and are not tested.
@@ -79,6 +87,32 @@ A weekly Out, Doubtful, or Questionable tag trims the weeks left. IR cuts them i
 ### Time
 
 Each future season is discounted by how far away its kickoff is on the pricing date. That date is the Tuesday of the current week, so prices move when games or the week change, not every midnight. Nothing jumps when the season turns over: the day after week 17 and the first day of the next league year price the same future the same way. `backtest.py` and the snapshot check it by construction: a rookie at kickoff and his pick use the same function.
+
+## Price: forecast and market
+
+Owner decision, Nov 18, 2026. The football forecast is one input, not the whole price. The published price mixes it with the Superflex dynasty market:
+
+| Source | Board | History |
+|---|---|---|
+| FantasyPros expert consensus, via DynastyProcess (`db_fpecr_latest.csv`, type `dsf`) | Dynasty Superflex ranks | Every weekly board since Oct 2020 (`consensus_boards.csv.gz`) |
+| KeepTradeCut (`keeptradecut.com/dynasty-rankings`, `superflexValues`) | Superflex crowd values | Archived from Nov 2026 (`market_boards.csv.gz`) |
+| FantasyCalc (`numQbs=2&numTeams=12&ppr=1`) | 12-team Superflex PPR trade values | Archived from Nov 2026 (`market_boards.csv.gz`) |
+
+One-QB boards are never read. **The site never names a source** (owner rule): served files say "market".
+
+```
+price = share(position) * forecast + (1 - share(position)) * market
+market = average over the sources that list him of (that source's order, on the forecast's scale)
+```
+
+- **One scale.** A source is a ranking. `consensus.py` sorts the forecast's values for everyone priced that day and hands them out in that source's order: its No. 1 gets the largest forecast value. Players a source does not list keep the forecast's order below everyone it does. Sources are then averaged with equal weight.
+- **A learned share.** `blend.py` replays every past kickoff and week-10 date with an archived FantasyPros board (since October 2020), rebuilds the forecast from earlier games only, and fits the forecast's share by position to the points above replacement players went on to score over the next three seasons. Positions are pulled toward one shared share. Nothing is hand-set.
+- **Checked on unseen seasons.** Each season is scored with a share learned only from outcomes finished before it began. The result is in `blend.json` under `holdout` and in the snapshot under `meta.price`.
+- **What is not tested yet.** KTC and FantasyCalc have no archive before Nov 2026, so their equal weight inside the market is a default, not a learned value, and the share was learned against FantasyPros alone. Their daily boards are archived so that, once outcomes exist, each source can be scored the same way.
+- **Why.** At the same dates, the forecast and the FantasyPros consensus were about equally good at ordering players, and each was wrong in its own places: the forecast trusted hot starts and marked down injured players too much; the consensus overrated young quarterbacks and cold starts. The mix beat both.
+- **Coverage.** Future picks are priced by the forecast alone. The share is learned on three-season outcomes and applied to the eight-season price. A FantasyPros board older than three weeks stops the build; a KTC or FantasyCalc board that cannot be read is left out that day and the build says so.
+
+`blend.py --write --if-stale` refits the share once a season has finished. The player page shows both parts of each price and the share. The season chart shows the forecast's expected points above replacement before the time discount.
 
 ## Replacement
 
@@ -125,7 +159,7 @@ The builder downloads public nflverse weekly player statistics from 1999 on, plu
 - A player with no game since the season before last is left out. So is a player drafted two or more years ago who never played. `active: false` and retired or inactive statuses with no team are left out.
 - Prices use the offensive box score only. Defensive stats, return scores, and opponent defense are not inputs. A two-way player charted on defense still counts on weeks with targets or carries.
 
-No KTC value, completed-trade fitted price, crowd-vote shift, or other fantasy-market ranking is an input. Upstream files and hashes are recorded in snapshot metadata.
+No completed-trade fitted price or crowd-vote shift is an input. Public dynasty boards (KTC included) enter only through the learned mix described under Price. Upstream files and hashes are recorded in snapshot metadata.
 
 ## Known lean
 
@@ -197,7 +231,7 @@ The filename is the UTC stamp `YYYYMMDDHHmm` from `asOf`. `sf` is the full price
 ```json
 {
   "schemaVersion": 1,
-  "modelVersion": "football-forecast-v2",
+  "modelVersion": "forecast-consensus-blend-v1",
   "asOf": "...",
   "generatedAt": "...",
   "sf": {"player:...": 0, "pick:...": 0},

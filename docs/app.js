@@ -414,7 +414,7 @@ let draftReplaced = readReplacedDraft();
 const PLAYER_HEADING_SELECTOR = "#player-detail-name, .ranks-card h2, .player-week-sheet h2";
 let playersBoardOpen = false;
 let playerGameStatusPromise = null;
-// Set for one draft write: open Trade Calc as a new history entry.
+// Set for one draft write: open Trade Calculator as a new history entry.
 let draftPushNext = false;
 // One prices load for the calculator alone (see ensureCalcPrices).
 let calcPricesPromise = null;
@@ -669,7 +669,7 @@ mountSiteMenu({
     requestAnimationFrame(() => focusClickedRoute());
   },
 });
-// In-page links (#league-rivalry-3 from the head-to-head grid): scroll to the
+// In-page links (#some-id): scroll to the
 // target and open it when it is a <details>, without a history entry.
 document.addEventListener("click", (event) => {
   const link = event.target.closest?.('a[href^="#"]');
@@ -3933,7 +3933,7 @@ function rosterHasNoPlayers(roster) {
 
 function emptyRosterLine() {
   return state.league?.status === "pre_draft"
-    ? "No players yet: this league hasn't drafted. Nothing to score until it does. Trade Calc still works."
+    ? "No players yet: this league hasn't drafted. Nothing to score until it does. Trade Calculator still works."
     : "No players on this roster, so there is nothing to score.";
 }
 
@@ -4821,7 +4821,7 @@ function setDraft(next, { keepNotice = false } = {}) {
   // The first edit of a received /t trade gets its own history entry, so Back
   // returns to the trade that was shared instead of leaving the site.
   const leavingShared = Boolean(activeSharedTrade(state.valueCalc)) && !activeSharedTrade(next);
-  // An add from a player page or the rankings opens Trade Calc as a new place
+  // An add from a player page or the rankings opens Trade Calculator as a new place
   // (rank-calc already saved the page it came from).
   const pushNow = leavingShared || draftPushNext;
   draftPushNext = false;
@@ -5691,7 +5691,7 @@ function renderBadShareNotice() {
     <div class="share-broken" role="alert">
       <h3>This trade link is broken or expired</h3>
       <p>Part of the link may be missing. Ask for a new link, or check the trade yourself.</p>
-      <a class="ghost-btn" href="/trade">Open Trade Calc</a>
+      <a class="ghost-btn" href="/trade">Open Trade Calculator</a>
     </div>
   `;
 }

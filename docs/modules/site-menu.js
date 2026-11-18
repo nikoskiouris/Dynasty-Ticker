@@ -20,7 +20,7 @@ export function mountSiteMenu({ navigate, document: doc = document, window: win 
   drawer.setAttribute('role', 'dialog');
   drawer.setAttribute('aria-modal', 'true');
   drawer.setAttribute('aria-label', 'Site menu');
-  drawer.innerHTML = `<div class="site-menu-head"><a href="/">Dynasty Ticker</a><button type="button" aria-label="Close menu">×</button></div><nav aria-label="Tools"><a href="/trade">Trade Calc</a><a href="/players">Player Rankings</a><a href="/leagues" data-menu-leagues>League History</a></nav>`;
+  drawer.innerHTML = `<div class="site-menu-head"><a href="/">Dynasty Ticker</a><button type="button" aria-label="Close menu">×</button></div><nav aria-label="Tools"><a href="/trade">Trade Calculator</a><a href="/players">Player Rankings</a><a href="/leagues" data-menu-leagues>League History</a></nav>`;
   doc.body.append(button, backdrop, drawer);
   let open = false;
   let afterClose = null;
