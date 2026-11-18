@@ -12,9 +12,9 @@ export const CONTACT_URL = `${REPO_URL}/issues`;
 export const OG_IMAGE_URL = `${SITE_URL}og-image.jpg`;
 export const STORAGE_NOTICE_KEY = "dynasty_ticker_storage_notice";
 
-export const DEFAULT_TITLE = "Dynasty Ticker — Trade Calc, Player Rankings & League History";
+export const DEFAULT_TITLE = "Dynasty Ticker — Trade Calculator, Player Rankings & League History";
 export const DEFAULT_DESCRIPTION =
-  "Trade Calc, Player Rankings and Sleeper League History. Values optimized for 12-team Superflex PPR dynasty.";
+  "Trade Calculator, Player Rankings and Sleeper League History. Values optimized for 12-team Superflex PPR dynasty.";
 
 export const PAGE_META = {
   league: {

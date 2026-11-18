@@ -5,13 +5,13 @@ export const ROUTE_SITE_NAME = "Dynasty Ticker";
 export const ROUTE_TAB_LABELS = Object.freeze({
   home: "Home",
   leagues: "League History",
-  trades: "Trade Calc",
+  trades: "Trade Calculator",
   league: "League hub",
 });
 export const ROUTE_ROOM_TITLES = Object.freeze({
   home: "Home", picker: "League History", hub: "League hub", standings: "Standings", trades: "Recent Trades", history: "Historical Data",
   team: "My Team",
-  calculator: "Trade Calc",
+  calculator: "Trade Calculator",
 });
 
 const PAGE_ROOTS = new Set(["home", "leagues", "trades", "league"]);

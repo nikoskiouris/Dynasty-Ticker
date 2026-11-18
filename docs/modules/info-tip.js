@@ -169,7 +169,7 @@ export function bindInfoTips(doc = globalThis.document) {
 }
 
 const PRICE_LEGEND = {
-  model: ["Value", "Same number on Trade Calc, Player Rankings, and My Team."],
+  model: ["Value", "Same number on Trade Calculator, Player Rankings, and My Team."],
   package: ["Stars", "One great player is worth more than several average players that add up to the same total. This changes the trade verdict. Player prices stay the same."],
 };
 
