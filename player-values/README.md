@@ -58,6 +58,10 @@ Three safeguards sit on the fitted line. None of them adds value by hand.
 - The line can bend at three high pace levels, because the best seasons regress the hardest.
 - A last step moves each forecast level to what players at that level actually averaged. It narrows a tendency to run high on the very best players. It does not remove it: the report shows the top dozen still about 10% high.
 
+### Quarterback level
+
+Quarterbacks are the one position whose forecast falls away too fast. In the rolling backtest (every kickoff 2012-2024 with an outcome for that season) they went on to score 1.00, 0.99, 0.99, 1.04, 1.09, 1.23, 1.41, and 1.57 times their forecast in seasons one to eight ahead: right for three seasons, then low. Seasons seven and eight rest on fewer kickoffs (2012-2018 and 2012-2017). Receivers and tight ends ran slightly high instead, and running backs had no steady miss. `positionLevel.QB` in `config.json` multiplies each quarterback forecast season by that measured ratio (seasons past the list use its last entry). Because the ratios come from the same backtest that scores the model, the quarterback level in the saved report is calibrated by construction, not tested out of sample. Rookie picks are not scaled.
+
 ### Chained forward
 
 The forecast for next season becomes the input for the season after, for eight seasons. Each step ages the player one year. Because each step is an expected value that is linear in his own numbers, chaining keeps it an expected value. There is no "survival" switch that turns a player off for good.
@@ -71,6 +75,10 @@ An earlier pick is never forecast below a later one. A pick earlier than any the
 ### During the season
 
 Before kickoff the current season is the forecast. After week 17 it is what happened. In between, the weeks left are a blend: this season's pace counts `weeks / (weeks + 4)` against the kickoff forecast. The backtest replays week 10 of every season to check that the blend beats ignoring this season and beats trusting it alone.
+
+What carries into next season's forecast is more cautious about a hot start. When a player is running above his kickoff forecast, the season handed to next year's forecast blends his pace with a full 17 weeks of the kickoff forecast (`carryForwardShrinkWeeks`), not 4. Replayed at week 10, players running 100+ points of pace above their kickoff forecast went on to score 89%, 80% and 88% of forecast over the next three seasons when the hot half was carried forward at face value, and 98%, 90% and 100% with this. Players running below their kickoff forecast did not show the same miss, so they keep the 4-week blend. Next-season rank correlation is unchanged (0.679, 0.678) and next-season realized over forecast moved from 0.93 to 0.96. This is why a half-season breakout (Matthew Golden in 2026) no longer prices like a proven top-10 player.
+
+Games lost this season count for less in next year's forecast. When a running back, receiver, or tight end is on track to play fewer games than his kickoff forecast expected (an injury, IR), the games share carried into next year moves half of the way back to the kickoff forecast's (`carryForwardGamesFloor`), and those games come back at his kickoff pace. Replayed at week 10, players with four or fewer games and a kickoff pace forecast of 170 or more went on to score 1.40, 1.52, and 1.24 times their forecast over the next three seasons without this, and 1.12, 1.13, and 0.96 with it. Next-season rank correlation is unchanged (0.681, 0.679). Moving all the way back over-corrected (0.93, 0.88, 0.74) and cost rank correlation, so it is half. Quarterbacks are left out: a quarterback short of games is as often a backup or a rookie not yet starting, and that case was not tested.
 
 Weeks already played are spent, so a price eases down through the season. A ninth season fills in behind, so the forecast always covers eight seasons of games.
 

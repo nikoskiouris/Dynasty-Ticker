@@ -522,6 +522,7 @@ def fit_models(rows_by_player, meta, rookie_year, replacement_for, origins, conf
             credit=float(settings["missedGamesCredit"]),
         )
         models[group]["origins"] = [min(origins), max(origins)]
+        models[group]["position"] = group[0]
     return models
 
 
@@ -606,7 +607,23 @@ def value_player(model, age, exp, pick, last, prior, observed, season, weeks_ela
     # His expected level when he plays, for the weeks left (the same blend current_season uses).
     in_season = blend_weight(elapsed, shrink)
     rest_pace = (1 - in_season) * preseason[1] + in_season * observed[1]
+    carry = float(config["oneYearModel"].get("carryForwardShrinkWeeks", shrink))
+    if carry != shrink and observed[1] > preseason[1]:
+        # Carry hot starts into next year more cautiously than the weeks still to play.
+        _rest, final = current_season(preseason, observed, elapsed, carry, injury)
+    floor = float(config["oneYearModel"].get("carryForwardGamesFloor", 0.0))
+    final_a, final_q, final_g = final
+    pre_a, pre_q, pre_g = preseason
+    # Injury-lost games: validated for RB, WR, TE, but not for quarterbacks.
+    if floor > 0 and final_g < pre_g and pre_g > 0 and model.get("position") != "QB":
+        back = floor * (pre_g - final_g)
+        final = (
+            final_a + back * max(final_q, pre_q),
+            final_q + back / (final_g + back) * max(0.0, pre_q - final_q),
+            final_g + back,
+        )
     path = project(model, age + 1, exp + 1, pick, final, last, horizon, max(final[1], established * decay))
+    level = list(config.get("positionLevel", {}).get(model.get("position") or "", []))
     forecast = []
     total = 0.0
     for step in range(horizon + 1):
@@ -623,6 +640,11 @@ def value_player(model, age, exp, pick, last, prior, observed, season, weeks_ela
             games = path[step - 1][2] * SEASON_GAMES * weight
             pace = path[step - 1][1]
             possible = SEASON_GAMES * weight
+        if level:
+            # Calibrated on the same rolling backtest; not out-of-sample evidence.
+            multiplier = float(level[min(step, len(level) - 1)])
+            expected *= multiplier
+            pace *= multiplier
         years = years_until(season_start(season + step, kickoff), as_of)
         factor = discount ** years
         discounted = expected * weight * factor

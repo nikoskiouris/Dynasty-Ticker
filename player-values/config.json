@@ -15,6 +15,9 @@
   },
   "referenceBenchSlots": 12,
   "qbRosterCapPerTeam": 3,
+  "positionLevel": {
+    "QB": [1.0, 0.99, 0.99, 1.04, 1.09, 1.23, 1.41, 1.57]
+  },
   "replacementSeasons": 14,
   "qbStartAttempts": 10,
   "oneYearModel": {
@@ -35,6 +38,8 @@
     "establishedDecay": 0.85,
     "missedGamesCredit": 1.0,
     "inSeasonShrinkWeeks": 4,
+    "carryForwardShrinkWeeks": 17,
+    "carryForwardGamesFloor": 0.5,
     "ageKnots": {
       "QB": [
         24,
