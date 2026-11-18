@@ -1043,7 +1043,7 @@ function renderActivePage() {
       const live = model?.currentWeekEntry?.isLive && !savedAt;
       host.innerHTML = `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
         <h2>${escapeHtml(state.leagueName || "League")} standings</h2>
-        <p class="muted small">${state.league?.status === "pre_draft" ? "This league hasn't drafted yet." : `${live ? `Live · Week ${model.currentWeek}` : `Week ${model?.currentWeek || "—"}`}${savedAt ? "" : " · Updates every 2 minutes while this page is visible."}`}</p>
+        <p class="muted small">${state.league?.status === "pre_draft" ? "This league hasn't drafted yet." : `${live ? `Live · Week ${model.currentWeek}` : `Week ${model?.currentWeek || "—"}`}`}</p>
         ${savedAt ? `<p class="league-saved-note" role="status">${escapeHtml(savedLeagueNote(savedAt))}</p>` : ""}
         ${!model && state.seasonLoadError ? `<p role="status">${escapeHtml(state.seasonLoadError)}</p>` : ""}
         ${model ? `${renderStandingsPanel(model, sim)}${renderPlayoffOddsPanel(model, sim)}`
@@ -4365,7 +4365,6 @@ function renderStandingsPanel(model, sim) {
         ` : ""}
       </div>
       <div class="standings-legend muted small">
-        <span>All-play: record against every team each week.</span>
         <span>Luck: real wins minus all-play expected wins. ${infoTipMarkup({ id: "pop-standings-luck", label: "What luck means", text: luckExplainer(model) })}</span>
         ${model.medianGames ? "<span>Includes weekly median games.</span>" : ""}
       </div>
