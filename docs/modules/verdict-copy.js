@@ -31,13 +31,13 @@ const LABEL = Object.freeze({ even: "Even", edge: "Close", favors: "Unfair", lop
 export const TIER_LABELS = LABEL;
 
 // The ⓘ explainer line for the tiers.
-export const TIER_EXPLAINER = `How the verdict reads: one side's total, including the extra for fewer, better pieces, is compared with the other's. Within ${TIER_BANDS.even}% is Even, up to ${TIER_BANDS.edge}% more is Close, up to ${TIER_BANDS.favors}% more is Unfair, and more than ${TIER_BANDS.favors}% is lopsided.`;
+export const TIER_EXPLAINER = `Even: within ${TIER_BANDS.even}%. Close: up to ${TIER_BANDS.edge}%. Unfair: up to ${TIER_BANDS.favors}%. Lopsided: more than that.`;
 
 // Plain words for the extra on the side that has fewer, better pieces.
 // Pending Designer. The numbers stay in the callers.
 export const FEWER_BETTER_LABEL = "Fewer, better pieces";
 export const FEWER_BETTER_ADDEND = "for fewer, better pieces";
-export const PRICE_FACTORS_LINE = "Values are for 12-team Superflex PPR dynasty. Connecting a league never changes a player's price.";
+export const PRICE_FACTORS_LINE = "Connecting a league never changes a player's price.";
 export const UNAVAILABLE_PRICE_LINE = "Unavailable means we do not have a price for that player or pick right now. Dynasty Ticker does not guess one.";
 export const FEWER_BETTER_LINE = "Fewer, better pieces are worth extra. This changes the verdict, not listed prices.";
 

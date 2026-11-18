@@ -118,7 +118,7 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
   return `<div class="league-history-page">
     <p><a href="/l/${leagueId}">← League</a></p>
     <header><h2>${e(name)} All-Time</h2><p class="muted">${e(range)}</p>
-      <p class="muted small">12-team Superflex PPR is the only player-value reference. Game records and titles come from Sleeper.</p>
+      <p class="muted small">Values are 12-team Superflex PPR. Records and titles come from Sleeper.</p>
       ${savedNote ? `<p class="league-saved-note" role="status">${e(savedNote)}</p>` : ""}
       ${caveat ? `<p class="muted small calc-market-caveat">${e(caveat)} Value-based awards use those values.</p>` : ""}
     </header>

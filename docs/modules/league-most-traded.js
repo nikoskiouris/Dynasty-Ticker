@@ -62,7 +62,7 @@ export function renderMostTraded(archive, options = {}) {
   const majorItems = major.map((row, index) => playerItem(row, index,
     `${formatNumber(Math.round(row.value))} · ${countLabel(row.trades, "trade")}`)).join("");
   return `<section class="workspace-panel">${heading}
-    <p class="muted small">From ${countLabel(tradesRead, "completed trade")} across ${countLabel(seasonsRead, "loaded season")}. A player counts once per trade he moved in. Major players are ranked by today's 12-team Superflex PPR value; players without a value are left out.</p>
+    <p class="muted small">From ${countLabel(tradesRead, "completed trade")} across ${countLabel(seasonsRead, "loaded season")}. Major players are ranked by today's value.</p>
     <div class="league-most-traded-lists">
       <div><h3>By times traded</h3><p class="muted small">Ties sort by name.</p>
         <ol class="league-most-traded">${mostItems}</ol></div>

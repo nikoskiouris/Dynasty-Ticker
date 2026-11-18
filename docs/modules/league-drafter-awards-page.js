@@ -22,8 +22,8 @@ export function renderDrafterAwards(archive, { values = {}, valueNames = {} } = 
     </div>
     <details><summary>Draft scoring method</summary>
       <p class="muted small">${e(awards.method)}</p>
-      <p class="muted small">${awards.comparablePicks} pick results had enough nearby published prices; ${awards.missingPrices} had no price; ${awards.tooEarly} were too recent.</p>
-      <p class="muted small">A draft's present-day outcome does not establish what was knowable on draft day.</p>
+      <p class="muted small">${awards.comparablePicks} picks graded; ${awards.missingPrices} had no price; ${awards.tooEarly} too recent.</p>
+      <p class="muted small">Judged on today's values, not draft-day knowledge.</p>
     </details>
   </section>`;
 }

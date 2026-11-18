@@ -4448,8 +4448,8 @@ function renderPlayoffOddsPanel(model, sim) {
   const preseason = !Number.isFinite(model.finalThroughWeek) || model.finalThroughWeek < 1;
   const heading = phase === "bracket" ? "Title odds" : `${model.playoffTeams} playoff spots`;
   const copy = preseason
-    ? `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulated seasons. Each season draws team quality from the posterior so a stacked roster is not a Week 1 lock. Last year's pace and starter value still lean the board.`
-    : `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulated seasons. Scores come from a blend of this year's results, last year's pace, and dynasty starter value, with team quality redrawn each season. 100% only if the playoff field cannot catch them.`;
+    ? `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulated seasons. Odds are simulated, not guaranteed.`
+    : `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulated seasons from this year's results, last year's pace and roster value. 100% means no one can catch them.`;
   return `
     <section class="workspace-panel odds-panel">
       <div class="panel-heading stack">
@@ -6127,7 +6127,7 @@ function evenUpLine(choice, side, names = { Give: "You give", Get: "You get" }) 
 
 function renderDraftMethod(view) {
   const lines = [
-    `Prices are our estimate, scored with a point per catch, ${rankFormatLabel(view.basis.format)}.`,
+    "Prices are our estimate.",
     PRICE_FACTORS_LINE,
   ];
   if ([...view.priced.values()].some((row) => row.estimated)) {
@@ -6135,7 +6135,7 @@ function renderDraftMethod(view) {
   }
   lines.push(FEWER_BETTER_LINE);
   lines.push(TIER_EXPLAINER);
-  lines.push("Team impact is separate from price: it asks whether the move helps your starting lineup.");
+  lines.push("Team impact is separate from price: does the move help your lineup?");
   return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
 }
 

@@ -15,7 +15,7 @@ export const VALUE_TIERS = Object.freeze([
   { id: "deep", label: "Deep stash", min: 1, blurb: "Roster filler" },
 ]);
 
-export const TEN_THOUSAND_NOTE = "Elite players start around 10,000; the best are well above. Values are for 12-team Superflex PPR dynasty.";
+export const TEN_THOUSAND_NOTE = "Elite players start around 10,000; the best are well above.";
 
 export const TREND_WINDOW_DAYS = 30;
 export const STALE_AFTER_DAYS = 7;
