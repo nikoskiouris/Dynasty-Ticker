@@ -46,7 +46,7 @@ function renderChampions(seasons) {
 function renderAllTime(rows) {
   if (!rows.length) return "";
   return `<section class="workspace-panel"><h2>All-time standings</h2>
-    <p class="muted small">By manager across all loaded seasons. Avg finish is regular-season place. Luck is actual wins minus expected wins. Sorted by titles, then win %.</p>
+    <p class="muted small">Luck is actual wins minus expected wins.</p>
     <div class="league-history-scroll" role="region" aria-label="All-time standings table" tabindex="0">
       <table class="league-history-table"><thead><tr>
         <th scope="col">Manager</th><th scope="col">Seasons</th><th scope="col">W-L-T</th><th scope="col">Win %</th>
@@ -94,7 +94,7 @@ function renderTrends(rows) {
   };
   const moves = (row, key) => row.transactionsLoaded ? bar(row, key, whole(row[key])) : "—";
   return `<section class="workspace-panel"><h2>League trends</h2>
-    <p class="muted small">Higher parity means a closer league. Based on the points spread between teams. This season is incomplete.</p>
+    <p class="muted small">Higher parity means a closer league.</p>
     <div class="league-history-scroll" role="region" aria-label="Season statistics table" tabindex="0">
       <table class="league-history-table"><thead><tr><th scope="col">Season</th>
       <th scope="col">Avg weekly score</th><th scope="col">Parity</th><th scope="col">Points spread</th><th scope="col">Trades</th><th scope="col">Picks traded</th><th scope="col">Waiver & free-agent moves</th>
@@ -118,7 +118,6 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
   return `<div class="league-history-page">
     <p><a href="/l/${leagueId}">← League</a></p>
     <header><h2>${e(name)} All-Time</h2><p class="muted">${e(range)}</p>
-      <p class="muted small">Values are 12-team Superflex PPR. Records and titles come from Sleeper.</p>
       ${savedNote ? `<p class="league-saved-note" role="status">${e(savedNote)}</p>` : ""}
       ${caveat ? `<p class="muted small calc-market-caveat">${e(caveat)} Value-based awards use those values.</p>` : ""}
     </header>

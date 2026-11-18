@@ -62,11 +62,11 @@ export function renderMostTraded(archive, options = {}) {
   const majorItems = major.map((row, index) => playerItem(row, index,
     `${formatNumber(Math.round(row.value))} · ${countLabel(row.trades, "trade")}`)).join("");
   return `<section class="workspace-panel">${heading}
-    <p class="muted small">From ${countLabel(tradesRead, "completed trade")} across ${countLabel(seasonsRead, "loaded season")}. Major players are ranked by today's value.</p>
+    <p class="muted small">From ${countLabel(tradesRead, "completed trade")} across ${countLabel(seasonsRead, "loaded season")}.</p>
     <div class="league-most-traded-lists">
-      <div><h3>By times traded</h3><p class="muted small">Ties sort by name.</p>
+      <div><h3>By times traded</h3>
         <ol class="league-most-traded">${mostItems}</ol></div>
-      <div><h3>Major players traded</h3><p class="muted small">Ranked by today's value.</p>
+      <div><h3>Major players traded</h3>
         ${majorItems ? `<ol class="league-most-traded">${majorItems}</ol>` : '<p class="muted">None of the traded players has a current value.</p>'}</div>
     </div></section>`;
 }

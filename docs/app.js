@@ -229,9 +229,6 @@ import {
   EVEN_UP_OFFER_ABOVE,
   oldPctToMore,
   STAR_PREMIUM_KEY,
-  TIER_EXPLAINER,
-  FEWER_BETTER_LINE,
-  PRICE_FACTORS_LINE,
   UNAVAILABLE_PRICE_LINE,
   barLabel,
   fewerBetterOffer,
@@ -4449,7 +4446,7 @@ function renderPlayoffOddsPanel(model, sim) {
   const heading = phase === "bracket" ? "Title odds" : `${model.playoffTeams} playoff spots`;
   const copy = preseason
     ? `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulated seasons. Odds are simulated, not guaranteed.`
-    : `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulated seasons from this year's results, last year's pace and roster value. 100% means no one can catch them.`;
+    : `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulations.`;
   return `
     <section class="workspace-panel odds-panel">
       <div class="panel-heading stack">
@@ -6126,17 +6123,8 @@ function evenUpLine(choice, side, names = { Give: "You give", Get: "You get" }) 
 }
 
 function renderDraftMethod(view) {
-  const lines = [
-    "Prices are our estimate.",
-    PRICE_FACTORS_LINE,
-  ];
-  if ([...view.priced.values()].some((row) => row.estimated)) {
-    lines.push(UNAVAILABLE_PRICE_LINE);
-  }
-  lines.push(FEWER_BETTER_LINE);
-  lines.push(TIER_EXPLAINER);
-  lines.push("Team impact is separate from price: does the move help your lineup?");
-  return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+  // The verdict already shows any extra for fewer, better pieces; only say what the screen cannot.
+  return [...view.priced.values()].some((row) => row.estimated) ? `<p>${escapeHtml(UNAVAILABLE_PRICE_LINE)}</p>` : "";
 }
 
 // trade_checked fires once per distinct give/get pair that reaches a verdict.

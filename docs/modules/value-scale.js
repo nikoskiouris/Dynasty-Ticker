@@ -415,7 +415,6 @@ export function renderValueScaleExplainer() {
   }).join("");
   return `<details class="calc-method value-scale-help">
     <summary>How values work</summary>
-    <p>${escapeHtml(TEN_THOUSAND_NOTE)}</p>
     <ul>${bands}</ul>
   </details>`;
 }

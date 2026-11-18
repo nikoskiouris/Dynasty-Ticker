@@ -15,7 +15,6 @@ export function renderDrafterAwards(archive, { values = {}, valueNames = {} } = 
   const awards = drafterAwards(archive, values);
   return `<section class="workspace-panel">
     <h2>Draft awards · hindsight only</h2>
-    <p class="muted small">Rookie and startup drafts are compared separately, using players' current values. This season's picks are excluded.</p>
     <div class="league-history-awards">
       <div><h3>Highest-value drafter</h3>${leader(awards.best, values, valueNames, "high")}</div>
       <div><h3>Lowest-value drafter</h3>${leader(awards.worst, values, valueNames, "low")}</div>
@@ -23,7 +22,6 @@ export function renderDrafterAwards(archive, { values = {}, valueNames = {} } = 
     <details><summary>Draft scoring method</summary>
       <p class="muted small">${e(awards.method)}</p>
       <p class="muted small">${awards.comparablePicks} picks graded; ${awards.missingPrices} had no price; ${awards.tooEarly} too recent.</p>
-      <p class="muted small">Judged on today's values, not draft-day knowledge.</p>
     </details>
   </section>`;
 }

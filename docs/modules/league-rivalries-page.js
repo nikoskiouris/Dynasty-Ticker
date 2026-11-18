@@ -27,7 +27,6 @@ export function renderRivalries(archive) {
   const lopsided = top.lopsided && (top.lopsided.firstWins >= top.lopsided.secondWins ? top.lopsided.firstName : top.lopsided.secondName);
   return `<section class="workspace-panel">
     <h2>Head-to-head grid</h2>
-    <p class="muted small">Each cell reads wins–losses–ties from the row manager's perspective. Completed games only.</p>
     <div class="league-history-scroll" role="region" tabindex="0" aria-label="All-time head-to-head records">
       <table class="league-history-table league-history-h2h"><thead>
         <tr><th scope="col">Manager</th>${managers.map((row) => `<th scope="col">${e(row.name)}</th>`).join("")}</tr></thead>
