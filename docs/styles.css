@@ -5816,12 +5816,8 @@ button.talk-connect {
   grid-column: 4;
   grid-row: 1 / span 2;
   margin: 0;
-  color: var(--muted);
-}
-@media (hover: hover) and (pointer: fine) {
-  .calc-pane .selected-token .selected-token-remove { opacity: 0; }
-  .calc-pane .selected-token:hover .selected-token-remove,
-  .calc-pane .selected-token:focus-within .selected-token-remove { opacity: 1; }
+  color: var(--ink);
+  font-size: 1.25rem;
 }
 .calc-pane .selected-token::before {
   content: "";
