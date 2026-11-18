@@ -235,22 +235,28 @@ export function evenUpCopy(choice, side, { afterLine = "" } = {}) {
   return `${closest} ${why}`;
 }
 
-// "Even it up" with the closest player and the closest pick. options:
-// [{ kind: "pick" | "player", choice }]. Each choice is scored the same way
-// (stud credit included). An "After that" verdict is named only when every
-// closing option lands on the same one.
+// "Even it up": the closest pick, always, plus a starter-level player when he
+// alone makes it fair. options: [{ kind: "pick" | "player", choice }], scored
+// with the stud credit. afterLines: the verdict after each option.
 export function evenUpOptionsCopy(options, side, { afterLines = [] } = {}) {
   const list = (options || []).filter((option) => option?.choice?.name);
   if (!list.length) return "";
   const who = side === "Give" || side === "Get" ? `The ${side} side` : String(side || "They");
   const verb = who === "You" || who === "They" ? "add" : "adds";
-  const closing = list.filter((option) => option.choice.closes);
-  const shown = closing.length ? closing : list;
   const label = (option) => `${option.kind === "pick" ? "a " : ""}${option.choice.name} (${formatNumber(option.choice.value)})`;
-  const names = shown.map(label).join(" or ");
-  const afters = shown.map((option) => afterLines[list.indexOf(option)] || "");
-  const after = afters.every((line) => line && line === afters[0]) ? afters[0] : "";
-  if (closing.length) return `${who} ${verb} ${names}.${after ? ` After that: ${after}.` : ""}`;
+  const after = (option) => afterLines[list.indexOf(option)] || "";
+  const pick = list.find((option) => option.kind === "pick");
+  const player = list.find((option) => option.kind === "player");
+  if (pick?.choice.closes) {
+    const shown = player ? [pick, player] : [pick];
+    const same = shown.every((option) => after(option) && after(option) === after(pick));
+    return `${who} ${verb} ${shown.map(label).join(" or ")}.${same ? ` After that: ${after(pick)}.` : ""}`;
+  }
   const mid = /^(?:You|They|The) /.test(`${who} `) ? who.charAt(0).toLowerCase() + who.slice(1) : who;
-  return `Nothing single closes this gap. Closest: ${mid} ${verb} ${names}.${after ? ` After that: ${after}.` : ""}`;
+  const tierAfter = (option) => after(option).split(" · ")[0];
+  const pickLine = !pick ? "" : player
+    ? `Best pick: ${label(pick)}${tierAfter(pick) ? `, still ${tierAfter(pick)}` : ""}.`
+    : `No single pick closes this gap. Closest: ${mid} ${verb} ${label(pick)}${after(pick) ? `, then ${after(pick)}` : ""}.`;
+  if (player) return `${who} ${verb} ${label(player)}.${after(player) ? ` After that: ${after(player)}.` : ""}${pickLine ? ` ${pickLine}` : ""}`;
+  return pickLine;
 }

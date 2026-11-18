@@ -6047,6 +6047,8 @@ function findEvenUpPick(view) {
   });
 }
 
+const EVEN_UP_MIN_PLAYER = 3500;
+
 // The closest pick and the closest player that even the trade up. Players are
 // prefiltered to a price band around the gap, then scored like picks.
 function findEvenUpOptions(view) {
@@ -6057,17 +6059,20 @@ function findEvenUpOptions(view) {
   const model = draftVerdictModel(give.map(Number), get.map(Number), { globalMaxValue });
   const need = Math.abs(Number(model.verdict.gap) || 0);
   let player = null;
-  if (need > 0 && give.length && get.length) {
+  // Small gaps are settled with a pick; a player only when the gap is player-sized.
+  if (need >= EVEN_UP_MIN_PLAYER && give.length && get.length) {
     const taken = new Set([...view.draft.left, ...view.draft.right].map((item) => String(item.assetId)));
     const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
     const near = listValueCalcAssets(view.basis.values, names, { kinds: ["player"], limit: 2000 })
-      .filter((row) => !taken.has(String(row.assetId)) && row.value >= need * 0.3 && row.value <= need * 4)
+      // A throw-in never decides a real trade: only starter-level players (3,500+).
+      .filter((row) => !taken.has(String(row.assetId)) && row.value >= EVEN_UP_MIN_PLAYER && row.value >= need * 0.3 && row.value <= need * 4)
       .sort((x, y) => Math.abs(x.value - need) - Math.abs(y.value - need));
     player = evenUpTradePick({ giveValues: give, getValues: get, picks: near, globalMaxValue });
   }
   const options = [];
   if (pick) options.push({ kind: "pick", choice: pick });
-  if (player) options.push({ kind: "player", choice: player });
+  // A player is offered only when he alone makes it fair; the pick is always shown.
+  if (player?.closes) options.push({ kind: "player", choice: player });
   return options.length ? options : null;
 }
 
