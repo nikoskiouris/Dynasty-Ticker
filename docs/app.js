@@ -4231,7 +4231,7 @@ function luckLine(team) {
 }
 
 function luckExplainer(model) {
-  const base = "If you'd played every team every week, you'd have X wins. You actually have Y. Luck = Y − X. Above zero means your schedule helped; below zero means it hurt.";
+  const base = "Luck = actual wins minus the wins you'd have if you played every team every week. Above zero, your schedule helped.";
   const mine = state.meRosterId != null ? model?.teams?.get?.(String(state.meRosterId)) : null;
   if (!mine?.gamesPlayed) return base;
   const expected = Number(mine.expectedWins) || 0;

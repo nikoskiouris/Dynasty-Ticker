@@ -15,7 +15,7 @@ export function renderDrafterAwards(archive, { values = {}, valueNames = {} } = 
   const awards = drafterAwards(archive, values);
   return `<section class="workspace-panel">
     <h2>Draft awards · hindsight only</h2>
-    <p class="muted small">Rookie and startup drafts are compared separately using players' current values. Draft picks from the present season are excluded. The awards use a peer-window heuristic rather than a historical projection.</p>
+    <p class="muted small">Rookie and startup drafts are compared separately, using players' current values. This season's picks are excluded.</p>
     <div class="league-history-awards">
       <div><h3>Highest-value drafter</h3>${leader(awards.best, values, valueNames, "high")}</div>
       <div><h3>Lowest-value drafter</h3>${leader(awards.worst, values, valueNames, "low")}</div>
