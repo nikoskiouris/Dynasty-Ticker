@@ -1213,6 +1213,50 @@ def model_summary(world):
     return output
 
 
+def starter_counts():
+    """How many players at each position start in a week of the 12-team Superflex reference league."""
+    lineup = CONFIG["referenceLineup"]
+    teams = int(CONFIG["referenceTeams"])
+    return {
+        "QB": teams * (int(lineup["QB"]) + int(lineup.get("SUPER_FLEX", 0))),
+        "RB": teams * int(lineup["RB"]),
+        "WR": teams * int(lineup["WR"]),
+        "TE": teams * int(lineup["TE"]),
+    }
+
+
+def add_forecast_comparisons(player_meta):
+    """Give every forecast season what it takes to compare players, on the player page.
+
+    rank / healthyRank  his rank at his position for that season's forecast points
+    line / healthyLine  that season's points for the last weekly starter at his position
+    scale               one bar length per position: the most any full season at that position is forecast
+    Both views (with injury risk, plays every game) are ranked on their own numbers.
+    """
+    starters = starter_counts()
+    seasons = defaultdict(list)
+    for aid, info in player_meta.items():
+        for index, row in enumerate(info["forecast"]["sf"]):
+            seasons[(info["position"], index)].append(row)
+    scale = defaultdict(float)
+    for (position, _index), rows in seasons.items():
+        for key, rank_key, line_key in (("expectedPoints", "rank", "line"), ("healthyPoints", "healthyRank", "healthyLine")):
+            ordered = sorted(rows, key=lambda row: -row[key])
+            for rank, row in enumerate(ordered, 1):
+                row[rank_key] = rank
+            cut = ordered[min(starters[position], len(ordered)) - 1][key] if ordered else 0.0
+            for row in rows:
+                row[line_key] = round(cut, 1)
+        for row in rows:
+            if row["weight"] >= 1 and row["possibleGames"] >= SEASON_FULL_GAMES:
+                scale[position] = max(scale[position], row["healthyPoints"], row["expectedPoints"])
+    for info in player_meta.values():
+        info["forecastScale"] = {"position": info["position"], "max": round(scale[info["position"]], 1), "starters": starters[info["position"]]}
+
+
+SEASON_FULL_GAMES = forecast.SEASON_GAMES
+
+
 def load_blend():
     """The learned mix (blend.py --write). No price is published without one for this model."""
     report = json.loads(BLEND.read_text(encoding="utf-8"))
@@ -1426,6 +1470,7 @@ def build(cache, refresh=True, today=None):
     bundle["sf"].update(picks["sf"])
     bundle["names"].update(picks["names"])
 
+    add_forecast_comparisons(player_meta)
     validate(bundle)
     atomic_json(OUTPUT, bundle)
     write_slim_players(inputs["sleeper"], teams_by_id=published_player_teams())
