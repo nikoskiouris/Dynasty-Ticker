@@ -4695,11 +4695,6 @@ function renderRosterSheet() {
     el.rosterSheetHeading.textContent = roster.manager.displayName;
   }
   const summary = summarizeRosterAssets(roster, values);
-  const startRows = strength.lineup.map((entry) => ({
-    slot: entry.slot,
-    slotLabel: formatRosterSlotLabel(entry.slot),
-    asset: entry.asset,
-  }));
   const benchRows = roster.assets
     .filter((asset) => asset.assetType === "player" && !strength.lineup.some((entry) => entry.asset?.assetId === asset.assetId))
     .sort((a, b) => getAssetValue(b, values) - getAssetValue(a, values));
@@ -4754,14 +4749,7 @@ function renderRosterSheet() {
     </div>
     ${renderValuesFreshness(valuesFreshness())}
     ${state.league && marketCaveat(state.league) ? `<p class="muted small calc-market-caveat">${escapeHtml(marketCaveat(state.league))}</p>` : ""}
-    ${seasonPoints ? `<p class="muted small">Pts: fantasy points this season through week ${seasonPoints.through}, on any team, from Sleeper.</p>` : ""}
     <div class="sheet-grid">
-      <section class="sheet-column">
-        <h3 class="sheet-heading">Best lineup by value</h3>
-        ${startRows.map((entry) => entry.asset
-          ? renderPlayerRow(entry.asset, entry.slotLabel, { slot: entry.slot })
-          : `<div class="sheet-row empty">${sheetSlotMarkup(entry.slot, entry.slotLabel)}<div class="sheet-player"><strong>Open</strong></div></div>`).join("")}
-      </section>
       <section class="sheet-column">
         <h3 class="sheet-heading">Bench</h3>
         ${benchRows.map((asset) => renderPlayerRow(asset, isTradeEligibleAsset(asset) ? "Bench" : formatPlayerPositionLabel(asset))).join("") || `<p class="muted small">No bench players.</p>`}
