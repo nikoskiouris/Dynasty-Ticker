@@ -775,6 +775,8 @@ def value_player(world, pid, position, age, exp, pick, elapsed, as_of, injury=1.
         # per game for the games he is expected to play. An expected value, not a median.
         for row in rows:
             row["expectedPoints"] = round(row["expectedAdvantage"] * row["weight"] + line * row["expectedGames"], 1)
+            # Playing every game can never forecast fewer points than the forecast that allows for missed ones.
+            row["healthyPoints"] = round(max(row["expectedPoints"], (row["expectedPace"] / forecast.SEASON_GAMES + line) * row["possibleGames"]), 1)
         output[fmt] = {
             "total": total,
             "forecast": rows,

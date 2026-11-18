@@ -603,6 +603,9 @@ def value_player(model, age, exp, pick, last, prior, observed, season, weeks_ela
     established = max(established, last[1])
     preseason = predict_next(model, age, exp, pick, last, prior, established)
     rest, final = current_season(preseason, observed, elapsed, shrink, injury)
+    # His expected level when he plays, for the weeks left (the same blend current_season uses).
+    in_season = blend_weight(elapsed, shrink)
+    rest_pace = (1 - in_season) * preseason[1] + in_season * observed[1]
     path = project(model, age + 1, exp + 1, pick, final, last, horizon, max(final[1], established * decay))
     forecast = []
     total = 0.0
@@ -612,10 +615,14 @@ def value_player(model, age, exp, pick, last, prior, observed, season, weeks_ela
             weight = 1.0
             # Games still to play this season: where it should end, less what he has played.
             games = max(0.0, (final[2] - observed[2]) * SEASON_GAMES)
+            pace = rest_pace
+            possible = (FANTASY_WEEKS - elapsed) * SEASON_GAMES / FANTASY_WEEKS
         else:
             expected = path[step - 1][0]
             weight = elapsed / FANTASY_WEEKS if step == horizon else 1.0
             games = path[step - 1][2] * SEASON_GAMES * weight
+            pace = path[step - 1][1]
+            possible = SEASON_GAMES * weight
         years = years_until(season_start(season + step, kickoff), as_of)
         factor = discount ** years
         discounted = expected * weight * factor
@@ -624,6 +631,9 @@ def value_player(model, age, exp, pick, last, prior, observed, season, weeks_ela
             "season": int(season + step),
             "expectedAdvantage": round(expected, 2),
             "expectedGames": round(games, 2),
+            # If he plays every game left in it: his expected level when playing, every game.
+            "expectedPace": round(pace, 2),
+            "possibleGames": round(possible, 2),
             "weight": round(weight, 4),
             "discount": round(factor, 5),
             "discountedAdvantage": round(discounted, 2),
