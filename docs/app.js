@@ -81,6 +81,7 @@ import {
   NFL_PLAYERS_SLIM_PATH,
   playersFromValueSnapshot,
   fetchPriceHistory,
+  fetchPeakValues,
   PRICE_HISTORY_INDEX_PATH,
   getAssetValue as marketAssetValue,
   isEstimatedAsset as marketIsEstimated,
@@ -100,7 +101,6 @@ import {
 import {
   playerValueTrend,
   renderTrendSoon,
-  renderValueScaleExplainer,
   renderValueTierBadge,
   renderValueTrend,
   renderValuesFreshness,
@@ -229,9 +229,6 @@ import {
   EVEN_UP_OFFER_ABOVE,
   oldPctToMore,
   STAR_PREMIUM_KEY,
-  TIER_EXPLAINER,
-  FEWER_BETTER_LINE,
-  PRICE_FACTORS_LINE,
   UNAVAILABLE_PRICE_LINE,
   barLabel,
   fewerBetterOffer,
@@ -1047,7 +1044,7 @@ function renderActivePage() {
       const live = model?.currentWeekEntry?.isLive && !savedAt;
       host.innerHTML = `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
         <h2>${escapeHtml(state.leagueName || "League")} standings</h2>
-        <p class="muted small">${state.league?.status === "pre_draft" ? "This league hasn't drafted yet." : `${live ? `Live · Week ${model.currentWeek}` : `Week ${model?.currentWeek || "—"}`}${savedAt ? "" : " · Updates every 2 minutes while this page is visible."}`}</p>
+        <p class="muted small">${state.league?.status === "pre_draft" ? "This league hasn't drafted yet." : `${live ? `Live · Week ${model.currentWeek}` : `Week ${model?.currentWeek || "—"}`}`}</p>
         ${savedAt ? `<p class="league-saved-note" role="status">${escapeHtml(savedLeagueNote(savedAt))}</p>` : ""}
         ${!model && state.seasonLoadError ? `<p role="status">${escapeHtml(state.seasonLoadError)}</p>` : ""}
         ${model ? `${renderStandingsPanel(model, sim)}${renderPlayoffOddsPanel(model, sim)}`
@@ -1059,6 +1056,10 @@ function renderActivePage() {
   if (page === "league" && room === "trades") { renderLeagueTradePage(); return; }
   if (page === "league" && room === "history") {
     ensureLeagueArchive("all");
+    if (state.valuePeaks === undefined) {
+      state.valuePeaks = null;
+      fetchPeakValues().then((peaks) => { state.valuePeaks = peaks || {}; renderActivePage(); }).catch(() => { state.valuePeaks = {}; });
+    }
     const host = document.querySelector("#league-history-content");
     const archive = leagueArchive.snapshot;
     if (host) host.innerHTML = archiveCovers(archive, "all", state.leagueId)
@@ -1066,6 +1067,7 @@ function renderActivePage() {
           valueNames: state.valueBundles?.names || state.valueNameMap || {},
           values: state.valueBundles?.sf?.values || state.values || {},
           players: state.players || {},
+          peaks: state.valuePeaks || null,
           showLineup: showLineupAwards,
           savedNote: savedLeagueNote(),
           caveat: marketCaveat(state.league),
@@ -4231,7 +4233,7 @@ function luckLine(team) {
 }
 
 function luckExplainer(model) {
-  const base = "If you'd played every team every week, you'd have X wins. You actually have Y. Luck = Y − X. Above zero means your schedule helped; below zero means it hurt.";
+  const base = "Luck = actual wins minus the wins you'd have if you played every team every week. Above zero, your schedule helped.";
   const mine = state.meRosterId != null ? model?.teams?.get?.(String(state.meRosterId)) : null;
   if (!mine?.gamesPlayed) return base;
   const expected = Number(mine.expectedWins) || 0;
@@ -4369,7 +4371,6 @@ function renderStandingsPanel(model, sim) {
         ` : ""}
       </div>
       <div class="standings-legend muted small">
-        <span>All-play: record against every team each week.</span>
         <span>Luck: real wins minus all-play expected wins. ${infoTipMarkup({ id: "pop-standings-luck", label: "What luck means", text: luckExplainer(model) })}</span>
         ${model.medianGames ? "<span>Includes weekly median games.</span>" : ""}
       </div>
@@ -4448,8 +4449,8 @@ function renderPlayoffOddsPanel(model, sim) {
   const preseason = !Number.isFinite(model.finalThroughWeek) || model.finalThroughWeek < 1;
   const heading = phase === "bracket" ? "Title odds" : `${model.playoffTeams} playoff spots`;
   const copy = preseason
-    ? `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulated seasons. Each season draws team quality from the posterior so a stacked roster is not a Week 1 lock. Last year's pace and starter value still lean the board.`
-    : `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulated seasons. Scores come from a blend of this year's results, last year's pace, and dynasty starter value, with team quality redrawn each season. 100% only if the playoff field cannot catch them.`;
+    ? `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulated seasons. Odds are simulated, not guaranteed.`
+    : `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulations.`;
   return `
     <section class="workspace-panel odds-panel">
       <div class="panel-heading stack">
@@ -4699,11 +4700,6 @@ function renderRosterSheet() {
     el.rosterSheetHeading.textContent = roster.manager.displayName;
   }
   const summary = summarizeRosterAssets(roster, values);
-  const startRows = strength.lineup.map((entry) => ({
-    slot: entry.slot,
-    slotLabel: formatRosterSlotLabel(entry.slot),
-    asset: entry.asset,
-  }));
   const benchRows = roster.assets
     .filter((asset) => asset.assetType === "player" && !strength.lineup.some((entry) => entry.asset?.assetId === asset.assetId))
     .sort((a, b) => getAssetValue(b, values) - getAssetValue(a, values));
@@ -4758,15 +4754,7 @@ function renderRosterSheet() {
     </div>
     ${renderValuesFreshness(valuesFreshness())}
     ${state.league && marketCaveat(state.league) ? `<p class="muted small calc-market-caveat">${escapeHtml(marketCaveat(state.league))}</p>` : ""}
-    ${seasonPoints ? `<p class="muted small">Pts: fantasy points this season through week ${seasonPoints.through}, on any team, from Sleeper.</p>` : ""}
-    ${renderValueScaleExplainer()}
     <div class="sheet-grid">
-      <section class="sheet-column">
-        <h3 class="sheet-heading">Best lineup by value</h3>
-        ${startRows.map((entry) => entry.asset
-          ? renderPlayerRow(entry.asset, entry.slotLabel, { slot: entry.slot })
-          : `<div class="sheet-row empty">${sheetSlotMarkup(entry.slot, entry.slotLabel)}<div class="sheet-player"><strong>Open</strong></div></div>`).join("")}
-      </section>
       <section class="sheet-column">
         <h3 class="sheet-heading">Bench</h3>
         ${benchRows.map((asset) => renderPlayerRow(asset, isTradeEligibleAsset(asset) ? "Bench" : formatPlayerPositionLabel(asset))).join("") || `<p class="muted small">No bench players.</p>`}
@@ -5039,7 +5027,6 @@ function paintTradeDraft() {
     </div>
     <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
     <div class="calc-price-notes">
-      ${renderValueScaleExplainer()}
       ${renderPriceLegend(["model", "package"])}
     </div>
     <div id="draft-team" class="draft-team">${renderDraftTeam(view)}</div>
@@ -5096,16 +5083,6 @@ function restoreTradeTalkInput(host, snap) {
   }
 }
 
-function tradeTalkExamples() {
-  const season = nextRookieDraftSeason();
-  return [
-    `Gibbs and a ${season} 1st for Nabers`,
-    `add my ${season + 1} 2nd`,
-    "swap Nabers for Puka",
-    "what could I get for Bijan",
-  ];
-}
-
 let smartTradeSide = "right";
 function renderTradeTalk() {
   return `<section class="talk-box smart-trade-search" aria-labelledby="trade-talk-label">
@@ -5115,7 +5092,7 @@ function renderTradeTalk() {
       <div id="smart-trade-list" class="smart-trade-list" role="listbox" hidden></div>
       <span id="smart-trade-count" class="sr-only" role="status" aria-live="polite"></span>
     </form>
-    <div id="talk-log" class="talk-log" aria-live="polite">${renderTradeTalkLog()}</div><p id="talk-toast" class="talk-toast" role="status" hidden></p>
+    <div id="talk-log" class="talk-log" aria-live="polite">${renderTradeTalkLog()}</div><p id="talk-toast" class="sr-only" role="status" hidden></p>
   </section>`;
 }
 
@@ -5168,15 +5145,10 @@ function renderTalkChip(chip) {
   return `<button type="button" class="talk-chip" data-action="talk-add" data-side="${chip.side === "right" ? "right" : "left"}" data-asset-id="${escapeHtml(chip.assetId)}" data-name="${escapeHtml(chip.name)}" data-kind="${chip.assetType === "pick" ? "pick" : "player"}"${chip.leagueId ? ` data-league-id="${escapeHtml(chip.leagueId)}"` : ""}>${escapeHtml(chip.label || chip.name)}${chip.value ? ` <span class="talk-chip-value">${formatNumber(chip.value)}</span>` : ""}</button>`;
 }
 
-function renderTalkSayChips(texts, label) {
-  if (!texts?.length) return "";
-  return `<div class="talk-chips talk-next" role="group" aria-label="${escapeHtml(label)}">${texts.map((text) => `<button type="button" class="talk-chip talk-example" data-action="talk-example" data-say="${escapeHtml(text)}">${escapeHtml(text)}</button>`).join("")}</div>`;
-}
-
 // Confirmations ("Added Josh Allen to You give.") flash as a toast. Anything
 // that needs an answer or explains a miss stays on screen.
 function renderTradeTalkLog() {
-  if (!tradeTalkLog.length) return renderTalkSayChips(tradeTalkExamples(), "Examples");
+  if (!tradeTalkLog.length) return "";
   return tradeTalkLog.slice(0, 1).map((turn) => `
     <div class="talk-turn">
       ${turn.sticky && turn.lines.length ? `<div class="talk-lines">${turn.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>` : ""}
@@ -5187,7 +5159,6 @@ function renderTradeTalkLog() {
           <div class="talk-chips">${group.chips.map(renderTalkChip).join("")}</div>
         </div>
       `).join("")}
-      ${renderTalkSayChips(turn.next, "Keep going")}
     </div>
   `).join("");
 }
@@ -5245,15 +5216,9 @@ function tradeTalkNext(view) {
   return keep;
 }
 
-function setTradeTalkPlaceholder() {
-  const input = el.calculatorShell?.querySelector("#trade-talk-input");
-  if (input && tradeTalkLog.length) input.placeholder = `Keep going: add my ${nextRookieDraftSeason() + 1} 2nd`;
-}
-
 function patchTradeTalkLog() {
   const log = el.calculatorShell?.querySelector("#talk-log");
   if (log) log.innerHTML = renderTradeTalkLog();
-  setTradeTalkPlaceholder();
 }
 
 function tradeTalkContext(view) {
@@ -5863,44 +5828,6 @@ function draftItemMeta(item) {
 }
 
 // Per-piece breakdown, shown under the verdict's "Why?".
-function renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) {
-  const { draft, model } = view;
-  const rowsFor = (side) => (draft[side] || []).map((item) => {
-    const price = view.priced.get(String(item.uid));
-    return { name: price?.asset?.name || item.name || "", value: Number(price?.value) || 0 };
-  });
-  const sides = [
-    { key: "left", label: giveLabel, rows: rowsFor("left"), total: give },
-    { key: "right", label: getLabel, rows: rowsFor("right"), total: get },
-  ];
-  const max = Math.max(1, ...sides.flatMap((side) => side.rows.map((row) => row.value)));
-  const adjustment = model.adjustment;
-  const winner = give > get ? "left" : get > give ? "right" : "";
-  return `
-    <div class="meter-why" id="meter-why">
-      ${sides.map((side) => `
-        <div class="meter-why-side side-${side.key}${winner === side.key ? " is-win" : ""}">
-          <p class="meter-why-title"><span>${escapeHtml(side.label)}</span><span class="meter-why-num">${formatNumber(side.total)}</span></p>
-          ${side.rows.map((row) => `
-            <div class="meter-why-row">
-              <span class="meter-why-name">${escapeHtml(row.name)}</span>
-              <span class="meter-why-track"><span style="width:${((row.value / max) * 100).toFixed(1)}%"></span></span>
-              <span class="meter-why-num">${formatNumber(row.value)}</span>
-            </div>
-          `).join("")}
-          ${adjustment?.side === side.key && adjustment.amount > 0 ? `
-            <div class="meter-why-row is-credit">
-              <span class="meter-why-name">Fewer, better pieces</span>
-              <span class="meter-why-track"></span>
-              <span class="meter-why-num">+${formatNumber(adjustment.amount)}</span>
-            </div>
-          ` : ""}
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
-
 function renderDraftNotes(side, view) {
   if (!view.basis.connected || !view.context || view.context.needsTeam) return "";
   const notes = (view.draft[side] || []).map((item) => {
@@ -6126,17 +6053,8 @@ function evenUpLine(choice, side, names = { Give: "You give", Get: "You get" }) 
 }
 
 function renderDraftMethod(view) {
-  const lines = [
-    `Prices are our estimate, scored with a point per catch, ${rankFormatLabel(view.basis.format)}.`,
-    PRICE_FACTORS_LINE,
-  ];
-  if ([...view.priced.values()].some((row) => row.estimated)) {
-    lines.push(UNAVAILABLE_PRICE_LINE);
-  }
-  lines.push(FEWER_BETTER_LINE);
-  lines.push(TIER_EXPLAINER);
-  lines.push("Team impact is separate from price: it asks whether the move helps your starting lineup.");
-  return lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+  // The verdict already shows any extra for fewer, better pieces; only say what the screen cannot.
+  return [...view.priced.values()].some((row) => row.estimated) ? `<p>${escapeHtml(UNAVAILABLE_PRICE_LINE)}</p>` : "";
 }
 
 // trade_checked fires once per distinct give/get pair that reaches a verdict.
@@ -6199,17 +6117,7 @@ function renderDraftVerdict(view) {
         ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
         ${bothSides && adjustment?.amount > 0 ? `<p class="calc-extra muted small">Counts ${escapeHtml(formatNumber(adjustment.amount))} extra for fewer, better pieces in what ${escapeHtml(draftReceivingTeam(adjustment.side === "left" ? "left" : "right", view))} receives. The column totals leave it out.</p>` : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view), teamNames))}</p>` : ""}
-        <details class="calc-method calc-why">
-          <summary>Why?</summary>
-          ${bothSides ? renderDraftMeterWhy(view, {
-            giveLabel,
-            getLabel,
-            give: Math.max(0, Number(verdict.left) || 0),
-            get: Math.max(0, Number(verdict.right) || 0),
-          }) : ""}
-          ${starsPremiumMarkup(model, { best, pick: bestPick })}
-          ${renderDraftMethod(view)}
-        </details>`}
+        ${renderDraftMethod(view)}`}
       </div>
       <div class="calc-actions">
         ${sharedView ? `<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>` : ""}

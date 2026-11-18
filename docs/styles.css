@@ -2178,37 +2178,6 @@ a.inline-link:hover {
   text-align: right;
 }
 
-.value-scale-help {
-  margin: 0.35rem 0 0;
-  color: var(--muted);
-  font-size: var(--fs-sm2);
-}
-
-.value-scale-help summary {
-  cursor: pointer;
-  color: var(--text);
-  font-weight: 700;
-}
-
-.value-scale-help p,
-.value-scale-help ul {
-  margin: 0.45rem 0 0;
-}
-
-.value-scale-help ul {
-  display: grid;
-  gap: 0.35rem;
-  padding: 0;
-  list-style: none;
-}
-
-.value-scale-help li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem;
-}
-
 .asset-name-stack strong {
   overflow-wrap: anywhere;
   font-size: var(--fs-body);

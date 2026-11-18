@@ -25,7 +25,6 @@ export function renderTrophyCases(archive, { valueNames = {} } = {}) {
     </details>`;
   }).join("");
   return `<section class="workspace-panel"><h2>Manager trophy cases</h2>
-    <p class="muted small">Choose a manager for title count, strongest and weakest regular seasons, trade partners and recurring players on recorded season rosters. These are observations, not awards or projections.</p>
     <div class="league-trophy-list">${items}</div>
   </section>`;
 }

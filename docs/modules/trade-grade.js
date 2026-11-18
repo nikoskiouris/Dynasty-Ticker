@@ -214,6 +214,6 @@ export function gradeTrade(trade, {
     side.grade = letter.letter;
     side.letter = letter.letter;
   });
-  if (packageAdjustment > 0) notes.push(`Includes ${Math.round(packageAdjustment)} for fewer, better pieces in the credited trade totals; listed player prices do not change.`);
+  if (packageAdjustment > 0) notes.push(`Includes +${Math.round(packageAdjustment).toLocaleString()} for fewer, better pieces.`);
   return { available: true, basis: label, sides, winnerRosterId, gapPct, tier, packageAdjustment, notes };
 }

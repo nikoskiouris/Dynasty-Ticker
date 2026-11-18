@@ -579,3 +579,23 @@ export async function fetchPriceHistory(fetchImpl = globalThis.fetch, { now = ne
   const history = normalizePriceHistory(loaded.filter(Boolean));
   return history.snapshots.length ? history : null;
 }
+
+// Highest price each player has had in any archived snapshot (every model, so a
+// rough "was he ever a star" check, not a like-for-like trend).
+export async function fetchPeakValues(fetchImpl = globalThis.fetch) {
+  const index = await readJsonIfOk(fetchImpl, PRICE_HISTORY_INDEX_PATH);
+  const rows = Array.isArray(index?.snapshots) ? index.snapshots : [];
+  const snaps = await Promise.all(rows.map((row) => readJsonIfOk(fetchImpl, `./data/price-history/${row.stamp}.json`)));
+  const peaks = {};
+  let since = "";
+  for (const snap of snaps) {
+    if (!snap?.sf) continue;
+    const asOf = String(snap.asOf || "");
+    if (asOf && (!since || asOf < since)) since = asOf;
+    for (const [key, raw] of Object.entries(snap.sf)) {
+      const value = Number(raw);
+      if (key.startsWith("player:") && Number.isFinite(value) && value > (peaks[key] || 0)) peaks[key] = value;
+    }
+  }
+  return since ? { since, peaks } : null;
+}

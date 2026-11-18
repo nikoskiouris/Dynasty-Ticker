@@ -101,7 +101,7 @@ export function renderTradeLogRows({
         <span class="mini-chip">${graded.available ? escapeHtml(TIER_LABELS[graded.tier] || (graded.tier === "multi-team" ? "Multi-team" : graded.tier)) : "Price unavailable"}</span></div>
       <div class="trade-log-parties">${parties}</div>
       ${calcHref ? `<p><a href="${escapeHtml(calcHref)}" target="_blank" rel="noopener noreferrer">Open in Trade Calculator (new tab)</a> <span class="muted small">Keeps your current draft intact.</span></p>` : ""}
-      <details><summary>How was this graded?</summary><p class="muted small">Today's 12-team Superflex PPR values, including any adjustment for fewer, better pieces. This measures value today, not whether the trade was a good decision at the time.</p>
+      <details><summary>How was this graded?</summary><p class="muted small">Graded on today's values, not what they were when the trade happened.</p>
         ${graded.notes.map((note) => `<p class="muted small">${escapeHtml(note)}</p>`).join("")}
         ${graded.reason ? `<p class="muted small">${escapeHtml(graded.reason)}</p>` : ""}
       </details>

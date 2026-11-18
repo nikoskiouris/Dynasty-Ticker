@@ -7,7 +7,9 @@ const fullName = (raw) => String(raw?.full_name || [raw?.first_name, raw?.last_n
 
 // A player counts once per completed trade he moved in, however many sides
 // listed him. Draft picks and FAAB are not players and are not counted.
-export function mostTradedPlayers(archive = {}, { values = {}, valueNames = {}, players = {}, limit = 5 } = {}) {
+export const STAR_PEAK = 9000;
+
+export function mostTradedPlayers(archive = {}, { values = {}, valueNames = {}, players = {}, peaks = null, limit = 5 } = {}) {
   const counts = new Map();
   const seen = new Set();
   let tradesRead = 0;
@@ -37,10 +39,12 @@ export function mostTradedPlayers(archive = {}, { values = {}, valueNames = {}, 
   });
   const byName = (a, b) => a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId);
   const rows = all.slice().sort((a, b) => b.trades - a.trades || byName(a, b)).slice(0, limit);
-  // Today's price only ranks the list; a player without one is left out.
-  const major = all.filter((row) => row.value != null)
-    .sort((a, b) => b.value - a.value || b.trades - a.trades || byName(a, b)).slice(0, limit);
-  return { rows, major, tradesRead, seasonsRead };
+  // Stars: peak price of 9,000+ at any archived point, whether they were traded before, during or after it.
+  const major = all.map((row) => ({ ...row, peak: Math.max(row.value || 0, Number(peaks?.peaks?.[`player:${row.playerId}`]) || 0) }))
+    .filter((row) => row.peak >= STAR_PEAK)
+    .sort((a, b) => b.trades - a.trades || b.peak - a.peak || byName(a, b)).slice(0, 10);
+  const since = peaks?.since || "";
+  return { rows, major, tradesRead, seasonsRead, since };
 }
 
 function playerItem(row, index, detail) {
@@ -52,7 +56,7 @@ function playerItem(row, index, detail) {
 }
 
 export function renderMostTraded(archive, options = {}) {
-  const { rows, major, tradesRead, seasonsRead } = mostTradedPlayers(archive, options);
+  const { rows, major, tradesRead, seasonsRead, since } = mostTradedPlayers(archive, options);
   const heading = "<h2>Most traded players</h2>";
   if (!seasonsRead) return `<section class="workspace-panel">${heading}
     <p class="muted">Trades are not available from Sleeper for these seasons.</p></section>`;
@@ -60,13 +64,13 @@ export function renderMostTraded(archive, options = {}) {
     <p class="muted">No completed trades with players in ${countLabel(seasonsRead, "loaded season")}.</p></section>`;
   const mostItems = rows.map((row, index) => playerItem(row, index, countLabel(row.trades, "trade"))).join("");
   const majorItems = major.map((row, index) => playerItem(row, index,
-    `${formatNumber(Math.round(row.value))} · ${countLabel(row.trades, "trade")}`)).join("");
+    countLabel(row.trades, "trade"))).join("");
   return `<section class="workspace-panel">${heading}
-    <p class="muted small">From ${countLabel(tradesRead, "completed trade")} across ${countLabel(seasonsRead, "loaded season")}. A player counts once per trade he moved in. Major players are ranked by today's 12-team Superflex PPR value; players without a value are left out.</p>
+    <p class="muted small">From ${countLabel(tradesRead, "completed trade")} across ${countLabel(seasonsRead, "loaded season")}.</p>
     <div class="league-most-traded-lists">
-      <div><h3>By times traded</h3><p class="muted small">Ties sort by name.</p>
+      <div><h3>By times traded</h3>
         <ol class="league-most-traded">${mostItems}</ol></div>
-      <div><h3>Major players traded</h3><p class="muted small">Ranked by today's value.</p>
-        ${majorItems ? `<ol class="league-most-traded">${majorItems}</ol>` : '<p class="muted">None of the traded players has a current value.</p>'}</div>
+      <div><h3>Most traded stars</h3><p class="muted small">Valued 9,000+ at some point${since ? ` since ${e(new Date(since).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }))}` : ""}.</p>
+        ${majorItems ? `<ol class="league-most-traded">${majorItems}</ol>` : '<p class="muted">No traded player has reached 9,000.</p>'}</div>
     </div></section>`;
 }
