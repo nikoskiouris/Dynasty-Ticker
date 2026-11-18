@@ -100,7 +100,6 @@ import {
 import {
   playerValueTrend,
   renderTrendSoon,
-  renderValueScaleExplainer,
   renderValueTierBadge,
   renderValueTrend,
   renderValuesFreshness,
@@ -4756,7 +4755,6 @@ function renderRosterSheet() {
     ${renderValuesFreshness(valuesFreshness())}
     ${state.league && marketCaveat(state.league) ? `<p class="muted small calc-market-caveat">${escapeHtml(marketCaveat(state.league))}</p>` : ""}
     ${seasonPoints ? `<p class="muted small">Pts: fantasy points this season through week ${seasonPoints.through}, on any team, from Sleeper.</p>` : ""}
-    ${renderValueScaleExplainer()}
     <div class="sheet-grid">
       <section class="sheet-column">
         <h3 class="sheet-heading">Best lineup by value</h3>
@@ -5036,7 +5034,6 @@ function paintTradeDraft() {
     </div>
     <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
     <div class="calc-price-notes">
-      ${renderValueScaleExplainer()}
       ${renderPriceLegend(["model", "package"])}
     </div>
     <div id="draft-team" class="draft-team">${renderDraftTeam(view)}</div>
@@ -5860,44 +5857,6 @@ function draftItemMeta(item) {
 }
 
 // Per-piece breakdown, shown under the verdict's "Why?".
-function renderDraftMeterWhy(view, { giveLabel, getLabel, give, get }) {
-  const { draft, model } = view;
-  const rowsFor = (side) => (draft[side] || []).map((item) => {
-    const price = view.priced.get(String(item.uid));
-    return { name: price?.asset?.name || item.name || "", value: Number(price?.value) || 0 };
-  });
-  const sides = [
-    { key: "left", label: giveLabel, rows: rowsFor("left"), total: give },
-    { key: "right", label: getLabel, rows: rowsFor("right"), total: get },
-  ];
-  const max = Math.max(1, ...sides.flatMap((side) => side.rows.map((row) => row.value)));
-  const adjustment = model.adjustment;
-  const winner = give > get ? "left" : get > give ? "right" : "";
-  return `
-    <div class="meter-why" id="meter-why">
-      ${sides.map((side) => `
-        <div class="meter-why-side side-${side.key}${winner === side.key ? " is-win" : ""}">
-          <p class="meter-why-title"><span>${escapeHtml(side.label)}</span><span class="meter-why-num">${formatNumber(side.total)}</span></p>
-          ${side.rows.map((row) => `
-            <div class="meter-why-row">
-              <span class="meter-why-name">${escapeHtml(row.name)}</span>
-              <span class="meter-why-track"><span style="width:${((row.value / max) * 100).toFixed(1)}%"></span></span>
-              <span class="meter-why-num">${formatNumber(row.value)}</span>
-            </div>
-          `).join("")}
-          ${adjustment?.side === side.key && adjustment.amount > 0 ? `
-            <div class="meter-why-row is-credit">
-              <span class="meter-why-name">Fewer, better pieces</span>
-              <span class="meter-why-track"></span>
-              <span class="meter-why-num">+${formatNumber(adjustment.amount)}</span>
-            </div>
-          ` : ""}
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
-
 function renderDraftNotes(side, view) {
   if (!view.basis.connected || !view.context || view.context.needsTeam) return "";
   const notes = (view.draft[side] || []).map((item) => {
@@ -6187,17 +6146,7 @@ function renderDraftVerdict(view) {
         ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
         ${bothSides && adjustment?.amount > 0 ? `<p class="calc-extra muted small">Counts ${escapeHtml(formatNumber(adjustment.amount))} extra for fewer, better pieces in what ${escapeHtml(draftReceivingTeam(adjustment.side === "left" ? "left" : "right", view))} receives. The column totals leave it out.</p>` : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view), teamNames))}</p>` : ""}
-        <details class="calc-method calc-why">
-          <summary>Why?</summary>
-          ${bothSides ? renderDraftMeterWhy(view, {
-            giveLabel,
-            getLabel,
-            give: Math.max(0, Number(verdict.left) || 0),
-            get: Math.max(0, Number(verdict.right) || 0),
-          }) : ""}
-          ${starsPremiumMarkup(model, { best, pick: bestPick })}
-          ${renderDraftMethod(view)}
-        </details>`}
+        ${renderDraftMethod(view)}`}
       </div>
       <div class="calc-actions">
         ${sharedView ? `<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>` : ""}

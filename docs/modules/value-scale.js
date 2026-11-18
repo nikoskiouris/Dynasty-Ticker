@@ -15,7 +15,6 @@ export const VALUE_TIERS = Object.freeze([
   { id: "deep", label: "Deep stash", min: 1, blurb: "Roster filler" },
 ]);
 
-export const TEN_THOUSAND_NOTE = "Elite players start around 10,000; the best are well above.";
 
 export const TREND_WINDOW_DAYS = 30;
 export const STALE_AFTER_DAYS = 7;
@@ -407,14 +406,3 @@ export function renderValuesFreshness(status, { align = "" } = {}) {
   return `<p class="values-updated${end}" data-values-updated${title}>${escapeHtml(status.label)}</p>`;
 }
 
-export function renderValueScaleExplainer() {
-  const bands = VALUE_TIERS.map((tier, index) => {
-    const next = VALUE_TIERS[index - 1];
-    const range = next ? `${formatNumber(tier.min)}–${formatNumber(next.min - 1)}` : `${formatNumber(tier.min)}+`;
-    return `<li>${renderValueTierBadge(tier.min)} <span>${escapeHtml(range)}. ${escapeHtml(tier.blurb)}</span></li>`;
-  }).join("");
-  return `<details class="calc-method value-scale-help">
-    <summary>How values work</summary>
-    <ul>${bands}</ul>
-  </details>`;
-}
