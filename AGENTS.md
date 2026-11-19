@@ -6,9 +6,9 @@ Dynasty Ticker helps a dynasty manager answer three connected questions:
 
 1. **What is this player worth?** Player Rankings (`/players`) and the player page (`/player/<id>`).
 2. **Is this offer fair, and what is the tradeoff?** Trade Calculator (`/trade`), including the talk box that reads a typed trade, and shared trade links (`/t/<code>`).
-3. **Does this move help my team and my window?** League History for a connected Sleeper league (`/l/<id>`: hub, Standings, My Team, Recent Trades, Historical Data), and Trade Calculator with that league connected (ownership and Team impact).
+3. **Does this move help my team and my window?** League History for a connected Sleeper league (`/l/<id>`: hub, Standings, My Team, Recent Trades, Historical Data). Trade Calculator is never team-specific (owner rule, Nov 19, 2026): with or without a league it shows Team 1 / Team 2, no league header, team browse, ownership or Team impact.
 
-The site has three tools, reached from the Home tool picker and the ☰ menu: Trade Calculator, Player Rankings and League History. Player Rankings and Trade Calculator must work without a league. Connecting Sleeper adds ownership, roster impact, and league context to the task already underway. It must never reset that task. A good visit ends with: "I understand the answer, why I should trust it, and what I can do next."
+The site has three tools, reached from the Home tool picker and the ☰ menu: Trade Calculator, Player Rankings and League History. Player Rankings and Trade Calculator must work without a league. Connecting Sleeper adds league context to League History and Player Rankings. It must never reset that task. A good visit ends with: "I understand the answer, why I should trust it, and what I can do next."
 
 Trustworthy numbers and useful league context are the product. More features or more elaborate formulas do not prove it.
 
@@ -46,7 +46,7 @@ What follows from that:
 ## Proving a change
 
 - Write acceptance criteria as observable user behavior before building.
-- Walk the journey in a real browser at desktop (1280), phone (390) and iPad (810–820) sizes: find a player, add him to a trade, build the other side, read the verdict, connect Sleeper, see the same trade with Team impact, adjust it. Back stays on the site. For league pages use a real public Sleeper league ID; the sample league was removed (045).
+- Walk the journey in a real browser at desktop (1280), phone (390) and iPad (810–820) sizes: find a player, add him to a trade, build the other side, read the verdict, connect Sleeper, see the same trade unchanged (no team names), adjust it. Back stays on the site. For league pages use a real public Sleeper league ID; the sample league was removed (045).
 - During manual regression review, check behavior (draft kept, one verdict, correct ownership, durable saves), not labels or tab counts.
 - A developer walkthrough is not usability evidence. First-visit tasks live in `research/first-visit-tasks.md`. Never invent results.
 

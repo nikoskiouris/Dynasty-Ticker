@@ -6572,3 +6572,8 @@ a.league-back {
 a.league-back:hover {
   background: var(--panel-soft);
 }
+
+/* Trade Calculator is not team-specific: no league header above it. */
+html:not([data-players-board]):not([data-player-page]) body.trades-open .workspace-header {
+  display: none;
+}
