@@ -21,6 +21,11 @@ export function createLeagueLoader() {
       return latestId;
     },
 
+    // True while a league load has not settled (done or failed).
+    busy() {
+      return Boolean(inFlight);
+    },
+
     // Drop the load that has not committed. Back during the fetch uses this.
     drop() {
       serial += 1;
