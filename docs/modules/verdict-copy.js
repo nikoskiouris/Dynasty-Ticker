@@ -235,7 +235,7 @@ export function evenUpCopy(choice, side, { afterLine = "" } = {}) {
   return `${closest} ${why}`;
 }
 
-// "Even it up": "Team 2 needs Jaxon Smith-Njigba or 2027 Early 1st". The pick is always listed; options that make it fair come first.
+// "Even it up": "Team 2 needs Jaxon Smith-Njigba or 2027 Early 1st". side is the team that receives less. The pick is always listed; options that make it fair come first.
 export function evenUpOptionsCopy(options, side) {
   const list = (options || []).filter((option) => option?.choice?.name);
   if (!list.length) return "";
