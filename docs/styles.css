@@ -6581,9 +6581,6 @@ html:not([data-players-board]):not([data-player-page]) body.trades-open .workspa
 /* Verdict arithmetic: the credited totals the verdict compares. */
 .calc-math { margin: 4px 0 10px; padding: 10px 12px; border: 1px solid var(--border, #d9dee5); border-radius: 10px; }
 .calc-summary-main .calc-math-title { margin: 0 0 6px; font-weight: 700; }
-.calc-math dl { margin: 0 0 6px; display: grid; gap: 4px; }
-.calc-math dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; }
-.calc-math dt { font-weight: 600; }
-.calc-math dd { margin: 0; font-variant-numeric: tabular-nums; }
-.calc-math-extra { color: var(--accent, #5b78ff); font-weight: 600; }
 .calc-summary-main .calc-math p.small { margin: 0; }
+.calc-pane-total .calc-pane-extra { color: var(--accent, #5b78ff); font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
+.calc-pane-head .calc-pane-total { display: grid; justify-items: end; }

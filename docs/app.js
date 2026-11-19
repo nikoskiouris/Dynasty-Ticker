@@ -5713,9 +5713,14 @@ function pieceCount(items) {
 
 function renderDraftTotal(side, view) {
   const items = view.draft[side] || [];
-  const total = side === "left" ? view.give : view.get;
+  // The header shows what the verdict compares: listed prices plus any extra
+  // for fewer, better pieces (owner, Nov 19, 2026). Rows keep listed prices.
+  const listed = side === "left" ? view.give : view.get;
+  const adj = view.model?.adjustment;
+  const extra = adj?.amount > 0 && (adj.side === "left") === (side === "left") ? Math.round(adj.amount) : 0;
   return `
-    <strong>${formatNumber(total)}</strong>
+    <strong>${formatNumber(listed + extra)}</strong>
+    ${extra ? `<span class="calc-pane-extra">incl. +${formatNumber(extra)} extra</span>` : ""}
     <small title="${escapeHtml(items.length ? pieceCount(items) : "Nothing added")}">(${items.length})</small>
   `;
 }
@@ -6147,7 +6152,7 @@ function renderDraftVerdict(view) {
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
         ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
-        ${bothSides && adjustment?.amount > 0 ? renderVerdictMath(view, bars, best, bestPick) : ""}
+        ${bothSides && adjustment?.amount > 0 ? renderVerdictMath(view, best, bestPick) : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view), teamNames))}</p>` : ""}
         ${renderDraftMethod(view)}`}
       </div>
@@ -6161,26 +6166,15 @@ function renderDraftVerdict(view) {
   `;
 }
 
-// The totals the verdict compares, shown as arithmetic, so a verdict that
-// counts the fewer-better-pieces extra never sits under two columns that look
-// even without saying why. Team 1 (right column) first, as on screen.
-function renderVerdictMath(view, bars, best, bestPick) {
+// Why one side's total carries an extra the rows don't add up to.
+function renderVerdictMath(view, best, bestPick) {
   const adj = view.model.adjustment;
-  const extraSide = adj.side === "left" ? "left" : "right";
-  const row = (side) => {
-    const seg = side === "left" ? bars.give : bars.get;
-    const name = `${draftReceivingTeam(side, view)} receives`;
-    const sum = seg.stars > 0
-      ? `${escapeHtml(formatNumber(seg.listed))} <span class="calc-math-extra">+ ${escapeHtml(formatNumber(seg.stars))} extra</span> = <strong>${escapeHtml(formatNumber(seg.total))}</strong>`
-      : `<strong>${escapeHtml(formatNumber(seg.total))}</strong>`;
-    return `<div><dt>${escapeHtml(name)}</dt><dd>${sum}</dd></div>`;
-  };
-  const who = best ? `${bestPick ? (/^the\s/i.test(best) ? best : `The ${best}`) : best} is the best ${bestPick ? "piece" : "player"} in this deal.` : "";
-  const why = `${who} One great ${bestPick ? "piece" : "player"} is worth more than several smaller ones that add up to the same total, so the verdict adds ${formatNumber(adj.amount)} to what ${draftReceivingTeam(extraSide, view)} receives. Player prices don't change.`;
+  const team = draftReceivingTeam(adj.side === "left" ? "left" : "right", view);
+  const noun = bestPick ? "piece" : "player";
+  const who = best ? `${bestPick && !/^the\s/i.test(best) ? `The ${best}` : best} is the best ${noun} in this deal. ` : "";
   return `<div class="calc-math">
-    <p class="calc-math-title">Why the verdict differs from the column totals</p>
-    <dl>${row("right")}${row("left")}</dl>
-    <p class="muted small">${escapeHtml(why.trim())}</p>
+    <p class="calc-math-title">Why ${escapeHtml(team)}'s total includes +${escapeHtml(formatNumber(adj.amount))} extra</p>
+    <p class="muted small">${escapeHtml(`${who}One great ${noun} is worth more than several smaller ones that add up to the same total, so the verdict counts that extra. Player prices don't change.`)}</p>
   </div>`;
 }
 
