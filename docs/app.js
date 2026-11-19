@@ -2224,6 +2224,8 @@ function syncLaunchChrome() {
   renderLandingResume();
   const trades = document.querySelector("#trades-page");
   const league = document.querySelector("#league-page");
+  // The league header is League History's; Trade Calculator shows none.
+  document.body.classList.toggle("trades-open", Boolean(trades && !trades.classList.contains("hidden")));
   const onOther = (trades && !trades.classList.contains("hidden")) || (league && !league.classList.contains("hidden"));
   // A missing league and a Sleeper outage are still the no-league screen:
   // one h1, and no "Your Sleeper league" subtitle.
@@ -4847,16 +4849,10 @@ function forgetDraftPartner() {
   setDraft({ ...state.valueCalc, partnerRosterId: null });
 }
 
+// Trade Calculator is never team-specific (owner, Nov 19, 2026): a connected
+// league adds no team names, ownership, browse or Team impact here. It prices
+// the same published snapshot either way.
 function draftBasis() {
-  if (state.leagueId && state.league) {
-    return {
-      connected: true,
-      format: "sf",
-      values: state.values,
-      nameMap: state.valueNameMap,
-      catalog: state.pickValueCatalog,
-    };
-  }
   const format = activeRankFormat();
   if (draftBasisCache.bundles !== state.valueBundles || draftBasisCache.format !== format || !draftBasisCache.basis) {
     const bundle = pickValueBundle(state.valueBundles, format);
@@ -5632,10 +5628,8 @@ function refreshDraftSuggestions(side) {
 
 function renderDraftBasis(view) {
   const legacy = activeSharedTrade(view.draft)?.decoded?.legacyFormat || state.legacyValueLink;
-  const caveat = marketCaveat(state.league);
   return `<div class="draft-basis-row"><p class="draft-format-fixed">Values: 12-team Superflex PPR dynasty</p>
     ${infoTipMarkup({ id: "pop-format-trade", label: "Scoring and how values work", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10))}` })}
-    ${caveat ? `<p class="muted">${escapeHtml(caveat)}</p>` : ""}
     ${legacy ? `<p class="muted">Shared with 1QB values, which we no longer publish. Shown on 12-team SF PPR values.</p>` : ""}</div>`;
 }
 
