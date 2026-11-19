@@ -131,7 +131,7 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
     ${renderRivalries(archive)}
     ${renderTrends(leagueTrends(archive))}
     ${renderMostTraded(archive, { values, valueNames, players, peaks })}
-    ${renderTrophyCases(archive, { valueNames })}
+    ${renderTrophyCases(archive, { valueNames, players })}
     ${renderTraderAwards(archive, { values, valueNames })}
     ${renderDrafterAwards(archive, { values, valueNames })}
     ${renderOperationsAwards(archive, { players, values, valueNames, showLineup })}
