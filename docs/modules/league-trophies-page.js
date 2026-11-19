@@ -6,12 +6,14 @@ const seasonLabel = (result) => result
   ? `${result.season} · ${result.wins}–${result.losses}${result.ties ? `–${result.ties}` : ""} · regular-season finish #${result.finish ?? "?"}`
   : "Not enough completed games";
 
-export function renderTrophyCases(archive, { valueNames = {} } = {}) {
+const fullName = (raw) => String(raw?.full_name || [raw?.first_name, raw?.last_name].filter(Boolean).join(" ")).trim();
+
+export function renderTrophyCases(archive, { valueNames = {}, players = {} } = {}) {
   const profiles = managerTrophyCases(archive);
   if (!profiles.length) return "";
   const items = profiles.map((profile) => {
     const player = profile.mostFrequentRosterPlayer;
-    const playerName = player && (valueNames[`player:${player.playerId}`] || `Sleeper player ${player.playerId}`);
+    const playerName = player && (valueNames[`player:${player.playerId}`] || fullName(players[player.playerId]) || `Player ${player.playerId}`);
     return `<details class="league-trophy-card">
       <summary><strong>${e(profile.name)}</strong> · ${profile.titles} championship${profile.titles === 1 ? "" : "s"}</summary>
       <dl>
