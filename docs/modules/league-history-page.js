@@ -116,7 +116,7 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
   const book = leagueRecordBook(archive);
   const issues = archive?.issues || [];
   return `<div class="league-history-page">
-    <p><a href="/l/${leagueId}">← League</a></p>
+    <p><a class="league-back" href="/l/${leagueId}">← League</a></p>
     <header><h2>${e(name)} All-Time</h2><p class="muted">${e(range)}</p>
       ${savedNote ? `<p class="league-saved-note" role="status">${e(savedNote)}</p>` : ""}
       ${caveat ? `<p class="muted small calc-market-caveat">${e(caveat)} Value-based awards use those values.</p>` : ""}

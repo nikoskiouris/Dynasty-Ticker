@@ -6554,3 +6554,21 @@ main details > summary::before {
 }
 .rank-sort-btn { all: unset; cursor: pointer; font: inherit; color: inherit; white-space: nowrap; }
 .rank-sort-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+
+/* "← League" back link on league rooms: a quiet outlined chip so it reads as
+   a button without competing with the page heading. */
+a.league-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+a.league-back:hover {
+  background: var(--panel-soft);
+}
