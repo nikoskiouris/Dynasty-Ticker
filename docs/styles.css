@@ -6577,3 +6577,6 @@ a.league-back:hover {
 html:not([data-players-board]):not([data-player-page]) body.trades-open .workspace-header {
   display: none;
 }
+
+.calc-pane-total .calc-pane-extra { color: var(--accent, #5b78ff); font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
+.calc-pane-head .calc-pane-total { display: grid; justify-items: end; }

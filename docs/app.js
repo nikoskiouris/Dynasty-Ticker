@@ -5713,9 +5713,14 @@ function pieceCount(items) {
 
 function renderDraftTotal(side, view) {
   const items = view.draft[side] || [];
-  const total = side === "left" ? view.give : view.get;
+  // The header shows what the verdict compares: listed prices plus any extra
+  // for fewer, better pieces (owner, Nov 19, 2026). Rows keep listed prices.
+  const listed = side === "left" ? view.give : view.get;
+  const adj = view.model?.adjustment;
+  const extra = adj?.amount > 0 && (adj.side === "left") === (side === "left") ? Math.round(adj.amount) : 0;
   return `
-    <strong>${formatNumber(total)}</strong>
+    <strong>${formatNumber(listed + extra)}</strong>
+    ${extra ? `<span class="calc-pane-extra">incl. +${formatNumber(extra)} extra</span>` : ""}
     <small title="${escapeHtml(items.length ? pieceCount(items) : "Nothing added")}">(${items.length})</small>
   `;
 }
@@ -6143,12 +6148,11 @@ function renderDraftVerdict(view) {
         ${sharedView ? `<span class="analytics-kicker">Market verdict</span>${renderSharedVerdictHead(sharedView)}` : ""}
         ${sharedView ? renderVerdictFinePrint("", `
           ${starsPremiumMarkup(model, { best, pick: bestPick, shared: true })}
-          ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view), teamNames))}</p>` : ""}
+          ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view), teamNames))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
         ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
-        ${bothSides && adjustment?.amount > 0 ? `<p class="calc-extra muted small">Counts ${escapeHtml(formatNumber(adjustment.amount))} extra for fewer, better pieces in what ${escapeHtml(draftReceivingTeam(adjustment.side === "left" ? "left" : "right", view))} receives. The column totals leave it out.</p>` : ""}
-        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view), teamNames))}</p>` : ""}
+        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view), teamNames))}</p>` : ""}
         ${renderDraftMethod(view)}`}
       </div>
       <div class="calc-actions">
