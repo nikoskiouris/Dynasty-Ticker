@@ -6578,9 +6578,5 @@ html:not([data-players-board]):not([data-player-page]) body.trades-open .workspa
   display: none;
 }
 
-/* Verdict arithmetic: the credited totals the verdict compares. */
-.calc-math { margin: 4px 0 10px; padding: 10px 12px; border: 1px solid var(--border, #d9dee5); border-radius: 10px; }
-.calc-summary-main .calc-math-title { margin: 0 0 6px; font-weight: 700; }
-.calc-summary-main .calc-math p.small { margin: 0; }
 .calc-pane-total .calc-pane-extra { color: var(--accent, #5b78ff); font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
 .calc-pane-head .calc-pane-total { display: grid; justify-items: end; }

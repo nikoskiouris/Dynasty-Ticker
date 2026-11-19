@@ -6152,7 +6152,6 @@ function renderDraftVerdict(view) {
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
         ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
-        ${bothSides && adjustment?.amount > 0 ? renderVerdictMath(view, best, bestPick) : ""}
         ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view), teamNames))}</p>` : ""}
         ${renderDraftMethod(view)}`}
       </div>
@@ -6164,18 +6163,6 @@ function renderDraftVerdict(view) {
       </div>
     </section>
   `;
-}
-
-// Why one side's total carries an extra the rows don't add up to.
-function renderVerdictMath(view, best, bestPick) {
-  const adj = view.model.adjustment;
-  const team = draftReceivingTeam(adj.side === "left" ? "left" : "right", view);
-  const noun = bestPick ? "piece" : "player";
-  const who = best ? `${bestPick && !/^the\s/i.test(best) ? `The ${best}` : best} is the best ${noun} in this deal. ` : "";
-  return `<div class="calc-math">
-    <p class="calc-math-title">Why ${escapeHtml(team)}'s total includes +${escapeHtml(formatNumber(adj.amount))} extra</p>
-    <p class="muted small">${escapeHtml(`${who}One great ${noun} is worth more than several smaller ones that add up to the same total, so the verdict counts that extra. Player prices don't change.`)}</p>
-  </div>`;
 }
 
 // ---------------------------------------------------------------------------
