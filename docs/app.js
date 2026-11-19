@@ -684,7 +684,7 @@ document.addEventListener("click", (event) => {
   focusable?.focus?.({ preventScroll: true });
 });
 document.addEventListener("click", event => {
-  const link = event.target.closest("#home-page-content a, #leagues-page-content a, #league-hub-content a");
+  const link = event.target.closest("#home-page-content a, #leagues-page-content a, #league-hub-content a, #league-page a[href^=\"/l/\"]:not([target])");
   if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
   const href = link.getAttribute("href");
   if (!href?.startsWith("/")) return;
@@ -946,7 +946,7 @@ function renderLeagueTradePage() {
   const archive = leagueArchive.snapshot;
   const ready = archiveCovers(archive, "recent", state.leagueId);
   if (!ready) {
-    host.innerHTML = `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
+    host.innerHTML = `<p><a class="league-back" href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
       <p role="status">${escapeHtml(archiveErrorMessage || archiveProgressMessage || "Loading league trades…")}</p>`;
     return;
   }
@@ -1043,7 +1043,7 @@ function renderActivePage() {
       const sim = model ? getSimulation(model) : null;
       const savedAt = state.seasonSavedAt || state.leagueSavedAt;
       const live = model?.currentWeekEntry?.isLive && !savedAt;
-      host.innerHTML = `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
+      host.innerHTML = `<p><a class="league-back" href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
         <h2>${escapeHtml(state.leagueName || "League")} standings</h2>
         <p class="muted small">${state.league?.status === "pre_draft" ? "This league hasn't drafted yet." : `${live ? `Live · Week ${model.currentWeek}` : `Week ${model?.currentWeek || "—"}`}`}</p>
         ${savedAt ? `<p class="league-saved-note" role="status">${escapeHtml(savedLeagueNote(savedAt))}</p>` : ""}
@@ -1073,7 +1073,7 @@ function renderActivePage() {
           savedNote: savedLeagueNote(),
           caveat: marketCaveat(state.league),
         })
-      : `<p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
+      : `<p><a class="league-back" href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
         <p role="status">${escapeHtml(archiveErrorMessage || archiveProgressMessage || "Loading seasons…")}</p>`;
     return;
   }
@@ -4315,7 +4315,13 @@ function clearHost(host) {
 }
 
 function renderLeagueGuest() {
-  if (el.powerDashboard) el.powerDashboard.innerHTML = renderNoLeaguePreview("team");
+  // A league load is in flight: say so instead of flashing the username box.
+  const loading = leagueLoader.busy();
+  if (el.powerDashboard) {
+    el.powerDashboard.innerHTML = loading
+      ? `<p class="power-loading muted" role="status" aria-busy="true"><span class="name-skeleton" aria-hidden="true"></span> Loading your league…</p>`
+      : renderNoLeaguePreview("team");
+  }
   clearHost(el.standingsDashboard);
   clearHost(el.rosterSheet);
   document.querySelector("#roster-sheet-section")?.classList.add("hidden");
@@ -4539,7 +4545,7 @@ function renderTeamExtras() {
       ? `${standing.recordLabel} · ${ordinal(standing.rank)} of ${model.standings.length}`
       : "";
     header.innerHTML = `
-      <p><a href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
+      <p><a class="league-back" href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
       <div class="team-header-row">
         ${renderAvatar(manager, { size: "md" })}
         <div>

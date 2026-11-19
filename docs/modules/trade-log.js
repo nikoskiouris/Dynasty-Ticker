@@ -115,7 +115,7 @@ export function renderTradeLog({ season = "", seasons = [], query = "", team = "
     id: text(roster.roster_id), label: rosterLabel(roster.roster_id, context.entry),
   })).sort((a, b) => a.label.localeCompare(b.label));
   const teamOptions = teams.map((row) => `<option value="${escapeHtml(row.id)}"${row.id === team ? " selected" : ""}>${escapeHtml(row.label)}</option>`).join("");
-  return `<p><a href="/l/${encodeURIComponent(context.archive?.leagueId || context.entry?.leagueId || "")}">← League</a></p>
+  return `<p><a class="league-back" href="/l/${encodeURIComponent(context.archive?.leagueId || context.entry?.leagueId || "")}">← League</a></p>
     ${caveat ? `<p class="muted small calc-market-caveat">${escapeHtml(caveat)} Grades use those values.</p>` : ""}
     <div class="workspace-panel">
       <label for="league-trade-search">Search a player or pick</label>
