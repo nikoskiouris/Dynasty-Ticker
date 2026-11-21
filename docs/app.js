@@ -4441,6 +4441,10 @@ function renderPlayoffOddsPanel(model, sim) {
     `;
   }
   if (!sim) {
+    // Before the draft or in the NFL offseason there is nothing to sync: the
+    // schedule doesn't exist yet. "Still syncing" would promise odds soon.
+    const noSchedule = ["pre_draft", "drafting"].includes(String(state.league?.status || ""))
+      || String(state.nflState?.season_type || "") === "off";
     return `
       <section class="workspace-panel odds-panel">
         <div class="panel-heading">
@@ -4448,7 +4452,7 @@ function renderPlayoffOddsPanel(model, sim) {
             <span class="eyebrow">Playoff Odds</span>
             <h2>Odds not in yet</h2>
           </div>
-          <p class="section-copy">Matchups are still syncing from Sleeper.</p>
+          <p class="section-copy">${noSchedule ? "No schedule yet. Odds start once Sleeper has this season's matchups." : "Matchups are still syncing from Sleeper."}</p>
         </div>
       </section>
     `;

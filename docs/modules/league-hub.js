@@ -48,7 +48,8 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
   const winner = recentChampion(seasons);
   const recent = transactions.filter(row => row.type === 'trade' && row.status === 'complete' && Number(row.status_updated || row.created) >= Date.now() - 30 * 86400000).length;
   const mine = myRosterId ? model?.teams?.get?.(String(myRosterId)) : null;
-  const standingsTeaser = mine?.recordLabel && mine?.rank
+  // "You're 0-0, 3rd" before any game is final ranks nothing.
+  const standingsTeaser = mine?.recordLabel && mine?.rank && Number(model?.finalThroughWeek) > 0
     ? `You're ${mine.recordLabel}, ${ordinal(mine.rank)}${model?.finalThroughWeek ? ` through week ${model.finalThroughWeek}` : ''}`
     : model?.finalThroughWeek ? `Through week ${model.finalThroughWeek}` : 'Records, playoff odds and luck';
   const format = leagueFormat(league);
