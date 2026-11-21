@@ -46,15 +46,15 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
   if (!league) return '<p role="status">Loading league…</p>';
   const id = encodeURIComponent(leagueId || league.league_id);
   const winner = recentChampion(seasons);
+  // A season that hasn't drafted (the offseason league) has no records yet,
+  // so "N seasons of records" below doesn't count it.
+  seasons = seasons.filter(row => !['pre_draft', 'drafting'].includes(String(row?.league?.status || '')));
   const recent = transactions.filter(row => row.type === 'trade' && row.status === 'complete' && Number(row.status_updated || row.created) >= Date.now() - 30 * 86400000).length;
   const mine = myRosterId ? model?.teams?.get?.(String(myRosterId)) : null;
   // "You're 0-0, 3rd" before any game is final ranks nothing.
   const standingsTeaser = mine?.recordLabel && mine?.rank && Number(model?.finalThroughWeek) > 0
     ? `You're ${mine.recordLabel}, ${ordinal(mine.rank)}${model?.finalThroughWeek ? ` through week ${model.finalThroughWeek}` : ''}`
     : model?.finalThroughWeek ? `Through week ${model.finalThroughWeek}` : 'Records, playoff odds and luck';
-  // A season that hasn't drafted has no records yet (the offseason league).
-  const played = seasons.filter(row => !['pre_draft', 'drafting'].includes(String(row?.league?.status || ''))).length;
-  const playedLabel = played ? `${played} ${played === 1 ? "season" : "seasons"} of records` : 'No seasons played yet';
   const format = leagueFormat(league);
   // The 044 caveat (marketCaveat) when the league differs; otherwise the plain rule.
   const valuesLine = caveat || 'Values: 12-team Superflex PPR dynasty.';
@@ -62,7 +62,7 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
     ['standings', 'Standings', standingsTeaser],
     ['team', 'My Team', myTeam || 'Pick your team above to see your roster'],
     ['trades', 'Recent Trades', tradesLoaded ? `${recent} completed trades in the last 30 days` : 'Browse completed league trades'],
-    ['history', 'Historical Data', loading ? 'Loading seasons…' : playedLabel],
+    ['history', 'Historical Data', loading ? 'Loading seasons…' : `${seasons.length} ${seasons.length === 1 ? "season" : "seasons"} of records`],
   ];
   return `<header class="league-hub-header">${league.avatar ? `<img width="64" height="64" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(league.avatar)}">` : ''}<h2>${escapeHtml(league.name || 'Your league')}</h2><p>${escapeHtml(league.season)} · <span class="league-format-chip">${escapeHtml(format.chip)}</span></p><p class="muted small">${escapeHtml(valuesLine)}</p>${savedNote ? `<p class="league-saved-note" role="status">${escapeHtml(savedNote)}</p>` : ''}<a href="/leagues">Change league</a></header>
   ${renderTeamPick({ myTeam, myRosterId, teams })}
