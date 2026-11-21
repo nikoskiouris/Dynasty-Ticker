@@ -20,7 +20,7 @@ export function renderTrophyCases(archive, { valueNames = {}, players = {} } = {
         <div><dt>Best regular season</dt><dd>${e(seasonLabel(profile.bestSeason))}</dd></div>
         <div><dt>Worst regular season</dt><dd>${e(seasonLabel(profile.worstSeason))}</dd></div>
         ${profile.favoriteTradePartner ? `<div><dt>Most frequent trade partner</dt>
-          <dd>${e(profile.favoriteTradePartner.managerName)} · ${profile.favoriteTradePartner.trades} completed trades</dd></div>` : ""}
+          <dd>${e(profile.favoriteTradePartner.managerName)} · ${profile.favoriteTradePartner.trades} completed ${Number(profile.favoriteTradePartner.trades) === 1 ? "trade" : "trades"}</dd></div>` : ""}
         ${player ? `<div><dt>Most recurring season-end roster player</dt>
           <dd>${e(playerName)} · ${player.seasonAppearances} season${player.seasonAppearances === 1 ? "" : "s"}</dd></div>` : ""}
       </dl>
