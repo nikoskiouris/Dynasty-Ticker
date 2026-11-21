@@ -1,6 +1,6 @@
 # Dynasty Ticker
 
-Dynasty Ticker helps a Sleeper dynasty manager answer three questions: what is this player worth, is this trade fair, and does this move help my team. Player values come from Dynasty Ticker's independent full-PPR football forecast. The site is static. It talks to Sleeper from the browser.
+Dynasty Ticker helps a Sleeper dynasty manager answer three questions: what is this player worth, is this trade fair, and does this move help my team. Player values are one published price: a learned blend of Dynasty Ticker's full-PPR football forecast and the Superflex dynasty market. The site is static. It talks to Sleeper from the browser.
 
 ## What is in this repo
 - **Web app:** `docs/` — the site at [dynastyticker.com](https://dynastyticker.com/).
@@ -15,9 +15,9 @@ Open `docs/` locally (`npm run serve`) or [dynastyticker.com](https://dynastytic
 
 Home is a tool picker with three tools, and the ☰ menu reaches every page. Trade Calculator and Player Rankings work before a league is connected.
 
-1. **Trade Calculator** (`/trade?give=…&get=…`) — two columns (Team 1 receives / Team 2 receives) and one trade draft. Type a whole trade in plain words in the talk box ("Gibbs and a 1st for Nabers", "zim8box offers McConkey for my 1st", "undo") or add pieces by search. One verdict on a fairness scale (Even, Close, Unfair, Lopsided), the reason under **Why?**, and, with a league, who owns each piece and Team impact. Connecting Sleeper keeps the trade. **Share trade** makes a `/t/<code>` link with its own preview card.
+1. **Trade Calculator** (`/trade?give=…&get=…`) — two columns (Team 1 receives / Team 2 receives) and one trade draft. Type a whole trade in plain words in the talk box ("Gibbs and a 1st for Nabers", "is Gibbs for Bijan fair?", "undo") or add pieces by search. One verdict on a fairness scale (Even, Close, Unfair, Lopsided), an "Even it up" suggestion, and **Give real trade advice** (rules, no AI). The calculator is never team-specific: with or without a league it shows Team 1 / Team 2 and no ownership or Team impact. Connecting Sleeper keeps the trade. **Share trade** makes a `/t/<code>` link with its own preview card.
 2. **Player Rankings** (`/players`) — every priced player and pick, sortable, with search (nicknames like JSN work). Player pages (`/player/<sleeper id>`) show the price, the season-by-season reason for it, its trend, production, and similar values.
-3. **League History** (`/leagues`, then `/l/<league>`) — enter a Sleeper username or league ID. The league hub links to **Standings** (luck, playoff odds), **My Team** (position ranks, best lineup, bench, picks, superlatives), **Recent Trades** (graded on today's values) and **Historical Data** (champions, all-time standings, records, head-to-head, trends, awards).
+3. **League History** (`/leagues`, then `/l/<league>`) — enter a Sleeper username or league ID. The league hub links to **Standings** (luck, playoff odds), **My Team** (position ranks, roster value, bench, picks, superlatives), **Recent Trades** (graded on today's values) and **Historical Data** (champions, all-time standings, records, head-to-head, trends, awards).
 
 Old links (`?tab=…`, `?view=ranks`, removed rooms like Find a trade) still open the closest page.
 
@@ -26,15 +26,18 @@ Product purpose and how to choose between competing asks live in `AGENTS.md`. Fi
 ### Value source
 There is one player-value system: `player-values/`.
 
-- One published map: **12-team Superflex full-PPR dynasty**.
-- Each player gets a forecast of full-PPR points above a replacement player, one season at a time, for eight seasons of games. It is learned from the 15 most recent NFL seasons: his last two seasons, his age, and, through year three, his draft slot.
-- Value is that forecast, discounted by how far away each season is, converted with one fixed 20× display ruler. Every price is the sum of the seasons listed beside it.
-- Rookies and future picks use the same ruler. A pick is priced as the rookie it becomes.
+- One published map: **12-team Superflex full-PPR dynasty**. No 1QB, other league sizes, TE premium or other scoring toggles.
+- The published price is a learned blend of two inputs on one scale (owner decision, Nov 18, 2026):
+  - **Football forecast**: full-PPR points above a replacement player, one season at a time, for eight seasons of games, discounted by how far away each season is. It is learned from recent NFL seasons: a player's last two seasons, his age, and, early on, his draft slot.
+  - **Superflex dynasty market**: public Superflex dynasty rankings and trade-value boards (never 1QB).
+  - The forecast's share is learned in `player-values/blend.py` from chronological holdouts (`player-values/blend.json`), never hand-set. The player page shows both parts and the share.
+- Rookies and future picks are priced on the same scale.
 - All players and picks use that single reference league. Connected league settings never select another price map.
-- No imported external dynasty rankings, fitted trade-market prices, TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices, or hand-set bonuses for youth, draft capital, or past finishes feed the published player price.
+- No TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices or hand-set bonuses feed the published price.
+- The site never names another site: pages, copy, share cards and `docs/data/*.json` say "market" or "Superflex dynasty rankings". Source names stay in `player-values/`.
 - Trade Calculator, Player Rankings, player pages, League History and the share cards all read `docs/data/player_values.json`.
 - League trade history is useful context, but it does not create a second player price.
-- Package consolidation credit can still affect a trade verdict without changing any player's listed price.
+- The "fewer, better pieces" extra can change a trade verdict without changing any player's listed price.
 
 The running math and its caveats live in `player-values/README.md`; the target design is `player-values/SPEC.md`. `python3 player-values/backtest.py` rebuilds the forecast at every past kickoff from earlier games only and scores it against what players went on to do, beside two naive forecasts. The report lives in `player-values/validation.json` and on the snapshot `meta.validation` object. It tests the order and level of football production. It does not test trade-market prices.
 
@@ -105,4 +108,4 @@ That writes `searched-users.csv` (gitignored). **This repo is public. Never comm
 - Player assets: `player:<sleeper_player_id>`
 - Pick assets: `pick:<season>:r<round>:<original_owner|any>`
 - Playoff odds are a 4000-season Monte Carlo. Each simulated season draws team quality from the posterior, so a Week 1 favorite is not a 100% lock. 100% / 0% only appear when a team has mathematically clinched or been eliminated.
-- Phones (`max-width: 700px`) get a fixed three-tab bar at the bottom and a "Connect my league" chip in the header. iPad and desktop show the same three tabs in one row above the page.
+- Every page has the ☰ menu (Trade Calculator, Player Rankings, League History). Home is the tool picker.
