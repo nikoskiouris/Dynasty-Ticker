@@ -6145,7 +6145,7 @@ function renderDraftVerdict(view) {
     <section class="calc-summary ${bothSides ? (sharedView ? copy.publicTone : copy.tone) : ""}">
       ${renderTradeFairness(verdict, { ready: bothSides, team1: draftReceivingTeam("right", view), team2: draftReceivingTeam("left", view) })}
       <div class="calc-summary-main">
-        ${sharedView ? `<span class="analytics-kicker">Market verdict</span>${renderSharedVerdictHead(sharedView)}` : ""}
+        ${sharedView ? `${sharedView.shared ? `<span class="analytics-kicker">Market verdict</span>` : ""}${renderSharedVerdictHead(sharedView)}` : ""}
         ${sharedView ? renderVerdictFinePrint("", `
           ${starsPremiumMarkup(model, { best, pick: bestPick, shared: true })}
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view), teamNames))}</p>` : ""}
@@ -6204,7 +6204,8 @@ function verdictLineHtml(line) {
 function renderSharedVerdictHead(shared) {
   if (!shared.shared) {
     const note = shared.legacy ? LEGACY_FORMAT_NOTE : shared.missing ? missingBoardNote(shared.date) : "";
-    return `<h3>${verdictLineHtml(shared.today.label)}</h3>${note ? `<p class="calc-shared-note">${escapeHtml(note)}</p>` : ""}`;
+    // The scale right above already says this line; show it once (sr-only keeps the heading).
+    return `<h3 class="sr-only">${verdictLineHtml(shared.today.label)}</h3>${note ? `<p class="calc-shared-note">${escapeHtml(note)}</p>` : ""}`;
   }
   return `
     <h3 class="sr-only">Shared on ${escapeHtml(shared.date)}: ${escapeHtml(shared.shared.label)}. Today: ${escapeHtml(shared.today.label)}.</h3>
