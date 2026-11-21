@@ -1,5 +1,5 @@
 import { mountSiteMenu } from "./modules/site-menu.js";
-import { renderToolPicker, moveLeagueControls } from "./modules/tool-picker.js";
+import { renderToolPicker, moveLeagueControls, renderLeagueRecent } from "./modules/tool-picker.js";
 import { renderLeagueHub } from "./modules/league-hub.js";
 import { leagueArchive, readDeskSnapshot, saveDeskSnapshot } from "./modules/league-archive.js";
 import { buildTradeAdvice, closeTradeAdvice, onTradeAdviceBack, openTradeAdvice, renderTradeAdviceButton, renderTradeAdvicePanel, tradeAdviceOpen } from "./modules/trade-advice.js";
@@ -2210,6 +2210,7 @@ document.addEventListener("click", (event) => {
   event.preventDefault();
   forgetLastLeague();
   renderLandingResume();
+  renderLeagueRecent(document.querySelector("#leagues-page-content"));
   // Home's tool picker reads the same record: redraw it without the league.
   const home = document.querySelector("#home-page-content");
   if (home?.contains(forget)) {
@@ -6805,11 +6806,18 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "shared-edit": {
-      // Inputs stay hidden on a cold /t until the recipient asks to edit.
-      state.sharedEditing = true;
-      if (el.calculatorShell) el.calculatorShell.dataset.sharedEditing = "1";
-      target.closest(".shared-trade-cta")?.remove();
-      el.calculatorShell?.querySelector("[data-draft-side='left'] [data-input='value-search']")?.focus({ preventScroll: true });
+      // Open the same pieces in the full calculator (search, talk box, + Add,
+      // Swap, Clear). The shared view had no search box, so "editing" there
+      // could only remove pieces and + Add focused nothing. The share is
+      // dropped first so the URL becomes /trade?give=…&get=… and Back
+      // returns to the /t link.
+      state.sharedTrade = null;
+      state.sentShare = null;
+      state.sharedEditing = false;
+      writeStoredDraft(state.valueCalc);
+      renderTradeDraft();
+      updateUrlState({ mode: "push", force: true });
+      document.getElementById("trade-talk-input")?.focus({ preventScroll: true });
       break;
     }
     case "shared-check-own": {
