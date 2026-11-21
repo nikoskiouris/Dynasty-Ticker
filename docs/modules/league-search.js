@@ -129,7 +129,7 @@ export function noTeamInLeagueCopy(sleeperUser) {
 export function renderMeSelectOptions(rosters, selectedRosterId = "") {
   const selected = String(selectedRosterId ?? "");
   const options = [...(Array.isArray(rosters) ? rosters : [])]
-    .sort((a, b) => String(a?.manager?.displayName || "").localeCompare(String(b?.manager?.displayName || "")))
+    .sort((a, b) => String(a?.manager?.displayName || "").localeCompare(String(b?.manager?.displayName || ""), undefined, { numeric: true, sensitivity: "base" }))
     .map((roster) => {
       const id = String(roster?.rosterId ?? "");
       const selectedAttr = id && id === selected ? " selected" : "";

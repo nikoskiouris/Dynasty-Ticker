@@ -113,7 +113,7 @@ export function renderTradeLog({ season = "", seasons = [], query = "", team = "
   const choices = seasons.map((item) => `<option value="${escapeHtml(item)}"${text(season) === text(item) ? " selected" : ""}>${escapeHtml(item)}</option>`).join("");
   const teams = (context.entry?.rosters || []).map((roster) => ({
     id: text(roster.roster_id), label: rosterLabel(roster.roster_id, context.entry),
-  })).sort((a, b) => a.label.localeCompare(b.label));
+  })).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" }));
   const teamOptions = teams.map((row) => `<option value="${escapeHtml(row.id)}"${row.id === team ? " selected" : ""}>${escapeHtml(row.label)}</option>`).join("");
   return `<p><a class="league-back" href="/l/${encodeURIComponent(context.archive?.leagueId || context.entry?.leagueId || "")}">← League</a></p>
     ${caveat ? `<p class="muted small calc-market-caveat">${escapeHtml(caveat)} Grades use those values.</p>` : ""}
