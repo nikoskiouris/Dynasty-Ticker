@@ -56,42 +56,23 @@ Repo policy applies: **no unit tests and no automated test suites**. Acceptance 
 | --- | --- | --- | --- | --- |
 | 1 | [024](done/024-redesign-routes-and-page-shells.md) Routes and page shells | L | none | none; do it first |
 | 1b | [044](done/044-one-value-system-12-team-sf-ppr.md) One value system: 12-team SF PPR | L | 024 | 045 |
-| 1 | [024](done/024-redesign-routes-and-page-shells.md) Routes and page shells | L | none | none; do it first |
-| 1b | [044](done/044-one-value-system-12-team-sf-ppr.md) One value system: 12-team SF PPR | L | 024 | 045 |
 | 1b | [045](done/045-delete-features-not-in-sketches.md) Delete features the sketches don't show (incl. sample league) | L | 024 | 044 |
 | 2 | [025](done/025-global-slide-out-menu.md) Global menu | M | 024 | 026, 027, 031, 033 |
 | 2 | [026](done/026-home-tool-picker.md) Home tool picker | S | 024, 025, 044, 045 | 027, 031, 033 |
 | 2 | [027](done/027-trade-calc-two-column-layout.md) Trade Calc columns | M | 024, 044 | 025, 031, 033 |
 | 2 | [031](done/031-player-rankings-table.md) Player Rankings table | M | 024, 025, 044 | 027, 033 |
-| 2 | [027](done/027-trade-calc-two-column-layout.md) Trade Calc columns | M | 024, 044 | 025, 031, 033 |
-| 2 | [031](done/031-player-rankings-table.md) Player Rankings table | M | 024, 025, 044 | 027, 033 |
 | 2 | [033](done/033-league-history-username-and-league-picker.md) Username → league | M | 024, 025 | 027, 031 |
-| 3 | [029](done/029-trade-calc-fairness-scale.md) Fairness scale | M | 027, 044 | 028, 032, 034 |
-| 2 | [033](done/033-league-history-username-and-league-picker.md) Username → league | M | 024, 025 | 027, 031 |
-| 3 | [029](done/029-trade-calc-fairness-scale.md) Fairness scale | M | 027, 044 | 028, 032, 034 |
-| 3 | [028](done/028-trade-calc-smart-search.md) Smart search | M | 027 | 029, 032, 034 |
-| 3 | [032](done/032-player-detail-page.md) Player detail page | L | 024, 031, 044 | 028, 029, 034 |
 | 3 | [029](done/029-trade-calc-fairness-scale.md) Fairness scale | M | 027, 044 | 028, 032, 034 |
 | 3 | [028](done/028-trade-calc-smart-search.md) Smart search | M | 027 | 029, 032, 034 |
 | 3 | [032](done/032-player-detail-page.md) Player detail page | L | 024, 031, 044 | 028, 029, 034 |
 | 3 | [034](done/034-league-history-data-layer.md) League data layer | L | 033 | 028, 029, 032 |
 | 4 | [035](done/035-league-hub.md) League hub | M | 033, 034 | 030, 036, 038 |
-| 3 | [034](done/034-league-history-data-layer.md) League data layer | L | 033 | 028, 029, 032 |
-| 4 | [035](done/035-league-hub.md) League hub | M | 033, 034 | 030, 036, 038 |
 | 4 | [038](done/038-trade-grading-algorithm.md) Trade grading | M | 034, 044 (029 wording) | 035, 036, 037 |
-| 4 | [035](done/035-league-hub.md) League hub | M | 033, 034 | 030, 036, 038 |
-| 4 | [038](done/038-trade-grading-algorithm.md) Trade grading | M | 034, 044 (029 wording) | 035, 036, 037 |
-| 4 | [030](done/030-trade-calc-real-trade-advice.md) Trade advice (no AI) | M | 027, 029, 044, 045 | 035–038 |
-| 5 | [036](done/036-league-standings-page.md) Standings + luck | M | 033, 035 | 037, 039 |
 | 4 | [030](done/030-trade-calc-real-trade-advice.md) Trade advice (no AI) | M | 027, 029, 044, 045 | 035–038 |
 | 5 | [036](done/036-league-standings-page.md) Standings + luck | M | 033, 035 | 037, 039 |
 | 5 | [037](todo/037-league-my-team-page.md) My Team superlatives | M | 033, 035, 044, 045 (034 for some) | 036, 039 |
 | 5 | [039](done/039-league-recent-trades-page.md) Recent Trades | M | 034, 035, 038 | 036, 037 |
 | 6 | [040](done/040-historical-data-page-all-time-records.md) Historical Data page | L | 034, 035, 036 | 041 (after its shell) |
-| 5 | [039](done/039-league-recent-trades-page.md) Recent Trades | M | 034, 035, 038 | 036, 037 |
-| 6 | [040](done/040-historical-data-page-all-time-records.md) Historical Data page | L | 034, 035, 036 | 041 (after its shell) |
-| 6 | [041](done/041-awards-manager-trader-drafter.md) Awards I | L | 034, 038, 040, 044 | 042 |
-| 6 | [042](done/042-awards-lineup-setter-and-waivers.md) Awards II | M | 034, 040 | 041 |
 | 6 | [041](done/041-awards-manager-trader-drafter.md) Awards I | L | 034, 038, 040, 044 | 042 |
 | 6 | [042](done/042-awards-lineup-setter-and-waivers.md) Awards II | M | 034, 040 | 041 |
 | 7 | [043](done/043-retire-old-navigation-and-redirects.md) Retire old nav + redirects | M | 024–042, 044, 045 | none; do it last |
