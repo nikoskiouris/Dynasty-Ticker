@@ -22,11 +22,16 @@ export function sleeperPlayerThumbUrl(playerId) {
   return id && id !== "0" ? `${SLEEPER_PLAYER_THUMB_BASE}${encodeURIComponent(id)}.jpg` : "";
 }
 
+// "Kenneth Walker III" is KW and "Marvin Harrison Jr." is MH: a suffix is not a last name.
+const NAME_SUFFIX = /^(?:jr|sr|ii|iii|iv|v)$/i;
+
 export function playerInitials(name) {
-  const parts = String(name || "")
+  const words = String(name || "")
     .replaceAll(/['’.]/g, "")
     .split(/\s+/)
     .filter(Boolean);
+  const named = words.filter((word, index) => index === 0 || !NAME_SUFFIX.test(word));
+  const parts = named.length ? named : words;
   if (!parts.length) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase();
