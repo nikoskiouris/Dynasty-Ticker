@@ -82,7 +82,9 @@ export function ownerLine(owner, { leagueOpen = false, kind = "player" } = {}) {
 }
 
 export function rankBoardNote({ format = "sf", leagueFormat = "", caveat = "" } = {}) {
-  return `Values: 12-team Superflex PPR dynasty.${caveat ? ` ${caveat}` : ""}`;
+  // The caveat already opens with "Values are built for 12-team Superflex PPR
+  // dynasty", so it replaces the plain line instead of repeating it.
+  return caveat || "Values: 12-team Superflex PPR dynasty.";
 }
 
 export function buildRankBoard({
