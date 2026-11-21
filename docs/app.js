@@ -5378,8 +5378,10 @@ function runTradeTalk(text) {
   }
   // "Is this fair?" gets the answer in the reply, the same line the verdict shows.
   if (bothSides && plan.asked && after.model?.verdict) {
-    const verdictLine = verdictLineNamed(after.model.verdict, { Give: "You give", Get: "You get" });
-    if (verdictLine) lines.push(`${verdictLine}. The reason is under “Why?” below.`);
+    // Same names as the columns and the scale ("Team 2 receives 13% more");
+    // the calculator is never "you" (owner rule, Nov 19).
+    const verdictLine = verdictLineNamed(after.model.verdict, { Give: giveLabel, Get: getLabel });
+    if (verdictLine) lines.push(`${verdictLine}.`);
   }
   // A question needs an answer, so its reply stays on screen instead of a toast over it.
   const sticky = !changed || plan.misses.length > 0 || plan.notes.length > 0 || plan.asks.length > 0
