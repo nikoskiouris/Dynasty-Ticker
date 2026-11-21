@@ -216,6 +216,39 @@ function splitPieces(text) {
     .filter(Boolean);
 }
 
+// Best name score any player gets for this text (0 when nobody fits).
+function bestNameScore(text, index) {
+  let query = normalizePlayerName(text);
+  if (!query) return 0;
+  if (PLAYER_ALIASES[query]) query = PLAYER_ALIASES[query];
+  const qToks = query.split(" ");
+  let best = 0;
+  for (const entry of index) best = Math.max(best, scorePlayer(query, qToks, entry));
+  return best;
+}
+
+// "Mahomes Burrow", "Josh Allen Lamar Jackson": names typed with no comma or
+// "and" between them. Only used when the whole piece names nobody. Each part
+// must be a full, last or first name (score 60+), never a typo guess, so a
+// real name is never cut in two. Longest first part wins.
+const RUN_ON_MIN_SCORE = 60;
+export function splitRunOnNames(text, index) {
+  const toks = normalizePlayerName(text).split(" ").filter(Boolean);
+  if (toks.length < 2 || toks.length > 8) return null;
+  const solve = (start) => {
+    const rest = toks.slice(start).join(" ");
+    if (start > 0 && bestNameScore(rest, index) >= RUN_ON_MIN_SCORE) return [rest];
+    for (let end = toks.length - 1; end > start; end -= 1) {
+      const head = toks.slice(start, end).join(" ");
+      if (bestNameScore(head, index) < RUN_ON_MIN_SCORE) continue;
+      const tail = solve(end);
+      if (tail) return [head, ...tail];
+    }
+    return null;
+  };
+  return solve(0);
+}
+
 // Owner words in front of a piece: "my", "his", "their", "chris's".
 function pullOwner(piece, managers, meRosterId) {
   let text = piece.replace(PIECE_FILLER, "").trim();
@@ -457,7 +490,18 @@ function carryPickYear(pieces, season) {
 // Players first, so "Pickens and his 2nd" reads "his" as Pickens's team.
 function piecesWithSide(text, side, ctx, partner, index) {
   const out = { adds: [], asks: [], misses: [], notes: [], partner: null };
-  const pieces = carryPickYear(splitPieces(text), ctx.season);
+  const pieces = carryPickYear(splitPieces(text), ctx.season).flatMap((piece) => {
+    const owned = pullOwner(piece, ctx.managers, ctx.meRosterId);
+    if (parsePickPhrase(owned.text, { season: ctx.season })) return [piece];
+    const found = resolvePlayer(owned.text, index);
+    if (found.match || found.options) return [piece];
+    const names = splitRunOnNames(owned.text, index);
+    if (!names) return [piece];
+    // Keep the owner word ("my", "his", "chris's") on every name it covered.
+    const at = piece.toLowerCase().lastIndexOf(owned.text.toLowerCase());
+    const owner = owned.owner && at > 0 ? piece.slice(0, at) : "";
+    return names.map((name) => `${owner}${name}`);
+  });
   const isPick = (piece) => Boolean(parsePickPhrase(pullOwner(piece, ctx.managers, ctx.meRosterId).text, { season: ctx.season }));
   const hits = new Map();
   const run = (piece, i) => {
