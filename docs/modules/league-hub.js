@@ -52,6 +52,9 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
   const standingsTeaser = mine?.recordLabel && mine?.rank && Number(model?.finalThroughWeek) > 0
     ? `You're ${mine.recordLabel}, ${ordinal(mine.rank)}${model?.finalThroughWeek ? ` through week ${model.finalThroughWeek}` : ''}`
     : model?.finalThroughWeek ? `Through week ${model.finalThroughWeek}` : 'Records, playoff odds and luck';
+  // A season that hasn't drafted has no records yet (the offseason league).
+  const played = seasons.filter(row => !['pre_draft', 'drafting'].includes(String(row?.league?.status || ''))).length;
+  const playedLabel = played ? `${played} ${played === 1 ? "season" : "seasons"} of records` : 'No seasons played yet';
   const format = leagueFormat(league);
   // The 044 caveat (marketCaveat) when the league differs; otherwise the plain rule.
   const valuesLine = caveat || 'Values: 12-team Superflex PPR dynasty.';
@@ -59,7 +62,7 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
     ['standings', 'Standings', standingsTeaser],
     ['team', 'My Team', myTeam || 'Pick your team above to see your roster'],
     ['trades', 'Recent Trades', tradesLoaded ? `${recent} completed trades in the last 30 days` : 'Browse completed league trades'],
-    ['history', 'Historical Data', loading ? 'Loading seasons…' : `${seasons.length} ${seasons.length === 1 ? "season" : "seasons"} of records`],
+    ['history', 'Historical Data', loading ? 'Loading seasons…' : playedLabel],
   ];
   return `<header class="league-hub-header">${league.avatar ? `<img width="64" height="64" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(league.avatar)}">` : ''}<h2>${escapeHtml(league.name || 'Your league')}</h2><p>${escapeHtml(league.season)} · <span class="league-format-chip">${escapeHtml(format.chip)}</span></p><p class="muted small">${escapeHtml(valuesLine)}</p>${savedNote ? `<p class="league-saved-note" role="status">${escapeHtml(savedNote)}</p>` : ''}<a href="/leagues">Change league</a></header>
   ${renderTeamPick({ myTeam, myRosterId, teams })}
