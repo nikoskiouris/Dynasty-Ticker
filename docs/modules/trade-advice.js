@@ -1,25 +1,20 @@
-import { escapeHtml, formatNumber } from "./html.js";
+import { escapeHtml } from "./html.js";
 
 // "Give real trade advice" (ticket 030). Rules only, no AI: the calculator's
-// own verdict, even-up search and team-impact model, put in plain words.
+// own verdict and even-up search, put in plain words.
 // buildTradeAdvice() is the seam a later AI section can extend: it returns
 // sections, and the panel renders whatever sections it is given.
-
-const ordinalSuffix = (n) => {
-  const v = Math.abs(Math.round(n)) % 100;
-  if (v >= 11 && v <= 13) return "th";
-  return ["th", "st", "nd", "rd"][v % 10] || "th";
-};
-const place = (rank) => Number.isFinite(Number(rank)) && Number(rank) > 0 ? `${rank}${ordinalSuffix(Number(rank))}` : "—";
 
 /**
  * @param {object} input
  * @param {string} input.verdictLine   Same line as the Market verdict headline.
  * @param {boolean} input.fair         Already inside the fair band.
  * @param {object|null} input.evenUp   { line, side, assetId, name, closes } from the even-up search.
- * @param {object|null} input.team     { connected, ready, waiting, mySide, partnerName }.
+ *
+ * No "For your team" section: Trade Calculator is never team-specific (owner
+ * rule, Nov 19, 2026), so the panel never offers team advice or asks to connect.
  */
-export function buildTradeAdvice({ verdictLine = "", fair = false, evenUp = null, team = null, lighter = "" } = {}) {
+export function buildTradeAdvice({ verdictLine = "", fair = false, evenUp = null, lighter = "" } = {}) {
   const sections = [{
     id: "verdict",
     title: "Verdict",
@@ -39,29 +34,6 @@ export function buildTradeAdvice({ verdictLine = "", fair = false, evenUp = null
   } else {
     sections.push({ id: "fair", title: "How to make it fair", lines: [`No single pick gets this near fair. Try adding a player for ${lighter || "the side that gets less"}.`] });
   }
-  if (!team?.connected) {
-    sections.push({ id: "team", title: "For your team", lines: ["Connect your league for team-specific advice."], link: { href: "/leagues", label: "Connect your league" } });
-  } else if (!team.ready) {
-    sections.push({ id: "team", title: "For your team", lines: [team.waiting || "Pick your team and a trade partner to see lineup impact."] });
-  } else if (team.mySide) {
-    const { before, after } = team.mySide;
-    const moved = Number(after.rank) < Number(before.rank) ? "goes up" : Number(after.rank) > Number(before.rank) ? "drops" : "stays";
-    const total = Number(after.totalTeams) || Number(before.totalTeams) || 0;
-    const delta = Math.round(Number(after.starterValue) - Number(before.starterValue));
-    sections.push({
-      id: "team",
-      title: "For your team",
-      lines: [
-        moved === "stays"
-          ? `Your starting lineup stays ${place(before.rank)}${total ? ` of ${total}` : ""} in the league.`
-          : `Your starting lineup ${moved} from ${place(before.rank)} to ${place(after.rank)}${total ? ` of ${total}` : ""} in the league.`,
-        `Starter value ${delta >= 0 ? "+" : "−"}${formatNumber(Math.abs(delta))} (${formatNumber(before.starterValue)} → ${formatNumber(after.starterValue)}).`,
-        Number.isFinite(Number(after.benchValue) - Number(before.benchValue))
-          ? `Bench ${Number(after.benchValue) >= Number(before.benchValue) ? "+" : "−"}${formatNumber(Math.abs(Math.round(Number(after.benchValue) - Number(before.benchValue))))}.` : "",
-      ].filter(Boolean),
-      note: `Lineup rank sums our prices for your best starters against the other teams in your league. It is an estimate, not a forecast of wins.${team.partnerName ? ` Trade partner: ${team.partnerName}.` : ""}`,
-    });
-  }
   return sections;
 }
 
@@ -73,7 +45,7 @@ export function renderTradeAdvicePanel(sections = []) {
   return `<div class="trade-advice-backdrop" data-action="trade-advice-close"></div>
   <aside class="trade-advice-panel" role="dialog" aria-modal="true" aria-labelledby="trade-advice-title" tabindex="-1">
     <header><h2 id="trade-advice-title">Trade advice</h2><button type="button" class="ghost-btn btn-sm" data-action="trade-advice-close" aria-label="Close trade advice">✕</button></header>
-    <p class="muted small">From our prices and your league data. No AI.</p>
+    <p class="muted small">From Dynasty Ticker prices. No AI.</p>
     ${sections.map((section) => `<section class="trade-advice-section" data-advice="${escapeHtml(section.id)}">
       <h3>${escapeHtml(section.title)}</h3>
       ${section.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}

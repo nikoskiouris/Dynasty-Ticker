@@ -5561,23 +5561,7 @@ function tradeAdviceSections(view) {
     name: choice.name,
     closes: Boolean(choice.closes),
   } : null;
-  let team = { connected: Boolean(view.basis.connected) };
-  if (team.connected) {
-    const idea = view.context?.ready ? buildDraftImpact(view) : null;
-    const mySide = idea?.impactAnalysis?.mySide || null;
-    team = {
-      ...team,
-      ready: Boolean(mySide),
-      mySide,
-      partnerName: view.partner ? draftReceivingTeam("left", view) : "",
-      waiting: draftTeamSummary(view.context, {
-        leftCount: view.draft.left.length,
-        rightCount: view.draft.right.length,
-        partnerName: view.partner?.manager?.displayName || "",
-      }),
-    };
-  }
-  return buildTradeAdvice({ verdictLine: verdictLineNamed(verdict, teamNames), fair, evenUp, team,
+  return buildTradeAdvice({ verdictLine: verdictLineNamed(verdict, teamNames), fair, evenUp,
     lighter: draftReceivingTeam(side, view) });
 }
 
