@@ -165,6 +165,10 @@ const LEAD_FILLER = /^(?:hey|so|ok|okay|yo|hmm|um|lol)[,!.\s]+|^(?:would you do|
 function stripChatter(text) {
   let body = text;
   let asked = false;
+  // "What is Bowers worth? Is that more or less than a 2027 first?" (first-visit
+  // task 1): one comparison, said in two sentences. Keep the second half.
+  const twoPart = body.match(/^what(?:'s| is)\s+(.+?)\s+worth\s*[?.!]*\s+(?:is|are)\s+(?:that|he|it|this|they|him)\s+(?:worth\s+)?(?:more|less)(?:\s+or\s+(?:more|less))?\s+than\s+(.+?)[?.!]*\s*$/);
+  if (twoPart) return { body: `${twoPart[1]} worth more than ${twoPart[2]}`, asked: true };
   // "... for Puka. Is that a good deal for me?": a closing question sentence
   // asks for the verdict. It is not part of the trade.
   body = body.replace(/[.!?]+\s+(?:is|isn't|should|would|does|do|was|am|are|can|could|how)\b[^.!?]*[.!?]*\s*$/, () => {
