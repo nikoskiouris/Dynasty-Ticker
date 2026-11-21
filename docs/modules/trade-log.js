@@ -26,6 +26,7 @@ const assetHtml = (asset, context) => asset.kind === "player"
   : asset.draftedPlayerId
     ? `${escapeHtml(pickLabel(asset, context))} → ${playerButton(asset.draftedPlayerId, context)} (drafted)`
     : escapeHtml(pickLabel(asset, context));
+
 // The calculator's column total says "incl. +3,189 extra" when the fewer,
 // better pieces extra is counted; the grade uses the same total, so say so here
 // too. Otherwise "Received 25,383" does not add up from the pieces listed.
