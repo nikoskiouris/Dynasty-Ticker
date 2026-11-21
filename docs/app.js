@@ -4461,7 +4461,7 @@ function renderPlayoffOddsPanel(model, sim) {
     ? `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulated seasons. Odds are simulated, not guaranteed.`
     : `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulations.`;
   return `
-    <section class="workspace-panel odds-panel">
+    <section class="workspace-panel odds-panel${phase === "bracket" ? " odds-bracket" : ""}">
       <div class="panel-heading stack">
         <div>
           <span class="eyebrow">Playoff Odds</span>
