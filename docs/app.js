@@ -3094,6 +3094,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
   } catch (err) {
     if (!leagueLoader.isCurrent(token)) return;
     state.leagueSwitching = false;
+    const failedPlace = state.pendingPlace;
     state.pendingPlace = null;
     const season = String(state.nflState?.league_season || state.nflState?.season || "");
     renderLeaguePicker(state.userLeagues, season);
@@ -3113,6 +3114,9 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
         })
       : leagueLoadErrorMessage(err);
     const unreachable = message === SLEEPER_UNREACHABLE_MESSAGE;
+    // Retry after an outage opens the room the link asked for (/l/…/standings),
+    // not My Team.
+    if (unreachable && !state.leagueId) state.pendingPlace = failedPlace;
     setFieldError(el.leagueId, el.leagueIdError, unreachable || failedSwitch ? "" : message);
     setStatus(unreachable || failedSwitch ? "" : message, { error: true });
     leagueLoadRecovery.fail({ leagueId, token });
@@ -8931,6 +8935,8 @@ function showLeagueNotFound() {
 function openLandingFromMissingLeague() {
   // Keep the outage title on this history entry, then push / with the landing title.
   prepareDeskPush();
+  // The failed link's room does not carry over to the next league picked.
+  state.pendingPlace = null;
   hideSleeperUnreachable();
   hideLeagueNotFound();
   const landing = document.querySelector("#landing");
@@ -8985,6 +8991,10 @@ function showInvalidLeagueLink() {
 
 function showSleeperUnreachable() {
   sleeperUnreachable = true;
+  // Same as a missing league: the outage panel is the page. A league page left
+  // behind it reads "Loading your league…" after the load has already failed.
+  hideAppPages();
+  stopLeagueLoadingUi();
   const missing = document.getElementById("league-missing");
   if (missing) {
     missing.hidden = true;
