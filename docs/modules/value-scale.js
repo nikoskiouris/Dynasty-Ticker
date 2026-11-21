@@ -327,14 +327,19 @@ export function renderValueSparkline(series) {
   return `<svg class="value-spark" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true"><polyline points="${points}" /></svg>`;
 }
 
-export function renderValueTrend(trend, { spark = false, now = new Date() } = {}) {
+// showWindow puts the window on screen ("↑677 since Oct 28", "No change since
+// Nov 19"); a bare "→0" does not say over what time, so a reader cannot tell
+// flat-for-a-month from two days of history.
+export function renderValueTrend(trend, { spark = false, showWindow = false, now = new Date() } = {}) {
   if (!trend) return "";
   const arrow = trend.direction === "up" ? "↑" : trend.direction === "down" ? "↓" : "→";
   const word = trend.direction === "up" ? "up" : trend.direction === "down" ? "down" : "flat";
   const amount = formatNumber(Math.abs(trend.delta));
   const since = formatSince(trend.fromDate || trend.series?.[0]?.date, now);
   const windowText = since || "across saved snapshots";
-  const visual = `${arrow}${amount}`;
+  const visual = showWindow
+    ? (trend.direction === "flat" ? `No change ${windowText}` : `${arrow}${amount} ${windowText}`)
+    : `${arrow}${amount}`;
   return `<span class="value-trend ${trend.direction}" title="Change ${escapeHtml(windowText)}">${spark ? renderValueSparkline(trend.series) : ""}<span aria-hidden="true">${escapeHtml(visual)}</span><span class="sr-only">${escapeHtml(`${word} ${amount} ${windowText}`)}</span></span>`;
 }
 
