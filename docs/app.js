@@ -6728,6 +6728,10 @@ function handleWorkspaceClick(event) {
       draftPushNext = false;
       break;
     case "open-player": {
+      // A real link (Most traded players) still opens a new tab on a
+      // modified click; a plain click stays in the app and keeps the league.
+      if (target.tagName === "A" && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button)) break;
+      event.preventDefault();
       openPlayerPage(target.dataset.assetId);
       break;
     }
