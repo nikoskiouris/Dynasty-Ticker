@@ -53,14 +53,18 @@ export function buildTeamSuperlatives({
   history = null,
   latestStarters = [],
   acquisitions = null,
+  // "you"/"your" only on the user's own team; another team's page names it.
+  ownerLabel = "",
 } = {}) {
+  const forWhom = ownerLabel ? `for ${ownerLabel}` : "for you";
+  const benchOf = ownerLabel ? `${ownerLabel}'s bench` : "your bench";
   const nameOf = (id) => String(names[`player:${id}`] || names[id] || "").trim();
   const cards = [];
   const totals = [...seasonPlayerTotals(weekRows, rosterId, throughWeek).values()].filter((row) => nameOf(row.playerId));
   const top = (list, key) => list.filter((row) => row[key] > 0).sort((a, b) => b[key] - a[key])[0] || null;
 
   const mvp = top(totals, "startedPoints");
-  if (mvp) cards.push({ key: "mvp", title: "MVP", playerId: mvp.playerId, name: nameOf(mvp.playerId), why: `${formatPoints(mvp.startedPoints)} points started for you in ${mvp.starts} ${mvp.starts === 1 ? "week" : "weeks"}.` });
+  if (mvp) cards.push({ key: "mvp", title: "MVP", playerId: mvp.playerId, name: nameOf(mvp.playerId), why: `${formatPoints(mvp.startedPoints)} points started ${forWhom} in ${mvp.starts} ${mvp.starts === 1 ? "week" : "weeks"}.` });
 
   const roster = rosterPlayerIds.map(String).filter((id) => nameOf(id));
   const priced = roster.map((id) => ({ id, value: Number(values[`player:${id}`]) })).filter((row) => row.value > 0).sort((a, b) => b.value - a.value);
@@ -73,7 +77,7 @@ export function buildTeamSuperlatives({
   if (faller) cards.push({ key: "faller", title: "Faller", playerId: faller.id, name: nameOf(faller.id), why: `Down ${formatNumber(Math.abs(faller.trend.delta))} in value ${formatSince(faller.trend.fromDate)}.` });
 
   const bench = top(totals, "benchPoints");
-  if (bench) cards.push({ key: "bench", title: "Bench warmer", playerId: bench.playerId, name: nameOf(bench.playerId), why: `${formatPoints(bench.benchPoints)} points scored on your bench.` });
+  if (bench) cards.push({ key: "bench", title: "Bench warmer", playerId: bench.playerId, name: nameOf(bench.playerId), why: `${formatPoints(bench.benchPoints)} points scored on ${benchOf}.` });
 
   // Most starts; a tie goes to the one who scored more, and the card says so.
   const mostStarts = Math.max(0, ...totals.map((row) => row.starts));
