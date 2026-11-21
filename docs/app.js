@@ -4580,7 +4580,7 @@ function renderTeamExtras() {
   section.classList.toggle("hidden", cards.length === 0);
   host.innerHTML = cards.map((card) => `
     <article class="team-superlative">
-      ${renderPlayerFace(card.playerId, card.name, { size: "md" })}
+      <span class="face-link" data-action="open-player" data-asset-id="player:${escapeHtml(card.playerId)}">${renderPlayerFace(card.playerId, card.name, { size: "md" })}</span>
       <div>
         <p class="eyebrow">${escapeHtml(card.title)}</p>
         <h3>${playerLinkHtml({ assetId: `player:${card.playerId}`, name: card.name })}</h3>
