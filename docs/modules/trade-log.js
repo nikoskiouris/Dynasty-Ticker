@@ -19,6 +19,14 @@ const assetLabel = (asset, context) => asset.kind === "player"
     ? `${pickLabel(asset, context)} → ${playerLabel(asset.draftedPlayerId, context)} (drafted)`
     : pickLabel(asset, context);
 
+// Same text as assetLabel, with each player as a link to his player page.
+const playerButton = (playerId, context) => `<button type="button" class="link-btn player-link" data-action="open-player" data-asset-id="player:${escapeHtml(playerId)}">${escapeHtml(playerLabel(playerId, context))}</button>`;
+const assetHtml = (asset, context) => asset.kind === "player"
+  ? playerButton(asset.playerId, context)
+  : asset.draftedPlayerId
+    ? `${escapeHtml(pickLabel(asset, context))} → ${playerButton(asset.draftedPlayerId, context)} (drafted)`
+    : escapeHtml(pickLabel(asset, context));
+
 function rosterLabel(rosterId, entry) {
   const roster = (entry?.rosters || []).find((row) => text(row.roster_id) === text(rosterId));
   const user = (entry?.users || []).find((row) => text(row.user_id) === text(roster?.owner_id));
@@ -85,11 +93,11 @@ export function renderTradeLogRows({
       return give.length && get.length ? tradeHref(give, get, "") : "";
     })();
     const parties = sides.map((side) => {
-      const received = side.received.map((asset) => assetLabel(asset, context));
+      const received = side.received.map((asset) => assetHtml(asset, context));
       const isWinner = graded.available && graded.winnerRosterId === side.rosterId;
       return `<div class="trade-log-side">
         <h3>${escapeHtml(rosterLabel(side.rosterId, entry))}${isWinner ? ' <span class="mini-chip">Higher value</span>' : ""}</h3>
-        <p>${escapeHtml(received.join(", ") || "No player or pick received")}</p>
+        <p>${received.join(", ") || "No player or pick received"}</p>
         <p class="muted small">Received ${graded.available ? priceLabel(side.valueReceived) : "value unavailable"}
           · Sent ${graded.available ? priceLabel(side.valueSent) : "value unavailable"}
           · Trade grade: <strong>${graded.available ? escapeHtml(side.grade) : "Not graded"}</strong></p>
