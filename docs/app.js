@@ -6040,8 +6040,8 @@ function nextRookieDraftSeason() {
 }
 
 // A future pick evens the gap only when its price actually covers it.
-// Sleeper leagues trade picks for the next three drafts by default, so a
-// "2032 2nd" is often not a pick anyone can send. Suggest a pick from the next
+// Sleeper trades picks for the current season plus up to three future years,
+// so a "2032 2nd" is not a pick anyone can send there yet. Suggest a pick from the next
 // three drafts when one makes it fair; reach further out only when none does.
 const EVEN_UP_NEAR_DRAFTS = 3;
 function findEvenUpPick(view) {
