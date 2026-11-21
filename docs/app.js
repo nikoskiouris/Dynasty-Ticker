@@ -6040,16 +6040,24 @@ function nextRookieDraftSeason() {
 }
 
 // A future pick evens the gap only when its price actually covers it.
+// Sleeper leagues trade picks for the next three drafts by default, so a
+// "2032 2nd" is often not a pick anyone can send. Suggest a pick from the next
+// three drafts when one makes it fair; reach further out only when none does.
+const EVEN_UP_NEAR_DRAFTS = 3;
 function findEvenUpPick(view) {
   const first = nextRookieDraftSeason();
   const picks = listGenericPicks(view.basis.values, view.basis.nameMap)
     .filter((pick) => Number(pick.season) >= first);
-  return evenUpTradePick({
+  const search = (list) => evenUpTradePick({
     giveValues: view.draft.left.map(view.priceOf),
     getValues: view.draft.right.map(view.priceOf),
-    picks,
+    picks: list,
     globalMaxValue: getGlobalMaxPlayerValue(view.basis.values),
   });
+  const near = search(picks.filter((pick) => Number(pick.season) < first + EVEN_UP_NEAR_DRAFTS));
+  if (near?.closes) return near;
+  const any = search(picks);
+  return any?.closes || !near ? any : near;
 }
 
 const EVEN_UP_MIN_PLAYER = 3500;
