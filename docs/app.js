@@ -1,5 +1,5 @@
 import { mountSiteMenu } from "./modules/site-menu.js";
-import { renderToolPicker, moveLeagueControls } from "./modules/tool-picker.js";
+import { renderToolPicker, moveLeagueControls, renderLeagueRecent } from "./modules/tool-picker.js";
 import { renderLeagueHub } from "./modules/league-hub.js";
 import { leagueArchive, readDeskSnapshot, saveDeskSnapshot } from "./modules/league-archive.js";
 import { buildTradeAdvice, closeTradeAdvice, onTradeAdviceBack, openTradeAdvice, renderTradeAdviceButton, renderTradeAdvicePanel, tradeAdviceOpen } from "./modules/trade-advice.js";
@@ -2210,6 +2210,7 @@ document.addEventListener("click", (event) => {
   event.preventDefault();
   forgetLastLeague();
   renderLandingResume();
+  renderLeagueRecent(document.querySelector("#leagues-page-content"));
   // Home's tool picker reads the same record: redraw it without the league.
   const home = document.querySelector("#home-page-content");
   if (home?.contains(forget)) {
