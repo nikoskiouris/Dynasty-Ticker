@@ -284,6 +284,7 @@ import {
   renderPlayerConnect,
   renderRanksBody,
   renderRanksMarkup,
+  rankCountMessage,
   } from "./modules/ranks.js";
 import {
   announceRoute,
@@ -1232,7 +1233,16 @@ function paintRankToolbar(toolbar, view, typing) {
   if (note) note.textContent = view.note;
   const input = toolbar.querySelector("[data-ranks-query]");
   if (input && !typing) input.value = view.query;
+  // Announce only when the search or the chip changed, not on every paint
+  // (load, sort, Show more).
+  const status = toolbar.querySelector("[data-ranks-count]");
+  const key = `${view.position}|${String(view.query || "").trim().toLowerCase()}`;
+  if (status && !view.loading && key !== rankCountKey) {
+    if (rankCountKey !== null) status.textContent = rankCountMessage(view);
+    rankCountKey = key;
+  }
 }
+let rankCountKey = null;
 
 function renderRankHost(host) {
   if (!host) return;

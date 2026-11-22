@@ -321,6 +321,18 @@ export function renderPlayerConnect() {
     <div class="player-league-list league-picker" data-player-league-list hidden></div>`;
 }
 
+// What a screen reader hears after a search or a position chip: the list
+// changed under it, and only the count says how.
+const RANK_POSITION_WORDS = { QB: "quarterbacks", RB: "running backs", WR: "wide receivers", TE: "tight ends", PICK: "picks" };
+export function rankCountMessage(view) {
+  if (!view || view.loading || view.failed) return "";
+  const total = (view.rows?.length || 0) + (Number(view.hidden) || 0);
+  if (!total) return String(view.emptyLabel || "No results.");
+  const where = view.position && view.position !== "ALL" ? ` among ${RANK_POSITION_WORDS[view.position] || view.position}` : "";
+  const query = String(view.query || "").trim();
+  return `${total} ${total === 1 ? "result" : "results"}${query ? ` for “${query}”` : ""}${where}.`;
+}
+
 export function renderRanksToolbar(view) {
   return `
     <div class="ranks-toolbar" data-ranks-toolbar>
@@ -329,6 +341,7 @@ export function renderRanksToolbar(view) {
         ${RANK_POSITIONS.map((pos) => renderRankChip("rank-pos", "pos", pos, pos === "ALL" ? "All" : (pos === "PICK" ? "Picks" : pos), view?.position)).join("")}
       </div>
       <p class="ranks-note muted">${escapeHtml(view?.note || "")}</p>
+      <p class="sr-only" role="status" data-ranks-count></p>
     </div>
   `;
 }
