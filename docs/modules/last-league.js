@@ -1,4 +1,5 @@
 import { escapeHtml } from "./html.js";
+import { safeStorage } from "./safe-storage.js";
 
 // The last league and team this browser opened, so a
 // returning manager reopens it from home in one tap. Ticket 018.
@@ -23,7 +24,7 @@ export function normalizeLastLeague(raw) {
   };
 }
 
-export function readLastLeague(storage = globalThis.localStorage) {
+export function readLastLeague(storage = safeStorage("localStorage")) {
   try {
     const raw = storage?.getItem?.(LAST_LEAGUE_KEY);
     return raw ? normalizeLastLeague(JSON.parse(raw)) : null;
@@ -32,7 +33,7 @@ export function readLastLeague(storage = globalThis.localStorage) {
   }
 }
 
-export function writeLastLeague(entry, storage = globalThis.localStorage) {
+export function writeLastLeague(entry, storage = safeStorage("localStorage")) {
   const row = normalizeLastLeague(entry);
   if (!row) return false;
   try {
@@ -43,7 +44,7 @@ export function writeLastLeague(entry, storage = globalThis.localStorage) {
   }
 }
 
-export function forgetLastLeague(storage = globalThis.localStorage) {
+export function forgetLastLeague(storage = safeStorage("localStorage")) {
   try {
     storage?.removeItem?.(LAST_LEAGUE_KEY);
   } catch {
