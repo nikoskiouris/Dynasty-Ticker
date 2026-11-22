@@ -4716,9 +4716,32 @@ function renderRosterSheet() {
     el.rosterSheetHeading.textContent = roster.manager.displayName;
   }
   const summary = summarizeRosterAssets(roster, values);
-  const benchRows = roster.assets
-    .filter((asset) => asset.assetType === "player" && !strength.lineup.some((entry) => entry.asset?.assetId === asset.assetId))
-    .sort((a, b) => getAssetValue(b, values) - getAssetValue(a, values));
+  // Whole roster by position (ticket 037). The slot is where Sleeper has him
+  // now (Start, Bench, IR, Taxi), not a lineup we chose by value.
+  const sleeperRoster = (state.rosters || []).find((row) => String(row?.roster_id) === String(roster.rosterId)) || {};
+  const idSet = (list) => new Set((Array.isArray(list) ? list : []).map(String));
+  const started = idSet(sleeperRoster.starters);
+  const reserve = idSet(sleeperRoster.reserve);
+  const taxi = idSet(sleeperRoster.taxi);
+  const sleeperSlot = (asset) => {
+    const id = playerIdFromAssetId(asset.assetId);
+    if (started.has(id)) return "Start";
+    if (reserve.has(id)) return "IR";
+    if (taxi.has(id)) return "Taxi";
+    return "Bench";
+  };
+  const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
+  const positionGroups = new Map();
+  roster.assets
+    .filter((asset) => asset.assetType === "player")
+    .sort((a, b) => getAssetValue(b, values) - getAssetValue(a, values))
+    .forEach((asset) => {
+      const pos = String(playerPositionForAsset(asset) || "").toUpperCase();
+      const key = POSITION_ORDER.includes(pos) ? pos : "Other";
+      if (!positionGroups.has(key)) positionGroups.set(key, []);
+      positionGroups.get(key).push(asset);
+    });
+  const groupOrder = [...POSITION_ORDER, "Other"].filter((key) => positionGroups.has(key));
   const seasonPoints = seasonPlayerPoints();
   const renderPlayerRow = (asset, slotLabel, extra = {}) => {
     const playerId = playerIdFromAssetId(asset.assetId);
@@ -4729,9 +4752,12 @@ function renderRosterSheet() {
       "sheet-row",
       isInjuryFlaggedAsset(asset) ? "flagged" : "",
     ].filter(Boolean).join(" ");
+    // The value snapshot's age (30.3) over Sleeper's whole-year age (30), as on Player Rankings.
+    const age = Number(state.valueBundles?.players?.[asset.assetId]?.age) || playerAgeForAsset(asset);
     const meta = [
       escapeHtml(formatPlayerPositionLabel(asset)),
       team ? escapeHtml(team) : "",
+      Number.isFinite(age) && age > 0 ? `${escapeHtml(age.toFixed(1))}y` : "",
       injury ? `<span class="injury">${escapeHtml(injury)}</span>` : "",
     ].filter(Boolean).join(" · ");
     return `
@@ -4772,8 +4798,8 @@ function renderRosterSheet() {
     ${state.league && marketCaveat(state.league) ? `<p class="muted small calc-market-caveat">${escapeHtml(marketCaveat(state.league))}</p>` : ""}
     <div class="sheet-grid">
       <section class="sheet-column">
-        <h3 class="sheet-heading">Bench</h3>
-        ${benchRows.map((asset) => renderPlayerRow(asset, isTradeEligibleAsset(asset) ? "Bench" : formatPlayerPositionLabel(asset))).join("") || `<p class="muted small">No bench players.</p>`}
+        ${groupOrder.map((key) => `<h3 class="sheet-heading">${escapeHtml(key)} · ${positionGroups.get(key).length}</h3>
+        ${positionGroups.get(key).map((asset) => renderPlayerRow(asset, sleeperSlot(asset))).join("")}`).join("") || `<p class="muted small">No players on this roster.</p>`}
         ${showPicks ? `
         <h3 class="sheet-heading">Draft picks</h3>
         ${picks.length
