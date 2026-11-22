@@ -39,7 +39,7 @@ export function renderRivalries(archive) {
         top.mostPlayed?.tiedWith ? `Tied with ${top.mostPlayed.tiedWith} other ${top.mostPlayed.tiedWith === 1 ? "pairing" : "pairings"}` : "")}
       ${highlight("Most one-sided", top.lopsided,
         `${lopsided || ""} won ${Math.max(top.lopsided?.firstWins || 0, top.lopsided?.secondWins || 0)} of ${top.lopsided?.meetings || 0}`,
-        "Minimum 3 recorded meetings")}
+        `Minimum 3 recorded meetings${top.lopsided?.tiedWith ? ` · tied with ${top.lopsided.tiedWith} other ${top.lopsided.tiedWith === 1 ? "pairing" : "pairings"}` : ""}`)}
       ${highlight("Most playoff meetings", top.playoff, `${top.playoff?.playoffGames || 0} playoff games`)}
     </dl>
   </section>`;
