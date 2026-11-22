@@ -69,7 +69,7 @@ function renderRecords(book) {
   if (!entries.length) return `<section class="workspace-panel"><h2>Record book</h2>
     <p class="muted">Weekly records will appear when Sleeper has matchups for the loaded seasons.</p></section>`;
   return `<section class="workspace-panel"><h2>Record book</h2>
-    <p class="muted small">Calculated from ${whole(book.gamesRead)} completed head-to-head matchups and ${whole(book.seasonsRead)} seasons. Missing Sleeper weeks are excluded.</p>
+    <p class="muted small">Calculated from ${whole(book.gamesRead)} completed head-to-head ${Number(book.gamesRead) === 1 ? "matchup" : "matchups"} and ${whole(book.seasonsRead)} ${Number(book.seasonsRead) === 1 ? "season" : "seasons"}. Missing Sleeper weeks are excluded.</p>
     <dl class="league-history-records">${entries.map(([key, label]) => {
       const item = book.records[key];
       const season = safeSeason(item.season);

@@ -2753,7 +2753,7 @@ async function runUserLeagueSearch(username) {
       setUsernameError(`No NFL leagues for ${season}/${Number(season) - 1}.`);
     } else {
       setUsernameError("");
-      setStatus(`Found ${state.userLeagues.length} leagues for ${user.display_name || username}. Pick one.`);
+      setStatus(`Found ${state.userLeagues.length} ${state.userLeagues.length === 1 ? "league" : "leagues"} for ${user.display_name || username}. Pick one.`);
       el.landingLeaguePicker?.scrollIntoView({ behavior: smoothScroll(), block: "nearest" });
     }
   } catch (err) {
