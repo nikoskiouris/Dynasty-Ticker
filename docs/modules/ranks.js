@@ -209,10 +209,18 @@ export function filterRankRows(rows, { query = "", position = "ALL" } = {}) {
   const floor = want ? RANK_SEARCH_FLOOR : (pos === "ALL" ? RANK_LIST_FLOOR : RANK_POSITION_FLOOR);
   // "jsn" also finds Jaxon Smith-Njigba, and still finds any name containing "jsn".
   const alias = foldRankQuery(playerAliasName(query));
-  return (Array.isArray(rows) ? rows : []).filter((row) => {
+  const list = Array.isArray(rows) ? rows : [];
+  // "DET", "kc", "FA": a query that is exactly an NFL team code (or FA, no
+  // team) also lists that team's players, beside any name that matches.
+  const code = String(query || "").trim().toUpperCase();
+  const teamCode = /^[A-Z]{2,3}$/.test(code)
+    && (code === "FA" || list.some((row) => row.kind !== "pick" && String(row.team || "").toUpperCase() === code)) ? code : "";
+  const onTeam = (row) => teamCode && row.kind !== "pick"
+    && (teamCode === "FA" ? !row.team || String(row.team).toUpperCase() === "FA" : String(row.team || "").toUpperCase() === teamCode);
+  return list.filter((row) => {
     if (pos === "PICK" && row.kind !== "pick") return false;
     if (pos !== "ALL" && pos !== "PICK" && row.position !== pos) return false;
-    if (want && !foldRankQuery(row.name).includes(want) && !(alias && row.kind !== "pick" && foldRankQuery(row.name).includes(alias))) return false;
+    if (want && !onTeam(row) && !foldRankQuery(row.name).includes(want) && !(alias && row.kind !== "pick" && foldRankQuery(row.name).includes(alias))) return false;
     if (row.kind === "pick") return true;
     return Number(row.value) >= 0;
   }).map((row, index) => ({ ...row, listRank: index + 1 }));
@@ -332,7 +340,7 @@ export function renderPlayerConnect() {
 export function renderRanksToolbar(view) {
   return `
     <div class="ranks-toolbar" data-ranks-toolbar>
-      <input class="ranks-search" type="search" aria-label="Search players and picks" placeholder="Search players and picks" value="${escapeHtml(view?.query || "")}" data-input="ranks-search" data-ranks-query autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
+      <input class="ranks-search" type="search" aria-label="Search players, picks or an NFL team" placeholder="Search players, picks, teams" value="${escapeHtml(view?.query || "")}" data-input="ranks-search" data-ranks-query autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
       <div class="ranks-filters" role="group" aria-label="Position">
         ${RANK_POSITIONS.map((pos) => renderRankChip("rank-pos", "pos", pos, pos === "ALL" ? "All" : (pos === "PICK" ? "Picks" : pos), view?.position)).join("")}
       </div>
