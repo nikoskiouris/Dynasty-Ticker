@@ -113,6 +113,24 @@ export function applyDocumentMeta(doc, { title, description } = {}) {
   }
 }
 
+// index.html ships one canonical (the home page) for every route, so search
+// engines folded /players, /trade and every /player/<id> page into "/". Point
+// it, and og:url, at the page actually shown. Query strings (?league=…) are
+// per-visitor state, not a different page.
+export function applyCanonical(doc, pathname = "/") {
+  if (!doc?.head) return;
+  const path = String(pathname || "/").split(/[?#]/)[0] || "/";
+  const href = `${SITE_ORIGIN}${path.startsWith("/") ? path : `/${path}`}`;
+  let link = doc.head.querySelector('link[rel="canonical"]');
+  if (!link) {
+    link = doc.createElement("link");
+    link.setAttribute("rel", "canonical");
+    doc.head.appendChild(link);
+  }
+  if (link.getAttribute("href") !== href) link.setAttribute("href", href);
+  setMetaContent(doc, "property", "og:url", href);
+}
+
 export function readStorageNoticeDismissed(storage = safeStorage("localStorage")) {
   try {
     return storage?.getItem(STORAGE_NOTICE_KEY) === "1";
