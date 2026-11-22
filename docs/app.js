@@ -4812,6 +4812,22 @@ function setDraftReplaced(next) {
   }
 }
 
+// Which column each recently removed asset was in, so "add Nabers back"
+// puts him back where he was instead of the default column.
+const removedSides = new Map();
+function rememberRemovedSides(before, after) {
+  const still = new Set([...(after?.left || []), ...(after?.right || [])].map((item) => item.assetId));
+  for (const side of ["left", "right"]) {
+    for (const item of before?.[side] || []) {
+      if (item?.assetId && !still.has(item.assetId)) {
+        removedSides.delete(item.assetId);
+        removedSides.set(item.assetId, side);
+      }
+    }
+  }
+  while (removedSides.size > 24) removedSides.delete(removedSides.keys().next().value);
+}
+
 function setDraft(next, { keepNotice = false } = {}) {
   // "Restore draft / Keep new" goes away on the next change to the trade.
   if (!keepNotice) setDraftReplaced(null);
@@ -4823,6 +4839,7 @@ function setDraft(next, { keepNotice = false } = {}) {
   const pushNow = leavingShared || draftPushNext;
   draftPushNext = false;
   if (leavingShared) prepareDeskPush();
+  rememberRemovedSides(state.valueCalc, next);
   state.valueCalc = next;
   writeStoredDraft(next);
   if (state.activePage === "trades" && getRoom("trades") === "calculator") {
@@ -5270,6 +5287,7 @@ function tradeTalkContext(view) {
     partnerRosterId: view.context?.partnerRosterId ?? draft.partnerRosterId ?? null,
     // A typed piece with no side lands where Enter on a search match would.
     defaultSide: smartTradeSide,
+    removedSides: Object.fromEntries(removedSides),
     season: nextRookieDraftSeason(),
     connected: basis.connected,
     draft,
