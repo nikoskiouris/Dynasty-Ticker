@@ -49,7 +49,8 @@ export function mostTradedPlayers(archive = {}, { values = {}, valueNames = {}, 
 
 function playerItem(row, index, detail) {
   const href = playerPathname(row.playerId, row.name);
-  const name = href ? `<a href="${e(href)}">${e(row.name)}</a>` : e(row.name);
+  // data-action keeps a plain click in the app (no reload, league stays open).
+  const name = href ? `<a href="${e(href)}" data-action="open-player" data-asset-id="player:${e(row.playerId)}">${e(row.name)}</a>` : e(row.name);
   return `<li><span class="league-most-traded-rank">${index + 1}</span>
     <span class="league-most-traded-name">${name}</span>
     <span class="league-most-traded-count muted">${detail}</span></li>`;
