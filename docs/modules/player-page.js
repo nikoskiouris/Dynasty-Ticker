@@ -69,7 +69,8 @@ export function renderPlayerPage(row, view = {}) {
   const thisSeason = Number(model.forecast?.sf?.[0]?.season);
   const draftYear = Number.isFinite(thisSeason) && Number.isFinite(Number(years)) ? thisSeason - Number(years) : null;
   const draftLine = draft
-    ? `${draft.year || ""} R${draft.round} P${draft.pick}`.trim()
+    // Same words as older players' line ("2017 NFL draft, pick 10 overall"), not "R1 P4".
+    ? `${draft.year ? `${draft.year} NFL draft, ` : "NFL draft, "}round ${draft.round}, pick ${draft.pick} overall`
     : Number(model.draftPick) > 0
       ? `${draftYear ? `${draftYear} NFL draft, ` : "NFL draft "}pick ${model.draftPick} overall`
       : "NFL draft slot unavailable";
