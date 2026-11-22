@@ -2038,11 +2038,27 @@ function routedPlayerId() {
   return sleeperIdFrom(state.ranks?.selectedId);
 }
 
-function routedPlayerName() {
+function routedPlayerRow() {
   const assetId = assetIdFromRoute(routedPlayerId());
-  if (!assetId) return "";
-  const row = cachedRankRows().find((entry) => entry.assetId === assetId);
-  return row?.name || "";
+  if (!assetId) return null;
+  return cachedRankRows().find((entry) => entry.assetId === assetId) || null;
+}
+
+function routedPlayerName() {
+  return routedPlayerRow()?.name || "";
+}
+
+// Search snippet for a player page: the facts the page leads with, so a
+// result for "<name> dynasty value" answers the question before the click.
+function playerPageDescription(name) {
+  const row = routedPlayerRow();
+  const tag = [row?.position, row?.team || (row ? "FA" : "")].filter(Boolean).join(", ");
+  const ranks = [
+    Number(row?.overallRank) > 0 ? `#${row.overallRank} overall` : "",
+    row?.boardRank && row.boardRank !== row.position ? row.boardRank : "",
+  ].filter(Boolean).join(", ");
+  if (!row || !(Number(row.value) > 0)) return `${name}: dynasty value, rank and why, on 12-team Superflex PPR values.`;
+  return `${name}${tag ? ` (${tag})` : ""} dynasty value: ${formatNumber(row.value)}${ranks ? `, ${ranks}` : ""} in 12-team Superflex PPR. See why, the trend and similar values.`;
 }
 
 function applyTradeRoute(route) {
@@ -9285,7 +9301,7 @@ function syncDocumentMeta() {
   const room = state.leagueId ? getRoom() : "";
   // Players board and player pages live in the trades room but are not the calculator.
   const boardDescription = place.playerName
-    ? `${place.playerName}: dynasty value, rank and why, on 12-team Superflex PPR values.`
+    ? playerPageDescription(place.playerName)
     : place.playersBoard ? "Every player and pick, ranked by 12-team Superflex PPR dynasty value." : "";
   const description = boardDescription || buildPageDescription({
       page: state.leagueId ? state.activePage : (place.titleTab || ""),
