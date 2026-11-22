@@ -199,7 +199,8 @@ function pullPartner(text, managers, meRosterId) {
   });
   // No league loaded: "from Chris" at the end still names a person, not a player.
   let unknown = "";
-  if (!partner && !managers.length) {
+  // "replace Jeanty with Gibbs": "with" names the new piece, not a person.
+  if (!partner && !managers.length && !/^(?:swap|replace|change|sub|switch)\b/.test(body)) {
     body = body.replace(/\s+(?:from|with)\s+(@?[a-z][a-z0-9_.]*)$/, (whole, word) => {
       if (PRONOUNS.has(word)) return whole;
       unknown = word.replace(/^@/, "");
@@ -603,12 +604,27 @@ export function parseTradeTalk(message, ctx = {}) {
     else if (getGive) body = `i get ${getGive[1]} for ${getGive[2]}`;
   }
 
+  // "Gibbs instead of Jeanty", "make it Gibbs instead of Jeanty", "instead of
+  // Jeanty, Gibbs": the same as "replace Jeanty with Gibbs".
+  const insteadAfter = body.match(/^(?:make it|use|try|do|go with|put in|add)?\s*(.+?)\s+instead of\s+(.+)$/);
+  const insteadBefore = !insteadAfter && body.match(/^instead of\s+(.+?)\s*,\s*(?:make it|use|try|do|go with|put in|add)?\s*(.+)$/);
+  if (insteadAfter) body = `replace ${insteadAfter[2]} with ${insteadAfter[1]}`;
+  else if (insteadBefore) body = `replace ${insteadBefore[1]} with ${insteadBefore[2]}`;
+
   const replace = body.match(/^(?:swap|replace|change|sub|switch|trade)\s+(?:out\s+)?(.+?)\s+(?:for|with|to|into)\s+(.+)$/);
   if (replace && findInDraft(replace[1], context.draft, context).length) {
     const plan = blankPlan("replace");
     const gone = findInDraft(replace[1], context.draft, context);
     plan.removes.push(...gone.map((item) => ({ side: item.side, uid: item.uid, name: item.name })));
     absorb(plan, piecesWithSide(replace[2], gone[0].side, context, partner, index));
+    return finish(plan);
+  }
+  // "Replace Nacua with Chase" when Nacua isn't in the trade: say that, rather
+  // than "Didn't catch “replace nacua”". ("Swap/trade X for Y" with X not in
+  // the trade is a new trade, handled below.)
+  if (replace && /^(?:replace|change|sub)\b/.test(body)) {
+    const plan = blankPlan("replace");
+    plan.misses.push({ text: replace[1].trim(), reason: "Not in the trade." });
     return finish(plan);
   }
 
