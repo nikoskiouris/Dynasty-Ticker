@@ -3138,7 +3138,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
           missingTeam
             ? missingTeam
             : me
-              ? `Loaded ${state.leagueName}. Viewing as ${me.manager?.displayName || "your team"}. Switch teams in the Manager panel.`
+              ? `Loaded ${state.leagueName}. Viewing as ${me.manager?.displayName || "your team"}. Switch teams with the Viewing as picker on the league hub.`
               : `Loaded ${state.leagueName}. Choose your team to continue.`,
           missingTeam ? { error: true } : { ok: true },
         );
