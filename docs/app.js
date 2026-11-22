@@ -224,6 +224,7 @@ import {
   topOverlay,
   urlPath,
   legacyRedirect,
+  rankPositionFromSearch,
 } from "./modules/history-route.js";
 import {
   EVEN_UP_OFFER_ABOVE,
@@ -1424,6 +1425,7 @@ function bootFromUrl() {
     applyTradeRoute(route);
   }
   if (route.name === "connect") connectAsked = true;
+  if (route.name === "players") state.ranks.position = rankPositionFromSearch(window.location.search) || "ALL";
   const leagueId = route.leagueId || parsed.leagueId;
   if (leagueId) {
     void loadLeagueById(leagueId);
@@ -1973,6 +1975,7 @@ function applyDeskPopState(historyState) {
   }
   if (route.name === "players" || route.legacy === "ranks") {
     document.querySelector("#landing")?.classList.add("hidden");
+    state.ranks.position = rankPositionFromSearch(window.location.search) || "ALL";
   }
   if (route.name === "home" || route.name === "connect") {
     document.querySelector("#landing")?.classList.remove("hidden");
@@ -2389,6 +2392,7 @@ function buildShareUrl(overrides = {}) {
     shareCode: activeShareCode(),
     landing: landingVisible(),
     playersBoard: playersBoardShown(),
+    rankPosition: state.ranks?.position,
     format: state.leagueId ? "" : activeRankFormat(),
   });
   if (href) return `${overrides.origin ?? window.location.origin}${href}`;

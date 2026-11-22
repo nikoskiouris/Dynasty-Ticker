@@ -359,6 +359,21 @@ export function legacyRedirect(pathname = "/", search = "") {
   return `${urlPath("l", league, target)}${keep()}`;
 }
 
+// /players?pos=te: the rankings' position filter, so the link opens the same
+// list. "All" is the bare /players.
+const RANK_POSITION_PARAMS = Object.freeze({ qb: "QB", rb: "RB", wr: "WR", te: "TE", pick: "PICK", picks: "PICK" });
+
+export function rankPositionFromSearch(search = "") {
+  const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+  return RANK_POSITION_PARAMS[String(params.get("pos") || "").trim().toLowerCase()] || "";
+}
+
+export function rankPositionQuery(position = "") {
+  const key = String(position || "").toUpperCase();
+  if (key === "PICK") return "?pos=picks";
+  return Object.values(RANK_POSITION_PARAMS).includes(key) ? `?pos=${key.toLowerCase()}` : "";
+}
+
 // Legacy `?ranks=1` opens /players. Anything else unknown opens home.
 export function resolveLocation(pathname = "/", search = "") {
   const [pathOnly, inline = ""] = String(pathname || "/").split("?");
@@ -407,6 +422,7 @@ export function pathForPlace({
   playersBoard = false,
   format = "",
   lensRosterId = null,
+  rankPosition = "",
 } = {}) {
   const placePage = page || tab;
   const placeRoom = room || view;
@@ -425,7 +441,7 @@ export function pathForPlace({
   else if (placePage === "trades" && placeRoom === "calculator" && landing && !give.length && !get.length) href = urlPath();
   // Player Rankings is its own page: /players stays /players even with a saved
   // trade draft (the draft waits on /trade).
-  else if (placePage === "trades" && placeRoom === "calculator" && playersBoard) href = urlPath("players");
+  else if (placePage === "trades" && placeRoom === "calculator" && playersBoard) href = `${urlPath("players")}${rankPositionQuery(rankPosition)}`;
   else if (placePage === "trades" && placeRoom === "calculator") href = tradeHref(give, get, leagueId, { format });
   else if (leagueSegment && LEAGUE_ID.test(String(leagueId || ""))) {
     href = urlPath("l", leagueId, leagueSegment);
