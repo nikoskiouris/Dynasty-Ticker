@@ -99,6 +99,24 @@ export function holdDocumentTitle(doc, title) {
   }
 }
 
+// A page that only exists to say "not found" asks search engines not to index
+// it. Every other route drops the tag again.
+export function applyNoIndex(doc, noindex) {
+  if (!doc?.head) return;
+  let tag = doc.head.querySelector('meta[name="robots"]');
+  if (!noindex) {
+    if (tag?.dataset?.route) tag.remove();
+    return;
+  }
+  if (!tag) {
+    tag = doc.createElement("meta");
+    tag.setAttribute("name", "robots");
+    tag.dataset.route = "1";
+    doc.head.appendChild(tag);
+  }
+  tag.setAttribute("content", "noindex");
+}
+
 export function applyDocumentMeta(doc, { title, description } = {}) {
   if (!doc) return;
   if (title) {

@@ -262,6 +262,7 @@ import {
 import { currentPlaceForOwner } from "./modules/draft-order.js";
 import {
   applyDocumentMeta,
+  applyNoIndex,
   buildDocumentTitle,
   holdDocumentTitle,
   buildPageDescription,
@@ -9196,6 +9197,17 @@ function syncDocumentMeta() {
     return;
   }
   const place = routePlaceNow();
+  // /player/<id> for an id we have no price for: say so, not "Trade Calculator".
+  const missingPlayer = Boolean(activePlayerRouteId()) && !place.playerName && cachedRankRows().length > 0;
+  applyNoIndex(document, missingPlayer);
+  if (missingPlayer) {
+    applyDocumentMeta(document, {
+      title: "Player not found · Dynasty Ticker",
+      description: "We have no dynasty value for this player right now. See every priced player in Player Rankings.",
+    });
+    if (el.routeTitle) el.routeTitle.textContent = "Player not found";
+    return;
+  }
   const routedTitle = routeDocumentTitle({
     playerName: place.playerName,
     tab: place.titleTab,
