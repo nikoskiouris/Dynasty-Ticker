@@ -2,9 +2,10 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import http from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { isSpaPath } from "../docs/modules/history-route.js";
+import { isAssetLikePath, isSpaPath } from "../docs/modules/history-route.js";
 import { createSharePageHandler } from "../netlify/lib/trade-share.js";
 import { createTradeCardHandler } from "../netlify/lib/trade-card.js";
+import { createPlayerPageHandler } from "../netlify/lib/player-share.js";
 
 const root = join(process.cwd(), "docs");
 const port = Number(process.env.PORT || 4173);
@@ -51,6 +52,7 @@ export function classifyRequest(pathname) {
   // Same as netlify.toml: shared trades and their cards go to the functions.
   if (/^\/t\/[^/]+\/?$/.test(clean)) return { status: 200, file: fileAt("/index.html"), fn: "trade-page" };
   if (/^\/og\/t\/[^/]+$/.test(clean)) return { status: 200, file: null, fn: "trade-card" };
+  if (/^\/player\/[^/]+(\/[^/]+)?\/?$/.test(clean) && !isAssetLikePath(clean)) return { status: 200, file: fileAt("/index.html"), fn: "player-page" };
   // Netlify's pretty URLs serve /privacy from privacy.html. The footer links
   // /privacy and /terms, so the local server does the same.
   const staticFile = clean === "/" ? null : (fileAt(clean) || (/^\/[a-z0-9-]+$/i.test(clean) ? fileAt(`${clean}.html`) : null));
@@ -70,6 +72,7 @@ export function createSiteServer(deps = {}) {
   const fns = {
     "trade-page": createSharePageHandler({ origin, ...deps }),
     "trade-card": createTradeCardHandler({ origin, ...deps }),
+    "player-page": createPlayerPageHandler({ origin, ...deps }),
   };
   return http.createServer((req, res) => {
     let classified;

@@ -123,7 +123,7 @@ function marketStore() {
   }
 }
 
-async function readSiteFile(rel, origin) {
+export async function readSiteFile(rel, origin) {
   // Prices and dated snapshots: the same newest copy the app gets.
   if (isMarketFile(rel)) {
     const file = await readMarketFile(rel, { store: marketStore() });

@@ -16,6 +16,7 @@ export const OPTIONAL = Object.freeze([
   { pr: "#164", marker: "docs/modules/trade-share.js", functions: ["trade-page", "trade-card"], edge: [], resvg: true },
   { pr: "#165", marker: "docs/modules/asset-path.js", functions: [], edge: ["asset-404"] },
   { pr: "daily values", marker: "netlify/lib/market-data.js", functions: ["market"], edge: [] },
+  { pr: "player link previews", marker: "netlify/lib/player-share.js", functions: ["player-page"], edge: [] },
 ]);
 
 // The PNG card needs resvg's JS (bundled into trade-card) and its wasm

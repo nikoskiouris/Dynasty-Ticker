@@ -118,6 +118,8 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
+# /player/<id>[/<slug>] go to the player-page function, which returns
+# index.html with that player's title, canonical and og: tags (link previews).
 # Documented rewrites only: a fixed path or one :placeholder per segment.
 # Not forced, so a real file still wins. /* is the only splat, and it is
 # the 404 catch-all, so /api, functions, and static files stay put.
@@ -125,12 +127,12 @@
 # non-numeric player id or a league id with a dot as unknown and sends it home.
 [[redirects]]
   from = "/player/:id"
-  to = "/index.html"
+  to = "/.netlify/functions/player-page?id=:id"
   status = 200
 
 [[redirects]]
   from = "/player/:id/:slug"
-  to = "/index.html"
+  to = "/.netlify/functions/player-page?id=:id"
   status = 200
 
 [[redirects]]
@@ -185,12 +187,12 @@
 
 [[redirects]]
   from = "/player/:id/"
-  to = "/index.html"
+  to = "/.netlify/functions/player-page?id=:id"
   status = 200
 
 [[redirects]]
   from = "/player/:id/:slug/"
-  to = "/index.html"
+  to = "/.netlify/functions/player-page?id=:id"
   status = 200
 
 [[redirects]]
