@@ -8319,11 +8319,20 @@ function renderPlayerValueMarks(asset, values = state.values, { soon = false, sp
   return `${renderValueTierBadge(value)}${trendHtml}`;
 }
 
+// On a team's own pick list, "2027 1st (1.09) from Manager3" on Manager3's
+// page reads like a pick he traded for. Keep "from …" only for acquired picks.
+function pickVaultName(asset) {
+  const name = String(asset?.name || "Pick");
+  const raw = asset?.raw || {};
+  const own = raw.original_owner != null && raw.owner_id != null && String(raw.original_owner) === String(raw.owner_id);
+  return own ? name.replace(/ from .+?(?=, projected | ·|$)/, "") : name;
+}
+
 function renderPickVaultRow(asset, values) {
   const hint = valuedAsMidFirstHint(asset, state.league?.season);
   const body = `
               <span class="sheet-slot">${escapeHtml(String(asset?.raw?.season || ""))}</span>
-              <div class="sheet-player"><strong>${escapeHtml(asset?.name || "Pick")}</strong>${hint ? `<span class="pick-value-hint">${escapeHtml(hint)}</span>` : ""}</div>
+              <div class="sheet-player"><strong>${escapeHtml(pickVaultName(asset))}</strong>${hint ? `<span class="pick-value-hint">${escapeHtml(hint)}</span>` : ""}</div>
               <span class="sheet-value mono">${renderAssetValuePlain(asset, values)}</span>
           `;
   return `
