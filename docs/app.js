@@ -4380,7 +4380,7 @@ function renderStandingsPanel(model, sim) {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">Standings</span>
-          <h2>${hasGames && model.finalThroughWeek > 0 ? `Through Week ${model.finalThroughWeek}` : "Season outlook"}</h2>
+          <h2>${hasGames && model.finalThroughWeek > 0 ? (model.regularSeasonComplete ? "Final regular season" : `Through Week ${model.finalThroughWeek}`) : "Season outlook"}</h2>
         </div>
         ${showDivisions ? `
           <div class="segmented" role="group" aria-label="Standings view">
