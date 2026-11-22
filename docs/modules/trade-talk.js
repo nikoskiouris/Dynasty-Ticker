@@ -151,6 +151,8 @@ function cleanText(text) {
     .replace(/\s*(?:\+|&)\s*/g, " and ")
     // "Gibbs -> Chase": an arrow reads as "for".
     .replace(/\s*(?:->|=>|→)\s*/g, " for ")
+    // "Gibbs <> Bijan", "Gibbs <-> Bijan", "Gibbs ↔ Bijan": the same.
+    .replace(/\s*(?:<->|<=>|<>|↔|⇄|⇆)\s*/g, " for ")
     // "Gibbs straight up for Bijan", "Gibbs for Bijan, even up": filler, not a
     // name. "Gibbs 1 for 1 Bijan" is a plain swap.
     .replace(/\s+(?:1|one)[ -]for[ -](?:1|one)\s+/g, " for ")
@@ -647,7 +649,9 @@ export function parseTradeTalk(message, ctx = {}) {
     else if (getGive) body = `i get ${getGive[1]} for ${getGive[2]}`;
   }
 
-  const replace = body.match(/^(?:swap|replace|change|sub|switch|trade)\s+(?:out\s+)?(.+?)\s+(?:for|with|to|into)\s+(.+)$/);
+  // "swap Gibbs for Bijan" edits the draft. "Trade Gibbs for Bijan" (and
+  // "should I trade Gibbs for Bijan?") is a whole trade, not a swap.
+  const replace = body.match(/^(?:swap|replace|change|sub|switch)\s+(?:out\s+)?(.+?)\s+(?:for|with|to|into)\s+(.+)$/);
   if (replace && findInDraft(replace[1], context.draft, context).length) {
     const plan = blankPlan("replace");
     const gone = findInDraft(replace[1], context.draft, context);
