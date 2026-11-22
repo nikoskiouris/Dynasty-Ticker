@@ -3684,6 +3684,14 @@ a.inline-link:hover {
   text-transform: none;
 }
 
+/* iOS Safari zooms the page into any form field under 16px when it gets
+   focus. The "Viewing" team picker was 13px on phones. */
+@media (max-width: 700px), (pointer: coarse) {
+  .lens-picker select {
+    font-size: 16px;
+  }
+}
+
 /* Cross-room pointers shown where a feature used to live. */
 
 .rather-photo {
