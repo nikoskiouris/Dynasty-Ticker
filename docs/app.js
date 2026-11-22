@@ -1367,25 +1367,6 @@ function renderTradesRoom(room) {
   renderTradeDraft();
 }
 
-// After a keyboard press re-renders the button away, move focus to what
-// replaced it once it is on screen (renders can be queued). Gives up after
-// ~1.5s, and never steals focus the user has already moved.
-function focusWhenShown(selector, { heading = false } = {}) {
-  const started = Date.now();
-  const tick = () => {
-    const active = document.activeElement;
-    if (active && active !== document.body && document.contains(active)) return;
-    const node = [].concat(selector).map((one) => document.querySelector(one)).find((hit) => hit && hit.getClientRects().length);
-    if (node) {
-      if (heading && /^H\d$/.test(node.tagName) && node.getAttribute("tabindex") == null) node.setAttribute("tabindex", "-1");
-      node.focus({ preventScroll: true });
-      return;
-    }
-    if (Date.now() - started < 1500) requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
-}
-
 function bootFromUrl() {
   // Rewrite before anything is reported, so a cold removed-room link counts one visit.
   const legacyTarget = legacyRedirect(window.location.pathname, window.location.search);
@@ -6628,6 +6609,25 @@ function handleWorkspacePointerDown(event) {
   event.preventDefault();
   armCalcClickSwallow();
   pickDraftSuggestion(calcSuggestionItem(event));
+}
+
+// After a keyboard press re-renders the button away, move focus to what
+// replaced it once it is on screen (renders can be queued). Gives up after
+// ~1.5s, and never steals focus the user has already moved.
+function focusWhenShown(selector, { heading = false } = {}) {
+  const started = Date.now();
+  const tick = () => {
+    const active = document.activeElement;
+    if (active && active !== document.body && document.contains(active)) return;
+    const node = [].concat(selector).map((one) => document.querySelector(one)).find((hit) => hit && hit.getClientRects().length);
+    if (node) {
+      if (heading && /^H\d$/.test(node.tagName) && node.getAttribute("tabindex") == null) node.setAttribute("tabindex", "-1");
+      node.focus({ preventScroll: true });
+      return;
+    }
+    if (Date.now() - started < 1500) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
 
 function handleWorkspaceClick(event) {
