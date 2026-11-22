@@ -5558,10 +5558,12 @@ function tradeAdviceSections(view) {
   const choice = helps ? found : null;
   // findEvenUpPick adds to the Give (left) column when that side is short.
   const side = verdict.gap > 0 ? "left" : "right";
-  const giver = draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view);
+  // "Team X needs …" names the team that receives less, the same team the
+  // calculator's Even it up line names and the button adds to (#406).
+  const short = draftReceivingTeam(side, view);
   // Name the pick and the verdict after adding it, scored the same way as the scale.
   const evenUp = choice ? {
-    line: evenUpOptionsLine(options, giver, teamNames),
+    line: evenUpOptionsLine(options, short, teamNames),
     side,
     receiver: draftReceivingTeam(side, view),
     assetId: choice.assetId || "",
