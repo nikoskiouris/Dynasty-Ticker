@@ -1492,13 +1492,17 @@ body:not(.league-loaded) .workspace-header {
 
 .standings-team .team-identity {
   flex: 1 1 auto;
-  min-width: 0;
+  /* Keep a few letters of the name. Without this, the seed and "Clinched"
+     chips took the whole cell on a 360px phone and the name shrank to "S…". */
+  min-width: min(6.5rem, 45%);
 }
 
 .standings-badges {
   display: inline-flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
   gap: 0.25rem;
 }
 
