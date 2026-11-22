@@ -3,7 +3,7 @@ import { managerTrophyCases } from "./league-trophies.js";
 
 const e = (value) => escapeHtml(String(value ?? ""));
 const seasonLabel = (result) => result
-  ? `${result.season} · ${result.wins}–${result.losses}${result.ties ? `–${result.ties}` : ""} · regular-season finish #${result.finish ?? "?"}`
+  ? `${result.season} · ${result.wins}–${result.losses}${result.ties ? `–${result.ties}` : ""} · ${result.partial ? `#${result.finish ?? "?"} so far` : `regular-season finish #${result.finish ?? "?"}`}`
   : "Not enough completed games";
 
 const fullName = (raw) => String(raw?.full_name || [raw?.first_name, raw?.last_name].filter(Boolean).join(" ")).trim();
@@ -17,8 +17,12 @@ export function renderTrophyCases(archive, { valueNames = {}, players = {} } = {
     return `<details class="league-trophy-card">
       <summary><strong>${e(profile.name)}</strong> · ${profile.titles} championship${profile.titles === 1 ? "" : "s"}</summary>
       <dl>
-        <div><dt>Best regular season</dt><dd>${e(seasonLabel(profile.bestSeason))}</dd></div>
-        <div><dt>Worst regular season</dt><dd>${e(seasonLabel(profile.worstSeason))}</dd></div>
+        ${profile.bestSeason && profile.bestSeason === profile.worstSeason
+          // One season to go on: it is not both the best and the worst.
+          ? `<div><dt>Regular season</dt><dd>${e(seasonLabel(profile.bestSeason))}</dd></div>`
+          : `<div><dt>Best regular season</dt><dd>${e(seasonLabel(profile.bestSeason))}</dd></div>
+        <div><dt>Worst regular season</dt><dd>${e(seasonLabel(profile.worstSeason))}</dd></div>`}
+        ${profile.currentSeason ? `<div><dt>This season</dt><dd>${e(seasonLabel(profile.currentSeason))}</dd></div>` : ""}
         ${profile.favoriteTradePartner ? `<div><dt>Most frequent trade partner</dt>
           <dd>${e(profile.favoriteTradePartner.managerName)} · ${profile.favoriteTradePartner.trades} completed ${Number(profile.favoriteTradePartner.trades) === 1 ? "trade" : "trades"}</dd></div>` : ""}
         ${player ? `<div><dt>Most recurring season-end roster player</dt>
