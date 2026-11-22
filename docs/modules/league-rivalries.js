@@ -58,7 +58,10 @@ export function headToHeadHistory(archive = {}) {
 
 export function rivalryHighlights(history) {
   const pairs = history?.pairs || [];
-  const mostPlayed = pairs[0] || null;
+  // One meeting is a schedule, not a rivalry (a first season has every pair
+  // at 1). A tie for the lead is reported, not settled by alphabet.
+  const lead = pairs[0] && pairs[0].meetings >= 2 ? pairs[0] : null;
+  const mostPlayed = lead ? { ...lead, tiedWith: pairs.filter((pair) => pair !== lead && pair.meetings === lead.meetings).length } : null;
   // A single win isn't a dynasty-long rivalry. Require 3 meetings before
   // claiming a pairing was historically one-sided.
   const lopsided = pairs.filter((pair) => pair.meetings >= 3).slice().sort((a, b) => {
