@@ -262,6 +262,7 @@ import {
 import { currentPlaceForOwner } from "./modules/draft-order.js";
 import {
   applyDocumentMeta,
+  applyCanonical,
   buildDocumentTitle,
   holdDocumentTitle,
   buildPageDescription,
@@ -9169,6 +9170,8 @@ function serverShareMeta() {
 }
 
 function syncDocumentMeta() {
+  // A /t/ share page keeps the canonical its server page set.
+  if (!/^\/t\//.test(window.location.pathname)) applyCanonical(document, window.location.pathname);
   if (leagueMissing) {
     applyDocumentMeta(document, {
       title: "We couldn't find that league · Dynasty Ticker",
