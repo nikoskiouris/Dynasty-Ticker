@@ -784,6 +784,21 @@ export function parseTradeTalk(message, ctx = {}) {
     return finish(plan);
   }
 
+  // The columns are "Team 1 receives" (right) and "Team 2 receives" (left), and
+  // "Even it up" says "Team 2 needs …". Read the same names back: "team 2 gets
+  // a 2028 2nd", "give team 1 Bijan", "add a 2nd to team 2".
+  const teamSide = (n) => (String(n) === "1" ? "right" : "left");
+  const teamLead = body.match(/^team\s*([12])\s+(?:gets?|receives?|needs?|adds?|takes?)\s+(.+)$/)
+    || body.match(/^(?:give|send|add)\s+team\s*([12])\s+(.+)$/);
+  const teamTail = !teamLead && body.match(/^(?:(?:add|give|send|throw in|toss in|include|put in|put)\s+)?(.+?)\s+(?:to|on|into)\s+team\s*([12])(?:'s)?(?:\s+side)?$/);
+  if (teamLead || teamTail) {
+    const plan = blankPlan("add");
+    const n = teamLead ? teamLead[1] : teamTail[2];
+    const pieces = teamLead ? teamLead[2] : teamTail[1];
+    absorb(plan, piecesWithSide(pieces, teamSide(n), context, partner, index));
+    return finish(plan);
+  }
+
   const plan = blankPlan("add");
   let rest = body;
   let side = "";
