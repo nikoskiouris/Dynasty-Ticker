@@ -170,8 +170,9 @@ export function leagueRecordBook(archive = {}) {
   for (const entry of archive.seasons || []) {
     for (const roster of entry.rosters || []) {
       const record = rosterRecord(roster);
+      // A season still being played can hold this record, but it says "so far".
       set("highSeasonPF", { season: id(entry.season), leagueId: id(entry.leagueId),
-        team: rosterName(entry, roster.roster_id), value: round2(record.pf) }, true);
+        team: rosterName(entry, roster.roster_id), value: round2(record.pf), partial: !isCompleted(entry) }, true);
       if (!isCompleted(entry)) continue;
       const seasonRecord = { season: id(entry.season), leagueId: id(entry.leagueId),
         team: rosterName(entry, roster.roster_id),
@@ -181,6 +182,12 @@ export function leagueRecordBook(archive = {}) {
       set("bestSeasonRecord", seasonRecord, true);
       set("worstSeasonRecord", seasonRecord, false);
     }
+  }
+  // Every finished record tied (one season, all .500): "best" and "worst"
+  // would name the same number, so there is no worst record to show.
+  if (records.bestSeasonRecord && records.worstSeasonRecord && records.bestSeasonRecord.value === records.worstSeasonRecord.value) {
+    delete records.worstSeasonRecord;
+    delete records.bestSeasonRecord;
   }
   return { records, gamesRead: allGames.length, seasonsRead: (archive.seasons || []).length };
 }

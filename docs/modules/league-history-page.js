@@ -74,7 +74,7 @@ function renderRecords(book) {
       const item = book.records[key];
       const season = safeSeason(item.season);
       const week = Number(item.week);
-      const where = [season, Number.isInteger(week) && week > 0 ? `Week ${week}` : item.weeks || ""].filter(Boolean).join(" · ");
+      const where = [season, Number.isInteger(week) && week > 0 ? `Week ${week}` : item.weeks || "", item.partial ? "so far" : ""].filter(Boolean).join(" · ");
       const value = key === "bestSeasonRecord" || key === "worstSeasonRecord" ? `${decimal(item.value)}% (${e(item.record)})`
         : key === "winStreak" || key === "loseStreak" ? `${whole(item.value)} game${item.value === 1 ? "" : "s"}` : formatPoints(item.value);
       return `<div><dt>${e(label)}</dt><dd><strong>${value}</strong>
