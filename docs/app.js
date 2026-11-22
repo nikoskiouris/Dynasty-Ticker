@@ -1435,6 +1435,9 @@ function bootFromUrl() {
   if (route.name === "players") state.ranks.position = rankPositionFromSearch(window.location.search) || "ALL";
   const leagueId = route.leagueId || parsed.leagueId;
   if (leagueId) {
+    // /players?league=…: the league loads first, then lands on the calculator
+    // room. Mark the board open now so it lands on Player Rankings, not /trade.
+    if (route.name === "players" || route.legacy === "ranks") playersBoardOpen = true;
     void loadLeagueById(leagueId);
   } else if (!routeDrivesPlace && parsed.tab === "trades" && parsed.view === "ranks") {
     openPlayerBoard({ history: "silent" });
