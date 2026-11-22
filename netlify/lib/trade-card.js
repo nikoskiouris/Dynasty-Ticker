@@ -49,7 +49,12 @@ function sideColumn(summary, key, x, measure, bigger = "") {
   const credited = key === "give" ? summary.giveCredited : summary.getCredited;
   // Same names as the verdict line and the app: the get side is what Team 1 receives.
   const label = key === "give" ? "TEAM 2 RECEIVES" : "TEAM 1 RECEIVES";
-  const shown = rows.slice(0, MAX_ROWS);
+  // Room for MAX_ROWS: when a side has more, show its most valuable pieces
+  // and let "+N more" stand for the small ones.
+  const ordered = rows.length > MAX_ROWS
+    ? rows.slice().sort((a, b) => (b.unpriced ? -1 : Number(b.value) || 0) - (a.unpriced ? -1 : Number(a.value) || 0))
+    : rows;
+  const shown = ordered.slice(0, MAX_ROWS);
   const more = rows.length - shown.length;
   const right = x + COL_W - PAD_X;
   const parts = [

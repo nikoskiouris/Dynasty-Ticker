@@ -158,8 +158,11 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
   const row = (assetId) => {
     const isPick = assetId.startsWith("pick:");
     const id = assetId.slice("player:".length);
+    // "2027 1st", as the app, the talk box and the rankings say it. The values
+    // file names it "2027 Round 1"; that is the fallback.
+    const generic = isPick ? formatGenericPickAssetLabel(assetId) : "";
     const name = isPick
-      ? (bundle.nameMap?.[assetId] || formatGenericPickAssetLabel(assetId))
+      ? (generic && generic !== assetId ? generic : (bundle.nameMap?.[assetId] || assetId))
       : (String(playerNames?.[id] || payload?.names?.[assetId] || directory?.names?.[assetId] || "").trim() || `Player ${id}`);
     // Picks price through the app's own lookup (every round; r2:early falls back to
     // r2:any, then the pick catalog), so a shared link never reads a 2nd as 0.
