@@ -4351,6 +4351,7 @@ body:not(.league-loaded):has(#landing:not(.hidden)) #league-page {
 
 /* Cold /t: read-only until "Edit this trade". */
 [data-shared-view="1"]:not([data-shared-editing="1"]) .selected-token-remove,
+[data-shared-view="1"]:not([data-shared-editing="1"]) .draft-add-focus,
 [data-shared-view="1"]:not([data-shared-editing="1"]) .draft-partner-slot {
   display: none;
 }
