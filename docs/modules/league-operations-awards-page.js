@@ -44,7 +44,7 @@ export function renderOperationsAwards(archive, { players = {}, values = {}, val
         : '<div><h3>Lineup awards</h3><button type="button" data-action="compute-lineup-awards">Calculate lineup awards</button></div>'}
       <div><h3>Best waiver manager</h3>${person(waiver.best, (row) => `${dollars(row.score)} score · ${points(row.startedPoints)} started points · ${countLabel(row.adds, "add")}`)}</div>
       <div><h3>Worst waiver manager</h3>${person(waiver.worst, (row) => `${dollars(row.score)} score · ${points(row.startedPoints)} started points · ${countLabel(row.adds, "add")}`)}</div>
-      <div><h3>Highest-scoring waiver pickup</h3>${waiverPlayer(waiver.bestPickup)}</div>
+      <div><h3>Best waiver pickup</h3>${waiverPlayer(waiver.bestPickup)}</div>
       <div><h3>FAAB efficiency</h3><p class="muted small">${waiver.best?.faabPerStartedPoint != null
         ? `${e(waiver.best.name)} spent ${dollars(waiver.best.faabSpent)} FAAB on ${waiver.best.faabKnownAdds} bid pickup${waiver.best.faabKnownAdds === 1 ? "" : "s"} that scored ${points(waiver.best.faabStartedPoints)} started points: ${Number(waiver.best.faabPerStartedPoint).toFixed(2)} FAAB per point.`
         : "No fully sourced FAAB cost-per-point figure for the leading eligible manager."}</p></div>
