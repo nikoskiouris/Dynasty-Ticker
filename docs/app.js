@@ -262,10 +262,10 @@ import {
 import { currentPlaceForOwner } from "./modules/draft-order.js";
 import {
   applyDocumentMeta,
-  applyNoIndex,
   buildDocumentTitle,
   holdDocumentTitle,
   buildPageDescription,
+  applyNoIndex,
   } from "./modules/site.js";
 import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
 import { createBeaconAdapter, pageview as analyticsPageview, setAnalyticsAdapter, track as analyticsTrack, trackShareTapped, trackTradeLinkOpened } from "./modules/analytics.js";
