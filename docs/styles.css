@@ -3613,6 +3613,8 @@ a.inline-link:hover {
   flex-wrap: wrap;
   gap: 0.55rem;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .room-toolbar .ghost-btn {
@@ -3638,9 +3640,20 @@ a.inline-link:hover {
   text-transform: uppercase;
 }
 
+.lens-picker {
+  /* A long manager name made the picker (and its grid cell) wider than a
+     phone, and the panel clipped it and the position-rank bars beside it. */
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .lens-picker select {
   width: auto;
-  min-width: 10rem;
+  min-width: min(10rem, 100%);
+  max-width: 100%;
+  flex: 1 1 auto;
+  text-overflow: ellipsis;
   min-height: 0;
   margin: 0;
   padding: 0.3rem 1.8rem 0.3rem 0.6rem;
