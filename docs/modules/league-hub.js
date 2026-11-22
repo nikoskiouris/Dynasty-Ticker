@@ -46,9 +46,13 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
   if (!league) return '<p role="status">Loading league…</p>';
   const id = encodeURIComponent(leagueId || league.league_id);
   const winner = recentChampion(seasons);
+  // A season that hasn't drafted (the offseason league) has no records yet,
+  // so "N seasons of records" below doesn't count it.
+  seasons = seasons.filter(row => !['pre_draft', 'drafting'].includes(String(row?.league?.status || '')));
   const recent = transactions.filter(row => row.type === 'trade' && row.status === 'complete' && Number(row.status_updated || row.created) >= Date.now() - 30 * 86400000).length;
   const mine = myRosterId ? model?.teams?.get?.(String(myRosterId)) : null;
-  const standingsTeaser = mine?.recordLabel && mine?.rank
+  // "You're 0-0, 3rd" before any game is final ranks nothing.
+  const standingsTeaser = mine?.recordLabel && mine?.rank && Number(model?.finalThroughWeek) > 0
     ? `You're ${mine.recordLabel}, ${ordinal(mine.rank)}${model?.finalThroughWeek ? ` through week ${model.finalThroughWeek}` : ''}`
     : model?.finalThroughWeek ? `Through week ${model.finalThroughWeek}` : 'Records, playoff odds and luck';
   const format = leagueFormat(league);
