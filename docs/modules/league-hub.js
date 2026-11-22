@@ -36,7 +36,7 @@ function renderTeamPick({ myTeam, myRosterId, teams }) {
   if (!teams.length) return myTeam ? `<p>Viewing as ${escapeHtml(myTeam)}</p>` : '';
   const chosen = myTeam ? String(myRosterId) : '';
   const options = [...teams]
-    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: "base" }))
     .map(team => `<option value="${escapeHtml(String(team.id))}"${String(team.id) === chosen ? ' selected' : ''}>${escapeHtml(team.name)}</option>`)
     .join('');
   return `<p class="league-hub-pick"><label for="hub-team-select">${myTeam ? 'Viewing as' : 'Which team is yours?'}</label> <select id="hub-team-select">${chosen ? '' : '<option value="" selected>Pick your team</option>'}${options}</select></p>`;

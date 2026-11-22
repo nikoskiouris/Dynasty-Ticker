@@ -4627,7 +4627,7 @@ function renderLensPicker(roster, { label = "Viewing", extra = "" } = {}) {
   const meId = connectedRosterId();
   const options = state.normalizedRosters
     .slice()
-    .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName))
+    .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName, undefined, { numeric: true, sensitivity: "base" }))
     .map((entry) => `
       <option value="${escapeHtml(entry.rosterId)}" ${String(entry.rosterId) === String(roster.rosterId) ? "selected" : ""}>
         ${escapeHtml(entry.manager.displayName)}${String(entry.rosterId) === meId ? " (you)" : ""}
@@ -5736,7 +5736,7 @@ function renderDraftPartnerPicker(view) {
   if (!view.basis.connected || !view.me) return "";
   const others = state.normalizedRosters
     .filter((roster) => String(roster.rosterId) !== String(view.me.rosterId))
-    .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName));
+    .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName, undefined, { numeric: true, sensitivity: "base" }));
   const selected = String(view.context?.partnerRosterId || "");
   return `
     <label class="draft-partner">
