@@ -111,13 +111,17 @@ export function marketCaveat(league) {
   const rec = Number(league.scoring_settings?.rec);
   const ppr = rec === 1;
   const dynasty = leagueTypeId(league) === "dynasty";
-  if (teams === 12 && sf && ppr && dynasty) return "";
+  // TE premium (extra points per TE catch) is the most common dynasty tweak,
+  // and our TE prices assume none.
+  const tep = Number(league.scoring_settings?.bonus_rec_te) > 0;
+  if (teams === 12 && sf && ppr && dynasty && !tep) return "";
   const scoring = ppr ? "PPR" : rec === 0.5 ? "Half PPR" : rec === 0 ? "non-PPR" : "custom scoring";
-  const shape = [Number.isFinite(teams) && teams > 0 ? `${teams}-team` : "custom-size", sf ? "Superflex" : "1QB", scoring, leagueTypeLabel(league).toLowerCase()].join(" ");
+  const shape = [Number.isFinite(teams) && teams > 0 ? `${teams}-team` : "custom-size", sf ? "Superflex" : "1QB", scoring, tep ? "TE premium" : "", leagueTypeLabel(league).toLowerCase()].filter(Boolean).join(" ");
   // Name what differs, not just QBs: each gap affects different prices.
   const care = [
     !sf && "QB values (they assume Superflex)",
     !ppr && "pass-catcher values (they assume full PPR)",
+    tep && "TE values (they assume no TE premium)",
     !(teams === 12) && "depth and pick values (they assume 12 teams)",
     !dynasty && "long-term values (they assume dynasty)",
   ].filter(Boolean);
