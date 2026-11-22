@@ -6795,10 +6795,19 @@ function handleWorkspaceClick(event) {
       renderRankSurfaces();
       updateUrlState({ mode: "replace" });
       break;
-    case "ranks-more":
-      state.ranks.shown = (Number(state.ranks.shown) || RANK_PAGE_SIZE) + RANK_PAGE_SIZE;
+    case "ranks-more": {
+      const before = Number(state.ranks.shown) || RANK_PAGE_SIZE;
+      const keyboard = event.detail === 0;
+      state.ranks.shown = before + RANK_PAGE_SIZE;
       renderRankSurfaces();
+      // The button re-renders (or goes away at the end of the list), and focus
+      // fell to <body>. Keyboard users continue at the first new row.
+      if (keyboard) {
+        const names = document.querySelectorAll("#ranks-section .rankings-table tbody .rank-name-link");
+        (names[before] || document.querySelector('#ranks-section [data-action="ranks-more"]'))?.focus({ preventScroll: false });
+      }
       break;
+    }
     case "rank-calc":
       // Save the player page / rankings as its own history entry first, so
       // Back from the trade returns to it instead of skipping it.
