@@ -9183,6 +9183,14 @@ function syncDocumentMeta() {
     });
     return;
   }
+  // A /t/ link that doesn't decode: the page says so, and so does the tab.
+  if (state.badShareLink && /^\/t\//.test(window.location.pathname) && !state.leagueId) {
+    applyDocumentMeta(document, {
+      title: "Broken trade link · Dynasty Ticker",
+      description: "Part of this trade link is missing. Ask for a new link, or check the trade yourself.",
+    });
+    return;
+  }
   const shareMeta = serverShareMeta();
   if (shareMeta && window.location.pathname === shareMeta.path && !state.leagueId) {
     holdDocumentTitle(document, shareMeta.title);
