@@ -5182,6 +5182,15 @@ function renderTradeTalkLog() {
   `).join("");
 }
 
+// Remove, Clear, Swap and Restore change the trade silently for a screen
+// reader: the row or button is just gone. Say what happened and the new verdict.
+function announceDraftEdit(lead) {
+  const sentence = isDraftEmpty(state.valueCalc)
+    ? ""
+    : String(el.calculatorShell?.querySelector(".trade-fairness:not(.is-empty) .trade-fairness-sentence")?.textContent || "").replace(/\s+/g, " ").trim();
+  showTalkToast([lead, sentence].filter(Boolean));
+}
+
 let talkToastTimer = 0;
 function showTalkToast(lines) {
   const toast = el.calculatorShell?.querySelector("#talk-toast");
@@ -6812,8 +6821,10 @@ function handleWorkspaceClick(event) {
       const side = target.dataset.side;
       const removeButtons = [...(el.calculatorShell?.querySelectorAll(`[data-action="value-remove"][data-side="${side}"]`) || [])];
       const index = removeButtons.indexOf(target);
+      const removedName = String(target.getAttribute("aria-label") || "").replace(/^Remove\s+/, "").trim();
       setDraft(removeValueCalcItem(state.valueCalc, side, target.dataset.uid));
       patchTradeDraft(["left", "right"]);
+      announceDraftEdit(removedName ? `Removed ${removedName}.` : "Removed.");
       // The row (and its × button) is gone: land on the row that took its
       // place, else the one above, else that side's search box.
       const left = [...(el.calculatorShell?.querySelectorAll(`[data-action="value-remove"][data-side="${side}"]`) || [])];
@@ -6855,6 +6866,7 @@ function handleWorkspaceClick(event) {
       replaceDraft(clearValueCalcSides(state.valueCalc), "Cleared both sides.");
       patchTradeDraft(["left", "right"]);
       el.calculatorShell?.querySelectorAll("[data-input='value-search']").forEach((input) => clearCalcSearchBox(input));
+      announceDraftEdit("Cleared both sides. Restore draft brings it back.");
       // The button is gone with the trade. Restore draft is the likely next key.
       refocusCalc(el.calculatorShell?.querySelector('[data-action="draft-restore"]'), FIRST_CALC_SEARCH);
       break;
@@ -6862,6 +6874,7 @@ function handleWorkspaceClick(event) {
     case "draft-swap": {
       setDraft(swapValueCalcSides(state.valueCalc));
       renderTradeDraft();
+      announceDraftEdit("Swapped sides.");
       refocusCalc(el.calculatorShell?.querySelector('[data-action="draft-swap"]'), FIRST_CALC_SEARCH);
       break;
     }
@@ -6871,6 +6884,7 @@ function handleWorkspaceClick(event) {
       setDraftReplaced(isDraftEmpty(state.valueCalc) ? null : { draft: state.valueCalc, note: "Switched drafts." });
       setDraft(previous, { keepNotice: true });
       renderTradeDraft();
+      announceDraftEdit("Restored your draft.");
       refocusCalc(null, FIRST_CALC_SEARCH);
       break;
     }
