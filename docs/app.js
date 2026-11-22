@@ -679,7 +679,7 @@ document.addEventListener("click", (event) => {
   if (!target) return;
   event.preventDefault();
   if (target.tagName === "DETAILS") target.open = true;
-  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  target.scrollIntoView({ behavior: smoothScroll(), block: "start" });
   const focusable = target.tagName === "DETAILS" ? target.querySelector("summary") : target;
   focusable?.focus?.({ preventScroll: true });
 });
@@ -878,6 +878,16 @@ function playersBoardShown() {
   return playersBoardOpen
     && state.activePage === "trades"
     && getRoom("trades") === "calculator";
+}
+
+// CSS turns smooth scrolling off for prefers-reduced-motion, but an explicit
+// behavior: "smooth" in JS ignores that. Ask the same question here.
+function smoothScroll() {
+  try {
+    return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+  } catch {
+    return "smooth";
+  }
 }
 
 function syncPlayersBoardFlag() {
@@ -2531,7 +2541,7 @@ function renderLeagueHero() {
 
 function scrollLoadedWorkspaceIntoView() {
   requestAnimationFrame(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: smoothScroll() });
   });
 }
 
@@ -2589,7 +2599,7 @@ function selectLandingJob(jobId) {
   syncLandingJobUi();
   if (nextId) {
     el.landingUsername?.focus();
-    el.landingUsernameForm?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.landingUsernameForm?.scrollIntoView({ behavior: smoothScroll(), block: "center" });
   }
 }
 
@@ -2744,7 +2754,7 @@ async function runUserLeagueSearch(username) {
     } else {
       setUsernameError("");
       setStatus(`Found ${state.userLeagues.length} leagues for ${user.display_name || username}. Pick one.`);
-      el.landingLeaguePicker?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      el.landingLeaguePicker?.scrollIntoView({ behavior: smoothScroll(), block: "nearest" });
     }
   } catch (err) {
     renderLeaguePicker([]);
@@ -6759,7 +6769,7 @@ function handleWorkspaceClick(event) {
     case "set-lens-teams": {
       setLensRoster(target.dataset.rosterId);
       openRoom("league", "team");
-      el.powerSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.powerSection?.scrollIntoView({ behavior: smoothScroll(), block: "start" });
       break;
     }
     case "retry-values": {
@@ -9153,7 +9163,7 @@ function focusUsernameSearch() {
   if (state.activePage !== "leagues") navigateTool("/leagues");
   const target = el.sleeperUsername || el.leagueId;
   target?.focus();
-  target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  target?.scrollIntoView({ behavior: smoothScroll(), block: "center" });
 }
 
 // A cold /t/<code> arrives with a trade-specific <title> and meta from the
