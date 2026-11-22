@@ -4537,9 +4537,11 @@ function renderTeamExtras() {
   const header = document.querySelector("#team-header");
   const section = document.querySelector("#team-superlatives-section");
   const host = document.querySelector("#team-superlatives");
-  const roster = getLensRoster();
+  // Same rule as the roster card: a team the user chose (or is), never the
+  // team select's default. Unpicked, the page asks instead of showing Team 1.
+  const roster = myTeamPageRoster();
   if (!roster) {
-    if (header) header.innerHTML = "";
+    if (header) header.innerHTML = state.leagueId ? `<p><a class="league-back" href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>` : "";
     section?.classList.add("hidden");
     return;
   }
@@ -4580,6 +4582,7 @@ function renderTeamExtras() {
     history: state.valueHistory,
     latestStarters: latestStartersFor(state.seasonWeekRows, roster.rosterId, model?.finalThroughWeek),
     acquisitions: teamAcquisitions(roster.rosterId),
+    ownerLabel: String(roster.rosterId) === String(connectedRosterId() ?? "") ? "" : (manager.teamName || manager.displayName || "this team"),
   });
   section.classList.toggle("hidden", cards.length === 0);
   host.innerHTML = cards.map((card) => `
