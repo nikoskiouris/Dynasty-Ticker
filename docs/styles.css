@@ -3229,6 +3229,21 @@ a.inline-link:hover {
   .odds-meter.title {
     display: none;
   }
+
+  /* Playoffs under way: every playoff % is 100 or 0, and the heading says
+     "Title odds", so the one meter that fits shows the title chance. */
+  .odds-bracket .odds-head span:nth-child(2),
+  .odds-bracket .odds-meter:not(.title) {
+    display: none;
+  }
+
+  .odds-bracket .odds-head span:nth-child(3) {
+    display: block;
+  }
+
+  .odds-bracket .odds-meter.title {
+    display: grid;
+  }
 }
 
 @media (max-width: 620px) {
