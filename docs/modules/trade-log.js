@@ -27,6 +27,14 @@ const assetHtml = (asset, context) => asset.kind === "player"
     ? `${escapeHtml(pickLabel(asset, context))} → ${playerButton(asset.draftedPlayerId, context)} (drafted)`
     : escapeHtml(pickLabel(asset, context));
 
+// The calculator's column total says "incl. +3,189 extra" when the fewer,
+// better pieces extra is counted; the grade uses the same total, so say so here
+// too. Otherwise "Received 25,383" does not add up from the pieces listed.
+function receivedExtra(side) {
+  const extra = Math.round(Number(side?.valueReceived) - Number(side?.listedReceived));
+  return Number.isFinite(extra) && extra > 0 ? ` (incl. +${formatNumber(extra)} extra)` : "";
+}
+
 function rosterLabel(rosterId, entry) {
   const roster = (entry?.rosters || []).find((row) => text(row.roster_id) === text(rosterId));
   const user = (entry?.users || []).find((row) => text(row.user_id) === text(roster?.owner_id));
@@ -101,7 +109,7 @@ export function renderTradeLogRows({
       return `<div class="trade-log-side">
         <h3>${escapeHtml(rosterLabel(side.rosterId, entry))}${isWinner ? ' <span class="mini-chip">Higher value</span>' : ""}</h3>
         <p>${received.join(", ") || "No player or pick received"}</p>
-        <p class="muted small">Received ${graded.available ? priceLabel(side.valueReceived) : "value unavailable"}
+        <p class="muted small">Received ${graded.available ? `${priceLabel(side.valueReceived)}${receivedExtra(side)}` : "value unavailable"}
           · Sent ${graded.available ? priceLabel(side.valueSent) : "value unavailable"}
           · Trade grade: <strong>${graded.available ? escapeHtml(side.grade) : "Not graded"}</strong></p>
       </div>`;
