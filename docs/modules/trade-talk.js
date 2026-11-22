@@ -299,6 +299,7 @@ export function parsePickPhrase(text, { season = new Date().getUTCFullYear() + 1
     else if (!PICK_FILLER.has(word)) return null;
   }
   if (!pick.round || pick.round > 7) return null;
+  pick.seasonGiven = Boolean(pick.season);
   if (!pick.season) pick.season = Number(season);
   pick.count = Math.max(1, Math.min(3, pick.count));
   return pick;
@@ -390,6 +391,16 @@ function resolvePick(pick, { side, ownerRosterId, ctx }) {
   // instead of quietly dropping the word.
   if (pick.bucket && !generic.assetId.endsWith(`:${pick.bucket}`)) {
     notes.push(`There is no separate ${pick.bucket} price for a ${pickLabel({ ...pick, bucket: "" })}, so it is priced as ${generic.name}.`);
+  }
+  // "Three firsts" with no year: a team holds one 1st a year, and Sleeper
+  // trades picks for the next three drafts, so read it as one per draft
+  // (2027, 2028, 2029). "Three 2027 firsts" keeps the year typed.
+  if (pick.count > 1 && !pick.seasonGiven) {
+    const spread = Array.from({ length: pick.count }, (_, i) => genericPickAsset({ ...pick, season: pick.season + i }, ctx.pickIds));
+    if (spread.every(Boolean)) {
+      notes.push(`One ${roundLabel(pick.round)} per draft. Type “${pick.count} ${pick.season} ${roundLabel(pick.round)}s” to keep them in one draft.`);
+      return { picks: spread, note: notes.join(" ") };
+    }
   }
   return { picks: Array.from({ length: pick.count }, () => generic), note: notes.join(" ") };
 }
