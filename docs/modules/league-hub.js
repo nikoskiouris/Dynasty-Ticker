@@ -57,7 +57,7 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
   const links = [
     ['standings', 'Standings', standingsTeaser],
     ['team', 'My Team', myTeam || 'Pick your team above to see your roster'],
-    ['trades', 'Recent Trades', tradesLoaded ? `${recent} completed trades in the last 30 days` : 'Browse completed league trades'],
+    ['trades', 'Recent Trades', tradesLoaded ? `${recent} completed ${Number(recent) === 1 ? 'trade' : 'trades'} in the last 30 days` : 'Browse completed league trades'],
     ['history', 'Historical Data', loading ? 'Loading seasons…' : `${seasons.length} ${seasons.length === 1 ? "season" : "seasons"} of records`],
   ];
   return `<header class="league-hub-header">${league.avatar ? `<img width="64" height="64" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(league.avatar)}">` : ''}<h2>${escapeHtml(league.name || 'Your league')}</h2><p>${escapeHtml(league.season)} · <span class="league-format-chip">${escapeHtml(format.chip)}</span></p><p class="muted small">${escapeHtml(valuesLine)}</p>${savedNote ? `<p class="league-saved-note" role="status">${escapeHtml(savedNote)}</p>` : ''}<a href="/leagues">Change league</a></header>

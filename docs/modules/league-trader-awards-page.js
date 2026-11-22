@@ -7,7 +7,7 @@ const number = (value) => Number.isFinite(Number(value)) ? formatNumber(Math.rou
 function namedSide(row) {
   if (!row) return '<p class="muted">Not enough fully priced trades to name a leader.</p>';
   return `<strong>${e(row.name)}</strong> · net ${number(row.totalNet)} ·
-    ${row.wins} positive of ${row.tradeCount} graded trades
+    ${row.wins} positive of ${countLabel(row.tradeCount, "graded trade")}
     (${row.winRate.toFixed(0)}% positive-value share)`;
 }
 
