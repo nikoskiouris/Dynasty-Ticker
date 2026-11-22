@@ -828,14 +828,24 @@ export function parseTradeTalk(message, ctx = {}) {
     side = "left";
     rest = rest.replace(GIVE_ADD, "");
   } else {
-    rest = rest.replace(/^(?:add|plus|also|and|throw in|toss in|include|put in|tack on|i add|i'll add|ill add|i throw in)\b\s*/, "");
+    rest = rest.replace(/^(?:add|plus|also|and|throw in|toss in|include|put in|tack on|i add|i'll add|ill add|i throw in|put back|bring back|put|bring)\b\s*/, "");
   }
+  // "add Puka back", "put Jeanty back", "add Nabers again": the last word is
+  // filler, not part of the name ("running back" is a position, so it stays).
+  const putBack = /^(?:put back|bring back|put|bring)\b/.test(body) || /\s(?:back in|back)$/.test(rest);
+  if (!/\brunning back$/.test(rest)) rest = rest.replace(/\s+(?:back in|back|again|too|as well)$/, "");
   const tail = rest.match(/\s+(?:to|on|for)\s+(?:my|their|his|her|the)\s+(side|end|give side|get side)$/);
   if (tail) {
     side = /their|his|her|get/.test(tail[0]) ? "right" : "left";
     rest = rest.slice(0, tail.index);
   }
   absorb(plan, piecesWithSide(rest, side, context, subject, index));
+  // "Put it back": a piece taken out earlier goes back in the column it left.
+  if (putBack && !side) {
+    const was = context.removedSides || {};
+    plan.adds = plan.adds.map((add) => (was[add.asset?.assetId] === "left" || was[add.asset?.assetId] === "right")
+      && (!add.side || add.side === (context.defaultSide || "right")) ? { ...add, side: was[add.asset.assetId] } : add);
+  }
   if (!plan.adds.length && !plan.asks.length && asked && !plan.misses.length) return finish(blankPlan("verdict"));
   return finish(plan);
 }
