@@ -1367,6 +1367,25 @@ function renderTradesRoom(room) {
   renderTradeDraft();
 }
 
+// After a keyboard press re-renders the button away, move focus to what
+// replaced it once it is on screen (renders can be queued). Gives up after
+// ~1.5s, and never steals focus the user has already moved.
+function focusWhenShown(selector, { heading = false } = {}) {
+  const started = Date.now();
+  const tick = () => {
+    const active = document.activeElement;
+    if (active && active !== document.body && document.contains(active)) return;
+    const node = [].concat(selector).map((one) => document.querySelector(one)).find((hit) => hit && hit.getClientRects().length);
+    if (node) {
+      if (heading && /^H\d$/.test(node.tagName) && node.getAttribute("tabindex") == null) node.setAttribute("tabindex", "-1");
+      node.focus({ preventScroll: true });
+      return;
+    }
+    if (Date.now() - started < 1500) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
 function bootFromUrl() {
   // Rewrite before anything is reported, so a cold removed-room link counts one visit.
   const legacyTarget = legacyRedirect(window.location.pathname, window.location.search);
@@ -6726,6 +6745,8 @@ function handleWorkspaceClick(event) {
       syncPlayerPageFlag();
       addDraftFromPlayers(target.dataset.assetId, target.dataset.name, target.dataset.kind);
       draftPushNext = false;
+      // The player page is gone; land on the calculator's heading, not <body>.
+      if (event.detail === 0) focusWhenShown("#calculator-section .calc-heading h2", { heading: true });
       break;
     case "open-player": {
       openPlayerPage(target.dataset.assetId);
@@ -6735,6 +6756,8 @@ function handleWorkspaceClick(event) {
       if (state.activePage === "league" && getRoom("league") === "history") {
         showLineupAwards = true;
         requestActivePageRender();
+        // The button is replaced by the results: read them next.
+        if (event.detail === 0) focusWhenShown('[data-lineup-award="best"]', { heading: true });
       }
       break;
     }
@@ -6751,9 +6774,12 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "lens-me": {
+      const keyboard = event.detail === 0;
       setLensRoster(state.meRosterId);
       renderActivePage();
       updateUrlState({ mode: "replace" });
+      // "Back to my team" is gone once you're back: keep focus on the team picker.
+      if (keyboard) focusWhenShown(['[data-change="lens-roster"]', "#league-team-heading"], { heading: true });
       break;
     }
     case "set-lens-teams": {

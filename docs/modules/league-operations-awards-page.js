@@ -39,7 +39,7 @@ export function renderOperationsAwards(archive, { players = {}, values = {}, val
     <h2>Lineup and waiver awards <span class="mini-chip">Historical estimate</span></h2>
     <div class="league-history-awards">
       ${lineup
-        ? `<div><h3>Best lineup setter</h3>${person(lineup.best, (row) => `${percent(row.efficiency)} optimal · ${countLabel(row.weeks, "week")} · ${countLabel(row.gamesLostToBench, "game")} lost to bench`)}</div>
+        ? `<div><h3 data-lineup-award="best">Best lineup setter</h3>${person(lineup.best, (row) => `${percent(row.efficiency)} optimal · ${countLabel(row.weeks, "week")} · ${countLabel(row.gamesLostToBench, "game")} lost to bench`)}</div>
            <div><h3>Worst lineup setter</h3>${person(lineup.worst, (row) => `${percent(row.efficiency)} optimal · ${countLabel(row.weeks, "week")} · ${countLabel(row.gamesLostToBench, "game")} lost to bench · worst ${row.worstWeek?.season} W${row.worstWeek?.week}: ${points(row.worstWeek?.pointsLeft)} pts left`)}</div>`
         : '<div><h3>Lineup awards</h3><button type="button" data-action="compute-lineup-awards">Calculate lineup awards</button></div>'}
       <div><h3>Best waiver manager</h3>${person(waiver.best, (row) => `${dollars(row.score)} score · ${points(row.startedPoints)} started points · ${countLabel(row.adds, "add")}`)}</div>
