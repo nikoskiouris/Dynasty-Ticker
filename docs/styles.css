@@ -47,6 +47,10 @@
   --green-soft: rgba(19, 121, 76, 0.12);
   --amber: #8f5f00;
   --amber-soft: rgba(143, 95, 0, 0.12);
+  /* Text on the -soft chip fills. --green and --amber read 3.9:1 and 4.0:1
+     there, under the 4.5:1 small text needs; these read 5.0 and 5.1. */
+  --green-ink: #0f6740;
+  --amber-ink: #7a5000;
   --red: #c0362c;
   --red-soft: rgba(192, 54, 44, 0.1);
   --teal: #9c3d50;
@@ -1308,7 +1312,7 @@ body:not(.league-loaded) .workspace-header {
 .mini-chip.green {
   border-color: transparent;
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-ink);
 }
 
 .mini-chip.rose {
@@ -1320,7 +1324,7 @@ body:not(.league-loaded) .workspace-header {
 .mini-chip.gold {
   border-color: transparent;
   background: var(--amber-soft);
-  color: var(--amber);
+  color: var(--amber-ink);
 }
 
 .seed-chip {
@@ -1328,7 +1332,7 @@ body:not(.league-loaded) .workspace-header {
   height: 1.35rem;
   padding: 0 0.35rem;
   background: var(--amber-soft);
-  color: var(--amber);
+  color: var(--amber-ink);
 }
 
 .rank-number {
