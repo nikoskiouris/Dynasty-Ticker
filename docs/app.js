@@ -2710,8 +2710,13 @@ function requestFindLeagues(event) {
   syncUsernameFields(event?.currentTarget === el.landingUsernameForm ? el.landingUsername : el.sleeperUsername);
   const classified = classifyUsernameField(el.sleeperUsername?.value || el.landingUsername?.value);
   if (classified.kind === "empty") {
-    setUsernameError("Type your Sleeper username, then press Connect my league.");
-    setStatus("Type your Sleeper username, then press Connect my league.", { error: true });
+    // Name the button that is on screen: League History relabels it "Find my leagues".
+    const form = event?.currentTarget?.closest?.("form") || event?.target?.closest?.("form") || null;
+    const button = form?.querySelector?.("button[type='submit']");
+    const label = String(button?.dataset?.idleLabel || "Connect my league").trim() || "Connect my league";
+    const hint = `Type your Sleeper username, then press ${label}.`;
+    setUsernameError(hint);
+    setStatus(hint, { error: true });
     (el.landingUsername || el.sleeperUsername)?.focus();
     return;
   }
