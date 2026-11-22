@@ -1324,6 +1324,11 @@ async function ensureCalcPrices() {
         }
       } catch (err) {
         console.warn("Could not load market prices", err);
+        // Same guard as the rankings path: remember the miss so the next paint
+        // shows "Couldn't load market prices · Try again". Without it, paint ->
+        // fetch -> fail -> paint re-requested the price file in a tight loop
+        // (about 200 requests a second) and the page sat on "Loading…".
+        if (!rankValuesReady()) valuesLoadFailed = true;
       } finally {
         calcPricesPromise = null;
       }
