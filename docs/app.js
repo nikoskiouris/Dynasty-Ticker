@@ -266,6 +266,7 @@ import {
   buildDocumentTitle,
   holdDocumentTitle,
   buildPageDescription,
+  applyNoIndex,
   } from "./modules/site.js";
 import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
 import { createBeaconAdapter, pageview as analyticsPageview, setAnalyticsAdapter, track as analyticsTrack, trackShareTapped, trackTradeLinkOpened } from "./modules/analytics.js";
@@ -9264,6 +9265,17 @@ function syncDocumentMeta() {
     return;
   }
   const place = routePlaceNow();
+  // /player/<id> for an id we have no price for: say so, not "Trade Calculator".
+  const missingPlayer = Boolean(activePlayerRouteId()) && !place.playerName && cachedRankRows().length > 0;
+  applyNoIndex(document, missingPlayer);
+  if (missingPlayer) {
+    applyDocumentMeta(document, {
+      title: "Player not found · Dynasty Ticker",
+      description: "We have no dynasty value for this player right now. See every priced player in Player Rankings.",
+    });
+    if (el.routeTitle) el.routeTitle.textContent = "Player not found";
+    return;
+  }
   const routedTitle = routeDocumentTitle({
     playerName: place.playerName,
     tab: place.titleTab,
