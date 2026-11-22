@@ -595,6 +595,13 @@ export function parseTradeTalk(message, ctx = {}) {
     compared = true;
   }
 
+  // "Gibbs instead of Jeanty", "make it Gibbs instead of Jeanty", "instead of
+  // Jeanty, Gibbs": the same as "replace Jeanty with Gibbs".
+  const insteadAfter = body.match(/^(?:make it|use|try|do|go with|put in|add)?\s*(.+?)\s+instead of\s+(.+)$/);
+  const insteadBefore = !insteadAfter && body.match(/^instead of\s+(.+?)\s*,\s*(?:make it|use|try|do|go with|put in|add)?\s*(.+)$/);
+  if (insteadAfter) body = `replace ${insteadAfter[2]} with ${insteadAfter[1]}`;
+  else if (insteadBefore) body = `replace ${insteadBefore[1]} with ${insteadBefore[2]}`;
+
   // "give Bijan get Gibbs", "I give up Bijan and get Gibbs", "I receive Gibbs,
   // give Bijan": the same trade as "I give Bijan for Gibbs".
   if (!/\bfor\b/.test(body)) {
@@ -603,13 +610,6 @@ export function parseTradeTalk(message, ctx = {}) {
     if (giveGet) body = `i give ${giveGet[1]} for ${giveGet[2]}`;
     else if (getGive) body = `i get ${getGive[1]} for ${getGive[2]}`;
   }
-
-  // "Gibbs instead of Jeanty", "make it Gibbs instead of Jeanty", "instead of
-  // Jeanty, Gibbs": the same as "replace Jeanty with Gibbs".
-  const insteadAfter = body.match(/^(?:make it|use|try|do|go with|put in|add)?\s*(.+?)\s+instead of\s+(.+)$/);
-  const insteadBefore = !insteadAfter && body.match(/^instead of\s+(.+?)\s*,\s*(?:make it|use|try|do|go with|put in|add)?\s*(.+)$/);
-  if (insteadAfter) body = `replace ${insteadAfter[2]} with ${insteadAfter[1]}`;
-  else if (insteadBefore) body = `replace ${insteadBefore[1]} with ${insteadBefore[2]}`;
 
   const replace = body.match(/^(?:swap|replace|change|sub|switch|trade)\s+(?:out\s+)?(.+?)\s+(?:for|with|to|into)\s+(.+)$/);
   if (replace && findInDraft(replace[1], context.draft, context).length) {
