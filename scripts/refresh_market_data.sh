@@ -3,4 +3,5 @@
 set -u
 
 python3 player-values/build.py || echo "Player-value refresh failed; keeping the last valid snapshot."
+python3 scripts/build_sitemap.py || echo "Sitemap refresh failed; keeping last file."
 python3 scripts/update_nfl_draft_picks.py || echo "NFL draft-pick refresh failed; keeping last file."

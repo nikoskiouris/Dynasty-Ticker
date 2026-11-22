@@ -59,6 +59,9 @@ jobs:
       - name: Build independent values
         run: python3 player-values/build.py
 
+      - name: List every priced player page in the sitemap
+        run: python3 scripts/build_sitemap.py
+
       - name: Fail if the refreshed snapshot is still stale
         run: python3 scripts/check_market_files.py --fail-on-age
 
@@ -76,7 +79,7 @@ jobs:
       - name: Commit refreshed snapshot
         run: |
           # The board archives gain each new market board; blend.json changes once a season.
-          files="docs/data/player_values.json player-values/validation.json player-values/blend.json player-values/consensus_boards.csv.gz player-values/market_boards.csv.gz docs/data/price-history docs/data/nfl_players_slim.json"
+          files="docs/data/player_values.json player-values/validation.json player-values/blend.json player-values/consensus_boards.csv.gz player-values/market_boards.csv.gz docs/data/price-history docs/data/nfl_players_slim.json docs/sitemap.xml"
           git add $files
           if git diff --cached --quiet -- $files; then
             echo "No player-value changes."
