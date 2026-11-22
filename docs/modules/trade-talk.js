@@ -161,12 +161,16 @@ function cleanText(text) {
     .trim();
 }
 
-const ASK_TAIL = /(?:^|[\s,.;:!?-]+)(?:what do you think|what do u think|wdyt|thoughts|is (?:this|that|it) (?:fair|good|even|bad|a win|a fleece|a rip ?off|worth it)|should i (?:do|take|accept|make) (?:it|this|that)|would you (?:do|take|accept) (?:it|this|that)|good deal|fair|win or loss|who wins|who won|did i win|did i lose|did i get (?:fleeced|robbed|ripped off)|was (?:it|that|this) (?:fair|good|a win|bad)|good trade|bad trade)\s*\??$/;
+const ASK_TAIL = /(?:^|[\s,.;:!?-]+)(?:what do you think|what do u think|wdyt|thoughts|is (?:this|that|it) (?:fair|good|even|bad|a win|a fleece|a rip ?off|worth it)|should i (?:do|take|accept|make) (?:it|this|that)|would you (?:do|take|accept) (?:it|this|that)|good deal|fair|win or loss|who wins|who won|did i win|did i lose|did i get (?:fleeced|robbed|ripped off)|was (?:it|that|this) (?:fair|good|a win|bad)|good trade|bad trade|(?:a |an )?(?:good|bad|fair|great) (?:deal|trade|offer|move)|a (?:win|loss)|worth it|(?:which|who)(?: one)?(?:'s| is| would you take| should i take| do you take)?(?: worth)?(?: more| better| the better (?:side|deal|one))?)(?:\s+(?:for|to)\s+(?:me|us|you|him|her|them|my team|my side|both(?: sides| teams)?|either side))?\s*\??$/;
 const LEAD_FILLER = /^(?:hey|so|ok|okay|yo|hmm|um|lol)[,!.\s]+|^(?:would you do|would you take|should i do|should i take|should i accept|should i|would you|is|how about|what about|what if|lets do|let's do|try|check|rate)\s+/;
 
 function stripChatter(text) {
   let body = text;
   let asked = false;
+  // "What is Bowers worth? Is that more or less than a 2027 first?" (first-visit
+  // task 1): one comparison, said in two sentences. Keep the second half.
+  const twoPart = body.match(/^what(?:'s| is)\s+(.+?)\s+worth\s*[?.!]*\s+(?:is|are)\s+(?:that|he|it|this|they|him)\s+(?:worth\s+)?(?:more|less)(?:\s+or\s+(?:more|less))?\s+than\s+(.+?)[?.!]*\s*$/);
+  if (twoPart) return { body: `${twoPart[1]} worth more than ${twoPart[2]}`, asked: true };
   // "... for Puka. Is that a good deal for me?": a closing question sentence
   // asks for the verdict. It is not part of the trade.
   body = body.replace(/[.!?]+\s+(?:is|isn't|should|would|does|do|was|am|are|can|could|how)\b[^.!?]*[.!?]*\s*$/, () => {
