@@ -6274,6 +6274,42 @@ function showShareToast(text) {
 }
 
 // A double click shares once.
+// Player page: the native share sheet on phones, else copy the link, else
+// show it to copy by hand. The address is the page's own /player/<id>/<slug>,
+// without ?league= (that is the sharer's league, not the player's).
+let playerShareTimer = 0;
+async function sharePlayerPage(button) {
+  const status = button?.closest(".player-detail-actions")?.querySelector(".player-share-status");
+  const say = (text, keep = false) => {
+    if (!status) return;
+    status.textContent = text;
+    clearTimeout(playerShareTimer);
+    if (text && !keep) playerShareTimer = setTimeout(() => { if (status.isConnected && status.textContent === text) status.textContent = ""; }, SHARE_STATUS_MS);
+  };
+  const url = new URL(window.location.pathname, window.location.origin).href;
+  const name = button?.dataset.name || "This player";
+  const text = button?.dataset.value ? `${name}: ${button.dataset.value} dynasty value (12-team Superflex PPR) on Dynasty Ticker.` : `${name} on Dynasty Ticker.`;
+  if (typeof navigator.share === "function") {
+    try {
+      await navigator.share({ title: `${name} · Dynasty Ticker`, text, url });
+      say("Shared.");
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        say("");
+        return;
+      }
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    say("Link copied.");
+    showShareToast("Link copied");
+  } catch {
+    say(`Copy this link: ${url}`, true);
+  }
+}
+
 async function shareDraftTrade(button) {
   if (shareInFlight) return;
   shareInFlight = true;
@@ -6798,6 +6834,10 @@ function handleWorkspaceClick(event) {
     }
     case "trade-share": {
       void shareDraftTrade(target);
+      break;
+    }
+    case "player-share": {
+      void sharePlayerPage(target);
       break;
     }
     case "verdict-info": {

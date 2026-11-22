@@ -6272,6 +6272,9 @@ body.launch-open .workspace { display:block; }
 .player-detail { max-width:1080px; margin:auto; min-width:0; }
 .player-detail-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:24px; }
 .player-return { margin-left:auto; }
+.player-detail-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.player-share-status { flex-basis:100%; margin:0; color:var(--muted); font-size:var(--fs-sm); overflow-wrap:anywhere; }
+.player-share-status:empty { display:none; }
 .player-detail-header { display:flex; align-items:center; gap:24px; margin-bottom:24px; }
 .player-detail-header > .player-face { width:100px; height:100px; flex-shrink:0; }
 .player-detail-header h1 { margin:0 0 8px; font-size:clamp(1.7rem,4vw,3rem); }
