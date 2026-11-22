@@ -238,6 +238,12 @@ function sortHeader(key, label, view = {}, cls = "") {
   return `<th scope="col"${cls ? ` class="${cls}"` : ""} aria-sort="${ariaSort}"><button type="button" class="rank-sort-btn" data-action="rank-sort" data-sort="${next}" aria-label="Sort by ${escapeHtml(label.replace(/<[^>]+>/g, ""))}, ${hint}">${label}${arrow}</button></th>`;
 }
 
+function nextFirstRow(rows) {
+  const firsts = rows.filter((row) => /^pick:\d{4}:r1:any$/.test(String(row.assetId)) && Number(row.value) > 0);
+  firsts.sort((a, b) => Number(String(a.assetId).split(":")[1]) - Number(String(b.assetId).split(":")[1]));
+  return firsts[0] ? { name: firsts[0].name, value: Number(firsts[0].value) } : null;
+}
+
 export function rankView({
   rows = [],
   query = "",
@@ -266,6 +272,8 @@ export function rankView({
       ...selected,
       neighbors: sameMoney(rows.filter(row => row.kind === "player"), selected.assetId, 3),
       leagueValue: Number.isFinite(leagueValue) && leagueValue > 0 ? Math.round(leagueValue) : null,
+      // The next draft's 1st, the yardstick dynasty managers price players in.
+      pickRef: selected.kind === "player" ? nextFirstRow(rows) : null,
     };
   }
   let emptyLabel = "";
