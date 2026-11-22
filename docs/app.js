@@ -1367,6 +1367,22 @@ function renderTradesRoom(room) {
   renderTradeDraft();
 }
 
+// Calculator buttons that re-render the trade (remove, clear, swap, restore)
+// take themselves out of the page, and focus fell to <body>: a keyboard or
+// screen-reader user started over from the top. Put it somewhere close.
+// Keyboard only (Enter/Space give a click with detail 0): a tap never pulls
+// up the phone keyboard by focusing the talk box.
+const FIRST_CALC_SEARCH = "#trade-talk-input";
+let calcKeyboardClick = false;
+function refocusCalc(preferred, fallbackSelector) {
+  if (!calcKeyboardClick) return;
+  const active = document.activeElement;
+  if (active && active !== document.body && document.contains(active)) return;
+  const shown = (node) => node && node.isConnected && node.getClientRects().length > 0 && !node.disabled;
+  const target = shown(preferred) ? preferred : el.calculatorShell?.querySelector(fallbackSelector);
+  if (shown(target)) target.focus({ preventScroll: true });
+}
+
 function bootFromUrl() {
   // Rewrite before anything is reported, so a cold removed-room link counts one visit.
   const legacyTarget = legacyRedirect(window.location.pathname, window.location.search);
@@ -6617,6 +6633,7 @@ function handleWorkspaceClick(event) {
   if (!target || !inWorkspace) return;
   if (target.dataset.action === "league-home") return;
   const action = target.dataset.action;
+  calcKeyboardClick = event.detail === 0;
   switch (action) {
     case "smart-focus": {
       smartTradeSide = target.dataset.side === "left" ? "left" : "right";
@@ -6792,8 +6809,15 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "value-remove": {
-      setDraft(removeValueCalcItem(state.valueCalc, target.dataset.side, target.dataset.uid));
+      const side = target.dataset.side;
+      const removeButtons = [...(el.calculatorShell?.querySelectorAll(`[data-action="value-remove"][data-side="${side}"]`) || [])];
+      const index = removeButtons.indexOf(target);
+      setDraft(removeValueCalcItem(state.valueCalc, side, target.dataset.uid));
       patchTradeDraft(["left", "right"]);
+      // The row (and its × button) is gone: land on the row that took its
+      // place, else the one above, else that side's search box.
+      const left = [...(el.calculatorShell?.querySelectorAll(`[data-action="value-remove"][data-side="${side}"]`) || [])];
+      refocusCalc(left[index] || left[index - 1] || el.calculatorShell?.querySelector(`[data-action="smart-focus"][data-side="${side}"]`), FIRST_CALC_SEARCH);
       break;
     }
     case "trade-share": {
@@ -6831,11 +6855,14 @@ function handleWorkspaceClick(event) {
       replaceDraft(clearValueCalcSides(state.valueCalc), "Cleared both sides.");
       patchTradeDraft(["left", "right"]);
       el.calculatorShell?.querySelectorAll("[data-input='value-search']").forEach((input) => clearCalcSearchBox(input));
+      // The button is gone with the trade. Restore draft is the likely next key.
+      refocusCalc(el.calculatorShell?.querySelector('[data-action="draft-restore"]'), FIRST_CALC_SEARCH);
       break;
     }
     case "draft-swap": {
       setDraft(swapValueCalcSides(state.valueCalc));
       renderTradeDraft();
+      refocusCalc(el.calculatorShell?.querySelector('[data-action="draft-swap"]'), FIRST_CALC_SEARCH);
       break;
     }
     case "draft-restore": {
@@ -6844,12 +6871,14 @@ function handleWorkspaceClick(event) {
       setDraftReplaced(isDraftEmpty(state.valueCalc) ? null : { draft: state.valueCalc, note: "Switched drafts." });
       setDraft(previous, { keepNotice: true });
       renderTradeDraft();
+      refocusCalc(null, FIRST_CALC_SEARCH);
       break;
     }
     case "draft-dismiss": {
       setDraftReplaced(null);
       const notice = el.calculatorShell?.querySelector("#draft-notice");
       if (notice) notice.innerHTML = "";
+      refocusCalc(null, FIRST_CALC_SEARCH);
       break;
     }
     case "draft-connect": {
