@@ -57,7 +57,10 @@ export function renderTradeLogRows({
     return snapshot.assets.some((asset) => (want && foldSearch(assetLabel(asset, context)).includes(want))
       || asset.assetId.toLowerCase().includes(searchable));
   });
-  if (!rows.length) return `<p class="muted" role="status">${searchable || team ? "No trades match these filters." : "No completed trades yet this season."}</p>`;
+  // A finished season can't have trades "yet": say which season had none.
+  const finished = entry?.league?.status === "complete" && entry?.season;
+  const none = finished ? `No trades were made in the ${text(entry.season)} season.` : "No completed trades yet this season.";
+  if (!rows.length) return `<p class="muted" role="status">${searchable || team ? "No trades match these filters." : escapeHtml(none)}</p>`;
 
   return rows.map((trade) => {
     const graded = gradeTrade(trade, { values, valueNames, archive });
