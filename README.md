@@ -1,12 +1,12 @@
 # Dynasty Ticker
 
-Dynasty Ticker helps a Sleeper dynasty manager answer three questions: what is this player worth, is this trade fair, and does this move help my team. Player values are one published price: a learned blend of Dynasty Ticker's full-PPR football forecast and the Superflex dynasty market. The site is static. It talks to Sleeper from the browser.
+Dynasty Ticker helps a Sleeper dynasty manager answer three questions: what is this player worth, is this trade fair, and does this move help my team. Player values are one published price: an estimate trained on completed Sleeper trades. Player point projections come directly from Sleeper. The site is static. It talks to Sleeper from the browser.
 
 ## What is in this repo
 - **Web app:** `docs/` — the site at [dynastyticker.com](https://dynastyticker.com/).
 - **Modules:** `docs/modules/` — routing, Sleeper client, values, verdict copy, trade talk, rankings, league history, season engine.
 - **Functions:** `netlify/` — shared-trade pages and cards (`/t/<code>`), the daily player-value file (`market`), first-party page counts, the searched-username list.
-- **Player values:** `player-values/` — the forecast, the builder, and the backtest.
+- **Player values:** `player-values/` — the trade model, snapshot builder, and archived forecast.
 - **Agent coding policy:** `.cursor/skills/no-unit-tests/SKILL.md` — no unit tests or automated test suite.
 
 ## Web app
@@ -24,24 +24,9 @@ Old links (`?tab=…`, `?view=ranks`, removed rooms like Find a trade) still ope
 Product purpose and how to choose between competing asks live in `AGENTS.md`. First-visit usability tasks live in `research/first-visit-tasks.md`.
 
 ### Value source
-There is one player-value system: `player-values/`.
+Rankings, player pages, Trade Calculator, League History and share cards read the same **12-team Superflex full-PPR dynasty** snapshot at `docs/data/player_values.json`. The model fits players and generic rookie picks together using completed Sleeper trades. Recent deals carry more weight. The player page shows the number of trades involving the player and flags sparse evidence. Sleeper’s published weekly and full-season PPR projections appear on that page.
 
-- One published map: **12-team Superflex full-PPR dynasty**. No 1QB, other league sizes, TE premium or other scoring toggles.
-- The published price is a learned blend of two inputs on one scale (owner decision, Nov 18, 2026):
-  - **Football forecast**: full-PPR points above a replacement player, one season at a time, for eight seasons of games, discounted by how far away each season is. It is learned from recent NFL seasons: a player's last two seasons, his age, and, early on, his draft slot.
-  - **Superflex dynasty market**: public Superflex dynasty rankings and trade-value boards (never 1QB).
-  - The forecast's share is learned in `player-values/blend.py` from chronological holdouts (`player-values/blend.json`), never hand-set. The player page shows both parts and the share.
-- Rookies and future picks are priced on the same scale.
-- All players and picks use that single reference league. Connected league settings never select another price map.
-- No TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices or hand-set bonuses feed the published price.
-- The site never names another site: pages, copy, share cards and `docs/data/*.json` say "market" or "Superflex dynasty rankings". Source names stay in `player-values/`.
-- Trade Calculator, Player Rankings, player pages, League History and the share cards all read `docs/data/player_values.json`.
-- League trade history is useful context, but it does not create a second player price.
-- The "fewer, better pieces" extra can change a trade verdict without changing any player's listed price.
-
-The running math and its caveats live in `player-values/README.md`; the target design is `player-values/SPEC.md`. `python3 player-values/backtest.py` rebuilds the forecast at every past kickoff from earlier games only and scores it against what players went on to do, beside two naive forecasts. The report lives in `player-values/validation.json` and on the snapshot `meta.validation` object. It tests the order and level of football production. It does not test trade-market prices.
-
-Refresh with `python3 player-values/build.py`. `python3 scripts/check_market_files.py` checks the committed file. A live publish and the player-value refresh fail if it is older than 21 days. The refresh validates before atomically replacing the last good snapshot.
+Install `python3 -m pip install -r player-values/trade-requirements.txt` and refresh with `python3 player-values/build_trade_values.py`. The builder validates before replacing the last good snapshot. `python3 scripts/check_market_files.py --fail-on-age` checks the deployed schema and freshness. The [model notes](player-values/README.md) describe the training sample, validation and archived model.
 
 The daily refresh (`.github/workflows/refresh-player-values.yml`) commits the new snapshot to `develop` and publishes the same checked files to the `market-data` Netlify Blobs store (`scripts/publish_market_blobs.mjs`). On the live site, `/data/player_values.json` and `/data/price-history/*` go through the `market` function, which serves the newer of that copy and the release's own copy. So values on dynastyticker.com update daily without a deploy. The repository variable `MARKET_PUBLISH=off` turns that off.
 

@@ -9,7 +9,7 @@ export const INFO_PHONE_MAX_WIDTH = 700;
 export function valuesWorkText(date = "") {
   const when = String(date || "").trim();
   const updated = when ? ` Updated ${when}.` : "";
-  return `Values are built for 12-team Superflex PPR dynasty from a learned mix of our own football forecast (a player's last two seasons, his age, and early on his draft slot) and where Superflex dynasty rankings put him. Same number everywhere on the site.${updated}`;
+  return `Values are built for 12-team Superflex PPR dynasty from completed trades. Recent deals carry more weight. Players who rarely move are estimated from comparable players and the trades we have. Same number everywhere on the site.${updated}`;
 }
 
 // Plain words for terms a first-time or non-native reader may not know.
