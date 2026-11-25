@@ -8,12 +8,12 @@ import math
 from pathlib import Path
 
 from build import (
-    CONFIG, EXCLUDED_ASSETS, OUTPUT, POSITIONS, REQUIRED_ASSETS, _assert_pick_order,
+    CONFIG, EXCLUDED_ASSETS, OUTPUT, POSITIONS, _assert_pick_order,
     atomic_json, choose_sleeper_players, current_profile, first_pick_year, forecast,
     http_bytes, load_inputs, played_recently, player_label, write_slim_players,
 )
 from sleeper_trades import collect
-from trade_model import MODEL_VERSION, train
+from trade_model import MODEL_VERSION, train, usable_trades
 
 PROJECTION_API = "https://api.sleeper.com/projections/nfl"
 
@@ -46,8 +46,11 @@ def validate(bundle):
         raise RuntimeError("Incomplete asset snapshot")
     if any(not isinstance(value, int) or value < 0 for value in values.values()):
         raise RuntimeError("Invalid published trade value")
-    if any(values.get(asset, 0) <= 0 for asset in REQUIRED_ASSETS):
-        raise RuntimeError("Required active asset missing from the board")
+    if sum(values.get(asset, 0) > 0 for asset in players) < 100:
+        raise RuntimeError("Too few players with trade-supported prices")
+    if any(values.get(asset, 0) > 0 and not row["tradeEvidence"]["completedTrades"]
+           for asset, row in players.items()):
+        raise RuntimeError("Player price missing trade evidence")
     if any(values.get(asset, 0) > 0 for asset in EXCLUDED_ASSETS):
         raise RuntimeError("Retired asset still priced")
     _assert_pick_order(values)
@@ -63,10 +66,8 @@ def build(cache, refresh):
     weekly_points = projection_points(season, week) if in_season else {}
     league_year = int(inputs["state"].get("league_season") or season)
     corpus = collect(cache, league_year, week, refresh=refresh)
-    model, report = train(inputs, corpus, today)
+    model, report = train(usable_trades(corpus, inputs["sleeper"], today), today)
     report["sample"] = "public completed two-manager trades in 12-team Superflex PPR dynasty leagues"
-    picked = model.columns.get(("pick", "delay"))
-    report["pickAnnualDiscount"] = round(math.exp(model.coefs[picked]), 5) if picked is not None else None
 
     world = {"rookieYear": forecast.rookie_years(inputs["meta"], inputs["weekly"])}
     active = {pid for pid, rows in inputs["weekly"].items()
@@ -77,8 +78,8 @@ def build(cache, refresh):
         profile = current_profile(pid, player, inputs, world)
         if profile is None or asset in EXCLUDED_ASSETS:
             continue
-        model.features.register(asset)
-        values[asset] = max(1, round(model.price(asset, today)))
+        price = model.price(asset, today)
+        values[asset] = max(1, round(price)) if price is not None else 0
         names[asset] = player_label(player).strip()
         players[asset] = {
             "position": position,
@@ -103,7 +104,10 @@ def build(cache, refresh):
         previous = None
         for rnd in range(1, 6):
             asset = f"pick:{year}:r{rnd}:any"
-            price = max(1, round(model.price(f"pick:{year}:r{rnd}", today)))
+            modeled = model.price(f"pick:{year}:r{rnd}", today)
+            if modeled is None:
+                continue
+            price = max(1, round(modeled))
             values[asset] = min(price, previous) if previous is not None else price
             previous = values[asset]
             names[asset] = f"{year} Round {rnd}"
@@ -133,7 +137,7 @@ def build(cache, refresh):
 
 
 def write_top_100(path, bundle):
-    board = sorted(bundle["sf"], key=lambda asset: (-bundle["sf"][asset], bundle["names"][asset], asset))
+    board = sorted((asset for asset, value in bundle["sf"].items() if value > 0), key=lambda asset: (-bundle["sf"][asset], bundle["names"][asset], asset))
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle, lineterminator="\n")
         writer.writerow(("rank", "asset", "value", "position", "completed_trades", "recent_trades", "asset_id"))

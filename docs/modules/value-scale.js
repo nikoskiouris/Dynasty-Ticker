@@ -1,10 +1,10 @@
 import { escapeHtml, formatNumber } from "./html.js";
 
-// Rounded cuts at ranks 25, 97, 199 and 310 on the first Sleeper trade board.
+// Rounded cuts at ranks 25, 97, 199 and 310 on the trades-only board.
 export const VALUE_TIERS = Object.freeze([
-  { id: "elite", label: "Elite", min: 8200, blurb: "Top ~25 players" },
-  { id: "starter", label: "Starter", min: 4200, blurb: "Weekly starter" },
-  { id: "solid", label: "Solid", min: 2750, blurb: "Startable some weeks" },
+  { id: "elite", label: "Elite", min: 8050, blurb: "Top ~25 players" },
+  { id: "starter", label: "Starter", min: 3950, blurb: "Weekly starter" },
+  { id: "solid", label: "Solid", min: 2650, blurb: "Startable some weeks" },
   { id: "depth", label: "Depth", min: 2150, blurb: "Bye-week or injury fill-in." },
   { id: "deep", label: "Deep stash", min: 1, blurb: "Roster filler" },
 ]);

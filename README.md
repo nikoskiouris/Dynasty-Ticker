@@ -24,7 +24,7 @@ Old links (`?tab=…`, `?view=ranks`, removed rooms like Find a trade) still ope
 Product purpose and how to choose between competing asks live in `AGENTS.md`. First-visit usability tasks live in `research/first-visit-tasks.md`.
 
 ### Value source
-Rankings, player pages, Trade Calculator, League History and share cards read the same **12-team Superflex full-PPR dynasty** snapshot at `docs/data/player_values.json`. The model fits players and generic rookie picks together using completed Sleeper trades. Recent deals carry more weight. The player page shows the number of trades involving the player and flags sparse evidence. Sleeper’s published weekly and full-season PPR projections appear on that page.
+Rankings, player pages, Trade Calculator, League History and share cards read the same **12-team Superflex full-PPR dynasty** snapshot at `docs/data/player_values.json`. The model fits players and generic rookie picks together using the assets exchanged in completed Sleeper trades and their dates. Recent deals carry more weight. The player page shows the number of trades involving the player and flags sparse evidence. Sleeper’s published weekly and full-season PPR projections appear on that page.
 
 Install `python3 -m pip install -r player-values/trade-requirements.txt` and refresh with `python3 player-values/build_trade_values.py`. The builder validates before replacing the last good snapshot. `python3 scripts/check_market_files.py --fail-on-age` checks the deployed schema and freshness. The [model notes](player-values/README.md) describe the training sample, validation and archived model.
 
