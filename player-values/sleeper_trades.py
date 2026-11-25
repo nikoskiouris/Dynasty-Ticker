@@ -1,6 +1,7 @@
 """Collect completed trades from public Sleeper dynasty leagues."""
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
+from datetime import date, datetime, timezone
 import json
 import random
 import time
@@ -12,6 +13,7 @@ from build import atomic_json, http_bytes
 API = "https://api.sleeper.app/v1"
 # Public league documented in the repository's previous walkthroughs.
 SEEDS = ("1315165104303513600",)
+PICK_SLOT_VERSION = 1
 REQUEST_SPACING = 0.075  # Keep the process below Sleeper's published 1,000 requests/minute guidance.
 _request_lock = Lock()
 _next_request = 0.0
@@ -80,11 +82,12 @@ def discover(pool, year, limit):
     return leagues
 
 
-def transactions(payload):
+def transactions(payload, draft_for_pick=None):
     for tx in payload or []:
         roster_ids = set(tx.get("roster_ids") or [])
         if tx.get("type") != "trade" or tx.get("status") != "complete" or len(roster_ids) != 2:
             continue
+        timestamp = tx.get("status_updated") or tx["created"]
         sides = {owner: [] for owner in sorted(roster_ids)}
         for player, owner in (tx.get("adds") or {}).items():
             if owner in sides:
@@ -92,18 +95,135 @@ def transactions(payload):
         for pick in tx.get("draft_picks") or []:
             owner = pick["owner_id"]
             if owner in sides:
-                sides[owner].append(f"pick:{pick['season']}:r{pick['round']}")
+                asset = f"pick:{pick['season']}:r{pick['round']}"
+                slots = draft_for_pick(str(pick["season"]), timestamp) if draft_for_pick else {}
+                slot = slots.get(str(pick["roster_id"]))
+                sides[owner].append(f"{asset}:{slot}" if slot is not None else asset)
         if all(sides.values()):
             yield tx["transaction_id"], {
-                "timestamp": tx.get("status_updated") or tx["created"],
+                "timestamp": timestamp,
                 "sides": list(sides.values()),
             }
+
+
+def drafts_at_trade(drafts, season, timestamp):
+    return [
+        draft for draft in drafts
+        if draft["season"] == season and draft["start"] <= timestamp
+        and (draft["end"] is None or timestamp <= draft["end"])
+    ]
+
+
+def positions_for_league(cache, league):
+    """Roster-to-slot mappings for started linear rookie drafts."""
+    path = cache / "draft-slots" / f"{league}.json"
+    if path.exists():
+        return json.loads(path.read_text())
+    drafts = []
+    roster_by_owner = None
+    for draft in get(f"league/{league}/drafts") or []:
+        settings = draft.get("settings") or {}
+        if (
+            draft.get("type") != "linear" or settings.get("teams") != 12
+            or settings.get("player_type") != 1 or not draft.get("start_time")
+            or draft.get("status") not in {"drafting", "paused", "complete"}
+            or not draft.get("season")
+            or (draft["status"] == "complete" and not draft.get("last_picked"))
+        ):
+            continue
+        slots = {str(roster): int(slot) for slot, roster in (draft.get("slot_to_roster_id") or {}).items()}
+        if not slots and draft.get("draft_order"):
+            if roster_by_owner is None:
+                roster_by_owner = {
+                    str(row["owner_id"]): str(row["roster_id"])
+                    for row in get(f"league/{league}/rosters") or [] if row.get("owner_id")
+                }
+            slots = {roster_by_owner[owner]: int(slot) for owner, slot in draft["draft_order"].items()
+                     if owner in roster_by_owner}
+        slots = {roster: slot for roster, slot in slots.items() if 1 <= slot <= 12}
+        if not slots or len(set(slots.values())) != len(slots):
+            continue
+        drafts.append({
+            "season": str(draft["season"]),
+            "start": draft["start_time"],
+            "end": draft["last_picked"] if draft["status"] == "complete" else None,
+            "slots": slots,
+        })
+    if drafts and all(draft["end"] is not None for draft in drafts):
+        atomic_json(path, drafts)
+    return drafts
+
+
+def enrich_pick_slots(cache, corpus, pool):
+    """Resolve only draft windows that overlap a same-year pick trade."""
+    candidates = defaultdict(list)
+    for row in corpus["trades"]:
+        stamp = datetime.fromtimestamp(row["timestamp"] / 1000, timezone.utc)
+        season = str(stamp.year)
+        if any(asset.startswith(f"pick:{season}:") for side in row["sides"] for asset in side):
+            candidates[row["league"]].append((row, season))
+    leagues = sorted(candidates)
+    def slots_for(league):
+        drafts = positions_for_league(cache, league)
+        return {row["timestamp"] for row, season in candidates[league]
+                if len(drafts_at_trade(drafts, season, row["timestamp"])) == 1}, drafts
+
+    staged = list(pool.map(slots_for, leagues))
+    def replace_due(item):
+        league, (timestamps, drafts) = item
+        if not timestamps:
+            return
+
+        def draft_for_pick(season, timestamp):
+            matches = drafts_at_trade(drafts, season, timestamp)
+            return matches[0]["slots"] if len(matches) == 1 else {}
+
+        # Historical caches prior to slot support may lack the transaction leg.
+        # Search leg 1 first, then the other available legs for unmatched trades.
+        rows_by_stamp = defaultdict(list)
+        for row, _ in candidates[league]:
+            if row["timestamp"] in timestamps:
+                rows_by_stamp[row["timestamp"]].append(row)
+        known_legs = {row["leg"] for rows in rows_by_stamp.values() for row in rows if "leg" in row}
+        legs = sorted(known_legs)
+        if any("leg" not in row for rows in rows_by_stamp.values() for row in rows):
+            legs = [1, *[leg for leg in legs if leg != 1]]
+            legs += [leg for leg in range(2, 19) if leg not in legs]
+        for leg in legs:
+            if not rows_by_stamp:
+                break
+            payload = get(f"league/{league}/transactions/{leg}")
+            raw = [tx for tx in payload or [] if (tx.get("status_updated") or tx.get("created")) in rows_by_stamp]
+            before = dict(transactions(raw))
+            after = dict(transactions(raw, draft_for_pick))
+            for tx, row in before.items():
+                pending = rows_by_stamp.get(row["timestamp"], [])
+                sides = sorted(sorted(side) for side in row["sides"])
+                matches = [entry for entry in pending if entry.get("id", tx) == tx
+                           and sorted(sorted(side) for side in entry["sides"]) == sides]
+                if len(matches) != 1:
+                    continue
+                matches[0]["sides"] = after[tx]["sides"]
+                pending.remove(matches[0])
+                if not pending:
+                    del rows_by_stamp[row["timestamp"]]
+
+    for _ in pool.map(replace_due, zip(leagues, staged)):
+        pass
+    corpus["pickSlotsVersion"] = PICK_SLOT_VERSION
+    return corpus
 
 
 def collect(cache, year, week, limit=240, refresh=True):
     path = cache / "trade_corpus.json"
     if not refresh and path.exists():
-        return json.loads(path.read_text())
+        corpus = json.loads(path.read_text())
+        if corpus.get("pickSlotsVersion") == PICK_SLOT_VERSION:
+            return corpus
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            enrich_pick_slots(cache, corpus, pool)
+        atomic_json(path, corpus)
+        return corpus
     with ThreadPoolExecutor(max_workers=12) as pool:
         leagues = discover(pool, year, limit)
         frontier = list(leagues.values())
@@ -130,11 +250,12 @@ def collect(cache, year, week, limit=240, refresh=True):
             return rows
 
         trades = {}
-        for (key, _), rows in zip(jobs, pool.map(load, jobs)):
-            trades.update((tx, dict(row, league=key)) for tx, row in rows.items())
+        for (key, leg), rows in zip(jobs, pool.map(load, jobs)):
+            trades.update((tx, dict(row, league=key, leg=leg, id=tx)) for tx, row in rows.items())
+        result = {"collectedOn": date.today().isoformat(), "trades": list(trades.values())}
+        enrich_pick_slots(cache, result, pool)
     if len(trades) < 1000 or len({row["league"] for row in trades.values()}) < 30:
         raise RuntimeError(f"Sleeper sample too small to publish: {len(trades)} completed trades")
-    result = {"collectedOn": date.today().isoformat(), "trades": list(trades.values())}
     atomic_json(path, result)
     return result
 

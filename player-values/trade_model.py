@@ -9,10 +9,12 @@ from scipy.sparse import csr_matrix
 
 from build import POSITIONS, offensive_position
 
-MODEL_VERSION = "sleeper-trades-v2"
+MODEL_VERSION = "sleeper-trades-v3"
 DISPLAY_FIRST = 5000
 LOOKBACK = 900
 RECENT_DAYS = 210
+SPARSE_REGULARIZATION = 1.5
+SPARSE_LEAGUE_SEASONS = 5
 DEFENSE_ASSETS = {f"player:{team}" for team in
                   "ARI ATL BAL BUF CAR CHI CIN CLE DAL DEN DET GB HOU IND JAX KC LAC LAR LV MIA MIN NE NO NYG NYJ PHI PIT SEA SF TB TEN WAS".split()}
 PICK_ROUNDS = {f"r{round_number}" for round_number in range(1, 6)}
@@ -31,7 +33,11 @@ def usable_trades(corpus, sleeper_players, as_of):
             kept = []
             for asset in side:
                 kind, *parts = asset.split(":")
-                if kind == "pick" and len(parts) == 2 and parts[1] in PICK_ROUNDS and parts[0].isdigit():
+                if (
+                    kind == "pick" and len(parts) in (2, 3)
+                    and parts[1] in PICK_ROUNDS and parts[0].isdigit()
+                    and (len(parts) == 2 or parts[2].isdigit() and 1 <= int(parts[2]) <= 12)
+                ):
                     kept.append(asset)
                 elif kind == "player" and len(parts) == 1:
                     player = sleeper_players.get(parts[0], {})
@@ -54,13 +60,21 @@ def usable_trades(corpus, sleeper_players, as_of):
 
 def asset_key(asset):
     if asset.startswith("pick:"):
-        return f"pick:{asset.rsplit(':', 1)[1]}"
+        return f"pick:{asset.split(':')[2]}"
     return asset
 
 
 def pick_delay(asset, when):
-    year = int(asset.split(":")[1])
+    parts = asset.split(":")
+    if len(parts) == 4:  # The pick is already on the clock or waiting in this draft.
+        return 0.0
+    year = int(parts[1])
     return min(6, max(0, (date(year, 6, 1) - when).days / 365.2425))
+
+
+def pick_slot_offset(asset):
+    parts = asset.split(":")
+    return (6.5 - int(parts[3])) / 5.5 if len(parts) == 4 else 0.0
 
 
 def connected_trades(trades):
@@ -91,19 +105,22 @@ class TradeFit:
         keys = sorted({asset_key(asset) for _, sides, _ in trades for side in sides for asset in side})
         self.columns = {key: index for index, key in enumerate(keys)}
         delay_index = len(keys)
+        slot_index = delay_index + 1
         weights = np.array([2 ** (-(as_of - when).days / half_life) for when, _, _ in trades])
         self.count = Counter()
         self.recent = Counter()
         self.latest = {}
+        self.league_seasons = defaultdict(set)
         rows, columns, data, side_start = [], [], [], []
         row = 0
-        for when, sides, _ in trades:
+        for when, sides, league in trades:
             for side in sides:
                 side_start.append(row)
                 for asset in side:
                     key = asset_key(asset)
                     if key.startswith("player:"):
                         self.count[asset] += 1
+                        self.league_seasons[asset].add(league)
                         self.latest[asset] = when
                         if (as_of - when).days <= RECENT_DAYS:
                             self.recent[asset] += 1
@@ -111,23 +128,33 @@ class TradeFit:
                         rows.append(row)
                         columns.append(delay_index)
                         data.append(pick_delay(asset, when))
+                        slot_offset = pick_slot_offset(asset)
+                        if slot_offset:
+                            rows.append(row)
+                            columns.append(slot_index)
+                            data.append(slot_offset)
                     rows.append(row)
                     columns.append(self.columns[key])
                     data.append(1)
                     row += 1
 
-        matrix = csr_matrix((data, (rows, columns)), shape=(row, delay_index + 1))
+        matrix = csr_matrix((data, (rows, columns)), shape=(row, slot_index + 1))
         boundaries = np.asarray(side_start)
         counts = np.diff(np.append(boundaries, row))
-        initial = np.zeros(delay_index + 1)
-        player_columns = np.array([key.startswith("player:") for key in keys] + [False])
+        initial = np.zeros(slot_index + 1)
+        player_columns = np.array([key.startswith("player:") for key in keys] + [False, False])
         if not player_columns.any():
             raise RuntimeError("No players connected to the first-round price anchor")
-        # Group-relative shrinkage stabilizes sparse assets. The center comes
-        # from this fit and gives every player the same treatment.
-        pick_columns = ~player_columns
-        pick_columns[self.columns[ANCHOR]] = False
-        bounds = [(-7, 4) if key.startswith("player:") else (-7, 0) for key in keys] + [(-1.5, 0)]
+        # One league's deals give a weaker price signal than the same evidence
+        # spread across several league seasons. Learn a common center and
+        # give estimates based on fewer leagues a stronger pull toward it.
+        precision = np.full(slot_index + 1, penalty * 0.1)
+        for key, index in self.columns.items():
+            if key.startswith("player:"):
+                missing = max(0, SPARSE_LEAGUE_SEASONS - len(self.league_seasons[key]))
+                precision[index] = penalty + SPARSE_REGULARIZATION * missing / (SPARSE_LEAGUE_SEASONS - 1)
+        bounds = [(-7, 4) if key.startswith("player:") else (-7, 0) for key in keys]
+        bounds.extend(((-1.5, 0), (0, 1.5)))
         bounds[self.columns[ANCHOR]] = (0, 0)
 
         def loss(coefs):
@@ -136,15 +163,12 @@ class TradeFit:
             residual = np.log(totals[::2]) - np.log(totals[1::2])
             scaled = np.sqrt(1 + (residual / 0.4) ** 2)
             offset = coefs.copy()
-            offset[player_columns] -= np.mean(coefs[player_columns])
-            # Pick coefficients get lighter regularization so a rarely traded
-            # late round can be priced well below the first-round anchor.
-            regularization = offset.copy()
-            regularization[pick_columns] *= 0.1
-            error = np.dot(weights, 0.16 * (scaled - 1)) + 0.5 * penalty * np.dot(offset, regularization)
+            offset[player_columns] -= np.average(coefs[player_columns], weights=precision[player_columns])
+            regularization = precision * offset
+            error = np.dot(weights, 0.16 * (scaled - 1)) + 0.5 * np.dot(offset, regularization)
             side_grad = (weights * residual / scaled)[:, None] * np.array([1, -1])
             asset_grad = prices * np.repeat(side_grad.ravel() / totals, counts)
-            return error, matrix.T @ asset_grad + penalty * regularization
+            return error, matrix.T @ asset_grad + regularization
 
         fitted = minimize(loss, initial, method="L-BFGS-B", jac=True, bounds=bounds,
                           options={"maxiter": 500, "ftol": 1e-9})
@@ -152,21 +176,26 @@ class TradeFit:
             raise RuntimeError(f"Trade model fit failed: {fitted.message}")
         self.coefs = fitted.x
         self.annual_discount = math.exp(fitted.x[delay_index])
+        self.pick_slot_coefficient = float(fitted.x[slot_index])
 
     def price(self, asset, when):
         index = self.columns.get(asset_key(asset))
         if index is None:
             return None
         value = DISPLAY_FIRST * math.exp(self.coefs[index])
-        return value * self.annual_discount ** pick_delay(asset, when) if asset.startswith("pick:") else value
+        if asset.startswith("pick:"):
+            value *= self.annual_discount ** pick_delay(asset, when)
+            value *= math.exp(self.pick_slot_coefficient * pick_slot_offset(asset))
+        return value
 
     def evidence(self, asset):
         return {
             "completedTrades": self.count[asset],
             "recentTrades": self.recent[asset],
+            "leagueSeasons": len(self.league_seasons.get(asset, ())),
             "recentDays": RECENT_DAYS,
             "lastTradeDate": self.latest[asset].isoformat() if asset in self.latest else None,
-            "limited": self.recent[asset] < 5,
+            "limited": self.recent[asset] < 5 or len(self.league_seasons.get(asset, ())) < SPARSE_LEAGUE_SEASONS,
         }
 
 
@@ -186,21 +215,30 @@ def train(trades, as_of):
     if len(trades) < 1000 or league_seasons < 30:
         raise RuntimeError(f"Only {len(trades)} connected trades available for training")
     split = as_of - timedelta(days=42)
-    tuning_start = split - timedelta(days=42)
-    early = [row for row in trades if row[0] < tuning_start]
-    tuning = [row for row in trades if tuning_start <= row[0] < split]
     past = [row for row in trades if row[0] < split]
     future = [row for row in trades if row[0] >= split]
-    half_life, penalty = 210, 0.5
-    if len(early) >= 700 and len(tuning) >= 100:
-        trials = []
-        for days in (90, 210, 420):
-            for shrinkage in (0.1, 0.5, 2.0):
-                error, scored = holdout_error(TradeFit(early, tuning_start, days, shrinkage), tuning)
+    windows = []
+    for days_before in (84, 42):
+        start = split - timedelta(days=days_before)
+        end = start + timedelta(days=42)
+        history = [row for row in trades if row[0] < start]
+        validation = [row for row in trades if start <= row[0] < end]
+        if len(history) >= 700 and len(validation) >= 100:
+            windows.append((start, history, validation))
+
+    half_life, penalty = 90, 0.1
+    trials = []
+    for days in (60, 90, 150):
+        for shrinkage in (0.1, 0.5):
+            scores = []
+            for start, history, validation in windows:
+                error, scored = holdout_error(TradeFit(history, start, days, shrinkage), validation)
                 if scored >= 100:
-                    trials.append((error, days, shrinkage))
-        if trials:
-            _, half_life, penalty = min(trials)
+                    scores.append(error)
+            if scores and len(scores) == len(windows):
+                trials.append((sum(scores) / len(scores), days, shrinkage))
+    if trials:
+        _, half_life, penalty = min(trials)
     error, scored = holdout_error(TradeFit(past, split, half_life, penalty), future) if len(past) >= 700 else (None, 0)
     fitted = TradeFit(trades, as_of, half_life, penalty)
     return fitted, {
@@ -214,5 +252,9 @@ def train(trades, as_of):
         "holdoutTradesScored": scored,
         "holdoutMedianSideGapPct": error,
         "regularization": penalty,
+        "sparseRegularization": SPARSE_REGULARIZATION,
+        "knownSlotTrades": sum(any(asset.startswith("pick:") and asset.count(":") == 3
+                                   for side in sides for asset in side) for _, sides, _ in trades),
+        "pickSlotLogSlope": round(fitted.pick_slot_coefficient, 5),
         "pickAnnualDiscount": round(fitted.annual_discount, 5),
     }

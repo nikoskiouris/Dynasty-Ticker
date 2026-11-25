@@ -46,12 +46,16 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Cache completed Sleeper transaction weeks
+      - name: Cache completed Sleeper transaction weeks and draft orders
         uses: actions/cache@v4
         with:
-          path: .cache/player-values/transactions
-          key: sleeper-transactions-v1-${{ github.run_id }}
-          restore-keys: sleeper-transactions-v1-
+          path: |
+            .cache/player-values/transactions
+            .cache/player-values/draft-slots
+          key: sleeper-trades-and-drafts-v1-${{ github.run_id }}
+          restore-keys: |
+            sleeper-trades-and-drafts-v1-
+            sleeper-transactions-v1-
 
       - name: Install trade model dependencies
         run: python3 -m pip install -r player-values/trade-requirements.txt

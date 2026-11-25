@@ -2,10 +2,10 @@ import { escapeHtml, formatNumber } from "./html.js";
 
 // Rounded cuts at ranks 25, 97, 199 and 310 on the trades-only board.
 export const VALUE_TIERS = Object.freeze([
-  { id: "elite", label: "Elite", min: 8050, blurb: "Top ~25 players" },
-  { id: "starter", label: "Starter", min: 3950, blurb: "Weekly starter" },
+  { id: "elite", label: "Elite", min: 8250, blurb: "Top ~25 players" },
+  { id: "starter", label: "Starter", min: 3700, blurb: "Weekly starter" },
   { id: "solid", label: "Solid", min: 2650, blurb: "Startable some weeks" },
-  { id: "depth", label: "Depth", min: 2150, blurb: "Bye-week or injury fill-in." },
+  { id: "depth", label: "Depth", min: 2300, blurb: "Bye-week or injury fill-in." },
   { id: "deep", label: "Deep stash", min: 1, blurb: "Roster filler" },
 ]);
 

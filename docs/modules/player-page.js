@@ -14,10 +14,11 @@ function renderSleeperProjection(projection) {
 
 function tradeEvidenceText(evidence) {
   if (!evidence) return "Trade evidence unavailable.";
-  const { recentTrades, recentDays, completedTrades, limited } = evidence;
+  const { recentTrades, recentDays, completedTrades, leagueSeasons, limited } = evidence;
   if (!completedTrades) return "No completed trades in the training sample.";
   const count = `${recentTrades} completed ${recentTrades === 1 ? "trade" : "trades"} in the last ${recentDays} days (${completedTrades} in the training sample).`;
-  return limited ? `${count} Limited recent trade evidence.` : count;
+  const coverage = leagueSeasons === 1 ? " All observed trades came from one league season." : "";
+  return limited ? `${count}${coverage} Limited trade evidence.` : count;
 }
 
 export function pickRefLine(value, ref) {
