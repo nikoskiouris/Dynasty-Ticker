@@ -15,8 +15,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FILES = (
     "docs/data/player_values.json",
-    "player-values/validation.json",
-    "player-values/blend.json",
 )
 STAMP_KEYS = {"asOf", "generatedAt"}
 

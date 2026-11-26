@@ -14,7 +14,7 @@ export function valuationUpdatedAt(bundle) {
   if (Number.isNaN(date.getTime())) return text;
   return date.toISOString().slice(0, 10);
 }
-export const PLAYER_VALUE_MODEL_VERSION = "forecast-consensus-blend-v1";
+export const PLAYER_VALUE_MODEL_VERSION = "sleeper-trades-v4";
 // Archive rows saved before the index named the model that priced them.
 export const LEGACY_PRICE_MODEL_VERSION = "football-forecast-v1";
 // Same annual discount as player-values/config.json. A missing pick year uses this ruler.
@@ -473,7 +473,7 @@ function assetSkipsOffensiveNameMatch(asset) {
 
 export function lookupMarketValue(asset, values, valueNameMap = NO_NAMES, catalog = null) {
   const exact = values?.[asset?.assetId];
-  if (Number.isFinite(exact)) return { value: exact, estimated: false };
+  if (Number.isFinite(exact)) return { value: exact, estimated: exact === 0 };
   if (!assetSkipsOffensiveNameMatch(asset)) {
     const named = findMarketValueByPlayerName(playerNameForAsset(asset), values, valueNameMap);
     if (Number.isFinite(named)) return { value: named, estimated: false };

@@ -1,0 +1,101 @@
+rank,asset,value,position,completed_trades,recent_trades,asset_id
+1,Josh Allen,15920,QB,44,10,player:4984
+2,Ja'Marr Chase,14625,WR,43,12,player:7564
+3,Bijan Robinson,14448,RB,33,10,player:9509
+4,Jahmyr Gibbs,14065,RB,45,11,player:9221
+5,Jaxon Smith-Njigba,13271,WR,69,14,player:9488
+6,Brock Bowers,12666,TE,34,10,player:11604
+7,Amon-Ra St. Brown,11245,WR,56,17,player:7547
+8,Caleb Williams,11219,QB,57,20,player:11560
+9,Drake Maye,11162,QB,59,17,player:11564
+10,Puka Nacua,10715,WR,61,23,player:9493
+11,Trey McBride,10483,TE,38,16,player:8130
+12,CeeDee Lamb,10430,WR,65,16,player:6786
+13,Joe Burrow,10374,QB,60,19,player:6770
+14,Justin Jefferson,10096,WR,72,19,player:6794
+15,Jayden Daniels,10085,QB,46,17,player:11566
+16,Malik Nabers,10011,WR,79,24,player:11632
+17,Patrick Mahomes,9722,QB,63,20,player:4046
+18,Jeremiyah Love,9523,RB,15,15,player:13287
+19,Lamar Jackson,9390,QB,49,23,player:4881
+20,Trevor Lawrence,9163,QB,75,13,player:7523
+21,Ashton Jeanty,8836,RB,38,15,player:12527
+22,Drake London,8576,WR,65,23,player:8112
+23,Jonathan Taylor,8547,RB,78,22,player:6813
+24,James Cook III,8484,RB,71,17,player:8138
+25,Brock Purdy,8240,QB,48,9,player:8183
+26,Nico Collins,7815,WR,61,20,player:7569
+27,Kenneth Walker III,7801,RB,86,30,player:8151
+28,Omarion Hampton,7790,RB,51,25,player:12507
+29,Jordan Love,7651,QB,61,18,player:6804
+30,Fernando Mendoza,7617,QB,15,15,player:13269
+31,Dak Prescott,7542,QB,74,20,player:3294
+32,Garrett Wilson,7507,WR,95,29,player:8146
+33,Bo Nix,7335,QB,55,17,player:11563
+34,Jaxson Dart,7157,QB,50,20,player:12508
+35,De'Von Achane,7132,RB,74,31,player:9226
+36,Christian McCaffrey,7068,RB,90,26,player:4034
+37,Justin Herbert,6920,QB,63,13,player:6797
+38,C.J. Stroud,6794,QB,51,19,player:9758
+39,Jalen Hurts,6683,QB,67,32,player:6904
+40,Chris Olave,6627,WR,110,31,player:8144
+41,Breece Hall,6504,RB,82,31,player:8155
+42,Tee Higgins,6366,WR,94,29,player:6801
+43,Jared Goff,6331,QB,69,20,player:3163
+44,Emeka Egbuka,6245,WR,53,30,player:12514
+45,Tetairoa McMillan,6114,WR,47,26,player:12526
+46,Carnell Tate,6064,WR,17,17,player:13279
+47,Chase Brown,6008,RB,92,28,player:9224
+48,Matthew Golden,6005,WR,57,37,player:12501
+49,Rashee Rice,5950,WR,90,27,player:10229
+50,Bucky Irving,5940,RB,93,31,player:11584
+51,Zay Flowers,5927,WR,93,28,player:9997
+52,Tyler Shough,5904,QB,53,31,player:12545
+53,DeVonta Smith,5831,WR,69,17,player:7525
+54,Saquon Barkley,5807,RB,89,38,player:4866
+55,Kyren Williams,5791,RB,91,31,player:8150
+56,Ladd McConkey,5782,WR,103,31,player:11635
+57,George Pickens,5734,WR,108,27,player:8137
+58,Luther Burden III,5703,WR,53,19,player:12519
+59,Cam Skattebo,5625,RB,62,33,player:12481
+60,KC Concepcion Jr.,5625,WR,13,12,player:13298
+61,TreVeyon Henderson,5523,RB,47,21,player:12529
+62,A.J. Brown,5468,WR,96,33,player:5859
+63,Cam Ward,5467,QB,39,25,player:12522
+64,Tyler Warren,5421,TE,28,11,player:12518
+65,Javonte Williams,5404,RB,74,21,player:7588
+66,Bryce Young,5387,QB,62,16,player:9228
+67,Colston Loveland,5306,TE,41,15,player:12517
+68,Jordyn Tyson,5080,WR,10,10,player:13281
+69,Marvin Harrison Jr.,5059,WR,94,41,player:11628
+70,Rome Odunze,4972,WR,87,26,player:11620
+71,Kyler Murray,4951,QB,81,28,player:5849
+72,Josh Jacobs,4949,RB,78,23,player:5850
+73,Sam LaPorta,4907,TE,61,18,player:10859
+74,Quinshon Judkins,4899,RB,63,28,player:12512
+75,Bhayshul Tuten,4883,RB,70,38,player:12490
+76,Christian Watson,4819,WR,79,31,player:8167
+77,2027 Round 1,4798,PICK,,,pick:2027:r1:any
+78,Sam Darnold,4798,QB,102,23,player:4943
+79,Jonah Coleman,4730,RB,16,16,player:13345
+80,Baker Mayfield,4687,QB,64,20,player:4892
+81,Travis Etienne Jr.,4585,RB,77,24,player:7543
+82,Tucker Kraft,4584,TE,66,16,player:9484
+83,DJ Moore,4571,WR,65,23,player:4983
+84,Parker Washington,4543,WR,48,24,player:9487
+85,Jameson Williams,4507,WR,91,31,player:8148
+86,2028 Round 1,4427,PICK,,,pick:2028:r1:any
+87,Jaylen Waddle,4400,WR,94,27,player:7526
+88,Chuba Hubbard,4397,RB,70,18,player:7594
+89,Jaylen Warren,4267,RB,71,23,player:8228
+90,Michael Penix Jr.,4236,QB,53,19,player:11559
+91,Matthew Stafford,4202,QB,85,21,player:421
+92,George Kittle,4149,TE,65,17,player:4217
+93,Harold Fannin Jr.,4110,TE,35,15,player:12506
+94,D'Andre Swift,4108,RB,84,29,player:6790
+95,2029 Round 1,4085,PICK,,,pick:2029:r1:any
+96,Derrick Henry,3931,RB,82,23,player:3198
+97,Isaiah Likely,3877,TE,64,24,player:8131
+98,2030 Round 1,3770,PICK,,,pick:2030:r1:any
+99,Terry McLaurin,3767,WR,80,20,player:5927
+100,Jadarian Price,3749,RB,24,24,player:13286

@@ -1,17 +1,11 @@
 import { escapeHtml, formatNumber } from "./html.js";
 
-// Cuts from the 2026-11-12 Superflex board (docs/data/player_values.json, football-forecast-v2).
-// Priced players (value > 0): n=731. p25=42, p50=412, p75=1,773, p95=8,203. Max 18,052.
-// Players at or above 10,000: 20. At or above 3,500: 97, about 9 starters × 12 teams.
-// At or above 1,500: 199. At or above 600: 310.
-// The ruler is displayScale 20 in player-values/config.json. It is not a 0–10,000 index.
-// A new model version moves the whole board, so re-cut these when the model changes.
-export const DISPLAY_SCALE = 20;
+// Rounded cuts at ranks 25, 97, 199 and 310 on the trades-only board.
 export const VALUE_TIERS = Object.freeze([
-  { id: "elite", label: "Elite", min: 10000, blurb: "Top ~25 players" },
-  { id: "starter", label: "Starter", min: 3500, blurb: "Weekly starter" },
-  { id: "solid", label: "Solid", min: 1500, blurb: "Startable some weeks" },
-  { id: "depth", label: "Depth", min: 600, blurb: "Bye-week or injury fill-in." },
+  { id: "elite", label: "Elite", min: 8800, blurb: "Top ~25 players" },
+  { id: "starter", label: "Starter", min: 3750, blurb: "Weekly starter" },
+  { id: "solid", label: "Solid", min: 3100, blurb: "Startable some weeks" },
+  { id: "depth", label: "Depth", min: 2800, blurb: "Bye-week or injury fill-in." },
   { id: "deep", label: "Deep stash", min: 1, blurb: "Roster filler" },
 ]);
 

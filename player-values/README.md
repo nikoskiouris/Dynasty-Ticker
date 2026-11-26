@@ -1,5 +1,29 @@
 # Player values
 
+## Published model
+
+The active model fits the relative prices of players and generic rookie picks by minimizing the gap between the two sides of completed, two-manager trades in public Sleeper 12-team Superflex PPR dynasty leagues. Player ratings and the displayed point projections have separate inputs.
+
+- The collector follows a public seed league’s manager network and reloads up to two prior seasons of each sampled league. Training uses up to 900 days of trades and learns the recency half-life on earlier trades. The sample reflects this network and trades managers agreed to complete. Completed trades alone cannot establish the price needed to move a player who is never sold.
+- The model uses the assets on each side and the date of the deal. When the same fantasy rosters swap the exact same assets back within seven days, the corpus records the reversal and the fit excludes both entries once both have taken place. It fits one price per player with regularization toward a common center learned from the trades. Prices based on fewer than five league seasons receive stronger regularization. The page flags those prices and players with fewer than five deals in 210 days. Players need a trade path to the pick anchor to receive a price. Players without a modeled price remain searchable and can show Sleeper projections.
+- Picks have learned round prices and a learned time discount. A current first is the scale anchor at 5,000 before the time discount. For trades during a started linear rookie draft, the collector resolves the original roster to its fantasy draft slot from the published draft order. The fit learns the effect of slot within a round. Other trades and the published pick board use generic round prices.
+- Tuning evaluates trade-weight half-lives of 60, 90, and 150 days across two earlier chronological windows. A second pass selects the weight for one-player trades for a second-round or later pick, scoring those deals and the full window. Only players traded across at least five league seasons receive the extra weight. The report measures median percentage difference between the two sides of trades in a later 42-day holdout, using the mean of the two sides as the denominator. The report includes how many holdout deals could be priced with assets observed before the holdout. The published board refits on all eligible trades.
+- Projections are the NFL feed’s `stats.pts_ppr` as published by Sleeper for the current regular-season week and full season. The full-season figure is the upstream season projection. Missing figures stay unavailable.
+
+```sh
+python3 -m pip install -r player-values/trade-requirements.txt
+python3 player-values/build_trade_values.py --top-100 /tmp/dynasty-ticker-top-100.csv
+python3 scripts/check_market_files.py --fail-on-age
+```
+
+A cold run makes public API calls under Sleeper’s request-rate guidance. The daily workflow caches completed legs, draft orders, and recovered reversal transfers. It re-fetches recent legs. Use `--use-cache` to reuse downloaded trade and NFL history data for a development run. Projections always come directly from the live Sleeper feed.
+
+## Archived forecast and consensus model
+
+The notes below describe the previous model. Its original builder, forecast, configuration, archived market boards, training mix and backtest are kept here. `legacy-snapshot.json.gz` is the exact last canonical snapshot at the start of the migration. Replaying `build.py` still uses the previous model and writes the old model's snapshot to the canonical path, so run it from a separate checkout for historical work.
+
+# Player values
+
 This directory is the single source of truth for Dynasty Ticker player values.
 
 ## Product contract

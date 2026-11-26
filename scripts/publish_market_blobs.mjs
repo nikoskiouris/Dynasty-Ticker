@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Publish today's checked player values to the live site without a deploy.
 //
-// Run by .github/workflows/refresh-player-values.yml after build.py and
+// Run by .github/workflows/refresh-player-values.yml after build_trade_values.py and
 // check_market_files.py --fail-on-age pass. Writes the files the market
 // function serves (netlify/lib/market-data.js): player_values.json, the price
 // history index, and any dated snapshot the store does not have yet.
@@ -13,7 +13,7 @@ import { getStore } from "@netlify/blobs";
 import { MARKET_STORE, isMarketFile } from "../netlify/lib/market-data.js";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const MODEL_VERSION = "forecast-consensus-blend-v1";
+const MODEL_VERSION = "sleeper-trades-v4";
 
 async function main() {
   if (String(process.env.MARKET_PUBLISH || "").toLowerCase() === "off") {

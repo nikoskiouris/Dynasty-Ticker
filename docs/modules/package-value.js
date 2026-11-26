@@ -1,5 +1,7 @@
 // Consolidation math for uneven packages: one better player is worth more than
 // the same total spread across more pieces.
+// Calibrated on completed packages in the two pre-holdout windows.
+const PACKAGE_CREDIT_SHARE = 0.25;
 const KTC_RAW_BASE = 0.10;
 const KTC_RAW_ELITE_WEIGHT = 0.08;
 const KTC_RAW_TRADE_WEIGHT = 0.11;
@@ -137,7 +139,7 @@ function curvePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
 // between the leads one piece earlier on either side. That bounds it at both
 // ends, so every throw-in moves the verdict toward the side that receives it,
 // or leaves it where it was.
-export function calculatePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
+function fullPackageAdjustment({ myValues, theirValues, globalMaxValue }) {
   const raw = curvePackageAdjustment({ myValues, theirValues, globalMaxValue });
   const mine = (Array.isArray(myValues) ? myValues : []).map(finiteAssetValue).filter((value) => value > 0).sort((a, b) => b - a);
   const theirs = (Array.isArray(theirValues) ? theirValues : []).map(finiteAssetValue).filter((value) => value > 0).sort((a, b) => b - a);
@@ -175,6 +177,20 @@ export function calculatePackageAdjustment({ myValues, theirValues, globalMaxVal
     ...raw,
     myAdjustedValue: raw.myBaseValue + (side === "my" ? packageAdjustment : 0),
     theirAdjustedValue: raw.theirBaseValue + (side === "their" ? packageAdjustment : 0),
+    packageAdjustment,
+    packageAdjustmentSide: side,
+  };
+}
+
+
+export function calculatePackageAdjustment(options) {
+  const adjustment = fullPackageAdjustment(options);
+  const packageAdjustment = Math.round(adjustment.packageAdjustment * PACKAGE_CREDIT_SHARE);
+  const side = packageAdjustment ? adjustment.packageAdjustmentSide : null;
+  return {
+    ...adjustment,
+    myAdjustedValue: adjustment.myBaseValue + (side === "my" ? packageAdjustment : 0),
+    theirAdjustedValue: adjustment.theirBaseValue + (side === "their" ? packageAdjustment : 0),
     packageAdjustment,
     packageAdjustmentSide: side,
   };

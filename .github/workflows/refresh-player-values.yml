@@ -1,4 +1,4 @@
-name: Refresh independent player values
+name: Refresh trade-derived player values
 
 on:
   workflow_dispatch:
@@ -46,18 +46,23 @@ jobs:
         with:
           python-version: "3.12"
 
-      # The snapshot publishes the backtest summary. When a season has finished since the
-      # report was saved, score the forecast again first. Most days this step does nothing.
-      - name: Re-score the forecast when a new season of results is in
-        run: python3 player-values/backtest.py --write --if-stale
+      - name: Cache completed Sleeper transaction weeks and draft orders
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/player-values/transactions
+            .cache/player-values/draft-slots
+            .cache/player-values/reversal-transfers
+          key: sleeper-trades-and-drafts-v1-${{ github.run_id }}
+          restore-keys: |
+            sleeper-trades-and-drafts-v1-
+            sleeper-transactions-v1-
 
-      # The price mixes the forecast with the expert consensus. The mix is learned
-      # from past seasons and refit when a season has finished. Most days this does nothing.
-      - name: Re-learn the forecast/consensus mix when a new season of results is in
-        run: python3 player-values/blend.py --write --if-stale
+      - name: Install trade model dependencies
+        run: python3 -m pip install -r player-values/trade-requirements.txt
 
-      - name: Build independent values
-        run: python3 player-values/build.py
+      - name: Train the trade model and copy Sleeper projections
+        run: python3 player-values/build_trade_values.py
 
       - name: List every priced player page in the sitemap
         run: python3 scripts/build_sitemap.py
@@ -71,15 +76,14 @@ jobs:
           # Restore those files so the stamp matches the published board and
           # archive_price_snapshot.py writes nothing.
           if python3 scripts/prices_unchanged.py; then
-            git checkout -- docs/data/player_values.json player-values/validation.json player-values/blend.json
+            git checkout -- docs/data/player_values.json
             echo "No price change. Leaving generatedAt alone."
           fi
           python3 scripts/archive_price_snapshot.py
 
       - name: Commit refreshed snapshot
         run: |
-          # The board archives gain each new market board; blend.json changes once a season.
-          files="docs/data/player_values.json player-values/validation.json player-values/blend.json player-values/consensus_boards.csv.gz player-values/market_boards.csv.gz docs/data/price-history docs/data/nfl_players_slim.json docs/sitemap.xml"
+          files="docs/data/player_values.json docs/data/price-history docs/data/nfl_players_slim.json docs/sitemap.xml"
           git add $files
           if git diff --cached --quiet -- $files; then
             echo "No player-value changes."
@@ -87,7 +91,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "data: refresh independent player values [skip netlify]"
+          git commit -m "data: refresh trade-derived player values [skip netlify]"
           git pull --rebase origin develop
           git push origin HEAD:develop
 

@@ -43,7 +43,7 @@ export function foldRankQuery(value) {
 
 export function marketTape({ confidence = "", kind = "player" } = {}) {
   if (kind === "pick") {
-    return { tone: "model", line: "Historical rookie-outcome estimate." };
+    return { tone: "model", line: "Estimate based on completed trades." };
   }
   if (confidence === "established") {
     return { tone: "model", line: "Estimate based on several NFL seasons." };
@@ -177,7 +177,7 @@ export function buildRankBoard({
 
   return rows.map((row, index) => {
     // A zero price ties with hundreds of others; a rank there means nothing.
-    const ranked = Number(row.value) >= 0;
+    const ranked = Number(row.value) > 0;
     const positionRank = ranked && row.position
       ? (positionCounts[row.position] = (positionCounts[row.position] || 0) + 1)
       : null;
@@ -224,7 +224,7 @@ export function filterRankRows(rows, { query = "", position = "ALL" } = {}) {
     if (pos !== "ALL" && pos !== "PICK" && row.position !== pos) return false;
     if (want && !onTeam(row) && !foldRankQuery(row.name).includes(want) && !(alias && row.kind !== "pick" && foldRankQuery(row.name).includes(alias))) return false;
     if (row.kind === "pick") return true;
-    return Number(row.value) >= 0;
+    return Number(row.value) > 0 || Boolean(want);
   }).map((row, index) => ({ ...row, listRank: index + 1 }));
 }
 
@@ -387,7 +387,7 @@ export function renderRanksBody(view) {
   const rows = Array.isArray(view?.rows) ? view.rows : [];
   const table = rows.length ? `<div class="rankings-table-wrap"><table class="rankings-table"><caption class="sr-only">Player Rankings · 12-team Superflex PPR dynasty</caption><thead><tr><th scope="col" class="rank-face-col"><span class="sr-only">Face</span></th><th scope="col">Player</th>${sortHeader("rank", '<span class="rank-wide-label">Overall </span>Rank', view)}<th scope="col"><span class="rank-wide-label">Position </span><span class="rank-narrow-label">Pos. </span>Rank</th>${sortHeader("age", "Age", view)}${sortHeader("team", "Team", view, "rank-team-col")}<th scope="col">Value</th></tr></thead><tbody>${rows.map(renderRankTableRow).join("")}</tbody></table></div>` : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
   const more = Number(view?.hidden) > 0 ? `<button type="button" class="ghost-btn ranks-more" data-action="ranks-more">Show more</button>` : "";
-  return `${table}${more}<footer class="rankings-footnote"><p>Built from our football forecast (age, role, production, availability, team, draft capital and how long players at his position last) and Superflex dynasty rankings. Updated daily.</p>${renderValuesFreshness(view?.updated, { align: "end" })}</footer>`;
+  return `${table}${more}<footer class="rankings-footnote"><p>Values are learned from completed 12-team Superflex PPR dynasty trades. Updated daily.</p>${renderValuesFreshness(view?.updated, { align: "end" })}</footer>`;
 }
 
 function renderRankTableRow(row) {
@@ -398,7 +398,7 @@ function renderRankTableRow(row) {
   const owner = row.owner?.mine ? "On your team" : row.owner?.name || "";
   // A pick has no page: its row adds the pick to the trade, so say so.
   const label = pick ? `Add ${row.name} to a trade` : row.name;
-  return `<tr><td class="rank-face-col"><button type="button" class="link-btn" ${attrs} aria-label="${escapeHtml(label)}">${face}</button></td><th scope="row"><button type="button" class="link-btn rank-name-link" ${attrs}${pick ? ` aria-label="${escapeHtml(label)}"` : ""}>${escapeHtml(row.name)}${pick ? ' <span class="rank-add-hint" aria-hidden="true">＋ Trade</span>' : ""}</button><small class="rank-position-tag">${escapeHtml(row.position || "")}</small>${owner ? `<small class="rank-owner">${escapeHtml(owner)}</small>` : ""}</th><td>${row.overallRank || "—"}</td><td>${escapeHtml(row.boardRank || "—")}</td><td>${!pick && Number.isFinite(row.age) ? Number(row.age).toFixed(1) : "—"}</td><td class="rank-team-col">${pick ? "—" : escapeHtml(row.team || "FA")}</td><td class="rank-table-value">${escapeHtml(formatNumber(row.value))}</td></tr>`;
+  return `<tr><td class="rank-face-col"><button type="button" class="link-btn" ${attrs} aria-label="${escapeHtml(label)}">${face}</button></td><th scope="row"><button type="button" class="link-btn rank-name-link" ${attrs}${pick ? ` aria-label="${escapeHtml(label)}"` : ""}>${escapeHtml(row.name)}${pick ? ' <span class="rank-add-hint" aria-hidden="true">＋ Trade</span>' : ""}</button><small class="rank-position-tag">${escapeHtml(row.position || "")}</small>${owner ? `<small class="rank-owner">${escapeHtml(owner)}</small>` : ""}</th><td>${row.overallRank || "—"}</td><td>${escapeHtml(row.boardRank || "—")}</td><td>${!pick && Number.isFinite(row.age) ? Number(row.age).toFixed(1) : "—"}</td><td class="rank-team-col">${pick ? "—" : escapeHtml(row.team || "FA")}</td><td class="rank-table-value">${row.value > 0 ? escapeHtml(formatNumber(row.value)) : '<span aria-label="Value unavailable">—</span>'}</td></tr>`;
 }
 
 function renderRanksShelf(rows) {

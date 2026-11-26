@@ -4,61 +4,23 @@ import { playerValueTrend, renderValueTierBadge, renderValueTrend, renderValuesF
 
 const show = (value, digits = 1) => value != null && Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "—";
 
-// The price is a learned mix of two inputs on one scale: the football forecast
-// and the Superflex dynasty market. Both parts ship with the snapshot; never invent one.
-// Owner rule: no other site is named on Dynasty Ticker.
-export function playerPriceParts(row) {
-  const price = row?.model?.price;
-  if (!price || !Number.isFinite(Number(price.forecastShare))) return null;
-  const share = Math.min(1, Math.max(0, Number(price.forecastShare)));
-  return { forecast: Number(price.forecast) || 0, market: Number(price.market) || 0, rank: price.marketRank, share };
+function renderSleeperProjection(projection) {
+  const { season, seasonPpr, week, weekPpr } = projection || {};
+  const points = value => value == null ? "Unavailable" : escapeHtml(String(value));
+  return `<h3>Sleeper projections</h3>${season
+    ? `<dl class="player-detail-facts">${week ? `<div><dt>Week ${escapeHtml(week)} PPR points</dt><dd>${points(weekPpr)}</dd></div>` : ""}<div><dt>${escapeHtml(season)} season PPR points</dt><dd>${points(seasonPpr)}</dd></div></dl>`
+    : "<p>Projections unavailable.</p>"}`;
 }
 
-// Each season: forecast full-PPR points and games before the time discount (the
-// age curve as forecast), and what the season adds to the forecast after the discount.
-// While a season is under way, the first row is the weeks left and the last row
-// is part of a season, so neither is a full season.
-export function playerForecastContributions(row) {
-  const seasons = (row?.model?.forecast?.sf || []).filter(s => Number.isFinite(Number(s.discountedAdvantage)));
-  const total = seasons.reduce((sum, s) => sum + Math.max(0, Number(s.discountedAdvantage)), 0);
-  const points = s => Number.isFinite(Number(s.expectedPoints)) ? Number(s.expectedPoints) : Number(s.expectedAdvantage) || 0;
-  const healthy = s => Number.isFinite(Number(s.healthyPoints)) ? Number(s.healthyPoints) : points(s);
-  // One bar scale for every player at the position (from the snapshot), so bars
-  // compare across players and across both views. Older snapshots fall back to his own best.
-  const scaleMax = Number(row?.model?.forecastScale?.max);
-  const top = scaleMax > 0 ? scaleMax : Math.max(0, ...seasons.map(healthy), ...seasons.map(points));
-  const pct = v => top > 0 ? Math.min(1, Math.max(0, Number(v) || 0) / top) : 0;
-  const parts = playerPriceParts(row);
-  const whole = parts ? parts.forecast : Number(row.value);
-  const underway = seasons.length > 1 && Number(seasons[seasons.length - 1].weight) < 1;
-  return seasons.map((s, index) => {
-    const partial = underway && (index === 0 || index === seasons.length - 1);
-    const label = underway && index === 0 ? `Rest of ${s.season}` : partial ? `Part of ${s.season}` : String(s.season);
-    return { ...s, label, partial, rest: underway && index === 0, points: points(s), share: pct(points(s)),
-      healthy: healthy(s), healthyShare: pct(healthy(s)),
-      lineShare: Number.isFinite(Number(s.line)) ? pct(s.line) : null,
-      healthyLineShare: Number.isFinite(Number(s.healthyLine)) ? pct(s.healthyLine) : null,
-      value: total > 0 ? whole * Math.max(0, Number(s.discountedAdvantage)) / total : 0 };
-  });
+function tradeEvidenceText(evidence) {
+  if (!evidence) return "Trade evidence unavailable.";
+  const { recentTrades, recentDays, completedTrades, leagueSeasons, limited } = evidence;
+  if (!completedTrades) return "No completed trades in the training sample.";
+  const count = `${recentTrades} completed ${recentTrades === 1 ? "trade" : "trades"} in the last ${recentDays} days (${completedTrades} in the training sample).`;
+  const coverage = leagueSeasons === 1 ? " All observed trades came from one league season." : "";
+  return limited ? `${count}${coverage} Limited trade evidence.` : count;
 }
 
-// The bars share one scale per position; the mark is that season's last weekly starter.
-function forecastScaleNote(row) {
-  const scale = row?.model?.forecastScale;
-  if (!scale?.max) return "";
-  const pos = escapeHtml(row.position);
-  return `<p class="muted forecast-legend"><span class="forecast-legend-mark" aria-hidden="true"></span>Same scale for every ${pos}. The mark is the ${pos}${escapeHtml(scale.starters)} line: the last starter in a 12-team league.</p>`;
-}
-
-function renderPriceParts(parts) {
-  if (!parts) return "";
-  const pct = Math.round(parts.share * 100);
-  const rank = parts.rank != null && Number.isFinite(Number(parts.rank)) ? `market rank ${show(parts.rank, 1)}` : "outside the market's ranked list";
-  return `<dl class="player-price-parts"><div><dt>Football forecast · ${pct}%</dt><dd>${escapeHtml(formatNumber(parts.forecast))}</dd></div><div><dt>Market · ${100 - pct}%</dt><dd>${escapeHtml(formatNumber(parts.market))}</dd></div></dl>`;
-}
-
-// "More than a 2027 1st (7,418)": the comparison first-time visitors ask for
-// (research/first-visit-tasks.md, task 1). Within 5% reads "About".
 export function pickRefLine(value, ref) {
   const v = Number(value);
   const p = Number(ref?.value);
@@ -77,7 +39,7 @@ export function renderPlayerPage(row, view = {}) {
   const draft = row.draft;
   // The draft file covers recent classes. Older players carry only the overall
   // pick; their class year is this season minus years of experience.
-  const thisSeason = Number(model.forecast?.sf?.[0]?.season);
+  const thisSeason = Number(model.projection?.season);
   const draftYear = Number.isFinite(thisSeason) && Number.isFinite(Number(years)) ? thisSeason - Number(years) : null;
   const draftLine = draft
     // Same words as older players' line ("2017 NFL draft, pick 10 overall"), not "R1 P4".
@@ -88,18 +50,16 @@ export function renderPlayerPage(row, view = {}) {
   // Game status only. Sleeper's roster "status" (Active, Inactive) is not an injury.
   const injury = String(row.injuryStatus || raw.injury_status || "").trim();
   const trend = playerValueTrend(view.history, row.assetId, "sf");
-  const forecast = playerForecastContributions(row);
-  const parts = playerPriceParts(row);
-  const confidence = rookie ? "Rookie: little NFL data" : { established: "Several NFL seasons of data", developing: "Limited NFL data", thin: "Early estimate: very little NFL data" }[model.confidence] || "Limited model data";
-  const comparables = (row.neighbors || []).filter(n => n.kind === "player");
+  const priced = row.value > 0;
+  const comparables = (row.neighbors || []).filter(n => n.kind === "player" && n.value > 0);
   const owner = row.owner?.mine ? "Owned by you" : row.owner?.name ? `Owned by ${row.owner.name}` : view.leagueOpen ? "Unrostered in your league" : "";
   return `<article class="player-detail" aria-labelledby="player-detail-name">
     <div class="player-detail-top"><p class="eyebrow">Player detail</p><button type="button" class="ghost-btn player-return" data-action="player-rankings-return">Return to player rankings</button></div>
     <header class="player-detail-header">${renderPlayerFace(row.playerId, row.name, { size: "md" })}<div><h1 id="player-detail-name">${escapeHtml(row.name)}</h1><p>${escapeHtml([row.position, row.team || "FA", `${show(row.age)} years old`, years != null ? (Number(years) === 0 ? "Rookie" : `${years} ${Number(years) === 1 ? "year" : "years"} experience`) : ""].filter(Boolean).join(" · "))}</p><p>${escapeHtml(draftLine)}${injury ? ` · ${escapeHtml(injury)}` : ""}</p>${owner ? `<p class="player-detail-owner">${escapeHtml(owner)}</p>` : ""}</div></header>
-    <section class="player-detail-value" aria-label="Canonical player value"><strong>${escapeHtml(formatNumber(row.value))}</strong><span>Overall rank ${row.overallRank || "—"} · ${escapeHtml(row.boardRank || row.position)}</span>${renderValueTierBadge(row.value)}${trend ? renderValueTrend(trend, { spark: true, showWindow: true }) : ""}${pickRefLine(row.value, row.pickRef) ? `<p class="player-pick-ref">${escapeHtml(pickRefLine(row.value, row.pickRef))}</p>` : ""}<p>12-team Superflex PPR dynasty values</p>${view.updated?.stale ? renderValuesFreshness(view.updated) : ""}</section>
-    <div class="player-detail-grid"><section><h2>Why this value</h2>${renderPriceParts(parts)}<h3>Football forecast by season</h3>${forecast.length ? `<div class="forecast-mode" role="radiogroup" aria-label="Forecast view"><input type="radio" name="forecast-mode-${escapeHtml(row.assetId)}" id="fm-risk-${escapeHtml(row.assetId)}" class="forecast-mode-risk" checked><label for="fm-risk-${escapeHtml(row.assetId)}">With injury risk</label><input type="radio" name="forecast-mode-${escapeHtml(row.assetId)}" id="fm-full-${escapeHtml(row.assetId)}" class="forecast-mode-full"><label for="fm-full-${escapeHtml(row.assetId)}">Plays every game</label>${model.confidence === "established" ? "" : `<p class="muted">${escapeHtml(confidence)}</p>`}<div class="player-forecast" role="list" aria-label="Forecast points by season">${forecast.map(s => `<div class="player-forecast-row${s.partial ? " is-partial" : ""}" role="listitem"><span>${escapeHtml(s.label)}</span><span class="player-forecast-track"><span class="bar-risk" style="width:${(s.share * 100).toFixed(2)}%"></span><span class="bar-full" style="width:${(s.healthyShare * 100).toFixed(2)}%"></span>${s.lineShare != null ? `<i class="forecast-line line-risk" style="left:${(s.lineShare * 100).toFixed(2)}%"></i>` : ""}${s.healthyLineShare != null ? `<i class="forecast-line line-full" style="left:${(s.healthyLineShare * 100).toFixed(2)}%"></i>` : ""}</span><span class="forecast-pts"><b class="pts-risk">${escapeHtml(show(s.points, 0))}</b><b class="pts-full">${escapeHtml(show(s.healthy, 0))}</b></span><small><span class="pts-risk">${s.rank ? `<strong>${escapeHtml(row.position)}${escapeHtml(s.rank)}</strong> · ` : ""}${s.expectedGames != null ? `${s.rest && s.possibleGames != null ? `${escapeHtml(show(s.possibleGames, 0))} games left` : `about ${escapeHtml(show(s.expectedGames, 0))} games · ${escapeHtml(show(Number(s.expectedGames) > 0 ? s.points / Number(s.expectedGames) : null, 1))} per game`}` : ""}</span><span class="pts-full">${s.healthyRank ? `<strong>${escapeHtml(row.position)}${escapeHtml(s.healthyRank)}</strong> · ` : ""}${s.possibleGames != null ? `${escapeHtml(show(s.possibleGames, 0))} games${s.rest ? " left" : ""} · ${escapeHtml(show(Number(s.possibleGames) > 0 ? s.healthy / Number(s.possibleGames) : null, 1))} per game` : ""}</span></small></div>`).join("")}</div></div>` : `<p>${escapeHtml(confidence)}</p><p>Season-by-season forecast is unavailable for this player.</p>`}<dl class="player-detail-facts"><div><dt>Recent PPR points per game</dt><dd>${show(components.recentPpg)}</dd></div><div><dt>${row.position === "QB" ? "Pass attempts + carries" : "Carries + targets"} per game</dt><dd>${show(components.roleOppPerGame)}</dd></div><div><dt>Recent availability</dt><dd>${components.availability != null ? `${show(Number(components.availability) * 100, 0)}%` : "—"}</dd></div></dl></section>
+    <section class="player-detail-value" aria-label="Canonical player value"><strong>${priced ? escapeHtml(formatNumber(row.value)) : "Value unavailable"}</strong>${priced ? `<span>Overall rank ${row.overallRank} · ${escapeHtml(row.boardRank || row.position)}</span>` : ""}${renderValueTierBadge(row.value)}${trend ? renderValueTrend(trend, { spark: true, showWindow: true }) : ""}${pickRefLine(row.value, row.pickRef) ? `<p class="player-pick-ref">${escapeHtml(pickRefLine(row.value, row.pickRef))}</p>` : ""}<p>12-team Superflex PPR dynasty values</p>${view.updated?.stale ? renderValuesFreshness(view.updated) : ""}</section>
+    <div class="player-detail-grid"><section><h2>Why this value</h2><p>${escapeHtml(tradeEvidenceText(model.tradeEvidence))}</p>${renderSleeperProjection(model.projection)}<dl class="player-detail-facts"><div><dt>Recent PPR points per game</dt><dd>${show(components.recentPpg)}</dd></div><div><dt>${row.position === "QB" ? "Pass attempts + carries" : "Carries + targets"} per game</dt><dd>${show(components.roleOppPerGame)}</dd></div><div><dt>Recent availability</dt><dd>${components.availability != null ? `${show(Number(components.availability) * 100, 0)}%` : "—"}</dd></div></dl></section>
     <section><h2>Production</h2>${row.production?.lastLine ? `<p>${escapeHtml(row.production.lastLine)}</p>` : row.note ? `<p>${escapeHtml(row.note)}</p>` : `<p>${rookie ? "Rookie, little NFL data." : "Last-season production is unavailable."}</p>`}<p>${components.currentSeasonGames != null ? `${Number(components.currentSeasonGames)} ${Number(components.currentSeasonGames) === 1 ? "game" : "games"} played this season` : "Current-season games unavailable"}</p></section></div>
-    <section><h2>Similar player values</h2>${comparables.length ? `<div class="player-comparables">${comparables.map(n => `<button type="button" class="ghost-btn" data-action="rank-open" data-asset-id="${escapeHtml(n.assetId)}">${renderPlayerFace(n.playerId, n.name, {size:"sm"})}<span>${escapeHtml(n.name)}<small>${escapeHtml(n.boardRank || n.position)} · ${escapeHtml(formatNumber(n.value))}</small></span></button>`).join("")}</div>` : `<p>No comparable player values available.</p>`}</section>
-    <div class="player-detail-actions"><button type="button" class="player-trade-action" data-action="rank-calc" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="player">Add to a trade</button><button type="button" class="ghost-btn player-share" data-action="player-share" data-name="${escapeHtml(row.name)}" data-value="${escapeHtml(formatNumber(row.value))}">Share this player</button><p class="player-share-status" role="status" aria-live="polite"></p></div>
+    ${priced ? `<section><h2>Similar player values</h2>${comparables.length ? `<div class="player-comparables">${comparables.map(n => `<button type="button" class="ghost-btn" data-action="rank-open" data-asset-id="${escapeHtml(n.assetId)}">${renderPlayerFace(n.playerId, n.name, {size:"sm"})}<span>${escapeHtml(n.name)}<small>${escapeHtml(n.boardRank || n.position)} · ${escapeHtml(formatNumber(n.value))}</small></span></button>`).join("")}</div>` : `<p>No comparable player values available.</p>`}</section>
+    <div class="player-detail-actions"><button type="button" class="player-trade-action" data-action="rank-calc" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="player">Add to a trade</button><button type="button" class="ghost-btn player-share" data-action="player-share" data-name="${escapeHtml(row.name)}" data-value="${escapeHtml(formatNumber(row.value))}">Share this player</button><p class="player-share-status" role="status" aria-live="polite"></p></div>` : ""}
   </article>`;
 }
