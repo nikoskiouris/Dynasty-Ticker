@@ -16,7 +16,7 @@ export function valuesWorkText(date = "") {
 export const GLOSSARY = Object.freeze({
   PPR: "PPR (points per reception): every catch scores 1 point.",
   Superflex: "Superflex: one lineup spot can hold a quarterback, so quarterbacks are worth more.",
-  Stars: "Stars: one great player is worth more than several average players that add up to the same total. Player prices stay the same.",
+  Stars: "Stars: packages can get a small credit for their stronger assets. Player prices stay the same.",
   "Pick slot": "Pick slot, like 1.04: round 1, 4th pick in that round.",
   "Pick Hoarder": "Pick Hoarder: this team owns 3 or more future 1st-round picks.",
   Edge: "Edge: this position group is one of the strongest in the league.",
@@ -170,7 +170,7 @@ export function bindInfoTips(doc = globalThis.document) {
 
 const PRICE_LEGEND = {
   model: ["Value", "Same number on Trade Calculator, Player Rankings, and My Team."],
-  package: ["Stars", "One great player is worth more than several average ones with the same total. This changes the verdict, not player prices."],
+  package: ["Stars", "Packages can get a small credit for their stronger assets. The calculator uses it in the verdict."],
 };
 
 export function renderPriceLegend(ids = ["model"]) {

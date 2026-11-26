@@ -82,6 +82,97 @@ def discover(pool, year, limit):
     return leagues
 
 
+REVERSAL_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+REVERSAL_VERSION = 1
+
+
+def asset_transfers(tx):
+    """Exact assets and their movements between the two rosters."""
+    adds = tx.get("adds") or {}
+    drops = tx.get("drops") or {}
+    if tx.get("waiver_budget") or adds.keys() != drops.keys():
+        return None
+    rosters = set(tx.get("roster_ids") or [])
+    transfers = [(f"player:{asset}", drops[asset], destination) for asset, destination in adds.items()]
+    for pick in tx.get("draft_picks") or []:
+        if pick.get("roster_id") is None:
+            return None
+        asset = f"pick:{pick['season']}:r{pick['round']}:{pick['roster_id']}"
+        transfers.append((asset, pick.get("previous_owner_id"), pick["owner_id"]))
+    if not transfers or any(src not in rosters or dst not in rosters or src == dst for _, src, dst in transfers):
+        return None
+    assets = {asset for asset, _, _ in transfers}
+    return sorted(transfers) if len(assets) == len(transfers) else None
+
+
+def generic_sides(sides):
+    return tuple(tuple(sorted(":".join(asset.split(":")[:3]) if asset.startswith("pick:") else asset
+                              for asset in side)) for side in sides)
+
+
+def flag_reversals(cache, corpus, pool):
+    """Verify possible reversals with raw transfers and record when they became known."""
+    pending = defaultdict(list)
+    by_league = defaultdict(dict)
+    for row in sorted(corpus["trades"], key=lambda row: row["timestamp"]):
+        league, stamp = row["league"], row["timestamp"]
+        a, b = generic_sides(row["sides"])
+        reverse = pending[league, b, a]
+        reverse[:] = [entry for entry in reverse if stamp - entry["timestamp"] <= REVERSAL_WINDOW_MS]
+        if reverse:
+            by_league[league][stamp, a, b] = row
+            for entry in reverse:
+                by_league[league][entry["timestamp"], b, a] = entry
+        pending[league, a, b].append(row)
+
+    def verify(item):
+        league, candidates = item
+        path = cache / "reversal-transfers" / f"{league}.json"
+        recovered = json.loads(path.read_text()) if path.exists() else {}
+        missing = {key: row for key, row in candidates.items()
+                   if "transfers" not in row and json.dumps(key, separators=(",", ":")) not in recovered}
+        if missing:
+            known_legs = sorted({row["leg"] for row in missing.values() if "leg" in row})
+            legs = known_legs + [leg for leg in range(1, 19) if leg not in known_legs]
+            for leg in legs:
+                if not missing:
+                    break
+                for _, row in transactions(get(f"league/{league}/transactions/{leg}")):
+                    key = (row["timestamp"], *generic_sides(row["sides"]))
+                    if key in missing:
+                        recovered[json.dumps(key, separators=(",", ":"))] = row["transfers"]
+                        del missing[key]
+            atomic_json(path, recovered)
+        by_transfer = defaultdict(list)
+        verified = []
+        for key, row in sorted(candidates.items()):
+            transfers = row.get("transfers", recovered.get(json.dumps(key, separators=(",", ":"))))
+            if not transfers:
+                continue
+            stamp = row["timestamp"]
+            forward = tuple(sorted(tuple(t) for t in transfers))
+            inverse = tuple(sorted((asset, dst, src) for asset, src, dst in transfers))
+            earlier = by_transfer[inverse]
+            earlier[:] = [entry for entry in earlier if 0 < stamp - entry["timestamp"] <= REVERSAL_WINDOW_MS]
+            if earlier:
+                verified.extend((dict(earlier.pop(), reversalConfirmedAt=stamp), dict(row, reversalConfirmedAt=stamp)))
+            else:
+                by_transfer[forward].append(row)
+        return verified
+
+    verified = {}
+    for rows in pool.map(verify, sorted(by_league.items())):
+        for row in rows:
+            key = (row["league"], row["timestamp"], *generic_sides(row["sides"]))
+            verified[key] = row["reversalConfirmedAt"]
+    for row in corpus["trades"]:
+        key = (row["league"], row["timestamp"], *generic_sides(row["sides"]))
+        if key in verified:
+            row["reversalConfirmedAt"] = verified[key]
+    corpus["reversalVersion"] = REVERSAL_VERSION
+    return corpus
+
+
 def transactions(payload, draft_for_pick=None):
     for tx in payload or []:
         roster_ids = set(tx.get("roster_ids") or [])
@@ -103,6 +194,7 @@ def transactions(payload, draft_for_pick=None):
             yield tx["transaction_id"], {
                 "timestamp": timestamp,
                 "sides": list(sides.values()),
+                "transfers": asset_transfers(tx),
             }
 
 
@@ -218,10 +310,15 @@ def collect(cache, year, week, limit=240, refresh=True):
     path = cache / "trade_corpus.json"
     if not refresh and path.exists():
         corpus = json.loads(path.read_text())
-        if corpus.get("pickSlotsVersion") == PICK_SLOT_VERSION:
+        slots_ready = corpus.get("pickSlotsVersion") == PICK_SLOT_VERSION
+        reversals_ready = corpus.get("reversalVersion") == REVERSAL_VERSION
+        if slots_ready and reversals_ready:
             return corpus
         with ThreadPoolExecutor(max_workers=12) as pool:
-            enrich_pick_slots(cache, corpus, pool)
+            if not slots_ready:
+                enrich_pick_slots(cache, corpus, pool)
+            if not reversals_ready:
+                flag_reversals(cache, corpus, pool)
         atomic_json(path, corpus)
         return corpus
     with ThreadPoolExecutor(max_workers=12) as pool:
@@ -254,6 +351,7 @@ def collect(cache, year, week, limit=240, refresh=True):
             trades.update((tx, dict(row, league=key, leg=leg, id=tx)) for tx, row in rows.items())
         result = {"collectedOn": date.today().isoformat(), "trades": list(trades.values())}
         enrich_pick_slots(cache, result, pool)
+        flag_reversals(cache, result, pool)
     if len(trades) < 1000 or len({row["league"] for row in trades.values()}) < 30:
         raise RuntimeError(f"Sleeper sample too small to publish: {len(trades)} completed trades")
     atomic_json(path, result)

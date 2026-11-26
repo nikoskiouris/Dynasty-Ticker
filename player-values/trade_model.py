@@ -9,7 +9,7 @@ from scipy.sparse import csr_matrix
 
 from build import POSITIONS, offensive_position
 
-MODEL_VERSION = "sleeper-trades-v3"
+MODEL_VERSION = "sleeper-trades-v4"
 DISPLAY_FIRST = 5000
 LOOKBACK = 900
 RECENT_DAYS = 210
@@ -26,6 +26,9 @@ def usable_trades(corpus, sleeper_players, as_of):
     result = []
     for row in corpus["trades"]:
         when = datetime.fromtimestamp(row["timestamp"] / 1000, timezone.utc).date()
+        reversed_at = row.get("reversalConfirmedAt")
+        if reversed_at and datetime.fromtimestamp(reversed_at / 1000, timezone.utc).date() <= as_of:
+            continue
         if not 0 <= (as_of - when).days <= LOOKBACK:
             continue
         sides = []
@@ -97,8 +100,27 @@ def connected_trades(trades):
     return [trade for trade, keys in zip(trades, keys_by_trade) if keys <= connected]
 
 
+def direct_pick_player(sides):
+    for index, side in enumerate(sides):
+        if len(side) == 1 and side[0].startswith("player:") and all(
+            asset.startswith("pick:") for asset in sides[1 - index]
+        ):
+            return index
+    return None
+
+
+def depth_trade_player(sides):
+    index = direct_pick_player(sides)
+    if index is None:
+        return None
+    picks = sides[1 - index]
+    if len(picks) != 1 or asset_key(picks[0]) == ANCHOR:
+        return None
+    return sides[index][0]
+
+
 class TradeFit:
-    def __init__(self, trades, as_of, half_life, penalty):
+    def __init__(self, trades, as_of, half_life, penalty, direct_weight=1):
         trades = connected_trades(trades)
         if not trades:
             raise RuntimeError("No trades connected to the first-round price anchor")
@@ -106,7 +128,6 @@ class TradeFit:
         self.columns = {key: index for index, key in enumerate(keys)}
         delay_index = len(keys)
         slot_index = delay_index + 1
-        weights = np.array([2 ** (-(as_of - when).days / half_life) for when, _, _ in trades])
         self.count = Counter()
         self.recent = Counter()
         self.latest = {}
@@ -138,6 +159,13 @@ class TradeFit:
                     data.append(1)
                     row += 1
 
+        # Only deepen the direct-pick anchor once a player has been traded
+        # across several league seasons. One deal still gets its normal weight.
+        weights = np.array([
+            2 ** (-(as_of - when).days / half_life)
+            * (direct_weight if len(self.league_seasons.get(depth_trade_player(sides), ())) >= SPARSE_LEAGUE_SEASONS else 1)
+            for when, sides, _ in trades
+        ])
         matrix = csr_matrix((data, (rows, columns)), shape=(row, slot_index + 1))
         boundaries = np.asarray(side_start)
         counts = np.diff(np.append(boundaries, row))
@@ -209,19 +237,19 @@ def holdout_error(model, trades):
     return (round(float(np.median(residuals)), 2) if residuals else None, len(residuals))
 
 
-def train(trades, as_of):
+def train(trades, as_of, history_at):
     trades = connected_trades(trades)
     league_seasons = len({league for _, _, league in trades})
     if len(trades) < 1000 or league_seasons < 30:
         raise RuntimeError(f"Only {len(trades)} connected trades available for training")
     split = as_of - timedelta(days=42)
-    past = [row for row in trades if row[0] < split]
+    past = history_at(split)
     future = [row for row in trades if row[0] >= split]
     windows = []
     for days_before in (84, 42):
         start = split - timedelta(days=days_before)
         end = start + timedelta(days=42)
-        history = [row for row in trades if row[0] < start]
+        history = history_at(start)
         validation = [row for row in trades if start <= row[0] < end]
         if len(history) >= 700 and len(validation) >= 100:
             windows.append((start, history, validation))
@@ -239,8 +267,37 @@ def train(trades, as_of):
                 trials.append((sum(scores) / len(scores), days, shrinkage))
     if trials:
         _, half_life, penalty = min(trials)
-    error, scored = holdout_error(TradeFit(past, split, half_life, penalty), future) if len(past) >= 700 else (None, 0)
-    fitted = TradeFit(trades, as_of, half_life, penalty)
+    # Use the earlier windows to pick the trade weight. Score both the full
+    # window and direct pick trades so the extra weight has to earn its place.
+    direct_weight = 1
+    trade_weight_trials = []
+    for weight in (1, 2, 4, 8):
+        scores = []
+        for start, history, validation in windows:
+            direct = [row for row in validation if depth_trade_player(row[1]) is not None]
+            model = TradeFit(history, start, half_life, penalty, weight)
+            whole_error, whole_count = holdout_error(model, validation)
+            direct_error, direct_count = holdout_error(model, direct)
+            if whole_count >= 100 and direct_count >= 15:
+                scores.append((whole_error + direct_error) / 2)
+        if scores and len(scores) == len(windows):
+            trade_weight_trials.append((sum(scores) / len(scores), weight))
+    if trade_weight_trials:
+        _, direct_weight = min(trade_weight_trials)
+
+    error, scored = None, 0
+    direct_error, direct_scored = None, 0
+    depth_error, depth_scored = None, 0
+    if len(past) >= 700:
+        validation_model = TradeFit(past, split, half_life, penalty, direct_weight)
+        error, scored = holdout_error(validation_model, future)
+        direct_error, direct_scored = holdout_error(
+            validation_model, [row for row in future if direct_pick_player(row[1]) is not None]
+        )
+        depth_error, depth_scored = holdout_error(
+            validation_model, [row for row in future if depth_trade_player(row[1]) is not None]
+        )
+    fitted = TradeFit(trades, as_of, half_life, penalty, direct_weight)
     return fitted, {
         "trainingTrades": len(trades),
         "leagueSeasons": league_seasons,
@@ -252,6 +309,11 @@ def train(trades, as_of):
         "holdoutTradesScored": scored,
         "holdoutMedianSideGapPct": error,
         "regularization": penalty,
+        "directDepthPickTradeWeight": direct_weight,
+        "holdoutDepthPickMedianSideGapPct": depth_error,
+        "holdoutDepthPickTradesScored": depth_scored,
+        "holdoutDirectPickMedianSideGapPct": direct_error,
+        "holdoutDirectPickTradesScored": direct_scored,
         "sparseRegularization": SPARSE_REGULARIZATION,
         "knownSlotTrades": sum(any(asset.startswith("pick:") and asset.count(":") == 3
                                    for side in sides for asset in side) for _, sides, _ in trades),

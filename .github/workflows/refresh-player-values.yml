@@ -52,6 +52,7 @@ jobs:
           path: |
             .cache/player-values/transactions
             .cache/player-values/draft-slots
+            .cache/player-values/reversal-transfers
           key: sleeper-trades-and-drafts-v1-${{ github.run_id }}
           restore-keys: |
             sleeper-trades-and-drafts-v1-

@@ -2,7 +2,7 @@
 """Build the published trade-value snapshot and copy Sleeper's PPR projections."""
 import argparse
 import csv
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import math
 from pathlib import Path
@@ -66,7 +66,13 @@ def build(cache, refresh):
     weekly_points = projection_points(season, week) if in_season else {}
     league_year = int(inputs["state"].get("league_season") or season)
     corpus = collect(cache, league_year, week, refresh=refresh)
-    model, report = train(usable_trades(corpus, inputs["sleeper"], today), today)
+    sleeper_players = inputs["sleeper"]
+    def history_at(cutoff):
+        # A reversal can only affect a historical fit once the return trade
+        # has taken place. Cutoffs for the holdouts are UTC day boundaries.
+        return usable_trades(corpus, sleeper_players, cutoff - timedelta(days=1))
+    model, report = train(usable_trades(corpus, sleeper_players, today), today, history_at)
+    report["reversedTransactionsExcluded"] = sum("reversalConfirmedAt" in row for row in corpus["trades"])
     report["sample"] = "public completed two-manager trades in 12-team Superflex PPR dynasty leagues"
 
     world = {"rookieYear": forecast.rookie_years(inputs["meta"], inputs["weekly"])}
