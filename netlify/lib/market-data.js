@@ -20,6 +20,13 @@ export function isMarketFile(rel) {
   return ALLOWED.test(String(rel || ""));
 }
 
+export function marketBlobKey(rel, modelVersion) {
+  if (modelVersion && (rel === "data/player_values.json" || rel === "data/price-history/index.json")) {
+    return `models/${modelVersion}/${rel}`;
+  }
+  return rel;
+}
+
 export async function readBundledFile(rel) {
   for (const base of [process.cwd(), join(process.cwd(), "..")]) {
     try {
@@ -69,7 +76,14 @@ export async function readMarketFile(rel, { store = null, now = Date.now(), read
   let storedText = null;
   if (store) {
     try {
-      storedText = await store.get(rel, { type: "text" });
+      const board = rel === "data/price-history/index.json"
+        ? await readBundled("data/player_values.json")
+        : bundledText;
+      const key = marketBlobKey(rel, parse(board)?.modelVersion);
+      storedText = await store.get(key, { type: "text" });
+      if (!storedText && key !== rel && rel === "data/player_values.json") {
+        storedText = await store.get(rel, { type: "text" });
+      }
     } catch {
       storedText = null;
     }

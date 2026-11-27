@@ -340,7 +340,10 @@ def collect(cache, year, week, limit=240, refresh=True):
             # Revisit recent legs where a pending trade may have since cleared.
             cacheable = leg <= min(16, week - 2) if current_season else leg < 18
             if saved.exists() and cacheable:
-                return json.loads(saved.read_text())
+                cached = json.loads(saved.read_text())
+                # Older cache entries kept sides but did not record transfers.
+                if all("transfers" in row for row in cached.values()):
+                    return cached
             rows = dict(transactions(get(f"league/{key}/transactions/{leg}")))
             if cacheable:
                 atomic_json(saved, rows)

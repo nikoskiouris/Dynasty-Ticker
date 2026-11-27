@@ -10,10 +10,10 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { getStore } from "@netlify/blobs";
-import { MARKET_STORE, isMarketFile } from "../netlify/lib/market-data.js";
+import { MARKET_STORE, isMarketFile, marketBlobKey } from "../netlify/lib/market-data.js";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const MODEL_VERSION = "sleeper-trades-v4";
+const MODEL_VERSION = "sleeper-trades-v5";
 
 async function main() {
   if (String(process.env.MARKET_PUBLISH || "").toLowerCase() === "off") {
@@ -48,8 +48,8 @@ async function main() {
     await store.set(rel, text);
     console.log(`published ${rel}`);
   }
-  await store.set("data/price-history/index.json", index);
-  await store.set("data/player_values.json", values);
+  await store.set(marketBlobKey("data/price-history/index.json", parsed.modelVersion), index);
+  await store.set(marketBlobKey("data/player_values.json", parsed.modelVersion), values);
   console.log(`published data/player_values.json (asOf ${parsed.asOf}, generatedAt ${parsed.generatedAt})`);
 }
 

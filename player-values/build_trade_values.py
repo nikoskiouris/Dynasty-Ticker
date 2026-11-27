@@ -3,14 +3,16 @@
 import argparse
 import csv
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 import json
 import math
 from pathlib import Path
 
 from build import (
     CONFIG, EXCLUDED_ASSETS, OUTPUT, POSITIONS, _assert_pick_order,
-    atomic_json, choose_sleeper_players, current_profile, first_pick_year, forecast,
-    http_bytes, load_inputs, played_recently, player_label, write_slim_players,
+    atomic_json, choose_sleeper_players, current_profile, forecast,
+    http_bytes, load_inputs, offensive_position, played_recently, player_age,
+    player_is_listable, player_label, write_slim_players,
 )
 from sleeper_trades import collect
 from trade_model import MODEL_VERSION, train, usable_trades
@@ -48,7 +50,7 @@ def validate(bundle):
         raise RuntimeError("Invalid published trade value")
     if sum(values.get(asset, 0) > 0 for asset in players) < 100:
         raise RuntimeError("Too few players with trade-supported prices")
-    if any(values.get(asset, 0) > 0 and not row["tradeEvidence"]["completedTrades"]
+    if any(values.get(asset, 0) > 0 and not row["tradeEvidence"]["priceSupported"]
            for asset, row in players.items()):
         raise RuntimeError("Player price missing trade evidence")
     if any(values.get(asset, 0) > 0 for asset in EXCLUDED_ASSETS):
@@ -71,7 +73,14 @@ def build(cache, refresh):
         # A reversal can only affect a historical fit once the return trade
         # has taken place. Cutoffs for the holdouts are UTC day boundaries.
         return usable_trades(corpus, sleeper_players, cutoff - timedelta(days=1))
-    model, report = train(usable_trades(corpus, sleeper_players, today), today, history_at)
+    eligible = usable_trades(corpus, sleeper_players, today)
+    model, report = train(eligible, today, history_at)
+    report["transactionsCollected"] = len(corpus["trades"])
+    report["transactionsWithoutCompleteTransfers"] = sum(not row.get("transfers") for row in corpus["trades"])
+    report["eligibleTrades"] = len(eligible)
+    manifest = sorted((when.isoformat(), sorted(sorted(side) for side in sides), league)
+                      for when, sides, league in eligible)
+    report["eligibleTradesSha256"] = sha256(json.dumps(manifest, separators=(",", ":")).encode()).hexdigest()
     report["reversedTransactionsExcluded"] = sum("reversalConfirmedAt" in row for row in corpus["trades"])
     report["sample"] = "public completed two-manager trades in 12-team Superflex PPR dynasty leagues"
 
@@ -79,25 +88,47 @@ def build(cache, refresh):
     active = {pid for pid, rows in inputs["weekly"].items()
               if rows and played_recently(rows[-1]["season"], season)}
     players, values, names = {}, {}, {}
+    mapped = {}
     for pid, (_, _, _, sleeper_id, player, position, mapping) in choose_sleeper_players(inputs, active).items():
-        asset = f"player:{sleeper_id}"
         profile = current_profile(pid, player, inputs, world)
-        if profile is None or asset in EXCLUDED_ASSETS:
+        if profile is not None:
+            mapped[sleeper_id] = {
+                "position": position,
+                "team": profile["team"],
+                "age": round(profile["age"], 2),
+                "experience": profile["experience"],
+                "draftPick": profile["draftPick"],
+                "sourceMapping": mapping,
+                "lastSeason": profile["lastSeason"],
+                "components": {key: profile[key] for key in
+                               ("recentPpg", "roleOppPerGame", "availability", "careerGames")}
+                               | {"currentSeasonGames": profile["currentGames"]},
+            }
+    for sleeper_id, player in sleeper_players.items():
+        asset = f"player:{sleeper_id}"
+        position = offensive_position(player)
+        if asset in EXCLUDED_ASSETS or position not in POSITIONS:
             continue
-        price = model.price(asset, today)
+        price = model.price(asset, today) if player_is_listable(player) and model.publishable(asset) else None
+        profile = mapped.get(sleeper_id)
+        if profile is None and price is None and sleeper_id not in season_points and sleeper_id not in weekly_points:
+            continue
+        name = player_label(player).strip()
+        if not name:
+            continue
+        if profile is None:
+            age = player_age(player, {}, season)
+            profile = {
+                "position": position,
+                "team": player.get("team") or "",
+                "age": round(age, 2) if age is not None else None,
+                "experience": player.get("years_exp"),
+                "sourceMapping": "sleeper-id",
+            }
         values[asset] = max(1, round(price)) if price is not None else 0
-        names[asset] = player_label(player).strip()
+        names[asset] = name
         players[asset] = {
-            "position": position,
-            "team": profile["team"],
-            "age": round(profile["age"], 2),
-            "experience": profile["experience"],
-            "draftPick": profile["draftPick"],
-            "sourceMapping": mapping,
-            "lastSeason": profile["lastSeason"],
-            "components": {key: profile[key] for key in
-                           ("recentPpg", "roleOppPerGame", "availability", "careerGames")}
-                           | {"currentSeasonGames": profile["currentGames"]},
+            **profile,
             "tradeEvidence": model.evidence(asset),
             "projection": {
                 "season": season,
@@ -106,7 +137,9 @@ def build(cache, refresh):
                 "weekPpr": weekly_points.get(sleeper_id),
             },
         }
-    for year in range(first_pick_year(today), first_pick_year(today) + 6):
+    # Keep this year's picks available through the preseason for late rookie drafts.
+    first_year = today.year + (today.month >= 9)
+    for year in range(first_year, first_year + 6):
         previous = None
         for rnd in range(1, 6):
             asset = f"pick:{year}:r{rnd}:any"

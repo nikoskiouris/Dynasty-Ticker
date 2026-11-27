@@ -170,8 +170,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
       ? draftMarketPrice({ assetType: "pick", assetId }, { values, nameMap: bundle.nameMap || {} }).value
       : values[assetId];
     const value = Math.max(0, Math.round(Number(raw) || 0));
-    // No price at all (an old link, a player since dropped) is not a price of 0.
-    const unpriced = !Number.isFinite(Number(raw)) || raw === null || raw === "";
+    const unpriced = value <= 0;
     const position = isPick ? "PICK" : String((payload?.players || directory?.players)?.[assetId]?.position || "").toUpperCase().slice(0, 4);
     return { assetId, name: name.slice(0, 40), value, position, unpriced };
   };
@@ -195,7 +194,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     giveCredited: model.compareGive,
     getCredited: model.compareGet,
     credit,
-    gap: model.compareGet - model.compareGive,
+    gap: model.unpriced ? null : model.compareGet - model.compareGive,
     pct: model.verdict.pct,
     tone: model.verdict.tone,
     verdict: model.verdict,

@@ -20,7 +20,7 @@ const id = (value) => String(value ?? "").trim();
 const roundValue = (value) => Math.round((Number(value) || 0) * 100) / 100;
 const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 const mapFor = (values) => object(values?.sf || values);
-const isPrice = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0;
+const isPrice = (value) => typeof value === "number" && Number.isFinite(value) && value > 0;
 const asMillis = (value) => {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : Number.NaN;
@@ -144,9 +144,9 @@ export function gradeTrade(trade, {
   values = {}, valueNames = {}, archive = null, history = null, basis = "today",
 } = {}) {
   const label = basis === "at-time" ? "Value at the time" : "Today's value (hindsight)";
-  const notes = ["Graded using 12-team Superflex PPR dynasty values."];
+  const notes = ["Values use the 12-team Superflex PPR dynasty board."];
   if (trade?.type !== "trade" || trade?.status !== "complete") {
-    return { available: false, basis: label, reason: "Only completed trades can be graded", sides: [], notes };
+    return { available: false, basis: label, reason: "Only completed trades can be compared", sides: [], notes };
   }
   const snapshot = basis === "at-time" ? priceSnapshotForTrade(history, trade) : null;
   if (basis === "at-time" && !snapshot) {
@@ -160,7 +160,8 @@ export function gradeTrade(trade, {
   const unpriced = priced.filter((asset) => !isPrice(asset.price));
   const usedPicks = priced.filter((asset) => asset.draftedPlayerId).length;
   if (usedPicks) notes.push(`${usedPicks} pick${usedPicks === 1 ? "" : "s"} valued as the player later drafted.`);
-  if ((trade.waiver_budget || []).length) notes.push("FAAB transfers are shown but not assigned a player value.");
+  const hasFaab = Boolean(trade.waiver_budget?.length);
+  if (hasFaab) notes.push("Trade includes waiver budget without a published price.");
   if (unresolved.length) notes.push(`${unresolved.length} asset${unresolved.length === 1 ? " has" : "s have"} an unknown sending or receiving team.`);
   if (unpriced.length) notes.push(`${unpriced.length} asset${unpriced.length === 1 ? " has" : "s have"} no published price for this lens.`);
   const sides = rosterIds.map((rosterId) => {
@@ -174,8 +175,8 @@ export function gradeTrade(trade, {
       faabSent: (trade.waiver_budget || []).filter((item) => id(item.sender) === rosterId).reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
     };
   });
-  if (rosterIds.length < 2 || !assets.length || unresolved.length || unpriced.length) {
-    return { available: false, basis: label, reason: unpriced.length ? "Some assets have no published price" : "Incomplete trade data", sides, notes };
+  if (rosterIds.length < 2 || !assets.length || unresolved.length || unpriced.length || hasFaab) {
+    return { available: false, basis: label, reason: unpriced.length || hasFaab ? "Some assets have no published price" : "Incomplete trade data", sides, notes };
   }
   let packageAdjustment = 0;
   if (sides.length === 2) {
@@ -196,7 +197,7 @@ export function gradeTrade(trade, {
       side.valueReceived = side.listedReceived;
       side.valueSent = side.listedSent;
     });
-    notes.push("Multi-team grades compare each team's received and sent values without a two-side package bonus.");
+    notes.push("Multi-team trades compare each team's received and sent values without a two-side package adjustment.");
   }
   sides.forEach((side) => { side.net = roundValue(side.valueReceived - side.valueSent); });
   const gapPct = sides.length === 2

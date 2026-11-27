@@ -47,6 +47,7 @@ const count = (value) => Math.round(Number(value) || 0).toLocaleString("en-US");
 function sideColumn(summary, key, x, measure, bigger = "") {
   const rows = summary[key];
   const credited = key === "give" ? summary.giveCredited : summary.getCredited;
+  const sideTotal = rows.some((row) => row.unpriced) ? "Unavailable" : count(credited);
   // Same names as the verdict line and the app: the get side is what Team 1 receives.
   const label = key === "give" ? "TEAM 2 RECEIVES" : "TEAM 1 RECEIVES";
   // Room for MAX_ROWS: when a side has more, show its most valuable pieces
@@ -60,7 +61,7 @@ function sideColumn(summary, key, x, measure, bigger = "") {
   const parts = [
     `<rect x="${x}" y="${COL_TOP}" width="${COL_W}" height="${COL_H}" rx="12" fill="${C.panel}" stroke="${C.line}" stroke-width="1"/>`,
     `<text x="${x + PAD_X}" y="${COL_TOP + 40}" font-family="${SANS}" font-size="18" letter-spacing="1.5" fill="${C.muted}">${label}</text>`,
-    `<text x="${right}" y="${COL_TOP + 40}" font-family="${SANS}" font-size="18" font-weight="700" fill="${bigger === key ? C.text : C.muted}" text-anchor="end">${escapeMarkup(count(credited))}</text>`,
+    `<text x="${right}" y="${COL_TOP + 40}" font-family="${SANS}" font-size="18" font-weight="700" fill="${bigger === key ? C.text : C.muted}" text-anchor="end">${escapeMarkup(sideTotal)}</text>`,
   ];
   let y = COL_TOP + 50;
   shown.forEach((row, i) => {
@@ -118,6 +119,8 @@ export function renderCardSvg(summary, { measure = roughMeasure, wordmark = "" }
   const giveW = Math.round(W * giveShare);
   const giveFill = bigger === "get" ? C.barSmaller : C.barBigger;
   const getFill = bigger === "get" ? C.barBigger : C.barSmaller;
+  const bar = summary.unpriced?.length ? "" :
+    `<rect x="0" y="${H - 12}" width="${giveW}" height="12" fill="${giveFill}"/><rect x="${giveW}" y="${H - 12}" width="${W - giveW}" height="12" fill="${getFill}"/>`;
   const pctX = W - SAFE.right - (bigger === "get" ? 30 : 0);
   // Pointer drawn as a path (the card font has no ◀/▶ glyph): ◀ before the
   // line for Give (left column), ▶ after it for Get (right column).
@@ -137,8 +140,7 @@ export function renderCardSvg(summary, { measure = roughMeasure, wordmark = "" }
     + pointer
     + `<text x="${pctX}" y="${verdictY - 2}" font-family="${SANS}" font-size="32" font-weight="700" fill="${tone}" text-anchor="end">${escapeMarkup(verdict.pctText)}</text>`
     + `<text x="${W - SAFE.right}" y="${verdictY + 22}" font-family="${SANS}" font-size="16" fill="${C.muted}" text-anchor="end">${escapeMarkup(`${stamp}${summary.formatLabel}`)}</text>`
-    + `<rect x="0" y="${H - 12}" width="${giveW}" height="12" fill="${giveFill}"/>`
-    + `<rect x="${giveW}" y="${H - 12}" width="${W - giveW}" height="12" fill="${getFill}"/>`
+    + bar
     + `</svg>`;
 }
 

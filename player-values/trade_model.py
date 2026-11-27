@@ -9,14 +9,12 @@ from scipy.sparse import csr_matrix
 
 from build import POSITIONS, offensive_position
 
-MODEL_VERSION = "sleeper-trades-v4"
+MODEL_VERSION = "sleeper-trades-v5"
 DISPLAY_FIRST = 5000
 LOOKBACK = 900
 RECENT_DAYS = 210
 SPARSE_REGULARIZATION = 1.5
 SPARSE_LEAGUE_SEASONS = 5
-DEFENSE_ASSETS = {f"player:{team}" for team in
-                  "ARI ATL BAL BUF CAR CHI CIN CLE DAL DEN DET GB HOU IND JAX KC LAC LAR LV MIA MIN NE NO NYG NYJ PHI PIT SEA SF TB TEN WAS".split()}
 PICK_ROUNDS = {f"r{round_number}" for round_number in range(1, 6)}
 ANCHOR = "pick:r1"
 
@@ -29,7 +27,7 @@ def usable_trades(corpus, sleeper_players, as_of):
         reversed_at = row.get("reversalConfirmedAt")
         if reversed_at and datetime.fromtimestamp(reversed_at / 1000, timezone.utc).date() <= as_of:
             continue
-        if not 0 <= (as_of - when).days <= LOOKBACK:
+        if not row.get("transfers") or not 0 <= (as_of - when).days <= LOOKBACK:
             continue
         sides = []
         for side in row["sides"]:
@@ -46,7 +44,7 @@ def usable_trades(corpus, sleeper_players, as_of):
                     player = sleeper_players.get(parts[0], {})
                     if offensive_position(player) in POSITIONS:
                         kept.append(asset)
-                    elif player.get("position") not in {"K", "DEF", "FB"} and asset not in DEFENSE_ASSETS:
+                    else:
                         break
                 else:
                     break
@@ -100,38 +98,28 @@ def connected_trades(trades):
     return [trade for trade, keys in zip(trades, keys_by_trade) if keys <= connected]
 
 
-def direct_pick_player(sides):
-    for index, side in enumerate(sides):
-        if len(side) == 1 and side[0].startswith("player:") and all(
-            asset.startswith("pick:") for asset in sides[1 - index]
-        ):
-            return index
-    return None
-
-
-def depth_trade_player(sides):
-    index = direct_pick_player(sides)
-    if index is None:
-        return None
-    picks = sides[1 - index]
-    if len(picks) != 1 or asset_key(picks[0]) == ANCHOR:
-        return None
-    return sides[index][0]
-
-
 class TradeFit:
-    def __init__(self, trades, as_of, half_life, penalty, direct_weight=1):
+    def __init__(self, trades, as_of, half_life, penalty):
         trades = connected_trades(trades)
         if not trades:
             raise RuntimeError("No trades connected to the first-round price anchor")
         keys = sorted({asset_key(asset) for _, sides, _ in trades for side in sides for asset in side})
         self.columns = {key: index for index, key in enumerate(keys)}
+        rounds = sorted(key for key in keys if key.startswith("pick:"))
+        # A round's log price is the sum of its step and the steps for
+        # previous rounds. A non-positive step enforces ordering at fit time.
+        self.pick_steps = {
+            key: [self.columns[previous] for previous in rounds[:index + 1]]
+            for index, key in enumerate(rounds)
+        }
         delay_index = len(keys)
         slot_index = delay_index + 1
         self.count = Counter()
         self.recent = Counter()
         self.latest = {}
         self.league_seasons = defaultdict(set)
+        self.recent_leagues = defaultdict(set)
+        self.recent_partners = {}
         rows, columns, data, side_start = [], [], [], []
         row = 0
         for when, sides, league in trades:
@@ -145,6 +133,9 @@ class TradeFit:
                         self.latest[asset] = when
                         if (as_of - when).days <= RECENT_DAYS:
                             self.recent[asset] += 1
+                            self.recent_leagues[asset].add(league)
+                            partners = {asset_key(other) for other in side if other != asset}
+                            self.recent_partners.setdefault(asset, partners).intersection_update(partners)
                     else:
                         rows.append(row)
                         columns.append(delay_index)
@@ -154,18 +145,13 @@ class TradeFit:
                             rows.append(row)
                             columns.append(slot_index)
                             data.append(slot_offset)
-                    rows.append(row)
-                    columns.append(self.columns[key])
-                    data.append(1)
+                    steps = self.pick_steps[key] if key in self.pick_steps else [self.columns[key]]
+                    rows.extend([row] * len(steps))
+                    columns.extend(steps)
+                    data.extend([1] * len(steps))
                     row += 1
 
-        # Only deepen the direct-pick anchor once a player has been traded
-        # across several league seasons. One deal still gets its normal weight.
-        weights = np.array([
-            2 ** (-(as_of - when).days / half_life)
-            * (direct_weight if len(self.league_seasons.get(depth_trade_player(sides), ())) >= SPARSE_LEAGUE_SEASONS else 1)
-            for when, sides, _ in trades
-        ])
+        weights = np.array([2 ** (-(as_of - when).days / half_life) for when, _, _ in trades])
         matrix = csr_matrix((data, (rows, columns)), shape=(row, slot_index + 1))
         boundaries = np.asarray(side_start)
         counts = np.diff(np.append(boundaries, row))
@@ -207,14 +193,24 @@ class TradeFit:
         self.pick_slot_coefficient = float(fitted.x[slot_index])
 
     def price(self, asset, when):
-        index = self.columns.get(asset_key(asset))
+        key = asset_key(asset)
+        index = self.columns.get(key)
         if index is None:
             return None
-        value = DISPLAY_FIRST * math.exp(self.coefs[index])
-        if asset.startswith("pick:"):
-            value *= self.annual_discount ** pick_delay(asset, when)
-            value *= math.exp(self.pick_slot_coefficient * pick_slot_offset(asset))
+        if key not in self.pick_steps:
+            return DISPLAY_FIRST * math.exp(self.coefs[index])
+        log_price = sum(self.coefs[step] for step in self.pick_steps[key])
+        value = DISPLAY_FIRST * math.exp(log_price)
+        value *= self.annual_discount ** pick_delay(asset, when)
+        value *= math.exp(self.pick_slot_coefficient * pick_slot_offset(asset))
         return value
+
+    def publishable(self, asset):
+        return (
+            self.recent[asset] >= 3
+            and len(self.recent_leagues[asset]) >= 3
+            and not self.recent_partners.get(asset)
+        )
 
     def evidence(self, asset):
         return {
@@ -222,82 +218,110 @@ class TradeFit:
             "recentTrades": self.recent[asset],
             "leagueSeasons": len(self.league_seasons.get(asset, ())),
             "recentDays": RECENT_DAYS,
+            "recentLeagueSeasons": len(self.recent_leagues.get(asset, ())),
+            "alwaysPackagedWith": sorted(self.recent_partners.get(asset, ())),
+            "priceSupported": self.publishable(asset),
             "lastTradeDate": self.latest[asset].isoformat() if asset in self.latest else None,
             "limited": self.recent[asset] < 5 or len(self.league_seasons.get(asset, ())) < SPARSE_LEAGUE_SEASONS,
         }
 
 
-def holdout_error(model, trades):
-    residuals = []
-    for when, sides, _ in trades:
-        if any(asset_key(asset) not in model.columns for side in sides for asset in side):
+def side_gap(first, second):
+    return abs(first - second) / (first + second) * 200
+
+
+def summarize(gaps):
+    return {
+        "scored": len(gaps),
+        "medianSideGapPct": round(float(np.median(gaps)), 2) if gaps else None,
+        "p90SideGapPct": round(float(np.percentile(gaps, 90)), 2) if gaps else None,
+    }
+
+
+def evaluate(model, trades):
+    segments = defaultdict(list)
+    shapes = defaultdict(list)
+    scored = 0
+    for when, sides, league in trades:
+        if any(asset_key(asset) not in model.columns or (
+            asset.startswith("player:") and not model.publishable(asset)
+        ) for side in sides for asset in side):
             continue
-        first, second = [sum(model.price(asset, when) for asset in side) for side in sides]
-        residuals.append(abs(first - second) / (first + second) * 200)
-    return (round(float(np.median(residuals)), 2) if residuals else None, len(residuals))
+        scored += 1
+        sizes = tuple(map(len, sides))
+        totals = [sum(model.price(asset, when) for asset in side) for side in sides]
+        kind = "equalSize" if sizes[0] == sizes[1] else "unequalSize"
+        segments["all"].append(side_gap(*totals))
+        segments[kind].append(side_gap(*totals))
+        segments[f"{kind}FlatControl"].append(side_gap(*sizes))
+        # Pair trades of the same shape in the same UTC week. Shuffle the
+        # second side across leagues while leaving the first side untouched.
+        if sizes[0] > sizes[1] or (sizes[0] == sizes[1] and tuple(sides[0]) > tuple(sides[1])):
+            sizes = sizes[::-1]
+            sides = sides[::-1]
+        shapes[(when.toordinal() // 7, *sizes)].append((when, sides, league))
+    wins = comparisons = 0
+    for group in shapes.values():
+        for index, (when, sides, league) in enumerate(group):
+            alternatives = group[index + 1:] + group[:index]
+            other = next((second for _, (_, second), peer in alternatives
+                          if peer != league and second != sides[1]
+                          and not set(sides[0]) & set(second)), None)
+            if other is None:
+                continue
+            first, actual = [sum(model.price(asset, when) for asset in side) for side in sides]
+            alternate = sum(model.price(asset, when) for asset in other)
+            observed_gap = side_gap(first, actual)
+            alternative_gap = side_gap(first, alternate)
+            comparisons += 1
+            wins += 0.5 if abs(observed_gap - alternative_gap) < 1e-9 else observed_gap < alternative_gap
+    return {
+        "eligibleTrades": len(trades),
+        **{key: summarize(segments[key]) for key in
+           ("all", "equalSize", "unequalSize", "equalSizeFlatControl", "unequalSizeFlatControl")},
+        "matchedAlternativeComparisons": comparisons,
+        "matchedAlternativeWinPct": round(100 * wins / comparisons, 2) if comparisons else None,
+    }
 
 
-def train(trades, as_of, history_at):
-    trades = connected_trades(trades)
+def train(eligible, as_of, history_at):
+    trades = connected_trades(eligible)
     league_seasons = len({league for _, _, league in trades})
     if len(trades) < 1000 or league_seasons < 30:
         raise RuntimeError(f"Only {len(trades)} connected trades available for training")
     split = as_of - timedelta(days=42)
-    past = history_at(split)
-    future = [row for row in trades if row[0] >= split]
     windows = []
     for days_before in (84, 42):
         start = split - timedelta(days=days_before)
         end = start + timedelta(days=42)
         history = history_at(start)
-        validation = [row for row in trades if start <= row[0] < end]
+        # Freeze each scoring set at the end of its own window. A reversal
+        # or a path discovered later cannot revise the tuning sample.
+        validation = [row for row in history_at(end) if row[0] >= start]
         if len(history) >= 700 and len(validation) >= 100:
             windows.append((start, history, validation))
 
-    half_life, penalty = 90, 0.1
+    half_life, penalty = 150, 0.1
     trials = []
     for days in (60, 90, 150):
         for shrinkage in (0.1, 0.5):
             scores = []
             for start, history, validation in windows:
-                error, scored = holdout_error(TradeFit(history, start, days, shrinkage), validation)
-                if scored >= 100:
-                    scores.append(error)
+                report = evaluate(TradeFit(history, start, days, shrinkage), validation)
+                unequal = report["unequalSize"]
+                if unequal["scored"] >= 30:
+                    scores.append(unequal["medianSideGapPct"])
             if scores and len(scores) == len(windows):
                 trials.append((sum(scores) / len(scores), days, shrinkage))
     if trials:
         _, half_life, penalty = min(trials)
-    # Use the earlier windows to pick the trade weight. Score both the full
-    # window and direct pick trades so the extra weight has to earn its place.
-    direct_weight = 1
-    trade_weight_trials = []
-    for weight in (1, 2, 4, 8):
-        scores = []
-        for start, history, validation in windows:
-            direct = [row for row in validation if depth_trade_player(row[1]) is not None]
-            model = TradeFit(history, start, half_life, penalty, weight)
-            whole_error, whole_count = holdout_error(model, validation)
-            direct_error, direct_count = holdout_error(model, direct)
-            if whole_count >= 100 and direct_count >= 15:
-                scores.append((whole_error + direct_error) / 2)
-        if scores and len(scores) == len(windows):
-            trade_weight_trials.append((sum(scores) / len(scores), weight))
-    if trade_weight_trials:
-        _, direct_weight = min(trade_weight_trials)
 
-    error, scored = None, 0
-    direct_error, direct_scored = None, 0
-    depth_error, depth_scored = None, 0
-    if len(past) >= 700:
-        validation_model = TradeFit(past, split, half_life, penalty, direct_weight)
-        error, scored = holdout_error(validation_model, future)
-        direct_error, direct_scored = holdout_error(
-            validation_model, [row for row in future if direct_pick_player(row[1]) is not None]
-        )
-        depth_error, depth_scored = holdout_error(
-            validation_model, [row for row in future if depth_trade_player(row[1]) is not None]
-        )
-    fitted = TradeFit(trades, as_of, half_life, penalty, direct_weight)
+    past = history_at(split)
+    if len(past) < 700:
+        raise RuntimeError("Too few trades before the validation cutoff")
+    holdout = evaluate(TradeFit(past, split, half_life, penalty),
+                       [row for row in eligible if row[0] >= split])
+    fitted = TradeFit(trades, as_of, half_life, penalty)
     return fitted, {
         "trainingTrades": len(trades),
         "leagueSeasons": league_seasons,
@@ -305,15 +329,13 @@ def train(trades, as_of, history_at):
         "lastTradeDate": trades[-1][0].isoformat(),
         "tradeHalfLifeDays": half_life,
         "holdoutStart": split.isoformat(),
-        "holdoutTrades": len(future),
-        "holdoutTradesScored": scored,
-        "holdoutMedianSideGapPct": error,
+        "holdoutTrades": holdout["eligibleTrades"],
+        "holdoutTradesScored": holdout["all"]["scored"],
+        "holdoutMedianSideGapPct": holdout["all"]["medianSideGapPct"],
+        "holdout": holdout,
+        "tuningWindows": len(windows),
+        "usedTunedParameters": bool(trials),
         "regularization": penalty,
-        "directDepthPickTradeWeight": direct_weight,
-        "holdoutDepthPickMedianSideGapPct": depth_error,
-        "holdoutDepthPickTradesScored": depth_scored,
-        "holdoutDirectPickMedianSideGapPct": direct_error,
-        "holdoutDirectPickTradesScored": direct_scored,
         "sparseRegularization": SPARSE_REGULARIZATION,
         "knownSlotTrades": sum(any(asset.startswith("pick:") and asset.count(":") == 3
                                    for side in sides for asset in side) for _, sides, _ in trades),

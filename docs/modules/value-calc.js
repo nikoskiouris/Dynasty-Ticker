@@ -197,9 +197,9 @@ export function tradeRowName(asset, names = {}) {
   return "";
 }
 
-function listValueCalcPlayerRows(values = {}, names = {}) {
+function listValueCalcPlayerRows(values, names, includeUnpriced) {
   return Object.entries(values)
-    .filter(([assetId, value]) => String(assetId).startsWith("player:") && Number(value) > 0)
+    .filter(([assetId, value]) => String(assetId).startsWith("player:") && (includeUnpriced || Number(value) > 0))
     .map(([assetId, value]) => ({
       assetId,
       playerId: String(assetId).slice("player:".length),
@@ -210,10 +210,10 @@ function listValueCalcPlayerRows(values = {}, names = {}) {
     .filter((row) => row.name);
 }
 
-export function listValueCalcAssets(values = {}, names = {}, { query = "", limit = 40, kinds = ["player", "pick"], minSeason } = {}) {
+export function listValueCalcAssets(values = {}, names = {}, { query = "", limit = 40, kinds = ["player", "pick"], minSeason, includeUnpriced = false } = {}) {
   const want = new Set(kinds);
   const rows = [];
-  if (want.has("player")) rows.push(...listValueCalcPlayerRows(values, names));
+  if (want.has("player")) rows.push(...listValueCalcPlayerRows(values, names, includeUnpriced));
   if (want.has("pick")) {
     const picks = listGenericPicks(values, names, { minSeason });
     rows.push(...picks);

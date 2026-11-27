@@ -7,7 +7,7 @@ const number = (value) => Number.isFinite(Number(value)) ? formatNumber(Math.rou
 function namedSide(row) {
   if (!row) return '<p class="muted">Not enough fully priced trades to name a leader.</p>';
   return `<strong>${e(row.name)}</strong> · net ${number(row.totalNet)} ·
-    ${row.wins} positive of ${countLabel(row.tradeCount, "graded trade")}
+    ${row.wins} positive of ${countLabel(row.tradeCount, "priced trade")}
     (${row.winRate.toFixed(0)}% positive-value share)`;
 }
 
@@ -20,7 +20,7 @@ export function renderTraderAwards(archive, { values = {}, valueNames = {} } = {
     <td>${row.eligible ? `${row.winRate.toFixed(0)}%` : "—"}</td>
   </tr>`).join("");
   const single = (item) => item
-    ? `${e(item.managerName)} · ${e(item.season)} · ${e(item.grade)} · net ${number(item.net)}`
+    ? `${e(item.managerName)} · ${e(item.season)} · net ${number(item.net)}`
     : "Not enough fully priced historical trades";
   return `<section class="workspace-panel">
     <h2>Trade awards · hindsight only</h2>
@@ -33,8 +33,8 @@ export function renderTraderAwards(archive, { values = {}, valueNames = {} } = {
     </dl>
     ${rows ? `<div class="league-history-scroll" role="region" aria-label="Trader hindsight rankings" tabindex="0">
       <table class="league-history-table"><thead><tr><th scope="col">Manager</th>
-        <th scope="col">Graded trades</th><th scope="col">Net value</th><th scope="col">Positive net share</th></tr></thead>
-        <tbody>${rows}</tbody></table></div>` : '<p class="muted">No historical trades could be graded yet.</p>'}
-    <p class="muted small">${countLabel(awards.tradesGraded, "trade")} graded · ${awards.tradesSkipped} skipped for missing prices.</p>
+        <th scope="col">Priced trades</th><th scope="col">Net value</th><th scope="col">Positive net share</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>` : '<p class="muted">No historical trades could be priced yet.</p>'}
+    <p class="muted small">${countLabel(awards.tradesGraded, "trade")} priced · ${awards.tradesSkipped} skipped for missing prices.</p>
   </section>`;
 }
