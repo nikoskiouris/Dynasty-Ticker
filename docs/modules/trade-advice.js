@@ -7,8 +7,8 @@ import { escapeHtml } from "./html.js";
 
 /**
  * @param {object} input
- * @param {string} input.verdictLine   Same line as the Market verdict headline.
- * @param {boolean} input.fair         Already inside the fair band.
+ * @param {string} input.verdictLine   Same line as the market comparison.
+ * @param {boolean} input.fair         The gap is within the comparison threshold.
  * @param {object|null} input.evenUp   { line, side, assetId, name, closes } from the even-up search.
  *
  * No "For your team" section: Trade Calculator is never team-specific (owner
@@ -17,28 +17,28 @@ import { escapeHtml } from "./html.js";
 export function buildTradeAdvice({ verdictLine = "", fair = false, evenUp = null, lighter = "" } = {}) {
   const sections = [{
     id: "verdict",
-    title: "Verdict",
+    title: "Market comparison",
     lines: [verdictLine],
-    note: "Based on Dynasty Ticker prices (12-team Superflex PPR). A price gap is not a probability that either side wins the trade.",
+    note: "Based on Dynasty Ticker prices for 12-team Superflex PPR.",
   }];
   if (fair) {
-    sections.push({ id: "fair", title: "How to make it fair", lines: ["It is already inside the fair band. No add needed."] });
+    sections.push({ id: "fair", title: "How to bring values closer", lines: ["The values are already within 5%."] });
   } else if (evenUp?.line) {
     sections.push({
       id: "fair",
-      title: "How to make it fair",
+      title: "How to bring values closer",
       lines: [evenUp.line],
       action: evenUp.assetId ? { side: evenUp.side, assetId: evenUp.assetId, name: evenUp.name, label: `Add ${evenUp.name} to ${evenUp.receiver}` } : null,
-      note: evenUp.closes ? "" : "No single player or pick lands it in the fair band.",
+      note: evenUp.closes ? "" : "No single player or pick brings the gap within 14%.",
     });
   } else {
-    sections.push({ id: "fair", title: "How to make it fair", lines: [`No single pick gets this near fair. Try adding a player for ${lighter || "the side that gets less"}.`] });
+    sections.push({ id: "fair", title: "How to bring values closer", lines: [`No single pick brings the values close. Try adding a player for ${lighter || "the side that gets less"}.`] });
   }
   return sections;
 }
 
-export function renderTradeAdviceButton({ ready = false } = {}) {
-  return `<button type="button" class="ghost-btn btn-sm trade-advice-btn" data-action="trade-advice-open"${ready ? "" : ' disabled aria-describedby="trade-advice-hint"'}><span class="mini-chip">New</span> Give real trade advice</button>${ready ? "" : '<span id="trade-advice-hint" class="muted small trade-advice-hint">Add a player or pick to both sides first.</span>'}`;
+export function renderTradeAdviceButton({ ready = false, unpriced = false } = {}) {
+  return `<button type="button" class="ghost-btn btn-sm trade-advice-btn" data-action="trade-advice-open"${ready ? "" : ' disabled aria-describedby="trade-advice-hint"'}><span class="mini-chip">New</span> Give real trade advice</button>${ready ? "" : `<span id="trade-advice-hint" class="muted small trade-advice-hint">${unpriced ? "Every asset needs a price to compare the trade." : "Add a player or pick to both sides first."}</span>`}`;
 }
 
 export function renderTradeAdvicePanel(sections = []) {

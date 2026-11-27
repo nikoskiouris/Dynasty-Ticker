@@ -135,6 +135,7 @@ import {
   removeValueCalcItem,
   swapValueCalcSides,
   valueCalcAssetMatchesQuery,
+  valueCalcVerdict,
   wholeRoundPickHint,
   tradeRowName,
   withPlayerDirectoryNames,
@@ -230,8 +231,6 @@ import {
   EVEN_UP_OFFER_ABOVE,
   oldPctToMore,
   STAR_PREMIUM_KEY,
-  UNAVAILABLE_PRICE_LINE,
-  barLabel,
   fewerBetterOffer,
   verdictCopy,
   verdictLineNamed,
@@ -5146,7 +5145,7 @@ function paintTradeDraft() {
       <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
       ${renderValuesFreshness(valuesFreshness())}
       <!-- The league caveat is in renderDraftBasis above; once is enough. -->
-      <span id="trade-advice-slot" class="trade-advice-slot">${renderTradeAdviceButton({ ready: tradeAdviceReady(view) })}</span>
+      <span id="trade-advice-slot" class="trade-advice-slot">${renderTradeAdviceButton({ ready: tradeAdviceReady(view), unpriced: view.model.unpriced })}</span>
     </div>
     ${renderTradeTalk()}
     <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
@@ -5253,8 +5252,8 @@ function refreshSmartTradeSearch(input) {
   const query = input.value.trim();
   const view = buildDraftView();
   const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
-  const rows = query ? listValueCalcAssets(view.basis.values, names, { query, limit: 20, minSeason: nextRookieDraftSeason() }) : partnerRosterRows(view);
-  list.innerHTML = rows.map((row, i) => `<div id="smart-option-${i}" class="smart-trade-option" role="option" aria-selected="false">${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}<span class="smart-trade-name">${escapeHtml(row.name)} <small>${formatNumber(row.value)}</small></span>${["right", "left"].map((side) => `<button type="button" class="calc-item smart-trade-add" data-action="smart-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""} aria-label="Add ${escapeHtml(row.name)} to ${escapeHtml(draftReceivingTeam(side, view))}" title="${escapeHtml(draftReceivingTeam(side, view))} receives">→ ${escapeHtml(shortTeamLabel(draftReceivingTeam(side, view)))}</button>`).join("")}</div>`).join("");
+  const rows = query ? listValueCalcAssets(view.basis.values, names, { query, limit: 20, minSeason: nextRookieDraftSeason(), includeUnpriced: true }) : partnerRosterRows(view);
+  list.innerHTML = rows.map((row, i) => `<div id="smart-option-${i}" class="smart-trade-option" role="option" aria-selected="false">${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}<span class="smart-trade-name">${escapeHtml(row.name)} <small>${row.value > 0 ? formatNumber(row.value) : "Price unavailable"}</small></span>${["right", "left"].map((side) => `<button type="button" class="calc-item smart-trade-add" data-action="smart-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""} aria-label="Add ${escapeHtml(row.name)} to ${escapeHtml(draftReceivingTeam(side, view))}" title="${escapeHtml(draftReceivingTeam(side, view))} receives">→ ${escapeHtml(shortTeamLabel(draftReceivingTeam(side, view)))}</button>`).join("")}</div>`).join("");
   list.hidden = !rows.length;
   input.setAttribute("aria-expanded", rows.length ? "true" : "false");
   input.removeAttribute("aria-activedescendant");
@@ -5297,7 +5296,7 @@ function renderTradeTalkLog() {
 function announceDraftEdit(lead) {
   const sentence = isDraftEmpty(state.valueCalc)
     ? ""
-    : String(el.calculatorShell?.querySelector(".trade-fairness:not(.is-empty) .trade-fairness-sentence")?.textContent || "").replace(/\s+/g, " ").trim();
+    : String(el.calculatorShell?.querySelector(".trade-fairness-sentence")?.textContent || "").replace(/\s+/g, " ").trim();
   showTalkToast([lead, sentence].filter(Boolean));
 }
 
@@ -5386,7 +5385,7 @@ function tradeTalkContext(view) {
       }
     }
   }
-  listValueCalcAssets(basis.values, names, { limit: 0, kinds: ["player"] }).forEach((row) => {
+  listValueCalcAssets(basis.values, names, { limit: 0, kinds: ["player"], includeUnpriced: true }).forEach((row) => {
     if (seen.has(row.assetId)) return;
     catalog.push({ ...row, ownerRosterId: null });
   });
@@ -5437,7 +5436,9 @@ function runTradeTalk(text) {
     });
     tradeTalkLog = [{
       say,
-      lines: [`${target.name} is worth ${formatNumber(value)} on our board. Your trade is unchanged.`],
+      lines: [value > 0
+        ? `${target.name} is worth ${formatNumber(value)} on our board. Your trade is unchanged.`
+        : `Price unavailable for ${target.name}.`],
       groups: neighbors.length ? [{ title: "Single players priced near that", chips: neighbors.map((row) => ({ ...row, side: "right" })) }] : [],
       next: [],
       sticky: true,
@@ -5489,7 +5490,9 @@ function runTradeTalk(text) {
   const connectLine = plan.unknownPartner && !after.basis.connected
     ? `Connect your Sleeper league to use ${plan.unknownPartner}’s roster. Until then these are market picks and players. This trade stays here.`
     : "";
-  if (plan.intent === "shop" && after.give > 0) {
+  if (plan.intent === "shop" && after.draft.left.some((item) => after.priceOf(item) <= 0)) {
+    lines.push("A return comparison requires a price for each asset.");
+  } else if (plan.intent === "shop" && after.give > 0) {
     const partnerId = after.context?.partnerRosterId ?? null;
     const neighbors = priceNeighbors(ctx.catalog, after.give, {
       exclude: [...after.draft.left, ...after.draft.right].map((item) => item.assetId),
@@ -5506,7 +5509,7 @@ function runTradeTalk(text) {
     } else if (partnerName) {
       lines.push(`Worth ${formatNumber(after.give)} on our board. ${partnerName} has no single player priced near that. Try a package, or type what they offered.`);
     } else {
-      lines.push(`Worth ${formatNumber(after.give)} on our board. No single player is priced near that, so a fair return is a package. Type what they offered.`);
+      lines.push(`Worth ${formatNumber(after.give)} on our board. No single player is priced near that. Try a package. Type what they offered.`);
     }
   }
   if (!bothSides && plan.intent === "verdict") {
@@ -5661,7 +5664,7 @@ function patchTradeDraft(listSides = []) {
   const team = host.querySelector("#draft-team");
   if (team) team.innerHTML = renderDraftTeam(view);
   const adviceSlot = host.querySelector("#trade-advice-slot");
-  if (adviceSlot) adviceSlot.innerHTML = renderTradeAdviceButton({ ready: tradeAdviceReady(view) });
+  if (adviceSlot) adviceSlot.innerHTML = renderTradeAdviceButton({ ready: tradeAdviceReady(view), unpriced: view.model.unpriced });
   if (tradeAdviceOpen()) {
     if (tradeAdviceReady(view)) openTradeAdvice(renderTradeAdvicePanel(tradeAdviceSections(view)));
     else closeTradeAdvice();
@@ -5672,7 +5675,7 @@ function patchTradeDraft(listSides = []) {
 // Trade advice panel (ticket 030): the calculator's own verdict, even-up
 // search and team impact, gathered in one place. No AI.
 function tradeAdviceReady(view) {
-  return view.draft.left.length > 0 && view.draft.right.length > 0;
+  return !view.model.unpriced && view.draft.left.length > 0 && view.draft.right.length > 0;
 }
 
 function tradeAdviceSections(view) {
@@ -5840,10 +5843,11 @@ function renderDraftTotal(side, view) {
   // The header shows what the verdict compares: listed prices plus any extra
   // for fewer, better pieces (owner, Nov 19, 2026). Rows keep listed prices.
   const listed = side === "left" ? view.give : view.get;
+  const incomplete = items.some((item) => view.priceOf(item) <= 0);
   const adj = view.model?.adjustment;
   const extra = adj?.amount > 0 && (adj.side === "left") === (side === "left") ? Math.round(adj.amount) : 0;
   return `
-    <strong>${formatNumber(listed + extra)}</strong>
+    <strong>${incomplete ? "Price unavailable" : formatNumber(listed + extra)}</strong>
     ${extra ? `<span class="calc-pane-extra">incl. +${formatNumber(extra)} extra</span>` : ""}
     <small title="${escapeHtml(items.length ? pieceCount(items) : "Nothing added")}">(${items.length})</small>
   `;
@@ -5931,7 +5935,7 @@ function renderDraftTokens(side, view) {
         ${label.includes("player-face") ? "" : `<span class="token-face-blank" aria-hidden="true"></span>`}
         ${label}
         ${meta ? `<span class="selected-token-meta">${escapeHtml(meta)}</span>` : ""}
-        <span class="selected-token-price" title="Value">${formatNumber(price?.value || 0)}${price?.estimated ? " est" : ""}</span>
+        <span class="selected-token-price" title="Value">${price?.value > 0 ? formatNumber(price.value) : "No price"}</span>
         <button type="button" class="selected-token-remove" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" aria-label="${escapeHtml(name ? `Remove ${name}` : "Remove")}"><span aria-hidden="true">×</span></button>
       </span>
     `;
@@ -6029,7 +6033,7 @@ function draftSuggestionRows(side, view) {
     const added = new Set([...draft.left, ...draft.right]
       .filter((item) => !isGenericPickAssetId(item.assetId))
       .map((item) => item.assetId));
-    return listValueCalcAssets(basis.values, names, { query, limit: 40, minSeason: nextRookieDraftSeason() })
+    return listValueCalcAssets(basis.values, names, { query, limit: 40, minSeason: nextRookieDraftSeason(), includeUnpriced: true })
       .filter((row) => !added.has(row.assetId))
       .map((row) => {
         const record = row.assetType === "player" ? playerRecordFor(row.assetId) : {};
@@ -6086,7 +6090,7 @@ function draftSuggestionRows(side, view) {
     }
   }
   if (query) {
-    listValueCalcAssets(basis.values, names, { query, limit: 60 }).forEach((row) => {
+    listValueCalcAssets(basis.values, names, { query, limit: 60, includeUnpriced: true }).forEach((row) => {
       if (rostered.has(row.assetId) || taken.has(row.assetId)) return;
       rows.push({
         assetId: row.assetId,
@@ -6222,9 +6226,12 @@ function evenUpLine(choice, side, names = { Give: "You give", Get: "You get" }) 
   return evenUpCopy(choice, side, { afterLine: after });
 }
 
-function renderDraftMethod(view) {
-  // The verdict already shows any extra for fewer, better pieces; only say what the screen cannot.
-  return [...view.priced.values()].some((row) => row.estimated) ? `<p>${escapeHtml(UNAVAILABLE_PRICE_LINE)}</p>` : "";
+function renderDraftEvidence(view) {
+  const playerMeta = state.valueBundles?.players;
+  const names = [...view.priced.values()]
+    .filter((row) => row.value > 0 && playerMeta?.[row.asset.assetId]?.tradeEvidence?.limited)
+    .map((row) => row.asset.name || row.asset.assetId);
+  return names.length ? `<p>Limited trade evidence for ${escapeHtml(names.join(", "))}.</p>` : "";
 }
 
 // trade_checked fires once per distinct give/get pair that reaches a verdict.
@@ -6245,47 +6252,41 @@ function renderDraftVerdict(view) {
     return `${renderTradeFairness(view.model.verdict, { ready: false })}<div class="calc-actions"><button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button></div>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
-  if (bothSides) noteTradeChecked(draft);
+  const ready = bothSides && !model.unpriced;
+  if (ready) noteTradeChecked(draft);
   const { verdict, adjustment } = model;
-  // One verdict wording everywhere (verdict-copy.js): app, /t, card, meta, share text.
   const copy = verdictCopy(verdict);
-  // The headline is the full line ("Lopsided · Give side worth 89% more"), like the card.
-  // Private /trade names the sides as the reader: "You give 136% more".
-  // Team 1 / Team 2 name the sides; the old Give/Get totals line is gone from /t.
-  const teamNames = { Give: `${draftReceivingTeam("left", view)} receives`, Get: `${draftReceivingTeam("right", view)} receives` };
-  const label = bothSides ? verdictLineNamed(verdict, teamNames) : copy.label;
   const sharedView = bothSides ? sharedVerdictFor(view) : null;
-  // RECHECK4: on a cold /t the bars are sized on the credited totals the
-  // verdict compares, with the stars credit as its own segment.
-  // The bars show what the verdict compares: listed prices plus the extra for
-  // fewer, better pieces as its own labeled segment, so "You give 63% more"
-  // never sits beside two bars that look even.
-  const bars = sharedBarSegments(model, null);
-  const maxSide = Math.max(bars.give.total, bars.get.total, 1);
-  // Same metric and bands as the headline (verdict-copy.js).
-  const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpOptions(view) : null;
+  const evenUp = ready && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpOptions(view) : null;
   // "Why?" names the sides like the columns (Team 2 Receives / Team 1 Receives).
-  const giveLabel = teamNames.Give;
-  const getLabel = teamNames.Get;
   const creditedRows = (adjustment?.side === "left" ? draft.left : draft.right).map((item) => {
     const hit = view.priced?.get(String(item.uid));
     return { name: hit?.asset?.name || item.name || "", value: hit?.value || 0, uid: String(item.uid || "") };
   });
+  const comparisonTeams = { team1: draftReceivingTeam("right", view), team2: draftReceivingTeam("left", view) };
+  const listedComparison = adjustment
+    ? renderTradeFairness(valueCalcVerdict(model.give, model.get), { ...comparisonTeams, prefix: "Listed prices" })
+    : "";
   const best = bestRowName(creditedRows);
   const bestPick = bestRowIsPick(creditedRows);
   return `
     <section class="calc-summary ${bothSides ? (sharedView ? copy.publicTone : copy.tone) : ""}">
-      ${renderTradeFairness(verdict, { ready: bothSides, team1: draftReceivingTeam("right", view), team2: draftReceivingTeam("left", view) })}
+      ${model.unpriced
+        ? `<p class="trade-fairness-sentence" role="status">Price comparison unavailable for ${escapeHtml([...view.priced.values()]
+          .filter((row) => row.value <= 0)
+          .map((row) => row.asset.name || row.asset.assetId).join(", "))}.</p>`
+        : renderTradeFairness(verdict, { ...comparisonTeams, ready, prefix: adjustment ? "With package adjustment" : "" })}
+      ${listedComparison}
       <div class="calc-summary-main">
-        ${sharedView ? `${sharedView.shared ? `<span class="analytics-kicker">Market verdict</span>` : ""}${renderSharedVerdictHead(sharedView)}` : ""}
+        ${sharedView ? `${sharedView.shared ? `<span class="analytics-kicker">Market comparison</span>` : ""}${renderSharedVerdictHead(sharedView)}` : ""}
         ${sharedView ? renderVerdictFinePrint("", `
           ${starsPremiumMarkup(model, { best, pick: bestPick, shared: true })}
-          ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view), teamNames))}</p>` : ""}
-          <div class="calc-method">${renderDraftMethod(view)}</div>
+          ${evenUp ? `<p class="calc-even"><strong>To bring values closer:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view)))}</p>` : ""}
+          <div class="calc-method">${renderDraftEvidence(view)}</div>
         `) : `
         ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
-        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view), teamNames))}</p>` : ""}
-        ${renderDraftMethod(view)}`}
+        ${evenUp ? `<p class="calc-even"><strong>Bring values closer:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view)))}</p>` : ""}
+        ${renderDraftEvidence(view)}`}
       </div>
       <div class="calc-actions">
         ${sharedView ? `<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>` : ""}
@@ -6296,34 +6297,6 @@ function renderDraftVerdict(view) {
     </section>
   `;
 }
-
-// ---------------------------------------------------------------------------
-// Bar segments: listed price plus a separate stars segment. Private /trade
-// passes its meters (listed totals) and gets no stars segment.
-function sharedBarSegments(model, meters = null) {
-  const adj = model?.adjustment;
-  const side = (key, listed) => {
-    const stars = !meters && adj && (adj.side === "left") === (key === "give") ? Math.round(Number(adj.amount) || 0) : 0;
-    const base = Math.round(Number(meters ? meters[key] : listed) || 0);
-    return { listed: base, stars, total: base + stars };
-  };
-  return { give: side("give", model?.give), get: side("get", model?.get) };
-}
-
-// A bar with an extra segment carries a text label for screen readers
-// ("Give 21,472 including 8,561 for fewer, better pieces"); the hatch has a visible key.
-function meterTrack(seg, maxSide, label = "") {
-  const pct = (value) => Math.round((value / maxSide) * 1000) / 10;
-  if (!seg.stars) return `<div class="meter-track"><span style="width:${pct(seg.listed)}%"></span></div>`;
-  return `<div class="meter-track meter-split" role="img" aria-label="${escapeHtml(label)}"><span style="width:${pct(seg.listed)}%"></span><span class="meter-stars" style="width:${pct(seg.stars)}%"></span></div>`;
-}
-
-// ◀/▶ beside the bigger side's bar on wide layouts; a plain dot on phones,
-// where the stacked bars leave nothing to point at (RECHECK4).
-function calcPointer(arrow) {
-  return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
-}
-
 
 // "Lopsided · Give side…": the dot gets real space on screen (the face's
 // word space is narrow), while the text stays the plain " · " line.
@@ -6365,7 +6338,7 @@ function renderVerdictFinePrint(leadHtml, inner) {
   const open = Boolean(state.verdictInfoOpen);
   return `
     <p class="calc-subline">${leadHtml} <button type="button" class="info-toggle verdict-info-toggle" data-action="verdict-info" aria-expanded="${open}" aria-controls="${id}">
-      <span aria-hidden="true">ⓘ</span><span class="${leadHtml ? "sr-only" : "verdict-info-label"}">How this verdict works</span>
+      <span aria-hidden="true">ⓘ</span><span class="${leadHtml ? "sr-only" : "verdict-info-label"}">How values are compared</span>
     </button></p>
     <div class="verdict-fine-print" id="${id}"${open ? "" : " hidden"}>${inner}</div>
   `;

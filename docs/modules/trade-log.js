@@ -1,7 +1,6 @@
 import { escapeHtml, formatNumber, ownerPossessive } from "./html.js";
 import { gradeTrade, tradeAssets } from "./trade-grade.js";
 import { tradeHref } from "./history-route.js";
-import { TIER_LABELS } from "./verdict-copy.js";
 
 const text = (value) => String(value ?? "").trim();
 const fullName = (raw) => text(raw?.full_name || [raw?.first_name, raw?.last_name].filter(Boolean).join(" "));
@@ -91,7 +90,7 @@ export function renderTradeLogRows({
       ? date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
       : "Date unavailable";
     const calcHref = (() => {
-      if (sides.length !== 2 || !snapshot.assets.length) return "";
+      if (sides.length !== 2 || !snapshot.assets.length || trade.waiver_budget?.length) return "";
       const [first, second] = sides.map((side) => side.rosterId);
       if (snapshot.assets.some((asset) => ![first, second].includes(asset.receiver)
         || ![first, second].includes(asset.sender))) return "";
@@ -104,23 +103,26 @@ export function renderTradeLogRows({
       return give.length && get.length ? tradeHref(give, get, "") : "";
     })();
     const parties = sides.map((side) => {
-      const received = side.received.map((asset) => assetHtml(asset, context));
+      const received = side.received.map((asset) => {
+        const label = assetHtml(asset, context);
+        return graded.sides.length && !(asset.price > 0) ? `${label} (no price)` : label;
+      });
+      if (side.faabReceived) received.push(`$${formatNumber(side.faabReceived)} waiver budget`);
       const isWinner = graded.available && graded.winnerRosterId === side.rosterId;
       return `<div class="trade-log-side">
         <h3>${escapeHtml(rosterLabel(side.rosterId, entry))}${isWinner ? ' <span class="mini-chip">Higher value</span>' : ""}</h3>
         <p>${received.join(", ") || "No player or pick received"}</p>
         <p class="muted small">Received ${graded.available ? `${priceLabel(side.valueReceived)}${receivedExtra(side)}` : "value unavailable"}
-          · Sent ${graded.available ? priceLabel(side.valueSent) : "value unavailable"}
-          · Trade grade: <strong>${graded.available ? escapeHtml(side.grade) : "Not graded"}</strong></p>
+          · Sent ${graded.available ? priceLabel(side.valueSent) : "value unavailable"}</p>
       </div>`;
     }).join("");
     return `<article class="workspace-panel trade-log-card">
       <div class="panel-heading"><div><span class="eyebrow">${escapeHtml(dateLabel)}</span>
         <h2>${escapeHtml(sides.map((side) => rosterLabel(side.rosterId, entry)).join(" / ") || "Trade")}</h2></div>
-        <span class="mini-chip">${graded.available ? escapeHtml(TIER_LABELS[graded.tier] || (graded.tier === "multi-team" ? "Multi-team" : graded.tier)) : "Price unavailable"}</span></div>
+        <span class="mini-chip">${graded.available ? "Value comparison" : "Price unavailable"}</span></div>
       <div class="trade-log-parties">${parties}</div>
       ${calcHref ? `<p><a href="${escapeHtml(calcHref)}" target="_blank" rel="noopener noreferrer">Open in Trade Calculator (new tab)</a> <span class="muted small">Keeps your current draft intact.</span></p>` : ""}
-      <details><summary>How was this graded?</summary><p class="muted small">Graded on today's values, not what they were when the trade happened.</p>
+      <details><summary>How were values calculated?</summary><p class="muted small">This comparison uses today's market prices.</p>
         ${graded.notes.map((note) => `<p class="muted small">${escapeHtml(note)}</p>`).join("")}
         ${graded.reason ? `<p class="muted small">${escapeHtml(graded.reason)}</p>` : ""}
       </details>
@@ -135,7 +137,7 @@ export function renderTradeLog({ season = "", seasons = [], query = "", team = "
   })).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" }));
   const teamOptions = teams.map((row) => `<option value="${escapeHtml(row.id)}"${row.id === team ? " selected" : ""}>${escapeHtml(row.label)}</option>`).join("");
   return `<p><a class="league-back" href="/l/${encodeURIComponent(context.archive?.leagueId || context.entry?.leagueId || "")}">← League</a></p>
-    ${caveat ? `<p class="muted small calc-market-caveat">${escapeHtml(caveat)} Grades use those values.</p>` : ""}
+    ${caveat ? `<p class="muted small calc-market-caveat">${escapeHtml(caveat)}</p>` : ""}
     <div class="workspace-panel">
       <label for="league-trade-search">Search a player or pick</label>
       <input id="league-trade-search" type="search" placeholder="Search a player" autocomplete="off" value="${escapeHtml(query)}">

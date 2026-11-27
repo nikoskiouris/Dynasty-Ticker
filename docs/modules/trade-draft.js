@@ -28,14 +28,14 @@ const DRAFT_ASSET_ID = /^(?:player:[A-Za-z0-9_.-]+|pick:\d{4}:r\d+:[A-Za-z0-9_-]
 // A package of two or more adds a stud credit, even when both sides send the same
 // number of pieces. A straight one-for-one stays at the listed prices.
 export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxValue = 9999 } = {}) {
-  // Keep a 0 in the list so a missing player still counts as a side. Infinity
-  // and NaN become 0 here; stud credit drops them before the stud curve.
+  // Preserve the asset count so a missing price blocks the whole comparison.
   const clean = (list) => (Array.isArray(list) ? list : []).map(finiteAssetValue);
   const giveList = clean(giveValues);
   const getList = clean(getValues);
   const give = Math.round(giveList.reduce((sum, value) => sum + value, 0));
   const get = Math.round(getList.reduce((sum, value) => sum + value, 0));
-  const pkg = giveList.length && getList.length
+  const unpriced = [...giveList, ...getList].some((value) => value <= 0);
+  const pkg = !unpriced && giveList.length && getList.length
     ? calculatePackageAdjustment({ myValues: giveList, theirValues: getList, globalMaxValue })
     : null;
   const adjustment = pkg?.packageAdjustment > 0
@@ -49,7 +49,8 @@ export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxVa
     compareGive,
     compareGet,
     adjustment,
-    verdict: valueCalcVerdict(compareGive, compareGet, {
+    unpriced,
+    verdict: unpriced ? { label: "Price comparison unavailable" } : valueCalcVerdict(compareGive, compareGet, {
       leftCount: giveList.length,
       rightCount: getList.length,
     }),

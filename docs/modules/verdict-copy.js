@@ -1,23 +1,5 @@
-// The one verdict wording, used by the app's /trade headline, a cold /t/
-// link, the OG card, og:title/og:description, the Today line, the preview
-// tags and the share text (client and functions). PM's final format describes
-// the value columns instead of naming a winner:
-//   Fair trade · within 5%
-//   Fair, slight edge · Get side worth 9% more          (amber)
-//   Favors one side · Give side worth 15% more          (green/red on /trade only)
-//   Lopsided · Give side worth 89% more                 (green/red on /trade only)
-// Above 10× (more than 900% more) the sentence stops counting: "worth over 10× as much".
-// Exactly 10× stays "900% more". A zero smaller side (null) uses the same cap.
-// One metric, on the credited totals: (bigger - smaller) / smaller, kept to
-// one decimal. Tiers are banded on that unrounded percent (RECHECK3): <= 5
-// fair, <= 14 slight edge, <= 28 favors, else lopsided. The sentence prints a
-// whole number: Math.round, unless that integer sits in a lower tier, in which
-// case Math.ceil. A value just above 5, 14, or 28 never shows the boundary
-// number of the tier below (28.3 is Lopsided and reads "29% more", not "28%
-// more", which would read as Favors). "Fair trade · within 5%" is unchanged.
-// Colour: tone (good | fair | bad) is relative to the sharer and is used only
-// on private /trade. publicTone (fair | strong) colours only the tier on the
-// public card and cold /t; direction is shown by placement and a pointer.
+// Public comparisons describe the difference between the credited totals.
+// The existing bands drive add-on suggestions and formatting.
 import { valueCalcVerdict } from "./value-calc.js";
 import { formatNumber } from "./html.js";
 
@@ -26,19 +8,13 @@ const BOTH_SIDES = new Set(["Dead even", "Fair, leans Get", "Fair, leans Give", 
 
 // Upper bounds (inclusive) on the unrounded "% more". The sentence may ceil past them.
 export const TIER_BANDS = Object.freeze({ even: 5, edge: 14, favors: 28 });
-const LABEL = Object.freeze({ even: "Even", edge: "Close", favors: "Unfair", lopsided: "Lopsided" });
-// The fairness scale's words for each tier, for anything that names a tier.
-export const TIER_LABELS = LABEL;
-
-// The ⓘ explainer line for the tiers.
-export const TIER_EXPLAINER = `Even: within ${TIER_BANDS.even}%. Close: up to ${TIER_BANDS.edge}%. Unfair: up to ${TIER_BANDS.favors}%. Lopsided: more than that.`;
+const LABEL = Object.freeze({ even: "Similar values", edge: "Value gap", favors: "Value gap", lopsided: "Value gap" });
 
 // Plain words for the extra on the side that has fewer, better pieces.
 // Pending Designer. The numbers stay in the callers.
 export const FEWER_BETTER_LABEL = "Fewer, better pieces";
 export const FEWER_BETTER_ADDEND = "for fewer, better pieces";
 export const PRICE_FACTORS_LINE = "Connecting a league never changes a player's price.";
-export const UNAVAILABLE_PRICE_LINE = "Unavailable means we do not have a price for that player or pick right now. Dynasty Ticker does not guess one.";
 export const FEWER_BETTER_LINE = "Fewer, better pieces are worth extra. This changes the verdict, not listed prices.";
 
 // side: "give" or "get", the side that has the best player and gets the extra.

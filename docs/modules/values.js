@@ -14,30 +14,20 @@ export function valuationUpdatedAt(bundle) {
   if (Number.isNaN(date.getTime())) return text;
   return date.toISOString().slice(0, 10);
 }
-export const PLAYER_VALUE_MODEL_VERSION = "sleeper-trades-v4";
+export const PLAYER_VALUE_MODEL_VERSION = "sleeper-trades-v5";
 // Archive rows saved before the index named the model that priced them.
 export const LEGACY_PRICE_MODEL_VERSION = "football-forecast-v1";
 // Same annual discount as player-values/config.json. A missing pick year uses this ruler.
 export const PICK_YEAR_DISCOUNT = 0.85;
 
-// The NFL draft ends in late April. After that, this year's picks are players.
+// Rookie drafts run throughout the offseason, including after the NFL draft.
 export function upcomingDraftSeason(now = new Date()) {
   const date = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth();
-  const day = date.getUTCDate();
-  if (month > 3 || (month === 3 && day >= 26)) return year + 1;
-  return year;
+  return date.getUTCFullYear() + (date.getUTCMonth() >= 8 ? 1 : 0);
 }
 
-// Generic picks on the board are only years that can still be traded.
 export function tradablePickSeason(nflState = null, now = new Date()) {
-  const calendar = upcomingDraftSeason(now);
-  const season = Number(nflState?.league_season ?? nflState?.season);
-  const type = String(nflState?.season_type || "").toLowerCase();
-  if (!Number.isFinite(season) || season < 2000) return calendar;
-  if (type === "regular" || type === "post" || type === "pre") return Math.max(season + 1, calendar);
-  return Math.max(season, calendar);
+  return upcomingDraftSeason(now);
 }
 
 // Shared default so calls without a name map reuse one lookup cache entry.
