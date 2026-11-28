@@ -1,0 +1,162 @@
+/* The bound volume below the edition's lead stories. */
+#league-page .league-history-page {
+  --archive-ink: #153d31;
+  --archive-paper: #f6f3e9;
+  --archive-rule: #c7cbb8;
+}
+#league-page .almanac-back {
+  gap: .5em;
+  margin-bottom: 8px;
+  color: var(--archive-ink);
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+}
+#league-page .almanac-back:hover { text-decoration: underline; }
+#league-page .almanac-loading {
+  padding: clamp(22px, 5vw, 48px);
+  border-block: 4px double var(--archive-ink);
+  background: var(--archive-paper);
+  color: var(--archive-ink);
+}
+#league-page .almanac-loading h2,
+#league-page .almanac-library-header h2 {
+  margin: 0;
+  font: 400 clamp(30px, 4vw, 44px)/1.05 var(--alm-serif, Georgia, serif);
+  letter-spacing: -.045em;
+}
+#league-page .almanac-loading p[role="status"] { margin: 14px 0 0; }
+#league-page .almanac-loading-champ { margin: 24px 0 0; font: 400 1.6rem var(--alm-serif, Georgia, serif); }
+#league-page .almanac-loading-champ span,
+#league-page .almanac-shelf > h3,
+#league-page .almanac-champ > span {
+  display: block;
+  font: 700 11px/1.5 var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+#league-page .almanac-loading button { margin-top: 14px; }
+#league-page .almanac-coverage {
+  margin-block: 18px;
+  padding: 0 14px;
+  border-inline-start: 3px solid #b68832;
+  background: var(--archive-paper);
+}
+#league-page .almanac-coverage summary { min-height: 44px; }
+#league-page .almanac-coverage ul { margin: 0; padding: 0 0 1em 1.3em; }
+#league-page .almanac-library {
+  min-width: 0;
+  margin-top: clamp(30px, 5vw, 55px);
+  border-top: 4px double var(--archive-ink);
+  color: var(--archive-ink);
+}
+#league-page .almanac-library-header {
+  position: sticky;
+  top: env(safe-area-inset-top);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 14px 0;
+  background: var(--archive-paper);
+  border-bottom: 1px solid var(--archive-ink);
+}
+#league-page .almanac-library-header h2 { font-size: clamp(24px, 3vw, 32px); }
+#league-page .almanac-library-header .history-jump {
+  position: static;
+  margin: 0;
+  padding: 0;
+}
+#league-page .almanac-library-header select {
+  width: fit-content;
+  max-width: 100%;
+}
+#league-page .almanac-shelf {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(0, 4fr);
+  gap: clamp(12px, 2vw, 28px);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--archive-ink);
+}
+#league-page .almanac-shelf > h3 { margin: 14px 0 0; }
+#league-page .almanac-shelf-chapters,
+#league-page .almanac-chapter { min-width: 0; }
+#league-page .almanac-chapter + .almanac-chapter { border-top: 1px solid var(--archive-rule); }
+#league-page .almanac-chapter > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 4px;
+  list-style: none;
+  color: var(--archive-ink);
+  font: 400 clamp(22px, 2.3vw, 27px)/1.2 var(--alm-serif, Georgia, serif);
+  letter-spacing: -.025em;
+}
+#league-page .almanac-chapter > summary::-webkit-details-marker { display: none; }
+#league-page .almanac-chapter > summary::after {
+  content: "+";
+  flex: none;
+  width: 1.5em;
+  text-align: center;
+  font: 450 20px/1 var(--font-ui);
+}
+#league-page .almanac-chapter[open] > summary { color: #724e10; }
+#league-page .almanac-chapter[open] > summary::after { content: "−"; }
+#league-page .almanac-chapter > summary:hover { background-color: var(--archive-paper); }
+#league-page .almanac-chapter-body {
+  padding: 0 clamp(12px, 2vw, 20px);
+  margin-block: 0 16px;
+  border-inline-start: 2px solid var(--archive-rule);
+  background-color: var(--archive-paper);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+#league-page .almanac-chapter-body .workspace-panel { min-width: 0; padding: 18px 0; }
+#league-page .almanac-chapter-body .workspace-panel:first-child { border-top: 0; }
+#league-page .almanac-chapter-body h2 { color: var(--archive-ink); margin-bottom: 10px; }
+#league-page .almanac-chapter :is(.league-history-records,.league-history-season-list) {
+  grid-template-columns: repeat(auto-fit,minmax(min(100%, 220px),1fr));
+  gap: 8px 24px;
+}
+#league-page .almanac-chapter .league-history-season h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 18px;
+  border-top: 2px solid var(--archive-rule);
+  padding-top: 8px;
+}
+#league-page .almanac-champ { margin: 10px 0 16px; }
+#league-page .almanac-champ > span { margin-bottom: 3px; color: var(--muted); }
+#league-page .almanac-champ strong { font: 400 24px/1.15 var(--alm-serif, Georgia, serif); color: var(--archive-ink); }
+#league-page .almanac-chapter .league-history-season dl > div {
+  display: grid;
+  grid-template-columns: 1fr minmax(0,1fr);
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+#league-page .almanac-chapter .league-history-season dd { text-align: end; }
+#league-page .almanac-chapter,
+#league-page .almanac-chapter :is(a,button,summary,[tabindex]) {
+  scroll-margin-top: calc(85px + env(safe-area-inset-top));
+}
+@media (max-width: 680px) {
+  #league-page .almanac-shelf {
+    grid-template-columns: minmax(0,1fr);
+    gap: 3px;
+  }
+  #league-page .almanac-shelf > h3 { margin-block: 8px 4px; }
+  #league-page .almanac-library-header { flex-wrap: wrap; padding-block: 8px; }
+  #league-page .almanac-library-header h2 { font-size: 24px; }
+  #league-page .almanac-library-header select { width: 166px; }
+  #league-page .almanac-chapter-body { padding-inline: 10px; }
+  #league-page .almanac-chapter,
+  #league-page .almanac-chapter :is(a,button,summary,[tabindex]) {
+    scroll-margin-top: calc(110px + env(safe-area-inset-top));
+  }
+}
