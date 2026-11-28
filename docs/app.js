@@ -8845,8 +8845,14 @@ function formatPickName(pick, {
 }
 
 async function loadValues() {
+  // Historical trend data is optional. A slow archive must not hold up current prices.
+  void fetchPriceHistory().then((history) => {
+    state.valueHistory = history;
+    if (history && rankValuesReady() && (teamsRosterVisible() || playersBoardOpen || state.ranks?.selectedId)) {
+      requestActivePageRender();
+    }
+  }).catch((error) => console.warn("Could not load price trends", error));
   state.valueBundles = await fetchValuationBundles();
-  state.valueHistory = await fetchPriceHistory();
   return pickValueBundle(state.valueBundles, "sf");
 }
 
