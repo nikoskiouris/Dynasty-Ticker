@@ -14,7 +14,7 @@ The sample allows different numbers of WR and ordinary flex starters and differe
 
 For each trade with positive published estimates for every player in both models, sum **listed individual prices** on each side. Compute absolute gap as `abs(left − right) / (left + right)`. For unequal packages, compute signed bias as `(more-player side − fewer-player side) / (left + right)`. For example, sides worth 60 and 40 have a 20% absolute gap. A negative bias means the pricing system gave the side with more players the lower total. This measures asset-price spacing directly and excludes the calculator's separate package adjustment. The price unit cancels out of both metrics. A model with lower error on one-for-one deals alone can still assign unusable prices to two-for-one deals.
 
-Run with Python 3.10+, Git and the repository history containing commit `cb822a483f1cc421152f94a08c573a562e7d77c0`. The [audit script](trade_spacing.py) loads that fixed v3 implementation separately from the working model and evaluates only their common priced trades. Downloads are cached locally. No manager identifiers or names are included in the report.
+Run with Python 3.10+, Git and the repository history containing v3 commit `cb822a483f1cc421152f94a08c573a562e7d77c0` and v4 commit `7837cf04672c393355c50dc6bacfc8f056f0a2ee`. The [audit script](trade_spacing.py) loads both fixed implementations and evaluates only their common priced trades. Downloads are cached locally. No manager identifiers or names are included in the report.
 
 ```sh
 python3 player-values/research/trade_spacing.py

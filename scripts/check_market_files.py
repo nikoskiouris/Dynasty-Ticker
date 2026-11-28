@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "docs" / "data"
 MAX_VALUE_AGE_DAYS = 21
 # The model the builder is configured to write. A snapshot from any other model is not the one the desk expects.
-MODEL_VERSION = "dynasty-sf-ppr-v4"
+MODEL_VERSION = "dynasty-sf-ppr-v5"
 POSITIONS = {"QB", "RB", "WR", "TE"}
 
 
@@ -35,13 +35,14 @@ def nonnegative_number(value) -> bool:
 
 
 def valid_score_anchors(anchors) -> bool:
-    if not isinstance(anchors, list) or len(anchors) < 3:
+    if not isinstance(anchors, list) or len(anchors) != 5:
         return False
     if not all(isinstance(row, dict) and nonnegative_number(row.get("score"))
                and nonnegative_number(row.get("surplus")) for row in anchors):
         return False
-    return (anchors[0]["score"] == anchors[0]["surplus"] == 0 and anchors[-1]["score"] == 100
-            and all(a["score"] < b["score"] and a["surplus"] < b["surplus"]
+    return ([row["score"] for row in anchors] == [0, 87, 90, 95, 100]
+            and anchors[0]["surplus"] == 0
+            and all(a["surplus"] < b["surplus"]
                     for a, b in zip(anchors, anchors[1:])))
 
 
@@ -103,6 +104,13 @@ def check_player_values(
     price_method = meta.get("price")
     if not isinstance(price_method, dict) or not valid_score_anchors(price_method.get("scoreAnchors")):
         errors.append("missing or invalid surplus-to-score calibration")
+    else:
+        scores = [row["score"] for row in price_method["scoreAnchors"]]
+        reference = price_method.get("ratingReference")
+        if (price_method.get("method") != "seasonal-startup-rating" or scores != [0, 87, 90, 95, 100]
+                or not isinstance(reference, dict) or reference.get("earlyDraftScore") != 87
+                or reference.get("eliteScore") != 90 or reference.get("upperCurve") != "rational-above-95"):
+            errors.append("missing or inconsistent v5 startup rating references")
     if len(players) < 200 or not any(key.startswith("pick:") for key in sf):
         errors.append("incomplete dynasty player or pick board")
     for asset_id, value in sf.items():

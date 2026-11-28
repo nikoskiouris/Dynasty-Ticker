@@ -9,8 +9,16 @@ FOOTBALL_KNOTS = (
     (78.44, 99.68), (127.52, 124.91), (196.13, 192.01),
     (271.79, 257.96), (396.02, 344.93),
 )
-# Median best calibrated pre-season estimate across those two as-of boards.
-ELITE_EXPECTED_SURPLUS = 361.37
+# Fixed reference surplus for startup player ranks 21, 7 and 3. Changes in
+# the remaining schedule move the reference without re-ranking today's board.
+# Anchors combine historical football forecasts and comparable market outcomes.
+PHASE_REFERENCES = (
+    (0.0, (117.94, 151.35, 164.83)),
+    (1 / 3, (145.95, 198.89, 214.95)),
+    (1.0, (185.58, 241.85, 282.47)),
+)
+# Median annual mean of the top three realized three-season surpluses, 2000–16.
+HISTORICAL_CEILING = 501.36
 
 
 def calibrated_football(projected):
@@ -52,5 +60,34 @@ def market_surplus(quote, remaining_fraction):
     return first * remaining_fraction + later
 
 
-def native_score(surplus):
-    return min(100.0, max(0.0, 100 * surplus / ELITE_EXPECTED_SURPLUS))
+def rating_anchors(remaining_fraction):
+    """Interpolate the frozen draft reference for this point in the schedule."""
+    fraction = min(1.0, max(0.0, remaining_fraction))
+    interval = 0 if fraction <= PHASE_REFERENCES[1][0] else 1
+    left_t, left = PHASE_REFERENCES[interval]
+    right_t, right = PHASE_REFERENCES[interval + 1]
+    progress = (fraction - left_t) / (right_t - left_t)
+    references = [a + progress * (b - a) for a, b in zip(left, right)]
+    return ((0.0, 0.0), *zip(references, (87.0, 90.0, 95.0)), (HISTORICAL_CEILING, 100.0))
+
+
+def rate_from_anchors(surplus, anchors):
+    """Keep depth proportional and progressively reduce gaps above the elite threshold."""
+    if surplus <= 0:
+        return 0.0
+    for (lo, low_score), (hi, high_score) in zip(anchors[:3], anchors[1:4]):
+        if surplus <= hi:
+            return low_score + (surplus - lo) * (high_score - low_score) / (hi - lo)
+    elite, previous = anchors[-2][0], anchors[-3][0]
+    ceiling = anchors[-1][0]
+    if surplus >= ceiling:
+        return 100.0
+    # This shoulder starts with the same slope as the 90–95 segment, stays
+    # strictly increasing and reaches 100 at the historical realized ceiling.
+    excess = surplus - elite
+    gap = elite - previous
+    return 95 + 5 * excess / (gap + (1 - gap / (ceiling - elite)) * excess)
+
+
+def native_score(surplus, remaining_fraction=1.0):
+    return rate_from_anchors(surplus, rating_anchors(remaining_fraction))

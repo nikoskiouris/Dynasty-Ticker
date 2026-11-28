@@ -1,6 +1,8 @@
 import { roundPrice } from "./price-units.js";
 import { escapeHtml, formatNumber } from "./html.js";
 
+export const DYNASTY_SCORE_GUIDE = "Scores of 90 and above mark elite dynasty assets. Players in the high 80s are strong building blocks.";
+
 // Player-price tiers follow the current published board as its scale changes.
 const VALUE_TIERS = Object.freeze([
   { label: "Top 24", rank: 24 },

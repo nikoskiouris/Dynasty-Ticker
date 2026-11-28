@@ -7,7 +7,7 @@ Input fields, assumptions and empirical references are in the model research not
 from bisect import bisect_left, bisect_right
 from math import floor, isfinite
 
-from dynasty_calibration import ELITE_EXPECTED_SURPLUS, calibrated_football, market_surplus, native_score
+from dynasty_calibration import calibrated_football, market_surplus, rate_from_anchors, rating_anchors
 from inseason import remaining_forecast, remaining_share
 
 
@@ -252,6 +252,7 @@ def value_board(players, picks, *, season_week=1):
     """Estimate three-season surplus and quote it in native dynasty points."""
     raw, context = raw_board(players, season_week=season_week)
     time_left = context["remainingSeasonFraction"]
+    anchors = rating_anchors(time_left)
     player_results = {}
     for key, row in raw.items():
         football = {factor: row[factor] for factor in ("lineup", "future", "draft")}
@@ -273,9 +274,9 @@ def value_board(players, picks, *, season_week=1):
         expected = sum(components.values())
         if expected <= 0:
             continue
-        score = native_score(expected)
-        # Assign the calibrated football estimate in proportion to its three
-        # underlying signals. Apply any ceiling to all four contributions.
+        score = rate_from_anchors(expected, anchors)
+        # Allocate the final rating to the four underlying discounted-surplus
+        # signals in proportion to the amount each contributed.
         target_scale = HUNDREDTHS_PER_POINT * score / expected
         cents, allocated = apportion({k: v * target_scale for k, v in components.items()})
         if cents == 0:
@@ -296,7 +297,7 @@ def value_board(players, picks, *, season_week=1):
         if quote is None or quote <= 0:
             continue
         expected = market_surplus(quote, time_left)
-        price = round(native_score(expected) * HUNDREDTHS_PER_POINT) / HUNDREDTHS_PER_POINT
+        price = round(rate_from_anchors(expected, anchors) * HUNDREDTHS_PER_POINT) / HUNDREDTHS_PER_POINT
         if price > 0:
             pick_results[key] = {
                 "value": price, "factors": {"market": price}, "coverage": ["market"],
@@ -305,9 +306,9 @@ def value_board(players, picks, *, season_week=1):
     return player_results, pick_results, {
         **context,
         "lineup": {"teams": TEAMS, **STARTERS, "FLEX": 1, "SUPER_FLEX": 1},
-        "method": "historically-calibrated-discounted-surplus",
-        "scoreAnchors": [{"score": score, "surplus": score * ELITE_EXPECTED_SURPLUS / VALUE_SCALE}
-                         for score in (0, 25, 50, 75, 100)],
+        "method": "seasonal-startup-rating",
+        "scoreAnchors": [{"score": score, "surplus": surplus} for surplus, score in anchors],
+        "ratingReference": {"earlyDraftScore": 87, "eliteScore": 90, "upperCurve": "rational-above-95"},
         "marketWeight": MARKET_SHARE, "horizonDiscount": DISCOUNT,
         "futureSeasons": 2, "secondYearDiscount": DISCOUNT, "futureCohortShare": 0.5,
         "draftPriorShare": {"rookieStart": 0.65, "rookieEnd": 0.25, "secondYearEnd": 0},

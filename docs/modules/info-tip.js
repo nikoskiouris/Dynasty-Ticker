@@ -1,4 +1,5 @@
 import { escapeHtml } from "./html.js";
+import { DYNASTY_SCORE_GUIDE } from "./value-scale.js";
 
 export const INFO_ICON_PX = 18;
 export const INFO_HIT_PX = 44;
@@ -9,7 +10,7 @@ export const INFO_PHONE_MAX_WIDTH = 700;
 export function valuesWorkText(date = "") {
   const when = String(date || "").trim();
   const updated = when ? ` Updated ${when}.` : "";
-  return `The 0–100 dynasty scale is tied to historical PPR points above replacement over three seasons. The model values the remaining regular season and the following two, gives less weight to more distant seasons, and uses market evidence when available. Draft picks use their market quotes on the same scale. A package can total more than 100.${updated}`;
+  return `${DYNASTY_SCORE_GUIDE} The model weighs projected PPR production above replacement across the rest of this season and the next two, along with available market evidence. Draft picks use their market quotes on the same scale.${updated}`;
 }
 
 // Plain words for terms a first-time or non-native reader may not know.
@@ -170,7 +171,7 @@ export function bindInfoTips(doc = globalThis.document) {
 
 const PRICE_LEGEND = {
   model: ["Value", "Same number on Trade Calculator, Player Rankings, and My Team."],
-  package: ["Stars", "Packages can get a small credit for their stronger assets. The calculator uses it in the verdict."],
+  package: ["Stars", "Each side’s listed total is the sum of its dynasty scores and can exceed 100. The verdict can also credit the side receiving the stronger assets."],
 };
 
 export function renderPriceLegend(ids = ["model"]) {

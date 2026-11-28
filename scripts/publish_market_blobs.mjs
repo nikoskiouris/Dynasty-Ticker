@@ -14,7 +14,7 @@ import { getStore } from "@netlify/blobs";
 import { MARKET_STORE, isMarketFile } from "../netlify/lib/market-data.js";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const MODEL_VERSION = "dynasty-sf-ppr-v4";
+const MODEL_VERSION = "dynasty-sf-ppr-v5";
 
 function validPrice(price) {
   return Number.isFinite(price) && price > 0 && price <= 100 && Math.round(price * 100) / 100 === price;

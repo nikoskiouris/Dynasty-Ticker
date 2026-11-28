@@ -14,10 +14,10 @@ from tempfile import TemporaryDirectory
 from urllib.error import HTTPError
 
 from ranking_holdout import CROSSWALK, POSITIONS, STATS, cached_file, csv_rows, make_board
-from dynasty_value import value_board
 
 ARCHIVE = 'https://zenodo.org/api/records/23813187/files/fantasy-football-case-studies-v1.zip/content'
 V3 = 'cb822a483f1cc421152f94a08c573a562e7d77c0'
+V4 = '7837cf04672c393355c50dc6bacfc8f056f0a2ee'
 # Forecast file commit time, first NFL game scheduled kickoff, Tuesday after week 2 (UTC).
 WINDOWS = {
     2023: ('2023-09-01T14:37:09', '2023-09-08T00:20:00', '2023-09-19T06:00:00'),
@@ -73,7 +73,7 @@ def exchanges(cache):
                 sides = [tuple(key for key, received in adds.items() if received == roster)
                          for roster in trade['roster_ids']]
                 if all(sides):
-                    result[trade['transaction_id']] = (year, date < kickoff, sides)
+                    result[trade['transaction_id']] = (year, date < kickoff, sides, league['league_id'])
         return list(result.values())
 
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -84,12 +84,14 @@ def exchanges(cache):
         return [t for group in pool.map(moves, recent + prior) for t in group]
 
 
-def legacy_prices(board, picks):
-    # Load both files from the same revision. Current model imports stay in this process.
+def legacy_prices(board, picks, revision=V3):
+    # Load each model with its original dependencies. Current imports stay in this process.
     repo = Path(__file__).resolve().parents[2]
     with TemporaryDirectory() as tmp:
-        for name in ('dynasty_value.py', 'inseason.py'):
-            blob = subprocess.check_output(['git', 'show', f'{V3}:player-values/{name}'], cwd=repo)
+        names = ('dynasty_value.py', 'inseason.py') if revision == V3 else (
+            'dynasty_value.py', 'inseason.py', 'dynasty_calibration.py')
+        for name in names:
+            blob = subprocess.check_output(['git', 'show', f'{revision}:player-values/{name}'], cwd=repo)
             (Path(tmp) / name).write_bytes(blob)
         invoke = ('import json,sys; from dynasty_value import value_board; '
                   'print(json.dumps(value_board(*json.load(sys.stdin), season_week=1)[:2]))')
@@ -127,9 +129,9 @@ def main():
         prior = {r['player_id']: r for r in csv_rows(STATS.format(year - 1), cache)
                  if r['season_type'] == 'REG' and r['position'] in POSITIONS}
         board = make_board(year, prior, ids, cache)
-        models = {'v3': legacy_prices(board, {})[0], 'current': value_board(board, {}, season_week=1)[0]}
+        models = {'v3': legacy_prices(board, {})[0], 'v4': legacy_prices(board, {}, V4)[0]}
         for label, pre_only in (('pre-kickoff', True), ('through week 2', False)):
-            rows = [sides for y, pre, sides in trades if y == year and (pre or not pre_only)]
+            rows = [sides for y, pre, sides, _ in trades if y == year and (pre or not pre_only)]
             totals = {version: [] for version in models}
             coverage = Counter()
             for sides in rows:

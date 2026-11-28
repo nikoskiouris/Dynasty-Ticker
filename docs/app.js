@@ -6333,7 +6333,7 @@ function renderArchivedTradePrices(summary) {
   const side = (rows) => rows.map((piece) =>
     `${escapeHtml(piece.name)} (${piece.unpriced ? "unavailable" : formatNumber(piece.value)})`
   ).join(", ");
-  const units = summary.sourceValueScale === 10000 ? "<p>The original snapshot used a 0–10,000 scale. These archived prices are displayed on a 0–100 scale.</p>" : "";
+  const units = summary.sourceValueScale === 10000 ? "<p>These figures show the original archived prices divided by 100.</p>" : "";
   return `<details class="calc-method"><summary>Prices when shared</summary><p>Team 1 received ${side(summary.get)}.</p><p>Team 2 received ${side(summary.give)}.</p>${units}</details>`;
 }
 

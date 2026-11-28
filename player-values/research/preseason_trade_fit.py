@@ -8,8 +8,7 @@ from pathlib import Path
 from statistics import median
 
 import ranking_holdout as audit
-from dynasty_value import value_board
-from trade_spacing import legacy_prices
+from trade_spacing import V4, legacy_prices
 from value_inputs import market_quotes
 
 PROJECTIONS = (audit.RAW_GITHUB + 'mborysiak/Fantasy_Football/04f5ae4b6ad1fd9af06d43c1bd32ae861d933f07/'
@@ -41,7 +40,7 @@ def preseason_projections(cache):
             yield row[0], pos, points, None
 
 
-def price_models(cache):
+def reconstructed_inputs(cache):
     quotes = json.loads(audit.fetch(QUOTES, cache))['values']
     market, picks = market_quotes([{'player': r, 'value': r['value']} for r in quotes], 2026, False)
     crosswalk = list(audit.csv_rows(audit.CROSSWALK, cache))
@@ -62,9 +61,14 @@ def price_models(cache):
             board[key] = (board.pop(unmatched) if unmatched in board else audit.historical_player(
                 2026, quote['position'], None, bio, prior.get(bio.get('gsis_id'))))
         board[key]['market'] = market[key]
-    old = legacy_prices(board, picks)
-    new = value_board(board, picks)[:2]
     print(f'{len(board)} players in forecast/quote pool, {len(market)} player quotes, {len(picks)} pick quotes')
+    return board, market, picks
+
+
+def price_models(cache):
+    board, market, picks = reconstructed_inputs(cache)
+    old = legacy_prices(board, picks)
+    new = legacy_prices(board, picks, V4)
     prices = {label: {k: v['value'] for part in pair for k, v in part.items()}
               for label, pair in [('v3', old), ('v4', new)]}
     prices['quotes'] = {**market, **{k: r['market'] for k, r in picks.items()}}

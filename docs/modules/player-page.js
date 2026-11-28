@@ -41,12 +41,14 @@ function renderValueFactors(model, priceModel) {
   else if (market != null) basis = `The blend gives ${formatNumber(100 * (1 - market))}% weight to the football estimate and ${formatNumber(100 * market)}% to the market estimate.`;
 
   const surplus = model.calibratedSurplus;
-  const top = priceModel?.scoreAnchors?.find(anchor => anchor.score === 100);
   const discount = priceModel?.horizonDiscount;
   const horizon = Number.isFinite(discount)
     ? `Future seasons count at ${formatNumber(100 * discount)}% and ${formatNumber(100 * discount ** 2)}% of their projected surplus.` : "";
-  const scale = Number.isFinite(surplus) && Number.isFinite(top?.surplus)
-    ? `<p>The model estimates ${formatNumber(surplus)} discounted PPR points above a replacement starter across the rest of this season and the next two. ${horizon} A score of 100 corresponds to a fixed historical benchmark of ${formatNumber(top.surplus)} discounted PPR points.</p>` : "";
+  const elite = priceModel?.scoreAnchors?.find(anchor => anchor.score === 90);
+  const eliteLine = Number.isFinite(elite?.surplus)
+    ? ` The 90-point elite tier begins at ${formatNumber(elite.surplus)} discounted PPR points.` : "";
+  const scale = Number.isFinite(surplus)
+    ? `<p>The model estimates ${formatNumber(surplus)} discounted PPR points above a replacement starter across the rest of this season and the next two. ${horizon}${eliteLine}</p>` : "";
   return `${scale}<p>${basis} Each figure below is a contribution to the 0–100 score.</p><dl class="player-detail-facts">${rows.join("")}</dl>`;
 }
 

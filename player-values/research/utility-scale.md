@@ -1,6 +1,6 @@
-# What one dynasty point measures
+# The v4 football calibration and its original price units
 
-The native scale assigns one point per 3.6137 expected discounted PPR points above a replacement lineup over the current season and the following two. A 50-point player therefore represents about 180.69 points of estimated lineup surplus. The 100-point reference is a fixed historical estimate. Managers can compare assets across refreshes even when the current league leader changes. An individual outcome can exceed the reference.
+This study records the v4 scoring scale. It assigns one point per 3.6137 expected discounted PPR points above a replacement lineup over the current season and the following two. A 50-point player therefore represents about 180.69 points of estimated lineup surplus. The 100-point reference is a fixed historical estimate. Managers can compare assets across refreshes even when the current league leader changes. An individual outcome can exceed the reference.
 
 ## Historical construction
 
@@ -41,7 +41,7 @@ For the package comparison at each cutoff, each asset ranked 1–36 was paired a
 
 The November 28, 2026, 03:35 UTC source snapshot yielded football-only values of 83.67, 46.03 and 30.44 at ranks 1, 12 and 48. With the market component included, those ranks scored 75.20, 44.19 and 27.91. No player reached 100 on either board.
 
-Run `python player-values/research/utility_scale.py --holdout` for the fit, historical reference comparison and audit. The CLI prints both error measures for each position, all three tiers, deep reserves and synthetic packages. Pass `--cache-dir DIR` to reuse downloaded data. Add `--live-input FILE` with a normalized board produced by `build_trade_values.py --save-inputs FILE` to inspect range utilization on both the live football-only and full trade-value boards.
+Run `python player-values/research/utility_scale.py --holdout` for the fit, historical reference comparison and audit. The CLI prints both error measures for each position, all three tiers, deep reserves and synthetic packages. Pass `--cache-dir DIR` to reuse downloaded data. The optional `--live-input FILE` also evaluates the installed price model. To reproduce the v4 full-board figures above, use [the audited v4 revision](https://github.com/nikoskiouris/Dynasty-Ticker/tree/7837cf04672c393355c50dc6bacfc8f056f0a2ee).
 
 ## Forward estimates for players on injured reserve
 
