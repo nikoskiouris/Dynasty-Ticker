@@ -16,7 +16,7 @@ export function moveLeagueControls(host) {
   if (host?.dataset.controlsMounted) { renderLeagueRecent(host); return; }
   if (!host) return;
   host.dataset.controlsMounted = '1';
-  host.innerHTML = `<p class="muted">Find standings, rosters and past trades from your Sleeper league.</p><div id="league-entry-controls"></div>`;
+  host.innerHTML = `<div id="league-entry-controls"></div>`;
   const controls = host.querySelector('#league-entry-controls');
   const source = document.querySelector('#username-search-form')?.closest('.league-module');
   if (source) controls.append(source);
@@ -28,7 +28,7 @@ export function moveLeagueControls(host) {
   const label = document.querySelector('label[for="sleeper-username"]');
   if (label) label.textContent = 'Sleeper username';
   const button = document.getElementById('find-leagues-btn');
-  if (button) { button.dataset.idleLabel = 'Find my leagues'; if (button.dataset.bootLoading !== '1') button.textContent = 'Find my leagues'; }
+  if (button) { button.dataset.idleLabel = 'Find leagues'; if (button.dataset.bootLoading !== '1') button.textContent = 'Find leagues'; }
   const summary = document.querySelector('#league-id-fallback summary');
   if (summary) summary.textContent = 'Use a league ID or link';
   renderLeagueRecent(host);

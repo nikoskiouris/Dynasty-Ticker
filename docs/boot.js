@@ -21,8 +21,7 @@ function showBootError() {
   if (!host) return;
   host.innerHTML = `
     <section class="boot-error" role="alert">
-      <h2>The desk did not open</h2>
-      <p>The page files did not load. Refresh and try again.</p>
+      <h2>Page couldn’t load</h2>
       <button type="button" data-boot-refresh>Refresh</button>
     </section>
   `;

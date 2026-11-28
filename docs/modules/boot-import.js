@@ -5,8 +5,7 @@ export const BOOT_IMPORT_RETRY_KEY = "dynasty-ticker-boot-retry";
 
 export function bootImportErrorMarkup() {
   return `<section class="boot-error" role="alert">
-      <h2>Couldn't load</h2>
-      <p>The app did not finish loading. Reload to try again.</p>
+      <h2>Page couldn’t load</h2>
       <button type="button" data-boot-reload>Reload</button>
     </section>`;
 }
