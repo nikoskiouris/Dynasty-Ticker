@@ -14,9 +14,54 @@ export function valuationUpdatedAt(bundle) {
   if (Number.isNaN(date.getTime())) return text;
   return date.toISOString().slice(0, 10);
 }
-export const PLAYER_VALUE_MODEL_VERSION = "dynasty-sf-ppr-v2";
-// Archive rows saved before the index named the model that priced them.
-export const LEGACY_PRICE_MODEL_VERSION = "football-forecast-v1";
+export const PLAYER_VALUE_MODEL_VERSION = "dynasty-sf-ppr-v3";
+const COMPARABLE_INTEGER_MODEL = "dynasty-sf-ppr-v2";
+
+export function isCurrentValueBoard(payload) {
+  return payload?.modelVersion === PLAYER_VALUE_MODEL_VERSION && payload.valueScale === 100;
+}
+
+// The archive predates explicit units. Unlabelled files and these known model
+// versions were written as integer hundredths of today's display unit.
+const archivedIntegerModels = new Set([
+  "football-forecast-v1", "football-forecast-v2", "forecast-consensus-blend-v1",
+  "sleeper-trades-v1", "sleeper-trades-v2", "sleeper-trades-v3", "sleeper-trades-v4",
+  "dynasty-sf-ppr-v1", "dynasty-sf-ppr-v2-preview", COMPARABLE_INTEGER_MODEL,
+]);
+
+function priceScale(row) {
+  if (isCurrentValueBoard(row)) return 100;
+  if (row?.modelVersion && !archivedIntegerModels.has(row.modelVersion)) return null;
+  return row?.valueScale == null || row.valueScale === 10000 ? 10000 : null;
+}
+
+function comparablePriceRow(row) {
+  return isCurrentValueBoard(row) || (row?.modelVersion === COMPARABLE_INTEGER_MODEL && priceScale(row) === 10000);
+}
+
+export function snapshotPrices(snapshot) {
+  if (!snapshot?.sf) return null;
+  const sourceScale = priceScale(snapshot);
+  if (!sourceScale) return null;
+  const { values, nameMap } = pickValueBundle(snapshot);
+  if (sourceScale === 100) return { values, nameMap, sourceScale };
+  return {
+    values: Object.fromEntries(Object.entries(values).filter(([, value]) => Number.isFinite(value))
+      .map(([id, value]) => [id, value / 100])),
+    nameMap, sourceScale,
+  };
+}
+
+// Integer-era snapshots only carried their model on the index. New snapshots
+// carry their own units and model, so an incorrect/stale index cannot reprice one.
+function comparableSnapshot(snapshot, row) {
+  if (!snapshot?.sf || !comparablePriceRow(row)) return null;
+  if (snapshot.modelVersion && snapshot.modelVersion !== row.modelVersion) return null;
+  if (row.modelVersion === PLAYER_VALUE_MODEL_VERSION && !isCurrentValueBoard(snapshot)) return null;
+  if (snapshot.asOf !== row.asOf || priceScale(snapshot) !== priceScale(row)) return null;
+  const bundle = snapshotPrices(snapshot);
+  return bundle ? { asOf: snapshot.asOf, stamp: row.stamp, sf: bundle.values } : null;
+}
 
 // The NFL draft ends in late April. After that, this year's picks are players.
 export function upcomingDraftSeason(now = new Date()) {
@@ -471,7 +516,7 @@ export function isEstimatedAsset(asset, values, options = {}) {
 }
 
 export function getGlobalMaxPlayerValue(values, tradeMaxValue = 0) {
-  let maxValue = Math.max(1, Number.isFinite(tradeMaxValue) ? tradeMaxValue : 0);
+  let maxValue = Math.max(0.01, Number.isFinite(tradeMaxValue) ? tradeMaxValue : 0);
   for (const [assetId, value] of Object.entries(values || {})) {
     if (!String(assetId).startsWith("player:")) continue;
     if (Number.isFinite(value) && value > maxValue) maxValue = value;
@@ -514,7 +559,7 @@ async function loadValuationBundles(fetchImpl) {
   if (!payload || typeof payload !== "object") {
     throw new Error("Independent player values did not load.");
   }
-  if (payload.modelVersion !== PLAYER_VALUE_MODEL_VERSION) {
+  if (!isCurrentValueBoard(payload)) {
     throw new Error(`Unsupported player-value model: ${payload.modelVersion || "missing"}`);
   }
   const sf = coerceValueMap(payload.sf || {});
@@ -528,6 +573,7 @@ async function loadValuationBundles(fetchImpl) {
     players: payload.players && typeof payload.players === "object" ? payload.players : {},
     meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {},
     modelVersion: payload.modelVersion,
+    valueScale: payload.valueScale,
     asOf: payload.asOf || "",
     generatedAt: payload.generatedAt || "",
     lastModified,
@@ -541,12 +587,12 @@ export async function fetchPriceHistory(fetchImpl = globalThis.fetch, { now = ne
   // A new model reprices everyone at once. That is not a player moving, so a
   // trend only compares prices the current model produced.
   const listed = (Array.isArray(index.snapshots) ? index.snapshots : [])
-    .filter((row) => (row?.modelVersion || LEGACY_PRICE_MODEL_VERSION) === PLAYER_VALUE_MODEL_VERSION);
+    .filter(comparablePriceRow);
   const needed = stampsForWindow(listed, { now, days });
+  const rowsByStamp = new Map(listed.map(row => [row.stamp, row]));
   const loaded = await Promise.all(needed.map(async (row) => {
     const snap = await readJsonIfOk(fetchImpl, `./data/price-history/${row.stamp}.json`);
-    if (!snap || typeof snap !== "object") return null;
-    return { ...snap, stamp: row.stamp };
+    return comparableSnapshot(snap, rowsByStamp.get(row.stamp));
   }));
   const history = normalizePriceHistory(loaded.filter(Boolean));
   return history.snapshots.length ? history : null;
@@ -556,8 +602,10 @@ export async function fetchPriceHistory(fetchImpl = globalThis.fetch, { now = ne
 export async function fetchPeakValues(fetchImpl = globalThis.fetch) {
   const index = await readJsonIfOk(fetchImpl, PRICE_HISTORY_INDEX_PATH);
   const rows = (Array.isArray(index?.snapshots) ? index.snapshots : [])
-    .filter((row) => row?.modelVersion === PLAYER_VALUE_MODEL_VERSION);
-  const snaps = await Promise.all(rows.map((row) => readJsonIfOk(fetchImpl, `./data/price-history/${row.stamp}.json`)));
+    .filter(row => comparablePriceRow(row) && /^20\d{10}$/.test(row.stamp));
+  const snaps = await Promise.all(rows.map(async row => comparableSnapshot(
+    await readJsonIfOk(fetchImpl, `./data/price-history/${row.stamp}.json`), row,
+  )));
   const peaks = {};
   let since = "";
   for (const snap of snaps) {

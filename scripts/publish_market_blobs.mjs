@@ -13,7 +13,11 @@ import { getStore } from "@netlify/blobs";
 import { MARKET_STORE, isMarketFile } from "../netlify/lib/market-data.js";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const MODEL_VERSION = "dynasty-sf-ppr-v2";
+const MODEL_VERSION = "dynasty-sf-ppr-v3";
+
+function validPrice(price) {
+  return Number.isFinite(price) && price > 0 && price <= 100 && Math.round(price * 100) / 100 === price;
+}
 
 async function main() {
   if (String(process.env.MARKET_PUBLISH || "").toLowerCase() === "off") {
@@ -29,10 +33,23 @@ async function main() {
   const parsed = JSON.parse(values);
   if (parsed.modelVersion !== MODEL_VERSION) throw new Error(`Unexpected modelVersion ${parsed.modelVersion}; not publishing.`);
   if (!parsed.sf || Object.keys(parsed.sf).length < 300) throw new Error("player_values.json has too few prices; not publishing.");
+  if (parsed.valueScale !== 100 || !Object.values(parsed.sf).every(validPrice) ||
+      !Object.entries(parsed.sf).some(([key, value]) => key.startsWith("player:") && value === 100)) {
+    throw new Error("Prices must be on the 0–100 scale in hundredths.");
+  }
   const index = await read("data/price-history/index.json");
   const history = JSON.parse(index);
-  if (!history.snapshots?.some((row) => row.modelVersion === MODEL_VERSION && row.asOf === parsed.asOf)) {
+  const latest = history.snapshots?.find((row) =>
+    row.modelVersion === MODEL_VERSION && row.valueScale === 100 && row.asOf === parsed.asOf);
+  if (!latest || !/^20\d{10}$/.test(latest.stamp)) {
     throw new Error("Current values have no matching dated archive; not publishing.");
+  }
+
+  const archive = JSON.parse(await read(`data/price-history/${latest.stamp}.json`));
+  if (archive.modelVersion !== MODEL_VERSION || archive.valueScale !== 100 || archive.asOf !== parsed.asOf ||
+      !archive.sf || Object.keys(archive.sf).length !== Object.keys(parsed.sf).length ||
+      Object.entries(parsed.sf).some(([key, price]) => archive.sf[key] !== price)) {
+    throw new Error("Dated archive does not match the current price scale and values.");
   }
 
   const store = getStore({ name: MARKET_STORE, siteID, token });

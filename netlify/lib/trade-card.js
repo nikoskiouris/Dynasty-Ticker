@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { formatNumber as count } from "../../docs/modules/html.js";
 import { cardVerdict, stampLabel } from "../../docs/modules/trade-share.js";
 import { FEWER_BETTER_LABEL } from "../../docs/modules/verdict-copy.js";
 import { createMeasurer, truncateToWidth } from "./text-measure.js";
@@ -40,7 +41,6 @@ const WORDMARK_H = 34;
 
 // Without the font (unit tests), estimate wide: 0.62em a glyph.
 const roughMeasure = (text, size) => Array.from(String(text ?? "")).length * size * 0.62;
-const count = (value) => Math.round(Number(value) || 0).toLocaleString("en-US");
 
 // RECHECK3: direction by placement and a pointer, not colour. The bigger
 // column's total is bright and gets a small triangle pointing at it.

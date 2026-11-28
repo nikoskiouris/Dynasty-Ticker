@@ -6,7 +6,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from dynasty_value import value_board
+from dynasty_value import VALUE_SCALE, value_board
 from value_inputs import DATA, ROOT, collect
 
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -39,7 +39,8 @@ def assemble(inputs):
     for key, result in pick_results.items():
         sf[key], names[key] = result["value"], picks[key]["name"]
     return {
-        "schemaVersion": 1, "modelVersion": MODEL_VERSION, "asOf": inputs["asOf"], "generatedAt": inputs["asOf"],
+        "schemaVersion": 1, "modelVersion": MODEL_VERSION, "valueScale": VALUE_SCALE,
+        "asOf": inputs["asOf"], "generatedAt": inputs["asOf"],
         "season": inputs["season"], "throughWeek": inputs["seasonWeek"] - 1,
         "names": names, "sf": sf, "players": details,
         "meta": {"referenceTeams": 12, "scoring": "full PPR", "superflex": True, "price": diagnostics,

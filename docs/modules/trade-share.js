@@ -1,6 +1,8 @@
+import { roundPrice } from "./price-units.js";
+import { formatNumber } from "./html.js";
 import { draftMarketPrice, draftVerdictModel } from "./trade-draft.js";
 import { FEWER_BETTER_LABEL, verdictCopy } from "./verdict-copy.js";
-import { formatGenericPickAssetLabel, getGlobalMaxPlayerValue, pickValueBundle } from "./values.js";
+import { formatGenericPickAssetLabel, getGlobalMaxPlayerValue, snapshotPrices } from "./values.js";
 
 // A shared trade is its own state, so no server storage: /t/<code>.
 // Code v2: "2", format "s" (Superflex) or "q" (1QB), the 12-digit UTC price
@@ -85,18 +87,6 @@ export function missingBoardNote(dateLabel) {
   return MISSING_BOARD_NOTE;
 }
 
-// Index first. A listed stamp is fetched. A stamp the index does not list
-// returns "" so the page does not request a missing file.
-export function snapshotRequestForStamp(index, stamp) {
-  if (!isPriceStamp(stamp)) return "";
-  if (index && typeof index === "object") {
-    if (index.schemaVersion != null && Number(index.schemaVersion) !== 1) return "";
-    const listed = Array.isArray(index.snapshots) ? index.snapshots : [];
-    if (!listed.some((row) => String(row?.stamp || "") === stamp)) return "";
-  }
-  return snapshotPath(stamp);
-}
-
 export function encodeTradeShare({ give = [], get = [], format = "sf", asOf = "" } = {}) {
   const side = (list) => (Array.isArray(list) ? list : []).map(encodeShareAsset);
   const left = side(give);
@@ -153,7 +143,8 @@ export function sameVerdict(left, right) {
 // that carry prices only. Defaults to the board itself.
 export function shareSummary(decoded, payload, playerNames = {}, directory = payload) {
   if (!decoded) return null;
-  const bundle = pickValueBundle(payload, decoded.format);
+  const bundle = snapshotPrices(payload);
+  if (!bundle) return null;
   const values = bundle.values || {};
   const row = (assetId) => {
     const isPick = assetId.startsWith("pick:");
@@ -167,7 +158,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     // Share the calculator’s quoted slot or its whole-round fallback for that draft.
     const pickPrice = isPick ? draftMarketPrice({ assetType: "pick", assetId }, { values, nameMap: bundle.nameMap || {} }) : null;
     const raw = isPick ? pickPrice.value : values[assetId];
-    const value = Math.max(0, Math.round(Number(raw) || 0));
+    const value = Math.max(0, roundPrice(Number(raw) || 0));
     // No price at all (an old link, a player since dropped) is not a price of 0.
     const unpriced = pickPrice?.estimated || !(Number(raw) > 0);
     const position = isPick ? "PICK" : String((payload?.players || directory?.players)?.[assetId]?.position || "").toUpperCase().slice(0, 4);
@@ -179,11 +170,15 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     globalMaxValue: getGlobalMaxPlayerValue(values),
   });
   const credit = model.adjustment
-    ? { amount: Math.round(model.adjustment.amount), side: model.adjustment.side === "left" ? "give" : "get" }
+    ? { amount: roundPrice(model.adjustment.amount), side: model.adjustment.side === "left" ? "give" : "get" }
     : null;
   const summary = {
     format: decoded.format,
-    formatLabel: "12-team Superflex PPR dynasty",
+    formatLabel: bundle.sourceScale === 100
+      ? "12-team Superflex PPR dynasty · 0–100 values"
+      : "12-team Superflex PPR dynasty · historical prices ÷ 100",
+    valueScale: 100,
+    sourceValueScale: bundle.sourceScale,
     give,
     get,
     giveTotal: model.give,
@@ -193,7 +188,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     giveCredited: model.compareGive,
     getCredited: model.compareGet,
     credit,
-    gap: model.compareGet - model.compareGive,
+    gap: roundPrice(model.compareGet - model.compareGive),
     pct: model.verdict.pct,
     tone: model.verdict.tone,
     verdict: model.verdict,
@@ -204,7 +199,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
   return summary;
 }
 
-const formatCount = (value) => Math.round(Math.abs(Number(value) || 0)).toLocaleString("en-US");
+const formatCount = (value) => formatNumber(Math.abs(Number(value) || 0));
 
 // All wording comes from verdictCopy (verdict-copy.js), same as the app.
 export function neutralVerdict(summary) {

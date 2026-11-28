@@ -12,14 +12,22 @@ import json
 import math
 import sys
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "docs" / "data"
 MAX_VALUE_AGE_DAYS = 21
 # The model the builder is configured to write. A snapshot from any other model is not the one the desk expects.
-MODEL_VERSION = "dynasty-sf-ppr-v2"
+MODEL_VERSION = "dynasty-sf-ppr-v3"
 POSITIONS = {"QB", "RB", "WR", "TE"}
+
+
+def price_hundredths(value) -> int | None:
+    if type(value) not in (int, float) or not 0 <= value <= 100:
+        return None
+    scaled = Decimal(str(value)) * 100
+    return int(scaled) if scaled == scaled.to_integral_value() else None
 
 
 def parse_stamp(value: str) -> datetime | None:
@@ -62,6 +70,8 @@ def check_player_values(
         errors.append(f"player_values schemaVersion is {data.get('schemaVersion')!r}")
     if data.get("modelVersion") != MODEL_VERSION:
         errors.append(f"player_values modelVersion is {data.get('modelVersion')!r}")
+    if data.get("valueScale") != 100:
+        errors.append("player_values must use the 0–100 scale")
     sf = data.get("sf")
     names = data.get("names")
     players = data.get("players")
@@ -78,7 +88,8 @@ def check_player_values(
     if len(players) < 200 or not any(key.startswith("pick:") for key in sf):
         errors.append("incomplete dynasty player or pick board")
     for asset_id, value in sf.items():
-        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 10000:
+        cents = price_hundredths(value)
+        if cents is None or cents == 0:
             errors.append(f"bad sf value {asset_id}")
             break
         if asset_id not in names:
@@ -91,8 +102,8 @@ def check_player_values(
                 break
             factors = info.get("factors")
             if (not isinstance(factors, dict) or set(factors) != {"lineup", "future", "draft", "market"}
-                    or not all(type(weighted) is int and weighted >= 0 for weighted in factors.values())
-                    or sum(factors.values()) != value):
+                    or any(price_hundredths(part) is None for part in factors.values())
+                    or sum(price_hundredths(part) for part in factors.values()) != cents):
                 errors.append(f"missing or invalid attribution for {asset_id}")
                 break
             projection = info.get("projection")
@@ -108,8 +119,8 @@ def check_player_values(
             if position not in POSITIONS:
                 errors.append(f"bad position for {asset_id}")
                 break
-    if not any(str(key).startswith("player:") for key in sf):
-        errors.append("player_values has no players")
+    if not any(str(key).startswith("player:") and value == 100 for key, value in sf.items()):
+        errors.append("player_values must anchor its highest player at 100")
     stamp = parse_stamp(str(data.get("asOf") or ""))
     if stamp is None:
         errors.append(f"player_values asOf is not a time: {data.get('asOf')!r}")

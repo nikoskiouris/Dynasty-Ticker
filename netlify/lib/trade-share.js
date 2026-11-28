@@ -7,6 +7,7 @@ import {
   cardVerdict,
   decodeTradeShare,
   isPriceStamp,
+  priceStamp,
   sameVerdict,
   shareImagePath,
   sharePath,
@@ -14,7 +15,8 @@ import {
   snapshotPath,
   stampLabel,
 } from "../../docs/modules/trade-share.js";
-import { PLAYER_VALUE_MODEL_VERSION } from "../../docs/modules/values.js";
+import { formatNumber } from "../../docs/modules/html.js";
+import { isCurrentValueBoard } from "../../docs/modules/values.js";
 import { FEWER_BETTER_ADDEND } from "../../docs/modules/verdict-copy.js";
 
 export const SHARE_NAMES_STORE = "share-names";
@@ -22,7 +24,7 @@ export const SHARE_NAMES_KEY = "sleeper-player-names-v1";
 const NAMES_TTL_MS = 24 * 60 * 60 * 1000;
 const VALUES_TTL_MS = 10 * 60 * 1000;
 export const SITE_ORIGIN = "https://dynastyticker.com";
-export const CARD_DESIGN = "c3"; // c2: columns named Team 1 / Team 2 receives. c3: picks read "2027 1st"; biggest pieces first when a side has more than 4
+export const CARD_DESIGN = "c4"; // 0–100 values with hundredth precision.
 export const PAGE_CACHE = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
 export const CARD_CACHE = "public, max-age=31536000, immutable";
 export const PAGE_CSP = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'";
@@ -57,7 +59,7 @@ export function codeFromPath(pathname, { suffix = "" } = {}) {
 export function shareText(summary, { today = null, legacy = false } = {}) {
   const list = (rows) => rows.map((row) => row.name).join(", ");
   const verdict = cardVerdict(summary);
-  const n = (value) => Math.round(value).toLocaleString("en-US");
+  const n = formatNumber;
   const side = (key, label) => {
     const credited = summary.credit?.side === key;
     const listed = key === "give" ? summary.giveTotal : summary.getTotal;
@@ -145,7 +147,7 @@ export async function readSiteFile(rel, origin) {
 export async function loadValues({ origin = SITE_ORIGIN, now = Date.now() } = {}) {
   if (valuesCache && now - valuesCache.at < VALUES_TTL_MS) return valuesCache.payload;
   const payload = JSON.parse(await readSiteFile("data/player_values.json", origin));
-  if (payload?.modelVersion !== PLAYER_VALUE_MODEL_VERSION) throw new Error("Current dynasty values are unavailable.");
+  if (!isCurrentValueBoard(payload)) throw new Error("Current dynasty values are unavailable.");
   valuesCache = { at: now, payload };
   return payload;
 }
@@ -188,7 +190,7 @@ export async function loadPlayerNames({ store = null, fetchImpl = fetch, now = D
 }
 
 export function valuesVersion(payload) {
-  return String(payload?.asOf || "").replace(/[^0-9]/g, "").slice(0, 12);
+  return priceStamp(payload?.asOf);
 }
 
 const snapshotCache = new Map();
@@ -201,12 +203,12 @@ export async function loadSnapshot(stamp, { origin = SITE_ORIGIN } = {}) {
   let payload = null;
   try {
     payload = JSON.parse(await readSiteFile(snapshotPath(stamp).slice(1), origin));
-    if (!payload?.sf) payload = null;
+    if (!payload?.sf || valuesVersion(payload) !== stamp) payload = null;
   } catch {
     payload = null;
   }
   if (snapshotCache.size > 64) snapshotCache.clear();
-  snapshotCache.set(stamp, payload);
+  if (payload) snapshotCache.set(stamp, payload);
   return payload;
 }
 

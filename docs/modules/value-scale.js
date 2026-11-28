@@ -1,3 +1,4 @@
+import { roundPrice } from "./price-units.js";
 import { escapeHtml, formatNumber } from "./html.js";
 
 // Player-price tiers follow the current published board as its scale changes.
@@ -201,7 +202,7 @@ export function valueChange(playerId, { days = 30, format = "sf", history = null
   const to = closestOnOrBefore(points, today);
   const from = closestOnOrBefore(points, shiftIsoDate(today, -span));
   if (!from || !to || from.date === to.date) return null;
-  const delta = to.value - from.value;
+  const delta = roundPrice(to.value - from.value);
   return {
     from: from.value,
     to: to.value,
@@ -257,13 +258,13 @@ export function valueTrend(points, { now = new Date(), windowDays = TREND_WINDOW
     .sort((a, b) => a.day - b.day || a.value - b.value);
   // A leading 0 means the model had no price for him yet (a rookie before
   // rookie pricing was fixed), not that he was worth nothing. Start the trend at
-  // his first real price so a new price never reads as "up 6,365".
+  // his first observed positive value.
   const firstPriced = series.findIndex((point) => point.value > 0);
   if (firstPriced > 0) series.splice(0, firstPriced);
   if (series.length < 2) return null;
   const first = series[0];
   const last = series[series.length - 1];
-  const delta = last.value - first.value;
+  const delta = roundPrice(last.value - first.value);
   return {
     delta,
     direction: delta > 0 ? "up" : delta < 0 ? "down" : "flat",
@@ -325,7 +326,7 @@ export function renderValueSparkline(series) {
   return `<svg class="value-spark" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true"><polyline points="${points}" /></svg>`;
 }
 
-// showWindow puts the window on screen ("↑677 since Oct 28", "No change since
+// showWindow puts the window on screen ("↑6.77 since Oct 28", "No change since
 // Nov 19"); a bare "→0" does not say over what time, so a reader cannot tell
 // flat-for-a-month from two days of history.
 export function renderValueTrend(trend, { spark = false, showWindow = false, now = new Date() } = {}) {

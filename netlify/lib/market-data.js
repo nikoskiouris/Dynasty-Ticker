@@ -8,7 +8,7 @@
 // the last release. A release never goes backwards, and a day with no publish
 // still serves the release's files.
 import { readFile } from "node:fs/promises";
-import { PLAYER_VALUE_MODEL_VERSION } from "../../docs/modules/values.js";
+import { isCurrentValueBoard } from "../../docs/modules/values.js";
 import { join } from "node:path";
 
 export const MARKET_STORE = "market-data";
@@ -47,8 +47,8 @@ export function newerCopy(rel, bundledText, storedText) {
   const bundled = parse(bundledText);
   const stored = parse(storedText);
   if (rel === "data/player_values.json") {
-    const bundledIsCurrent = bundled?.modelVersion === PLAYER_VALUE_MODEL_VERSION;
-    const storedIsCurrent = stored?.modelVersion === PLAYER_VALUE_MODEL_VERSION;
+    const bundledIsCurrent = isCurrentValueBoard(bundled);
+    const storedIsCurrent = isCurrentValueBoard(stored);
     if (!storedIsCurrent) return bundledIsCurrent ? "bundled" : null;
     if (!bundledIsCurrent) return "stored";
     const key = (p) => String(p.generatedAt || p.asOf || "");

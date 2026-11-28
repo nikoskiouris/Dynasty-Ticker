@@ -82,7 +82,6 @@ import {
   playersFromValueSnapshot,
   fetchPriceHistory,
   fetchPeakValues,
-  PRICE_HISTORY_INDEX_PATH,
   getAssetValue as marketAssetValue,
   isEstimatedAsset as marketIsEstimated,
   buildPickValuationCatalog,
@@ -188,6 +187,7 @@ import {
   releaseBootGate,
   scheduleBootFind,
 } from "./modules/boot-gate.js";
+import { roundPrice } from "./modules/price-units.js";
 import { ownerPossessive } from "./modules/html.js";
 import {
   describeUserSearchFailure,
@@ -241,7 +241,7 @@ import {
 } from "./modules/verdict-copy.js";
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import { GLOSSARY, bindInfoTips, infoTipMarkup, renderPriceLegend, valuesWorkText } from "./modules/info-tip.js";
-import { LEGACY_FORMAT_NOTE, decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
+import { LEGACY_FORMAT_NOTE, decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
 import { chooseBestLineup, countStartableAtPosition } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
@@ -2102,7 +2102,7 @@ function playerPageDescription(name) {
     row?.boardRank && row.boardRank !== row.position ? row.boardRank : "",
   ].filter(Boolean).join(", ");
   if (!row || !(Number(row.value) > 0)) return `${name}: dynasty value, rank and why, on 12-team Superflex PPR values.`;
-  return `${name}${tag ? ` (${tag})` : ""} dynasty value: ${formatNumber(row.value)}${ranks ? `, ${ranks}` : ""} in 12-team Superflex PPR. See why, the trend and similar values.`;
+  return `${name}${tag ? ` (${tag})` : ""} dynasty value: ${formatNumber(row.value)}/100${ranks ? `, ${ranks}` : ""} in 12-team Superflex PPR. See why, the trend and similar values.`;
 }
 
 function applyTradeRoute(route) {
@@ -2152,27 +2152,15 @@ async function loadSharedTrade(code, draft) {
   };
   if (!decoded.stamp) return settle();
   try {
-    // Index first. A stamp that is not listed is not fetched, so a pruned
-    // board does not log a console 404.
-    let index = null;
-    const indexRes = await fetch(PRICE_HISTORY_INDEX_PATH);
-    if (indexRes?.ok) index = await indexRes.json();
-    const path = snapshotRequestForStamp(index, decoded.stamp);
-    if (!path) {
-      entry.snapshotState = "missing";
+    // A share can outlive the rolling history index while its dated file still exists.
+    const path = snapshotPath(decoded.stamp);
+    const response = path && await fetch(path);
+    const snapshot = response?.ok ? await response.json() : null;
+    if (snapshot?.sf && priceStamp(snapshot.asOf) === decoded.stamp) {
+      entry.snapshot = snapshot;
+      entry.snapshotState = "ready";
     } else {
-      const res = await fetch(path);
-      if (!res.ok) {
-        entry.snapshotState = "missing";
-      } else {
-        const snapshot = await res.json();
-        if (snapshot?.sf) {
-          entry.snapshot = snapshot;
-          entry.snapshotState = "ready";
-        } else {
-          entry.snapshotState = "missing";
-        }
-      }
+      entry.snapshotState = "missing";
     }
   } catch {
     entry.snapshotState = "missing";
@@ -2210,6 +2198,7 @@ function sharedVerdictFor(view) {
   const entry = activeSharedTrade(view.draft);
   if (!entry || !state.valueBundles) return null;
   const today = shareSummary(entry.decoded, state.valueBundles);
+  if (!today) return null;
   // A 1QB code was shared on 1QB prices we no longer publish. An old SF
   // snapshot is not what the sender saw, so do not print it as "Shared on".
   const legacy = Boolean(entry.decoded?.legacyFormat);
@@ -2225,7 +2214,7 @@ function sharedVerdictFor(view) {
     date: stampLabel(entry.decoded.stamp),
     legacy,
     // A link shared on today's prices is current, not "no longer saved".
-    missing: !legacy && entry.snapshotState === "missing" && !sharedOnCurrentPrices(entry.decoded.stamp),
+    missing: !legacy && (entry.snapshotState === "missing" || (entry.snapshotState === "ready" && !shared)) && !sharedOnCurrentPrices(entry.decoded.stamp),
   };
 }
 
@@ -5755,7 +5744,7 @@ function refreshDraftSuggestions(side) {
 
 function renderDraftBasis(view) {
   const legacy = activeSharedTrade(view.draft)?.decoded?.legacyFormat || state.legacyValueLink;
-  return `<div class="draft-basis-row"><p class="draft-format-fixed">Values: 12-team Superflex PPR dynasty</p>
+  return `<div class="draft-basis-row"><p class="draft-format-fixed">Values on a 0–100 scale · 12-team Superflex PPR dynasty</p>
     ${infoTipMarkup({ id: "pop-format-trade", label: "Scoring and how values work", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10))}` })}
     ${legacy ? `<p class="muted">Shared with 1QB values, which we no longer publish. Shown on 12-team SF PPR values.</p>` : ""}</div>`;
 }
@@ -5845,7 +5834,7 @@ function renderDraftTotal(side, view) {
   if (items.some((item) => view.priced.get(String(item.uid))?.estimated)) return "<strong>Unavailable</strong>";
   const listed = side === "left" ? view.give : view.get;
   const adj = view.missingPrices ? null : view.model?.adjustment;
-  const extra = adj?.amount > 0 && (adj.side === "left") === (side === "left") ? Math.round(adj.amount) : 0;
+  const extra = adj?.amount > 0 && (adj.side === "left") === (side === "left") ? roundPrice(adj.amount) : 0;
   return `
     <strong>${formatNumber(listed + extra)}</strong>
     ${extra ? `<span class="calc-pane-extra">incl. +${formatNumber(extra)} extra</span>` : ""}
@@ -6042,7 +6031,7 @@ function draftSuggestionRows(side, view) {
           name: row.name,
           assetType: row.assetType,
           position: String(record.position || ""),
-          value: Math.round(row.value),
+          value: row.value,
           estimated: false,
           context: String(record.team || ""),
           hint: wholeRoundPickHint(row, query),
@@ -6097,7 +6086,7 @@ function draftSuggestionRows(side, view) {
         name: row.name,
         assetType: row.assetType,
         position: row.assetType === "player" ? String(playerRecordFor(row.assetId).position || "") : "",
-        value: Math.round(row.value),
+        value: row.value,
         estimated: false,
         context: row.assetType === "pick" ? "Generic pick" : "Not on a roster here",
         leagueId: "",
@@ -6188,7 +6177,7 @@ function findEvenUpPick(view) {
   return any?.closes || !near ? any : near;
 }
 
-const EVEN_UP_MIN_PLAYER = 3500;
+const EVEN_UP_MIN_PLAYER = 35;
 
 // The closest pick and the closest player that even the trade up. Players are
 // prefiltered to a price band around the gap, then scored like picks.
@@ -6205,7 +6194,7 @@ function findEvenUpOptions(view) {
     const taken = new Set([...view.draft.left, ...view.draft.right].map((item) => String(item.assetId)));
     const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
     const near = listValueCalcAssets(view.basis.values, names, { kinds: ["player"], limit: 2000 })
-      // A throw-in never decides a real trade: only starter-level players (3,500+).
+      // A throw-in never decides a real trade: only starter-level players (35+).
       .filter((row) => !taken.has(String(row.assetId)) && row.value >= EVEN_UP_MIN_PLAYER && row.value >= need * 0.3 && row.value <= need * 4)
       .sort((x, y) => Math.abs(x.value - need) - Math.abs(y.value - need));
     player = evenUpTradePick({ giveValues: give, getValues: get, picks: near, globalMaxValue });
@@ -6269,7 +6258,7 @@ function renderDraftVerdict(view) {
   // fewer, better pieces as its own labeled segment, so "You give 63% more"
   // never sits beside two bars that look even.
   const bars = sharedBarSegments(model, null);
-  const maxSide = Math.max(bars.give.total, bars.get.total, 1);
+  const maxSide = Math.max(bars.give.total, bars.get.total, 0.01);
   // Same metric and bands as the headline (verdict-copy.js).
   const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpOptions(view) : null;
   // "Why?" names the sides like the columns (Team 2 Receives / Team 1 Receives).
@@ -6311,9 +6300,9 @@ function renderDraftVerdict(view) {
 function sharedBarSegments(model, meters = null) {
   const adj = model?.adjustment;
   const side = (key, listed) => {
-    const stars = !meters && adj && (adj.side === "left") === (key === "give") ? Math.round(Number(adj.amount) || 0) : 0;
-    const base = Math.round(Number(meters ? meters[key] : listed) || 0);
-    return { listed: base, stars, total: base + stars };
+    const stars = !meters && adj && (adj.side === "left") === (key === "give") ? roundPrice(adj.amount) : 0;
+    const base = roundPrice(meters ? meters[key] : listed);
+    return { listed: base, stars, total: roundPrice(base + stars) };
   };
   return { give: side("give", model?.give), get: side("get", model?.get) };
 }
@@ -6429,7 +6418,7 @@ async function sharePlayerPage(button) {
   };
   const url = new URL(window.location.pathname, window.location.origin).href;
   const name = button?.dataset.name || "This player";
-  const text = button?.dataset.value ? `${name}: ${button.dataset.value} dynasty value (12-team Superflex PPR) on Dynasty Ticker.` : `${name} on Dynasty Ticker.`;
+  const text = button?.dataset.value ? `${name}: ${button.dataset.value}/100 dynasty value (12-team Superflex PPR) on Dynasty Ticker.` : `${name} on Dynasty Ticker.`;
   if (typeof navigator.share === "function") {
     try {
       await navigator.share({ title: `${name} · Dynasty Ticker`, text, url });
@@ -7221,7 +7210,7 @@ function buildSeasonSnapshot(entry, tradeBucket = null) {
     parityScore,
     tradeCount: tradeBucket?.tradeCount || 0,
     movedAssetCount: tradeBucket?.movedAssetCount || 0,
-    movedValue: Math.round(tradeBucket?.movedValue || 0),
+    movedValue: roundPrice(tradeBucket?.movedValue || 0),
     tradedPickCount: Array.isArray(entry.tradedPicks) ? entry.tradedPicks.length : 0,
     playoffTeams: Number(entry.league?.settings?.playoff_teams || 0),
     rosterCount: standings.length,
@@ -7501,9 +7490,9 @@ function summarizeRosterAssets(roster, values) {
     .filter((entry) => Number.isFinite(entry.value))
     .sort(compareOwnedPickValue);
   const topWeightedAgeEntries = playerEntries.slice(0, 12).filter((entry) => Number.isFinite(playerAgeForAsset(entry.asset)));
-  const totalAgeWeight = topWeightedAgeEntries.reduce((sum, entry) => sum + Math.max(1, entry.value), 0);
+  const totalAgeWeight = topWeightedAgeEntries.reduce((sum, entry) => sum + Math.max(0.01, entry.value), 0);
   const averageAge = totalAgeWeight > 0
-    ? topWeightedAgeEntries.reduce((sum, entry) => sum + playerAgeForAsset(entry.asset) * Math.max(1, entry.value), 0) / totalAgeWeight
+    ? topWeightedAgeEntries.reduce((sum, entry) => sum + playerAgeForAsset(entry.asset) * Math.max(0.01, entry.value), 0) / totalAgeWeight
     : null;
   const teamStack = buildTopTeamStack(playerEntries);
 
@@ -8116,7 +8105,7 @@ function calculateTradeXp({ beforeProfile, afterProfile, delta }) {
   const rankGain = Math.max(0, beforeProfile.rank - afterProfile.rank);
   const starterGain = Math.max(0, afterProfile.metrics.starterValue - beforeProfile.metrics.starterValue);
   const base = delta > 0 ? 120 : 45;
-  return Math.round(base + Math.max(0, delta) * 95 + rankGain * 160 + Math.min(900, starterGain * 0.18));
+  return Math.round(base + Math.max(0, delta) * 95 + rankGain * 160 + Math.min(900, starterGain * 18));
 }
 
 function buildTradePowerBadges({ beforeProfile, afterProfile, delta, myAssets, theirAssets }) {
@@ -8124,8 +8113,8 @@ function buildTradePowerBadges({ beforeProfile, afterProfile, delta, myAssets, t
   if (delta >= 5) badges.push("Major Power-Up");
   if (delta > 0 && delta < 5) badges.push("Roster Buff");
   if (afterProfile.rank < beforeProfile.rank) badges.push(`Rank +${beforeProfile.rank - afterProfile.rank}`);
-  if (afterProfile.metrics.starterValue > beforeProfile.metrics.starterValue + 300) badges.push("Lineup Boost");
-  if (afterProfile.assetSummary.pickValue > beforeProfile.assetSummary.pickValue + 800) badges.push("Draft picks up");
+  if (afterProfile.metrics.starterValue > beforeProfile.metrics.starterValue + 3) badges.push("Lineup Boost");
+  if (afterProfile.assetSummary.pickValue > beforeProfile.assetSummary.pickValue + 8) badges.push("Draft picks up");
   if (theirAssets.length < myAssets.length) badges.push("Consolidation");
   if (theirAssets.length > myAssets.length) badges.push("Depth Gain");
   if (afterProfile.weakestPosition?.position !== beforeProfile.weakestPosition?.position) badges.push("Hole Patched");
@@ -8149,7 +8138,7 @@ function buildTradePowerSummary({ beforeProfile, afterProfile, delta }) {
     parts.push(`lineup rank stays ${ordinal(afterProfile.rank)}`);
   }
 
-  const starterDelta = afterProfile.metrics.starterValue - beforeProfile.metrics.starterValue;
+  const starterDelta = roundPrice(afterProfile.metrics.starterValue - beforeProfile.metrics.starterValue);
   if (starterDelta !== 0) {
     parts.push(`starters ${starterDelta > 0 ? "gain" : "lose"} ${formatNumber(Math.abs(starterDelta))}`);
   }
@@ -8158,9 +8147,9 @@ function buildTradePowerSummary({ beforeProfile, afterProfile, delta }) {
 }
 
 function buildTradeImpactSide({ title, managerName, beforeMetrics, afterMetrics, beforeRank, afterRank, totalTeams }) {
-  const starterDelta = afterMetrics.starterValue - beforeMetrics.starterValue;
-  const benchDelta = afterMetrics.benchValue - beforeMetrics.benchValue;
-  const totalDelta = afterMetrics.totalValue - beforeMetrics.totalValue;
+  const starterDelta = roundPrice(afterMetrics.starterValue - beforeMetrics.starterValue);
+  const benchDelta = roundPrice(afterMetrics.benchValue - beforeMetrics.benchValue);
+  const totalDelta = roundPrice(afterMetrics.totalValue - beforeMetrics.totalValue);
   const verdict = classifyTradeImpact({ starterDelta, beforeRank, afterRank, totalDelta });
 
   return {
@@ -8190,16 +8179,16 @@ function formatStarterRank(rank, totalTeams) {
 }
 
 function classifyTradeImpact({ starterDelta, beforeRank, afterRank, totalDelta }) {
-  if (afterRank < beforeRank || starterDelta >= 350) {
+  if (afterRank < beforeRank || starterDelta >= 3.5) {
     return { label: "Stronger starting lineup", className: "good" };
   }
-  if (afterRank > beforeRank || starterDelta <= -350) {
+  if (afterRank > beforeRank || starterDelta <= -3.5) {
     return { label: "Weaker starting lineup", className: "bad" };
   }
-  if (totalDelta >= 350) {
+  if (totalDelta >= 3.5) {
     return { label: "More total value", className: "good" };
   }
-  if (totalDelta <= -350) {
+  if (totalDelta <= -3.5) {
     return { label: "Paying a premium", className: "bad" };
   }
   return { label: "Mostly neutral", className: "" };
@@ -8265,7 +8254,7 @@ function evaluateRosterStrength(roster, values, league) {
     starterValue: lineupResult.starterValue,
     benchValue: lineupResult.benchValue,
     benchHighlights: lineupResult.benchAssets.slice(0, 5),
-    totalValue: Math.round(roster.assets.reduce((sum, asset) => sum + getAssetValue(asset, values), 0)),
+    totalValue: roundPrice(roster.assets.reduce((sum, asset) => sum + getAssetValue(asset, values), 0)),
   };
 }
 
@@ -8324,9 +8313,9 @@ function buildOptimalStartingLineup(assets, starterSlots, values) {
 
   return {
     starters,
-    starterValue: Math.round(starters.reduce((sum, entry) => sum + (entry.asset ? getAssetValue(entry.asset, values) : 0), 0)),
+    starterValue: roundPrice(starters.reduce((sum, entry) => sum + (entry.asset ? getAssetValue(entry.asset, values) : 0), 0)),
     benchAssets,
-    benchValue: Math.round(benchAssets.reduce((sum, asset) => sum + getAssetValue(asset, values), 0)),
+    benchValue: roundPrice(benchAssets.reduce((sum, asset) => sum + getAssetValue(asset, values), 0)),
   };
 }
 

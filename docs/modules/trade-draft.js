@@ -1,3 +1,4 @@
+import { roundPrice, priceHundredths } from "./price-units.js";
 import { safeStorage } from "./safe-storage.js";
 import {
   addValueCalcItem,
@@ -19,7 +20,7 @@ const LEGACY_TRADE_DRAFT_KEYS = Object.freeze([
 // The calculator reads the exact same canonical snapshot as Players and My League.
 export function draftMarketPrice(asset, { values = {}, nameMap = {}, catalog = null } = {}) {
   const lookup = lookupMarketValue(asset, values, nameMap, catalog);
-  return { value: Math.round(Number(lookup.value) || 0), estimated: Boolean(lookup.estimated) };
+  return { value: roundPrice(Number(lookup.value) || 0), estimated: Boolean(lookup.estimated) };
 }
 
 const DRAFT_ASSET_ID = /^(?:player:[A-Za-z0-9_.-]+|pick:\d{4}:r\d+:[A-Za-z0-9_-]+)$/;
@@ -27,22 +28,22 @@ const DRAFT_ASSET_ID = /^(?:player:[A-Za-z0-9_.-]+|pick:\d{4}:r\d+:[A-Za-z0-9_-]
 // The one verdict, with or without a league. Pane totals stay the plain market sums.
 // A package of two or more adds a stud credit, even when both sides send the same
 // number of pieces. A straight one-for-one stays at the listed prices.
-export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxValue = 9999 } = {}) {
+export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxValue = 100 } = {}) {
   // Keep a 0 in the list so a missing player still counts as a side. Infinity
   // and NaN become 0 here; stud credit drops them before the stud curve.
   const clean = (list) => (Array.isArray(list) ? list : []).map(finiteAssetValue);
   const giveList = clean(giveValues);
   const getList = clean(getValues);
-  const give = Math.round(giveList.reduce((sum, value) => sum + value, 0));
-  const get = Math.round(getList.reduce((sum, value) => sum + value, 0));
+  const give = roundPrice(giveList.reduce((sum, value) => sum + value, 0));
+  const get = roundPrice(getList.reduce((sum, value) => sum + value, 0));
   const pkg = giveList.length && getList.length
     ? calculatePackageAdjustment({ myValues: giveList, theirValues: getList, globalMaxValue })
     : null;
   const adjustment = pkg?.packageAdjustment > 0
     ? { amount: pkg.packageAdjustment, side: pkg.packageAdjustmentSide === "my" ? "left" : "right" }
     : null;
-  const compareGive = give + (adjustment?.side === "left" ? adjustment.amount : 0);
-  const compareGet = get + (adjustment?.side === "right" ? adjustment.amount : 0);
+  const compareGive = roundPrice(give + (adjustment?.side === "left" ? adjustment.amount : 0));
+  const compareGet = roundPrice(get + (adjustment?.side === "right" ? adjustment.amount : 0));
   return {
     give,
     get,
@@ -238,8 +239,8 @@ export function reviewPayloadFor(idea) {
 // verdict only, so the same side never shows two different numbers.
 export function draftMeterValues(model) {
   return {
-    give: Math.round(Number(model?.give) || 0),
-    get: Math.round(Number(model?.get) || 0),
+    give: roundPrice(Number(model?.give) || 0),
+    get: roundPrice(Number(model?.get) || 0),
   };
 }
 
@@ -257,10 +258,10 @@ export function evenUpPickChoice(gap, picks = [], { scoreAdded = null } = {}) {
   const score = typeof scoreAdded === "function" ? scoreAdded : null;
   let best = null;
   for (const pick of Array.isArray(picks) ? picks : []) {
-    const value = Math.round(Number(pick?.value) || 0);
+    const value = roundPrice(Number(pick?.value) || 0);
     if (!(value > 0) || !pick?.name) continue;
     if (!score) {
-      const miss = Math.abs(value - need);
+      const miss = roundPrice(Math.abs(value - need));
       if (!best || miss < best.miss) best = { assetId: String(pick.assetId || ""), name: String(pick.name), value, miss };
       continue;
     }
@@ -272,24 +273,27 @@ export function evenUpPickChoice(gap, picks = [], { scoreAdded = null } = {}) {
     const closes = pct <= EVEN_UP_FAIR_PCT;
     const candidate = { assetId: String(pick.assetId || ""), name: String(pick.name), value, miss, closes, gap: need, afterGap, pct, verdict: scored.verdict || null };
     // Among add-ons that make it fair, suggest the one priced nearest the raw
-    // gap, not the one that lands nearest exactly even (that picked a 7,227
-    // pick for a 1,776 gap). If none is fair, the one that gets closest.
-    const off = Math.abs(value - need);
+    // gap, not the one that lands nearest exactly even (that picked a 72.27
+    // pick for a 17.76 gap). If none is fair, the one that gets closest.
+    const off = roundPrice(Math.abs(value - need));
+    const bestOff = best ? roundPrice(Math.abs(best.value - need)) : Infinity;
     const betterClose = Boolean(best) && closes && !best.closes;
     const tighter = Boolean(best) && closes === best.closes && (closes
-      ? (off < Math.abs(best.value - need) || (off === Math.abs(best.value - need) && miss < best.miss))
+      ? (off < bestOff || (off === bestOff && miss < best.miss))
       : (miss < best.miss || (miss === best.miss && value < best.value)));
     if (!best || betterClose || tighter) best = candidate;
   }
   if (!best) return null;
   if (score) return best;
-  const closes = best.value >= need * 0.8 && best.value <= need * 1.25;
+  const gapUnits = priceHundredths(need);
+  const pickUnits = priceHundredths(best.value);
+  const closes = pickUnits >= gapUnits * 0.8 && pickUnits <= gapUnits * 1.25;
   return { ...best, closes, gap: need };
 }
 
 // Rescore every pick on the short side. Matching the raw gap is not enough:
 // the first extra piece turns on stud credit and can reopen the hole.
-export function evenUpTradePick({ giveValues = [], getValues = [], picks = [], globalMaxValue = 9999 } = {}) {
+export function evenUpTradePick({ giveValues = [], getValues = [], picks = [], globalMaxValue = 100 } = {}) {
   const give = (Array.isArray(giveValues) ? giveValues : []).map(finiteAssetValue);
   const get = (Array.isArray(getValues) ? getValues : []).map(finiteAssetValue);
   if (!give.length || !get.length) return null;

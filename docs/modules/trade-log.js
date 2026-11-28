@@ -1,3 +1,4 @@
+import { roundPrice } from "./price-units.js";
 import { escapeHtml, formatNumber, ownerPossessive } from "./html.js";
 import { gradeTrade, tradeAssets } from "./trade-grade.js";
 import { tradeHref } from "./history-route.js";
@@ -27,11 +28,11 @@ const assetHtml = (asset, context) => asset.kind === "player"
     ? `${escapeHtml(pickLabel(asset, context))} → ${playerButton(asset.draftedPlayerId, context)} (drafted)`
     : escapeHtml(pickLabel(asset, context));
 
-// The calculator's column total says "incl. +3,189 extra" when the fewer,
+// The calculator's column total says "incl. +31.89 extra" when the fewer,
 // better pieces extra is counted; the grade uses the same total, so say so here
-// too. Otherwise "Received 25,383" does not add up from the pieces listed.
+// too. Otherwise "Received 253.83" does not add up from the pieces listed.
 function receivedExtra(side) {
-  const extra = Math.round(Number(side?.valueReceived) - Number(side?.listedReceived));
+  const extra = roundPrice(Number(side?.valueReceived) - Number(side?.listedReceived));
   return Number.isFinite(extra) && extra > 0 ? ` (incl. +${formatNumber(extra)} extra)` : "";
 }
 

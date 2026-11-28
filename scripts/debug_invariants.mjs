@@ -342,9 +342,9 @@ check("one roster cannot bank two games in the same week", () => {
 });
 
 check("unquoted pick years have no published price", () => {
-  const past = findPickCatalogValue({ season: "2024", round: 1, bucket: "any" }, { "pick:2026:r1:any": 5000 });
+  const past = findPickCatalogValue({ season: "2024", round: 1, bucket: "any" }, { "pick:2026:r1:any": 50 });
   if (past !== null) return `past pick ${past}`;
-  const future = findPickCatalogValue({ season: "2028", round: 1, bucket: "any" }, { "pick:2026:r1:any": 5000 });
+  const future = findPickCatalogValue({ season: "2028", round: 1, bucket: "any" }, { "pick:2026:r1:any": 50 });
   if (future !== null) return `future pick ${future}`;
   return "";
 });

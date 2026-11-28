@@ -18,6 +18,7 @@
 // Colour: tone (good | fair | bad) is relative to the sharer and is used only
 // on private /trade. publicTone (fair | strong) colours only the tier on the
 // public card and cold /t; direction is shown by placement and a pointer.
+import { priceHundredths, roundPrice } from "./price-units.js";
 import { valueCalcVerdict } from "./value-calc.js";
 import { formatNumber } from "./html.js";
 
@@ -74,8 +75,10 @@ const round1 = (value) => Math.round(value * 10) / 10;
 // (bigger - smaller) / smaller, one decimal. null when the smaller side is 0.
 // Tiers use this unrounded percent. Sentences use displayMore.
 export function percentMore(left, right) {
-  const big = Math.max(Number(left) || 0, Number(right) || 0);
-  const small = Math.min(Number(left) || 0, Number(right) || 0);
+  const leftUnits = priceHundredths(left);
+  const rightUnits = priceHundredths(right);
+  const big = Math.max(leftUnits, rightUnits);
+  const small = Math.min(leftUnits, rightUnits);
   if (small <= 0) return big > 0 ? null : 0;
   return round1(((big - small) / small) * 100);
 }
@@ -165,13 +168,13 @@ export function verdictLineNamed(verdict, names = {}) {
 export const EVEN_UP_OFFER_ABOVE = TIER_BANDS.even;
 export const EVEN_UP_CLOSES_AT = TIER_BANDS.edge;
 
-const countText = (value) => Math.round(Math.abs(Number(value) || 0)).toLocaleString("en-US");
+const countText = (value) => roundPrice(Math.abs(Number(value) || 0)).toLocaleString("en-US");
 
 // Cold /t detail line: listed total, then the extra for fewer, better pieces.
-// "Give 19,224 (11,811 + 7,413 for fewer, better pieces). Get 14,457."
+// "Give 192.24 (118.11 + 74.13 for fewer, better pieces). Get 144.57."
 export function creditedTotalsLine({ giveListed = 0, getListed = 0, stars = 0, starSide = "" } = {}) {
   const part = (name, listed, key) => {
-    const extra = starSide === key && stars > 0 ? Math.round(stars) : 0;
+    const extra = starSide === key && stars > 0 ? roundPrice(stars) : 0;
     return extra
       ? `${name} ${countText(listed + extra)} (${countText(listed)} + ${countText(extra)} ${FEWER_BETTER_ADDEND}).`
       : `${name} ${countText(listed)}.`;
@@ -179,9 +182,9 @@ export function creditedTotalsLine({ giveListed = 0, getListed = 0, stars = 0, s
   return `${part("Give", Number(giveListed) || 0, "give")} ${part("Get", Number(getListed) || 0, "get")}`;
 }
 
-// Screen-reader label for a verdict bar: "Give 21,472 including 8,561 for fewer, better pieces".
+// Screen-reader label for a verdict bar, including any package credit.
 export function barLabel(name, listed = 0, stars = 0) {
-  const extra = Math.round(Number(stars) || 0);
+  const extra = roundPrice(stars);
   const total = (Number(listed) || 0) + extra;
   return extra > 0 ? `${name} ${countText(total)} including ${countText(extra)} ${FEWER_BETTER_ADDEND}` : `${name} ${countText(total)}`;
 }

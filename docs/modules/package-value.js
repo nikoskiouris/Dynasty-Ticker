@@ -1,3 +1,5 @@
+import { priceHundredths } from "./price-units.js";
+
 // Consolidation math for uneven packages: one better player is worth more than
 // the same total spread across more pieces.
 // Calibrated on completed packages in the two pre-holdout windows.
@@ -6,6 +8,7 @@ const KTC_RAW_BASE = 0.10;
 const KTC_RAW_ELITE_WEIGHT = 0.08;
 const KTC_RAW_TRADE_WEIGHT = 0.11;
 const KTC_RAW_DEPTH_WEIGHT = 0.18;
+const DEPTH_OFFSET = priceHundredths(20);
 
 export function finiteAssetValue(value) {
   const number = Number(value);
@@ -20,7 +23,7 @@ function calculateKtcRawAdjustment(playerValue, tradeMaxValue, globalMaxValue) {
     KTC_RAW_BASE
       + KTC_RAW_ELITE_WEIGHT * (playerValue / globalMaxValue) ** 8
       + KTC_RAW_TRADE_WEIGHT * (playerValue / tradeMaxValue) ** 1.3
-      + KTC_RAW_DEPTH_WEIGHT * (playerValue / (globalMaxValue + 2000)) ** 1.28
+      + KTC_RAW_DEPTH_WEIGHT * (playerValue / (globalMaxValue + DEPTH_OFFSET)) ** 1.28
   );
 }
 
@@ -133,7 +136,7 @@ function curvePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
 // Adding a piece to a side never makes that side worth less in the verdict,
 // and a throw-in never adds more than its own price to that side.
 // The stud curve alone broke that: a straight swap stays at listed prices, so
-// a 500-point throw-in on the other side switched the curve on and could turn
+// a 5-point throw-in on the other side switched the curve on and could turn
 // "you give 28% more" into "you give 70% more". Each side's pieces, best
 // first, are added one at a time; the lead for (i of mine, j of theirs) stays
 // between the leads one piece earlier on either side. That bounds it at both
@@ -158,7 +161,7 @@ function fullPackageAdjustment({ myValues, theirValues, globalMaxValue }) {
         value = Math.min(value, lead[i][j - 1]);
         value = Math.max(value, lead[i - 1][j]);
         // A throw-in (any piece after a side's best) is worth at most its own
-        // price to the side that gets it. Without this, a 600-point add-on next
+        // price to the side that gets it. Without this, a 6-point add-on next
         // to Gibbs switched the stud curve on and moved Gibbs-for-Bijan from
         // "5% more" to "27% more".
         if (j > 1) value = Math.max(value, lead[i][j - 1] - theirs[j - 1]);
@@ -184,14 +187,23 @@ function fullPackageAdjustment({ myValues, theirValues, globalMaxValue }) {
 
 
 export function calculatePackageAdjustment(options) {
-  const adjustment = fullPackageAdjustment(options);
+  // Apply the consolidation curve in integer hundredths. A one-cent add-on
+  // remains distinct throughout the search and each rounding step.
+  const hundredths = (values) => (Array.isArray(values) ? values.map(priceHundredths) : []);
+  const adjustment = fullPackageAdjustment({
+    myValues: hundredths(options.myValues),
+    theirValues: hundredths(options.theirValues),
+    globalMaxValue: priceHundredths(options.globalMaxValue),
+  });
   const packageAdjustment = Math.round(adjustment.packageAdjustment * PACKAGE_CREDIT_SHARE);
   const side = packageAdjustment ? adjustment.packageAdjustmentSide : null;
   return {
-    ...adjustment,
-    myAdjustedValue: adjustment.myBaseValue + (side === "my" ? packageAdjustment : 0),
-    theirAdjustedValue: adjustment.theirBaseValue + (side === "their" ? packageAdjustment : 0),
-    packageAdjustment,
+    myBaseValue: adjustment.myBaseValue / 100,
+    theirBaseValue: adjustment.theirBaseValue / 100,
+    myAdjustedValue: (adjustment.myBaseValue + (side === "my" ? packageAdjustment : 0)) / 100,
+    theirAdjustedValue: (adjustment.theirBaseValue + (side === "their" ? packageAdjustment : 0)) / 100,
+    evenValue: adjustment.evenValue / 100,
+    packageAdjustment: packageAdjustment / 100,
     packageAdjustmentSide: side,
   };
 }

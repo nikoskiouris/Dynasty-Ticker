@@ -11,6 +11,8 @@ from statistics import median
 from inseason import remaining_forecast, remaining_share
 
 
+VALUE_SCALE = 100
+HUNDREDTHS_PER_POINT = 100
 TEAMS = 12
 STARTERS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
 WEIGHTS = {"lineup": 0.35, "future": 0.40, "market": 0.25}
@@ -264,7 +266,9 @@ def value_board(players, picks, *, season_week=1):
     # A pick has no projected production. Translate its direct market quote
     # onto our board using similarly quoted players, preserving quote order.
     peak = max(sum(row.values()) for row in factors.values())
-    scale = 10000 / peak
+    # Allocate integer hundredths before exposing a price. This keeps ties,
+    # cross-asset interpolation and all four contributions exact to one cent.
+    scale = VALUE_SCALE * HUNDREDTHS_PER_POINT / peak
     player_results = {}
     for key, row in factors.items():
         value, parts = apportion({name: val * scale for name, val in row.items()})
@@ -273,6 +277,7 @@ def value_board(players, picks, *, season_week=1):
             player_results[key] = {"value": value, "factors": parts, "coverage": evidence[key],
                                    "remainingPpr": round(current, 1) if current is not None else None}
 
+    # The picker interpolates on the same integer grid as player prices.
     pick_results = {}
     if market_scale:
         reference = sorted((raw[k]["market"], r["value"]) for k, r in player_results.items()
@@ -282,6 +287,10 @@ def value_board(players, picks, *, season_week=1):
             if quote is not None and quote > 0:
                 value = quote_to_board(quote, reference)
                 pick_results[key] = {"value": value, "factors": {"market": value}, "coverage": ["market"]}
+    for board in (player_results, pick_results):
+        for result in board.values():
+            result["value"] /= HUNDREDTHS_PER_POINT
+            result["factors"] = {key: cents / HUNDREDTHS_PER_POINT for key, cents in result["factors"].items()}
     return player_results, pick_results, {
         "lineup": {"teams": TEAMS, **STARTERS, "FLEX": 1, "SUPER_FLEX": 1},
         "weights": {"lineup": lineup_weight, "future": future_weight, "market": WEIGHTS["market"]},

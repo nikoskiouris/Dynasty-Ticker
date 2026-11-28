@@ -1,8 +1,9 @@
 import { escapeHtml, formatNumber } from "./html.js";
 import { drafterAwards } from "./league-drafter-awards.js";
+import { roundPrice } from "./price-units.js";
 
 const e = (value) => escapeHtml(String(value ?? ""));
-const number = (value) => Number.isFinite(Number(value)) ? formatNumber(Math.round(Number(value))) : "—";
+const number = (value) => Number.isFinite(value) ? formatNumber(roundPrice(value)) : "—";
 const nameFor = (playerId, names) => e(names[`player:${playerId}`] || `Player ${playerId}`);
 const leader = (row, values, names, kind) => {
   if (!row) return '<p class="muted">Not enough draft history or comparable picks to name a leader.</p>';

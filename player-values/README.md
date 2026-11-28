@@ -1,6 +1,6 @@
 # Dynasty player values
 
-This board estimates the trade value of players and rookie picks in a 12-team dynasty league with full PPR and a superflex. The assumed lineup per team is one QB, two RBs, three WRs, one TE, one RB/WR/TE flex and one QB/RB/WR/TE superflex. All four positions receive one point per reception.
+This board estimates the trade value of players and rookie picks on a 0–100 scale in a 12-team dynasty league with full PPR and a superflex. The assumed lineup per team is one QB, two RBs, three WRs, one TE, one RB/WR/TE flex and one QB/RB/WR/TE superflex. All four positions receive one point per reception.
 
 ## What the board must do
 
@@ -8,7 +8,7 @@ This board estimates the trade value of players and rookie picks in a 12-team dy
 - Let a receiver win a superflex spot when he outscores the next quarterback. A player's lineup advantage is the drop in the best legal league-wide lineup when he is removed.
 - Distinguish prospects with different future outlooks even when their current projections match. Use independently observed market prices for picks.
 - Show where a price came from, identify missing inputs and retain the last valid board if a required source fails.
-- Keep dated trade links readable across the model transition. Compare price changes within the same model version.
+- Keep dated trade links readable across the model transition. Compare price changes across snapshots calculated with the same valuation formula.
 
 ## Research
 
@@ -28,7 +28,7 @@ As clubs play their schedules, current lineup advantage receives less weight and
 
 During the season, the model uses the team's upcoming regular-season schedule and Sleeper's projections for those games. It incorporates recent scoring, the player's availability and the preseason expectation where coverage is incomplete. Games that have kicked off are excluded from the remaining opportunity. The player page shows both the estimate for games still ahead and Sleeper's separate full-season projection. See the [in-season forecast study](research/inseason-forecast.md) for the estimator and its evaluation.
 
-The percentages apply after scaling the component scores to the same range. They are design weights. Their relative contribution for a particular player depends on his inputs. The model scales the largest combined player price to 10,000 and rounds each contribution so the displayed numbers sum to the price. Missing market evidence contributes zero. A player without positive contributions receives no price. The user-facing price is a relative trade estimate, in units distinct from PPR points or dollars.
+The percentages apply after scaling the component scores to the same range. They are design weights. Their relative contribution for a particular player depends on his inputs. The highest-valued player sets the scale at 100. Player and pick values retain two decimal places of precision. The component amounts add up to each player’s published price. Trade packages and rosters sum individual values and can exceed 100. Missing market evidence contributes zero. A player without positive contributions receives no price. The user-facing price is a relative trade estimate, in units distinct from PPR points or dollars.
 
 The [future-production study](research/future-blend.md) found little overall benefit from dropping prior-season evidence in a 504-player-season comparison. The future estimate blends the full-season projection (six games of weight), last season's total (up to eight games of weight) and current production annualized over estimated elapsed team games. It splits the resulting outlook equally between the individual player's age-adjusted surplus and the historical surplus of players at a similar positional rank. This gives reserves some value for the chance they earn a starting role. The second future season receives 85% of the first's weight. When NFL draft round is available, it supplies up to 65% of the rookie's future component and up to 25% in year two. Its influence fades with NFL appearances.
 
@@ -46,7 +46,7 @@ python3 scripts/build_sitemap.py
 python3 scripts/archive_price_snapshot.py
 ```
 
-The builder uses the Python standard library. Supply `--save-inputs /tmp/dynasty-inputs.json` on the build command to retain that run's normalized observations. The board carries its own model version, retrieval time, reference lineup, weights and replacement thresholds. Each player record carries his factor contributions and available evidence. The public source endpoints expose a retrieval time without individual quote timestamps. When a weekly forecast is unavailable, the model uses the historical scoring estimate for that game. An unavailable required feed or insufficient board coverage stops publication. Dated share links retain access to older snapshots. Price trends compare snapshots from the same model version.
+The builder uses the Python standard library. Supply `--save-inputs /tmp/dynasty-inputs.json` on the build command to retain that run's normalized observations. The board carries its own model version, retrieval time, reference lineup, weights and replacement thresholds. Each player record carries his factor contributions and available evidence. The public source endpoints expose a retrieval time without individual quote timestamps. When a weekly forecast is unavailable, the model uses the historical scoring estimate for that game. An unavailable required feed or insufficient board coverage stops publication. Dated share links retain access to older snapshots. Price trends include the final v2 board after converting its prices to 0–100 units. Earlier pricing formulas keep their own history. New archives record their scale explicitly.
 
 ## Validation and limitations
 
