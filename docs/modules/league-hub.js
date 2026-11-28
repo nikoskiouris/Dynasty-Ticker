@@ -1,4 +1,6 @@
 import { escapeHtml } from './html.js';
+import { leagueStories } from "./league-stories.js";
+import { renderAlmanacMasthead, renderAlmanacStory } from "./almanac-edition.js";
 import { ordinal } from './standings.js';
 
 import { leagueFormat } from './league-format.js';
@@ -31,40 +33,42 @@ export function renderTeamPick({ myTeam, myRosterId, teams, controlId = "hub-tea
 export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', myRosterId = '', teams = [], model = null, transactions = [], tradesLoaded = false, loading = false, caveat = '', savedNote = '' } = {}) {
   if (!league) return '<p role="status">Loading league…</p>';
   const id = encodeURIComponent(leagueId || league.league_id);
+  const format = leagueFormat(league);
+  const story = leagueStories({ seasons })[0];
   const winner = recentChampion(seasons);
-  // A season that hasn't drafted (the offseason league) has no records yet,
-  // so "N seasons of records" below doesn't count it.
-  seasons = seasons.filter(row => !['pre_draft', 'drafting'].includes(String(row?.league?.status || '')));
+  const years = seasons
+    .filter(row => !['pre_draft', 'drafting'].includes(row.league?.status))
+    .map(row => Number(row.season ?? row.league?.season))
+    .filter(year => Number.isInteger(year) && year > 0);
+  const yearRange = years.length > 1 ? `${Math.min(...years)}–${Math.max(...years)}` : years[0] || league.season;
   const recent = transactions.filter(row => row.type === 'trade' && row.status === 'complete' && Number(row.status_updated || row.created) >= Date.now() - 30 * 86400000).length;
   const mine = myRosterId ? model?.teams?.get?.(String(myRosterId)) : null;
-  // "You're 0-0, 3rd" before any game is final ranks nothing.
   const standingsTeaser = mine?.recordLabel && mine?.rank && Number(model?.finalThroughWeek) > 0
-    ? `${mine.recordLabel} · ${ordinal(mine.rank)}${model?.finalThroughWeek ? ` through week ${model.finalThroughWeek}` : ''}`
-    : model?.finalThroughWeek ? `Through week ${model.finalThroughWeek}` : 'Record and playoff odds';
-  const format = leagueFormat(league);
-  // The 044 caveat (marketCaveat) when the league differs; otherwise the plain rule.
-  const valuesLine = caveat || 'Values: 12-team Superflex PPR dynasty.';
+    ? `${mine.recordLabel} · ${ordinal(mine.rank)} through week ${model.finalThroughWeek}`
+    : model?.finalThroughWeek ? `Through week ${model.finalThroughWeek}` : 'Records and playoff odds';
+  const historyHref = `/l/${id}/history`;
   const links = [
     ['standings', 'Standings', standingsTeaser],
-    ['team', 'My Team', myTeam || ''],
-    ['trades', 'Recent Trades', tradesLoaded ? `${recent} ${Number(recent) === 1 ? 'trade' : 'trades'} in 30 days` : ''],
-    ['history', 'Historical Data', loading ? 'Loading seasons…' : `${seasons.length} ${seasons.length === 1 ? "season" : "seasons"}`],
+    ['team', 'My Team', myTeam || 'Roster and position ranks'],
+    ['trades', 'Recent Trades', tradesLoaded ? `${recent} ${recent === 1 ? 'trade' : 'trades'} in 30 days` : 'Deals around the league'],
   ];
-  return `<header class="league-hub-header">
-    ${league.avatar ? `<img width="40" height="40" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(league.avatar)}">` : ''}
-    <div><p>${escapeHtml(league.season)} · ${escapeHtml(format.chip)}</p></div>
-    <a href="/leagues">Change league</a>
-  </header>
-  <p class="league-format-note">${escapeHtml(valuesLine)}</p>
-  ${savedNote ? `<p class="league-saved-note" role="status">${escapeHtml(savedNote)}</p>` : ''}
-  ${renderTeamPick({ myTeam, myRosterId, teams })}
-  <nav class="league-hub-grid" aria-label="League pages">
-    ${links.map(([path, label, teaser]) => `<a href="/l/${id}/${path}">
-      <strong>${label}</strong><span>${escapeHtml(teaser)}</span><i aria-hidden="true">→</i></a>`).join('')}
-  </nav>
-  <section class="league-winner" aria-label="Recent champion">
-    ${winner ? `${winner.avatar ? `<img width="36" height="36" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(winner.avatar)}">` : ''}
-      <div><h3>${escapeHtml(winner.season)} champion</h3><p>${escapeHtml(winner.name)}</p></div>`
-      : `<p>${loading ? 'Loading champion…' : 'No confirmed champion in the available Sleeper brackets.'}</p>`}
-  </section>`;
+  return `<div class="almanac-hub">
+    <nav class="almanac-return" aria-label="League selection"><a href="/leagues">← Change league</a></nav>
+    ${renderAlmanacMasthead({ leagueName: league.name || 'League', edition: yearRange || 'Current edition', subtitle: format.chip, avatar: league.avatar })}
+    ${savedNote ? `<p class="league-saved-note" role="status">${escapeHtml(savedNote)}</p>` : ''}
+    ${story ? renderAlmanacStory(story, { leagueName: league.name, leagueId: leagueId || league.league_id, lead: true })
+      : `<p class="almanac-empty"${loading ? ' role="status"' : ''}>${loading ? 'Reading season results from Sleeper…' : 'The record book opens with the first results. Every new champion and hard-luck loss gets a chance to make the almanac.'}</p>`}
+    <nav class="almanac-features" aria-label="Explore league history">
+      <a href="${historyHref}"><strong>Open the record book</strong><span>Champions, bad beats and season records</span><i aria-hidden="true">→</i></a>
+      <a href="${historyHref}#archive-rivalries"><strong>Settle a score</strong><span>Compare two managers head to head</span><i aria-hidden="true">→</i></a>
+    </nav>
+    <div class="almanac-club">
+      <header><h2>Around the league</h2>${renderTeamPick({ myTeam, myRosterId, teams })}</header>
+      <nav class="almanac-club-links" aria-label="League pages">
+        ${links.map(([path, label, teaser]) => `<a href="/l/${id}/${path}"><strong>${label}</strong><span>${escapeHtml(teaser)}</span><i aria-hidden="true">↗</i></a>`).join('')}
+      </nav>
+      ${winner && !['champion', 'repeat-champion'].includes(story?.id) ? `<p class="almanac-champ"><strong>${escapeHtml(winner.season)} champion</strong> ${escapeHtml(winner.name)}</p>` : ''}
+      <p class="league-format-note">${escapeHtml(caveat || 'Values use 12-team Superflex PPR dynasty scoring.')}</p>
+    </div>
+  </div>`;
 }

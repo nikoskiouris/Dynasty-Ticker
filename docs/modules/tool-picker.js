@@ -9,7 +9,7 @@ export function renderLeagueRecent(root = document) {
   if (!controls) return;
   controls.querySelector('.league-recent')?.remove();
   const last = readLastLeague();
-  if (last) controls.insertAdjacentHTML('beforeend', `<p class="league-recent"><a href="/l/${encodeURIComponent(last.leagueId)}">Return to ${escapeHtml(last.leagueName || 'your league')}</a> <button type="button" class="link-btn" data-action="forget-last-league">Forget this league</button></p>`);
+  if (last) controls.insertAdjacentHTML('beforeend', `<div class="league-recent"><span>Last opened</span><a href="/l/${encodeURIComponent(last.leagueId)}">${escapeHtml(last.leagueName || 'Return to your league')}</a><button type="button" class="link-btn" data-action="forget-last-league">Forget this league</button></div>`);
 }
 
 export function moveLeagueControls(host) {
@@ -24,7 +24,6 @@ export function moveLeagueControls(host) {
     const node = document.getElementById(id);
     if (node) controls.append(node);
   });
-  try { const saved = localStorage.getItem('dt:sleeper-username'); const input = document.getElementById('sleeper-username'); if (saved && input && !input.value) input.value = saved; } catch {}
   const label = document.querySelector('label[for="sleeper-username"]');
   if (label) label.textContent = 'Sleeper username';
   const button = document.getElementById('find-leagues-btn');

@@ -7,6 +7,7 @@ import { renderTrophyCases } from "./league-trophies-page.js";
 import { renderTraderAwards } from "./league-trader-awards-page.js";
 import { renderOperationsAwards } from "./league-operations-awards-page.js";
 import { renderDrafterAwards } from "./league-drafter-awards-page.js";
+import { renderAlmanacEdition } from "./almanac-edition.js";
 import { renderManagerAward } from "./league-manager-award.js";
 
 const e = (value) => escapeHtml(String(value ?? ""));
@@ -31,8 +32,8 @@ const RECORD_LABELS = Object.freeze({
 function renderChampions(seasons) {
   const items = seasons.map((row) => `<li class="league-history-season">
     <h3>${e(row.season)} ${row.completed ? "" : '<span class="mini-chip">In progress</span>'}</h3>
+    <p class="almanac-champ"><span>Champion</span><strong>${e(row.champion || (row.completed ? "Unconfirmed" : "Title up for grabs"))}</strong></p>
     <dl>
-      <div><dt>Champion</dt><dd>${e(row.champion || "Not confirmed")}</dd></div>
       ${row.runnerUp ? `<div><dt>Runner-up</dt><dd>${e(row.runnerUp)}</dd></div>` : ""}
       ${row.regularLeader ? `<div><dt>Regular-season leader</dt><dd>${e(row.regularLeader)}</dd></div>` : ""}
       ${row.pointsLeader ? `<div><dt>Points leader</dt><dd>${e(row.pointsLeader)}</dd></div>` : ""}
@@ -107,43 +108,81 @@ function renderTrends(rows) {
       </tr>`).join("")}</tbody></table></div></section>`;
 }
 
-export function renderLeagueHistory(archive, { valueNames = {}, values = {}, players = {}, peaks = null, showLineup = false, savedNote = "", caveat = "" } = {}) {
+function leagueBack(leagueId) {
+  return `<a class="league-back almanac-back" href="/l/${encodeURIComponent(String(leagueId || ""))}"><span aria-hidden="true">←</span> League home</a>`;
+}
+
+export function renderArchiveLoading({ leagueId, leagueName, progress, error, champion }) {
+  return `<div class="league-history-page">
+    ${leagueBack(leagueId)}
+    <section class="almanac-loading" aria-label="Archive status">
+      <h2>${e(leagueName || "League archive")}</h2>
+      ${champion ? `<p class="almanac-loading-champ"><span>${e(champion.season)} champion</span> ${e(champion.name)}</p>` : ""}
+      <p role="status">${e(error || progress || "Reading season records from Sleeper…")}</p>
+      ${error ? '<button type="button" data-action="retry-almanac">Try again</button>' : ""}
+    </section>
+  </div>`;
+}
+
+function renderArchiveCoverage(issues, open) {
+  if (!issues.length) return "";
+  const missing = issues.some(issue => !issue.stale && !["cache", "historyLimit"].includes(issue.resource));
+  const summary = missing ? "Some Sleeper records are unavailable" : "Archive coverage";
+  return `<details class="almanac-coverage"${open ? " open" : ""}>
+    <summary>${summary}</summary>
+    <ul>${issues.map((issue) => `<li>${e(issue.message || "A Sleeper request failed")}</li>`).join("")}</ul>
+  </details>`;
+}
+
+export function renderLeagueHistory(archive, { valueNames = {}, values = {}, players = {}, peaks = null, showLineup = false, savedNote = "", caveat = "", openChapters = new Set() } = {}) {
   const seasons = archive?.seasons || [];
-  const leagueId = encodeURIComponent(String(archive?.leagueId || ""));
   const name = seasons[0]?.league?.name || "League";
   const years = seasons.map((item) => Number(item.season)).filter(Number.isFinite);
   const range = years.length > 1 ? `${Math.min(...years)}–${Math.max(...years)} · ${years.length} seasons`
     : years.length ? `${years[0]} season` : "No seasons loaded";
   const book = leagueRecordBook(archive);
-  const issues = archive?.issues || [];
-  const sections = [
-    ["champions", "Champions wall", renderChampions(championsWall(archive))],
-    ["standings", "All-time standings", renderAllTime(allTimeStandings(archive))],
-    ["records", "Record book", renderRecords(book)],
-    ["rivalries", "Head-to-head and rivalries", renderRivalries(archive)],
-    ["trends", "League trends", renderTrends(leagueTrends(archive))],
-    ["traded", "Most traded players", renderMostTraded(archive, { values, valueNames, players, peaks })],
-    ["trophies", "Manager trophy cases", renderTrophyCases(archive, { valueNames, players })],
-    ["traders", "Trade awards", renderTraderAwards(archive, { values, valueNames })],
-    ["draft", "Draft awards", renderDrafterAwards(archive, { values, valueNames })],
-    ["operations", "Lineup and waiver awards", renderOperationsAwards(archive, { players, values, valueNames, showLineup })],
-    ["managers", "Manager awards", renderManagerAward(archive, { values, valueNames })],
-  ].filter(([, , content]) => content);
-  return `<div class="league-history-page">
-    <p><a class="league-back" href="/l/${leagueId}">← League</a></p>
-    <header><h2>${e(name)}</h2><p class="muted">${e(range)}</p>
-      ${savedNote ? `<p class="league-saved-note" role="status">${e(savedNote)}</p>` : ""}
-      ${caveat ? `<p class="muted small calc-market-caveat">${e(caveat)}</p>` : ""}
-    </header>
-    ${issues.length ? `<section class="workspace-panel" aria-label="Incomplete league data"><h2>Some history is unavailable</h2>
-      <ul>${issues.slice(0, 12).map((issue) => `<li>${e(issue.message || "A Sleeper request failed")}</li>`).join("")}</ul>
-      ${issues.length > 12 ? `<p class="muted">${issues.length - 12} more unavailable resources.</p>` : ""}
-    </section>` : ""}
-    <label class="history-jump"><span class="sr-only">Jump to history section</span>
-      <select id="history-jump"><option value="">Jump to section</option>
-        ${sections.map(([id, label]) => `<option value="archive-${id}">${label}</option>`).join("")}
-      </select>
-    </label>
-    ${sections.map(([id, label, content]) => `<div class="history-section" id="archive-${id}" role="region" aria-label="${label}" tabindex="-1">${content}</div>`).join("")}
+  const chapters = [
+    ["Seasons & matchups", [
+      ["champions", "Champions wall", renderChampions(championsWall(archive))],
+      ["rivalries", "Settle a score", renderRivalries(archive)],
+      ["records", "Record book", renderRecords(book)],
+      ["standings", "All-time standings", renderAllTime(allTimeStandings(archive))],
+      ["trends", "League trends", renderTrends(leagueTrends(archive))],
+    ]],
+    ["Managers", [
+      ["trophies", "Manager trophy cases", renderTrophyCases(archive, { valueNames, players })],
+      ["managers", "Manager awards", renderManagerAward(archive, { values, valueNames })],
+    ]],
+    ["Roster moves", [
+      ["traded", "Most traded players", renderMostTraded(archive, { values, valueNames, players, peaks })],
+      ["traders", "Trade awards", renderTraderAwards(archive, { values, valueNames })],
+      ["draft", "Draft awards", renderDrafterAwards(archive, { values, valueNames })],
+      ["operations", "Lineup and waiver awards", renderOperationsAwards(archive, { players, values, valueNames, showLineup })],
+    ]],
+  ].map(([group, rows]) => [group, rows.filter(([, , content]) => content)]).filter(([, rows]) => rows.length);
+
+  return `<div class="league-history-page" data-archive-league="${e(archive?.leagueId)}">
+    ${leagueBack(archive?.leagueId)}
+    ${renderAlmanacEdition({ archive, book, leagueName: name, range, savedNote, caveat, openStories: openChapters.has("more-stories") })}
+    ${renderArchiveCoverage(archive?.issues || [], openChapters.has("coverage"))}
+    <section class="almanac-library" aria-labelledby="almanac-library-title">
+      <div class="almanac-library-header">
+        <h2 id="almanac-library-title">Inside the archive</h2>
+        <label class="history-jump"><span class="sr-only">Jump to history section</span>
+          <select id="history-jump"><option value="">Jump to a chapter</option>
+            ${chapters.map(([group, rows]) => `<optgroup label="${e(group)}">${rows.map(([id, label]) =>
+              `<option value="archive-${id}">${e(label)}</option>`).join("")}</optgroup>`).join("")}
+          </select>
+        </label>
+      </div>
+      ${chapters.map(([group, rows]) => `<section class="almanac-shelf">
+        <h3>${e(group)}</h3><div class="almanac-shelf-chapters">
+          ${rows.map(([id, label, content]) => `<details class="history-section almanac-chapter" id="archive-${id}"${openChapters.has(`archive-${id}`) ? " open" : ""}>
+            <summary>${e(label)}</summary>
+            <div class="almanac-chapter-body">${content}</div>
+          </details>`).join("")}
+        </div>
+      </section>`).join("")}
+    </section>
   </div>`;
 }
