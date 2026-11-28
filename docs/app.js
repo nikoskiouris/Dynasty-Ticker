@@ -134,6 +134,7 @@ import {
   removeValueCalcItem,
   swapValueCalcSides,
   valueCalcAssetMatchesQuery,
+  valueCalcHasAsset,
   wholeRoundPickHint,
   tradeRowName,
   withPlayerDirectoryNames,
@@ -239,7 +240,7 @@ import {
 } from "./modules/verdict-copy.js";
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import { bindInfoTips, infoTipMarkup } from "./modules/info-tip.js";
-import { decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, sharedSideTitle, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
+import { SHARE_MAX_SIDE, decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, sharedSideTitle, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
 import { chooseBestLineup, positionalStarterCutoff } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
@@ -430,7 +431,6 @@ let pendingTradeTalk = "";
 let swallowCalcClick = false;
 let swallowCalcTimer = 0;
 let ranksSearchTimer = 0;
-let rankingsReturnScroll = null;
 let draftBasisCache = { bundles: null, format: "", basis: null };
 let rankBoardCache = { key: "", rows: [] };
 let rankContextPromise = null;
@@ -1100,12 +1100,12 @@ function renderActivePage() {
   if (page === "trades") {
     renderTradesRoom(room);
     if (room === "calculator") {
-      renderRankHost(el.ranksDashboard);
-      // Last season's stat lines (a 1.2MB Sleeper file) are for the players
-      // board and player cards. The calculator alone needs only prices.
+      // The published prices include the entire rankings table. Previous-season
+      // stats, draft records and injury status are only shown on a profile.
       const showsPlayers = playersBoardOpen || /^\/players\/?$/.test(window.location.pathname) || Boolean(state.ranks?.selectedId);
       if (showsPlayers) {
-        if (!rankValuesReady() || !playerNoteContext?.previousSeason) void ensureRankExtras();
+        renderRankHost(el.ranksDashboard);
+        if (!rankValuesReady() || (state.ranks?.selectedId && !playerNoteContext?.previousSeason)) void ensureRankExtras();
       } else if (!rankValuesReady() && !state.leagueId) {
         void ensureCalcPrices();
       }
@@ -1201,8 +1201,6 @@ function cachedRankRows() {
       modelPlayers: state.valueBundles?.players || {},
       nflPlayers: players,
       owners: rankOwners(),
-      noteFor: rankPlayerNote,
-      detailFor: (id, raw) => ({ draft: lookupNflDraftPick(id, playerNoteContext.draftPicks, raw), production: { lastLine: rankPlayerNote(id, raw) } }),
       minPickSeason: nextRookieDraftSeason(),
     }),
   };
@@ -1219,7 +1217,7 @@ function rankViewModel() {
   if (!rankValuesReady() || leagueLoadBlocksPlayer()) {
     return rankView({ loading: true, failed: valuesLoadFailed && !rankValuesReady(), format: activeRankFormat() });
   }
-  return rankView({
+  const view = rankView({
     rows: cachedRankRows(),
     priceModel: state.valueBundles?.meta?.price,
     query: state.ranks?.query || "",
@@ -1234,6 +1232,12 @@ function rankViewModel() {
     history: state.valueHistory,
     updated: valuesFreshness(),
   });
+  if (view.card?.kind === "player") {
+    const { playerId, raw } = view.card;
+    view.card.draft = lookupNflDraftPick(playerId, playerNoteContext.draftPicks, raw);
+    view.card.note = rankPlayerNote(playerId, raw);
+  }
+  return view;
 }
 
 function paintRankToolbar(toolbar, view, typing) {
@@ -1343,7 +1347,7 @@ async function ensureRankExtras() {
 
       }
     }
-    if (!playerNoteContext?.previousSeason && !rankContextPromise) {
+    if (state.ranks?.selectedId && !playerNoteContext?.previousSeason && !rankContextPromise) {
       rankContextPromise = loadPlayerNoteContext()
         .then((ctx) => {
           if (ctx) playerNoteContext = ctx;
@@ -1351,8 +1355,7 @@ async function ensureRankExtras() {
         })
         .catch(() => null);
     }
-    if (rankContextPromise) await rankContextPromise;
-    await loadPlayerGameStatus();
+    if (state.ranks?.selectedId) await Promise.all([rankContextPromise, loadPlayerGameStatus()]);
   } catch (err) {
     console.warn("Could not load player ranks", err);
     // Remember the miss so the next paint shows it instead of fetching again.
@@ -1420,7 +1423,6 @@ function openPlayerBoard({ history = "push" } = {}) {
   playersBoardOpen = true;
   openRoom("trades", "calculator", { history });
   syncPlayersBoardFlag();
-  void ensureRankExtras();
 }
 
 function renderTradesRoom(room) {
@@ -1552,6 +1554,7 @@ function prepareDeskPush() {
   if (typeof history?.replaceState !== "function") return;
   const currentPath = `${window.location.pathname}${window.location.search}`;
   history.replaceState({
+    ...history.state,
     ...historyPlaceNow(),
     pushed: Boolean(history.state?.pushed),
   }, "", currentPath);
@@ -1914,7 +1917,14 @@ function updateUrlStateInner({ mode = "replace", force = false } = {}) {
   const boardFlip = /^\/players\/?$/.test(here) !== /^\/players\/?$/.test(nextPath);
   const write = (force || boardFlip) && mode === "push" && pathChanged ? "push" : placeWrite;
   const pushed = write === "push" ? true : (write === "replace" && sameHistoryPlace(history.state || {}, snapshot) && Boolean(history.state?.pushed));
-  const entry = { ...snapshot, pushed };
+  const entry = { ...snapshot, pushed, idx: routeFocus.index() + (write === "push" ? 1 : 0) };
+  // The Rankings link returns directly to the board, even after several
+  // Similar values links. A cold profile has no board entry to return to.
+  if (snapshot.playerId) {
+    const depth = history.state?.rankingsDepth || 0;
+    if (write === "push" && (/^\/players\/?$/.test(here) || here === "/")) entry.rankingsDepth = 1;
+    else if (depth && /^\/player\//.test(here)) entry.rankingsDepth = depth + (write === "push" ? 1 : 0);
+  }
   // The history entry keeps whatever document.title is right now. Set the
   // rendered title first so Back cannot restore an outage title onto a team.
   syncDocumentMeta();
@@ -2123,10 +2133,17 @@ function applyTradeRoute(route) {
   }
   // Legacy format links stay valid without changing the canonical prices.
   state.legacyValueLink = Boolean(route?.legacyFormat || route?.format === "oneQb");
+  if (!route?.give?.length && !route?.get?.length) {
+    state.sharedTrade = null;
+    return;
+  }
   let draft = emptyValueCalcState();
   const nameOf = (id) => state.valueNameMap?.[id] || id;
   for (const id of route?.give || []) draft = addValueCalcItem(draft, "left", { assetId: id, name: nameOf(id) });
   for (const id of route?.get || []) draft = addValueCalcItem(draft, "right", { assetId: id, name: nameOf(id) });
+  if (!isDraftEmpty(draft) && !isDraftEmpty(state.valueCalc) && draftAssetKey(draft) !== draftAssetKey(state.valueCalc)) {
+    setDraftReplaced({ draft: state.valueCalc, note: "Opened linked trade." });
+  }
   storeDraft(draft);
   void loadSharedTrade(route?.shareCode, draft);
 }
@@ -2286,7 +2303,6 @@ function syncLaunchChrome() {
 function openPlayerPage(assetId) {
   const id = String(assetId || "");
   if (!/^player:\d+$/.test(id)) return;
-  if (playersBoardOpen && !state.ranks.selectedId) rankingsReturnScroll = window.scrollY || 0;
   prepareDeskPush();
   state.ranks.selectedId = id;
   setRoom("trades", "calculator");
@@ -4879,11 +4895,13 @@ function draftValuesReady() {
 // A player id from the URL that is not a real player: say so, drop it, no verdict.
 function dropUnknownDraftPlayers() {
   const shared = activeSharedTrade();
-  if (shared?.snapshotState === "loading") return;
+  // Every shared piece is part of the offer. An unpriced player must keep
+  // the current verdict unavailable, even after the name lookup finishes.
+  if (shared) return;
   const known = (assetId) => {
     const id = String(assetId || "").replace(/^player:/, "");
     return Boolean(state.players?.[id] || draftNamesDirectory?.[id] || state.valueBundles?.sf?.values?.[assetId] != null
-      || state.valueNameMap?.[assetId] || shared?.snapshot?.sf?.[assetId] != null);
+      || state.valueNameMap?.[assetId]);
   };
   const isPlayer = (item) => /^player:/.test(String(item?.assetId || ""));
   const bad = [...(state.valueCalc?.left || []), ...(state.valueCalc?.right || [])].filter((item) => isPlayer(item) && !known(item.assetId));
@@ -4974,6 +4992,7 @@ function paintTradeDraft() {
       ${priceNotes}
       <div id="draft-team" class="draft-team">${renderDraftTeam(view)}</div>
     `;
+    syncTradeStickyTop();
     return;
   }
   const talk = snapshotTradeTalkInput(host);
@@ -5030,6 +5049,7 @@ function snapshotTradeTalkInput(host) {
     focused: document.activeElement === input,
     start: input.selectionStart,
     end: input.selectionEnd,
+    expanded: input.getAttribute("aria-expanded") === "true",
   };
 }
 
@@ -5039,6 +5059,7 @@ function restoreTradeTalkInput(host, snap) {
   input.value = snap.value;
   if (!snap.focused) return;
   input.focus({ preventScroll: true });
+  if (!snap.expanded) dismissSmartTradeList(input);
   try {
     input.setSelectionRange(snap.start ?? snap.value.length, snap.end ?? snap.value.length);
   } catch {
@@ -5062,8 +5083,22 @@ function renderTradeTalk() {
 // Focusing the empty add box shows the browsed team's roster again.
 document.addEventListener("focusin", (event) => {
   const input = event.target?.closest?.("[data-input='smart-trade']");
-  if (input && !input.value.trim()) refreshSmartTradeSearch(input);
+  if (input) refreshSmartTradeSearch(input);
 });
+
+document.addEventListener("focusout", (event) => {
+  const form = event.target?.closest?.("[data-trade-talk]");
+  if (form && !form.contains(event.relatedTarget)) dismissSmartTradeList(form.querySelector("#trade-talk-input"));
+});
+
+function dismissSmartTradeList(input) {
+  const list = document.getElementById("smart-trade-list");
+  if (list) list.hidden = true;
+  input?.setAttribute("aria-expanded", "false");
+  input?.removeAttribute("aria-activedescendant");
+  const count = document.getElementById("smart-trade-count");
+  if (count) count.textContent = "";
+}
 
 // "Browse" a team: with the box empty, the list shows that team's roster
 // (priced players and picks, by value), minus pieces already in the trade.
@@ -5087,19 +5122,31 @@ function refreshSmartTradeSearch(input) {
   const query = input.value.trim();
   const view = buildDraftView();
   const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
-  const rows = query ? listValueCalcAssets(view.basis.values, names, { query, limit: 20, minSeason: nextRookieDraftSeason() }) : partnerRosterRows(view);
-  list.innerHTML = rows.map((row, i) => `<div id="smart-option-${i}" class="smart-trade-option" role="option" aria-selected="false">${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}<span class="smart-trade-name">${escapeHtml(row.name)} <small>${formatNumber(row.value)}</small></span>${["right", "left"].map((side) => `<button type="button" class="calc-item smart-trade-add" data-action="smart-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""} aria-label="Add ${escapeHtml(row.name)} to ${escapeHtml(draftReceivingTeam(side, view))}" title="${escapeHtml(draftReceivingTeam(side, view))} receives">→ ${escapeHtml(shortTeamLabel(draftReceivingTeam(side, view)))}</button>`).join("")}</div>`).join("");
+  const matches = query ? listValueCalcAssets(view.basis.values, names, { query, limit: 0, minSeason: nextRookieDraftSeason() }) : partnerRosterRows(view);
+  const rows = matches.filter((asset) => !valueCalcHasAsset(view.draft, asset)).slice(0, 20);
+  list.innerHTML = rows.map((row, index) => {
+    const player = row.assetType === "player" ? playerRecordFor(row.assetId) : null;
+    const detail = [player?.position, player?.team, formatNumber(row.value)].filter(Boolean).join(" · ");
+    const buttons = ["right", "left"].map((side) => {
+      const team = escapeHtml(draftReceivingTeam(side, view));
+      return `<button type="button" class="calc-item smart-trade-add" data-action="smart-add" data-side="${side}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${row.assetType}"${row.leagueId ? ` data-league-id="${escapeHtml(row.leagueId)}"` : ""} aria-label="Add ${escapeHtml(row.name)} to ${team}">→ ${team}</button>`;
+    }).join("");
+    return `<div id="smart-option-${index}" class="smart-trade-option" role="option" aria-selected="false">${renderPlayerFace(facePlayerId(row), row.name, { size: "sm" })}<span class="smart-trade-name">${escapeHtml(row.name)} <small>${escapeHtml(detail)}</small></span>${buttons}</div>`;
+  }).join("");
   list.hidden = !rows.length;
   input.setAttribute("aria-expanded", rows.length ? "true" : "false");
   input.removeAttribute("aria-activedescendant");
   const count = document.getElementById("smart-trade-count");
-  if (count) count.textContent = rows.length ? `${rows.length} ${rows.length === 1 ? "option" : "options"}. Enter adds to ${draftReceivingTeam(smartTradeSide, view)}. Shift Enter adds to ${draftReceivingTeam(smartTradeSide === "right" ? "left" : "right", view)}.` : query ? "No matching assets. Enter to interpret a whole trade." : "";
+  if (!count) return;
+  count.classList.toggle("sr-only", rows.length > 0 || !matches.length);
+  count.textContent = rows.length ? `${rows.length} ${rows.length === 1 ? "option" : "options"}. Enter adds to ${draftReceivingTeam(smartTradeSide, view)}. Shift Enter adds to ${draftReceivingTeam(smartTradeSide === "right" ? "left" : "right", view)}.` : matches.length ? "Already in this trade." : query ? "No matching assets. Enter to interpret a whole trade." : "";
 }
 
 function pickSmartTradeAsset(target) {
   if (!target?.dataset?.assetId) return;
   addDraftAsset(target.dataset.side, { assetId: target.dataset.assetId, name: target.dataset.name, assetType: target.dataset.kind, leagueId: target.dataset.leagueId || "" });
   patchTradeDraft();
+  announceDraftEdit(`Added ${target.dataset.name} to ${draftReceivingTeam(target.dataset.side, buildDraftView())}.`);
   const input = document.getElementById("trade-talk-input");
   if (input) { input.value = ""; refreshSmartTradeSearch(input); input.focus({ preventScroll: true }); }
 }
@@ -5435,8 +5482,6 @@ function handleTradeTalkSubmit(event) {
   event.preventDefault();
   const input = form.querySelector("#trade-talk-input");
   const say = input?.value || "";
-  const first = form.querySelector(`[data-action="smart-add"][data-side="${smartTradeSide}"]`);
-  if (first && !/\b(for|offered|receive|give|swap)\b/i.test(say)) { pickSmartTradeAsset(first); return true; }
   if (input) { input.value = ""; refreshSmartTradeSearch(input); }
   runTradeTalk(say);
   return true;
@@ -5624,12 +5669,6 @@ function renderDraftNotice() {
   `;
 }
 
-// The add buttons name the column the same way its header does, kept short.
-function shortTeamLabel(name) {
-  const text = String(name || "").trim();
-  return text.length > 14 ? `${text.slice(0, 13).trimEnd()}…` : text;
-}
-
 function draftReceivingTeam(side, view) {
   if (activeSharedTrade(view.draft)) return side === "right" ? "Team 1" : "Team 2";
   const roster = side === "right" ? view.me : view.partner;
@@ -5714,6 +5753,7 @@ function draftItemDisplayName(item, names) {
 
 let draftNamesRequested = false;
 let draftNamesDirectory = null;
+let draftNamesSettled = false;
 function requestDraftPlayerNames() {
   if (draftNamesRequested) return;
   draftNamesRequested = true;
@@ -5726,9 +5766,12 @@ function requestDraftPlayerNames() {
       draftNamesDirectory = players;
       if (epoch !== playerLoadEpoch) return;
       state.players = mergePlayerRecords(state.players, players);
-      if (el.calculatorShell?.querySelector(".calc-grid")) patchTradeDraft();
     })
-    .catch(() => {});
+    .catch(() => {})
+    .finally(() => {
+      draftNamesSettled = true;
+      if (el.calculatorShell?.querySelector(".calc-grid")) patchTradeDraft();
+    });
 }
 
 function renderDraftTokens(side, view) {
@@ -5738,12 +5781,14 @@ function renderDraftTokens(side, view) {
   return items.map((rawItem) => {
     const price = view.priced.get(String(rawItem.uid));
     const name = draftItemDisplayName(rawItem, names);
+    const fallbackName = draftNamesSettled ? `Sleeper player ${String(rawItem.assetId).replace(/^player:/, "")}` : "";
     if (!name) requestDraftPlayerNames();
     // Keep the resolved name on the draft so notes and offer text read it too.
     else if (rawItem.name !== name && !Object.isFrozen(rawItem)) rawItem.name = name;
     const item = { ...rawItem, name };
     const label = name
       ? renderSelectedTokenLabel(item)
+      : fallbackName ? `<span class="selected-token-label">${escapeHtml(fallbackName)}</span>`
       : `<span class="selected-token-label is-loading"><span class="name-skeleton" aria-hidden="true"></span><span class="sr-only">Loading player name</span></span>`;
     const meta = draftItemMeta(item);
     return `
@@ -5752,7 +5797,7 @@ function renderDraftTokens(side, view) {
         ${label}
         ${meta ? `<span class="selected-token-meta">${escapeHtml(meta)}</span>` : ""}
         <span class="selected-token-price" title="Value">${price?.estimated ? "Unavailable" : formatNumber(price?.value)}</span>
-        <button type="button" class="selected-token-remove" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" aria-label="${escapeHtml(name ? `Remove ${name}` : "Remove")}"><span aria-hidden="true">×</span></button>
+        <button type="button" class="selected-token-remove" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" aria-label="${escapeHtml(name || fallbackName ? `Remove ${name || fallbackName}` : "Remove")}"><span aria-hidden="true">×</span></button>
       </span>
     `;
   }).join("");
@@ -6064,11 +6109,13 @@ function renderDraftActions(view, shared = false) {
   const ready = tradeAdviceReady(view);
   const empty = !view.draft.left.length && !view.draft.right.length;
   if (empty) return "";
+  const large = [view.draft.left, view.draft.right].some((side) => side.length > SHARE_MAX_SIDE);
   return `
     ${shared ? '<a class="shared-own-btn" href="/trade" data-action="shared-check-own">New trade</a>' : ""}
     ${ready && !shared ? renderTradeAdviceButton({ ready }) : ""}
     ${ready && draftShareCode(view) ? '<button type="button" class="ghost-btn btn-sm calc-share" data-action="trade-share">Share trade</button>' : ""}
     ${shared ? "" : '<button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear trade</button>'}
+    ${large ? `<p class="muted small">Dated share links support up to ${SHARE_MAX_SIDE} assets per side. Copy the page address to share this offer at current prices.</p>` : ""}
     <p class="calc-share-status" role="status" aria-live="polite"></p>
   `;
 }
@@ -6163,6 +6210,8 @@ function renderVerdictFinePrint(inner) {
 
 // Ids and scoring only. A league pick shares as the generic pick it was priced as.
 function draftShareCode(view) {
+  const original = activeSharedTrade(view.draft)?.code;
+  if (original) return original;
   const ids = (items) => items.map((item) => shareAssetIdFor(item, view.priced));
   return encodeTradeShare({
     give: ids(view.draft.left),
@@ -6519,13 +6568,19 @@ function handleWorkspaceKeydown(event) {
   const smart = event.target?.closest?.("[data-input='smart-trade']");
   if (smart) {
     const list = document.getElementById("smart-trade-list");
-    const rows = [...(list?.querySelectorAll(".smart-trade-option") || [])];
-    if (event.key === "Escape") { if (list) list.hidden = true; smart.setAttribute("aria-expanded", "false"); return; }
+    if (event.key === "Escape") {
+      if (list && !list.hidden) event.preventDefault();
+      dismissSmartTradeList(smart);
+      return;
+    }
+    if (list?.hidden && (event.key === "ArrowDown" || event.key === "ArrowUp")) refreshSmartTradeSearch(smart);
+    const rows = list && !list.hidden ? [...list.querySelectorAll(".smart-trade-option")] : [];
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       if (!rows.length) return;
       const index = rows.findIndex((row) => row.getAttribute("aria-selected") === "true");
-      const next = (index + (event.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length;
+      const down = event.key === "ArrowDown";
+      const next = index < 0 ? (down ? 0 : rows.length - 1) : (index + (down ? 1 : -1) + rows.length) % rows.length;
       rows.forEach((row, i) => row.setAttribute("aria-selected", String(i === next)));
       smart.setAttribute("aria-activedescendant", rows[next].id);
       rows[next].scrollIntoView({ block: "nearest" });
@@ -6599,7 +6654,11 @@ function handleWorkspaceClick(event) {
   switch (action) {
     case "smart-focus": {
       smartTradeSide = target.dataset.side === "left" ? "left" : "right";
-      document.getElementById("trade-talk-input")?.focus();
+      const input = document.getElementById("trade-talk-input");
+      if (input) {
+        input.placeholder = `Add a player or pick to ${draftReceivingTeam(smartTradeSide, buildDraftView())}`;
+        input.focus();
+      }
       break;
     }
     case "smart-add":
@@ -6639,12 +6698,11 @@ function handleWorkspaceClick(event) {
         return;
       }
       routeFocus.remember(target);
-      // Return to player rankings comes back to this filter and this scroll.
-      if (playersBoardOpen && !state.ranks.selectedId) rankingsReturnScroll = window.scrollY || 0;
       prepareDeskPush();
       state.ranks.selectedId = id;
       renderRankSurfaces();
-      void loadPlayerGameStatus();
+      if (!playerNoteContext?.previousSeason) void ensureRankExtras();
+      else void loadPlayerGameStatus();
       updateUrlState({ mode: "push" });
       syncLaunchChrome();
       // A player page (from Similar player values) starts at the top.
@@ -6661,12 +6719,9 @@ function handleWorkspaceClick(event) {
       }
       break;
     case "player-rankings-return": {
-      const scroll = rankingsReturnScroll;
-      if (scroll != null && history.state?.pushed) history.back();
-      else {
-        openPlayerBoard({ history: "push" });
-        requestAnimationFrame(() => window.scrollTo({ top: scroll || 0, left: 0, behavior: "instant" }));
-      }
+      const depth = history.state?.rankingsDepth;
+      if (Number.isInteger(depth) && depth > 0) history.go(-depth);
+      else openPlayerBoard({ history: "push" });
       break;
     }
     case "player-back":
@@ -6832,7 +6887,7 @@ function handleWorkspaceClick(event) {
       // replace /t with /trade, and Back would leave the app.
       state.sharedTrade = null;
       state.sentShare = null;
-      setDraftReplaced(null);
+      if (!draftReplaced) setDraftReplaced({ draft: state.valueCalc, note: "Cleared both sides." });
       storeDraft(clearValueCalcSides(state.valueCalc));
       renderTradeDraft();
       updateUrlState({ mode: "push", force: true });

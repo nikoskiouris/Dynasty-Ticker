@@ -464,8 +464,8 @@ export function readStoredDraft(storage = safeStorage("sessionStorage"), legacyS
 
 export function writeStoredDraft(draft, storage = safeStorage("sessionStorage")) {
   try {
-    if (isDraftEmpty(draft)) storage?.removeItem?.(TRADE_DRAFT_STORAGE_KEY);
-    else storage?.setItem?.(TRADE_DRAFT_STORAGE_KEY, serializeDraft(draft));
+    // An explicit empty draft also supersedes copies in legacy storage.
+    storage?.setItem?.(TRADE_DRAFT_STORAGE_KEY, serializeDraft(draft));
     return true;
   } catch {
     return false;
