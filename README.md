@@ -13,9 +13,9 @@ Dynasty Ticker helps a Sleeper dynasty manager answer three questions: what is t
 
 Open `docs/` locally (`npm run serve`) or [dynastyticker.com](https://dynastyticker.com/).
 
-Home is a tool picker with three tools, and the ☰ menu reaches every page. Trade Calculator and Player Rankings work before a league is connected.
+Home opens Player Rankings. The header links to Rankings, Trade calculator and League history on phones and larger screens. Rankings and the calculator work before a league is connected.
 
-1. **Trade Calculator** (`/trade?give=…&get=…`) — two columns (Team 1 receives / Team 2 receives) and one trade draft. Type a whole trade in plain words in the talk box ("Gibbs and a 1st for Nabers", "is Gibbs for Bijan fair?", "undo") or add pieces by search. One verdict on a fairness scale (Even, Close, Unfair, Lopsided), an "Even it up" suggestion, and **Give real trade advice** (rules, no AI). The calculator is never team-specific: with or without a league it shows Team 1 / Team 2 and no ownership or Team impact. Connecting Sleeper keeps the trade. **Share trade** makes a `/t/<code>` link with its own preview card.
+1. **Trade Calculator** (`/trade?give=…&get=…`) — two columns (Team 1 receives / Team 2 receives) and one trade draft. Type a whole trade in plain words in the talk box ("Gibbs and a 1st for Nabers", "is Gibbs for Bijan fair?", "undo") or add pieces by search. One verdict on a fairness scale (Even, Close, Unfair, Lopsided), an "Even it up" suggestion, and **Get trade advice** (rules, no AI). The calculator is never team-specific: with or without a league it shows Team 1 / Team 2 and no ownership or Team impact. Connecting Sleeper keeps the trade. **Share trade** makes a `/t/<code>` link with its own preview card.
 2. **Player Rankings** (`/players`) — every priced player and pick, sortable, with search (nicknames like JSN work). Player pages (`/player/<sleeper id>`) show the price, the factors behind it, its trend, production, and similar values.
 3. **League History** (`/leagues`, then `/l/<league>`) — enter a Sleeper username or league ID. The league hub links to **Standings** (luck, playoff odds), **My Team** (position ranks, roster value, bench, picks, superlatives), **Recent Trades** (graded on today's values) and **Historical Data** (champions, all-time standings, records, head-to-head, trends, awards).
 
@@ -95,4 +95,3 @@ That writes `searched-users.csv` (gitignored). **This repo is public. Never comm
 - Player assets: `player:<sleeper_player_id>`
 - Pick assets: `pick:<season>:r<round>:<original_owner|any>`
 - Playoff odds are a 4000-season Monte Carlo. Each simulated season draws team quality from the posterior, so a Week 1 favorite is not a 100% lock. 100% / 0% only appear when a team has mathematically clinched or been eliminated.
-- Every page has the ☰ menu (Trade Calculator, Player Rankings, League History). Home is the tool picker.

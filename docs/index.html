@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Dynasty Ticker — Trade Calculator, Player Rankings & League History</title>
     <meta name="description" content="Trade Calculator, Player Rankings and Sleeper League History. Values optimized for 12-team Superflex PPR dynasty." />
-    <meta name="theme-color" content="#f7f5f1" />
+    <meta name="theme-color" content="#fafaf7" />
     <script src="./boot-intent.js"></script>
     <meta property="og:title" content="Dynasty Ticker — Trade Calculator, Player Rankings & League History" />
     <meta property="og:description" content="Trade Calculator, Player Rankings and Sleeper League History. Values optimized for 12-team Superflex PPR dynasty." />
@@ -16,7 +16,7 @@
     <meta property="og:image" content="https://dynastyticker.com/og-image.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Dynasty Ticker: your league on a live ticker" />
+    <meta property="og:image:alt" content="Dynasty Ticker player rankings, trade calculator and league history" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Dynasty Ticker — Trade Calculator, Player Rankings & League History" />
     <meta name="twitter:description" content="Trade Calculator, Player Rankings and Sleeper League History. Values optimized for 12-team Superflex PPR dynasty." />
@@ -26,13 +26,31 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="manifest" href="./site.webmanifest" />
-    <link rel="preload" as="font" type="font/woff2" crossorigin href="./fonts/instrument-sans-latin.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="./fonts/dm-sans-latin.woff2" />
     <link rel="stylesheet" href="./tokens.css" />
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./shell-compact.css" />
+    <link rel="stylesheet" href="./rankings-compact.css" />
+    <link rel="stylesheet" href="./trade-compact.css" />
+    <link rel="stylesheet" href="./league-compact.css" />
+    <link rel="stylesheet" href="./faces-compact.css" />
   </head>
-  <body class="launch-open">
+  <body class="compact-app">
     <a class="skip-link" href="#workspace">Skip to content</a>
     <div id="route-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <header class="site-masthead">
+      <div class="masthead-inner">
+        <a class="masthead-brand" href="/" aria-label="Dynasty Ticker home">
+          <img src="/brand/compact-mark.svg" width="22" height="20" alt="" />
+          Dynasty Ticker
+        </a>
+        <nav class="masthead-tools" aria-label="Tools">
+          <a href="/players" data-tool="rankings">Rankings</a>
+          <a href="/trade" data-tool="trade">Trade calculator</a>
+          <a href="/leagues" data-tool="leagues">League history</a>
+        </nav>
+      </div>
+    </header>
     <div class="app-frame">
       <!-- Sleeper connect controls. moveLeagueControls() mounts them on /leagues. -->
       <div id="league-controls" class="league-controls" hidden>
@@ -114,16 +132,19 @@
       <main class="workspace" id="workspace" tabindex="-1">
         <h1 id="route-title" class="sr-only">Dynasty Ticker</h1>
         <header class="workspace-header" id="workspace-header">
-          <div class="league-hero">
-            <div class="league-avatar" id="league-avatar">
-              <img class="league-mark" src="./brand/mark.svg" width="148" height="132" alt="" decoding="async" />
+          <details class="league-season-details">
+            <summary id="league-season-summary">Season details</summary>
+            <div class="league-hero">
+              <div class="league-avatar" id="league-avatar">
+                <img class="league-mark" src="./brand/mark.svg" width="148" height="132" alt="" decoding="async" />
+              </div>
+              <div class="league-hero-copy">
+                <span class="eyebrow" id="hero-eyebrow">Sleeper dynasty league</span>
+                <p id="hero-title">Your Sleeper league</p>
+                <p class="workspace-lede" id="hero-lede">Type a username. Scores open first.</p>
+              </div>
             </div>
-            <div class="league-hero-copy">
-              <span class="eyebrow" id="hero-eyebrow">Sleeper dynasty league</span>
-              <p id="hero-title">Your Sleeper league</p>
-              <p class="workspace-lede" id="hero-lede">Type a username. Scores open first.</p>
-            </div>
-          </div>
+          </details>
         </header>
 
         <div id="desk-load-alert" class="status error desk-load-alert hidden" role="alert">
@@ -142,6 +163,9 @@
       </main>
     </div>
 
+    <footer class="site-foot">
+      <nav aria-label="Legal"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+    </footer>
     <script type="module" src="./boot.js"></script>
   </body>
 </html>

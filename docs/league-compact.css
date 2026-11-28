@@ -1,0 +1,159 @@
+/* League tools share the compact paper, ink, and ruled rows of the rankings board. */
+#leagues-page, #league-page {
+  min-width: 0;
+  width: 100%;
+  margin: 0;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+#leagues-page { max-width: 620px; gap: 3px; }
+#league-page .room { gap: 10px; min-width: 0; grid-template-columns: minmax(0, 1fr); }
+#leagues-page > h1, #league-page .room > h1 {
+  margin: 0;
+  font: 600 clamp(23px, 3vw, 27px)/1.15 var(--font-ui);
+  letter-spacing: -.045em;
+}
+#leagues-page-content > p { margin: 3px 0 20px; }
+#league-page :is(h2, h3) { font-family: var(--font-ui); letter-spacing: -.025em; }
+#league-page h2 { margin-block: 0 5px; font-size: 19px; font-weight: 650; }
+#league-page h3 { font-size: 15px; font-weight: 650; }
+#league-page p { overflow-wrap: anywhere; }
+#league-page .workspace-panel {
+  border: 0;
+  border-top: 1px solid var(--line);
+  padding: 16px 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+}
+#league-page .panel-heading { margin-bottom: 9px; }
+#league-page .league-back, #league-hub-content a, #league-page summary, #league-entry-controls summary { color: var(--green); }
+#league-page summary, #league-entry-controls summary { cursor: pointer; font-weight: 600; }
+#league-page :is(.league-back,summary), #league-entry-controls summary { min-height: 36px; align-content: center; }
+#league-page :is(.league-back, .received-asset .player-link) { display: inline-flex; align-items: center; }
+#league-page :is(input,select), #league-entry-controls :is(input,select) {
+  min-width: 0; min-height: 37px; width: 100%; margin: 0;
+  padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 5px;
+  background: #fff; color: var(--text); font-family: inherit;
+}
+#league-entry-controls .league-module { background: none; box-shadow: none; margin: 14px 0; }
+#league-entry-controls .league-load-form {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center; gap: 5px 8px; max-width: 520px;
+}
+#league-entry-controls .league-load-form label { grid-column: 1 / -1; }
+#league-entry-controls .league-load-form input { grid-row: 2; }
+#league-entry-controls .league-load-form button {
+  grid-column: 2; grid-row: 2; min-height: 37px; border: 0;
+  background: var(--green); color: white; border-radius: 5px;
+  padding-inline: 14px; font-weight: 600; white-space: normal;
+}
+#league-entry-controls .field-error { grid-column: 1 / -1; }
+#league-entry-controls .league-id-fallback { border-block: 1px solid var(--line); padding: 7px 0; margin-top: 16px; }
+#league-entry-controls .league-load-form label, #league-page :is(.trade-log-filters, .league-hub-pick, .history-jump) label {
+  color: var(--muted); font-size: 13px; font-weight: 600;
+}
+#league-entry-controls .league-picker-head { margin: 20px 0 4px; }
+#league-entry-controls .league-picker-list { display: grid; gap: 0; }
+#league-entry-controls .league-pick {
+  min-height: 52px; padding: 7px 3px; border: 0; border-block-end: 1px solid var(--line);
+  background: none; box-shadow: none; border-radius: 0;
+}
+#league-entry-controls .league-pick:hover, #league-entry-controls .league-pick.selected { background: #e9f1ea; }
+#league-entry-controls .league-pick-copy :is(small,strong) { white-space: normal; overflow-wrap: anywhere; }
+#league-entry-controls .league-pick-avatar { width: 32px; height: 32px; }
+#league-page .league-hub-header, .league-winner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+#league-page .league-hub-header { padding: 14px 0 7px; }
+#league-page .league-hub-header > div { flex: 1 1 220px; min-width: 0; }
+#league-page .league-hub-header img, .league-winner img { border-radius: 50%; object-fit: cover; }
+#league-page .league-hub-header a { font-size: 13px; font-weight: 600; padding-block: 8px; }
+#league-page .league-hub-header p, #league-page .league-format-note { margin: 0; color: var(--muted); font-size: 13px; }
+#league-page .league-hub-pick { width: min(100%, 340px); margin: 15px 0 18px; }
+#league-page .league-hub-grid { grid-template-columns: 1fr; gap: 0; border-block-start: 1px solid var(--line); }
+#league-page .league-hub-grid a {
+  display: grid; align-items: center; grid-template-columns: minmax(130px, 1fr) 2fr 1.4em;
+  gap: 6px 15px; padding: 12px 5px; border-bottom: 1px solid var(--line);
+  color: var(--text); min-height: 48px;
+}
+#league-page .league-hub-grid a:hover { background: #eef2eb; outline: none; }
+#league-page .league-hub-grid span { font-size: 13px; color: var(--muted); }
+#league-page .league-hub-grid i { color: var(--green); font-style: normal; text-align: right; }
+#league-page .league-winner { margin: 18px 0 0; text-align: start; }
+#league-page .league-winner h3 { margin: 0; font-size: 13px; }
+#league-page .league-winner p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+#league-page :is(.standings-table,.odds-table,.league-most-traded,.league-history-records,.team-superlatives) { gap: 0; }
+#league-page :is(.standings-row,.odds-row,.team-superlative,.sheet-row,.league-most-traded li) {
+  border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; background: none;
+}
+#league-page :is(.standings-row,.odds-row,.sheet-row) { min-height: 40px; }
+#league-page :is(.standings-row,.odds-row,.sheet-row):hover,
+#league-page :is(.standings-row,.odds-row).you { background: #ebf2ec; }
+#league-page :is(.standings-head,.odds-head,.sheet-head,.league-history-table thead) {
+  background: #eef0e9; text-transform: none; color: #536259; letter-spacing: 0;
+}
+#league-page :is(.standings-head,.odds-head) { min-height: 30px; }
+#league-page .team-header-row h2 { margin: 0; }
+#league-page .team-superlatives { grid-template-columns: repeat(auto-fit,minmax(min(100%, 260px),1fr)); column-gap: 15px; }
+#league-page .team-superlative { padding: 9px 0; align-items: center; }
+#league-page .team-superlative h3 { margin: 0; }
+#league-page .power-stat { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+#league-page .trade-log-filters {
+  display: grid; grid-template-columns: 2fr .8fr 1.2fr; gap: 10px; margin: 14px 0 18px;
+}
+#league-page .trade-log-filters label, #league-page .history-jump { display: grid; gap: 4px; min-width: 0; }
+#league-page .trade-log-filters :is(select,input) { margin: 0; }
+#league-page .trade-log-card { margin: 0; }
+#league-page .trade-log-card .panel-heading { flex-flow: row wrap; align-items: center; justify-content: space-between; }
+#league-page .trade-log-side h3 { margin: 0; }
+#league-page .received-asset { display: block; margin: 4px 0; }
+#league-page .trade-log-card details { margin-top: 4px; }
+#league-page .history-jump { margin: 14px 0 16px; width: min(100%,300px); }
+#league-page .history-section { scroll-margin-top: 8rem; }
+#league-page :is(.league-history-records,.league-history-awards,.league-trophy-list,.league-history-season-list) { gap: 0 16px; }
+#league-page :is(.league-history-season,.league-history-records > div,.league-history-awards > div,.league-trophy-card) {
+  border: 0; border-bottom: 1px solid var(--line); background: none; border-radius: 0; padding: 9px 0;
+}
+#league-page :is(.league-history-table th,.league-history-table td) { padding: 7px 10px; font-size: 13px; }
+#league-page .league-history-table tbody th { max-width: min(200px, 40vw); overflow-wrap: anywhere; white-space: normal; }
+#league-page .league-history-table th:first-child {
+  position: sticky; left: 0; background: var(--bg); box-shadow: 1px 0 var(--line);
+}
+#league-page .league-history-table thead th:first-child { background: #eef0e9; }
+#league-page .league-most-traded li { align-items: center; padding: 5px 0; min-height: 40px; }
+#league-page .league-most-traded a { color: var(--green); }
+#league-page :is(.league-most-traded-name,.received-asset,.league-trophy-card dd) .player-name {
+  vertical-align: middle; white-space: normal; text-align: start;
+}
+
+@media (max-width: 620px) {
+  #league-page :is(select,input), #league-entry-controls :is(select,input) { font-size: 16px; min-height: 44px; }
+  #league-entry-controls .league-load-form button { min-height: 44px; }
+  #league-page .league-hub-grid a { grid-template-columns: minmax(0,1fr) auto; gap: 2px 7px; padding: 9px 3px; }
+  #league-page .league-hub-grid span { grid-column: 1; }
+  #league-page .league-hub-grid i { grid-column: 2; grid-row: 1 / 3; }
+  #league-page .trade-log-filters { grid-template-columns: minmax(90px,.7fr) minmax(0,1.3fr); }
+  #league-page .trade-log-filters label:first-child { grid-column: 1 / -1; }
+  #league-page .trade-log-card .trade-log-parties { grid-template-columns: minmax(0,1fr); }
+  #league-page .trade-log-card .trade-log-side + .trade-log-side { border-top: 1px solid var(--line); padding-top: 8px; }
+  #league-page .league-hub-header { gap: 7px 10px; }
+  #league-page .league-hub-header > div { flex-basis: 70%; }
+  #league-page .league-hub-header a { padding-block: 4px; }
+  #league-page .history-jump { width: 100%; }
+  #league-page :is(.standings-row,.odds-row,.sheet-row,.league-back,summary) { min-height: 44px; }
+}
+
+body.league-loaded #workspace-header {
+  grid-template-columns: minmax(0,1fr); border: 0; padding: 0; margin-bottom: 12px;
+}
+.league-season-details > summary {
+  cursor: pointer; width: fit-content; padding-block: 8px; color: var(--green);
+  font: 600 13px/1.4 var(--font-ui);
+}
+#workspace-header .league-hero { display: flex; padding: 8px 0 12px; gap: 10px; }
+#workspace-header .league-avatar { width: 36px; height: 36px; border-radius: 50%; border: 0; }
+#workspace-header .league-hero-copy #hero-title { margin: 0; font-size: 16px; font-weight: 600; }
+#workspace-header .league-hero-copy #hero-eyebrow {
+  margin: 0; text-transform: none; white-space: normal; letter-spacing: 0; font-size: 12px;
+}
+#workspace-header .league-hero-copy #hero-lede { display: block; margin: 2px 0 0; font-size: 13px; color: var(--muted); }
