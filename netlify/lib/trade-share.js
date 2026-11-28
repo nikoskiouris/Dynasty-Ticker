@@ -12,6 +12,7 @@ import {
   shareImagePath,
   sharePath,
   shareSummary,
+  sharedSideTitle,
   snapshotPath,
   stampLabel,
 } from "../../docs/modules/trade-share.js";
@@ -58,8 +59,12 @@ export function codeFromPath(pathname, { suffix = "" } = {}) {
 // today: the live board's summary when prices moved since the link was made.
 // The preview then says both, in the same neutral words.
 export function shareText(summary, { today = null, legacy = false } = {}) {
-  const list = (rows) => rows.map((row) => row.name).join(", ");
+  const list = (rows) => rows.map(row => row.name).join(", ");
   const verdict = cardVerdict(summary);
+  const fullTitle = `${list(summary.give)} for ${list(summary.get)}: ${verdict.line}`;
+  // Long packages could lose half a percentage when cut at character 160.
+  const title = fullTitle.length <= 160 ? fullTitle
+    : `${sharedSideTitle(summary.give)} for ${sharedSideTitle(summary.get)}: ${summary.unpriced?.length ? verdict.text : verdict.line}`;
   const n = formatNumber;
   const side = (key, label) => {
     const credited = summary.credit?.side === key;
@@ -70,13 +75,13 @@ export function shareText(summary, { today = null, legacy = false } = {}) {
   const verdictText = verdict.line;
   if (summary.unpriced?.length) {
     return {
-      title: `${list(summary.give)} for ${list(summary.get)}: ${verdictText}`.slice(0, 160),
+      title,
       description: `${verdictText.replace(/^No verdict: /, "").replace(/^./, (c) => c.toUpperCase())} on Dynasty Ticker${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, so there is no verdict. Open it to check the rest free at Dynasty Ticker.`,
       alt: `${verdictText}.`,
     };
   }
   return {
-    title: `${list(summary.give)} for ${list(summary.get)}: ${verdictText}`.slice(0, 160),
+    title,
     // Same names as the title and the app: the get side is what Team 1 receives.
     description: legacy
       // A 1QB link: today's SF prices, said plainly. Never "as of" the share date.
