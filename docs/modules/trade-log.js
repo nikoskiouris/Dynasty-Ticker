@@ -199,10 +199,14 @@ function tradeCard(row, context, rank) {
   }).join("");
   const calcHref = calculatorLink(trade, graded.sides);
   const tier = graded.available ? TIER_LABELS[graded.tier] || "Multi-team" : "Ungraded";
+  const total = graded.available ? graded.sides.reduce((sum, side) => sum + side.listedReceived, 0) : null;
+  const size = total === null ? "Total unavailable" : `${priceLabel(roundPrice(total))} swapped`;
+  const sizeHint = total === null ? graded.reason : "Total value swapped at today’s listed prices, before package adjustments.";
+  const seasonLabel = String(new Date(date).getUTCFullYear()) === text(entry.season) ? "" : ` · ${entry.season} season`;
   const id = text(trade.transaction_id);
   return `<article class="workspace-panel trade-log-card" id="trade-${escapeHtml(id)}" tabindex="-1">
     <details${context.focusTradeId === id ? " open" : ""}><summary>
-      <strong>${escapeHtml(title)}</strong> <span class="muted small">${escapeHtml(dateLabel(date))} · ${escapeHtml(entry.season)} season · ${escapeHtml(tier)}</span>
+      <strong>${escapeHtml(title)}</strong> <span class="muted small"><b title="${escapeHtml(sizeHint)}">${escapeHtml(size)}</b> · ${escapeHtml(dateLabel(date) + seasonLabel)} · ${escapeHtml(tier)}</span>
     </summary>
     <div class="trade-log-parties">${parties}</div>
     ${graded.reason ? `<p class="muted small">${escapeHtml(graded.reason)}.</p>` : ""}
