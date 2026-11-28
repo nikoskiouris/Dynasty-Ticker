@@ -2204,13 +2204,14 @@ function sharedVerdictFor(view) {
   const legacy = Boolean(entry.decoded?.legacyFormat);
   const shared = entry.snapshot && !legacy ? shareSummary(entry.decoded, entry.snapshot, {}, state.valueBundles) : null;
   const moved = Boolean(shared) && !sameVerdict(shared, today);
+  const earlierModel = shared && entry.snapshot.modelVersion !== state.valueBundles.modelVersion;
   if (entry.settled && !entry.reported) {
     entry.reported = true;
     trackTradeLinkOpened({ drift: moved });
   }
   return {
     today,
-    shared: moved ? shared : null,
+    shared: moved || earlierModel ? shared : null,
     date: stampLabel(entry.decoded.stamp),
     legacy,
     // A link shared on today's prices is current, not "no longer saved".
@@ -6239,7 +6240,7 @@ function renderDraftVerdict(view) {
   }
   if (view.missingPrices) {
     const shared = sharedVerdictFor(view);
-    return `<section class="calc-summary"><h3>Current verdict unavailable</h3><p>One or more pieces have no published value.</p>${shared?.shared ? `<p>When shared on ${escapeHtml(shared.date)} · ${escapeHtml(shared.shared.label)}</p>` : ""}<div class="calc-actions"><button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button></div></section>`;
+    return `<section class="calc-summary"><h3>Current verdict unavailable</h3><p>One or more pieces have no published value.</p>${shared?.shared ? `<p>When shared on ${escapeHtml(shared.date)} · ${escapeHtml(shared.shared.label)}</p>${renderArchivedTradePrices(shared.shared)}` : ""}<div class="calc-actions"><button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button></div></section>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (bothSides) noteTradeChecked(draft);
@@ -6328,6 +6329,14 @@ function verdictLineHtml(line) {
   return String(line || "").split(" · ").map(escapeHtml).join(` <span class="verdict-dot">·</span> `);
 }
 
+function renderArchivedTradePrices(summary) {
+  const side = (rows) => rows.map((piece) =>
+    `${escapeHtml(piece.name)} (${piece.unpriced ? "unavailable" : formatNumber(piece.value)})`
+  ).join(", ");
+  const units = summary.sourceValueScale === 10000 ? "<p>The original snapshot used a 0–10,000 scale. These archived prices are displayed on a 0–100 scale.</p>" : "";
+  return `<details class="calc-method"><summary>Prices when shared</summary><p>Team 1 received ${side(summary.get)}.</p><p>Team 2 received ${side(summary.give)}.</p>${units}</details>`;
+}
+
 // Shared link: the verdict line. When prices moved since it was shared, a
 // compact two-row compare (sharer's date, then today in bold) and one line.
 function renderSharedVerdictHead(shared) {
@@ -6343,6 +6352,7 @@ function renderSharedVerdictHead(shared) {
       <div class="is-today"><dt>Today</dt><dd><strong>${verdictLineHtml(shared.today.label)}</strong></dd></div>
     </dl>
     <p class="calc-shared-note">Each verdict uses the model and prices published on its date.</p>
+    ${renderArchivedTradePrices(shared.shared)}
   `;
 }
 

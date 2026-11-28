@@ -6,8 +6,8 @@ Input fields, assumptions and empirical references are in the model research not
 
 from bisect import bisect_left, bisect_right
 from math import floor, isfinite
-from statistics import median
 
+from dynasty_calibration import ELITE_EXPECTED_SURPLUS, calibrated_football, market_surplus, native_score
 from inseason import remaining_forecast, remaining_share
 
 
@@ -15,7 +15,7 @@ VALUE_SCALE = 100
 HUNDREDTHS_PER_POINT = 100
 TEAMS = 12
 STARTERS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
-WEIGHTS = {"lineup": 0.35, "future": 0.40, "market": 0.25}
+MARKET_SHARE = 0.25
 # Year-two and year-three expected full-PPR surplus per scheduled team game.
 # nflverse, 2000–2016 draft classes. The NFL rounds are 1, 2, 3, and 4+.
 DRAFT_SURPLUS = {
@@ -187,8 +187,12 @@ def apportion(components):
     return target, parts
 
 
-def value_board(players, picks, *, season_week=1):
-    """Return (players, picks, diagnostics). Invalid or unsupported assets are omitted."""
+DISCOUNT = 0.85
+FUTURE_SEASONS = DISCOUNT + DISCOUNT ** 2
+
+
+def raw_board(players, *, season_week=1):
+    """Discounted lineup PPR before cross-season outcome or market calibration."""
     week = max(1, min(19, int(season_week)))
     forecasts = {}
     season_board = {pos: [] for pos in STARTERS}
@@ -214,7 +218,6 @@ def value_board(players, picks, *, season_week=1):
     future_level = replacement_levels(future_board)
     ordered_future = {pos: sorted(scores) for pos, scores in future_board.items()}
     raw = {}
-    evidence = {}
     for key, (current, future) in forecasts.items():
         row, pos = players[key], players[key]["pos"]
         coverage = []
@@ -237,92 +240,76 @@ def value_board(players, picks, *, season_week=1):
             coverage.append("draftCapital")
         if quote:
             coverage.append("market")
-        raw[key] = {"lineup": current_value, "future": (1 - share) * future_value,
-                    "draft": share * draft, "market": quote}
-        evidence[key] = coverage
+        raw[key] = {"lineup": current_value, "future": FUTURE_SEASONS * (1 - share) * future_value,
+                    "draft": FUTURE_SEASONS * share * draft, "market": quote, "coverage": coverage,
+                    "remainingPpr": round(current, 1) if current is not None else None}
+    return raw, {"seasonReplacement": {p: round(v, 3) for p, v in now_level.items()},
+                 "futureReplacement": {p: round(v, 3) for p, v in future_level.items()},
+                 "remainingSeasonFraction": remaining_share(players, week)}
 
-    # Put each signal on an elite-relative scale. Use the same denominator for
-    # outlook and draft capital because both express future PPR surplus.
-    current_scale = max(row["lineup"] for row in raw.values())
-    future_scale = max(row["future"] + row["draft"] for row in raw.values())
-    market_scale = max(row["market"] for row in raw.values())
-    if future_scale <= 0:
-        raise ValueError("Missing usable full-board scoring spread")
-    # Independent normalization would otherwise make six games of lineup
-    # advantage worth as much as seventeen. Shift only unplayable weeks to
-    # the outlook, retaining the independent market anchor throughout.
-    time_left = remaining_share(players, week) if current_scale > 0 else 0
-    lineup_weight = WEIGHTS["lineup"] * time_left
-    future_weight = WEIGHTS["future"] + WEIGHTS["lineup"] - lineup_weight
-    factors = {}
+
+def value_board(players, picks, *, season_week=1):
+    """Estimate three-season surplus and quote it in native dynasty points."""
+    raw, context = raw_board(players, season_week=season_week)
+    time_left = context["remainingSeasonFraction"]
+    player_results = {}
     for key, row in raw.items():
-        factors[key] = {
-            "lineup": lineup_weight * row["lineup"] / current_scale if current_scale > 0 else 0,
-            "future": future_weight * row["future"] / future_scale,
-            "draft": future_weight * row["draft"] / future_scale,
-            "market": WEIGHTS["market"] * row["market"] / market_scale if market_scale else 0,
+        football = {factor: row[factor] for factor in ("lineup", "future", "draft")}
+        projected = sum(football.values())
+        # A real projection or recorded season can give an estimated surplus
+        # of zero. A schedule with no observed player role is missing evidence.
+        has_football = any(source in row["coverage"] for source in (
+            "seasonProjection", "forwardWeeks", "priorSeason", "currentSeason", "draftCapital"))
+        if "recentTeamGames" in row["coverage"] and (number(players[key].get("recent_games")) or 0) > 0:
+            has_football = True
+        has_market = row["market"] > 0
+        if not has_football and not has_market:
+            continue
+        market_share = MARKET_SHARE if has_market and has_football else float(has_market)
+        football_units = calibrated_football(projected) * (1 - market_share)
+        components = {k: football_units * v / projected if projected > 0 else 0.0
+                      for k, v in football.items()}
+        components["market"] = market_share * market_surplus(row["market"], time_left)
+        expected = sum(components.values())
+        if expected <= 0:
+            continue
+        score = native_score(expected)
+        # Assign the calibrated football estimate in proportion to its three
+        # underlying signals. Apply any ceiling to all four contributions.
+        target_scale = HUNDREDTHS_PER_POINT * score / expected
+        cents, allocated = apportion({k: v * target_scale for k, v in components.items()})
+        if cents == 0:
+            continue
+        player_results[key] = {
+            "value": cents / HUNDREDTHS_PER_POINT,
+            "factors": {k: v / HUNDREDTHS_PER_POINT for k, v in allocated.items()},
+            "coverage": row["coverage"], "remainingPpr": row["remainingPpr"],
+            "projectedSurplus": round(projected, 3) if has_football else None,
+            "calibratedSurplus": round(expected, 3), "marketShare": market_share,
         }
 
-    # A pick has no projected production. Translate its direct market quote
-    # onto our board using similarly quoted players, preserving quote order.
-    peak = max(sum(row.values()) for row in factors.values())
-    # Allocate integer hundredths before exposing a price. This keeps ties,
-    # cross-asset interpolation and all four contributions exact to one cent.
-    scale = VALUE_SCALE * HUNDREDTHS_PER_POINT / peak
-    player_results = {}
-    for key, row in factors.items():
-        value, parts = apportion({name: val * scale for name, val in row.items()})
-        if value > 0:
-            current = forecasts[key][0]
-            player_results[key] = {"value": value, "factors": parts, "coverage": evidence[key],
-                                   "remainingPpr": round(current, 1) if current is not None else None}
-
-    # The picker interpolates on the same integer grid as player prices.
+    # Picks have no individual NFL production history. Convert each supported
+    # quote using the identical fixed reference used for players' market input.
     pick_results = {}
-    if market_scale:
-        reference = sorted((raw[k]["market"], r["value"]) for k, r in player_results.items()
-                           if raw[k]["market"] > 0)
-        for key, row in picks.items():
-            quote = number(row.get("market"))
-            if quote is not None and quote > 0:
-                value = quote_to_board(quote, reference)
-                pick_results[key] = {"value": value, "factors": {"market": value}, "coverage": ["market"]}
-    for board in (player_results, pick_results):
-        for result in board.values():
-            result["value"] /= HUNDREDTHS_PER_POINT
-            result["factors"] = {key: cents / HUNDREDTHS_PER_POINT for key, cents in result["factors"].items()}
+    for key, row in picks.items():
+        quote = number(row.get("market"))
+        if quote is None or quote <= 0:
+            continue
+        expected = market_surplus(quote, time_left)
+        price = round(native_score(expected) * HUNDREDTHS_PER_POINT) / HUNDREDTHS_PER_POINT
+        if price > 0:
+            pick_results[key] = {
+                "value": price, "factors": {"market": price}, "coverage": ["market"],
+                "projectedSurplus": None, "calibratedSurplus": round(expected, 3), "marketShare": 1.0,
+            }
     return player_results, pick_results, {
+        **context,
         "lineup": {"teams": TEAMS, **STARTERS, "FLEX": 1, "SUPER_FLEX": 1},
-        "weights": {"lineup": lineup_weight, "future": future_weight, "market": WEIGHTS["market"]},
-        "baseWeights": dict(WEIGHTS),
-        "remainingSeasonFraction": time_left,
-        "futureSeasons": 2,
-        "secondYearDiscount": 0.85,
-        "futureCohortShare": 0.5,
+        "method": "historically-calibrated-discounted-surplus",
+        "scoreAnchors": [{"score": score, "surplus": score * ELITE_EXPECTED_SURPLUS / VALUE_SCALE}
+                         for score in (0, 25, 50, 75, 100)],
+        "marketWeight": MARKET_SHARE, "horizonDiscount": DISCOUNT,
+        "futureSeasons": 2, "secondYearDiscount": DISCOUNT, "futureCohortShare": 0.5,
         "draftPriorShare": {"rookieStart": 0.65, "rookieEnd": 0.25, "secondYearEnd": 0},
-        "seasonReplacement": {p: round(v, 3) for p, v in now_level.items()},
-        "futureReplacement": {p: round(v, 3) for p, v in future_level.items()},
         "marketPlayers": sum(row["market"] > 0 for row in raw.values()),
     }
-
-
-def quote_to_board(quote, reference):
-    """Map an external quote to a local price via monotone cohort medians."""
-    # Twelve-player cohorts reduce single-player noise (roughly one round
-    # of a startup). Highest and lowest anchors keep interpolation bounded.
-    anchors = [(0, 0)]
-    for start in range(0, len(reference), TEAMS):
-        cohort = reference[start:start + TEAMS]
-        if len(cohort) < TEAMS // 2:
-            continue
-        x = median([m for m, _ in cohort])
-        y = median([v for _, v in cohort])
-        if x > anchors[-1][0]:
-            anchors.append((x, max(y, anchors[-1][1])))
-    maximum_quote = reference[-1][0]
-    if maximum_quote > anchors[-1][0]:
-        anchors.append((maximum_quote, max(v for _, v in reference)))
-    for (x0, y0), (x1, y1) in zip(anchors, anchors[1:]):
-        if quote <= x1:
-            return max(1, round(y0 + (quote - x0) * (y1 - y0) / (x1 - x0)))
-    return max(1, round(anchors[-1][1]))

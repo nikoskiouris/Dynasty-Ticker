@@ -1,6 +1,8 @@
 # Historical ranking audit
 
-Run the [audit CLI](ranking_holdout.py) from the repository root with Python 3.10 or later. It downloads the pinned preseason snapshots and player ID crosswalk plus the nflverse regular-season outcome files. Downloads are cached locally for reuse. Each row reports hits, surplus captured, Spearman correlation and position counts.
+The tables below record earlier pricing revisions. To reproduce the final v2/v3 table, use [the audited revision](https://github.com/nikoskiouris/Dynasty-Ticker/tree/cb822a483f1cc421152f94a08c573a562e7d77c0). Running the [audit CLI](ranking_holdout.py) on the current branch evaluates the current model.
+
+Run the CLI from the repository root with Python 3.10 or later. It downloads the pinned preseason snapshots and player ID crosswalk plus the nflverse regular-season outcome files. Downloads are cached locally for reuse. Each row reports hits, surplus captured, Spearman correlation and position counts.
 
 ```sh
 python3 player-values/research/ranking_holdout.py

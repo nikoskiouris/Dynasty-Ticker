@@ -9,7 +9,7 @@ export const INFO_PHONE_MAX_WIDTH = 700;
 export function valuesWorkText(date = "") {
   const when = String(date || "").trim();
   const updated = when ? ` Updated ${when}.` : "";
-  return `Player and pick values run from 0 to 100 for 12-team Superflex PPR dynasty. A trade total can exceed 100 when a side receives multiple pieces. The model weighs remaining-season lineup advantage, future production, early-career draft capital and available market prices. Each player’s page shows how those inputs contributed.${updated}`;
+  return `The 0–100 dynasty scale is tied to historical PPR points above replacement over three seasons. The model values the remaining regular season and the following two, gives less weight to more distant seasons, and uses market evidence when available. Draft picks use their market quotes on the same scale. A package can total more than 100.${updated}`;
 }
 
 // Plain words for terms a first-time or non-native reader may not know.

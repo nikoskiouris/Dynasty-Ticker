@@ -143,8 +143,14 @@ def archive(values_path: Path = VALUES, history: Path = HISTORY, keep: int | Non
             models[stamp] = str(data["modelVersion"])
     else:
         existing = json.loads(target.read_text(encoding="utf-8"))
+        # Pre-scale archives kept their model version in the index. Their
+        # price payloads stay immutable even when replaying a newer model.
+        existing_model = existing.get("modelVersion")
+        if existing_model is None and data.get("modelVersion") is not None:
+            existing_model = indexed_models(history).get(stamp, "football-forecast-v1")
         if (existing.get("asOf") != data["asOf"] or existing.get("sf") != data["sf"]
-                or existing.get("valueScale") != data.get("valueScale")):
+                or existing.get("valueScale") != data.get("valueScale")
+                or existing_model != data.get("modelVersion")):
             raise ValueError(f"Archive minute {stamp} already belongs to another snapshot")
     prune(history, keep)
     if keep is None:

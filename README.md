@@ -24,7 +24,7 @@ Old links (`?tab=…`, `?view=ranks`, removed rooms like Find a trade) still ope
 Product purpose and how to choose between competing asks live in `AGENTS.md`. First-visit usability tasks live in `research/first-visit-tasks.md`.
 
 ### Value source
-Rankings, player pages, Trade Calculator, League History and share cards read the same **12-team Superflex full-PPR dynasty** snapshot at `docs/data/player_values.json`. Players and picks use a 0–100 scale with hundredth-point precision. Player values reflect projected lineup advantage, future production and format-specific market quotes. The calculator applies its package adjustment when comparing offers. Each asset keeps the same individual price throughout the app.
+Rankings, player pages, Trade Calculator, League History and share cards read the same **12-team Superflex full-PPR dynasty** snapshot at `docs/data/player_values.json`. A score of 50 represents about 181 expected, discounted PPR points above replacement across the remaining season and the next two. Players and picks use a 0–100 scale anchored to a fixed historical benchmark. Player values combine historically calibrated lineup advantage and future production with format-specific market evidence. The calculator applies its package adjustment when comparing offers. Each asset keeps the same individual price throughout the app.
 
 Run `python3 player-values/build_trade_values.py` to refresh the board and `python3 scripts/check_market_files.py --fail-on-age` to check the generated file. The [model notes](player-values/README.md) document the inputs, weights, assumptions and historical checks.
 

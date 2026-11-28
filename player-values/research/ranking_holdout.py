@@ -7,6 +7,8 @@ import json
 import re
 import sys
 import unicodedata
+import zipfile
+from xml.etree import ElementTree
 from collections import Counter, defaultdict
 from datetime import date
 from itertools import groupby
@@ -43,7 +45,7 @@ ALIASES = {
 }
 
 
-def fetch(url, cache):
+def cached_file(url, cache):
     key = hashlib.sha256(url.encode()).hexdigest()[:16]
     path = cache / (key + '-' + url.rsplit('/', 1)[1])
     if not path.exists():
@@ -52,7 +54,11 @@ def fetch(url, cache):
         with NamedTemporaryFile(dir=cache, delete=False) as tmp:
             tmp.write(data)
         Path(tmp.name).replace(path)
-    return path.read_text(encoding='utf-8-sig')
+    return path
+
+
+def fetch(url, cache):
+    return cached_file(url, cache).read_text(encoding='utf-8-sig')
 
 
 def csv_rows(url, cache):
@@ -74,7 +80,33 @@ def ppr(stats, fields):
                for field, weight in zip(fields, PPR))
 
 
+def espn_2018_forecast(cache):
+    # The August 12 workbook has four positional sheets with identical columns.
+    # Both fumbles and two-point conversions are absent in this archive.
+    url = (RAW_GITHUB + 'jpurpura/fantasy-football-2018/'
+           '8dee3651860987af2dfbabace450c80fba70a204/projections/espn_projections_aug_src.xlsx')
+    fields = ('PASS YDS', 'PASS TD', 'INT', 'RUSH YDS', 'RUSH TD', 'REC', 'REC YDS', 'REC TD')
+    with zipfile.ZipFile(cached_file(url, cache)) as workbook:
+        strings = [''.join(node.itertext()) for node in ElementTree.fromstring(workbook.read('xl/sharedStrings.xml'))]
+        for sheet, position in enumerate(POSITIONS, start=1):
+            root = ElementTree.fromstring(workbook.read(f'xl/worksheets/sheet{sheet}.xml'))
+            rows = root.findall('.//{*}row')
+            headers = [strings[int(cell.findtext('{*}v'))] for cell in rows[0].findall('{*}c')]
+            for row in rows[1:]:
+                cells = {}
+                for cell in row.findall('{*}c'):
+                    column = ord(cell.attrib['r'][0]) - ord('A')
+                    raw = cell.findtext('{*}v')
+                    if raw is not None:
+                        cells[headers[column]] = strings[int(raw)] if cell.get('t') == 's' else raw
+                name = cells['PLAYER'].split(',', 1)[0].strip()
+                yield name, position, ppr(cells, fields), None
+
+
 def forecast_rows(year, cache):
+    if year == 2018:
+        yield from espn_2018_forecast(cache)
+        return
     if year in FANTASYPROS_ARCHIVES:
         archive, name_key, pos_key, fields = FANTASYPROS_ARCHIVES[year]
         for row in csv_rows(RAW_GITHUB + archive, cache):
@@ -99,7 +131,19 @@ def forecast_rows(year, cache):
                 yield player['fullName'], POSITIONS[pos - 1], ppr(stats, ESPN_STAT_IDS) + 2 * conversions, str(player['id'])
 
 
-def make_board(year, prior, crosswalk, cache):
+def historical_player(year, pos, points, bio, last):
+    birth, draft_year = bio.get('birthdate'), optional_int(bio.get('draft_year'))
+    age = (date(year, 9, 1) - date.fromisoformat(birth)).days / 365.2425 if birth and birth != 'NA' else None
+    return {
+        'pos': pos, 'season_ppr': points, 'age': age,
+        'years_exp': year - draft_year if draft_year and draft_year <= year else None,
+        'draft_round': optional_int(bio.get('draft_round')), 'draft_pick': optional_int(bio.get('draft_ovr')),
+        'last_ppr': float(last['fantasy_points_ppr']) if last else None,
+        'last_games': int(last['games']) if last else None,
+    }
+
+
+def make_board(year, prior, crosswalk, cache, *, projections=None):
     by_espn = {r['espn_id']: r for r in crosswalk if r['espn_id'] != 'NA'}
     by_gsis = {r['gsis_id']: r for r in crosswalk if r['gsis_id'] != 'NA'}
     by_name, prior_names = defaultdict(list), defaultdict(list)
@@ -123,7 +167,7 @@ def make_board(year, prior, crosswalk, cache):
         return candidates[0] if len(candidates) == 1 else {}
 
     board = {}
-    for name, pos, points, espn_id in forecast_rows(year, cache):
+    for name, pos, points, espn_id in (forecast_rows(year, cache) if projections is None else projections):
         if points <= 0:
             continue
         bio = by_espn.get(espn_id, {}) if espn_id is not None else match_name(name, pos)
@@ -132,16 +176,7 @@ def make_board(year, prior, crosswalk, cache):
             key = 'unmatched-' + normalized(name) + '-' + pos
         if key in board and board[key]['season_ppr'] >= points:
             continue
-        birth, draft_year = bio.get('birthdate'), optional_int(bio.get('draft_year'))
-        age = (date(year, 9, 1) - date.fromisoformat(birth)).days / 365.2425 if birth and birth != 'NA' else None
-        last = prior.get(key)
-        board[key] = {
-            'pos': pos, 'season_ppr': points, 'age': age,
-            'years_exp': year - draft_year if draft_year and draft_year <= year else None,
-            'draft_round': optional_int(bio.get('draft_round')), 'draft_pick': optional_int(bio.get('draft_ovr')),
-            'last_ppr': float(last['fantasy_points_ppr']) if last else None,
-            'last_games': int(last['games']) if last else None,
-        }
+        board[key] = historical_player(year, pos, points, bio, prior.get(key))
     return board
 
 

@@ -19,7 +19,7 @@ function renderProjectionInputs(projection, replacement) {
     </dl>`;
 }
 
-function renderValueFactors(model, weights) {
+function renderValueFactors(model, priceModel) {
   const coverage = new Set(model.coverage || []);
   const forecast = coverage.has("seasonProjection");
   const production = coverage.has("priorSeason") || coverage.has("currentSeason");
@@ -32,14 +32,22 @@ function renderValueFactors(model, weights) {
   ];
   const rows = factors.map(([key, label, available, missing]) => {
     const points = model.factors?.[key];
-    return `<div><dt>${label}</dt><dd>${available && Number.isFinite(points) ? formatNumber(points) : missing}</dd></div>`;
+    return `<div><dt>${label}</dt><dd>${Number.isFinite(points) && (available || points > 0) ? formatNumber(points) : missing}</dd></div>`;
   });
-  const marketOnly = coverage.size === 1 && coverage.has("market");
-  const summary = marketOnly ? "Only a market quote was available for this player." : "These contributions add up to the published value. Lineup advantage measures how many more PPR points he can still earn than a replacement starter.";
-  const percent = (weight) => `${formatNumber(Math.round(1000 * weight) / 10)}%`;
-  const recipe = weights && [weights.lineup, weights.future, weights.market].every(Number.isFinite)
-    ? `<p>Current weights are ${percent(weights.lineup)} for remaining-season lineup advantage, ${percent(weights.future)} for future production (including early-career draft capital), and ${percent(weights.market)} for market value. As games are played, more weight shifts to future seasons.</p>` : "";
-  return `<p>${summary}</p><dl class="player-detail-facts">${rows.join("")}</dl>${recipe}`;
+  const market = Number.isFinite(model.marketShare) ? model.marketShare : null;
+  let basis = "";
+  if (market === 1) basis = "The market quote supplies this estimate.";
+  else if (market === 0) basis = "The football projection supplies this estimate.";
+  else if (market != null) basis = `The blend gives ${formatNumber(100 * (1 - market))}% weight to the football estimate and ${formatNumber(100 * market)}% to the market estimate.`;
+
+  const surplus = model.calibratedSurplus;
+  const top = priceModel?.scoreAnchors?.find(anchor => anchor.score === 100);
+  const discount = priceModel?.horizonDiscount;
+  const horizon = Number.isFinite(discount)
+    ? `Future seasons count at ${formatNumber(100 * discount)}% and ${formatNumber(100 * discount ** 2)}% of their projected surplus.` : "";
+  const scale = Number.isFinite(surplus) && Number.isFinite(top?.surplus)
+    ? `<p>The model estimates ${formatNumber(surplus)} discounted PPR points above a replacement starter across the rest of this season and the next two. ${horizon} A score of 100 corresponds to a fixed historical benchmark of ${formatNumber(top.surplus)} discounted PPR points.</p>` : "";
+  return `${scale}<p>${basis} Each figure below is a contribution to the 0–100 score.</p><dl class="player-detail-facts">${rows.join("")}</dl>`;
 }
 
 export function pickRefLine(value, ref) {
@@ -77,7 +85,7 @@ export function renderPlayerPage(row, view = {}) {
     <div class="player-detail-top"><p class="eyebrow">Player detail</p><button type="button" class="ghost-btn player-return" data-action="player-rankings-return">Return to player rankings</button></div>
     <header class="player-detail-header">${renderPlayerFace(row.playerId, row.name, { size: "md" })}<div><h1 id="player-detail-name">${escapeHtml(row.name)}</h1><p>${escapeHtml([row.position, row.team || "FA", `${show(row.age)} years old`, years != null ? (Number(years) === 0 ? "Rookie" : `${years} ${Number(years) === 1 ? "year" : "years"} experience`) : ""].filter(Boolean).join(" · "))}</p><p>${escapeHtml(draftLine)}${injury ? ` · ${escapeHtml(injury)}` : ""}</p>${owner ? `<p class="player-detail-owner">${escapeHtml(owner)}</p>` : ""}</div></header>
     <section class="player-detail-value" aria-label="Canonical player value"><strong>${priced ? escapeHtml(formatNumber(row.value)) : "Value unavailable"}</strong>${priced ? `<span>Overall rank ${row.overallRank} · ${escapeHtml(row.boardRank || row.position)}</span>` : ""}${renderValueTierBadge(row.tier)}${trend ? renderValueTrend(trend, { spark: true, showWindow: true }) : ""}${pickRefLine(row.value, row.pickRef) ? `<p class="player-pick-ref">${escapeHtml(pickRefLine(row.value, row.pickRef))}</p>` : ""}<p>Dynasty value on a 0–100 scale · 12-team Superflex PPR</p>${view.updated?.stale ? renderValuesFreshness(view.updated) : ""}</section>
-    <div class="player-detail-grid"><section><h2>Why this value</h2>${renderValueFactors(model, view.priceModel?.weights)}</section>
+    <div class="player-detail-grid"><section><h2>Why this value</h2>${renderValueFactors(model, view.priceModel)}</section>
     <section><h2>Production</h2>${row.production?.lastLine ? `<p>${escapeHtml(row.production.lastLine)}</p>` : row.note ? `<p>${escapeHtml(row.note)}</p>` : `<p>${rookie ? "Rookie, little NFL data." : "Last-season production is unavailable."}</p>`}${renderProjectionInputs(model.projection, view.priceModel?.seasonReplacement?.[row.position])}</section></div>
     ${priced ? `<section><h2>Similar player values</h2>${comparables.length ? `<div class="player-comparables">${comparables.map(n => `<button type="button" class="ghost-btn" data-action="rank-open" data-asset-id="${escapeHtml(n.assetId)}">${renderPlayerFace(n.playerId, n.name, {size:"sm"})}<span>${escapeHtml(n.name)}<small>${escapeHtml(n.boardRank || n.position)} · ${escapeHtml(formatNumber(n.value))}</small></span></button>`).join("")}</div>` : `<p>No comparable player values available.</p>`}</section>
     <div class="player-detail-actions"><button type="button" class="player-trade-action" data-action="rank-calc" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="player">Add to a trade</button><button type="button" class="ghost-btn player-share" data-action="player-share" data-name="${escapeHtml(row.name)}" data-value="${escapeHtml(formatNumber(row.value))}">Share this player</button><p class="player-share-status" role="status" aria-live="polite"></p></div>` : ""}

@@ -35,6 +35,8 @@ def assemble(inputs):
                            "backupGames": row.get("backup_games"),
                            "recentPpr": row.get("recent_ppr"), "recentTeamGames": row.get("recent_team_games")},
             "factors": result["factors"], "coverage": result["coverage"],
+            "projectedSurplus": result["projectedSurplus"], "calibratedSurplus": result["calibratedSurplus"],
+            "marketShare": result["marketShare"],
         }
     for key, result in pick_results.items():
         sf[key], names[key] = result["value"], picks[key]["name"]

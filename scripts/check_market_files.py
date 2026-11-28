@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "docs" / "data"
 MAX_VALUE_AGE_DAYS = 21
 # The model the builder is configured to write. A snapshot from any other model is not the one the desk expects.
-MODEL_VERSION = "dynasty-sf-ppr-v3"
+MODEL_VERSION = "dynasty-sf-ppr-v4"
 POSITIONS = {"QB", "RB", "WR", "TE"}
 
 
@@ -28,6 +28,21 @@ def price_hundredths(value) -> int | None:
         return None
     scaled = Decimal(str(value)) * 100
     return int(scaled) if scaled == scaled.to_integral_value() else None
+
+
+def nonnegative_number(value) -> bool:
+    return type(value) in (int, float) and math.isfinite(value) and value >= 0
+
+
+def valid_score_anchors(anchors) -> bool:
+    if not isinstance(anchors, list) or len(anchors) < 3:
+        return False
+    if not all(isinstance(row, dict) and nonnegative_number(row.get("score"))
+               and nonnegative_number(row.get("surplus")) for row in anchors):
+        return False
+    return (anchors[0]["score"] == anchors[0]["surplus"] == 0 and anchors[-1]["score"] == 100
+            and all(a["score"] < b["score"] and a["surplus"] < b["surplus"]
+                    for a, b in zip(anchors, anchors[1:])))
 
 
 def parse_stamp(value: str) -> datetime | None:
@@ -85,6 +100,9 @@ def check_player_values(
     meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
     if (meta.get("referenceTeams"), meta.get("scoring"), meta.get("superflex")) != (12, "full PPR", True):
         errors.append("player_values league format must be 12-team superflex full PPR")
+    price_method = meta.get("price")
+    if not isinstance(price_method, dict) or not valid_score_anchors(price_method.get("scoreAnchors")):
+        errors.append("missing or invalid surplus-to-score calibration")
     if len(players) < 200 or not any(key.startswith("pick:") for key in sf):
         errors.append("incomplete dynasty player or pick board")
     for asset_id, value in sf.items():
@@ -106,6 +124,13 @@ def check_player_values(
                     or sum(price_hundredths(part) for part in factors.values()) != cents):
                 errors.append(f"missing or invalid attribution for {asset_id}")
                 break
+            market_share = info.get("marketShare")
+            projected = info.get("projectedSurplus")
+            if (not nonnegative_number(market_share) or market_share > 1
+                    or not nonnegative_number(info.get("calibratedSurplus"))
+                    or not (nonnegative_number(projected) or (projected is None and market_share == 1))):
+                errors.append(f"invalid surplus or market evidence for {asset_id}")
+                break
             projection = info.get("projection")
             if not isinstance(projection, dict) or "remainingPpr" not in projection:
                 errors.append(f"missing rest-of-season forecast field for {asset_id}")
@@ -119,8 +144,8 @@ def check_player_values(
             if position not in POSITIONS:
                 errors.append(f"bad position for {asset_id}")
                 break
-    if not any(str(key).startswith("player:") and value == 100 for key, value in sf.items()):
-        errors.append("player_values must anchor its highest player at 100")
+    if set(players) != {key for key in sf if key.startswith("player:")}:
+        errors.append("player metadata and priced player IDs do not match")
     stamp = parse_stamp(str(data.get("asOf") or ""))
     if stamp is None:
         errors.append(f"player_values asOf is not a time: {data.get('asOf')!r}")

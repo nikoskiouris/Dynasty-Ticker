@@ -14,8 +14,7 @@ export function valuationUpdatedAt(bundle) {
   if (Number.isNaN(date.getTime())) return text;
   return date.toISOString().slice(0, 10);
 }
-export const PLAYER_VALUE_MODEL_VERSION = "dynasty-sf-ppr-v3";
-const COMPARABLE_INTEGER_MODEL = "dynasty-sf-ppr-v2";
+export const PLAYER_VALUE_MODEL_VERSION = "dynasty-sf-ppr-v4";
 
 export function isCurrentValueBoard(payload) {
   return payload?.modelVersion === PLAYER_VALUE_MODEL_VERSION && payload.valueScale === 100;
@@ -26,17 +25,15 @@ export function isCurrentValueBoard(payload) {
 const archivedIntegerModels = new Set([
   "football-forecast-v1", "football-forecast-v2", "forecast-consensus-blend-v1",
   "sleeper-trades-v1", "sleeper-trades-v2", "sleeper-trades-v3", "sleeper-trades-v4",
-  "dynasty-sf-ppr-v1", "dynasty-sf-ppr-v2-preview", COMPARABLE_INTEGER_MODEL,
+  "dynasty-sf-ppr-v1", "dynasty-sf-ppr-v2-preview", "dynasty-sf-ppr-v2",
 ]);
 
 function priceScale(row) {
-  if (isCurrentValueBoard(row)) return 100;
+  if (row?.modelVersion === "dynasty-sf-ppr-v3" || row?.modelVersion === PLAYER_VALUE_MODEL_VERSION) {
+    return row.valueScale === 100 ? 100 : null;
+  }
   if (row?.modelVersion && !archivedIntegerModels.has(row.modelVersion)) return null;
   return row?.valueScale == null || row.valueScale === 10000 ? 10000 : null;
-}
-
-function comparablePriceRow(row) {
-  return isCurrentValueBoard(row) || (row?.modelVersion === COMPARABLE_INTEGER_MODEL && priceScale(row) === 10000);
 }
 
 export function snapshotPrices(snapshot) {
@@ -52,15 +49,10 @@ export function snapshotPrices(snapshot) {
   };
 }
 
-// Integer-era snapshots only carried their model on the index. New snapshots
-// carry their own units and model, so an incorrect/stale index cannot reprice one.
+// Trend and peak comparisons use the same valuation model at both endpoints.
 function comparableSnapshot(snapshot, row) {
-  if (!snapshot?.sf || !comparablePriceRow(row)) return null;
-  if (snapshot.modelVersion && snapshot.modelVersion !== row.modelVersion) return null;
-  if (row.modelVersion === PLAYER_VALUE_MODEL_VERSION && !isCurrentValueBoard(snapshot)) return null;
-  if (snapshot.asOf !== row.asOf || priceScale(snapshot) !== priceScale(row)) return null;
-  const bundle = snapshotPrices(snapshot);
-  return bundle ? { asOf: snapshot.asOf, stamp: row.stamp, sf: bundle.values } : null;
+  if (!isCurrentValueBoard(snapshot) || !snapshot.sf || snapshot.asOf !== row.asOf) return null;
+  return { asOf: snapshot.asOf, stamp: row.stamp, sf: snapshot.sf };
 }
 
 // The NFL draft ends in late April. After that, this year's picks are players.
@@ -587,7 +579,7 @@ export async function fetchPriceHistory(fetchImpl = globalThis.fetch, { now = ne
   // A new model reprices everyone at once. That is not a player moving, so a
   // trend only compares prices the current model produced.
   const listed = (Array.isArray(index.snapshots) ? index.snapshots : [])
-    .filter(comparablePriceRow);
+    .filter(isCurrentValueBoard);
   const needed = stampsForWindow(listed, { now, days });
   const rowsByStamp = new Map(listed.map(row => [row.stamp, row]));
   const loaded = await Promise.all(needed.map(async (row) => {
@@ -602,7 +594,7 @@ export async function fetchPriceHistory(fetchImpl = globalThis.fetch, { now = ne
 export async function fetchPeakValues(fetchImpl = globalThis.fetch) {
   const index = await readJsonIfOk(fetchImpl, PRICE_HISTORY_INDEX_PATH);
   const rows = (Array.isArray(index?.snapshots) ? index.snapshots : [])
-    .filter(row => comparablePriceRow(row) && /^20\d{10}$/.test(row.stamp));
+    .filter(row => isCurrentValueBoard(row) && /^20\d{10}$/.test(row.stamp));
   const snaps = await Promise.all(rows.map(async row => comparableSnapshot(
     await readJsonIfOk(fetchImpl, `./data/price-history/${row.stamp}.json`), row,
   )));

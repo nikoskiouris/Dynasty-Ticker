@@ -13,11 +13,11 @@ ROSTER = "https://github.com/nflverse/nflverse-data/releases/download/weekly_ros
 CUTOFFS = (4, 8, 12, 15)
 
 
-def observations(year, schedule, crosswalk, cache):
+def observations(year, schedule, crosswalk, cache, *, cutoffs=CUTOFFS):
     prior = {r["player_id"]: r for r in csv_rows(STATS.format(year - 1), cache)
              if r["season_type"] == "REG" and r["position"] in POSITIONS}
     initial = make_board(year, prior, crosswalk, cache)
-    regular = 16 if year == 2020 else 17
+    regular = 16 if year < 2021 else 17
     rosters = defaultdict(dict)
     for row in csv_rows(ROSTER.format(year), cache):
         if row["position"] in POSITIONS and row["game_type"] == "REG" and row["gsis_id"]:
@@ -30,7 +30,7 @@ def observations(year, schedule, crosswalk, cache):
             for team in ("home_team", "away_team"):
                 weeks[game[team]].append(int(game["week"]))
 
-    for cutoff in CUTOFFS:
+    for cutoff in cutoffs:
         pool = {i: dict(r) for i, r in initial.items()}
         latest_roster = {}
         for w in range(1, cutoff + 1):
@@ -66,7 +66,7 @@ def observations(year, schedule, crosswalk, cache):
             row.update({"team_games": elapsed, "remaining_games": left, "actual_ppr": points[i],
                         "games": played[i], "recent_ppr": recent[i, team] if recent_n else None,
                         "recent_team_games": recent_n, "injury_status": "IR" if roster.get("status") == "RES" else None})
-            records.append((row, future[i]))
+            records.append((dict(row, player_id=i), future[i]))
         yield (year, cutoff, regular, records)
 
 

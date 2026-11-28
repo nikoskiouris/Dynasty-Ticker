@@ -1,42 +1,39 @@
 # Dynasty player values
 
-This board estimates the trade value of players and rookie picks on a 0–100 scale in a 12-team dynasty league with full PPR and a superflex. The assumed lineup per team is one QB, two RBs, three WRs, one TE, one RB/WR/TE flex and one QB/RB/WR/TE superflex. All four positions receive one point per reception.
+Dynasty Ticker estimates the trade value of a player or a rookie pick in **12-team, full-PPR superflex dynasty**. Each team starts one QB, two RBs, three WRs, one TE, one RB/WR/TE flex and one superflex. A reception earns one point at every position.
 
-## What the board must do
+## Reading a price
 
-- Publish one price for an asset across rankings, player details, league rosters and the calculator.
-- Let a receiver win a superflex spot when he outscores the next quarterback. A player's lineup advantage is the drop in the best legal league-wide lineup when he is removed.
-- Distinguish prospects with different future outlooks even when their current projections match. Use independently observed market prices for picks.
-- Show where a price came from, identify missing inputs and retain the last valid board if a required source fails.
-- Keep dated trade links readable across the model transition. Compare price changes across snapshots calculated with the same valuation formula.
+A **50** represents about **181 expected, discounted PPR points above replacement** over the remaining regular season and the following two seasons. A **100** represents 361.37 points, the median best preseason estimate in the two historical seasons used to set the scale. The benchmark stays fixed as players change teams, gain starting jobs or get injured. Player and pick prices stop at 100 and are published to the hundredth. Packages and rosters can exceed 100.
 
-## Research
+On November 28, 2026, Jahmyr Gibbs led the board at 75.20, followed by Jaxon Smith-Njigba at 75.15. Moving only Gibbs’s external quote in a sensitivity check left every other price intact. Headroom also varies with the NFL calendar because fewer usable games remain late in a season. The [current top 20 and KeepTradeCut comparison](research/november-board.md) show how those differences affect trade offers.
 
-The [design study](research/format-design.md) explains the choice of a lineup-based approach, compares roster assumptions and works through Josh Allen's 2023 replacement using the actual player pool. In five of six seasons the highest-scoring legal lineup started 24 quarterbacks. In the sixth, two receivers earned superflex slots. This is a season-total measure of lineup scarcity. A manager setting a lineup each week can substitute around injuries and bye weeks.
+## From football and market evidence to a price
 
-The [production study](research/production-evidence.md) estimates how much prior finish, age and NFL draft round tell us about later full-PPR scoring. For 1,440 held-out player-seasons, mean absolute error per scheduled team game was 4.111 for repeating last year's production, 3.778 after grouping by position and finish, and 3.705 after adding age. A separate check using an archived preseason projection beat repeating the prior year for all four positions. Both tests informed which evidence to include.
+| Evidence | How it enters the estimate |
+| --- | --- |
+| Remaining regular season | Project unplayed games and optimize all 108 starters. Remove the player and refill every slot. The drop in PPR is his immediate lineup advantage. This portion gets full weight. |
+| Next two seasons | Forecast sustainable production from projected and observed scoring. Adjust for positional depth, age and historical production of similarly ranked players. Weight next season by 0.85 and the following season by 0.7225. |
+| Draft capital | For first- and second-year NFL players, position and draft round contribute to the future estimate. The draft-cohort share starts at up to 65% for rookies and up to 25% in year two, fading as they play. |
+| Market | Use FantasyCalc dynasty quotes for 12 teams, two QBs and full PPR as a superflex market proxy. Translate quotes into historically comparable lineup surplus using the outcomes of players selected at different startup-draft slots. |
 
-## How a price is built
+**Football.** Sum the projected surplus across the three seasons. A curve fitted to achieved outcomes adjusts for differences between expected and realized production at different levels. For example, a 44.13-point raw forecast maps to 62.44 expected surplus PPR, while 396.02 maps to 344.93. This prices some upside for reserves and accounts for uncertainty in elite forecasts. [Calibration and holdout](research/utility-scale.md) · [League lineup design and worked replacement example](research/format-design.md)
 
-| Component | Opening weight | What it measures |
-| --- | ---: | --- |
-| Future production | 40% | Sustainable production relative to the lineup boundary, with retention by position and age. NFL draft evidence contributes part of this component for rookies and second-year players. |
-| Current lineup advantage | 35% | The drop in projected **remaining** regular-season PPR across all 108 starter slots when this player is removed. |
-| Market | 25% | An independent FantasyCalc dynasty quote for 12 teams, two QBs and full PPR. The provider's two-QB setting is a proxy for the league's superflex market. |
+The remaining-season forecast uses available Sleeper weekly projections, recent scoring, availability and the team's NFL schedule. Games that have started contribute no new lineup value. For the long-term estimate, the season projection carries six games of weight and last season's total carries up to eight. Current-season production is annualized across elapsed team games. The model uses an even split between the player's own age-adjusted surplus and that of comparable players by position and rank. [In-season forecast study](research/inseason-forecast.md) · [Future production study](research/future-blend.md) · [Age and draft evidence](research/production-evidence.md)
 
-As clubs play their schedules, current lineup advantage receives less weight and future production receives more. The lineup weight is 35% times the league-wide fraction of games still available. At the end of the regular season, future production receives 75% and market evidence receives 25%. This time allocation is a modeling assumption for a neutral dynasty manager.
+**Market.** The market curve links an archived May 2026 FantasyCalc price distribution to 20,098 selections in 65 historical full-PPR superflex startup drafts. Each draft band has an observed first-season surplus and a discounted two-season future surplus. Today's general market quote is interpolated between these fixed bands. The fraction of league games left scales only the current-season part of the comparable players' value. A rookie pick's price represents the amount of player value its quote can buy. This makes it possible to price picks without forecasting the identity, position or NFL production of an unknown rookie. [Startup calibration](research/market-reference.md) · [FantasyCalc source and settings](https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1)
 
-During the season, the model uses the team's upcoming regular-season schedule and Sleeper's projections for those games. It incorporates recent scoring, the player's availability and the preseason expectation where coverage is incomplete. Games that have kicked off are excluded from the remaining opportunity. The player page shows both the estimate for games still ahead and Sleeper's separate full-season projection. See the [in-season forecast study](research/inseason-forecast.md) for the estimator and its evaluation.
+**Combining evidence.** With both sources present, the estimate is 75% calibrated football and 25% market-implied surplus. The market share is a judgment about the role of current trade demand. Players with only one source use that source at full weight. An observed forecast of zero above replacement counts as football evidence. An unsupported asset receives no published price. Each priced pick uses its own market quote. The final expected surplus determines the score, and the four displayed contributions sum to the published player price. The calculator separately credits consolidation when comparing packages.
 
-The percentages apply after scaling the component scores to the same range. They are design weights. Their relative contribution for a particular player depends on his inputs. The highest-valued player sets the scale at 100. Player and pick values retain two decimal places of precision. The component amounts add up to each player’s published price. Trade packages and rosters sum individual values and can exceed 100. Missing market evidence contributes zero. A player without positive contributions receives no price. The user-facing price is a relative trade estimate, in units distinct from PPR points or dollars.
+## Validation
 
-The [future-production study](research/future-blend.md) found little overall benefit from dropping prior-season evidence in a 504-player-season comparison. The future estimate blends the full-season projection (six games of weight), last season's total (up to eight games of weight) and current production annualized over estimated elapsed team games. It splits the resulting outlook equally between the individual player's age-adjusted surplus and the historical surplus of players at a similar positional rank. This gives reserves some value for the chance they earn a starting role. The second future season receives 85% of the first's weight. When NFL draft round is available, it supplies up to 65% of the rookie's future component and up to 25% in year two. Its influence fades with NFL appearances.
-
-Picks have no NFL production to project. For a quoted pick, the model finds players with comparable external quotes, groups them in sets of 12, and interpolates their median board prices. It enforces a nondecreasing price as the quote rises. This puts a 2027 first and a veteran with similar market support on a comparable scale. Each pick year and round needs its own source evidence. [FantasyCalc API documentation](https://www.fantasydatapros.com/fantasyfootball/blog/fantasycalc/1)
+- **Future football outcomes.** Fit the scale on 2018 and 2020 forecasts and assess 2023 predictions against NFL outcomes through 2025. Average tier-spacing error was 1.05 points, compared with 4.09 for the previous model after fitting its best multiplier on the development sample. For 72 predetermined one-for-two comparisons, mean absolute package-gap error improved from 34.52 to 33.27 points. Individual bench-player absolute error increased from 7.47 to 8.41. The historical benchmark uses only two development seasons. [Scale study](research/utility-scale.md)
+- **Actual trades.** A frozen preseason 2026 board priced 117 subsequent accepted exchanges. Across 72 unequal packages, the median gap between sides went from 17.0% to 16.2%. Across all 117 trades, both models gave 16.9%. FantasyCalc's unadjusted quote totals were closer on that sample. Most unequal packages contained rookie picks, and an accepted trade can reflect individual team goals. [Combined preseason replay](research/preseason-trades.md) · [Earlier player-only trades](research/trade-spacing.md) · [Market quotes on 855 accepted trades](research/market-packages.md)
+- **Current market comparisons.** KeepTradeCut publishes a crowd-ranked superflex board with half-PPR scoring. Its player-only ranks help identify differences worth investigating. The current head-to-head shows how the finite forecast horizon and injury assumptions affect particular players. [November comparison](research/november-board.md)
 
 ## Refresh and inspect
 
-From the repository root, run:
+From the repository root:
 
 ```sh
 python3 scripts/update_nfl_draft_picks.py
@@ -44,15 +41,7 @@ python3 player-values/build_trade_values.py
 python3 scripts/check_market_files.py --fail-on-age
 python3 scripts/build_sitemap.py
 python3 scripts/archive_price_snapshot.py
+node scripts/publish_market_blobs.mjs --check-only
 ```
 
-The builder uses the Python standard library. Supply `--save-inputs /tmp/dynasty-inputs.json` on the build command to retain that run's normalized observations. The board carries its own model version, retrieval time, reference lineup, weights and replacement thresholds. Each player record carries his factor contributions and available evidence. The public source endpoints expose a retrieval time without individual quote timestamps. When a weekly forecast is unavailable, the model uses the historical scoring estimate for that game. An unavailable required feed or insufficient board coverage stops publication. Dated share links retain access to older snapshots. Price trends include the final v2 board after converting its prices to 0–100 units. Earlier pricing formulas keep their own history. New archives record their scale explicitly.
-
-## Validation and limitations
-
-The [historical ranking audit](research/ranking-holdout.md) compares the football components with preseason baselines. Dated market quotes for the required settings were unavailable. The 25% market weight, pick prices and fit to accepted trades remain unvalidated by that audit. The in-season forecast and late-career QB studies use subsequent NFL production as their outcome. KeepTradeCut's half-PPR ranks serve as an external comparison.
-
-
-On November 28, 104 of the 272 NFL regular-season games had yet to start. The board therefore assigned 13.38% to remaining lineup value, 61.62% to future production and 25% to the market. Matthew Golden's full-season source projection was 170 PPR points and he had already scored 180.8. For his six remaining games, the model estimated 98.7 more points. He moved from 66th to 42nd among players. Jonah Coleman moved from 101st to 91st. His final weekly score sheets showed 113.0 points in seven appearances, including a Friday game still missing from the aggregate season feed. The remaining-season estimate was 83.1.
-
-The revised QB curve reduced held-out mean absolute error from 2.536 to 2.376 two-year surplus PPR points per scheduled game for 22 starter-seasons at age 35 or older. Only eight individual quarterbacks contributed those seasons. Dak Prescott, age 33, now ranks 12th, ahead of Caleb Williams at 20th. Williams has the higher remaining-season forecast, while Prescott's recent and prior production support the higher two-year estimate. [QB aging study](research/production-evidence.md)
+Pass `--save-inputs /tmp/dynasty-inputs.json` to the value builder to retain the normalized observations. The board records the model version, source retrieval time, input coverage, replacement thresholds and score anchors. Sleeper projections and FantasyCalc quotes omit per-player update timestamps. Insufficient feed coverage stops publication. Rankings and league views read the same board as the calculator. Dated trade links retain their archived prices. Price trends restart with the first v4 snapshot because the formula changed.
