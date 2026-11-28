@@ -5068,7 +5068,7 @@ function renderTradeTalk() {
   return `<section class="talk-box smart-trade-search" aria-labelledby="trade-talk-label">
     <form class="talk-form" data-trade-talk novalidate>
       <label id="trade-talk-label" for="trade-talk-input">Search players, picks or a trade</label>
-      <div class="talk-row"><input id="trade-talk-input" name="say" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="smart-trade-list" data-input="smart-trade" maxlength="${TRADE_TALK_MAX}" placeholder="Gibbs and a 1st for Nabers" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" /><button type="submit" class="talk-send" aria-label="Build trade">Build</button></div>
+      <div class="talk-row"><input id="trade-talk-input" name="say" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="smart-trade-list" data-input="smart-trade" maxlength="${TRADE_TALK_MAX}" placeholder="Gibbs + a 1st for Maye" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" /><button type="submit" class="talk-send" aria-label="Build trade">Build</button></div>
       <div id="smart-trade-list" class="smart-trade-list" role="listbox" hidden></div>
       <span id="smart-trade-count" class="sr-only" role="status" aria-live="polite"></span>
     </form>
@@ -5159,8 +5159,8 @@ function renderTradeTalkLog() {
     <div class="talk-turn">
       ${turn.sticky && turn.lines.length ? `<div class="talk-lines">${turn.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>` : ""}
       ${turn.connectLine && !state.leagueId ? `<div class="talk-lines"><p>${escapeHtml(turn.connectLine)}</p></div><button type="button" class="talk-connect" data-action="draft-connect">Connect my league</button>` : ""}
-      ${turn.groups.map((group) => `
-        <div class="talk-choice" role="group" aria-label="${escapeHtml(group.title)}">
+      ${turn.groups.map((group, index) => `
+        <div class="talk-choice" data-choice-index="${index}" role="group" aria-label="${escapeHtml(group.title)}">
           <p class="talk-choice-title">${escapeHtml(group.title)}</p>
           <div class="talk-chips">${group.chips.map(renderTalkChip).join("")}</div>
         </div>
@@ -5337,7 +5337,7 @@ function runTradeTalk(text) {
   }
   const groups = plan.asks.map((ask) => ({
     ask: true,
-    title: ask.question || `Which one for “${ask.text}”?`,
+    title: `${draftReceivingTeam(ask.side || plan.defaultSide, after)} receives · ${ask.question || `Which one for “${ask.text}”?`}`,
     // "Which Chase?" choices carry position, team and price so the two read apart.
     chips: ask.options.map((option) => {
       const id = String(option.assetId || "");
@@ -5348,7 +5348,7 @@ function runTradeTalk(text) {
       const value = Number(after.basis.values?.[id]);
       return {
         ...option,
-        side: ask.side || "left",
+        side: ask.side || plan.defaultSide,
         label: meta ? `${option.name} · ${meta}` : option.name,
         value: Number.isFinite(value) && value > 0 ? value : option.value,
       };
@@ -5456,8 +5456,8 @@ function addTalkChip(target) {
   const last = tradeTalkLog[0];
   const line = added ? `Added ${target.dataset.name} to ${label}.` : `${target.dataset.name} is already in the trade.`;
   // "Jefferson and a first for Chase" asks twice. Answering one keeps the other.
-  const answered = target.closest(".talk-choice")?.getAttribute("aria-label") || "";
-  const groups = (last?.groups || []).filter((group) => !group.ask || group.title !== answered);
+  const answered = Number(target.closest(".talk-choice")?.dataset.choiceIndex);
+  const groups = (last?.groups || []).filter((group, index) => !added || !group.ask || index !== answered);
   if (added) rememberTalkChange(`add ${target.dataset.name}`, before, state.valueCalc);
   const waiting = groups.some((group) => group.ask);
   tradeTalkLog = [{
