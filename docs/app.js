@@ -4225,10 +4225,8 @@ function renderPowerDashboard() {
       : '<p class="muted">No rosters available.</p>';
     return;
   }
-  // "Viewing as": look at any team's page from My Team (ticket 037).
-  const lensPicker = state.normalizedRosters.length > 1 ? renderLensPicker(meRoster, { label: "Viewing" }) : "";
   if (rosterHasNoPlayers(meRoster)) {
-    el.powerDashboard.innerHTML = `${lensPicker}<p class="power-empty muted" role="status">${escapeHtml(emptyRosterLine())}</p>`;
+    el.powerDashboard.innerHTML = `<p class="power-empty muted" role="status">${escapeHtml(emptyRosterLine())}</p>`;
     return;
   }
   if (!rosterGradeReady(meRoster) || !pricesReady()) {
@@ -4241,7 +4239,6 @@ function renderPowerDashboard() {
   const profile = profiles.find((entry) => String(entry.rosterId) === String(meRoster.rosterId))
     || buildTeamPowerProfile({ roster: meRoster, values: state.values, league: state.league, context });
   el.powerDashboard.innerHTML = `
-    ${lensPicker}
     <section class="power-lane">
       <div class="position-meter-list">
         ${profile.positionSummaries.map(renderPositionMeter).join("")}
@@ -4676,7 +4673,7 @@ function renderTeamExtras() {
     const record = standing?.recordLabel && (standing.wins + standing.losses + standing.ties) > 0
       ? `${standing.recordLabel} · ${ordinal(standing.rank)} of ${model.standings.length}`
       : "";
-    header.innerHTML = `
+    const markup = `
       <p><a class="league-back" href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
       <div class="team-header-row">
         ${renderAvatar(manager, { size: "md" })}
@@ -4684,7 +4681,15 @@ function renderTeamExtras() {
           <h2>${escapeHtml(manager.teamName || manager.displayName || "Team")}</h2>
           <p class="muted small">${escapeHtml([manager.teamName ? manager.displayName : "", record].filter(Boolean).join(" · "))}</p>
         </div>
-      </div>`;
+      </div>
+      ${state.normalizedRosters.length > 1 ? renderLensPicker(roster) : ""}`;
+    // Background data loads repaint My Team while a manager may be using the picker.
+    if (header.teamMarkup !== markup || !header.querySelector(".team-header-row")) {
+      const restorePicker = header.contains(document.activeElement) && document.activeElement.matches("select");
+      header.innerHTML = markup;
+      header.teamMarkup = markup;
+      if (restorePicker) header.querySelector("select")?.focus({ preventScroll: true });
+    }
   }
   if (!host || !section) return;
   const playerIds = (roster.assets || []).filter((asset) => asset.assetType === "player").map((asset) => playerIdFromAssetId(asset.assetId)).filter(Boolean);
