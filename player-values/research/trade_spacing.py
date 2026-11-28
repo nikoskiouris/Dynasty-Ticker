@@ -84,7 +84,7 @@ def exchanges(cache):
         return [t for group in pool.map(moves, recent + prior) for t in group]
 
 
-def legacy_prices(board, picks, revision=V3):
+def legacy_prices(board, picks, revision=V3, *, market_share=None):
     # Load each model with its original dependencies. Current imports stay in this process.
     repo = Path(__file__).resolve().parents[2]
     with TemporaryDirectory() as tmp:
@@ -93,9 +93,13 @@ def legacy_prices(board, picks, revision=V3):
         for name in names:
             blob = subprocess.check_output(['git', 'show', f'{revision}:player-values/{name}'], cwd=repo)
             (Path(tmp) / name).write_bytes(blob)
-        invoke = ('import json,sys; from dynasty_value import value_board; '
-                  'print(json.dumps(value_board(*json.load(sys.stdin), season_week=1)[:2]))')
-        proc = subprocess.run([sys.executable, '-c', invoke], input=json.dumps([board, picks]), text=True,
+        invoke = """import json, sys, dynasty_value
+board, picks, share = json.load(sys.stdin)
+if share is not None:
+    dynasty_value.MARKET_SHARE = share
+print(json.dumps(dynasty_value.value_board(board, picks, season_week=1)[:2]))
+"""
+        proc = subprocess.run([sys.executable, '-c', invoke], input=json.dumps([board, picks, market_share]), text=True,
                               cwd=tmp, capture_output=True, check=True)
         return json.loads(proc.stdout)
 

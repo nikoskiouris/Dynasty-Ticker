@@ -2,7 +2,7 @@
 
 import argparse
 from collections import defaultdict
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import json
 from pathlib import Path
 from random import Random
@@ -18,6 +18,8 @@ from dynasty_value import value_board
 
 
 ROOT = Path(__file__).resolve().parents[2]
+V51 = "05677a9ea5af76768ba2fc57465c8dafba377064"
+CURRENT_CALCULATOR = ROOT / "docs/modules/package-value.js"
 CALCULATOR = """
 import fs from 'node:fs';
 import {pathToFileURL} from 'node:url';
@@ -47,7 +49,7 @@ def calculator_totals(prices, matches, module):
     return json.loads(result.stdout)
 
 
-def scored_deals(deals, prices, quotes):
+def scored_deals(deals, prices, quotes, calculator=None):
     selected = {d['transaction']: d for d in deals
                 if millis(START) < d['proposed'] <= d['accepted'] < millis(END)}
     matched = []
@@ -55,32 +57,32 @@ def scored_deals(deals, prices, quotes):
         sides = sorted([[trade_key(k) for k in side] for side in d['sides']], key=len)
         if all(model.get(k, 0) > 0 for model in [*prices.values(), quotes] for side in sides for k in side):
             matched.append({**d, 'sides': sides})
-    compare_prices(matched, prices)
+    compare_prices(matched, prices, calculator)
     return list(selected.values()), matched
 
 
 @contextmanager
-def archived_calculator():
-    # Reproduce v4 with the curve/release that actually shipped with that board.
+def archived_calculator(revision):
+    # Reproduce each historical board with the calculator that shipped with it.
     with TemporaryDirectory() as folder:
         archived = Path(folder)
         (archived / 'package.json').write_text('{"type":"module"}')
         for name in ('package-value.js', 'price-units.js'):
-            blob = subprocess.check_output(['git', 'show', f'{V4}:docs/modules/{name}'], cwd=ROOT)
+            blob = subprocess.check_output(['git', 'show', f'{revision}:docs/modules/{name}'], cwd=ROOT)
             (archived / name).write_bytes(blob)
         yield archived / 'package-value.js'
 
 
-def compare_prices(matched, prices):
-    with archived_calculator() as archived:
+def compare_prices(matched, prices, calculator=None):
+    with archived_calculator(V4) as v4, archived_calculator(V51) as v51:
         for label, board in prices.items():
-            module = archived if label == 'v4' else ROOT / 'docs/modules/package-value.js'
+            module = v4 if label == 'v4' else (calculator or v51)
             for deal, (listed, credited) in zip(matched, calculator_totals(board, matched, module), strict=True):
                 deal[label] = [(b - a) / (a + b) for a, b in (listed, credited)]
 
 
 def model_prices(inputs, picks):
-    versions = {'v4': legacy_prices(inputs, picks, V4), 'v5': value_board(inputs, picks)[:2]}
+    versions = {'v4': legacy_prices(inputs, picks, V4), 'v5': legacy_prices(inputs, picks, V51)}
     return {k: {asset: r['value'] for part in result for asset, r in part.items()}
             for k, result in versions.items()}
 
@@ -101,7 +103,7 @@ def interval(records, baseline=('v4', 1), candidate=('v5', 1)):
     return changes[24], changes[974]
 
 
-def weight_check(deals, inputs, picks, quotes):
+def weight_check(deals, inputs, picks, quotes, calculator, current):
     # Run the production estimator for each research assumption, including its
     # ordinary one-source fallback, and keep the original model state for callers.
     prices = {}
@@ -109,11 +111,13 @@ def weight_check(deals, inputs, picks, quotes):
     try:
         for weight in (.25, .50, 1.0):
             dynasty_value.MARKET_SHARE = weight
-            prices[weight] = {k: r['value'] for part in value_board(inputs, picks)[:2] for k, r in part.items()}
+            parts = value_board(inputs, picks)[:2] if current else legacy_prices(inputs, picks, V51, market_share=weight)
+            prices[weight] = {k: r['value'] for part in parts for k, r in part.items()}
     finally:
         dynasty_value.MARKET_SHARE = original
-    selected, matched = scored_deals(deals, prices, quotes)
-    print(f'Market blend check: {len(matched)}/{len(selected)} fully covered')
+    selected, matched = scored_deals(deals, prices, quotes, calculator)
+    model = 'current' if current else 'archived v5.1'
+    print(f'{model} market blend check: {len(matched)}/{len(selected)} fully covered')
     for group, rows in (
         ('All', matched),
         ('Unequal', [d for d in matched if len(d['sides'][0]) != len(d['sides'][1])]),
@@ -122,6 +126,9 @@ def weight_check(deals, inputs, picks, quotes):
         if not rows:
             continue
         print(f'  {group}: {len(rows)} deals from {len({r["league"] for r in rows})} leagues')
+        quote_totals = [[sum(quotes[k] for k in side) for side in r['sides']] for r in rows]
+        quote_gap = median(abs(a - b) / (a + b) for a, b in quote_totals)
+        print(f'    Unconverted market quotes: median absolute gap {quote_gap:.1%}')
         for weight in prices:
             listed, credited = zip(*(r[weight] for r in rows))
             print(f'    Market share {weight:.0%}: median absolute gap listed {median(map(abs, listed)):.1%}, '
@@ -133,6 +140,19 @@ def weight_check(deals, inputs, picks, quotes):
             for label, alternative in [('50% market', (.5, 1)), ('no credit', (.25, 0))]:
                 lo, hi = interval(rows, baseline=(.25, 1), candidate=alternative)
                 print(f'    {label} minus published median absolute gap, league bootstrap: {lo:+.1%} to {hi:+.1%}')
+
+    two_for_ones = sorted((r for r in matched if tuple(map(len, r['sides'])) == (1, 2)),
+                          key=lambda r: (r['proposed'], r['transaction']))
+    examples = {}
+    for row in two_for_ones:
+        group = 'includes picks' if any(k.startswith('pick:') for s in row['sides'] for k in s) else 'players only'
+        examples.setdefault(group, row)
+    for label, row in examples.items():
+        prices_used = {k: prices[.25][k] for s in row['sides'] for k in s}
+        totals = calculator_totals(prices[.25], [row], calculator)[0]
+        print(f"  First two-for-one ({label}), transaction {row['transaction']}: "
+              f"https://api.sleeper.app/v1/league/{row['league']}/transactions/{row['week']}")
+        print(f"    sides {row['sides']}, prices {prices_used}, listed and credited totals {totals}")
 
 
 def report(records, prices):
@@ -186,8 +206,9 @@ def main():
     parser.add_argument('--cache-dir', type=Path, default=Path.home()/'.cache/dynasty-ticker/2026-preseason')
     parser.add_argument('--historical-players', action='store_true',
                         help='Also replay the independent 2023 and 2024 player-only sample')
-    parser.add_argument('--weight-check', action='store_true',
-                        help='Compare 25%, 50% and 100% market weights and calculator credit')
+    weights = parser.add_mutually_exclusive_group()
+    weights.add_argument('--weight-check', action='store_true', help='Compare market weights with archived v5.1')
+    weights.add_argument('--current-weight-check', action='store_true', help='Compare market weights with the current model')
     args = parser.parse_args()
     args.cache_dir.mkdir(parents=True, exist_ok=True)
     inputs, market, picks = reconstructed_inputs(args.cache_dir)
@@ -207,8 +228,10 @@ def main():
         gap = median(abs(r['v5'][1]) for r in unequal)
         print(f'Excluding all current-draft picks: {len(future_only)} covered; '
               f'{len(unequal)} unequal, v5 median credited gap {gap:.1%}')
-    if args.weight_check:
-        weight_check(deals, inputs, picks, quotes)
+    if args.weight_check or args.current_weight_check:
+        module = nullcontext(CURRENT_CALCULATOR) if args.current_weight_check else archived_calculator(V51)
+        with module as calculator:
+            weight_check(deals, inputs, picks, quotes, calculator, current=args.current_weight_check)
     if args.historical_players:
         historical_players(args.cache_dir)
 

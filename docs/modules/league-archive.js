@@ -259,8 +259,18 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
           await mapInChunks(entry.drafts, 6, async (draft) => {
             const draftId = String(draft.draft_id || "");
             if (!draftId) return;
-            try { drafts.push({ ...draft, picks: await resource(`/draft/${encodeURIComponent(draftId)}/picks`, { ...common, completed: common.completed || draft.status === "complete" }) }); }
-            catch { checkSignal(ownController.signal); issue({ season: entry.season, resource: `draft/${draftId}`, message: `${entry.season} draft ${draftId} picks unavailable from Sleeper` }); }
+            const path = `/draft/${encodeURIComponent(draftId)}`;
+            const options = { ...common, completed: common.completed || draft.status === "complete" };
+            // The draft list omits Sleeper's original slot-to-roster mapping.
+            const [details, selections] = await Promise.allSettled([
+              resource(path, { ...options, validate: (data) => String(data?.draft_id) === draftId }),
+              resource(`${path}/picks`, options),
+            ]);
+            checkSignal(ownController.signal);
+            drafts.push({ ...draft, ...details.value, picks: selections.value || [] });
+            if (details.status === "rejected" || selections.status === "rejected") {
+              issue({ season: entry.season, resource: `draft/${draftId}`, message: `${entry.season} draft ${draftId} data partly unavailable from Sleeper` });
+            }
           });
           result.drafts[entry.season] = drafts;
         }

@@ -158,6 +158,8 @@ function normalizePriceHistoryNow(list) {
     rows.push({
       asOf,
       stamp: String(snap.stamp || "").trim(),
+      modelVersion: snap.modelVersion,
+      valueScale: snap.valueScale,
       sf: snap.sf,
     });
   }

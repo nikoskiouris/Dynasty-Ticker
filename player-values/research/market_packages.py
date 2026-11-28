@@ -13,7 +13,7 @@ from time import sleep
 
 from ranking_holdout import fetch
 from dynasty_calibration import market_surplus, native_score
-from package_scale import ROOT, archived_calculator, calculator_totals
+from package_scale import CURRENT_CALCULATOR, V4, V51, archived_calculator, calculator_totals, interval
 
 DIRECTORY = Path(__file__).resolve().parent
 SLEEPER = "https://api.sleeper.app/v1/league/"
@@ -149,18 +149,20 @@ def market_evaluation(trades, boards):
                       f"{median(abs(r[3]) for r in rows):.1%}{bias}")
 
 
-def later_packages(trades, boards):
+def later_packages(trades, boards, *, show_examples=False):
     # Start after the August football-board study ends. Evaluate each source
     # at the phase when that quote was available, using Tuesday 06:00 UTC boundaries.
     after_week_two = milliseconds("2026-09-22T06:00:00Z")
     opening_tuesday = milliseconds("2026-09-08T06:00:00Z")
     elapsed_week = 7 * 86400000
     by_day = defaultdict(list)
-    for known, trade in covered_trades(trades, boards):
-        if trade["proposed"] >= after_week_two:
-            by_day[known].append(trade)
+    eligible = [t for t in trades if t["proposed"] >= after_week_two]
+    for known, trade in covered_trades(eligible, boards):
+        by_day[known].append(trade)
+    print(f"Later window: {sum(map(len, by_day.values()))}/{len(eligible)} trades have matching quotes.")
     groups = defaultdict(list)
-    with archived_calculator() as previous:
+    examples = {}
+    with archived_calculator(V4) as previous, archived_calculator(V51) as v51_calculator:
         for known, deals in by_day.items():
             quotes = boards[known]
             fraction = 1 - (known - opening_tuesday) // elapsed_week / 18
@@ -170,16 +172,25 @@ def later_packages(trades, boards):
             players = sorted((k for k in quotes if not k.startswith("pick:")), key=quotes.get, reverse=True)
             ranks = {k: r for r, k in enumerate(players, 1)}
             old = calculator_totals(v4, deals, previous)
-            new = calculator_totals(v5, deals, ROOT / "docs/modules/package-value.js")
-            for trade, old_totals, new_totals in zip(deals, old, new, strict=True):
+            historical = calculator_totals(v5, deals, v51_calculator)
+            current = calculator_totals(v5, deals, CURRENT_CALCULATOR)
+            for trade, old_totals, prior_totals, new_totals in zip(deals, old, historical, current, strict=True):
                 left, right = trade["sides"]  # collect_trades sorts by number of pieces.
-                row = (trade["league"], *[(b - a) / (b + a) for _, (a, b) in (old_totals, new_totals)])
+                quoted = [sum(quotes[k] for k in side) for side in (left, right)]
+                totals = {"v4": old_totals, "v5.1": prior_totals, "current": new_totals, "raw quotes": [quoted]}
+                row = {method: [(b - a) / (b + a) for a, b in pairs] for method, pairs in totals.items()}
+                row["league"] = trade["league"]
                 groups["All"].append(row)
                 if len(left) == len(right):
                     continue
                 groups["Unequal"].append(row)
-                if all(k in ranks for k in left + right):
+                players_only = all(k in ranks for k in left + right)
+                if players_only:
                     groups["Unequal, players only"].append(row)
+                if show_examples and (len(left), len(right)) == (1, 2):
+                    label = "players only" if players_only else "includes picks"
+                    if label not in examples:
+                        examples[label] = (trade, known, {k: v5[k] for k in left + right}, new_totals)
                 if len(left) == 1 and len(right) >= 3:
                     groups["1 for 3 or more"].append(row)
                 best = min((ranks[k] for k in left + right if k in ranks), default=999)
@@ -187,11 +198,21 @@ def later_packages(trades, boards):
                     if best <= threshold:
                         groups[f"Unequal, top-{threshold} quoted player"].append(row)
     for name, rows in groups.items():
-        print(f"{name}: {len(rows)} trades from {len({r[0] for r in rows})} leagues")
-        for i, version in ((1, "v4"), (2, "v5")):
-            gaps = [r[i] for r in rows]
+        leagues = len({r["league"] for r in rows})
+        print(f"{name}: {len(rows)} trades from {leagues} leagues")
+        methods = (("v4", 1, "v4 credited"), ("v5.1", 1, "v5.1 credited"),
+                   ("current", 1, "current credited"), ("current", 0, "current listed"), ("raw quotes", 0, "raw quotes"))
+        for method, column, version in methods:
+            gaps = [r[method][column] for r in rows]
             bias = "" if name == "All" else f", package bias {median(gaps):+.1%}"
-            print(f"  {version} credited median absolute gap {median(abs(x) for x in gaps):.1%}{bias}")
+            print(f"  {version} median absolute gap {median(abs(x) for x in gaps):.1%}{bias}")
+        if name == "Unequal" and leagues >= 10:
+            low, high = interval(rows, baseline=("current", 0), candidate=("current", 1))
+            print(f"  Credited minus listed median gap, 95% league-bootstrap interval: {low:+.1%} to {high:+.1%}")
+    for label, (trade, known, prices, totals) in examples.items():
+        print(f"First covered two-for-one ({label}): {SLEEPER}{trade['league']}/transactions/{trade['week']}")
+        print(f"  transaction {trade['transaction']}, proposal {trade['proposed']}, quote timestamp {known}")
+        print(f"  sides {trade['sides']}, individual prices {prices}, listed and credited totals {totals}")
 
 
 def main():
@@ -199,25 +220,26 @@ def main():
     parser.add_argument("--cache-dir", type=Path, default=Path.home() / ".cache/dynasty-ticker/market-packages")
     parser.add_argument("--save-deals", type=Path, help="Also save eligible exchanges, including those missing quotes")
     parser.add_argument("--independent-panel", action="store_true",
-                        help="Export the separate 34-league Week 0–2 sample for package_scale.py")
+                        help="Use the separate 34-league panel (weeks 0–2 for export, 0–12 with --later-packages)")
     parser.add_argument("--later-packages", action="store_true",
-                        help="Compare v4 and v5 calculator verdicts on Week 3–12 market-only prices")
+                        help="Compare raw quotes, listed prices and calculator totals in Weeks 3–12")
     args = parser.parse_args()
     args.cache_dir.mkdir(parents=True, exist_ok=True)
     if args.independent_panel:
-        if not args.save_deals:
-            parser.error("--independent-panel requires --save-deals for its output")
-        trades = collect_trades(args.cache_dir, 2, DIRECTORY / "market-leagues-independent-2026.txt")
+        if not (args.save_deals or args.later_packages):
+            parser.error("--independent-panel requires --save-deals or --later-packages")
+        weeks = 12 if args.later_packages else 2
+        trades = collect_trades(args.cache_dir, weeks, DIRECTORY / "market-leagues-independent-2026.txt")
     else:
         trades = collect_trades(args.cache_dir)
     print(f"Eligible two-sided transactions: {len(trades)}")
     if args.save_deals:
         args.save_deals.write_text(json.dumps(trades, separators=(",", ":")) + "\n")
-    if args.independent_panel:
+    if args.independent_panel and not args.later_packages:
         return
     boards = read_quotes(args.cache_dir)
     if args.later_packages:
-        later_packages(trades, boards)
+        later_packages(trades, boards, show_examples=args.independent_panel)
     else:
         market_evaluation(trades, boards)
 

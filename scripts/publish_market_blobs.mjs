@@ -16,9 +16,9 @@ import { isDeepStrictEqual } from "node:util";
 import { getStore } from "@netlify/blobs";
 import { MARKET_STORE, isMarketFile } from "../netlify/lib/market-data.js";
 import { priceStamp, snapshotPath } from "../docs/modules/trade-share.js";
+import { PLAYER_VALUE_MODEL_VERSION } from "../docs/modules/values.js";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const MODEL_VERSION = "dynasty-sf-ppr-v5.1";
 
 function validPrice(price) {
   return Number.isFinite(price) && price > 0 && price <= 100 && Math.round(price * 100) / 100 === price;
@@ -73,7 +73,7 @@ async function main() {
   const read = (rel) => readFile(join(ROOT, "docs", rel), "utf8");
   const values = await read("data/player_values.json");
   const parsed = JSON.parse(values);
-  if (parsed.modelVersion !== MODEL_VERSION) throw new Error(`Unexpected modelVersion ${parsed.modelVersion}; not publishing.`);
+  if (parsed.modelVersion !== PLAYER_VALUE_MODEL_VERSION) throw new Error(`Unexpected modelVersion ${parsed.modelVersion}; not publishing.`);
   if (!parsed.sf || Object.keys(parsed.sf).length < 300) throw new Error("player_values.json has too few prices; not publishing.");
   if (parsed.valueScale !== 100 || !Object.values(parsed.sf).every(validPrice)) {
     throw new Error("Prices must be on the 0–100 scale in hundredths.");
@@ -82,7 +82,7 @@ async function main() {
   const index = await read("data/price-history/index.json");
   const history = JSON.parse(index);
   const latest = history.snapshots?.find((row) =>
-    row.modelVersion === MODEL_VERSION && row.valueScale === 100 && row.asOf === parsed.asOf);
+    row.modelVersion === PLAYER_VALUE_MODEL_VERSION && row.valueScale === 100 && row.asOf === parsed.asOf);
   const stamp = priceStamp(parsed.asOf);
   if (!stamp || latest?.stamp !== stamp) {
     throw new Error("Current values have no matching dated archive; not publishing.");
@@ -96,7 +96,7 @@ async function main() {
   }
 
   if (mode === "--check-only") {
-    console.log(`Validated ${MODEL_VERSION} snapshot and archive ${latest.stamp}.`);
+    console.log(`Validated ${PLAYER_VALUE_MODEL_VERSION} snapshot and archive ${latest.stamp}.`);
     return;
   }
   const siteID = process.env.NETLIFY_SITE_ID;

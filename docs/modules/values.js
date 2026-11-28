@@ -14,7 +14,7 @@ export function valuationUpdatedAt(bundle) {
   if (Number.isNaN(date.getTime())) return text;
   return date.toISOString().slice(0, 10);
 }
-export const PLAYER_VALUE_MODEL_VERSION = "dynasty-sf-ppr-v5.1";
+export const PLAYER_VALUE_MODEL_VERSION = "dynasty-sf-ppr-v5.2";
 
 export function isCurrentValueBoard(payload) {
   return payload?.modelVersion === PLAYER_VALUE_MODEL_VERSION && payload.valueScale === 100;
@@ -27,7 +27,7 @@ const archivedIntegerModels = new Set([
   "sleeper-trades-v1", "sleeper-trades-v2", "sleeper-trades-v3", "sleeper-trades-v4",
   "dynasty-sf-ppr-v1", "dynasty-sf-ppr-v2-preview", "dynasty-sf-ppr-v2",
 ]);
-const archivedHundredPointModels = new Set(["dynasty-sf-ppr-v3", "dynasty-sf-ppr-v4", "dynasty-sf-ppr-v5"]);
+const archivedHundredPointModels = new Set(["dynasty-sf-ppr-v3", "dynasty-sf-ppr-v4", "dynasty-sf-ppr-v5", "dynasty-sf-ppr-v5.1"]);
 
 function priceScale(row) {
   if (row?.modelVersion === PLAYER_VALUE_MODEL_VERSION || archivedHundredPointModels.has(row?.modelVersion)) {
@@ -53,7 +53,7 @@ export function snapshotPrices(snapshot) {
 // Trend and peak comparisons use the same valuation model at both endpoints.
 function comparableSnapshot(snapshot, row) {
   if (!isCurrentValueBoard(snapshot) || !snapshot.sf || snapshot.asOf !== row.asOf) return null;
-  return { asOf: snapshot.asOf, stamp: row.stamp, sf: snapshot.sf };
+  return { asOf: snapshot.asOf, stamp: row.stamp, modelVersion: snapshot.modelVersion, valueScale: snapshot.valueScale, sf: snapshot.sf };
 }
 
 // The NFL draft ends in late April. After that, this year's picks are players.

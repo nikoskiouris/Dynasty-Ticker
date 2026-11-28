@@ -14,7 +14,7 @@ import { escapeHtml } from "./html.js";
  * No "For your team" section: Trade Calculator is never team-specific (owner
  * rule, Nov 19, 2026), so the panel never offers team advice or asks to connect.
  */
-export function buildTradeAdvice({ verdictLine = "", fair = false, evenUp = null, lighter = "" } = {}) {
+export function buildTradeAdvice({ verdictLine = "", fair = false, alreadyClose = false, evenUp = null, lighter = "" } = {}) {
   const sections = [{
     id: "verdict",
     title: "Verdict",
@@ -29,10 +29,10 @@ export function buildTradeAdvice({ verdictLine = "", fair = false, evenUp = null
       title: "How to make it fair",
       lines: [evenUp.line],
       action: evenUp.assetId ? { side: evenUp.side, assetId: evenUp.assetId, name: evenUp.name, label: `Add ${evenUp.name} to ${evenUp.receiver}` } : null,
-      note: evenUp.closes ? "" : "No single player or pick lands it in the fair band.",
+      note: evenUp.closes ? "" : "This addition narrows the gap. More value is needed to reach Even or Close.",
     });
   } else {
-    sections.push({ id: "fair", title: "How to make it fair", lines: [`No single pick gets this near fair. Try adding a player for ${lighter || "the side that gets less"}.`] });
+    sections.push({ id: "fair", title: "How to make it fair", lines: [alreadyClose ? "The offer is already Close. You can leave it as proposed." : `Try a different package for ${lighter || "the side that gets less"}.`] });
   }
   return sections;
 }

@@ -168,7 +168,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
   const give = decoded.give.map(row);
   const get = decoded.get.map(row);
   const stamp = priceStamp(payload?.asOf);
-  const packageRules = archivedPackageRules(decoded, stamp, bundle.sourceScale);
+  const packageRules = archivedPackageRules(decoded, stamp, bundle.sourceScale, payload.modelVersion);
   const model = draftVerdictModel(give.map((r) => r.value), get.map((r) => r.value), {
     globalMaxValue: getGlobalMaxPlayerValue(values),
     packageRules,

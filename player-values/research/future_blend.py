@@ -51,22 +51,28 @@ def estimate(method, row):
     return future_production(dict(row, last_games=min(row["last_games"] or 0, cap)), 12)
 
 
+def forecast_errors(board, forecasts, selected, next_season, second_season):
+    scores = {pos: sorted(f for p, f in forecasts.items() if board[p]["pos"] == pos and f and f > 0)
+              for pos in LIMIT}
+    levels = replacement_levels(scores)
+    for player in selected:
+        row = board[player]
+        pos = row["pos"]
+        outlook = expected_surplus(pos, forecasts[player], levels[pos], row.get("age"), scores[pos])
+        draft, share = prospect_prior(row)
+        predicted = (1 - share) * outlook + share * draft
+        realized = (next_season.get(player, 0) + .85 * second_season.get(player, 0)) / 1.85
+        yield player, predicted - realized
+
+
 def evaluate(board, next_season, second_season, samples):
-    selection = list(groups(board))
+    selection = dict(groups(board))
     for method in METHODS:
         forecasts = {p: estimate(method, row) for p, row in board.items()}
-        scores = {pos: sorted(f for p, f in forecasts.items() if board[p]["pos"] == pos and f > 0)
-                  for pos in LIMIT}
-        levels = replacement_levels(scores)
-        for player, labels in selection:
-            row = board[player]
-            pos = row["pos"]
-            outlook = expected_surplus(pos, forecasts[player], levels[pos], row["age"], scores[pos])
-            draft, share = prospect_prior(row)
-            predicted = (1 - share) * outlook + share * draft
-            realized = (next_season.get(player, 0) + .85 * second_season.get(player, 0)) / 1.85
+        for player, error in forecast_errors(board, forecasts, selection, next_season, second_season):
+            labels = selection[player]
             for label in labels:
-                samples[label, method].append(abs(predicted - realized))
+                samples[label, method].append(abs(error))
 
 
 def reserve_audit(years, realized, bios, cache):
@@ -80,47 +86,60 @@ def reserve_audit(years, realized, bios, cache):
                    and r["status_description_abbr"] in ("", "R01") and r["gsis_id"]}
         reserve.difference_update(r["gsis_id"] for r in roster if r["status"] in ("ACT", "INA"))
         _, _, _, records = next(inseason.observations(year, schedule, bios, cache, cutoffs=(12,)))
-        board = {row["player_id"]: row for row, _ in records}
+        # Keep the published v5.1 reserve comparison on its original exposure.
+        board = {row["player_id"]: dict(row, team_games=None) for row, _ in records}
         for method in ("Published", "Half missed exposure", "Prior evidence only"):
             predicted = {}
             for key, row in board.items():
-                week = 13
                 played = row.get("games") or 0
                 if key in reserve and played:
                     if method == "Half missed exposure":
                         elapsed = max(played, 12 * 17 / 18)
-                        # future_production maps (week - 1) to elapsed team
-                        # games. Supply a fractional week for the counterfactual.
-                        week = 1 + (elapsed + played) / 2 * 18 / 17
+                        row = dict(row, team_games=(elapsed + played) / 2)
                     elif method == "Prior evidence only":
                         row = dict(row, actual_ppr=None, games=None)
-                predicted[key] = future_production(row, week)
-            population = {pos: sorted(v for k, v in predicted.items() if v and board[k]["pos"] == pos)
-                          for pos in LIMIT}
-            levels = replacement_levels(population)
-            for key in sorted(reserve & board.keys()):
+                predicted[key] = future_production(row, 13)
+            for key, error in forecast_errors(board, predicted, sorted(reserve & board.keys()),
+                                              realized[year+1], realized[year+2]):
                 row, pos = board[key], board[key]["pos"]
-                talent = expected_surplus(pos, predicted[key], levels[pos], row.get("age"), population[pos])
-                draft, share = prospect_prior(row)
-                forecast = (1 - share) * talent + share * draft
-                actual = (realized[year+1].get(key, 0) + .85 * realized[year+2].get(key, 0)) / 1.85
                 labels = ["All"]
                 if 0 < (row.get("games") or 0) < 12 * 17 / 18:
                     labels.append("Appeared and missed games")
                 if pos == "QB":
                     labels.append("QB")
                 for label in labels:
-                    errors[label, method].append(forecast - actual)
+                    errors[label, method].append(error)
     print("Cohort | Method | Observations | Bias | MAE | RMSE")
     for (label, method), values in errors.items():
         print(label, method, len(values), f"{mean(values):.2f}", f"{mean(map(abs, values)):.2f}",
               f"{mean(v**2 for v in values)**.5:.2f}", sep=" | ")
 
 
+def schedule_audit(realized, bios, cache):
+    """Compare both elapsed-game counts with the same 2024–25 realized outcomes."""
+    schedule = list(audit.csv_rows(inseason.SCHEDULE, cache))
+    print("2023 week | Players | Week-average MAE | Club-schedule MAE")
+    for _, cutoff, _, records in inseason.observations(2023, schedule, bios, cache):
+        board = {row["player_id"]: row for row, _ in records}
+        top = []
+        for pos, limit in LIMIT.items():
+            projected = [p for p, r in board.items() if r["pos"] == pos and r.get("season_ppr") is not None]
+            top.extend(sorted(projected, key=lambda p: -board[p]["season_ppr"])[:limit])
+        errors = []
+        for use_schedule in (False, True):
+            forecasts = {p: future_production(r if use_schedule else dict(r, team_games=None), cutoff + 1)
+                         for p, r in board.items()}
+            signed = forecast_errors(board, forecasts, top, realized[2024], realized[2025])
+            errors.append(mean(abs(error) for _, error in signed))
+        print(cutoff, len(top), *(f"{v:.3f}" for v in errors), sep=" | ")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache-dir", type=Path, default=Path.home() / ".cache/dynasty-ticker/ranking-holdout")
-    parser.add_argument("--reserve", choices=("development", "holdout"), help="Audit Week 13 injured-reserve exposure")
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--reserve", choices=("development", "holdout"), help="Audit Week 13 injured-reserve exposure")
+    selection.add_argument("--schedule", action="store_true", help="Compare calendar and club-game exposure")
     args = parser.parse_args()
     cache = args.cache_dir
     cache.mkdir(parents=True, exist_ok=True)
@@ -133,6 +152,9 @@ def main():
                 for year, season in stats.items()}
     if args.reserve:
         reserve_audit((2018, 2020) if args.reserve == "development" else (2023,), realized, bios, cache)
+        return
+    if args.schedule:
+        schedule_audit(realized, bios, cache)
         return
     samples = defaultdict(list)
     for year in ORIGINS:
