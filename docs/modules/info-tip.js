@@ -22,7 +22,7 @@ export const GLOSSARY = Object.freeze({
   "Pick Hoarder": "Pick Hoarder: this team owns 3 or more future 1st-round picks.",
   Edge: "Edge: this position group is one of the strongest in the league.",
   Quest: "Quest: this position group is one of the weakest in the league, so it needs help.",
-  Lopsided: "Lopsided: one side gets more than 28% more value. Most managers would say no.",
+  Lopsided: "Lopsided: one side receives over 28% more value on the model’s adjusted totals.",
   "Youth Core": "Youth Core: many young players who should keep their value for years.",
   Stack: "Stack: several players from the same NFL team.",
   "Title Threat": "Title Threat: a power score of 90 or more.",

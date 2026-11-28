@@ -271,7 +271,10 @@ export function evenUpPickChoice(gap, picks = [], { scoreAdded = null, beforePct
     const pct = Number(scored.pct);
     if (!Number.isFinite(afterGap) || !Number.isFinite(pct)) continue;
     const miss = Math.abs(afterGap);
-    const closes = pct <= EVEN_UP_FAIR_PCT && pct < beforePct;
+    // An offer already inside Close only needs a counter if it reaches Even.
+    // Avoid prescribing another asset to move from one end of Close to the other.
+    const target = beforePct <= EVEN_UP_FAIR_PCT ? EVEN_UP_OFFER_ABOVE : EVEN_UP_FAIR_PCT;
+    const closes = pct <= target && pct < beforePct;
     const candidate = { assetId: String(pick.assetId || ""), name: String(pick.name), value, miss, closes, improves: pct < beforePct, gap: need, afterGap, pct, verdict: scored.verdict || null };
     // Among add-ons that make it fair, suggest the one priced nearest the raw
     // gap, not the one that lands nearest exactly even (that picked a 72.27
@@ -285,7 +288,10 @@ export function evenUpPickChoice(gap, picks = [], { scoreAdded = null, beforePct
     if (!best || betterClose || tighter) best = candidate;
   }
   if (!best) return null;
-  if (score) return best;
+  if (score) {
+    if (!best.improves || (beforePct <= EVEN_UP_FAIR_PCT && !best.closes)) return null;
+    return best;
+  }
   const gapUnits = priceHundredths(need);
   const pickUnits = priceHundredths(best.value);
   const closes = pickUnits >= gapUnits * 0.8 && pickUnits <= gapUnits * 1.25;

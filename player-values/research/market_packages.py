@@ -13,9 +13,10 @@ from time import sleep
 
 from ranking_holdout import fetch
 from dynasty_calibration import market_surplus, native_score
-from package_scale import CURRENT_CALCULATOR, V4, V51, archived_calculator, calculator_totals, interval
+from package_scale import V4, V51, archived_calculator, calculator_totals, interval
 
 DIRECTORY = Path(__file__).resolve().parent
+V52 = "588bfb095cd6fed808788aeddfc744c6590e59eb"
 SLEEPER = "https://api.sleeper.app/v1/league/"
 REPO = "perczakp/nfl-hirek"
 LAST = "7fc7ef55133fb57de3cfabf0954b9999b56b68d1"
@@ -162,7 +163,8 @@ def later_packages(trades, boards, *, show_examples=False):
     print(f"Later window: {sum(map(len, by_day.values()))}/{len(eligible)} trades have matching quotes.")
     groups = defaultdict(list)
     examples = {}
-    with archived_calculator(V4) as previous, archived_calculator(V51) as v51_calculator:
+    with (archived_calculator(V4) as previous, archived_calculator(V51) as v51_calculator,
+          archived_calculator(V52) as v52_calculator):
         for known, deals in by_day.items():
             quotes = boards[known]
             fraction = 1 - (known - opening_tuesday) // elapsed_week / 18
@@ -173,7 +175,7 @@ def later_packages(trades, boards, *, show_examples=False):
             ranks = {k: r for r, k in enumerate(players, 1)}
             old = calculator_totals(v4, deals, previous)
             historical = calculator_totals(v5, deals, v51_calculator)
-            current = calculator_totals(v5, deals, CURRENT_CALCULATOR)
+            current = calculator_totals(v5, deals, v52_calculator)
             for trade, old_totals, prior_totals, new_totals in zip(deals, old, historical, current, strict=True):
                 left, right = trade["sides"]  # collect_trades sorts by number of pieces.
                 quoted = [sum(quotes[k] for k in side) for side in (left, right)]
@@ -201,7 +203,7 @@ def later_packages(trades, boards, *, show_examples=False):
         leagues = len({r["league"] for r in rows})
         print(f"{name}: {len(rows)} trades from {leagues} leagues")
         methods = (("v4", 1, "v4 credited"), ("v5.1", 1, "v5.1 credited"),
-                   ("current", 1, "current credited"), ("current", 0, "current listed"), ("raw quotes", 0, "raw quotes"))
+                   ("current", 1, "v5.2 credited"), ("current", 0, "v5.2 listed"), ("raw quotes", 0, "raw quotes"))
         for method, column, version in methods:
             gaps = [r[method][column] for r in rows]
             bias = "" if name == "All" else f", package bias {median(gaps):+.1%}"

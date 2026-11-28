@@ -2,8 +2,9 @@ import { priceHundredths } from "./price-units.js";
 
 // Consolidation math for uneven packages: one better player is worth more than
 // the same total spread across more pieces.
-// Calibrated on completed packages in the two pre-holdout windows.
-const PACKAGE_CREDIT_SHARE = 0.25;
+// Selected on completed unequal exchanges in nine KTC-discovered Sleeper
+// leagues, with later transactions from separate leagues reserved for review.
+const PACKAGE_CREDIT_SHARE = 0.125;
 const KTC_RAW_BASE = 0.10;
 const KTC_RAW_ELITE_WEIGHT = 0.08;
 const KTC_RAW_TRADE_WEIGHT = 0.11;
