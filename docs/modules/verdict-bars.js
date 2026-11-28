@@ -29,9 +29,13 @@ export function calcPointer(arrow) {
 
 // Why the verdict moved: fewer, better pieces are worth extra. Listed prices stay in the rows.
 // best: the name of the most valuable player on the credited side, when known.
-export function starsPremiumMarkup(model, { best = "", pick = false, shared = false } = {}) {
+export function starsPremiumMarkup(model, { best = "", pick = false, shared = false, receiver = "" } = {}) {
   const adj = model?.adjustment;
   if (!adj || !(adj.amount > 0)) return "";
+  if (receiver) {
+    const reason = best ? ` for receiving ${best}, the highest-valued ${pick ? "pick" : "player"} on that side` : " for receiving the stronger pieces";
+    return `<p class="draft-package">The calculator credits ${escapeHtml(receiver)} ${formatNumber(adj.amount)} extra${escapeHtml(reason)}. Individual prices stay the same.</p>`;
+  }
   const side = adj.side === "left" ? "give" : "get";
   return `<p class="draft-package"><strong>${escapeHtml(FEWER_BETTER_LABEL)}:</strong> ${escapeHtml(fewerBetterBody(formatNumber(adj.amount), side, best, { pick, shared }))}</p>`;
 }

@@ -1,0 +1,48 @@
+/* Sleeper portraits share one footprint with their initials fallback. */
+.player-face.player-face-xs { --face-default: 20px; }
+.player-face.player-face-sm { --face-default: 28px; }
+.player-face.player-face-md { --face-default: 36px; }
+
+.player-face[class],
+.rankings-table .player-face,
+.player-detail-header > .player-face,
+button.ranks-shelf-item .player-face {
+  --portrait: var(--face-size, var(--face-default));
+  display: inline-grid;
+  width: var(--portrait);
+  height: var(--portrait);
+  min-width: var(--portrait);
+  max-width: var(--portrait);
+  min-height: var(--portrait);
+  max-height: var(--portrait);
+  flex: 0 0 var(--portrait);
+  overflow: hidden;
+  border: 0;
+  border-radius: 50%;
+  background: #e8e7e1;
+  box-shadow: none;
+}
+
+.player-face[class] > .player-face-photo,
+.rankings-table .player-face > .player-face-photo {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.player-face > .player-face-initials {
+  color: #38423d;
+  font: 700 10px/1 var(--font-ui, sans-serif);
+}
+
+.rankings-table { --face-size: 30px; }
+.player-detail-header { --face-size: 48px; }
+
+@media (max-width: 600px) {
+  .rankings-table { --face-size: 28px; }
+}

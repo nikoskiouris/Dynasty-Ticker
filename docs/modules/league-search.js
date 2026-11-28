@@ -168,8 +168,7 @@ export function renderLeaguePickerMarkup(leagues, currentSeason, selectedId = ""
   if (!leagues?.length) return "";
   return `
     <div class="league-picker-head">
-      <span class="eyebrow">Your leagues</span>
-      <strong>Select your league:</strong>
+      <strong>Choose a league</strong>
     </div>
     <div class="league-picker-list">
       ${leagues.map((league) => {

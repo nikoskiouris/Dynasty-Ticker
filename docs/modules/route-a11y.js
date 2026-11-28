@@ -108,7 +108,6 @@ export function focusViewHeading(root, { focusVisible = false } = {}) {
 
 // One heading per room. Waiting on a selector (not a node) survives re-renders.
 const ROOM_HEADINGS = Object.freeze({
-  "home:home": "#home-heading, .tool-picker h1",
   "leagues:picker": "#leagues-heading",
   "league:hub": "#league-hub-heading",
   "league:standings": "#league-standings-heading",
@@ -124,7 +123,7 @@ export function headingSelectorFor(place = {}) {
   if (overlay === "player" || place.playerId) return "#player-detail-name, .ranks-card h2, .player-week-sheet h2";
   const page = place.page || place.tab || "";
   const room = String(place.view || "");
-  if (place.playersBoard && page === "trades" && room === "calculator") return "#ranks-section .panel-heading h2";
+  if (place.playersBoard && page === "trades" && room === "calculator") return "#ranks-dashboard h1, #ranks-section .panel-heading h2";
   if (ROOM_HEADINGS[`${page}:${room}`]) return ROOM_HEADINGS[`${page}:${room}`];
   return "";
 }
@@ -148,7 +147,7 @@ function inLeagueIdForm(active) {
 
 function mayMoveFocus(doc, active, takeover = false) {
   if (!active || active === doc.body || active === doc.documentElement) return true;
-  if (active.id === "workspace") return true;
+  if (active.id === "workspace" || active.closest?.(".site-masthead")) return true;
   // Back after a league-id switch leaves focus in that form. The restored room heading takes it.
   if (takeover && inLeagueIdForm(active)) return true;
   // A room change hides the previous room. Focus is still on that heading until

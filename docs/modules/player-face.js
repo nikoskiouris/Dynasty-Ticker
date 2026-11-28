@@ -19,7 +19,8 @@ export function playerIdFromAssetId(assetId) {
 
 export function sleeperPlayerThumbUrl(playerId) {
   const id = String(playerId || "").trim().replace(/^player:/, "");
-  return id && id !== "0" ? `${SLEEPER_PLAYER_THUMB_BASE}${encodeURIComponent(id)}.jpg` : "";
+  // Sleeper also uses team codes for defenses. Only players have portraits.
+  return /^[1-9]\d*$/.test(id) ? `${SLEEPER_PLAYER_THUMB_BASE}${id}.jpg` : "";
 }
 
 // "Kenneth Walker III" is KW and "Marvin Harrison Jr." is MH: a suffix is not a last name.
@@ -51,11 +52,11 @@ export function facePlayerId(record) {
 
 export function renderPlayerFace(playerId, name = "", { size = "sm" } = {}) {
   const id = String(playerId || "").replace(/^player:/, "").trim();
-  if (!id || id === "0") return "";
+  if (!id || id === "0" || id.startsWith("pick:")) return "";
   const faceSize = FACE_SIZES.has(size) ? size : "sm";
   const src = sleeperPlayerThumbUrl(id);
-  if (!src) return "";
-  return `<span class="player-face player-face-${faceSize}" aria-hidden="true"><img class="player-face-photo" src="${escapeHtml(src)}" alt="" width="64" height="64" loading="lazy" decoding="async"><span class="player-face-initials">${escapeHtml(playerInitials(name))}</span></span>`;
+  const photo = src ? `<img class="player-face-photo" src="${escapeHtml(src)}" alt="" width="40" height="40" loading="lazy" decoding="async">` : "";
+  return `<span class="player-face player-face-${faceSize}" aria-hidden="true">${photo}<span class="player-face-initials">${escapeHtml(playerInitials(name))}</span></span>`;
 }
 
 export function renderPlayerLabel(name, playerId, { size = "sm", tag = "span" } = {}) {

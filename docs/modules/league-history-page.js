@@ -115,6 +115,19 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
   const range = years.length ? `${Math.min(...years)}–${Math.max(...years)} · ${years.length} season${years.length === 1 ? "" : "s"}` : "No seasons loaded";
   const book = leagueRecordBook(archive);
   const issues = archive?.issues || [];
+  const sections = [
+    ["champions", "Champions wall", renderChampions(championsWall(archive))],
+    ["standings", "All-time standings", renderAllTime(allTimeStandings(archive))],
+    ["records", "Record book", renderRecords(book)],
+    ["rivalries", "Head-to-head and rivalries", renderRivalries(archive)],
+    ["trends", "League trends", renderTrends(leagueTrends(archive))],
+    ["traded", "Most traded players", renderMostTraded(archive, { values, valueNames, players, peaks })],
+    ["trophies", "Manager trophy cases", renderTrophyCases(archive, { valueNames, players })],
+    ["traders", "Trade awards", renderTraderAwards(archive, { values, valueNames })],
+    ["draft", "Draft awards", renderDrafterAwards(archive, { values, valueNames })],
+    ["operations", "Lineup and waiver awards", renderOperationsAwards(archive, { players, values, valueNames, showLineup })],
+    ["managers", "Manager awards", renderManagerAward(archive, { values, valueNames })],
+  ].filter(([, , content]) => content);
   return `<div class="league-history-page">
     <p><a class="league-back" href="/l/${leagueId}">← League</a></p>
     <header><h2>${e(name)} All-Time</h2><p class="muted">${e(range)}</p>
@@ -125,16 +138,11 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
       <ul>${issues.slice(0, 12).map((issue) => `<li>${e(issue.message || "A Sleeper request failed")}</li>`).join("")}</ul>
       ${issues.length > 12 ? `<p class="muted">${issues.length - 12} more unavailable resources.</p>` : ""}
     </section>` : ""}
-    ${renderChampions(championsWall(archive))}
-    ${renderAllTime(allTimeStandings(archive))}
-    ${renderRecords(book)}
-    ${renderRivalries(archive)}
-    ${renderTrends(leagueTrends(archive))}
-    ${renderMostTraded(archive, { values, valueNames, players, peaks })}
-    ${renderTrophyCases(archive, { valueNames, players })}
-    ${renderTraderAwards(archive, { values, valueNames })}
-    ${renderDrafterAwards(archive, { values, valueNames })}
-    ${renderOperationsAwards(archive, { players, values, valueNames, showLineup })}
-    ${renderManagerAward(archive, { values, valueNames })}
+    <label class="history-jump">Jump to section
+      <select id="history-jump"><option value="">Choose a section</option>
+        ${sections.map(([id, label]) => `<option value="archive-${id}">${label}</option>`).join("")}
+      </select>
+    </label>
+    ${sections.map(([id, label, content]) => `<div class="history-section" id="archive-${id}" role="region" aria-label="${label}" tabindex="-1">${content}</div>`).join("")}
   </div>`;
 }

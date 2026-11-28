@@ -1,13 +1,13 @@
-import { mountSiteMenu } from "./modules/site-menu.js";
-import { renderToolPicker, moveLeagueControls, renderLeagueRecent } from "./modules/tool-picker.js";
+import { syncSiteNavigation } from "./modules/site-menu.js";
+import { moveLeagueControls, renderLeagueRecent } from "./modules/tool-picker.js";
 import { renderLeagueHub } from "./modules/league-hub.js";
 import { leagueArchive, readDeskSnapshot, saveDeskSnapshot } from "./modules/league-archive.js";
 import { buildTradeAdvice, closeTradeAdvice, onTradeAdviceBack, openTradeAdvice, renderTradeAdviceButton, renderTradeAdvicePanel, tradeAdviceOpen } from "./modules/trade-advice.js";
 import { renderTradeLog, renderTradeLogRows } from "./modules/trade-log.js";
 import { renderLeagueHistory } from "./modules/league-history-page.js";
-import { renderTradeFairness } from "./modules/trade-fairness.js";
+import { renderTradeFairness, renderTradeScale } from "./modules/trade-fairness.js";
 import { safeStorage } from "./modules/safe-storage.js";
-import { forgetLastLeague, lastLeagueMarkup, readLastLeague, writeLastLeague } from "./modules/last-league.js";
+import { forgetLastLeague, readLastLeague, writeLastLeague } from "./modules/last-league.js";
 import {
   buildSeasonModel,
   simulateSeason,
@@ -37,7 +37,6 @@ import {
   failedLeagueSwitch,
   isLeagueNotFound,
   leagueLoadErrorMessage,
-  leagueLoadErrorVisibility,
   leagueNotFoundError,
   sleeperLeagueMissing,
   leagueNameForId,
@@ -179,7 +178,6 @@ import {
   shouldResetCalcSearchOnPick,
   syncCalcCombobox,
 } from "./modules/calc-search.js";
-import { jobById, landingSearchHint } from "./modules/jobs.js";
 import {
   applyBootFieldValue,
   bootIsPending,
@@ -354,7 +352,6 @@ const el = {
   landingUsernameForm: document.querySelector("#landing-username-form"),
   landingUsernameError: document.querySelector("#landing-username-error"),
   landingJobs: document.querySelector("#landing-jobs"),
-  landingJobHint: document.querySelector("#landing-job-hint"),
   landingLeaguePicker: document.querySelector("#landing-league-picker"),
   landingLoading: document.querySelector("#landing-loading"),
   landingLoadingText: document.querySelector("#landing-loading-text"),
@@ -481,7 +478,6 @@ el.workspace?.addEventListener("submit", (event) => {
   event.preventDefault();
   void openPlayerLeagueList(form);
 });
-el.landingJobs?.addEventListener("click", handleLandingJobClick);
 el.leagueLoadForm?.addEventListener("submit", requestLoadLeague);
 el.loadLeagueBtn?.addEventListener("pointerdown", handleLoadLeaguePointerDown);
 el.loadLeagueBtn?.addEventListener("click", requestLoadLeague);
@@ -516,7 +512,6 @@ document.addEventListener("keydown", (event) => {
   }
   if (escapeRouteOverlay(event)) return;
 });
-document.addEventListener("click", handleLaunchClick);
 document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-action='disconnect-league']");
   if (!button) return;
@@ -575,30 +570,19 @@ document.addEventListener("submit", (event) => {
   const name = String(form.querySelector("input")?.value || "").trim();
   // Come back to this tab once the league opens.
   state.pendingPlace = { page: state.activePage, room: getRoom(state.activePage) };
-  if (el.landingUsername) el.landingUsername.value = name;
-  syncUsernameFields(el.landingUsername);
-  document.querySelector("#landing")?.classList.remove("hidden");
-  const box = document.querySelector("#landing-connect");
-  if (box) box.hidden = false;
-  // The preview form goes away with the tab, which dropped focus to <body>.
-  // Land on the connect box that holds the name, the league list and any
-  // error. Not the input: on a phone that would keep the keyboard over the list.
-  if (box) {
-    box.setAttribute("tabindex", "-1");
-    box.focus({ preventScroll: true });
-  }
+  navigateTool("/leagues");
+  if (el.sleeperUsername) el.sleeperUsername.value = name;
+  el.sleeperUsername?.focus({ preventScroll: true });
   requestFindLeagues();
 });
 
 let valuesLoadFailed = false;
 let leagueMissing = false;
 let sleeperUnreachable = false;
-let connectAsked = false;
 state.valueCalc = readStoredDraft(safeStorage("sessionStorage"), safeStorage("localStorage")) || state.valueCalc;
 renderSessionSnapshot();
 let searchedUserNoted = false;
 let appBooted = false;
-let routeReports = 0;
 let coldPlayerHeading = false;
 let rankExtrasSettled = true;
 let followHeadingsUntil = 0;
@@ -664,15 +648,6 @@ if (bootRoute?.badLeague) {
   setActivePage(bootRoute.page, { history: "silent" });
 }
 bindInfoTips(document);
-renderToolPicker(document.querySelector("#home-page-content"));
-mountSiteMenu({
-  navigate(href) {
-    navigateTool(href);
-    // A menu pick is a route change: move focus to the new page's heading
-    // once it has painted.
-    requestAnimationFrame(() => focusClickedRoute());
-  },
-});
 // In-page links (#some-id): scroll to the
 // target and open it when it is a <details>, without a history entry.
 document.addEventListener("click", (event) => {
@@ -690,11 +665,14 @@ document.addEventListener("click", (event) => {
   focusable?.focus?.({ preventScroll: true });
 });
 document.addEventListener("click", event => {
-  const link = event.target.closest("#home-page-content a, #leagues-page-content a, #league-hub-content a, #league-page a[href^=\"/l/\"]:not([target])");
+  const link = event.target.closest(".site-masthead a, #leagues-page-content a, #league-hub-content a, #league-page a[href^=\"/l/\"]:not([target])");
   if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
   const href = link.getAttribute("href");
   if (!href?.startsWith("/")) return;
-  event.preventDefault(); navigateTool(href);
+  event.preventDefault();
+  const before = routePlaceNow();
+  navigateTool(href);
+  if (link.closest(".site-masthead")) requestAnimationFrame(() => focusClickedRoute(before));
 });
 if (typeof history.scrollRestoration === "string") history.scrollRestoration = "manual";
 ensureRouteLive(document);
@@ -748,18 +726,26 @@ function navigateTool(href) {
   const url = new URL(href, window.location.origin);
   // Leaving a shared /t link: load the page fresh. The in-place switch kept
   // the share's /t URL (or its /trade draft) and Back skipped the link.
-  if (state.sharedTrade && url.pathname !== window.location.pathname) {
+  if (/^\/t\//.test(window.location.pathname) && url.pathname !== window.location.pathname) {
     window.location.assign(url.href);
     return;
   }
-  if (url.pathname === "/players") { openPlayerBoard({ history: "push" }); return; }
+  // The active request can outlive a click on another tool.
+  if (leagueLoader.busy() && !url.pathname.startsWith("/l/")) {
+    leagueLoader.drop();
+    state.pendingPlace = null;
+    state.leagueSwitching = false;
+    stopLeagueLoadingUi();
+  }
+  hideSleeperUnreachable();
+  hideLeagueNotFound();
+  if (url.pathname === "/" || url.pathname === "/players") { openPlayerBoard({ history: "push" }); return; }
   if (url.pathname === "/trade") {
     playersBoardOpen = false; state.ranks.selectedId = "";
     openRoom("trades", "calculator", { history: "push" }); return;
   }
-  if (url.pathname === "/" || url.pathname === "/leagues") {
-    playersBoardOpen = false; state.ranks.selectedId = "";
-    setActivePage(url.pathname === "/" ? "home" : "leagues", { history: "push", scroll: "top", landing: "hide" }); return;
+  if (url.pathname === "/leagues") {
+    setActivePage("leagues", { history: "push", scroll: "top" }); return;
   }
   const id = url.pathname.match(/^\/l\/(\d+)/)?.[1];
   if (id) {
@@ -767,7 +753,10 @@ function navigateTool(href) {
     const room = resolveLocation(url.pathname, url.search).room || "hub";
     state.pendingPlace = { page: "league", room };
     if (String(id) === String(state.leagueId)) openRoom("league", room, { history: "push", scroll: "top" });
-    else void loadLeagueById(id);
+    else {
+      restoreLeagueManager(id, parseShareParams(url.search).meRosterId);
+      void loadLeagueById(id);
+    }
   }
 }
 
@@ -795,14 +784,12 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
   const place = resolveDeskPlace({ tab: nextPage, view: room || "" });
   const aliased = place.page === nextPage ? place.room : "";
   const nextRoom = clampRoom(nextPage, isRoomOf(nextPage, room) ? room : (aliased || defaultRoomFor(nextPage)));
-  const openingCalculator = history !== "silent" && nextPage === "trades" && nextRoom === "calculator";
   const samePlace = state.activePage === nextPage && getRoom(nextPage) === nextRoom && !state.selectedTradeId;
   if (samePlace && history === "push") {
     const href = pathForPlace({
       page: nextPage,
       room: nextRoom,
       leagueId: state.leagueId,
-      landing: openingCalculator ? false : landingVisible(),
       give: draftSideIds("left"),
       get: draftSideIds("right"),
       shareCode: activeShareCode(),
@@ -811,7 +798,6 @@ function openRoom(page, room, { history = "push", scroll = "top" } = {}) {
     if (!href || href === window.location.pathname) return;
   }
   if (history === "push") prepareDeskPush();
-  if (openingCalculator) document.querySelector("#landing")?.classList.add("hidden");
   setRoom(nextPage, nextRoom);
   // Room navigation always lands on the room itself, never on an open trade file.
   state.selectedTradeId = "";
@@ -855,13 +841,17 @@ function hideAppPages() {
   });
 }
 
-function setActivePage(page, { history = "replace", scroll = "preserve", prepared = false, landing = "" } = {}) {
-  const nextPage = PAGE_IDS.includes(page) ? page : DEFAULT_PAGE;
+function setActivePage(page, { history = "replace", scroll = "preserve", prepared = false } = {}) {
+  // Old home links and the site root use the same board as /players.
+  const requestedPage = PAGE_IDS.includes(page) ? page : DEFAULT_PAGE;
+  const nextPage = requestedPage === "home" ? "trades" : requestedPage;
+  if (requestedPage === "home") {
+    playersBoardOpen = true;
+    state.ranks.selectedId = "";
+    setRoom("trades", "calculator");
+  }
   if (history === "push" && !prepared) prepareDeskPush();
-  if (landing === "hide") document.querySelector("#landing")?.classList.add("hidden");
-  if (landing === "show") document.querySelector("#landing")?.classList.remove("hidden");
   state.activePage = nextPage;
-  document.querySelector("#landing")?.classList.add("hidden");
 
   PAGE_IDS.forEach((pageId) => {
     const pageEl = el.pages[pageId];
@@ -897,6 +887,12 @@ function smoothScroll() {
 }
 
 function syncPlayersBoardFlag() {
+  const leagueTool = state.activePage === "leagues" || state.activePage === "league" || leagueMissing || sleeperUnreachable;
+  const rankingsTool = playersBoardOpen || Boolean(state.ranks?.selectedId);
+  syncSiteNavigation({
+    tool: leagueTool ? "leagues" : rankingsTool ? "rankings" : "trade",
+    leagueId: state.leagueId || readLastLeague()?.leagueId,
+  });
   document.documentElement.toggleAttribute("data-players-board", playersBoardOpen || /^\/players\/?$/.test(window.location.pathname));
   // /player/<id> is the player page: the card alone, no calculator or board list.
   document.documentElement.toggleAttribute("data-player-page",
@@ -1004,6 +1000,14 @@ document.addEventListener("input", (event) => {
   redrawLeagueTradeRows(); // Keep the search input mounted and focused.
 });
 document.addEventListener("change", (event) => {
+  if (event.target?.id === "history-jump") {
+    const target = document.getElementById(event.target.value);
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: "start" });
+    event.target.value = "";
+    return;
+  }
   if (event.target?.id === "league-trade-season") {
     tradeLogSeason = event.target.value || "";
     tradeLogTeam = "";
@@ -1031,7 +1035,6 @@ function renderActivePage() {
   const page = state.activePage;
   const room = getRoom(page);
   if (livePoller && !(page === "league" && room === "standings")) stopLivePolling();
-  if (page === "home") { renderToolPicker(document.querySelector("#home-page-content")); return; }
   if (page === "leagues") { moveLeagueControls(document.querySelector("#leagues-page-content")); return; }
   if (page === "league" && room === "hub") {
     const archive = leagueArchive.snapshot;
@@ -1236,19 +1239,26 @@ function rankViewModel() {
 function paintRankToolbar(toolbar, view, typing) {
   if (!toolbar) return;
   toolbar.querySelectorAll("[data-action='rank-pos']").forEach((button) => {
-    const on = button.dataset.pos === view.position;
+    const on = button.hasAttribute("data-player-tab") ? view.position !== "PICK" : button.dataset.pos === view.position;
     button.classList.toggle("active", on);
     button.setAttribute("aria-pressed", String(on));
   });
-  toolbar.querySelectorAll("[data-action='rank-format']").forEach((button) => {
-    const on = button.dataset.format === view.format;
-    button.classList.toggle("active", on);
-    button.setAttribute("aria-pressed", String(on));
-  });
+  const positions = toolbar.querySelector(".ranks-filters");
+  if (positions) positions.hidden = view.position === "PICK";
+  const sort = toolbar.querySelector('[data-change="ranks-sort"]');
+  if (sort) {
+    sort.value = view.sort;
+    sort.closest("label").hidden = view.position === "PICK";
+  }
+  const optionsLabel = toolbar.querySelector(".rank-options summary");
+  if (optionsLabel) optionsLabel.textContent = view.position === "PICK" ? "Value scale" : "Filters & sort";
   const note = toolbar.querySelector(".ranks-note");
   if (note) note.textContent = view.note;
   const input = toolbar.querySelector("[data-ranks-query]");
-  if (input && !typing) input.value = view.query;
+  if (input) {
+    input.placeholder = view.position === "PICK" ? "Search draft picks" : "Search players";
+    if (!typing) input.value = view.query;
+  }
   // Announce only when the search or the chip changed, not on every paint
   // (load, sort, Show more).
   const status = toolbar.querySelector("[data-ranks-count]");
@@ -1263,6 +1273,13 @@ let rankCountKey = null;
 function renderRankHost(host) {
   if (!host) return;
   const view = rankViewModel();
+  const stamp = host.closest("#ranks-section")?.querySelector("[data-rank-date]");
+  if (stamp) {
+    const status = view.updated;
+    const date = status?.iso && new Date(status.iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+    stamp.textContent = date ? `Values as of ${date}${status.stale ? " · " + status.label : ""}` : "";
+    stamp.title = status?.absolute || "";
+  }
   if (view.loading || !host.querySelector("[data-ranks-body]")) {
     host.innerHTML = renderRanksMarkup(view);
   }
@@ -1277,7 +1294,6 @@ function renderRankHost(host) {
   const body = host.querySelector("[data-ranks-body]");
   if (body && !view.loading) body.innerHTML = renderRanksBody(view);
   syncPlayerConnectSlot(host, view);
-  bindPlayerPhotos(host);
   if (view.card?.kind === "player" && view.card?.name) {
     canonicalizePlayerUrl(view.card.playerId || view.card.assetId, view.card.name);
     syncDocumentMeta();
@@ -1414,6 +1430,15 @@ function refocusCalc(preferred, fallbackSelector) {
   if (shown(target)) target.focus({ preventScroll: true });
 }
 
+function restoreLeagueManager(leagueId, requestedRosterId) {
+  // A shared URL can choose a team to view. Only this browser's own saved
+  // selection identifies its manager.
+  const last = leagueId ? readLastLeague() : null;
+  const savedRoster = last?.leagueId === String(leagueId) ? last.rosterId : null;
+  state.pendingMeRosterId = requestedRosterId || savedRoster || null;
+  state.pendingMeIsMine = !requestedRosterId && Boolean(savedRoster);
+}
+
 function bootFromUrl() {
   // Rewrite before anything is reported, so a cold removed-room link counts one visit.
   const legacyTarget = legacyRedirect(window.location.pathname, window.location.search);
@@ -1424,18 +1449,7 @@ function bootFromUrl() {
   bootRoute = route;
   const parsed = parseShareParams(window.location.search);
   if (parsed.invalidLeague) showInvalidLeagueLink();
-  if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
-  else {
-    // /l/<id> carries no ?me=. Reloading the league you last opened keeps the
-    // team you picked instead of asking "Which team is yours?" again.
-    const bootLeagueId = String(route.leagueId || parsed.leagueId || "");
-    const last = bootLeagueId ? readLastLeague(safeStorage("localStorage")) : null;
-    if (last?.rosterId && String(last.leagueId) === bootLeagueId) {
-      state.pendingMeRosterId = last.rosterId;
-      // This browser's own earlier pick, not a team from someone's shared link.
-      state.pendingMeIsMine = true;
-    }
-  }
+  restoreLeagueManager(route.leagueId || parsed.leagueId, parsed.meRosterId);
   if (parsed.teamRosterId) state.pendingLensRosterId = parsed.teamRosterId;
   const hashToken = String(window.location.hash || "").replace(/^#/, "");
   const routeDrivesPlace = !route.unknown && !route.badLeague && !(route.name === "home" && (parsed.tab || hashToken));
@@ -1470,7 +1484,6 @@ function bootFromUrl() {
   if ((route.name === "trade") && (route.give.length || route.get.length || route.badShare || route.say)) {
     applyTradeRoute(route);
   }
-  if (route.name === "connect") connectAsked = true;
   if (route.name === "players") state.ranks.position = rankPositionFromSearch(window.location.search) || "ALL";
   const leagueId = route.leagueId || parsed.leagueId;
   if (leagueId) {
@@ -1509,7 +1522,6 @@ function historyPlaceNow() {
     selectedTradeId: state.selectedTradeId,
     selectedTradeManagerKey: state.selectedTradeManagerKey,
     scrollY: window.scrollY || 0,
-    landing: landingVisible(),
   };
 }
 
@@ -1550,20 +1562,15 @@ function routePlaceNow() {
   const playerId = activePlayerRouteId();
   const playerName = routedPlayerName();
   const showPlayer = Boolean(playerName) && (Boolean(playerId) || overlay === "player");
-  const onLanding = landingVisible()
-    && !state.leagueId
-    && !showPlayer
-    && state.activePage === "players"
-    && overlay !== "public-ranks";
   return {
     playerName: showPlayer ? playerName : "",
     playerId,
     tab: state.activePage,
-    titleTab: onLanding ? "" : state.activePage,
+    titleTab: state.activePage,
     view: getRoom(),
     overlay,
     page: state.activePage,
-    playersBoard: playersBoardShown() && !showPlayer && !onLanding,
+    playersBoard: playersBoardShown() && !showPlayer,
   };
 }
 
@@ -1645,7 +1652,7 @@ function releaseRouteFocusHold() {
 
 function focusHoldExempt(node) {
   if (!node) return false;
-  return node.id === "site-menu-toggle";
+  return Boolean(node.closest?.(".site-masthead"));
 }
 
 function shownElement(node) {
@@ -1672,7 +1679,6 @@ function shownQuery(selector) {
 
 function visiblePageHeading() {
   const nodes = [
-    document.querySelector("#landing-job-hint"),
     document.querySelector("#route-title"),
   ];
   return nodes.find((node) => shownElement(node)) || null;
@@ -1939,12 +1945,7 @@ function updateUrlStateInner({ mode = "replace", force = false } = {}) {
 // The first pageview that actually reaches an adapter carries the referrer
 // and UTM (modules/analytics.js), whichever call it comes from.
 function reportRoute() {
-  const fresh = analyticsPageview(window.location.pathname);
-  if (!fresh) return;
-  routeReports += 1;
-  if (window.location.pathname === urlPath() && landingVisible()) {
-    analyticsTrack("landing_view", {}, { once: `route:${routeReports}` });
-  }
+  analyticsPageview(window.location.pathname);
 }
 
 function closeHistoryOverlay(kind) {
@@ -1963,7 +1964,6 @@ function applyPlayerRoute(historyState, parsed) {
     parsedAsset: parsed?.asset || "",
   });
   state.ranks.selectedId = picked.rankAssetId;
-  if (picked.rankAssetId) document.querySelector("#landing")?.classList.add("hidden");
 }
 
 function applyDeskPopState(historyState) {
@@ -1987,7 +1987,6 @@ function applyDeskPopState(historyState) {
   hideLeagueNotFound();
   if (route.unknown) {
     if (state.leagueId) unloadLeague();
-    document.querySelector("#landing")?.classList.remove("hidden");
     state.ranks.selectedId = "";
     applyDeskPlaceFromHistory(parsed, { ...(historyState || {}), tab: "players", view: "ranks" });
     if (typeof history?.replaceState === "function") {
@@ -2001,18 +2000,12 @@ function applyDeskPopState(historyState) {
     state.pendingPlace = { page: route.page || parsed.tab, room: route.room || parsed.view };
     if (!state.pendingPlace.page && parsed.tab) state.pendingPlace = { page: parsed.tab, room: parsed.view };
     if (parsed.week) state.pendingWeek = parsed.week;
-    if (parsed.meRosterId) state.pendingMeRosterId = parsed.meRosterId;
+    restoreLeagueManager(leagueId, parsed.meRosterId);
     if (parsed.teamRosterId) state.pendingLensRosterId = parsed.teamRosterId;
     void loadLeagueById(leagueId, { fromHistory: true });
     return;
   }
   if (!leagueId && state.leagueId) unloadLeague();
-  const showLanding = false;
-  document.querySelector("#landing")?.classList.toggle("hidden", !showLanding);
-  if (!showLanding && (route.name === "players" || route.name === "player" || route.name === "trade" || route.leagueId)) {
-    document.querySelector("#landing")?.classList.add("hidden");
-  }
-  if (showLanding) state.ranks.selectedId = "";
   if (!state.leagueId && !playerIdFromPathname(window.location.pathname) && !route.leagueId && route.name !== "players" && route.name !== "trade") {
     if (parsed.tab === "trades" && parsed.view === "ranks") {
       if (parsed.asset) state.ranks.selectedId = parsed.asset;
@@ -2023,16 +2016,11 @@ function applyDeskPopState(historyState) {
     }
   }
   if (route.name === "players" || route.legacy === "ranks") {
-    document.querySelector("#landing")?.classList.add("hidden");
     state.ranks.position = rankPositionFromSearch(window.location.search) || "ALL";
   }
   if (route.name === "home" || route.name === "connect") {
-    document.querySelector("#landing")?.classList.remove("hidden");
     state.ranks.selectedId = "";
   }
-  connectAsked = route.name === "connect" || Boolean(historyState?.connectAsked);
-  const connectBox = document.querySelector("#landing-connect");
-  if (connectBox) connectBox.hidden = !connectAsked;
   applyDeskPlaceFromHistory(parsed, historyState);
   syncLaunchChrome();
 }
@@ -2058,7 +2046,6 @@ function applyDeskPlaceFromHistory(parsed, historyState) {
     applyPlayerRoute(historyState, parsed);
     if (route.name === "home" || route.name === "connect" || route.name === "leagues" || route.unknown) {
       state.ranks.selectedId = "";
-      document.querySelector("#landing")?.classList.add("hidden");
     }
     const snapshot = buildDeskHistorySnapshot(historyState || {});
     state.selectedTradeId = snapshot.selectedTradeId;
@@ -2070,10 +2057,7 @@ function applyDeskPlaceFromHistory(parsed, historyState) {
   }
 }
 
-function landingVisible() {
-  const landing = document.querySelector("#landing");
-  return Boolean(landing && !landing.classList.contains("hidden"));
-}
+
 
 function draftSideIds(side) {
   return (state.valueCalc?.[side] || []).map((item) => String(item?.assetId || "")).filter(Boolean);
@@ -2258,33 +2242,18 @@ function rememberLastLeague() {
   });
 }
 
-function renderLandingResume() {
-  const host = document.querySelector("#landing-resume");
-  if (!host) return;
-  const markup = lastLeagueMarkup(readLastLeague());
-  host.innerHTML = markup;
-  host.hidden = !markup;
-}
-
 document.addEventListener("click", (event) => {
   const forget = event.target?.closest?.("[data-action='forget-last-league']");
   if (!forget) return;
   event.preventDefault();
   forgetLastLeague();
-  renderLandingResume();
   renderLeagueRecent(document.querySelector("#leagues-page-content"));
-  // Home's tool picker reads the same record: redraw it without the league.
-  const home = document.querySelector("#home-page-content");
-  if (home?.contains(forget)) {
-    renderToolPicker(home);
-    home.querySelector(".tool-picker-cards a")?.focus?.({ preventScroll: true });
-    return;
-  }
-  document.querySelector(".launch-connect")?.focus({ preventScroll: true });
+  syncPlayersBoardFlag();
+  el.sleeperUsername?.focus({ preventScroll: true });
 });
 
 function syncLaunchChrome() {
-  renderLandingResume();
+  syncPlayersBoardFlag();
   const trades = document.querySelector("#trades-page");
   const league = document.querySelector("#league-page");
   // The league header is League History's; Trade Calculator shows none.
@@ -2292,44 +2261,9 @@ function syncLaunchChrome() {
   const onOther = (trades && !trades.classList.contains("hidden")) || (league && !league.classList.contains("hidden"));
   // A missing league and a Sleeper outage are still the no-league screen:
   // one h1, and no "Your Sleeper league" subtitle.
-  const bare = (landingVisible() || leagueMissing || sleeperUnreachable) && !state.leagueId;
+  const bare = (leagueMissing || sleeperUnreachable) && !state.leagueId;
   const open = bare && !onOther;
   document.body.classList.toggle("launch-open", open);
-}
-
-function launchValueBundle() {
-  return pickValueBundle(state.valueBundles, "sf");
-}
-
-
-
-function revealLaunchConnect() {
-  const box = document.querySelector("#landing-connect");
-  if (box) box.hidden = false;
-  document.querySelector(".launch-connect")?.setAttribute("hidden", "");
-  connectAsked = true;
-  document.querySelector("#landing-username")?.focus();
-}
-
-function openLaunchConnect() {
-  revealLaunchConnect();
-  updateUrlState({ mode: "replace" });
-  syncLaunchChrome();
-}
-
-
-
-function openEmptyTrade() {
-  // "Build a trade" starts fresh. An older draft stays one tap away (Restore draft).
-  state.sharedTrade = null;
-  state.badShareLink = false;
-  state.droppedPlayerNote = "";
-  if (!isDraftEmpty(state.valueCalc)) replaceDraft(clearValueCalcSides(state.valueCalc), "Cleared both sides.");
-  openRoom("trades", "calculator", { history: "push", scroll: "top" });
-  syncLaunchChrome();
-  requestAnimationFrame(() => {
-    document.querySelector("[data-input='value-search'][data-side='left']")?.focus();
-  });
 }
 
 // Every player name (idea cards, Shop results, trade sides, roster rows)
@@ -2340,7 +2274,6 @@ function openPlayerPage(assetId) {
   if (playersBoardOpen && !state.ranks.selectedId) rankingsReturnScroll = window.scrollY || 0;
   prepareDeskPush();
   state.ranks.selectedId = id;
-  document.querySelector("#landing")?.classList.add("hidden");
   setRoom("trades", "calculator");
   setActivePage("trades", { history: "silent", scroll: "top" });
   renderRankSurfaces();
@@ -2360,62 +2293,6 @@ function playerLinkHtml(asset) {
   return `<button type="button" class="link-btn player-link" data-action="open-player" data-asset-id="${escapeHtml(id)}">${name}</button>`;
 }
 
-
-function handleLaunchClick(event) {
-  const hit = event.target?.closest?.("[data-launch]");
-  if (!hit) return;
-  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button) return;
-  const kind = hit.getAttribute("data-launch") || "";
-  if (!kind) return;
-  event.preventDefault();
-  if (kind === "empty") openEmptyTrade();
-  else if (kind === "players") openPlayerBoard({ history: "push" });
-  else if (kind === "connect") openLaunchConnect();
-  else if (kind === "retry") void bootLaunchSurface();
-}
-
-function afterFirstPaint(fn) {
-  const run = () => {
-    try {
-      fn();
-    } catch (err) {
-      console.warn(err);
-    }
-  };
-  if (typeof requestAnimationFrame !== "function") {
-    run();
-    return;
-  }
-  requestAnimationFrame(() => {
-    if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 1200 });
-    else requestAnimationFrame(run);
-  });
-}
-
-async function bootLaunchSurface() {
-  syncLaunchChrome();
-  if (connectAsked) revealLaunchConnect();
-  afterFirstPaint(() => {
-    void loadLaunchSurface();
-  });
-}
-
-async function loadLaunchSurface() {
-  try {
-    await ensureValuesLoaded("");
-    if (!state.leagueId) {
-      const bundle = launchValueBundle();
-      if (bundle?.values) {
-        state.values = bundle.values;
-        state.valueNameMap = bundle.nameMap || {};
-      }
-    }
-    relabelDraftNames();
-  } catch (err) {
-    console.warn("Launch values did not load", err);
-  }
-  syncLaunchChrome();
-}
 
 function relabelDraftNames() {
   const map = state.valueNameMap || {};
@@ -2450,7 +2327,6 @@ function buildShareUrl(overrides = {}) {
     give: draftSideIds("left"),
     get: draftSideIds("right"),
     shareCode: activeShareCode(),
-    landing: landingVisible(),
     playersBoard: playersBoardShown(),
     rankPosition: state.ranks?.position,
     format: state.leagueId ? "" : activeRankFormat(),
@@ -2496,10 +2372,7 @@ function connectedRosterId() {
 }
 
 function goSiteHome({ history = "push" } = {}) {
-  state.ranks.selectedId = "";
-  playersBoardOpen = false;
-  setRoom("home", "home");
-  setActivePage("home", { history, scroll: "top" });
+  openPlayerBoard({ history });
 }
 
 
@@ -2551,6 +2424,9 @@ function brandMarkAvatarHtml() {
 
 function renderLeagueHero() {
   if (!el.heroTitle) return;
+  const summary = document.getElementById("league-season-summary");
+  if (summary) summary.textContent = state.leagueSwitching ? "Loading league…" : "Season details";
+
   if (state.leagueSwitching) {
     el.heroEyebrow.textContent = "Sleeper";
     el.heroTitle.textContent = "Loading league…";
@@ -2638,36 +2514,6 @@ function handleLeaguePickClick(event) {
   void loadLeagueById(leagueId);
 }
 
-function handleLandingJobClick(event) {
-  const button = event.target.closest("[data-job]");
-  if (!button || !el.landingJobs?.contains(button)) return;
-  selectLandingJob(button.dataset.job);
-}
-
-function selectLandingJob(jobId) {
-  const job = jobById(jobId, { includeMore: false });
-  if (!job) return;
-  const nextId = state.pendingJobId === job.id ? "" : job.id;
-  state.pendingJobId = nextId;
-  state.pendingPlace = nextId ? { page: job.page, room: job.room } : null;
-  syncLandingJobUi();
-  if (nextId) {
-    el.landingUsername?.focus();
-    el.landingUsernameForm?.scrollIntoView({ behavior: smoothScroll(), block: "center" });
-  }
-}
-
-function syncLandingJobUi() {
-  const selected = state.pendingJobId;
-  el.landingJobs?.querySelectorAll("[data-job]").forEach((button) => {
-    const on = button.dataset.job === selected;
-    button.classList.toggle("active", on);
-    button.setAttribute("aria-pressed", String(on));
-  });
-  const job = jobById(selected, { includeMore: false });
-  if (el.landingJobHint) el.landingJobHint.textContent = landingSearchHint(job);
-}
-
 function requestLoadLeague(event) {
   event?.preventDefault?.();
   const classified = classifyLeagueField(el.leagueId?.value, el.sleeperUsername?.value);
@@ -2734,7 +2580,7 @@ function syncPlayerConnectSlot(host, view) {
   if (!slot) {
     slot = document.createElement("div");
     slot.setAttribute("data-player-connect-slot", "");
-    anchor.prepend(slot);
+    anchor.append(slot);
   }
   const want = Boolean(view?.card && !view.leagueOpen && !view.loading);
   if (!want) {
@@ -2752,16 +2598,14 @@ async function openPlayerLeagueList(form) {
     input?.focus();
     return;
   }
-  if (el.landingUsername) el.landingUsername.value = name;
-  syncUsernameFields(el.landingUsername);
-  document.querySelector("#landing")?.classList.add("hidden");
+  if (el.sleeperUsername) el.sleeperUsername.value = name;
   await requestFindLeagues();
   const host = form.closest("[data-player-connect-slot]")?.querySelector("[data-player-league-list]");
-  if (!host || !el.landingLeaguePicker) return;
-  host.innerHTML = el.landingLeaguePicker.innerHTML;
-  const show = Boolean(host.innerHTML.trim()) && !el.landingLeaguePicker.classList.contains("hidden");
-  host.hidden = !show;
-  host.classList.toggle("hidden", !show);
+  if (!host || !el.leaguePicker) return;
+  host.innerHTML = el.leaguePicker.innerHTML;
+  if (!host.childElementCount) host.textContent = el.leagueStatusText?.textContent || "";
+  host.hidden = !host.textContent.trim();
+  host.classList.toggle("hidden", host.hidden);
 }
 
 function isPrimaryPointer(event) {
@@ -2813,7 +2657,7 @@ async function runUserLeagueSearch(username) {
     } else {
       setUsernameError("");
       setStatus(`Found ${state.userLeagues.length} ${state.userLeagues.length === 1 ? "league" : "leagues"} for ${user.display_name || username}. Pick one.`);
-      el.landingLeaguePicker?.scrollIntoView({ behavior: smoothScroll(), block: "nearest" });
+      el.leaguePicker?.scrollIntoView({ behavior: smoothScroll(), block: "nearest" });
     }
   } catch (err) {
     renderLeaguePicker([]);
@@ -3010,8 +2854,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     // Switching leagues is a new place, so Back returns to the league you left.
     const switchingLeagues = Boolean(state.leagueId) && !sameLeague && !fromHistory;
     const keepPlace = placeAfterConnect({
-      // The landing sits over the default trades page; connecting from it opens My team.
-      activePage: landingVisible() ? "" : state.activePage,
+          activePage: state.activePage,
       tradesRoom: getRoom("trades"),
       pendingPlace: state.pendingPlace,
     });
@@ -4104,6 +3947,7 @@ function renderRosterDirectory(roster) {
           return `
             <div class="${rowClass}">
               <div class="sheet-player">
+                ${renderPlayerFace(facePlayerId(asset), gap.name ? "" : asset.name)}
                 <strong>${name}</strong>
                 ${meta ? `<span>${meta}</span>` : ""}
               </div>
@@ -5135,6 +4979,8 @@ function paintTradeDraft() {
       <div class="shared-trade-head">
         <span class="eyebrow">Shared trade</span>
         <h1 id="shared-trade-title">${escapeHtml(sharedTradeTitle(view))}</h1>
+        <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
+        ${renderValuesFreshness(valuesFreshness())}
       </div>
       <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
       <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
@@ -5142,13 +4988,13 @@ function paintTradeDraft() {
         ${renderDraftPane("right", view)}
         ${renderDraftPane("left", view)}
       </div>
+      <div id="draft-actions" class="calc-actions">${renderDraftActions(view, true)}</div>
       ${state.sharedEditing ? "" : `<div class="shared-trade-cta">
         <button type="button" class="ghost-btn shared-edit-btn" data-action="shared-edit">Edit this trade</button>
       </div>`}
       <details class="shared-trade-about">
         <summary>About these prices</summary>
         ${renderPriceLegend(["model", "package"])}
-        <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
       </details>
       <div id="draft-team" class="draft-team">${renderDraftTeam(view)}</div>
     `;
@@ -5157,22 +5003,19 @@ function paintTradeDraft() {
   const talk = snapshotTradeTalkInput(host);
   host.innerHTML = `
     <div class="panel-heading calc-heading">
-      <h2>${escapeHtml("Trade")}</h2>
+      <h2>Trade calculator</h2>
       <div class="draft-basis" id="draft-basis">${renderDraftBasis(view)}</div>
       ${renderValuesFreshness(valuesFreshness())}
-      <!-- The league caveat is in renderDraftBasis above; once is enough. -->
-      <span id="trade-advice-slot" class="trade-advice-slot">${renderTradeAdviceButton({ ready: tradeAdviceReady(view) })}</span>
     </div>
     ${renderTradeTalk()}
     <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
+    <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
     <div class="calc-grid">
       ${renderDraftPane("right", view)}
       ${renderDraftPane("left", view)}
     </div>
-    <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
-    <div class="calc-price-notes">
-      ${renderPriceLegend(["model", "package"])}
-    </div>
+    <div id="draft-actions" class="calc-actions">${renderDraftActions(view)}</div>
+    <details class="shared-trade-about"><summary>About these prices</summary>${renderPriceLegend(["model", "package"])}</details>
     <div id="draft-team" class="draft-team">${renderDraftTeam(view)}</div>
   `;
   restoreTradeTalkInput(host, talk);
@@ -5189,7 +5032,7 @@ function syncTradeStickyTop() {
   const host = el.calculatorShell;
   if (!host) return;
   let top = 0;
-  for (const node of document.querySelectorAll("#site-menu-toggle")) {
+  for (const node of document.querySelectorAll(".site-masthead")) {
     const cs = getComputedStyle(node);
     if ((cs.position !== "sticky" && cs.position !== "fixed") || !node.offsetHeight) continue;
     top = Math.max(top, (parseFloat(cs.top) || 0) + node.offsetHeight);
@@ -5231,8 +5074,8 @@ let smartTradeSide = "right";
 function renderTradeTalk() {
   return `<section class="talk-box smart-trade-search" aria-labelledby="trade-talk-label">
     <form class="talk-form" data-trade-talk novalidate>
-      <label id="trade-talk-label" for="trade-talk-input" class="sr-only">Add a player or pick, or describe a whole trade</label>
-      <div class="talk-row"><input id="trade-talk-input" name="say" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="smart-trade-list" data-input="smart-trade" maxlength="${TRADE_TALK_MAX}" placeholder="Add a player or pick, or type: Gibbs and a 1st for Nabers" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" /><button type="submit" class="talk-send" aria-label="Build trade">↑</button></div>
+      <label id="trade-talk-label" for="trade-talk-input">Search players and picks or describe a trade</label>
+      <div class="talk-row"><input id="trade-talk-input" name="say" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="smart-trade-list" data-input="smart-trade" maxlength="${TRADE_TALK_MAX}" placeholder="Gibbs and a 1st for Nabers" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" /><button type="submit" class="talk-send" aria-label="Build trade">Build</button></div>
       <div id="smart-trade-list" class="smart-trade-list" role="listbox" hidden></div>
       <span id="smart-trade-count" class="sr-only" role="status" aria-live="polite"></span>
     </form>
@@ -5274,7 +5117,7 @@ function refreshSmartTradeSearch(input) {
   input.setAttribute("aria-expanded", rows.length ? "true" : "false");
   input.removeAttribute("aria-activedescendant");
   const count = document.getElementById("smart-trade-count");
-  if (count) count.textContent = rows.length ? `${rows.length} ${rows.length === 1 ? "option" : "options"}. Enter adds to ${draftReceivingTeam("right", view)}. Shift Enter adds to ${draftReceivingTeam("left", view)}.` : query ? "No matching assets. Enter to interpret a whole trade." : "";
+  if (count) count.textContent = rows.length ? `${rows.length} ${rows.length === 1 ? "option" : "options"}. Enter adds to ${draftReceivingTeam(smartTradeSide, view)}. Shift Enter adds to ${draftReceivingTeam(smartTradeSide === "right" ? "left" : "right", view)}.` : query ? "No matching assets. Enter to interpret a whole trade." : "";
 }
 
 function pickSmartTradeAsset(target) {
@@ -5670,8 +5513,8 @@ function patchTradeDraft(listSides = []) {
   if (verdict) verdict.innerHTML = renderDraftVerdict(view);
   const team = host.querySelector("#draft-team");
   if (team) team.innerHTML = renderDraftTeam(view);
-  const adviceSlot = host.querySelector("#trade-advice-slot");
-  if (adviceSlot) adviceSlot.innerHTML = renderTradeAdviceButton({ ready: tradeAdviceReady(view) });
+  const actions = host.querySelector("#draft-actions");
+  if (actions) actions.innerHTML = renderDraftActions(view, host.dataset.sharedView === "1");
   if (tradeAdviceOpen()) {
     if (tradeAdviceReady(view)) openTradeAdvice(renderTradeAdvicePanel(tradeAdviceSections(view)));
     else closeTradeAdvice();
@@ -5766,7 +5609,7 @@ function refreshDraftSuggestions(side) {
 
 function renderDraftBasis(view) {
   const legacy = activeSharedTrade(view.draft)?.decoded?.legacyFormat || state.legacyValueLink;
-  return `<div class="draft-basis-row"><p class="draft-format-fixed">Values on a 0–100 scale · 12-team Superflex PPR dynasty</p>
+  return `<div class="draft-basis-row"><p class="draft-format-fixed">12-team Superflex · Full PPR · 0–100 values</p>
     ${infoTipMarkup({ id: "pop-format-trade", label: "Scoring and how values work", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10))}` })}
     ${legacy ? `<p class="muted">Shared with 1QB values, which we no longer publish. Shown on 12-team SF PPR values.</p>` : ""}</div>`;
 }
@@ -5830,7 +5673,7 @@ function draftReceivingTeam(side, view) {
 }
 
 function renderDraftPaneTitle(side, view) {
-  return `<span class="analytics-kicker">${escapeHtml(draftReceivingTeam(side, view))} Receives</span>`;
+  return `<h3>${escapeHtml(draftReceivingTeam(side, view))} receives</h3>`;
 }
 
 // "1 player", "2 picks", "1 player & 1 pick". Players first, then picks.
@@ -5851,16 +5694,14 @@ function pieceCount(items) {
 
 function renderDraftTotal(side, view) {
   const items = view.draft[side] || [];
-  // The header shows what the verdict compares: listed prices plus any extra
-  // for fewer, better pieces (owner, Nov 19, 2026). Rows keep listed prices.
-  if (items.some((item) => view.priced.get(String(item.uid))?.estimated)) return "<strong>Unavailable</strong>";
+  if (!items.length) return "";
+  const missing = items.some((item) => view.priced.get(String(item.uid))?.estimated);
   const listed = side === "left" ? view.give : view.get;
   const adj = view.missingPrices ? null : view.model?.adjustment;
-  const extra = adj?.amount > 0 && (adj.side === "left") === (side === "left") ? roundPrice(adj.amount) : 0;
+  const extra = adj?.amount > 0 && adj.side === side ? roundPrice(adj.amount) : 0;
   return `
-    <strong>${formatNumber(listed + extra)}</strong>
-    ${extra ? `<span class="calc-pane-extra">incl. +${formatNumber(extra)} extra</span>` : ""}
-    <small title="${escapeHtml(items.length ? pieceCount(items) : "Nothing added")}">(${items.length})</small>
+    ${extra ? `<p class="trade-adjustment"><span>Package adjustment</span><span>+${formatNumber(extra)}</span></p>` : ""}
+    <p class="trade-total"><span>Adjusted total</span><strong>${missing ? "Unavailable" : formatNumber(listed + extra)}</strong></p>
   `;
 }
 
@@ -5928,7 +5769,7 @@ function requestDraftPlayerNames() {
 
 function renderDraftTokens(side, view) {
   const items = view.draft[side] || [];
-  if (!items.length) return `<p class="muted calc-empty-side">Nothing yet</p>`;
+  if (!items.length) return `<p class="muted calc-empty-side">No players or picks added</p>`;
   const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
   return items.map((rawItem) => {
     const price = view.priced.get(String(rawItem.uid));
@@ -6003,19 +5844,15 @@ function draftSearchPlaceholder(side, view) {
 
 function renderDraftPane(side, view) {
   const left = side === "left";
-  const query = String((left ? view.draft.leftQuery : view.draft.rightQuery) || "");
-  const listId = calcListDomId(side);
-  const suggestions = renderDraftSuggestions(side, view);
-  const expanded = Boolean(query.trim()) && suggestions.includes('role="option"');
   return `
     <section class="calc-pane ${left ? "team-a" : "team-b"}" data-draft-side="${side}">
       <header class="calc-pane-head">
         <div class="draft-pane-title">${renderDraftPaneTitle(side, view)}</div>
-        <div class="calc-pane-total">${renderDraftTotal(side, view)}</div>
         <button type="button" class="ghost-btn btn-sm draft-add-focus" data-action="smart-focus" data-side="${side}" aria-label="Add player or pick to ${escapeHtml(draftReceivingTeam(side, view))}">+ Add</button>
       </header>
       ${left ? "" : `<div class="draft-partner-slot">${renderDraftPartnerPicker(view)}</div>`}
       <div class="calc-selected">${renderDraftTokens(side, view)}</div>
+      <div class="calc-pane-total">${renderDraftTotal(side, view)}</div>
       <div class="draft-notes">${renderDraftNotes(side, view)}</div>
     </section>
   `;
@@ -6259,101 +6096,58 @@ function noteTradeChecked(draft) {
   queueMicrotask(() => analyticsTrack("trade_checked", { mode }, { once }));
 }
 
+function renderDraftActions(view, shared = false) {
+  const ready = tradeAdviceReady(view);
+  const empty = !view.draft.left.length && !view.draft.right.length;
+  if (empty) return "";
+  return `
+    ${shared ? '<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>' : ""}
+    ${ready && !shared ? renderTradeAdviceButton({ ready }) : ""}
+    ${ready && draftShareCode(view) ? '<button type="button" class="ghost-btn btn-sm calc-share" data-action="trade-share">Share trade</button>' : ""}
+    ${shared ? "" : '<button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>'}
+    <p class="calc-share-status" role="status" aria-live="polite"></p>
+  `;
+}
+
 function renderDraftVerdict(view) {
   const { draft, model } = view;
-  if (!draft.left.length && !draft.right.length) {
-    return `${renderTradeFairness(view.model.verdict, { ready: false })}<div class="calc-actions"><button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button></div>`;
-  }
+  if (!draft.left.length && !draft.right.length) return "";
   if (view.missingPrices) {
     const shared = sharedVerdictFor(view);
     const history = shared?.shared
       ? `<p>Archived verdict for ${escapeHtml(shared.date)} · ${escapeHtml(shared.shared.label)}</p>${renderArchivedTradePrices(shared.shared)}`
       : shared?.legacy ? `<p>${escapeHtml(LEGACY_FORMAT_NOTE)}</p>`
       : shared?.missing ? `<p>${escapeHtml(missingBoardNote(shared.date))}</p>` : "";
-    const actions = shared ? `<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>`
-      : `<button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>`;
-    return `<section class="calc-summary"><h3>Current verdict unavailable</h3><p>One or more pieces have no published value.</p>${history}<div class="calc-actions">${actions}</div></section>`;
+    return `<section class="calc-summary"><h3>Current verdict unavailable</h3><p>One or more pieces have no published value.</p>${history}</section>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
-  if (bothSides) noteTradeChecked(draft);
+  if (!bothSides) return renderTradeFairness(model.verdict, { ready: false });
+  noteTradeChecked(draft);
   const { verdict, adjustment } = model;
-  // One verdict wording everywhere (verdict-copy.js): app, /t, card, meta, share text.
   const copy = verdictCopy(verdict);
-  // The headline is the full line ("Lopsided · Give side worth 89% more"), like the card.
-  // Private /trade names the sides as the reader: "You give 136% more".
-  // Team 1 / Team 2 name the sides; the old Give/Get totals line is gone from /t.
   const teamNames = { Give: `${draftReceivingTeam("left", view)} receives`, Get: `${draftReceivingTeam("right", view)} receives` };
-  const label = bothSides ? verdictLineNamed(verdict, teamNames) : copy.label;
-  const sharedView = bothSides ? sharedVerdictFor(view) : null;
-  // RECHECK4: on a cold /t the bars are sized on the credited totals the
-  // verdict compares, with the stars credit as its own segment.
-  // The bars show what the verdict compares: listed prices plus the extra for
-  // fewer, better pieces as its own labeled segment, so "You give 63% more"
-  // never sits beside two bars that look even.
-  const bars = sharedBarSegments(model, null);
-  const maxSide = Math.max(bars.give.total, bars.get.total, 0.01);
-  // Same metric and bands as the headline (verdict-copy.js).
-  const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpOptions(view) : null;
-  // "Why?" names the sides like the columns (Team 2 Receives / Team 1 Receives).
-  const giveLabel = teamNames.Give;
-  const getLabel = teamNames.Get;
+  const sharedView = sharedVerdictFor(view);
+  const evenUp = copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE ? findEvenUpOptions(view) : null;
   const creditedRows = (adjustment?.side === "left" ? draft.left : draft.right).map((item) => {
     const hit = view.priced?.get(String(item.uid));
     return { name: hit?.asset?.name || item.name || "", value: hit?.value || 0, uid: String(item.uid || "") };
   });
   const best = bestRowName(creditedRows);
   const bestPick = bestRowIsPick(creditedRows);
+  const receivers = { team1: draftReceivingTeam("right", view), team2: draftReceivingTeam("left", view) };
   return `
-    <section class="calc-summary ${bothSides ? (sharedView ? copy.publicTone : copy.tone) : ""}">
-      ${renderTradeFairness(verdict, { ready: bothSides, team1: draftReceivingTeam("right", view), team2: draftReceivingTeam("left", view) })}
-      <div class="calc-summary-main">
-        ${sharedView ? `${sharedView.shared ? `<span class="analytics-kicker">Market verdict</span>` : ""}${renderSharedVerdictHead(sharedView)}` : ""}
-        ${sharedView ? renderVerdictFinePrint("", `
-          ${starsPremiumMarkup(model, { best, pick: bestPick, shared: true })}
-          ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpOptionsCopy(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view), teamNames))}</p>` : ""}
-          <div class="calc-method">${renderDraftMethod(view)}</div>
-        `) : `
-        ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
-        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpOptionsCopy(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view), teamNames))}</p>` : ""}
-        ${renderDraftMethod(view)}`}
-      </div>
-      <div class="calc-actions">
-        ${sharedView ? `<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>` : ""}
-        ${bothSides && draftShareCode(view) ? `<button type="button" class="ghost-btn btn-sm calc-share" data-action="trade-share">Share trade</button>` : ""}
-        ${sharedView ? "" : `<button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>`}
-        <p class="calc-share-status" role="status" aria-live="polite"></p>
-      </div>
+    <section class="calc-summary">
+      ${renderTradeFairness(verdict, receivers)}
+      ${sharedView ? renderSharedVerdictHead(sharedView) : ""}
+      ${evenUp ? `<p class="calc-even"><strong>Even it up</strong> ${escapeHtml(evenUpOptionsCopy(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view), teamNames))}</p>` : ""}
+      ${renderVerdictFinePrint(`
+        ${renderTradeScale(verdict, receivers)}
+        ${starsPremiumMarkup(model, { best, pick: bestPick, receiver: draftReceivingTeam(adjustment?.side, view) })}
+        ${renderDraftMethod(view)}
+      `)}
     </section>
   `;
 }
-
-// ---------------------------------------------------------------------------
-// Bar segments: listed price plus a separate stars segment. Private /trade
-// passes its meters (listed totals) and gets no stars segment.
-function sharedBarSegments(model, meters = null) {
-  const adj = model?.adjustment;
-  const side = (key, listed) => {
-    const stars = !meters && adj && (adj.side === "left") === (key === "give") ? roundPrice(adj.amount) : 0;
-    const base = roundPrice(meters ? meters[key] : listed);
-    return { listed: base, stars, total: roundPrice(base + stars) };
-  };
-  return { give: side("give", model?.give), get: side("get", model?.get) };
-}
-
-// A bar with an extra segment carries a text label for screen readers
-// ("Give 21,472 including 8,561 for fewer, better pieces"); the hatch has a visible key.
-function meterTrack(seg, maxSide, label = "") {
-  const pct = (value) => Math.round((value / maxSide) * 1000) / 10;
-  if (!seg.stars) return `<div class="meter-track"><span style="width:${pct(seg.listed)}%"></span></div>`;
-  return `<div class="meter-track meter-split" role="img" aria-label="${escapeHtml(label)}"><span style="width:${pct(seg.listed)}%"></span><span class="meter-stars" style="width:${pct(seg.stars)}%"></span></div>`;
-}
-
-// ◀/▶ beside the bigger side's bar on wide layouts; a plain dot on phones,
-// where the stacked bars leave nothing to point at (RECHECK4).
-function calcPointer(arrow) {
-  return `<b class="calc-pointer" aria-hidden="true"><span class="calc-pointer-wide">${arrow}</span><span class="calc-pointer-narrow">●</span></b>`;
-}
-
 
 // "Lopsided · Give side…": the dot gets real space on screen (the face's
 // word space is narrow), while the text stays the plain " · " line.
@@ -6397,15 +6191,14 @@ function setVerdictInfoOpen(button, open) {
 }
 
 let verdictInfoSeq = 0;
-// The method, credit and even-up notes sit behind one ⓘ button on a shared
-// link. The button sits inline at the end of the subline (leadHtml).
-function renderVerdictFinePrint(leadHtml, inner) {
+// Preserve the open disclosure when recalculating either side.
+function renderVerdictFinePrint(inner) {
   verdictInfoSeq += 1;
   const id = `verdict-info-${verdictInfoSeq}`;
   const open = Boolean(state.verdictInfoOpen);
   return `
-    <p class="calc-subline">${leadHtml} <button type="button" class="info-toggle verdict-info-toggle" data-action="verdict-info" aria-expanded="${open}" aria-controls="${id}">
-      <span aria-hidden="true">ⓘ</span><span class="${leadHtml ? "sr-only" : "verdict-info-label"}">How this verdict works</span>
+    <p class="calc-subline"><button type="button" class="info-toggle verdict-info-toggle" data-action="verdict-info" aria-expanded="${open}" aria-controls="${id}">
+      <span aria-hidden="true" class="trade-disclosure-arrow">›</span><span class="verdict-info-label">How this verdict works</span>
     </button></p>
     <div class="verdict-fine-print" id="${id}"${open ? "" : " hidden"}>${inner}</div>
   `;
@@ -6679,10 +6472,9 @@ function settleCalcSearch(kind, side) {
 }
 
 function openConnectPrompt() {
-  const leaving = !state.leagueId && state.activePage !== "players";
-  if (leaving) state.pendingPlace = { page: state.activePage, room: getRoom(state.activePage) };
-  if (leaving) setActivePage("players", { history: "push", scroll: "top" });
-  document.querySelector("#landing")?.classList.remove("hidden");
+  if (!state.leagueId && state.activePage === "trades") {
+    state.pendingPlace = { page: state.activePage, room: getRoom(state.activePage) };
+  }
   focusUsernameSearch();
 }
 
@@ -6785,7 +6577,8 @@ function handleWorkspaceKeydown(event) {
     if (event.key === "Enter" && rows.length && !/\b(for|offered|receive|give|swap)\b/i.test(smart.value)) {
       event.preventDefault();
       const row = rows.find((item) => item.getAttribute("aria-selected") === "true") || rows[0];
-      pickSmartTradeAsset(row.querySelector(`[data-side="${event.shiftKey ? "left" : smartTradeSide}"]`));
+      const oppositeSide = smartTradeSide === "right" ? "left" : "right";
+      pickSmartTradeAsset(row.querySelector(`[data-side="${event.shiftKey ? oppositeSide : smartTradeSide}"]`));
       return;
     }
   }
@@ -6849,7 +6642,7 @@ function handleWorkspaceClick(event) {
   switch (action) {
     case "smart-focus": {
       smartTradeSide = target.dataset.side === "left" ? "left" : "right";
-      document.getElementById("trade-talk-input")?.focus({ preventScroll: true });
+      document.getElementById("trade-talk-input")?.focus();
       break;
     }
     case "smart-add":
@@ -6893,9 +6686,6 @@ function handleWorkspaceClick(event) {
       if (playersBoardOpen && !state.ranks.selectedId) rankingsReturnScroll = window.scrollY || 0;
       prepareDeskPush();
       state.ranks.selectedId = id;
-      // Hide the landing after the history entry is saved, then drop launch chrome
-      // so the player card is on screen. Back still returns to the landing.
-      document.querySelector("#landing")?.classList.add("hidden");
       renderRankSurfaces();
       void loadPlayerGameStatus();
       updateUrlState({ mode: "push" });
@@ -6938,20 +6728,18 @@ function handleWorkspaceClick(event) {
       break;
     case "rank-pos":
       state.ranks.position = target.dataset.pos || "ALL";
+      if (state.ranks.position === "PICK") state.ranks.sort = "rank";
       state.ranks.shown = RANK_PAGE_SIZE;
       renderRankSurfaces();
       updateUrlState({ mode: "replace" });
       break;
-    case "ranks-more": {
-      const before = Number(state.ranks.shown) || RANK_PAGE_SIZE;
-      const keyboard = event.detail === 0;
-      state.ranks.shown = before + RANK_PAGE_SIZE;
+    case "ranks-page": {
+      state.ranks.shown = Math.max(RANK_PAGE_SIZE, Number(target.dataset.shown) || RANK_PAGE_SIZE);
       renderRankSurfaces();
-      // The button re-renders (or goes away at the end of the list), and focus
-      // fell to <body>. Keyboard users continue at the first new row.
-      if (keyboard) {
-        const names = document.querySelectorAll("#ranks-section .rankings-table tbody .rank-name-link");
-        (names[before] || document.querySelector('#ranks-section [data-action="ranks-more"]'))?.focus({ preventScroll: false });
+      const firstName = el.ranksDashboard?.querySelector(".rank-name-link");
+      if (event.detail === 0) firstName?.focus({ preventScroll: true });
+      if (el.ranksDashboard?.getBoundingClientRect().top < 0) {
+        el.ranksDashboard.scrollIntoView({ block: "start" });
       }
       break;
     }
@@ -7091,14 +6879,18 @@ function handleWorkspaceClick(event) {
       storeDraft(clearValueCalcSides(state.valueCalc));
       renderTradeDraft();
       updateUrlState({ mode: "push", force: true });
-      el.calculatorShell?.querySelector("[data-input='value-search']")?.focus({ preventScroll: true });
+      document.getElementById("trade-talk-input")?.focus();
       break;
     }
     case "value-clear": {
       if (isDraftEmpty(state.valueCalc)) break;
       replaceDraft(clearValueCalcSides(state.valueCalc), "Cleared both sides.");
       patchTradeDraft(["left", "right"]);
-      el.calculatorShell?.querySelectorAll("[data-input='value-search']").forEach((input) => clearCalcSearchBox(input));
+      const search = document.getElementById("trade-talk-input");
+      if (search) {
+        clearCalcSearchBox(search);
+        refreshSmartTradeSearch(search);
+      }
       announceDraftEdit("Cleared both sides. Restore draft brings it back.");
       // The button is gone with the trade. Restore draft is the likely next key.
       refocusCalc(el.calculatorShell?.querySelector('[data-action="draft-restore"]'), FIRST_CALC_SEARCH);
@@ -7160,6 +6952,11 @@ function handleWorkspaceChange(event) {
   const target = event.target.closest("[data-change]");
   if (!target) return;
   switch (target.dataset.change) {
+    case "ranks-sort":
+      state.ranks.sort = target.value;
+      state.ranks.shown = RANK_PAGE_SIZE;
+      renderRankSurfaces();
+      break;
     case "lens-roster": {
       setLensRoster(target.value);
       renderActivePage();
@@ -9174,7 +8971,6 @@ function showLeagueNotFound() {
   hideSleeperUnreachable();
   hideAppPages();
   stopLeagueLoadingUi();
-  document.querySelector("#landing")?.classList.add("hidden");
   paintLeagueLoadError("");
   setStatus("");
   const panel = document.getElementById("league-missing");
@@ -9189,34 +8985,9 @@ function showLeagueNotFound() {
 }
 
 function openLandingFromMissingLeague() {
-  // Keep the outage title on this history entry, then push / with the landing title.
-  prepareDeskPush();
-  // The failed link's room does not carry over to the next league picked.
   state.pendingPlace = null;
-  hideSleeperUnreachable();
-  hideLeagueNotFound();
-  const landing = document.querySelector("#landing");
-  if (landing) {
-    landing.classList.remove("hidden");
-    landing.hidden = false;
-  }
-  setActivePage("players", { history: "silent", landing: "show", scroll: "top" });
-  const box = document.querySelector("#landing-connect");
-  if (box) box.hidden = false;
-  document.querySelector(".launch-connect")?.setAttribute("hidden", "");
-  connectAsked = true;
-  syncLaunchChrome();
-  syncDocumentMeta();
-  if (typeof history?.pushState === "function") {
-    history.pushState({
-      ...historyPlaceNow(),
-      tab: "players",
-      landing: true,
-      pushed: true,
-      connectAsked: true,
-    }, "", "/");
-  }
-  document.getElementById("landing-username")?.focus();
+  navigateTool("/leagues");
+  el.sleeperUsername?.focus({ preventScroll: true });
 }
 
 function hideLeagueNotFound() {
@@ -9237,12 +9008,7 @@ function showInvalidLeagueLink() {
   const message = INVALID_LEAGUE_LINK_MESSAGE;
   setFieldError(el.leagueId, el.leagueIdError, message);
   setStatus(message, { error: true });
-  const landing = document.getElementById("landing-league-error");
-  const landingText = document.getElementById("landing-league-error-text");
-  const retry = document.getElementById("landing-league-retry");
-  if (landingText) landingText.textContent = message;
-  if (landing) landing.classList.remove("hidden");
-  if (retry) retry.classList.add("hidden");
+  paintLeagueLoadError(message, { retry: false });
 }
 
 function showSleeperUnreachable() {
@@ -9256,7 +9022,6 @@ function showSleeperUnreachable() {
     missing.hidden = true;
     missing.classList.add("hidden");
   }
-  document.querySelector("#landing")?.classList.add("hidden");
   const panel = document.getElementById("sleeper-down");
   if (panel) {
     panel.hidden = false;
@@ -9283,18 +9048,11 @@ function hideSleeperUnreachable() {
     panel.hidden = true;
     panel.classList.add("hidden");
   }
-  if (!leagueMissing) {
-    const landing = document.querySelector("#landing");
-    if (landing) {
-      landing.classList.remove("hidden");
-      landing.hidden = false;
-    }
-  }
   syncLaunchChrome();
   syncDocumentMeta();
 }
 
-function paintLeagueLoadError(message = "") {
+function paintLeagueLoadError(message = "", { retry = true } = {}) {
   const text = String(message || "");
   const loaded = document.body.classList.contains("league-loaded");
   if (text === SLEEPER_UNREACHABLE_MESSAGE && !loaded) {
@@ -9302,20 +9060,12 @@ function paintLeagueLoadError(message = "") {
     return;
   }
   hideSleeperUnreachable();
-  const where = leagueLoadErrorVisibility({
-    message: text,
-    leagueLoaded: loaded,
-  });
-  const landing = document.getElementById("landing-league-error");
-  const landingText = document.getElementById("landing-league-error-text");
   const desk = document.getElementById("desk-load-alert");
   const deskText = document.getElementById("desk-load-alert-text");
-  if (landing) landing.classList.toggle("hidden", !where.landing);
-  if (landingText) landingText.textContent = where.landing ? text : "";
-  const retry = document.getElementById("landing-league-retry");
-  if (retry && where.landing) retry.classList.remove("hidden");
-  if (desk) desk.classList.toggle("hidden", !where.desk);
-  if (deskText) deskText.textContent = where.desk ? text : "";
+  const retryButton = document.getElementById("desk-load-retry");
+  if (desk) desk.classList.toggle("hidden", !text);
+  if (deskText) deskText.textContent = text;
+  if (retryButton) retryButton.hidden = !retry;
 }
 
 function retryFailedLeagueLoad(event) {
@@ -9607,14 +9357,6 @@ function formatMarketValues() {
   const format = "sf";
   const selected = state.valueBundles?.[format]?.values;
   return selected && Object.keys(selected).length ? selected : state.values;
-}
-
-function bindPlayerPhotos(root) {
-  root?.querySelectorAll?.("img.rather-photo, img.player-face-photo").forEach((img) => {
-    img.addEventListener("error", () => {
-      img.classList.add("is-broken");
-    });
-  });
 }
 
 document.addEventListener("error", (event) => {

@@ -1,3 +1,4 @@
+import { renderPlayerLabel } from "./player-face.js";
 import { escapeHtml } from "./html.js";
 import { managerTrophyCases } from "./league-trophies.js";
 
@@ -26,7 +27,7 @@ export function renderTrophyCases(archive, { valueNames = {}, players = {} } = {
         ${profile.favoriteTradePartner ? `<div><dt>Most frequent trade partner</dt>
           <dd>${e(profile.favoriteTradePartner.managerName)} · ${profile.favoriteTradePartner.trades} completed ${Number(profile.favoriteTradePartner.trades) === 1 ? "trade" : "trades"}</dd></div>` : ""}
         ${player ? `<div><dt>Most recurring season-end roster player</dt>
-          <dd>${e(playerName)} · ${player.seasonAppearances} season${player.seasonAppearances === 1 ? "" : "s"}</dd></div>` : ""}
+          <dd>${renderPlayerLabel(playerName, player.playerId, { size: "xs" })} · ${player.seasonAppearances} season${player.seasonAppearances === 1 ? "" : "s"}</dd></div>` : ""}
       </dl>
     </details>`;
   }).join("");
