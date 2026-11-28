@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "docs" / "data"
 MAX_VALUE_AGE_DAYS = 21
 # The model the builder is configured to write. A snapshot from any other model is not the one the desk expects.
-MODEL_VERSION = "dynasty-sf-ppr-v5.3"
+MODEL_VERSION = "dynasty-sf-ppr-v5.5"
 POSITIONS = {"QB", "RB", "WR", "TE"}
 
 
@@ -109,7 +109,8 @@ def check_player_values(
         scores = [row["score"] for row in price_method["scoreAnchors"]]
         reference = price_method.get("ratingReference")
         quotes = price_method.get("marketQuoteAnchors")
-        if (price_method.get("method") != "exchange-calibrated-rating"
+        if (price_method.get("method") != "market-quote-or-football"
+                or not nonnegative_number(price_method.get("marketWeight")) or price_method["marketWeight"] != 1
                 or not isinstance(quotes, list) or len(quotes) != 3
                 or not all(nonnegative_number(q) and q > 0 for q in quotes)
                 or not all(math.isclose(s, 95 * q / quotes[-1]) for s, q in zip(scores[1:4], quotes))
@@ -147,11 +148,20 @@ def check_player_values(
                 break
             market_share = info.get("marketShare")
             projected = info.get("projectedSurplus")
-            if (not nonnegative_number(market_share) or market_share > 1
+            has_quote = isinstance(quotes, dict) and asset_id in quotes
+            has_football = projected is not None
+            football_surplus = info.get("footballSurplus")
+            football_score = info.get("footballScore")
+            basis = "market" if has_quote else "football"
+            if (info.get("priceBasis") != basis or not nonnegative_number(market_share) or market_share != float(has_quote)
                     or not nonnegative_number(info.get("calibratedSurplus"))
-                    or (market_share < 1 and not nonnegative_number(info.get("footballSurplus")))
-                    or (market_share == 1 and info.get("footballSurplus") is not None)
-                    or not (nonnegative_number(projected) or (projected is None and market_share == 1))):
+                    or ("footballScore" not in info or "marketScore" not in info)
+                    or (has_football and not (nonnegative_number(projected) and nonnegative_number(football_surplus)
+                                              and price_hundredths(football_score) is not None))
+                    or (not has_football and (football_surplus is not None or football_score is not None))
+                    or (has_quote and (factors["market"] != value or price_hundredths(info["marketScore"]) != cents))
+                    or (not has_quote and (factors["market"] != 0 or info["marketScore"] is not None
+                                           or football_score != value))):
                 errors.append(f"invalid surplus or market evidence for {asset_id}")
                 break
             projection = info.get("projection")

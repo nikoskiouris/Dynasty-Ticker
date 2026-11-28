@@ -30,6 +30,19 @@ function renderProjectionInputs(projection = {}, replacement) {
 }
 
 function renderValueFactors(model, priceModel) {
+  if (model.priceBasis === "market" || model.priceBasis === "football") {
+    const hasQuote = model.priceBasis === "market";
+    const scores = [
+      fact("Trade market", hasQuote ? points(model.marketScore) : "Quote unavailable"),
+      fact("Football estimate", points(model.footballScore)),
+    ].join("");
+    const basis = hasQuote
+      ? "The market quote sets this trade price."
+      : "The football estimate sets this trade price because there is no market quote.";
+    const forecast = Number.isFinite(model.footballScore)
+      ? " The football estimate uses projected points above replacement for the rest of this season and the next two." : "";
+    return `<dl class="player-detail-facts">${scores}</dl><p>${basis}${forecast}</p>`;
+  }
   if (!model.factors && !Number.isFinite(model.footballSurplus) && !Number.isFinite(model.marketShare)) return "";
   const coverage = new Set(model.coverage || []);
   const factors = [

@@ -46,9 +46,10 @@ def pick_side(sides):
 
 def preseason(deals, inputs, market, picks, weights):
     baseline = prices(legacy_prices(inputs, picks, BASE))
-    boards = {'v5.2': baseline, 'candidate': prices(dynasty_value.value_board(inputs, picks)[:2]),
+    v53 = prices(legacy_prices(inputs, picks, 'fe49c70'))
+    boards = {'v5.2': baseline, 'candidate': v53,
               'quotes': {**market, **{k: v['market'] for k, v in picks.items()}}}
-    with sensitivity(anchors=rating_anchors):
+    with sensitivity(.75, anchors=rating_anchors):
         boards['compressed'] = prices(dynasty_value.value_board(inputs, picks)[:2])
     for weight in weights:
         with sensitivity(weight):
