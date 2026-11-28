@@ -19,7 +19,7 @@ export const DEFAULT_DESCRIPTION =
 export const PAGE_META = {
   league: {
     title: PAGE_LABELS.league,
-    description: "Your Sleeper league at a glance: standings, your team, recent trades and all-time history.",
+    description: "Your Sleeper league at a glance: standings, your team, trade history and all-time history.",
   },
   trades: {
     title: PAGE_LABELS.trades,
