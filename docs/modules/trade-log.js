@@ -206,11 +206,13 @@ function tradeCard(row, context, rank) {
     </summary>
     <div class="trade-log-parties">${parties}</div>
     ${graded.reason ? `<p class="muted small">${escapeHtml(graded.reason)}.</p>` : ""}
-    ${calcHref ? `<p><a href="${escapeHtml(calcHref)}" target="_blank" rel="noopener noreferrer">Open in calculator (new tab)</a></p>` : ""}
-    <details class="trade-grade-details"><summary>How this was graded</summary>
-      ${graded.notes.map((note) => `<p class="muted small">${escapeHtml(note)}</p>`).join("")}
-    </details>
-    <div data-trade-date-result data-season="${escapeHtml(entry.season)}" aria-live="polite">${tradeDateResult(trade, entry)}</div>
+    <div class="trade-log-actions">
+      <details class="trade-grade-details"><summary>How this was graded</summary>
+        ${graded.notes.map((note) => `<p class="muted small">${escapeHtml(note)}</p>`).join("")}
+      </details>
+      <div data-trade-date-result data-season="${escapeHtml(entry.season)}" aria-live="polite">${tradeDateResult(trade, entry)}</div>
+      ${calcHref ? `<a href="${escapeHtml(calcHref)}" target="_blank" rel="noopener noreferrer">Open in calculator (new tab)</a>` : ""}
+    </div>
     </details></article>`;
 }
 

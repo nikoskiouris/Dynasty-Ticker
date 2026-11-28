@@ -104,14 +104,21 @@
 }
 #league-page .trade-log-filters label, #league-page .history-jump { display: grid; gap: 4px; min-width: 0; }
 #league-page .trade-log-filters :is(select,input) { margin: 0; }
-#league-page .trade-log-card { margin: 0; }
-#league-page .trade-log-card > details > summary { padding-block: 5px; }
-#league-page .trade-log-card > details > summary span { display: block; margin: 3px 0 0 1.2em; }
-#league-page .trade-log-card > details[open] > summary { margin-bottom: 9px; }
-#league-page .trade-log-card [data-trade-date-result] { margin: 8px 0; }
+#league-page .trade-log-card { margin: 0; padding: 0; }
+#league-page .trade-log-card details { margin: 0; }
+#league-page .trade-log-card > details > summary { padding-block: 3px; }
+#league-page .trade-log-card > details > summary span { display: inline-block; margin-inline-start: .6em; }
+#league-page .trade-log-parties {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 18rem));
+  gap: 6px 16px;
+}
 #league-page .trade-log-side h3 { margin: 0; }
-#league-page .received-asset { display: block; margin: 4px 0; }
-#league-page .trade-log-card details { margin-top: 4px; }
+#league-page .trade-log-side p { margin: 2px 0; }
+#league-page .received-asset { display: block; }
+#league-page .trade-log-actions {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 16px; padding-block: 2px 5px;
+}
+#league-page .trade-log-actions :is(details[open], [data-trade-date-result]:has(h4)) { flex-basis: 100%; }
 #league-page .league-history-page { --history-control-height: 37px; }
 #league-page .history-jump {
   position: sticky;
@@ -150,6 +157,8 @@
   #league-page .league-hub-grid i { grid-column: 2; grid-row: 1 / 3; }
   #league-page .trade-log-filters { grid-template-columns: minmax(90px,.7fr) minmax(0,1.3fr); }
   #league-page .trade-log-filters label:is(:first-child,:last-child) { grid-column: 1 / -1; }
+  #league-page .trade-log-card > details > summary span { display: block; margin-inline-start: 1.2em; }
+  #league-page .trade-log-actions :is(a,button) { display: inline-flex; align-items: center; min-height: 44px; }
   #league-page .trade-log-card .trade-log-parties { grid-template-columns: minmax(0,1fr); }
   #league-page .trade-log-card .trade-log-side + .trade-log-side { border-top: 1px solid var(--line); padding-top: 8px; }
   #league-page .league-hub-header { gap: 7px 10px; }
