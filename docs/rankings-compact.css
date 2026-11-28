@@ -226,9 +226,27 @@ html[data-players-board] body #ranks-section .panel-heading h2,
 #ranks-section .player-detail-value > strong { font-size: 32px; line-height: 1.2; letter-spacing: -.045em; color: var(--board-green); }
 #ranks-section .player-detail-value .player-pick-ref { margin-top: 4px; color: var(--board-ink); font-weight: 600; }
 #ranks-section .player-detail-actions { margin-top: 12px; }
-#ranks-section .player-detail-grid { gap: 26px; margin: 22px 0; }
+#ranks-section .player-detail-value > strong small { color: var(--board-muted); font-size: 13px; font-weight: 500; letter-spacing: 0; }
+#ranks-section .player-price-meta { display: flex; align-items: baseline; flex: 1 0 100%; gap: 2px 12px; flex-wrap: wrap; color: var(--board-muted); font-size: 12px; }
+#ranks-section .player-price-meta .values-updated { margin: 0; font-size: inherit; }
+#ranks-section .player-evidence { margin: 16px 0 20px; }
+#ranks-section .player-evidence details { border-bottom: 1px solid var(--board-rule); }
+#ranks-section .player-evidence details:first-child { border-top: 1px solid var(--board-rule); }
+#ranks-section :is(.player-evidence, .player-ownership) summary {
+  width: fit-content;
+  min-height: 38px;
+  padding-block: 9px;
+  color: var(--board-green);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#ranks-section .player-evidence h3 { margin: 8px 0 4px; font-size: 14px; }
+#ranks-section .player-evidence p { margin: 7px 0 12px; color: var(--board-muted); }
+#ranks-section .player-evidence dl { margin: 4px 0 14px; max-width: 46rem; }
+#ranks-section .player-evidence dd { max-width: 56%; }
 #ranks-section .player-detail h2 { font-size: 18px; margin: 0 0 8px; }
-#ranks-section .player-detail-grid p, #ranks-section .player-detail-facts { font-size: 13px; line-height: 1.5; }
+#ranks-section .player-evidence p, #ranks-section .player-detail-facts { font-size: 13px; line-height: 1.5; }
 #ranks-section .player-detail-facts { gap: 0; }
 #ranks-section .player-detail-facts > div { padding: 7px 0; border-bottom: 1px solid var(--board-rule); }
 #ranks-section .player-detail-facts dd { text-align: right; font-variant-numeric: tabular-nums; }
@@ -249,10 +267,8 @@ html[data-players-board] body #ranks-section .panel-heading h2,
   #ranks-section button.rank-name-link { gap: 5px; font-size: 13px; }
   #ranks-section .rankings-table td.rank-table-value { font-size: 13px; }
   #ranks-section .rank-pager button { min-height: 38px; }
-  #ranks-section .player-detail-grid { gap: 14px; }
   #ranks-section .rank-sort-arrow { display: none; }
 }
 #ranks-section [data-player-connect-slot]:not(:empty) { border-top: 1px solid var(--board-rule); padding-top: 12px; margin-top: 14px; }
-#ranks-section .player-ownership-label { margin: 0 0 6px; color: var(--board-muted); font-size: 13px; }
 #ranks-section .player-connect { max-width: 440px; }
 #ranks-section .player-connect input { border: 1px solid var(--board-rule); box-shadow: none; }

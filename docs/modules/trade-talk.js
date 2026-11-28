@@ -915,10 +915,10 @@ export function endSentence(text) {
 export function tradeTalkReply(plan, result, { giveLabel = "You give", getLabel = "You get" } = {}) {
   const lines = [];
   const bySide = (side) => result.added.filter((add) => add.side === side);
-  if (plan.intent === "partner") lines.push(`Trading with ${plan.partnerName || "that team"}. Add what you would give and what you want.`);
+  if (plan.intent === "partner") lines.push(`Trading with ${plan.partnerName || "that team"}.`);
   if (plan.intent === "empty") lines.push("Describe a trade, like “Gibbs and a 2027 1st for Nabers.”");
-  if (plan.intent === "clear") lines.push("Cleared both sides. Restore draft brings it back.");
-  if (plan.intent === "flip") lines.push("Flipped the sides.");
+  if (plan.intent === "clear") lines.push("Trade cleared.");
+  if (plan.intent === "flip") lines.push("Sides swapped.");
   if (result.removed.length) lines.push(endSentence(`Took out ${listNames(result.removed)}`));
   const give = bySide("left");
   const get = bySide("right");
@@ -933,7 +933,7 @@ export function tradeTalkReply(plan, result, { giveLabel = "You give", getLabel 
   (plan.notes || []).forEach((note) => lines.push(note));
   if (result.skipped.length) lines.push(`${listNames(result.skipped)} ${result.skipped.length === 1 ? "is" : "are"} already in the trade.`);
   plan.misses.forEach((miss) => {
-    lines.push(miss.reason ? `“${miss.text}”: ${miss.reason}` : `Didn’t catch “${miss.text}”. Try a last name or a pick like 2027 1st.`);
+    lines.push(miss.reason ? `“${miss.text}”: ${miss.reason}` : `No match for “${miss.text}”. Try a surname or “2027 1st”.`);
   });
   if (!lines.length && plan.intent !== "verdict" && !plan.asks.length) lines.push("Nothing changed.");
   return lines;

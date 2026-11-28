@@ -77,7 +77,7 @@ export function renderTradeLogRows({
   });
   // A finished season can't have trades "yet": say which season had none.
   const finished = entry?.league?.status === "complete" && entry?.season;
-  const none = finished ? `No trades were made in the ${text(entry.season)} season.` : "No completed trades yet this season.";
+  const none = finished ? `No completed trades in ${text(entry.season)}.` : "No completed trades yet this season.";
   if (!rows.length) return `<p class="muted" role="status">${searchable || team ? "No trades match these filters." : escapeHtml(none)}</p>`;
 
   return rows.map((trade) => {
@@ -106,23 +106,22 @@ export function renderTradeLogRows({
       if (side.faabReceived) received.push(`$${formatNumber(side.faabReceived)} FAAB`);
       const isWinner = graded.available && graded.winnerRosterId === side.rosterId;
       return `<div class="trade-log-side">
-        <h3>${escapeHtml(rosterLabel(side.rosterId, entry))}${isWinner ? ' <span class="mini-chip">Higher value</span>' : ""}</h3>
+        <h3>${escapeHtml(rosterLabel(side.rosterId, entry))} received${isWinner ? ' <span class="mini-chip">Higher value</span>' : ""}</h3>
         <p>${received.length ? received.map((item) => `<span class="received-asset">${item}</span>`).join("") : "No assets received"}</p>
         <p class="muted small">Received ${graded.available ? `${priceLabel(side.valueReceived)}${receivedExtra(side)}` : "value unavailable"}
           · Sent ${graded.available ? priceLabel(side.valueSent) : "value unavailable"}
-          · Trade grade: <strong>${graded.available ? escapeHtml(side.grade) : "Not graded"}</strong></p>
+          · Grade <strong>${graded.available ? escapeHtml(side.grade) : "Not graded"}</strong></p>
       </div>`;
     }).join("");
     return `<article class="workspace-panel trade-log-card">
-      <div class="panel-heading"><div><span class="eyebrow">${escapeHtml(dateLabel)}</span>
-        <h2>${escapeHtml(sides.map((side) => rosterLabel(side.rosterId, entry)).join(" / ") || "Trade")}</h2></div>
+      <div class="panel-heading"><div><h2>${escapeHtml(dateLabel)}</h2></div>
         <span class="mini-chip">${graded.available ? escapeHtml(TIER_LABELS[graded.tier] || (graded.tier === "multi-team" ? "Multi-team" : graded.tier)) : "Not graded"}</span></div>
       <div class="trade-log-parties">${parties}</div>
-      ${calcHref ? `<p><a href="${escapeHtml(calcHref)}" target="_blank" rel="noopener noreferrer">Open in Trade Calculator (new tab)</a> <span class="muted small">Keeps your current draft intact.</span></p>` : ""}
-      <details><summary>How was this graded?</summary><p class="muted small">Graded on today's values, not what they were when the trade happened.</p>
+      ${calcHref ? `<p><a href="${escapeHtml(calcHref)}" target="_blank" rel="noopener noreferrer">Open in calculator (new tab)</a></p>` : ""}
+      ${graded.notes.length || graded.reason ? `<details><summary>Grade details</summary>
         ${graded.notes.map((note) => `<p class="muted small">${escapeHtml(note)}</p>`).join("")}
         ${graded.reason ? `<p class="muted small">${escapeHtml(graded.reason)}</p>` : ""}
-      </details>
+      </details>` : ""}
     </article>`;
   }).join("");
 }
@@ -134,10 +133,11 @@ export function renderTradeLog({ season = "", seasons = [], query = "", team = "
   })).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" }));
   const teamOptions = teams.map((row) => `<option value="${escapeHtml(row.id)}"${row.id === team ? " selected" : ""}>${escapeHtml(row.label)}</option>`).join("");
   return `<p><a class="league-back" href="/l/${encodeURIComponent(context.archive?.leagueId || context.entry?.leagueId || "")}">← League</a></p>
-    ${caveat ? `<p class="muted small calc-market-caveat">${escapeHtml(caveat)} Grades use those values.</p>` : ""}
+    ${caveat ? `<p class="muted small calc-market-caveat">${escapeHtml(caveat)}</p>` : ""}
+    <p class="muted small">Grades use today's dynasty values.</p>
     <div class="trade-log-filters">
       <label for="league-trade-search">Player or pick
-      <input id="league-trade-search" type="search" placeholder="Search names or picks" autocomplete="off" value="${escapeHtml(query)}"></label>
+      <input id="league-trade-search" type="search" autocomplete="off" value="${escapeHtml(query)}"></label>
       <label for="league-trade-season">Season
       <select id="league-trade-season">${choices}</select></label>
       <label for="league-trade-team">Team

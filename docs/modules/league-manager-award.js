@@ -107,15 +107,16 @@ export function renderManagerAward(archive, { values = {}, valueNames = {} } = {
   const award = managerComposite(archive, { values, valueNames });
   const line = (row) => row
     ? `<p><strong>${e(row.name)}</strong> · score ${signed(row.score)} · results ${signed(row.results)}, points ${signed(row.points)}, roster building ${signed(row.roster)}</p>`
-    : '<p class="muted">Not enough history: managers need 2 finished seasons.</p>';
+    : '<p class="muted">Requires two completed seasons.</p>';
   return `<section class="workspace-panel">
     <h2>Manager awards <span class="mini-chip">Heuristic</span></h2>
-    <p class="muted small">Score = results 50% (wins, playoffs, titles), points scored 20%, roster building 30% (trades, drafts, waivers). 0 is league average. Needs ${award.minSeasons}+ finished seasons. Not a probability.</p>
+    <p class="muted small">League average is 0. Minimum ${award.minSeasons} completed seasons.</p>
+    <details><summary>Score weights</summary><p>Results (wins, playoffs, titles) 50% · Points scored 20% · Roster building (trades, drafts, waivers) 30%.</p></details>
     <div class="league-history-awards">
       <div><h3>Best manager</h3>${line(award.best)}</div>
       <div><h3>Worst manager</h3>${line(award.worst)}</div>
     </div>
-    ${award.rows.length ? `<details><summary>Every manager's breakdown</summary>
+    ${award.rows.length ? `<details><summary>Scores by manager</summary>
       <div class="league-history-scroll" role="region" aria-label="Manager score breakdown" tabindex="0">
       <table class="league-history-table"><thead><tr><th scope="col">Manager</th><th scope="col">Score</th><th scope="col">Results</th><th scope="col">Points</th><th scope="col">Roster building</th><th scope="col">Roster parts used</th></tr></thead><tbody>
       ${award.rows.map((row) => `<tr><th scope="row">${e(row.name)}</th><td>${signed(row.score)}</td><td>${signed(row.results)}</td><td>${signed(row.points)}</td><td>${signed(row.roster)}</td><td>${e(row.rosterBasis.join(", ") || "none")}</td></tr>`).join("")}

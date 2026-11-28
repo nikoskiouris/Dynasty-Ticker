@@ -39,7 +39,7 @@ function renderTeamPick({ myTeam, myRosterId, teams }) {
     .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: "base" }))
     .map(team => `<option value="${escapeHtml(String(team.id))}"${String(team.id) === chosen ? ' selected' : ''}>${escapeHtml(team.name)}</option>`)
     .join('');
-  return `<p class="league-hub-pick"><label for="hub-team-select">${myTeam ? 'Viewing as' : 'Which team is yours?'}</label> <select id="hub-team-select">${chosen ? '' : '<option value="" selected>Pick your team</option>'}${options}</select></p>`;
+  return `<p class="league-hub-pick"><label for="hub-team-select">Your team</label> <select id="hub-team-select">${chosen ? '' : '<option value="" selected>Select team</option>'}${options}</select></p>`;
 }
 
 export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', myRosterId = '', teams = [], model = null, transactions = [], tradesLoaded = false, loading = false, caveat = '', savedNote = '' } = {}) {
@@ -53,21 +53,20 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
   const mine = myRosterId ? model?.teams?.get?.(String(myRosterId)) : null;
   // "You're 0-0, 3rd" before any game is final ranks nothing.
   const standingsTeaser = mine?.recordLabel && mine?.rank && Number(model?.finalThroughWeek) > 0
-    ? `You're ${mine.recordLabel}, ${ordinal(mine.rank)}${model?.finalThroughWeek ? ` through week ${model.finalThroughWeek}` : ''}`
-    : model?.finalThroughWeek ? `Through week ${model.finalThroughWeek}` : 'Records, playoff odds and luck';
+    ? `${mine.recordLabel} · ${ordinal(mine.rank)}${model?.finalThroughWeek ? ` through week ${model.finalThroughWeek}` : ''}`
+    : model?.finalThroughWeek ? `Through week ${model.finalThroughWeek}` : 'Record and playoff odds';
   const format = leagueFormat(league);
   // The 044 caveat (marketCaveat) when the league differs; otherwise the plain rule.
   const valuesLine = caveat || 'Values: 12-team Superflex PPR dynasty.';
   const links = [
     ['standings', 'Standings', standingsTeaser],
-    ['team', 'My Team', myTeam || 'Pick your team above to see your roster'],
-    ['trades', 'Recent Trades', tradesLoaded ? `${recent} completed ${Number(recent) === 1 ? 'trade' : 'trades'} in the last 30 days` : 'Browse completed league trades'],
-    ['history', 'Historical Data', loading ? 'Loading seasons…' : `${seasons.length} ${seasons.length === 1 ? "season" : "seasons"} of records`],
+    ['team', 'My Team', myTeam || ''],
+    ['trades', 'Recent Trades', tradesLoaded ? `${recent} ${Number(recent) === 1 ? 'trade' : 'trades'} in 30 days` : ''],
+    ['history', 'Historical Data', loading ? 'Loading seasons…' : `${seasons.length} ${seasons.length === 1 ? "season" : "seasons"}`],
   ];
   return `<header class="league-hub-header">
     ${league.avatar ? `<img width="40" height="40" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(league.avatar)}">` : ''}
-    <div><h2>${escapeHtml(league.name || 'Your league')}</h2>
-      <p>${escapeHtml(league.season)} · ${escapeHtml(format.chip)}</p></div>
+    <div><p>${escapeHtml(league.season)} · ${escapeHtml(format.chip)}</p></div>
     <a href="/leagues">Change league</a>
   </header>
   <p class="league-format-note">${escapeHtml(valuesLine)}</p>
@@ -80,7 +79,6 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
   <section class="league-winner" aria-label="Recent champion">
     ${winner ? `${winner.avatar ? `<img width="36" height="36" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(winner.avatar)}">` : ''}
       <div><h3>${escapeHtml(winner.season)} champion</h3><p>${escapeHtml(winner.name)}</p></div>`
-      : `<div><h3>${loading ? 'Loading recent champion…' : 'No champion yet'}</h3>
-        <p>${loading ? 'Checking completed seasons and playoff brackets.' : 'Sleeper has not published a completed championship bracket for the available seasons.'}</p></div>`}
+      : `<p>${loading ? 'Loading champion…' : 'No confirmed champion in the available Sleeper brackets.'}</p>`}
   </section>`;
 }
