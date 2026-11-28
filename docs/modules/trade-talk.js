@@ -545,24 +545,28 @@ function piecesWithSide(text, side, ctx, partner, index) {
 
 function findInDraft(text, draft, ctx) {
   const owned = pullOwner(text, ctx.managers, ctx.meRosterId);
-  const items = ["left", "right"].flatMap((side) => (draft?.[side] || []).map((item) => ({ ...item, side })));
+  const sides = owned.owner === "me" ? ["left"] : owned.owner ? ["right"] : ["left", "right"];
+  const items = sides.flatMap((side) => (draft?.[side] || []).map((item) => ({ ...item, side })));
   const pick = parsePickPhrase(owned.text, { season: ctx.season });
   if (pick) {
-    const explicitSeason = /\b(?:20)?\d{2}\b|next year|this year|future/.test(owned.text);
-    return items.filter((item) => {
+    const matches = items.filter((item) => {
       const meta = parsePickAssetId(item.assetId);
       if (!meta || Number(meta.round) !== pick.round) return false;
-      if (explicitSeason && Number(meta.season) !== pick.season) return false;
       if (pick.bucket && meta.bucket !== pick.bucket) return false;
-      if (owned.owner === "me" && item.side !== "left") return false;
-      if ((owned.owner === "partner" || owned.owner === "manager") && item.side !== "right") return false;
-      return true;
-    }).slice(0, pick.count);
+      return !pick.seasonGiven || Number(meta.season) === pick.season;
+    });
+    if (matches.length > pick.count && matches.some((item) => item.side !== matches[0].side || item.assetId !== matches[0].assetId)) {
+      const choices = [...new Set(matches.map((item) => `${item.name} (Team ${item.side === "right" ? 1 : 2})`))];
+      return { matches: [], reason: `Several picks match (${choices.join(", ")}). Specify the pick or use its remove button.` };
+    }
+    return { matches: matches.slice(0, pick.count) };
   }
   const index = indexPlayers(items.map((item) => ({ ...item, value: 1 })));
   const found = resolvePlayer(owned.text, index);
-  if (found.match) return [found.match];
-  return found.options ? found.options.slice(0, 1) : [];
+  if (found.options) {
+    return { matches: [], reason: `Try the full name, such as ${found.options.map((row) => row.name).join(" or ")}.` };
+  }
+  return { matches: found.match ? [found.match] : [] };
 }
 
 function blankPlan(intent) {
@@ -676,9 +680,15 @@ export function parseTradeTalk(message, ctx = {}) {
   // "swap Gibbs for Bijan" edits the draft. "Trade Gibbs for Bijan" (and
   // "should I trade Gibbs for Bijan?") is a whole trade, not a swap.
   const replace = body.match(/^(?:swap|replace|change|sub|switch)\s+(?:out\s+)?(.+?)\s+(?:for|with|to|into)\s+(.+)$/);
-  if (replace && findInDraft(replace[1], context.draft, context).length) {
+  const source = replace && findInDraft(replace[1], context.draft, context);
+  if (source?.reason) {
     const plan = blankPlan("replace");
-    const gone = findInDraft(replace[1], context.draft, context);
+    plan.misses.push({ text: replace[1], reason: source.reason });
+    return finish(plan);
+  }
+  if (source?.matches.length) {
+    const plan = blankPlan("replace");
+    const gone = source.matches;
     const replacement = piecesWithSide(replace[2], gone[0].side, context, partner, index);
     const duplicates = replacement.adds.filter(({ asset }) => valueCalcHasAsset(context.draft, asset)
       && !gone.some((item) => item.assetId === asset.assetId));
@@ -721,9 +731,9 @@ export function parseTradeTalk(message, ctx = {}) {
       return finish(plan);
     }
     splitPieces(remove[1]).forEach((piece) => {
-      const found = findInDraft(piece, context.draft, context);
-      if (!found.length) plan.misses.push({ text: piece, reason: "Not in the trade." });
-      found.forEach((item) => plan.removes.push({ side: item.side, uid: item.uid, name: item.name }));
+      const { matches, reason } = findInDraft(piece, context.draft, context);
+      if (!matches.length) plan.misses.push({ text: piece, reason: reason || "Not in the trade." });
+      matches.forEach((item) => plan.removes.push({ side: item.side, uid: item.uid, name: item.name }));
     });
     return finish(plan);
   }
