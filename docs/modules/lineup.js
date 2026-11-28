@@ -120,7 +120,7 @@ export function chooseBestLineup(slotEntries, candidates, canFill, {
 }
 
 // A player at or above this value counts as a startable body at his position.
-export const STARTABLE_VALUE = 2500;
+export const STARTABLE_VALUE = 25;
 
 export function countStartableAtPosition(assets, position, valueOf, positionsOf) {
   const token = String(position || "");

@@ -1,8 +1,9 @@
 import { countLabel, escapeHtml, formatNumber } from "./html.js";
 import { traderAwards } from "./league-trader-awards.js";
+import { roundPrice } from "./price-units.js";
 
 const e = (value) => escapeHtml(String(value ?? ""));
-const number = (value) => Number.isFinite(Number(value)) ? formatNumber(Math.round(Number(value))) : "—";
+const number = (value) => Number.isFinite(value) ? formatNumber(roundPrice(value)) : "—";
 
 function namedSide(row) {
   if (!row) return '<p class="muted">Not enough fully priced trades to name a leader.</p>';

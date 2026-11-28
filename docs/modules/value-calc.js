@@ -1,3 +1,4 @@
+import { priceHundredths } from "./price-units.js";
 import { playerAliasName } from "./player-aliases.js";
 import {
   formatGenericPickAssetLabel,
@@ -108,7 +109,7 @@ export function wholeRoundPickHint(row, query) {
   if (row?.assetType !== "pick" || row.bucket !== "any") return "";
   if (!/\b(?:early|mid|middle|late)\b|\b\d{1,2}\.\d{1,2}\b/i.test(String(query || ""))) return "";
   const words = roundSearchWords(row.round);
-  return words[0] ? `One price for every ${words[0]}` : "";
+  return words[0] ? `Whole-round ${words[0]} estimate` : "";
 }
 
 export function valueCalcAssetMatchesQuery(row, query) {
@@ -342,15 +343,17 @@ export function clearValueCalcSides(state) {
 }
 
 export function sumValueCalcSide(items = [], priceOf = null) {
-  return items.reduce((sum, item) => sum + (Number(typeof priceOf === "function" ? priceOf(item) : item.value) || 0), 0);
+  return items.reduce((sum, item) => sum + priceHundredths(typeof priceOf === "function" ? priceOf(item) : item.value), 0) / 100;
 }
 
 export function valueCalcVerdict(leftTotal, rightTotal, { leftCount = null, rightCount = null } = {}) {
-  const left = Number(leftTotal) || 0;
-  const right = Number(rightTotal) || 0;
-  const gap = right - left;
-  const maxSide = Math.max(left, right, 1);
-  const pct = Math.round((Math.abs(gap) / maxSide) * 1000) / 10;
+  const leftUnits = priceHundredths(leftTotal);
+  const rightUnits = priceHundredths(rightTotal);
+  const left = leftUnits / 100;
+  const right = rightUnits / 100;
+  const gap = (rightUnits - leftUnits) / 100;
+  const maxUnits = Math.max(leftUnits, rightUnits, 1);
+  const pct = Math.round((Math.abs(rightUnits - leftUnits) / maxUnits) * 1000) / 10;
   const leftHas = leftCount == null ? left > 0 : Number(leftCount) > 0;
   const rightHas = rightCount == null ? right > 0 : Number(rightCount) > 0;
   let label = "Add players to both sides";

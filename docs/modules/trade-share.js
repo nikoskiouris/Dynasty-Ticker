@@ -1,6 +1,9 @@
+import { roundPrice } from "./price-units.js";
+import { archivedPackageRules } from "./archive-package-rules.js";
+import { formatNumber } from "./html.js";
 import { draftMarketPrice, draftVerdictModel } from "./trade-draft.js";
 import { FEWER_BETTER_LABEL, verdictCopy } from "./verdict-copy.js";
-import { formatGenericPickAssetLabel, getGlobalMaxPlayerValue, pickValueBundle } from "./values.js";
+import { formatGenericPickAssetLabel, getGlobalMaxPlayerValue, snapshotPrices } from "./values.js";
 
 // A shared trade is its own state, so no server storage: /t/<code>.
 // Code v2: "2", format "s" (Superflex) or "q" (1QB), the 12-digit UTC price
@@ -85,18 +88,6 @@ export function missingBoardNote(dateLabel) {
   return MISSING_BOARD_NOTE;
 }
 
-// Index first. A listed stamp is fetched. A stamp the index does not list
-// returns "" so the page does not request a missing file.
-export function snapshotRequestForStamp(index, stamp) {
-  if (!isPriceStamp(stamp)) return "";
-  if (index && typeof index === "object") {
-    if (index.schemaVersion != null && Number(index.schemaVersion) !== 1) return "";
-    const listed = Array.isArray(index.snapshots) ? index.snapshots : [];
-    if (!listed.some((row) => String(row?.stamp || "") === stamp)) return "";
-  }
-  return snapshotPath(stamp);
-}
-
 export function encodeTradeShare({ give = [], get = [], format = "sf", asOf = "" } = {}) {
   const side = (list) => (Array.isArray(list) ? list : []).map(encodeShareAsset);
   const left = side(give);
@@ -153,7 +144,8 @@ export function sameVerdict(left, right) {
 // that carry prices only. Defaults to the board itself.
 export function shareSummary(decoded, payload, playerNames = {}, directory = payload) {
   if (!decoded) return null;
-  const bundle = pickValueBundle(payload, decoded.format);
+  const bundle = snapshotPrices(payload);
+  if (!bundle) return null;
   const values = bundle.values || {};
   const row = (assetId) => {
     const isPick = assetId.startsWith("pick:");
@@ -164,28 +156,34 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     const name = isPick
       ? (generic && generic !== assetId ? generic : (bundle.nameMap?.[assetId] || assetId))
       : (String(playerNames?.[id] || payload?.names?.[assetId] || directory?.names?.[assetId] || "").trim() || `Player ${id}`);
-    // Picks price through the app's own lookup (every round; r2:early falls back to
-    // r2:any, then the pick catalog), so a shared link never reads a 2nd as 0.
-    const raw = isPick
-      ? draftMarketPrice({ assetType: "pick", assetId }, { values, nameMap: bundle.nameMap || {} }).value
-      : values[assetId];
-    const value = Math.max(0, Math.round(Number(raw) || 0));
+    // Share the calculator’s quoted slot or its whole-round fallback for that draft.
+    const pickPrice = isPick ? draftMarketPrice({ assetType: "pick", assetId }, { values, nameMap: bundle.nameMap || {} }) : null;
+    const raw = isPick ? pickPrice.value : values[assetId];
+    const value = Math.max(0, roundPrice(Number(raw) || 0));
     // No price at all (an old link, a player since dropped) is not a price of 0.
-    const unpriced = !Number.isFinite(Number(raw)) || raw === null || raw === "";
+    const unpriced = pickPrice?.estimated || !(Number(raw) > 0);
     const position = isPick ? "PICK" : String((payload?.players || directory?.players)?.[assetId]?.position || "").toUpperCase().slice(0, 4);
     return { assetId, name: name.slice(0, 40), value, position, unpriced };
   };
   const give = decoded.give.map(row);
   const get = decoded.get.map(row);
+  const stamp = priceStamp(payload?.asOf);
+  const packageRules = archivedPackageRules(decoded, stamp, bundle.sourceScale);
   const model = draftVerdictModel(give.map((r) => r.value), get.map((r) => r.value), {
     globalMaxValue: getGlobalMaxPlayerValue(values),
+    packageRules,
   });
   const credit = model.adjustment
-    ? { amount: Math.round(model.adjustment.amount), side: model.adjustment.side === "left" ? "give" : "get" }
+    ? { amount: roundPrice(model.adjustment.amount), side: model.adjustment.side === "left" ? "give" : "get" }
     : null;
   const summary = {
     format: decoded.format,
-    formatLabel: "12-team Superflex PPR dynasty",
+    formatLabel: bundle.sourceScale === 100
+      ? "12-team Superflex PPR dynasty · 0–100 values"
+      : "12-team Superflex PPR dynasty · historical prices ÷ 100",
+    valueScale: 100,
+    sourceValueScale: bundle.sourceScale,
+    packageRuleNote: packageRules?.note || "",
     give,
     get,
     giveTotal: model.give,
@@ -195,18 +193,18 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     giveCredited: model.compareGive,
     getCredited: model.compareGet,
     credit,
-    gap: model.compareGet - model.compareGive,
+    gap: roundPrice(model.compareGet - model.compareGive),
     pct: model.verdict.pct,
     tone: model.verdict.tone,
     verdict: model.verdict,
-    stamp: priceStamp(payload?.asOf),
+    stamp,
     unpriced: [...give, ...get].filter((piece) => piece.unpriced).map((piece) => piece.name),
   };
   summary.label = neutralVerdict(summary);
   return summary;
 }
 
-const formatCount = (value) => Math.round(Math.abs(Number(value) || 0)).toLocaleString("en-US");
+const formatCount = (value) => formatNumber(Math.abs(Number(value) || 0));
 
 // All wording comes from verdictCopy (verdict-copy.js), same as the app.
 export function neutralVerdict(summary) {

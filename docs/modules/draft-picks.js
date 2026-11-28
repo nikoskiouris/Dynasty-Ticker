@@ -1,8 +1,7 @@
 import { isRealUserId, ownerIdFromRoster } from "./franchise.js";
 import { leagueUsesFuturePicks } from "./league-format.js";
 
-// Which draft years a league actually owns. The price board runs six years
-// ahead so a missing year can be discounted. That board is not a pick inventory.
+// Which draft years a league owns, regardless of price coverage.
 export function inferPickSeasonSpan({
   leagueSeason = null,
   explicitSeasons = [],

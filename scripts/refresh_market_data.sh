@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Refresh generated football data. Keep the last valid files if an upstream source is down.
-set -u
+# Refresh in dependency order. Each builder validates before replacing its output.
+set -euo pipefail
 
-python3 player-values/build_trade_values.py || echo "Player-value refresh failed; keeping the last valid snapshot."
-python3 scripts/build_sitemap.py || echo "Sitemap refresh failed; keeping last file."
-python3 scripts/update_nfl_draft_picks.py || echo "NFL draft-pick refresh failed; keeping last file."
+python3 scripts/update_nfl_draft_picks.py
+python3 player-values/build_trade_values.py
+python3 scripts/build_sitemap.py

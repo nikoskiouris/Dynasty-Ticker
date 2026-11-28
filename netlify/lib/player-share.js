@@ -2,10 +2,9 @@
 // canonical and og:/twitter: tags, so link previews (iMessage, Slack, Discord,
 // X) and crawlers that skip JS see the player instead of the home page.
 // The app sets the same title and canonical once it runs.
+import { formatNumber as formatValue } from "../../docs/modules/html.js";
 import { isPlayerRouteId, playerSlug } from "../../docs/modules/history-route.js";
 import { PAGE_CACHE, PAGE_CSP, SAFE_HEADERS, SITE_ORIGIN, escapeMarkup, loadValues, markNoindex, readSiteFile } from "./trade-share.js";
-
-const formatValue = (value) => Math.round(Number(value) || 0).toLocaleString("en-US");
 
 // The raw id segment: "9488", "player:9488" or a pick ("pick:2027:r1:any").
 export function routeIdFromPath(pathname) {
@@ -37,7 +36,7 @@ export function playerMeta(payload, id) {
     path: `/player/${id}/${playerSlug(name)}`,
     title: `${name} · Dynasty Ticker`,
     // Ranks are left to the page: they depend on Sleeper's active-player list.
-    description: `${name}${tag ? ` (${tag})` : ""} dynasty value: ${formatValue(value)} in 12-team Superflex PPR. See the rank, why, the trend and similar values.`,
+    description: `${name}${tag ? ` (${tag})` : ""} dynasty value: ${formatValue(value)}/100 in 12-team Superflex PPR. See the rank, why, the trend and similar values.`,
   };
 }
 

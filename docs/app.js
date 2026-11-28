@@ -82,7 +82,6 @@ import {
   playersFromValueSnapshot,
   fetchPriceHistory,
   fetchPeakValues,
-  PRICE_HISTORY_INDEX_PATH,
   getAssetValue as marketAssetValue,
   isEstimatedAsset as marketIsEstimated,
   buildPickValuationCatalog,
@@ -102,6 +101,7 @@ import {
   playerValueTrend,
   renderTrendSoon,
   renderValueTierBadge,
+  tierForValue,
   renderValueTrend,
   renderValuesFreshness,
   valuationStamp,
@@ -187,6 +187,7 @@ import {
   releaseBootGate,
   scheduleBootFind,
 } from "./modules/boot-gate.js";
+import { roundPrice } from "./modules/price-units.js";
 import { ownerPossessive } from "./modules/html.js";
 import {
   describeUserSearchFailure,
@@ -240,7 +241,7 @@ import {
 } from "./modules/verdict-copy.js";
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import { GLOSSARY, bindInfoTips, infoTipMarkup, renderPriceLegend, valuesWorkText } from "./modules/info-tip.js";
-import { LEGACY_FORMAT_NOTE, decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
+import { LEGACY_FORMAT_NOTE, decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
 import { chooseBestLineup, countStartableAtPosition } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
@@ -258,7 +259,7 @@ import {
   projectPickSlots,
   resolvePickProjection,
   rosterRecordsReady,
-  valuedAsMidFirstHint,
+  futureRoundPriceHint,
 } from "./modules/pick-projection.js";
 import { currentPlaceForOwner } from "./modules/draft-order.js";
 import {
@@ -1159,7 +1160,7 @@ function rankOwners() {
 
 function rankPlayerNote(playerId, raw) {
   if (!playerNoteContext?.previousSeason && !playerNoteContext?.seasonStats) return "";
-  const position = String(raw?.position || raw?.fantasy_positions?.[0] || "").toUpperCase();
+  const position = String(state.valueBundles?.players?.[`player:${playerId}`]?.position || raw?.position || raw?.fantasy_positions?.[0] || "").toUpperCase();
   const line = formatPlayerDetail({
     isRookie: isRookiePlayer(raw, playerNoteContext.currentSeason),
     draft: lookupNflDraftPick(playerId, playerNoteContext.draftPicks, raw),
@@ -1216,6 +1217,7 @@ function rankViewModel() {
   }
   return rankView({
     rows: cachedRankRows(),
+    priceModel: state.valueBundles?.meta?.price,
     query: state.ranks?.query || "",
     position: state.ranks?.position || "ALL",
     sort: state.ranks?.sort || "rank",
@@ -2100,7 +2102,7 @@ function playerPageDescription(name) {
     row?.boardRank && row.boardRank !== row.position ? row.boardRank : "",
   ].filter(Boolean).join(", ");
   if (!row || !(Number(row.value) > 0)) return `${name}: dynasty value, rank and why, on 12-team Superflex PPR values.`;
-  return `${name}${tag ? ` (${tag})` : ""} dynasty value: ${formatNumber(row.value)}${ranks ? `, ${ranks}` : ""} in 12-team Superflex PPR. See why, the trend and similar values.`;
+  return `${name}${tag ? ` (${tag})` : ""} dynasty value: ${formatNumber(row.value)}/100${ranks ? `, ${ranks}` : ""} in 12-team Superflex PPR. See why, the trend and similar values.`;
 }
 
 function applyTradeRoute(route) {
@@ -2150,27 +2152,15 @@ async function loadSharedTrade(code, draft) {
   };
   if (!decoded.stamp) return settle();
   try {
-    // Index first. A stamp that is not listed is not fetched, so a pruned
-    // board does not log a console 404.
-    let index = null;
-    const indexRes = await fetch(PRICE_HISTORY_INDEX_PATH);
-    if (indexRes?.ok) index = await indexRes.json();
-    const path = snapshotRequestForStamp(index, decoded.stamp);
-    if (!path) {
-      entry.snapshotState = "missing";
+    // A share can outlive the rolling history index while its dated file still exists.
+    const path = snapshotPath(decoded.stamp);
+    const response = path && await fetch(path);
+    const snapshot = response?.ok ? await response.json() : null;
+    if (snapshot?.sf && priceStamp(snapshot.asOf) === decoded.stamp) {
+      entry.snapshot = snapshot;
+      entry.snapshotState = "ready";
     } else {
-      const res = await fetch(path);
-      if (!res.ok) {
-        entry.snapshotState = "missing";
-      } else {
-        const snapshot = await res.json();
-        if (snapshot?.sf) {
-          entry.snapshot = snapshot;
-          entry.snapshotState = "ready";
-        } else {
-          entry.snapshotState = "missing";
-        }
-      }
+      entry.snapshotState = "missing";
     }
   } catch {
     entry.snapshotState = "missing";
@@ -2207,23 +2197,30 @@ function sharedOnCurrentPrices(stamp) {
 function sharedVerdictFor(view) {
   const entry = activeSharedTrade(view.draft);
   if (!entry || !state.valueBundles) return null;
-  const today = shareSummary(entry.decoded, state.valueBundles);
+  const names = {};
+  for (const assetId of [...entry.decoded.give, ...entry.decoded.get]) {
+    const id = assetId.slice("player:".length);
+    if (assetId.startsWith("player:") && state.players?.[id]?.full_name) names[id] = state.players[id].full_name;
+  }
+  const today = shareSummary(entry.decoded, state.valueBundles, names);
+  if (!today) return null;
   // A 1QB code was shared on 1QB prices we no longer publish. An old SF
   // snapshot is not what the sender saw, so do not print it as "Shared on".
   const legacy = Boolean(entry.decoded?.legacyFormat);
-  const shared = entry.snapshot && !legacy ? shareSummary(entry.decoded, entry.snapshot, {}, state.valueBundles) : null;
+  const shared = entry.snapshot && !legacy ? shareSummary(entry.decoded, entry.snapshot, names, state.valueBundles) : null;
   const moved = Boolean(shared) && !sameVerdict(shared, today);
+  const earlierModel = shared && entry.snapshot.modelVersion !== state.valueBundles.modelVersion;
   if (entry.settled && !entry.reported) {
     entry.reported = true;
     trackTradeLinkOpened({ drift: moved });
   }
   return {
     today,
-    shared: moved ? shared : null,
+    shared: moved || earlierModel ? shared : null,
     date: stampLabel(entry.decoded.stamp),
     legacy,
     // A link shared on today's prices is current, not "no longer saved".
-    missing: !legacy && entry.snapshotState === "missing" && !sharedOnCurrentPrices(entry.decoded.stamp),
+    missing: !legacy && (entry.snapshotState === "missing" || (entry.snapshotState === "ready" && !shared)) && !sharedOnCurrentPrices(entry.decoded.stamp),
   };
 }
 
@@ -4812,7 +4809,7 @@ function renderRosterSheet() {
     .filter((asset) => asset.assetType === "player")
     .sort((a, b) => getAssetValue(b, values) - getAssetValue(a, values))
     .forEach((asset) => {
-      const pos = String(playerPositionForAsset(asset) || "").toUpperCase();
+      const pos = state.valueBundles?.players?.[asset.assetId]?.position || playerPositionForAsset(asset);
       const key = POSITION_ORDER.includes(pos) ? pos : "Other";
       if (!positionGroups.has(key)) positionGroups.set(key, []);
       positionGroups.get(key).push(asset);
@@ -5034,6 +5031,7 @@ function buildDraftView() {
     me,
     context,
     priced,
+    missingPrices: [...priced.values()].some((row) => row.estimated),
     priceOf,
     partner,
     model,
@@ -5048,16 +5046,22 @@ function draftValuesReady() {
 
 // A player id from the URL that is not a real player: say so, drop it, no verdict.
 function dropUnknownDraftPlayers() {
-  const players = state.players;
-  if (!players || typeof players !== "object" || !Object.keys(players).length) return;
-  const bundles = state.valueBundles || {};
+  const shared = activeSharedTrade();
+  if (shared?.snapshotState === "loading") return;
   const known = (assetId) => {
     const id = String(assetId || "").replace(/^player:/, "");
-    return Boolean(players[id] || bundles.sf?.[assetId] != null || state.valueNameMap?.[assetId]);
+    return Boolean(state.players?.[id] || draftNamesDirectory?.[id] || state.valueBundles?.sf?.values?.[assetId] != null
+      || state.valueNameMap?.[assetId] || shared?.snapshot?.sf?.[assetId] != null);
   };
   const isPlayer = (item) => /^player:/.test(String(item?.assetId || ""));
   const bad = [...(state.valueCalc?.left || []), ...(state.valueCalc?.right || [])].filter((item) => isPlayer(item) && !known(item.assetId));
   if (!bad.length) return;
+  // A missing current quote is common on older links. Only a player-directory
+  // lookup can distinguish an unpriced player from a mistyped Sleeper id.
+  if (!draftNamesDirectory) {
+    requestDraftPlayerNames();
+    return;
+  }
   const ids = new Set(bad.map((item) => item.uid));
   state.valueCalc = {
     ...state.valueCalc,
@@ -5319,7 +5323,7 @@ function tradeTalkNext(view) {
   const ctx = tradeTalkContext(view);
   const candidates = [];
   const gap = Number(view.model?.verdict?.gap) || 0;
-  const more = draft.left.length && draft.right.length ? verdictCopy(view.model.verdict).more : null;
+  const more = tradeAdviceReady(view) ? verdictCopy(view.model.verdict).more : null;
   if (more != null && more > EVEN_UP_OFFER_ABOVE && gap) {
     const pick = findEvenUpPick(view);
     // closes is scored with the stars credit, so it holds even when the pick's
@@ -5672,7 +5676,7 @@ function patchTradeDraft(listSides = []) {
 // Trade advice panel (ticket 030): the calculator's own verdict, even-up
 // search and team impact, gathered in one place. No AI.
 function tradeAdviceReady(view) {
-  return view.draft.left.length > 0 && view.draft.right.length > 0;
+  return !view.missingPrices && view.draft.left.length > 0 && view.draft.right.length > 0;
 }
 
 function tradeAdviceSections(view) {
@@ -5752,7 +5756,7 @@ function refreshDraftSuggestions(side) {
 
 function renderDraftBasis(view) {
   const legacy = activeSharedTrade(view.draft)?.decoded?.legacyFormat || state.legacyValueLink;
-  return `<div class="draft-basis-row"><p class="draft-format-fixed">Values: 12-team Superflex PPR dynasty</p>
+  return `<div class="draft-basis-row"><p class="draft-format-fixed">Values on a 0–100 scale · 12-team Superflex PPR dynasty</p>
     ${infoTipMarkup({ id: "pop-format-trade", label: "Scoring and how values work", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10))}` })}
     ${legacy ? `<p class="muted">Shared with 1QB values, which we no longer publish. Shown on 12-team SF PPR values.</p>` : ""}</div>`;
 }
@@ -5839,9 +5843,10 @@ function renderDraftTotal(side, view) {
   const items = view.draft[side] || [];
   // The header shows what the verdict compares: listed prices plus any extra
   // for fewer, better pieces (owner, Nov 19, 2026). Rows keep listed prices.
+  if (items.some((item) => view.priced.get(String(item.uid))?.estimated)) return "<strong>Unavailable</strong>";
   const listed = side === "left" ? view.give : view.get;
-  const adj = view.model?.adjustment;
-  const extra = adj?.amount > 0 && (adj.side === "left") === (side === "left") ? Math.round(adj.amount) : 0;
+  const adj = view.missingPrices ? null : view.model?.adjustment;
+  const extra = adj?.amount > 0 && (adj.side === "left") === (side === "left") ? roundPrice(adj.amount) : 0;
   return `
     <strong>${formatNumber(listed + extra)}</strong>
     ${extra ? `<span class="calc-pane-extra">incl. +${formatNumber(extra)} extra</span>` : ""}
@@ -5893,18 +5898,18 @@ function draftItemDisplayName(item, names) {
 }
 
 let draftNamesRequested = false;
+let draftNamesDirectory = null;
 function requestDraftPlayerNames() {
   if (draftNamesRequested) return;
   draftNamesRequested = true;
   const epoch = playerLoadEpoch;
-  // A league uses the slim file. A shared trade has no league, so a missing
-  // name still comes from Sleeper without downloading the slim dump.
-  const job = (state.leagueId || bootRoute?.leagueId)
-    ? loadPlayersWithCache()
-    : apiGetWithRetry(`/players/nfl`, { timeoutMs: 30000, retries: 1, cache: "default" }).then((raw) => slimPlayersMap(raw));
+  const job = loadSlimPlayersFile().then(players => players && Object.keys(players).length ? players
+    : apiGetWithRetry(`/players/nfl`, { timeoutMs: 30000, retries: 1, cache: "default" }).then(slimPlayersMap));
   void job
     .then((players) => {
-      if (epoch !== playerLoadEpoch || !players || !Object.keys(players).length) return;
+      if (!players || !Object.keys(players).length) return;
+      draftNamesDirectory = players;
+      if (epoch !== playerLoadEpoch) return;
       state.players = mergePlayerRecords(state.players, players);
       if (el.calculatorShell?.querySelector(".calc-grid")) patchTradeDraft();
     })
@@ -5931,7 +5936,7 @@ function renderDraftTokens(side, view) {
         ${label.includes("player-face") ? "" : `<span class="token-face-blank" aria-hidden="true"></span>`}
         ${label}
         ${meta ? `<span class="selected-token-meta">${escapeHtml(meta)}</span>` : ""}
-        <span class="selected-token-price" title="Value">${formatNumber(price?.value || 0)}${price?.estimated ? " est" : ""}</span>
+        <span class="selected-token-price" title="Value">${price?.estimated ? "Unavailable" : formatNumber(price?.value)}</span>
         <button type="button" class="selected-token-remove" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" aria-label="${escapeHtml(name ? `Remove ${name}` : "Remove")}"><span aria-hidden="true">×</span></button>
       </span>
     `;
@@ -6038,7 +6043,7 @@ function draftSuggestionRows(side, view) {
           name: row.name,
           assetType: row.assetType,
           position: String(record.position || ""),
-          value: Math.round(row.value),
+          value: row.value,
           estimated: false,
           context: String(record.team || ""),
           hint: wholeRoundPickHint(row, query),
@@ -6080,7 +6085,7 @@ function draftSuggestionRows(side, view) {
         round: Number(asset.raw?.round) || 0,
         context: mine ? ("Your roster") : roster.manager.displayName,
         leagueId: isLeaguePickAssetId(asset.assetId) ? String(state.leagueId) : "",
-        hint: valuedAsMidFirstHint(asset, state.league?.season),
+        hint: price.estimated ? "" : futureRoundPriceHint(asset, state.league?.season),
         group: side === "left" ? (mine ? 0 : 2) : (rosterId === partnerId ? 0 : 1),
       });
     }
@@ -6093,7 +6098,7 @@ function draftSuggestionRows(side, view) {
         name: row.name,
         assetType: row.assetType,
         position: row.assetType === "player" ? String(playerRecordFor(row.assetId).position || "") : "",
-        value: Math.round(row.value),
+        value: row.value,
         estimated: false,
         context: row.assetType === "pick" ? "Generic pick" : "Not on a roster here",
         leagueId: "",
@@ -6153,7 +6158,7 @@ function renderDraftSuggestions(side, view) {
             ${row.hint ? `<span class="pick-value-hint">${escapeHtml(row.hint)}</span>` : ""}
           </div>
         </div>
-        <span class="asset-value-badge" title="Value">${formatNumber(row.value)}${row.estimated ? " est" : ""}</span>
+        <span class="asset-value-badge" title="Value">${row.estimated ? "Unavailable" : formatNumber(row.value)}</span>
       </div>
     </div>
   `).join("");
@@ -6184,7 +6189,7 @@ function findEvenUpPick(view) {
   return any?.closes || !near ? any : near;
 }
 
-const EVEN_UP_MIN_PLAYER = 3500;
+const EVEN_UP_MIN_PLAYER = 35;
 
 // The closest pick and the closest player that even the trade up. Players are
 // prefiltered to a price band around the gap, then scored like picks.
@@ -6201,7 +6206,7 @@ function findEvenUpOptions(view) {
     const taken = new Set([...view.draft.left, ...view.draft.right].map((item) => String(item.assetId)));
     const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
     const near = listValueCalcAssets(view.basis.values, names, { kinds: ["player"], limit: 2000 })
-      // A throw-in never decides a real trade: only starter-level players (3,500+).
+      // A throw-in never decides a real trade: only starter-level players (35+).
       .filter((row) => !taken.has(String(row.assetId)) && row.value >= EVEN_UP_MIN_PLAYER && row.value >= need * 0.3 && row.value <= need * 4)
       .sort((x, y) => Math.abs(x.value - need) - Math.abs(y.value - need));
     player = evenUpTradePick({ giveValues: give, getValues: get, picks: near, globalMaxValue });
@@ -6244,6 +6249,16 @@ function renderDraftVerdict(view) {
   if (!draft.left.length && !draft.right.length) {
     return `${renderTradeFairness(view.model.verdict, { ready: false })}<div class="calc-actions"><button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button></div>`;
   }
+  if (view.missingPrices) {
+    const shared = sharedVerdictFor(view);
+    const history = shared?.shared
+      ? `<p>Archived verdict for ${escapeHtml(shared.date)} · ${escapeHtml(shared.shared.label)}</p>${renderArchivedTradePrices(shared.shared)}`
+      : shared?.legacy ? `<p>${escapeHtml(LEGACY_FORMAT_NOTE)}</p>`
+      : shared?.missing ? `<p>${escapeHtml(missingBoardNote(shared.date))}</p>` : "";
+    const actions = shared ? `<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>`
+      : `<button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>`;
+    return `<section class="calc-summary"><h3>Current verdict unavailable</h3><p>One or more pieces have no published value.</p>${history}<div class="calc-actions">${actions}</div></section>`;
+  }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (bothSides) noteTradeChecked(draft);
   const { verdict, adjustment } = model;
@@ -6261,7 +6276,7 @@ function renderDraftVerdict(view) {
   // fewer, better pieces as its own labeled segment, so "You give 63% more"
   // never sits beside two bars that look even.
   const bars = sharedBarSegments(model, null);
-  const maxSide = Math.max(bars.give.total, bars.get.total, 1);
+  const maxSide = Math.max(bars.give.total, bars.get.total, 0.01);
   // Same metric and bands as the headline (verdict-copy.js).
   const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpOptions(view) : null;
   // "Why?" names the sides like the columns (Team 2 Receives / Team 1 Receives).
@@ -6303,9 +6318,9 @@ function renderDraftVerdict(view) {
 function sharedBarSegments(model, meters = null) {
   const adj = model?.adjustment;
   const side = (key, listed) => {
-    const stars = !meters && adj && (adj.side === "left") === (key === "give") ? Math.round(Number(adj.amount) || 0) : 0;
-    const base = Math.round(Number(meters ? meters[key] : listed) || 0);
-    return { listed: base, stars, total: base + stars };
+    const stars = !meters && adj && (adj.side === "left") === (key === "give") ? roundPrice(adj.amount) : 0;
+    const base = roundPrice(meters ? meters[key] : listed);
+    return { listed: base, stars, total: roundPrice(base + stars) };
   };
   return { give: side("give", model?.give), get: side("get", model?.get) };
 }
@@ -6331,6 +6346,15 @@ function verdictLineHtml(line) {
   return String(line || "").split(" · ").map(escapeHtml).join(` <span class="verdict-dot">·</span> `);
 }
 
+function renderArchivedTradePrices(summary) {
+  const side = (rows) => rows.map((piece) =>
+    `${escapeHtml(piece.name)} (${piece.unpriced ? "unavailable" : formatNumber(piece.value)})`
+  ).join(", ");
+  const units = summary.sourceValueScale === 10000 ? "<p>These figures show the original archived prices divided by 100.</p>" : "";
+  const rules = summary.packageRuleNote ? `<p>${escapeHtml(summary.packageRuleNote)}</p>` : "";
+  return `<details class="calc-method"><summary>Prices when shared</summary><p>Team 1 received ${side(summary.get)}.</p><p>Team 2 received ${side(summary.give)}.</p>${units}${rules}</details>`;
+}
+
 // Shared link: the verdict line. When prices moved since it was shared, a
 // compact two-row compare (sharer's date, then today in bold) and one line.
 function renderSharedVerdictHead(shared) {
@@ -6340,12 +6364,13 @@ function renderSharedVerdictHead(shared) {
     return `<h3 class="sr-only">${verdictLineHtml(shared.today.label)}</h3>${note ? `<p class="calc-shared-note">${escapeHtml(note)}</p>` : ""}`;
   }
   return `
-    <h3 class="sr-only">Shared on ${escapeHtml(shared.date)}: ${escapeHtml(shared.shared.label)}. Today: ${escapeHtml(shared.today.label)}.</h3>
+    <h3 class="sr-only">Archived verdict for ${escapeHtml(shared.date)}: ${escapeHtml(shared.shared.label)}. Today: ${escapeHtml(shared.today.label)}.</h3>
     <dl class="calc-shared">
       <div><dt>${escapeHtml(shared.date)}</dt><dd>${verdictLineHtml(shared.shared.label)}</dd></div>
       <div class="is-today"><dt>Today</dt><dd><strong>${verdictLineHtml(shared.today.label)}</strong></dd></div>
     </dl>
-    <p class="calc-shared-note">Prices moved since this was shared.</p>
+    <p class="calc-shared-note">The archived verdict uses that board’s prices and package rules.</p>
+    ${renderArchivedTradePrices(shared.shared)}
   `;
 }
 
@@ -6421,7 +6446,7 @@ async function sharePlayerPage(button) {
   };
   const url = new URL(window.location.pathname, window.location.origin).href;
   const name = button?.dataset.name || "This player";
-  const text = button?.dataset.value ? `${name}: ${button.dataset.value} dynasty value (12-team Superflex PPR) on Dynasty Ticker.` : `${name} on Dynasty Ticker.`;
+  const text = button?.dataset.value ? `${name}: ${button.dataset.value}/100 dynasty value (12-team Superflex PPR) on Dynasty Ticker.` : `${name} on Dynasty Ticker.`;
   if (typeof navigator.share === "function") {
     try {
       await navigator.share({ title: `${name} · Dynasty Ticker`, text, url });
@@ -7213,7 +7238,7 @@ function buildSeasonSnapshot(entry, tradeBucket = null) {
     parityScore,
     tradeCount: tradeBucket?.tradeCount || 0,
     movedAssetCount: tradeBucket?.movedAssetCount || 0,
-    movedValue: Math.round(tradeBucket?.movedValue || 0),
+    movedValue: roundPrice(tradeBucket?.movedValue || 0),
     tradedPickCount: Array.isArray(entry.tradedPicks) ? entry.tradedPicks.length : 0,
     playoffTeams: Number(entry.league?.settings?.playoff_teams || 0),
     rosterCount: standings.length,
@@ -7493,9 +7518,9 @@ function summarizeRosterAssets(roster, values) {
     .filter((entry) => Number.isFinite(entry.value))
     .sort(compareOwnedPickValue);
   const topWeightedAgeEntries = playerEntries.slice(0, 12).filter((entry) => Number.isFinite(playerAgeForAsset(entry.asset)));
-  const totalAgeWeight = topWeightedAgeEntries.reduce((sum, entry) => sum + Math.max(1, entry.value), 0);
+  const totalAgeWeight = topWeightedAgeEntries.reduce((sum, entry) => sum + Math.max(0.01, entry.value), 0);
   const averageAge = totalAgeWeight > 0
-    ? topWeightedAgeEntries.reduce((sum, entry) => sum + playerAgeForAsset(entry.asset) * Math.max(1, entry.value), 0) / totalAgeWeight
+    ? topWeightedAgeEntries.reduce((sum, entry) => sum + playerAgeForAsset(entry.asset) * Math.max(0.01, entry.value), 0) / totalAgeWeight
     : null;
   const teamStack = buildTopTeamStack(playerEntries);
 
@@ -8108,7 +8133,7 @@ function calculateTradeXp({ beforeProfile, afterProfile, delta }) {
   const rankGain = Math.max(0, beforeProfile.rank - afterProfile.rank);
   const starterGain = Math.max(0, afterProfile.metrics.starterValue - beforeProfile.metrics.starterValue);
   const base = delta > 0 ? 120 : 45;
-  return Math.round(base + Math.max(0, delta) * 95 + rankGain * 160 + Math.min(900, starterGain * 0.18));
+  return Math.round(base + Math.max(0, delta) * 95 + rankGain * 160 + Math.min(900, starterGain * 18));
 }
 
 function buildTradePowerBadges({ beforeProfile, afterProfile, delta, myAssets, theirAssets }) {
@@ -8116,8 +8141,8 @@ function buildTradePowerBadges({ beforeProfile, afterProfile, delta, myAssets, t
   if (delta >= 5) badges.push("Major Power-Up");
   if (delta > 0 && delta < 5) badges.push("Roster Buff");
   if (afterProfile.rank < beforeProfile.rank) badges.push(`Rank +${beforeProfile.rank - afterProfile.rank}`);
-  if (afterProfile.metrics.starterValue > beforeProfile.metrics.starterValue + 300) badges.push("Lineup Boost");
-  if (afterProfile.assetSummary.pickValue > beforeProfile.assetSummary.pickValue + 800) badges.push("Draft picks up");
+  if (afterProfile.metrics.starterValue > beforeProfile.metrics.starterValue + 3) badges.push("Lineup Boost");
+  if (afterProfile.assetSummary.pickValue > beforeProfile.assetSummary.pickValue + 8) badges.push("Draft picks up");
   if (theirAssets.length < myAssets.length) badges.push("Consolidation");
   if (theirAssets.length > myAssets.length) badges.push("Depth Gain");
   if (afterProfile.weakestPosition?.position !== beforeProfile.weakestPosition?.position) badges.push("Hole Patched");
@@ -8141,7 +8166,7 @@ function buildTradePowerSummary({ beforeProfile, afterProfile, delta }) {
     parts.push(`lineup rank stays ${ordinal(afterProfile.rank)}`);
   }
 
-  const starterDelta = afterProfile.metrics.starterValue - beforeProfile.metrics.starterValue;
+  const starterDelta = roundPrice(afterProfile.metrics.starterValue - beforeProfile.metrics.starterValue);
   if (starterDelta !== 0) {
     parts.push(`starters ${starterDelta > 0 ? "gain" : "lose"} ${formatNumber(Math.abs(starterDelta))}`);
   }
@@ -8150,9 +8175,9 @@ function buildTradePowerSummary({ beforeProfile, afterProfile, delta }) {
 }
 
 function buildTradeImpactSide({ title, managerName, beforeMetrics, afterMetrics, beforeRank, afterRank, totalTeams }) {
-  const starterDelta = afterMetrics.starterValue - beforeMetrics.starterValue;
-  const benchDelta = afterMetrics.benchValue - beforeMetrics.benchValue;
-  const totalDelta = afterMetrics.totalValue - beforeMetrics.totalValue;
+  const starterDelta = roundPrice(afterMetrics.starterValue - beforeMetrics.starterValue);
+  const benchDelta = roundPrice(afterMetrics.benchValue - beforeMetrics.benchValue);
+  const totalDelta = roundPrice(afterMetrics.totalValue - beforeMetrics.totalValue);
   const verdict = classifyTradeImpact({ starterDelta, beforeRank, afterRank, totalDelta });
 
   return {
@@ -8182,16 +8207,16 @@ function formatStarterRank(rank, totalTeams) {
 }
 
 function classifyTradeImpact({ starterDelta, beforeRank, afterRank, totalDelta }) {
-  if (afterRank < beforeRank || starterDelta >= 350) {
+  if (afterRank < beforeRank || starterDelta >= 3.5) {
     return { label: "Stronger starting lineup", className: "good" };
   }
-  if (afterRank > beforeRank || starterDelta <= -350) {
+  if (afterRank > beforeRank || starterDelta <= -3.5) {
     return { label: "Weaker starting lineup", className: "bad" };
   }
-  if (totalDelta >= 350) {
+  if (totalDelta >= 3.5) {
     return { label: "More total value", className: "good" };
   }
-  if (totalDelta <= -350) {
+  if (totalDelta <= -3.5) {
     return { label: "Paying a premium", className: "bad" };
   }
   return { label: "Mostly neutral", className: "" };
@@ -8257,7 +8282,7 @@ function evaluateRosterStrength(roster, values, league) {
     starterValue: lineupResult.starterValue,
     benchValue: lineupResult.benchValue,
     benchHighlights: lineupResult.benchAssets.slice(0, 5),
-    totalValue: Math.round(roster.assets.reduce((sum, asset) => sum + getAssetValue(asset, values), 0)),
+    totalValue: roundPrice(roster.assets.reduce((sum, asset) => sum + getAssetValue(asset, values), 0)),
   };
 }
 
@@ -8316,9 +8341,9 @@ function buildOptimalStartingLineup(assets, starterSlots, values) {
 
   return {
     starters,
-    starterValue: Math.round(starters.reduce((sum, entry) => sum + (entry.asset ? getAssetValue(entry.asset, values) : 0), 0)),
+    starterValue: roundPrice(starters.reduce((sum, entry) => sum + (entry.asset ? getAssetValue(entry.asset, values) : 0), 0)),
     benchAssets,
-    benchValue: Math.round(benchAssets.reduce((sum, asset) => sum + getAssetValue(asset, values), 0)),
+    benchValue: roundPrice(benchAssets.reduce((sum, asset) => sum + getAssetValue(asset, values), 0)),
   };
 }
 
@@ -8553,11 +8578,11 @@ function renderPlayerValueMarks(asset, values = state.values, { soon = false, sp
   const value = getAssetValue(asset, values);
   const trend = playerValueTrend(state.valueHistory, asset.assetId, "sf");
   const trendHtml = trend ? renderValueTrend(trend, { spark }) : (soon ? renderTrendSoon() : "");
-  return `${renderValueTierBadge(value)}${trendHtml}`;
+  return `${renderValueTierBadge(tierForValue(value, values))}${trendHtml}`;
 }
 
 function renderPickVaultRow(asset, values) {
-  const hint = valuedAsMidFirstHint(asset, state.league?.season);
+  const hint = isEstimatedAsset(asset, values) ? "" : futureRoundPriceHint(asset, state.league?.season);
   const body = `
               <span class="sheet-slot">${escapeHtml(String(asset?.raw?.season || ""))}</span>
               <div class="sheet-player"><strong>${escapeHtml(asset?.name || "Pick")}</strong>${hint ? `<span class="pick-value-hint">${escapeHtml(hint)}</span>` : ""}</div>
@@ -8599,7 +8624,7 @@ function refreshPlayerPositionRanks() {
       || `${(player?.first_name || "").trim()} ${(player?.last_name || "").trim()}`.trim()
       || names[assetId]
       || assetId;
-    listed.push({ assetId, playerId, name, value });
+    listed.push({ assetId, playerId, name, value, position: state.valueBundles?.players?.[assetId]?.position });
   });
   const nextRankMap = {};
   buildPositionBoard(listed, nflPlayers).forEach((row) => {
@@ -9031,7 +9056,7 @@ function resolveAssignedDraftSlot(pick, currentDraftContext, finishInfo = null, 
 }
 
 function buildPickValueAssetId(pick, pickBucket = "any") {
-  const bucket = Number(pick?.round) === 1 ? normalizePickBucket(pickBucket) : "any";
+  const bucket = normalizePickBucket(pickBucket);
   return `pick:${pick.season}:r${pick.round}:${bucket}`;
 }
 

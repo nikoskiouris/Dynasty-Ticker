@@ -8,6 +8,7 @@
 // the last release. A release never goes backwards, and a day with no publish
 // still serves the release's files.
 import { readFile } from "node:fs/promises";
+import { isCurrentValueBoard } from "../../docs/modules/values.js";
 import { join } from "node:path";
 
 export const MARKET_STORE = "market-data";
@@ -45,13 +46,16 @@ function parse(text) {
 export function newerCopy(rel, bundledText, storedText) {
   const bundled = parse(bundledText);
   const stored = parse(storedText);
-  if (!stored) return bundled ? "bundled" : null;
-  if (!bundled) return "stored";
   if (rel === "data/player_values.json") {
-    if (stored.modelVersion !== bundled.modelVersion) return "bundled";
+    const bundledIsCurrent = isCurrentValueBoard(bundled);
+    const storedIsCurrent = isCurrentValueBoard(stored);
+    if (!storedIsCurrent) return bundledIsCurrent ? "bundled" : null;
+    if (!bundledIsCurrent) return "stored";
     const key = (p) => String(p.generatedAt || p.asOf || "");
     return key(stored) > key(bundled) ? "stored" : "bundled";
   }
+  if (!stored) return bundled ? "bundled" : null;
+  if (!bundled) return "stored";
   if (rel === "data/price-history/index.json") {
     const newest = (p) => (Array.isArray(p.snapshots) ? p.snapshots : []).map((row) => String(row?.stamp || "")).sort().pop() || "";
     return newest(stored) > newest(bundled) ? "stored" : "bundled";

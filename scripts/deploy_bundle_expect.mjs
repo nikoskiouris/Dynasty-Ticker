@@ -88,6 +88,9 @@ export function staticDeployProblems(root) {
     if (!existsSync(join(root, RESVG_WASM))) problems.push(`${RESVG_WASM} missing`);
     if (!includedFiles.includes(RESVG_WASM)) problems.push(`included_files lacks ${RESVG_WASM}`);
   }
+  if (want.functions.includes("trade-page") && !includedFiles.includes("docs/data/nfl_players_slim.json")) {
+    problems.push("included_files lacks docs/data/nfl_players_slim.json for archived player names");
+  }
   const files = [...listFiles(join(root, "docs"), root), ...listFiles(join(root, "netlify"), root), ...listFiles(join(root, "node_modules/@resvg"), root)];
   for (const glob of includedFiles) {
     const re = globToRegExp(glob);

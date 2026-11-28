@@ -2,12 +2,13 @@
 """Archive the current board so shared links and trends read one price history.
 
 Writes docs/data/price-history/<YYYYMMDDHHmm>.json (UTC, from player_values.json
-asOf) with only asOf and sf. An existing stamp is never rewritten.
+asOf) with asOf, sf and the scale and model that produced the prices.
+An existing stamp is never rewritten.
 The same asOf writes nothing.
 
 Also rewrites docs/data/price-history/index.json (schemaVersion 1) when the
 stamp list changes, so the site can fetch the window without listing the
-directory. Snapshot files stay {asOf, sf}. The index is not a second store.
+directory. Historical snapshots stay readable through their original stamps.
 
 Drops a snapshot more than 90 days older than the newest one. The newest file
 is always kept.
@@ -100,8 +101,11 @@ def write_index(history: Path, models: dict[str, str] | None = None) -> None:
         if not isinstance(as_of, str) or not as_of:
             continue
         row = {"asOf": as_of, "stamp": path.stem}
-        if models.get(path.stem):
-            row["modelVersion"] = models[path.stem]
+        model = data.get("modelVersion") or models.get(path.stem)
+        if model:
+            row["modelVersion"] = model
+        if "valueScale" in data:
+            row["valueScale"] = data["valueScale"]
         rows.append(row)
     index = {
         "schemaVersion": SCHEMA_VERSION,
@@ -109,6 +113,7 @@ def write_index(history: Path, models: dict[str, str] | None = None) -> None:
         "schema": {
             "snapshot": "docs/data/price-history/<YYYYMMDDHHmm>.json",
             "snapshotKeys": ["asOf", "sf"],
+            "optionalKeys": ["modelVersion", "valueScale"],
             "dates": "filename and asOf are UTC; the calendar day is YYYY-MM-DD",
             "retention": "drop a file more than 90 days older than the newest; always keep the newest",
             "modelVersion": "index rows name the model that priced the snapshot; a row without one is football-forecast-v1",
@@ -130,9 +135,23 @@ def archive(values_path: Path = VALUES, history: Path = HISTORY, keep: int | Non
     models = {}
     if not target.exists():
         snapshot = {"asOf": data["asOf"], "sf": data["sf"]}
+        for key in ("modelVersion", "valueScale"):
+            if key in data:
+                snapshot[key] = data[key]
         target.write_text(json.dumps(snapshot, separators=(",", ":"), sort_keys=True) + "\n")
         if data.get("modelVersion"):
             models[stamp] = str(data["modelVersion"])
+    else:
+        existing = json.loads(target.read_text(encoding="utf-8"))
+        # Pre-scale archives kept their model version in the index. Their
+        # price payloads stay immutable even when replaying a newer model.
+        existing_model = existing.get("modelVersion")
+        if existing_model is None and data.get("modelVersion") is not None:
+            existing_model = indexed_models(history).get(stamp, "football-forecast-v1")
+        if (existing.get("asOf") != data["asOf"] or existing.get("sf") != data["sf"]
+                or existing.get("valueScale") != data.get("valueScale")
+                or existing_model != data.get("modelVersion")):
+            raise ValueError(f"Archive minute {stamp} already belongs to another snapshot")
     prune(history, keep)
     if keep is None:
         write_index(history, models)

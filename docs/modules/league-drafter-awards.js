@@ -2,7 +2,9 @@ import { resolveRosterIdentity } from "./franchise.js";
 
 const id = (value) => String(value ?? "").trim();
 const n = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
-const round = (value) => Math.round(value * 100) / 100;
+// Neighbor means can differ by less than a displayed hundredth. Rank using
+// four decimals so changing price units preserves the original comparisons.
+const round = (value) => Math.round(value * 10000) / 10000;
 const priced = (value) => typeof value === "number" && Number.isFinite(value) && value > 0;
 const currentMap = (values) => values?.sf || values || {};
 
