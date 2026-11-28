@@ -41,9 +41,26 @@ Under the published settings the signed median for unequal trades was −0.2%, a
 
 We replayed football-only preseason boards against player-only exchanges in a separately sampled set of leagues. The 2023 and 2024 samples total 31 priced trades. No matching historical market quotes were used. In 2023, six unequal packages had a median credited gap of 11.0% under v4 and 10.1% under v5. In 2024, the corresponding median rounded to 15.3% in both models across seven packages. Across all deal sizes, the median credited gap went from 11.6% to 10.4% in 2023 and rounded to 21.3% in both models in 2024. Only seven trades across both seasons were two-for-ones. [Archived input dates, scoring and league selection](trade-spacing.md)
 
+## Top-asset sensitivity in v5.2
+
+The consolidation rule gave extra credit to a trailing side if it held the best asset. With top pieces priced equally, the credit could be zero. Raising one by a cent could switch on the entire credit. In a controlled offer of 50, 45 and 5 against 50, 25 and 25, raising the first 50 to 50.01 granted that side 2.90 in credit. In a second offer of 92.25 against 92.25, 59.12, 35.08 and 24.02, raising the single asset to 92.26 granted 10.21. Both examples use a board maximum of 100. V5.2 caps the final premium at the price difference between the top piece on each side. Both one-cent upgrades now earn 0.01 in credit. An 80-point player for two 40-point players still earns a 10-point premium. [Production calculator](../../docs/modules/package-value.js)
+
+We held each pre-proposal board fixed and reran the same trades with the previous and capped credit. For the independent panel we used the frozen August football and market inputs through Week 2, then dated market-only boards for Weeks 3–12. Three of the 182 later offers and one of the 31 earlier offers changed credited totals. All retained the same higher-valued side. The table gives median absolute gaps as a percent of the combined credited totals. [Trade source and quote coverage](market-packages.md)
+
+| Independent panel | Deals | Prior credit | Capped credit |
+| --- | ---: | ---: | ---: |
+| Through Week 2, all | 31 | 13.03% | 13.03% |
+| Through Week 2, unequal | 17 | 9.85% | 9.85% |
+| Through Week 2, two for one | 10 | 10.19% | 10.44% |
+| Weeks 3–12, all | 182 | 15.62% | 15.62% |
+| Weeks 3–12, unequal | 109 | 15.28% | 15.28% |
+| Weeks 3–12, two for one | 38 | 16.64% | 16.64% |
+
+The unequal-package median signed gap was −0.18% in the early window and −4.52% later under both rules. The correction addresses sensitivity to nearly tied prices. These accepted trades provide little evidence of an overall change in exchange-rate fit. Archived trade links retain the credit and verdict rounding used with their original board.
+
 ## Reproduction
 
-From the repository root, use Python 3.10+, Git, Node.js and the repository history containing v4 commit `7837cf04672c393355c50dc6bacfc8f056f0a2ee`.
+From the repository root, use Python 3.10+, Git, Node.js and repository history containing commits `7837cf0` (v4) and `05677a9` (v5.1).
 
 ```sh
 python3 player-values/research/market_packages.py --save-deals /tmp/dynasty-accepted-trades.json
@@ -52,4 +69,4 @@ python3 player-values/research/market_packages.py --independent-panel --save-dea
 python3 player-values/research/package_scale.py /tmp/dynasty-independent-trades.json --weight-check
 ```
 
-The [replay](package_scale.py) loads v4 and its calculator from the pinned Git revision. It calls both the current production model and the JavaScript calculator for v5. For unequal packages the CLI also resamples whole leagues 1,000 times using a fixed seed and reports the central 95% of the resulting differences in median credited gap. The sampling frame is connected, several managers participate in multiple leagues, and all transactions were accepted. The resulting interval describes variation within this panel.
+The historical commands load the v4 and v5.1 models and calculators from their pinned Git revisions. Use `--current-weight-check` in place of `--weight-check` to evaluate the working tree on the independent preseason panel. To isolate the v5.2 premium cap at fixed prices, compare the default calculator with `calculatePackageAdjustment(options, {capBestDifference: false})` on those same packages. For unequal packages the CLI also resamples whole leagues 1,000 times using a fixed seed and reports the central 95% of the resulting differences in median credited gap. The sampling frame is connected, several managers participate in multiple leagues, and all transactions were accepted. The resulting interval describes variation within this panel. [Replay implementation](package_scale.py)

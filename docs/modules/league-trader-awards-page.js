@@ -36,6 +36,6 @@ export function renderTraderAwards(archive, { values = {}, valueNames = {} } = {
       <table class="league-history-table"><thead><tr><th scope="col">Manager</th>
         <th scope="col">Graded trades</th><th scope="col">Net value</th><th scope="col">Positive net share</th></tr></thead>
         <tbody>${rows}</tbody></table></div>` : '<p class="muted">No historical trades could be graded yet.</p>'}
-    <p class="muted small">${countLabel(awards.tradesGraded, "trade")} graded · ${awards.tradesSkipped} skipped for missing prices.</p>
+    <p class="muted small">${countLabel(awards.tradesGraded, "trade")} graded · ${awards.tradesSkipped} skipped for incomplete trades or missing prices, including FAAB.</p>
   </section>`;
 }

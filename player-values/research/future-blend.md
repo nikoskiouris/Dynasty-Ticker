@@ -21,3 +21,20 @@ Removing the prior season improved the younger QB group's estimates but worsened
 This is a descriptive comparison across three forecast origins with overlapping outcome seasons and repeat players. The age subgroups are small. The 2020 NFL schedule contained 16 games, whereas the deployed model annualizes current production on a 17-game basis. The high-pace group uses estimated scheduled team games and reflects both playing time and scoring. The study assesses subsequent NFL production. Dynasty market prices also reflect the value managers assign to seasons beyond this two-year sample.
 
 Run `python3 player-values/research/future_blend.py` from the repository root to reproduce the comparison. The command reuses the ranking audit's source cache. Supply `--cache-dir DIR` to select another directory.
+
+## Completed club games
+
+The v5.1 model received each NFL club’s completed schedule but used the league-average bye adjustment for the future-production estimate. In v5.2, a player with a recorded appearance and scoring total gets credit for his production across the games his club has finished. A pending game adds no exposure. For a player who changes clubs, the new club’s schedule approximates his opportunities, with his own recorded appearances as a lower bound. This accommodates an 18th appearance after a trade. With no club schedule, the model uses the week-average estimate. Without a recorded appearance and scoring total, it omits the current-season term.
+
+Holding the November 28 04:20 UTC inputs fixed, the correction changed 236 of 508 player prices. Dallas had finished 12 games and George Pickens had appeared in 11. His future-production estimate fell from 277.02 to 266.37 PPR, and his price moved from 81.22 to 76.99. Houston had finished ten games and C.J. Stroud had played all ten. His price rose from 80.89 to 84.51. All 24 pick prices matched. [v5.2 price archive](../../docs/data/price-history/202611280420.json)
+
+For a historical comparison, we reconstructed the 2023 player pool at four cutoffs. At each cutoff we scored the preseason top 32 QBs, 48 RBs, 64 WRs and 24 TEs against their realized 2024 and 2025 PPR surplus, with weights of 1 and 0.85. Each calculation used the same player pool including reserves to determine positional replacement levels. Run `python player-values/research/future_blend.py --schedule` to reproduce the comparison.
+
+| Completed week | Players | Week-average MAE | Club-schedule MAE |
+| --- | ---: | ---: | ---: |
+| 4 | 168 | 28.179 | 28.178 |
+| 8 | 168 | 27.114 | 27.027 |
+| 12 | 168 | 26.635 | 26.598 |
+| 15 | 168 | 26.581 | 26.596 |
+
+The same players and outcomes enter all four rows. Average errors moved by less than a tenth of a PPR point in each comparison. The correction primarily affects individual players whose teams have played more or fewer games than the league average.

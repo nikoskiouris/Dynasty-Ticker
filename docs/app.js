@@ -236,7 +236,6 @@ import {
   fewerBetterOffer,
   verdictCopy,
   verdictLineNamed,
-  evenUpCopy,
   evenUpOptionsCopy,
 } from "./modules/verdict-copy.js";
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
@@ -5682,7 +5681,8 @@ function tradeAdviceReady(view) {
 function tradeAdviceSections(view) {
   const { verdict } = view.model;
   const teamNames = { Give: `${draftReceivingTeam("left", view)} receives`, Get: `${draftReceivingTeam("right", view)} receives` };
-  const more = verdictCopy(verdict).more;
+  const copy = verdictCopy(verdict);
+  const more = copy.more;
   const fair = more != null && more <= EVEN_UP_OFFER_ABOVE;
   const options = fair ? null : findEvenUpOptions(view);
   // The button adds the best single option: one that closes, else the nearest.
@@ -5698,7 +5698,7 @@ function tradeAdviceSections(view) {
   const short = draftReceivingTeam(side, view);
   // Name the pick and the verdict after adding it, scored the same way as the scale.
   const evenUp = choice ? {
-    line: evenUpOptionsLine(options, short, teamNames),
+    line: `With ${choice.name} added for ${short}, the verdict is ${verdictLineNamed(choice.verdict, teamNames)}.`,
     side,
     receiver: draftReceivingTeam(side, view),
     assetId: choice.assetId || "",
@@ -5706,6 +5706,7 @@ function tradeAdviceSections(view) {
     closes: Boolean(choice.closes),
   } : null;
   return buildTradeAdvice({ verdictLine: verdictLineNamed(verdict, teamNames), fair, evenUp,
+    alreadyClose: copy.tier === "edge",
     lighter: draftReceivingTeam(side, view) });
 }
 
@@ -5728,7 +5729,7 @@ document.addEventListener("click", (event) => {
       break;
     case "trade-advice-apply":
       if (addDraftAsset(target.dataset.side === "right" ? "right" : "left", {
-        assetId: target.dataset.assetId, name: target.dataset.name, assetType: "pick", leagueId: "",
+        assetId: target.dataset.assetId, name: target.dataset.name,
       })) patchTradeDraft([]); // repaints the panel with the new verdict
       break;
     default:
@@ -6218,15 +6219,6 @@ function findEvenUpOptions(view) {
   return options.length ? options : null;
 }
 
-function evenUpOptionsLine(options, side, names = { Give: "You give", Get: "You get" }) {
-  return evenUpOptionsCopy(options, side);
-}
-
-function evenUpLine(choice, side, names = { Give: "You give", Get: "You get" }) {
-  const after = choice?.verdict ? verdictLineNamed(choice.verdict, names) : "";
-  return evenUpCopy(choice, side, { afterLine: after });
-}
-
 function renderDraftMethod(view) {
   // The verdict already shows any extra for fewer, better pieces; only say what the screen cannot.
   return [...view.priced.values()].some((row) => row.estimated) ? `<p>${escapeHtml(UNAVAILABLE_PRICE_LINE)}</p>` : "";
@@ -6295,11 +6287,11 @@ function renderDraftVerdict(view) {
         ${sharedView ? `${sharedView.shared ? `<span class="analytics-kicker">Market verdict</span>` : ""}${renderSharedVerdictHead(sharedView)}` : ""}
         ${sharedView ? renderVerdictFinePrint("", `
           ${starsPremiumMarkup(model, { best, pick: bestPick, shared: true })}
-          ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view), teamNames))}</p>` : ""}
+          ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpOptionsCopy(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view), teamNames))}</p>` : ""}
           <div class="calc-method">${renderDraftMethod(view)}</div>
         `) : `
         ${!bothSides ? `<p>One side is empty, so this is not a trade yet.</p>` : ""}
-        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view), teamNames))}</p>` : ""}
+        ${evenUp ? `<p class="calc-even"><strong>Even it up:</strong> ${escapeHtml(evenUpOptionsCopy(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view), teamNames))}</p>` : ""}
         ${renderDraftMethod(view)}`}
       </div>
       <div class="calc-actions">

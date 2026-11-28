@@ -346,7 +346,29 @@ export function sumValueCalcSide(items = [], priceOf = null) {
   return items.reduce((sum, item) => sum + priceHundredths(typeof priceOf === "function" ? priceOf(item) : item.value), 0) / 100;
 }
 
-export function valueCalcVerdict(leftTotal, rightTotal, { leftCount = null, rightCount = null } = {}) {
+// Apply the published bands to the gap as a percentage of the smaller side.
+export const TIER_BANDS = Object.freeze({ even: 5, edge: 14, favors: 28 });
+
+export function tierForMore(more) {
+  if (more == null) return "lopsided";
+  if (more <= TIER_BANDS.even) return "even";
+  if (more <= TIER_BANDS.edge) return "edge";
+  if (more <= TIER_BANDS.favors) return "favors";
+  return "lopsided";
+}
+
+export function percentMore(left, right, { roundToTenth = false } = {}) {
+  const leftUnits = priceHundredths(left);
+  const rightUnits = priceHundredths(right);
+  const small = Math.min(leftUnits, rightUnits);
+  const big = Math.max(leftUnits, rightUnits);
+  if (small <= 0) return big > 0 ? null : 0;
+  // Dated links through v5.1 classified the percentage after rounding it.
+  if (roundToTenth) return Math.round(((big - small) / small) * 100 * 10) / 10;
+  return ((big - small) * 100) / small;
+}
+
+export function valueCalcVerdict(leftTotal, rightTotal, { leftCount = null, rightCount = null, roundToTenth = false } = {}) {
   const leftUnits = priceHundredths(leftTotal);
   const rightUnits = priceHundredths(rightTotal);
   const left = leftUnits / 100;
@@ -354,18 +376,20 @@ export function valueCalcVerdict(leftTotal, rightTotal, { leftCount = null, righ
   const gap = (rightUnits - leftUnits) / 100;
   const maxUnits = Math.max(leftUnits, rightUnits, 1);
   const pct = Math.round((Math.abs(rightUnits - leftUnits) / maxUnits) * 1000) / 10;
+  const more = percentMore(left, right, { roundToTenth });
+  const tier = tierForMore(more);
   const leftHas = leftCount == null ? left > 0 : Number(leftCount) > 0;
   const rightHas = rightCount == null ? right > 0 : Number(rightCount) > 0;
   let label = "Add players to both sides";
   let tone = "";
   if (leftHas && rightHas) {
-    if (pct <= 5) {
+    if (tier === "even") {
       label = "Dead even";
       tone = "good";
-    } else if (pct <= 12) {
+    } else if (tier === "edge") {
       label = gap > 0 ? "Fair, leans Get" : "Fair, leans Give";
       tone = "good";
-    } else if (pct <= 22) {
+    } else if (tier === "favors") {
       label = gap > 0 ? "Favors Get" : "Favors Give";
       tone = gap > 0 ? "good" : "bad";
     } else {
@@ -375,7 +399,7 @@ export function valueCalcVerdict(leftTotal, rightTotal, { leftCount = null, righ
   } else if (leftHas || rightHas) {
     label = "Now add what you get back";
   }
-  return { left, right, gap, pct, label, tone };
+  return { left, right, gap, pct, more, label, tone };
 }
 
 // Seat wording ("Favors you"). The published line is verdictCopy, which stays Give/Get.

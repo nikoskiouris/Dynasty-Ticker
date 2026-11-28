@@ -8,8 +8,8 @@
 //   Lopsided · Give side worth 89% more                 (green/red on /trade only)
 // Above 10× (more than 900% more) the sentence stops counting: "worth over 10× as much".
 // Exactly 10× stays "900% more". A zero smaller side (null) uses the same cap.
-// One metric, on the credited totals: (bigger - smaller) / smaller, kept to
-// one decimal. Tiers are banded on that unrounded percent (RECHECK3): <= 5
+// One metric, on the credited totals: (bigger - smaller) / smaller.
+// Tiers are banded on that unrounded percent: <= 5
 // fair, <= 14 slight edge, <= 28 favors, else lopsided. The sentence prints a
 // whole number: Math.round, unless that integer sits in a lower tier, in which
 // case Math.ceil. A value just above 5, 14, or 28 never shows the boundary
@@ -18,15 +18,15 @@
 // Colour: tone (good | fair | bad) is relative to the sharer and is used only
 // on private /trade. publicTone (fair | strong) colours only the tier on the
 // public card and cold /t; direction is shown by placement and a pointer.
-import { priceHundredths, roundPrice } from "./price-units.js";
-import { valueCalcVerdict } from "./value-calc.js";
+import { roundPrice } from "./price-units.js";
+import { percentMore, TIER_BANDS, tierForMore, valueCalcVerdict } from "./value-calc.js";
 import { formatNumber } from "./html.js";
 
 // Labels valueCalcVerdict gives when both sides are filled in.
 const BOTH_SIDES = new Set(["Dead even", "Fair, leans Get", "Fair, leans Give", "Favors Get", "Favors Give", "Lopsided for Get", "Lopsided for Give"]);
 
 // Upper bounds (inclusive) on the unrounded "% more". The sentence may ceil past them.
-export const TIER_BANDS = Object.freeze({ even: 5, edge: 14, favors: 28 });
+export { percentMore, TIER_BANDS, tierForMore };
 const LABEL = Object.freeze({ even: "Even", edge: "Close", favors: "Unfair", lopsided: "Lopsided" });
 // The fairness scale's words for each tier, for anything that names a tier.
 export const TIER_LABELS = LABEL;
@@ -62,26 +62,7 @@ export function fewerBetterOffer(amountText, side) {
   return `Extra for fewer, better pieces +${amountText} to ${side}.`;
 }
 
-export function tierForMore(more) {
-  if (more == null) return "lopsided";
-  if (more <= TIER_BANDS.even) return "even";
-  if (more <= TIER_BANDS.edge) return "edge";
-  if (more <= TIER_BANDS.favors) return "favors";
-  return "lopsided";
-}
-
 const round1 = (value) => Math.round(value * 10) / 10;
-
-// (bigger - smaller) / smaller, one decimal. null when the smaller side is 0.
-// Tiers use this unrounded percent. Sentences use displayMore.
-export function percentMore(left, right) {
-  const leftUnits = priceHundredths(left);
-  const rightUnits = priceHundredths(right);
-  const big = Math.max(leftUnits, rightUnits);
-  const small = Math.min(leftUnits, rightUnits);
-  if (small <= 0) return big > 0 ? null : 0;
-  return round1(((big - small) / small) * 100);
-}
 
 // Whole percent. Round to nearest. For a verdict ({ band: true }, the default),
 // step to ceil when that integer would belong to a lower tier, so the shown
@@ -123,7 +104,7 @@ export function verdictCopy(verdict) {
   }
   const left = Number(verdict.left) || 0;
   const right = Number(verdict.right) || 0;
-  const more = percentMore(left, right);
+  const more = verdict.more === undefined ? percentMore(left, right) : verdict.more;
   const hit = { tier: tierForMore(more) };
   const side = right > left ? "Get" : left > right ? "Give" : "";
   // Say which side, never "one side".
@@ -238,13 +219,18 @@ export function evenUpCopy(choice, side, { afterLine = "" } = {}) {
   return `${closest} ${why}`;
 }
 
-// "Even it up": "Team 2 needs Jaxon Smith-Njigba or 2027 Early 1st". side is the team that receives less. The pick is always listed; options that make it fair come first.
-export function evenUpOptionsCopy(options, side) {
+// Show a non-closing pick with its rescored verdict so the manager sees
+// whether it helps and which team would receive more after adding it.
+export function evenUpOptionsCopy(options, side, names) {
   const list = (options || []).filter((option) => option?.choice?.name);
   if (!list.length) return "";
   const who = side === "Give" || side === "Get" ? `The ${side} side` : String(side || "They");
   const verb = who === "You" || who === "They" ? "need" : "needs";
-  const ordered = list.slice().sort((x, y) => Number(Boolean(y.choice.closes)) - Number(Boolean(x.choice.closes)));
-  const item = (option) => option.choice.name;
-  return `${who} ${verb} ${ordered.map(item).join(" or ")}`;
+  const closing = list.filter(({ choice }) => choice.closes).map(({ choice }) => choice.name);
+  const lines = closing.length ? [`${who} ${verb} ${closing.join(" or ")}.`] : [];
+  for (const { choice } of list.filter(({ choice }) => !choice.closes)) {
+    lines.push(`The closest pick for ${who} is ${choice.name}. With that pick: ${verdictLineNamed(choice.verdict, names)}.`);
+    if (choice.improves === false) lines.push("The original offer is at least as close.");
+  }
+  return lines.join(" ");
 }
