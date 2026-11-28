@@ -54,6 +54,7 @@ def remaining_forecast(row, week, season_games=17, *, prior_games=PRIOR_GAMES,
         pace *= reserve_multiplier
     covered = min(left, max(0, row.get("forward_games") or 0))
     forward = max(0, row.get("forward_ppr") or 0)
+    backup = max(0, row.get("backup_games") or 0)
     if row.get("injury_status") == "Out" and row.get("current_week_open"):
         # Remove this game once. A numeric zero already counts toward the
         # provider's coverage and must not remove a second unsupported week.
@@ -62,8 +63,10 @@ def remaining_forecast(row, week, season_games=17, *, prior_games=PRIOR_GAMES,
         if current_week is not None and covered:
             covered -= 1
             forward = max(0, forward - max(0, current_week))
+        elif row.get("current_week_backup"):
+            backup = max(0, backup - 1)
     covered = min(left, covered)
-    backup = min(left - covered, max(0, row.get("backup_games") or 0))
+    backup = min(left - covered, backup)
     uncovered = left - backup - covered
     # A teammate forecast for the QB job is evidence of a backup role.
     # Leave the empirical minority share for uncertain later role changes.

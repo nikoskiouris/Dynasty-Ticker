@@ -198,7 +198,7 @@ def game_evidence(player_id, team, pos, schedule, weekly, week):
         if all(game_team == team for game_team, _, _ in rows):
             recent_ppr = round(sum(pts or 0 for _, pts, _ in rows), 2)
             recent_games = sum(gp or 0 for _, _, gp in rows)
-    points, backups = [], 0
+    points, backups = [], []
     for w in games["upcoming"]:
         if w not in forecasts:
             continue
@@ -206,14 +206,14 @@ def game_evidence(player_id, team, pos, schedule, weekly, week):
         if ppr is not None:
             points.append(ppr)
         elif pos == "QB" and team in starters[w]:
-            backups += 1
+            backups.append(w)
     return {
         "team_games": len(games["final"]), "remaining_games": len(games["upcoming"]),
         "current_week_open": week in games["upcoming"],
         "recent_ppr": recent_ppr, "recent_games": recent_games,
         "recent_team_games": len(recent) if recent_ppr is not None else None,
         "forward_ppr": round(sum(points), 2) if points else None, "forward_games": len(points),
-        "backup_games": backups,
+        "backup_games": len(backups), "current_week_backup": week in backups,
     }
 
 
