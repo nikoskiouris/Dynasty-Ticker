@@ -1,12 +1,12 @@
 # Dynasty Ticker
 
-Dynasty Ticker helps a Sleeper dynasty manager answer three questions: what is this player worth, is this trade fair, and does this move help my team. Player values are one published price: an estimate trained on completed Sleeper trades. Player point projections come directly from Sleeper. The site is static. It talks to Sleeper from the browser.
+Dynasty Ticker helps a Sleeper dynasty manager answer three questions: what is this player worth, is this trade fair, and does this move help my team. The site publishes one dynasty value per supported asset for 12-team superflex PPR leagues. Player point projections come directly from Sleeper. The site is static. It talks to Sleeper from the browser.
 
 ## What is in this repo
 - **Web app:** `docs/` — the site at [dynastyticker.com](https://dynastyticker.com/).
 - **Modules:** `docs/modules/` — routing, Sleeper client, values, verdict copy, trade talk, rankings, league history, season engine.
 - **Functions:** `netlify/` — shared-trade pages and cards (`/t/<code>`), the daily player-value file (`market`), first-party page counts, the searched-username list.
-- **Player values:** `player-values/` — the trade model, snapshot builder, and archived forecast.
+- **Player values:** `player-values/` — the valuation model, daily builder and historical evaluation.
 - **Agent coding policy:** `.cursor/skills/no-unit-tests/SKILL.md` — no unit tests or automated test suite.
 
 ## Web app
@@ -16,7 +16,7 @@ Open `docs/` locally (`npm run serve`) or [dynastyticker.com](https://dynastytic
 Home is a tool picker with three tools, and the ☰ menu reaches every page. Trade Calculator and Player Rankings work before a league is connected.
 
 1. **Trade Calculator** (`/trade?give=…&get=…`) — two columns (Team 1 receives / Team 2 receives) and one trade draft. Type a whole trade in plain words in the talk box ("Gibbs and a 1st for Nabers", "is Gibbs for Bijan fair?", "undo") or add pieces by search. One verdict on a fairness scale (Even, Close, Unfair, Lopsided), an "Even it up" suggestion, and **Give real trade advice** (rules, no AI). The calculator is never team-specific: with or without a league it shows Team 1 / Team 2 and no ownership or Team impact. Connecting Sleeper keeps the trade. **Share trade** makes a `/t/<code>` link with its own preview card.
-2. **Player Rankings** (`/players`) — every priced player and pick, sortable, with search (nicknames like JSN work). Player pages (`/player/<sleeper id>`) show the price, the season-by-season reason for it, its trend, production, and similar values.
+2. **Player Rankings** (`/players`) — every priced player and pick, sortable, with search (nicknames like JSN work). Player pages (`/player/<sleeper id>`) show the price, the factors behind it, its trend, production, and similar values.
 3. **League History** (`/leagues`, then `/l/<league>`) — enter a Sleeper username or league ID. The league hub links to **Standings** (luck, playoff odds), **My Team** (position ranks, roster value, bench, picks, superlatives), **Recent Trades** (graded on today's values) and **Historical Data** (champions, all-time standings, records, head-to-head, trends, awards).
 
 Old links (`?tab=…`, `?view=ranks`, removed rooms like Find a trade) still open the closest page.
@@ -24,9 +24,9 @@ Old links (`?tab=…`, `?view=ranks`, removed rooms like Find a trade) still ope
 Product purpose and how to choose between competing asks live in `AGENTS.md`. First-visit usability tasks live in `research/first-visit-tasks.md`.
 
 ### Value source
-Rankings, player pages, Trade Calculator, League History and share cards read the same **12-team Superflex full-PPR dynasty** snapshot at `docs/data/player_values.json`. The model fits players and generic rookie picks together using the assets exchanged in completed Sleeper trades and their dates. Recent deals carry more weight. The calculator uses a small credit when a package includes stronger assets. The player page shows the number of trades involving the player and flags sparse evidence. Sleeper’s published weekly and full-season PPR projections appear on that page.
+Rankings, player pages, Trade Calculator, League History and share cards read the same **12-team Superflex full-PPR dynasty** snapshot at `docs/data/player_values.json`. Player values reflect projected lineup advantage, future production and format-specific market quotes. The calculator applies its package adjustment when comparing offers. Each asset keeps the same individual price throughout the app.
 
-Install `python3 -m pip install -r player-values/trade-requirements.txt` and refresh with `python3 player-values/build_trade_values.py`. The builder validates before replacing the last good snapshot. `python3 scripts/check_market_files.py --fail-on-age` checks the deployed schema and freshness. The [model notes](player-values/README.md) describe the training sample, validation and archived model.
+Run `python3 player-values/build_trade_values.py` to refresh the board and `python3 scripts/check_market_files.py --fail-on-age` to check the generated file. The [model notes](player-values/README.md) document the inputs, weights, assumptions and historical checks.
 
 The daily refresh (`.github/workflows/refresh-player-values.yml`) commits the new snapshot to `develop` and publishes the same checked files to the `market-data` Netlify Blobs store (`scripts/publish_market_blobs.mjs`). On the live site, `/data/player_values.json` and `/data/price-history/*` go through the `market` function, which serves the newer of that copy and the release's own copy. So values on dynastyticker.com update daily without a deploy. The repository variable `MARKET_PUBLISH=off` turns that off.
 

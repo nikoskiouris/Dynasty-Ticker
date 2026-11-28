@@ -283,6 +283,12 @@ def publish_draft_picks(path: Path, payload: dict, min_picks: int = MIN_PUBLISHE
     count = len((payload or {}).get("picks") or {})
     if count < min_picks:
         raise RuntimeError(f"Refusing to replace draft picks with only {count} rows")
+    try:
+        old = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        old = {}
+    if old.get("updated") and all(old.get(key) == value for key, value in payload.items() if key != "updated"):
+        return
     atomic_write_text(path, json.dumps(payload, separators=(",", ":"), sort_keys=True))
 
 

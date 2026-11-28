@@ -13,7 +13,7 @@ import { getStore } from "@netlify/blobs";
 import { MARKET_STORE, isMarketFile } from "../netlify/lib/market-data.js";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const MODEL_VERSION = "sleeper-trades-v4";
+const MODEL_VERSION = "dynasty-sf-ppr-v1";
 
 async function main() {
   if (String(process.env.MARKET_PUBLISH || "").toLowerCase() === "off") {
@@ -30,7 +30,10 @@ async function main() {
   if (parsed.modelVersion !== MODEL_VERSION) throw new Error(`Unexpected modelVersion ${parsed.modelVersion}; not publishing.`);
   if (!parsed.sf || Object.keys(parsed.sf).length < 300) throw new Error("player_values.json has too few prices; not publishing.");
   const index = await read("data/price-history/index.json");
-  JSON.parse(index);
+  const history = JSON.parse(index);
+  if (!history.snapshots?.some((row) => row.modelVersion === MODEL_VERSION && row.asOf === parsed.asOf)) {
+    throw new Error("Current values have no matching dated archive; not publishing.");
+  }
 
   const store = getStore({ name: MARKET_STORE, siteID, token });
   const { blobs } = await store.list({ prefix: "data/price-history/" });

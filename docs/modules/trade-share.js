@@ -164,14 +164,12 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     const name = isPick
       ? (generic && generic !== assetId ? generic : (bundle.nameMap?.[assetId] || assetId))
       : (String(playerNames?.[id] || payload?.names?.[assetId] || directory?.names?.[assetId] || "").trim() || `Player ${id}`);
-    // Picks price through the app's own lookup (every round; r2:early falls back to
-    // r2:any, then the pick catalog), so a shared link never reads a 2nd as 0.
-    const raw = isPick
-      ? draftMarketPrice({ assetType: "pick", assetId }, { values, nameMap: bundle.nameMap || {} }).value
-      : values[assetId];
+    // Share the calculator’s quoted slot or its whole-round fallback for that draft.
+    const pickPrice = isPick ? draftMarketPrice({ assetType: "pick", assetId }, { values, nameMap: bundle.nameMap || {} }) : null;
+    const raw = isPick ? pickPrice.value : values[assetId];
     const value = Math.max(0, Math.round(Number(raw) || 0));
     // No price at all (an old link, a player since dropped) is not a price of 0.
-    const unpriced = !Number.isFinite(Number(raw)) || raw === null || raw === "";
+    const unpriced = pickPrice?.estimated || !(Number(raw) > 0);
     const position = isPick ? "PICK" : String((payload?.players || directory?.players)?.[assetId]?.position || "").toUpperCase().slice(0, 4);
     return { assetId, name: name.slice(0, 40), value, position, unpriced };
   };

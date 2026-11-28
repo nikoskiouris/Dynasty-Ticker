@@ -2,7 +2,7 @@
 """Check the JSON files the desk reads.
 
 Schema errors fail the run. A player-value file older than 21 days is a
-warning unless --fail-on-age is set. npm test uses the warning. The live
+warning unless --fail-on-age is set. The live
 deploy and the player-value refresh use the hard failure.
 """
 from __future__ import annotations
@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "docs" / "data"
 MAX_VALUE_AGE_DAYS = 21
 # The model the builder is configured to write. A snapshot from any other model is not the one the desk expects.
-MODEL_VERSION = "sleeper-trades-v4"
+MODEL_VERSION = "dynasty-sf-ppr-v1"
 POSITIONS = {"QB", "RB", "WR", "TE"}
 
 
@@ -71,8 +71,13 @@ def check_player_values(
         errors.append("player_values names and players must be objects")
         names = names if isinstance(names, dict) else {}
         players = players if isinstance(players, dict) else {}
+    meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+    if (meta.get("referenceTeams"), meta.get("scoring"), meta.get("superflex")) != (12, "full PPR", True):
+        errors.append("player_values league format must be 12-team superflex full PPR")
+    if len(players) < 200 or not any(key.startswith("pick:") for key in sf):
+        errors.append("incomplete dynasty player or pick board")
     for asset_id, value in sf.items():
-        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 10000:
             errors.append(f"bad sf value {asset_id}")
             break
         if asset_id not in names:
@@ -82,6 +87,12 @@ def check_player_values(
             info = players.get(asset_id)
             if not isinstance(info, dict):
                 errors.append(f"missing player meta for {asset_id}")
+                break
+            factors = info.get("factors")
+            if (not isinstance(factors, dict) or set(factors) != {"lineup", "future", "draft", "market"}
+                    or not all(type(weighted) is int and weighted >= 0 for weighted in factors.values())
+                    or sum(factors.values()) != value):
+                errors.append(f"missing or invalid attribution for {asset_id}")
                 break
             position = info.get("position")
             if position not in POSITIONS:

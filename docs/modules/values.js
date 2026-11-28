@@ -14,11 +14,9 @@ export function valuationUpdatedAt(bundle) {
   if (Number.isNaN(date.getTime())) return text;
   return date.toISOString().slice(0, 10);
 }
-export const PLAYER_VALUE_MODEL_VERSION = "sleeper-trades-v4";
+export const PLAYER_VALUE_MODEL_VERSION = "dynasty-sf-ppr-v1";
 // Archive rows saved before the index named the model that priced them.
 export const LEGACY_PRICE_MODEL_VERSION = "football-forecast-v1";
-// Same annual discount as player-values/config.json. A missing pick year uses this ruler.
-export const PICK_YEAR_DISCOUNT = 0.85;
 
 // The NFL draft ends in late April. After that, this year's picks are players.
 export function upcomingDraftSeason(now = new Date()) {
@@ -131,7 +129,7 @@ export function playersFromValueSnapshot(playerMeta = {}, names = {}) {
     const age = Number(row.age);
     if (Number.isFinite(age) && age > 0) record.age = age;
     const years = Number(row.experience);
-    if (Number.isFinite(years) && years >= 0) record.years_exp = years;
+    if (row.experience != null && Number.isFinite(years) && years >= 0) record.years_exp = years;
     out[id] = record;
   });
   return out;
@@ -310,7 +308,7 @@ export function buildPickLookupMeta(asset) {
   if (assetMeta) {
     return {
       ...assetMeta,
-      bucket: assetMeta.round === 1 ? getAssetPickBucket(asset) : assetMeta.bucket,
+      bucket: assetMeta.bucket === "any" ? getAssetPickBucket(asset) : assetMeta.bucket,
     };
   }
   const season = asset?.raw?.season != null ? String(asset.raw.season) : "";
@@ -319,7 +317,7 @@ export function buildPickLookupMeta(asset) {
   return {
     season,
     round,
-    bucket: round === 1 ? getAssetPickBucket(asset) : "any",
+    bucket: getAssetPickBucket(asset),
   };
 }
 
@@ -334,22 +332,9 @@ export function buildPickValueLookupIds(asset) {
     ids.push(id);
   };
   if (asset.valueAssetId) push(asset.valueAssetId);
-  if (meta.round === 1) {
-    getPickBucketAliases(meta.bucket).forEach((bucket) => push(`pick:${meta.season}:r${meta.round}:${bucket}`));
-  }
+  getPickBucketAliases(meta.bucket).forEach((bucket) => push(`pick:${meta.season}:r${meta.round}:${bucket}`));
   push(`pick:${meta.season}:r${meta.round}:any`);
   return ids;
-}
-
-function adjustPickAcrossYears(value, sourceSeason, targetSeason) {
-  const source = Number(sourceSeason);
-  const target = Number(targetSeason);
-  if (!Number.isFinite(value) || !Number.isFinite(source) || !Number.isFinite(target)) return value;
-  const yearDelta = target - source;
-  // A later catalog row is not marked up onto an earlier year. Forward years use 0.85^n.
-  if (yearDelta <= 0) return Math.max(1, Math.round(value));
-  const factor = PICK_YEAR_DISCOUNT ** yearDelta;
-  return Math.max(1, Math.round(value * factor));
 }
 
 const pickCatalogs = new WeakMap();
@@ -375,9 +360,7 @@ export function findPickCatalogValue(meta, values, valueNameMap = NO_NAMES, cata
   const list = Array.isArray(catalog) && catalog.length > 0
     ? catalog
     : cachedPickCatalog(values, valueNameMap);
-  const desiredBuckets = meta.round === 1
-    ? [...getPickBucketAliases(meta.bucket), "any"]
-    : ["any"];
+  const desiredBuckets = [...getPickBucketAliases(meta.bucket), "any"];
   for (const bucket of desiredBuckets) {
     const exact = list.find((pick) =>
       pick.season === meta.season
@@ -386,18 +369,7 @@ export function findPickCatalogValue(meta, values, valueNameMap = NO_NAMES, cata
     );
     if (exact) return exact.value;
   }
-  const numericSeason = Number(meta.season);
-  if (!Number.isFinite(numericSeason)) return null;
-  const nearest = list
-    .filter((pick) => pick.round === meta.round && desiredBuckets.includes(pick.bucket))
-    .sort((a, b) => {
-      const distance = Math.abs(Number(a.season) - numericSeason) - Math.abs(Number(b.season) - numericSeason);
-      if (distance) return distance;
-      const bucketOrder = desiredBuckets.indexOf(a.bucket) - desiredBuckets.indexOf(b.bucket);
-      if (bucketOrder) return bucketOrder;
-      return Number(a.season) - Number(b.season);
-    })[0];
-  return nearest ? adjustPickAcrossYears(nearest.value, nearest.season, meta.season) : null;
+  return null;
 }
 
 export function resolvePickAssetValue(asset, values, valueNameMap = NO_NAMES, catalog = null) {
@@ -580,11 +552,11 @@ export async function fetchPriceHistory(fetchImpl = globalThis.fetch, { now = ne
   return history.snapshots.length ? history : null;
 }
 
-// Highest price each player has had in any archived snapshot (every model, so a
-// rough "was he ever a star" check, not a like-for-like trend).
+// Only prices on the current scale can be compared with the star threshold.
 export async function fetchPeakValues(fetchImpl = globalThis.fetch) {
   const index = await readJsonIfOk(fetchImpl, PRICE_HISTORY_INDEX_PATH);
-  const rows = Array.isArray(index?.snapshots) ? index.snapshots : [];
+  const rows = (Array.isArray(index?.snapshots) ? index.snapshots : [])
+    .filter((row) => row?.modelVersion === PLAYER_VALUE_MODEL_VERSION);
   const snaps = await Promise.all(rows.map((row) => readJsonIfOk(fetchImpl, `./data/price-history/${row.stamp}.json`)));
   const peaks = {};
   let since = "";

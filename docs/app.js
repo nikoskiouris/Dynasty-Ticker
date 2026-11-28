@@ -102,6 +102,7 @@ import {
   playerValueTrend,
   renderTrendSoon,
   renderValueTierBadge,
+  tierForValue,
   renderValueTrend,
   renderValuesFreshness,
   valuationStamp,
@@ -258,7 +259,7 @@ import {
   projectPickSlots,
   resolvePickProjection,
   rosterRecordsReady,
-  valuedAsMidFirstHint,
+  futureRoundPriceHint,
 } from "./modules/pick-projection.js";
 import { currentPlaceForOwner } from "./modules/draft-order.js";
 import {
@@ -1216,6 +1217,7 @@ function rankViewModel() {
   }
   return rankView({
     rows: cachedRankRows(),
+    priceModel: state.valueBundles?.meta?.price,
     query: state.ranks?.query || "",
     position: state.ranks?.position || "ALL",
     sort: state.ranks?.sort || "rank",
@@ -5034,6 +5036,7 @@ function buildDraftView() {
     me,
     context,
     priced,
+    missingPrices: [...priced.values()].some((row) => row.estimated),
     priceOf,
     partner,
     model,
@@ -5319,7 +5322,7 @@ function tradeTalkNext(view) {
   const ctx = tradeTalkContext(view);
   const candidates = [];
   const gap = Number(view.model?.verdict?.gap) || 0;
-  const more = draft.left.length && draft.right.length ? verdictCopy(view.model.verdict).more : null;
+  const more = tradeAdviceReady(view) ? verdictCopy(view.model.verdict).more : null;
   if (more != null && more > EVEN_UP_OFFER_ABOVE && gap) {
     const pick = findEvenUpPick(view);
     // closes is scored with the stars credit, so it holds even when the pick's
@@ -5672,7 +5675,7 @@ function patchTradeDraft(listSides = []) {
 // Trade advice panel (ticket 030): the calculator's own verdict, even-up
 // search and team impact, gathered in one place. No AI.
 function tradeAdviceReady(view) {
-  return view.draft.left.length > 0 && view.draft.right.length > 0;
+  return !view.missingPrices && view.draft.left.length > 0 && view.draft.right.length > 0;
 }
 
 function tradeAdviceSections(view) {
@@ -5839,8 +5842,9 @@ function renderDraftTotal(side, view) {
   const items = view.draft[side] || [];
   // The header shows what the verdict compares: listed prices plus any extra
   // for fewer, better pieces (owner, Nov 19, 2026). Rows keep listed prices.
+  if (items.some((item) => view.priced.get(String(item.uid))?.estimated)) return "<strong>Unavailable</strong>";
   const listed = side === "left" ? view.give : view.get;
-  const adj = view.model?.adjustment;
+  const adj = view.missingPrices ? null : view.model?.adjustment;
   const extra = adj?.amount > 0 && (adj.side === "left") === (side === "left") ? Math.round(adj.amount) : 0;
   return `
     <strong>${formatNumber(listed + extra)}</strong>
@@ -5931,7 +5935,7 @@ function renderDraftTokens(side, view) {
         ${label.includes("player-face") ? "" : `<span class="token-face-blank" aria-hidden="true"></span>`}
         ${label}
         ${meta ? `<span class="selected-token-meta">${escapeHtml(meta)}</span>` : ""}
-        <span class="selected-token-price" title="Value">${formatNumber(price?.value || 0)}${price?.estimated ? " est" : ""}</span>
+        <span class="selected-token-price" title="Value">${price?.estimated ? "Unavailable" : formatNumber(price?.value)}</span>
         <button type="button" class="selected-token-remove" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" aria-label="${escapeHtml(name ? `Remove ${name}` : "Remove")}"><span aria-hidden="true">×</span></button>
       </span>
     `;
@@ -6080,7 +6084,7 @@ function draftSuggestionRows(side, view) {
         round: Number(asset.raw?.round) || 0,
         context: mine ? ("Your roster") : roster.manager.displayName,
         leagueId: isLeaguePickAssetId(asset.assetId) ? String(state.leagueId) : "",
-        hint: valuedAsMidFirstHint(asset, state.league?.season),
+        hint: price.estimated ? "" : futureRoundPriceHint(asset, state.league?.season),
         group: side === "left" ? (mine ? 0 : 2) : (rosterId === partnerId ? 0 : 1),
       });
     }
@@ -6153,7 +6157,7 @@ function renderDraftSuggestions(side, view) {
             ${row.hint ? `<span class="pick-value-hint">${escapeHtml(row.hint)}</span>` : ""}
           </div>
         </div>
-        <span class="asset-value-badge" title="Value">${formatNumber(row.value)}${row.estimated ? " est" : ""}</span>
+        <span class="asset-value-badge" title="Value">${row.estimated ? "Unavailable" : formatNumber(row.value)}</span>
       </div>
     </div>
   `).join("");
@@ -6243,6 +6247,10 @@ function renderDraftVerdict(view) {
   const { draft, model } = view;
   if (!draft.left.length && !draft.right.length) {
     return `${renderTradeFairness(view.model.verdict, { ready: false })}<div class="calc-actions"><button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button></div>`;
+  }
+  if (view.missingPrices) {
+    const shared = sharedVerdictFor(view);
+    return `<section class="calc-summary"><h3>Current verdict unavailable</h3><p>One or more pieces have no published value.</p>${shared?.shared ? `<p>When shared on ${escapeHtml(shared.date)} · ${escapeHtml(shared.shared.label)}</p>` : ""}<div class="calc-actions"><button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button></div></section>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (bothSides) noteTradeChecked(draft);
@@ -6345,7 +6353,7 @@ function renderSharedVerdictHead(shared) {
       <div><dt>${escapeHtml(shared.date)}</dt><dd>${verdictLineHtml(shared.shared.label)}</dd></div>
       <div class="is-today"><dt>Today</dt><dd><strong>${verdictLineHtml(shared.today.label)}</strong></dd></div>
     </dl>
-    <p class="calc-shared-note">Prices moved since this was shared.</p>
+    <p class="calc-shared-note">Each verdict uses the model and prices published on its date.</p>
   `;
 }
 
@@ -8553,11 +8561,11 @@ function renderPlayerValueMarks(asset, values = state.values, { soon = false, sp
   const value = getAssetValue(asset, values);
   const trend = playerValueTrend(state.valueHistory, asset.assetId, "sf");
   const trendHtml = trend ? renderValueTrend(trend, { spark }) : (soon ? renderTrendSoon() : "");
-  return `${renderValueTierBadge(value)}${trendHtml}`;
+  return `${renderValueTierBadge(tierForValue(value, values))}${trendHtml}`;
 }
 
 function renderPickVaultRow(asset, values) {
-  const hint = valuedAsMidFirstHint(asset, state.league?.season);
+  const hint = isEstimatedAsset(asset, values) ? "" : futureRoundPriceHint(asset, state.league?.season);
   const body = `
               <span class="sheet-slot">${escapeHtml(String(asset?.raw?.season || ""))}</span>
               <div class="sheet-player"><strong>${escapeHtml(asset?.name || "Pick")}</strong>${hint ? `<span class="pick-value-hint">${escapeHtml(hint)}</span>` : ""}</div>
@@ -9031,7 +9039,7 @@ function resolveAssignedDraftSlot(pick, currentDraftContext, finishInfo = null, 
 }
 
 function buildPickValueAssetId(pick, pickBucket = "any") {
-  const bucket = Number(pick?.round) === 1 ? normalizePickBucket(pickBucket) : "any";
+  const bucket = normalizePickBucket(pickBucket);
   return `pick:${pick.season}:r${pick.round}:${bucket}`;
 }
 

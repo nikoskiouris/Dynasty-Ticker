@@ -108,7 +108,7 @@ export function wholeRoundPickHint(row, query) {
   if (row?.assetType !== "pick" || row.bucket !== "any") return "";
   if (!/\b(?:early|mid|middle|late)\b|\b\d{1,2}\.\d{1,2}\b/i.test(String(query || ""))) return "";
   const words = roundSearchWords(row.round);
-  return words[0] ? `One price for every ${words[0]}` : "";
+  return words[0] ? `Whole-round ${words[0]} estimate` : "";
 }
 
 export function valueCalcAssetMatchesQuery(row, query) {

@@ -1,4 +1,4 @@
-name: Refresh trade-derived player values
+name: Refresh 12-team superflex PPR dynasty values
 
 on:
   workflow_dispatch:
@@ -46,22 +46,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Cache completed Sleeper transaction weeks and draft orders
-        uses: actions/cache@v4
-        with:
-          path: |
-            .cache/player-values/transactions
-            .cache/player-values/draft-slots
-            .cache/player-values/reversal-transfers
-          key: sleeper-trades-and-drafts-v1-${{ github.run_id }}
-          restore-keys: |
-            sleeper-trades-and-drafts-v1-
-            sleeper-transactions-v1-
+      - name: Refresh official NFL draft positions
+        run: python3 scripts/update_nfl_draft_picks.py
 
-      - name: Install trade model dependencies
-        run: python3 -m pip install -r player-values/trade-requirements.txt
-
-      - name: Train the trade model and copy Sleeper projections
+      - name: Build the superflex PPR dynasty snapshot
         run: python3 player-values/build_trade_values.py
 
       - name: List every priced player page in the sitemap
@@ -83,7 +71,7 @@ jobs:
 
       - name: Commit refreshed snapshot
         run: |
-          files="docs/data/player_values.json docs/data/price-history docs/data/nfl_players_slim.json docs/sitemap.xml"
+          files="docs/data/player_values.json docs/data/price-history docs/data/nfl_players_slim.json docs/data/nfl_draft_picks.json docs/sitemap.xml"
           git add $files
           if git diff --cached --quiet -- $files; then
             echo "No player-value changes."
@@ -91,7 +79,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "data: refresh trade-derived player values [skip netlify]"
+          git commit -m "data: refresh superflex PPR dynasty values [skip netlify]"
           git pull --rebase origin develop
           git push origin HEAD:develop
 

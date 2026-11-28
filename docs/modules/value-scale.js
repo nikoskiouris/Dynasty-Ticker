@@ -1,14 +1,14 @@
 import { escapeHtml, formatNumber } from "./html.js";
 
-// Rounded cuts at ranks 25, 97, 199 and 310 on the trades-only board.
-export const VALUE_TIERS = Object.freeze([
-  { id: "elite", label: "Elite", min: 8800, blurb: "Top ~25 players" },
-  { id: "starter", label: "Starter", min: 3750, blurb: "Weekly starter" },
-  { id: "solid", label: "Solid", min: 3100, blurb: "Startable some weeks" },
-  { id: "depth", label: "Depth", min: 2800, blurb: "Bye-week or injury fill-in." },
-  { id: "deep", label: "Deep stash", min: 1, blurb: "Roster filler" },
+// Player-price tiers follow the current published board as its scale changes.
+const VALUE_TIERS = Object.freeze([
+  { label: "Top 24", rank: 24 },
+  { label: "Top 96", rank: 96 },
+  { label: "Top 192", rank: 192 },
+  { label: "Top 300", rank: 300 },
+  { label: "Deep stash", rank: Infinity },
 ]);
-
+const tierBoards = new WeakMap();
 
 export const TREND_WINDOW_DAYS = 30;
 export const STALE_AFTER_DAYS = 7;
@@ -30,19 +30,23 @@ const MONTHS = Object.freeze(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-export function tierForValue(value) {
-  const price = Number(value);
-  if (!Number.isFinite(price) || price <= 0) return null;
-  for (const tier of VALUE_TIERS) {
-    if (price >= tier.min) return tier;
+export function tierForValue(value, values) {
+  if (!(value > 0) || !values) return null;
+  let prices = tierBoards.get(values);
+  if (!prices) {
+    prices = Object.entries(values)
+      .filter(([id, price]) => id.startsWith("player:") && Number.isFinite(price) && price > 0)
+      .map(([, price]) => price)
+      .sort((a, b) => b - a);
+    tierBoards.set(values, prices);
   }
-  return null;
+  if (!prices.length) return null;
+  return VALUE_TIERS.find(tier => value >= prices[Math.min(tier.rank, prices.length) - 1]);
 }
 
-export function renderValueTierBadge(value) {
-  const tier = tierForValue(value);
+export function renderValueTierBadge(tier) {
   if (!tier) return "";
-  return `<span class="value-tier"><span aria-hidden="true">${escapeHtml(tier.label)}</span><span class="sr-only">Value tier: ${escapeHtml(tier.label)}</span></span>`;
+  return `<span class="value-tier"><span aria-hidden="true">${escapeHtml(tier.label)}</span><span class="sr-only">Dynasty player value tier: ${escapeHtml(tier.label)}</span></span>`;
 }
 
 function utcDay(value) {

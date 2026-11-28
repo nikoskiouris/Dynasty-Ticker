@@ -5,6 +5,7 @@ import {
   playerValueTrend,
   renderTrendSoon,
   renderValueTierBadge,
+  tierForValue,
   renderValueTrend,
   renderValuesFreshness,
 } from "./value-scale.js";
@@ -39,22 +40,6 @@ export function rankFormatLabel(format) {
 
 export function foldRankQuery(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-export function marketTape({ confidence = "", kind = "player" } = {}) {
-  if (kind === "pick") {
-    return { tone: "model", line: "Estimate based on completed trades." };
-  }
-  if (confidence === "established") {
-    return { tone: "model", line: "Estimate based on several NFL seasons." };
-  }
-  if (confidence === "developing") {
-    return { tone: "model", line: "Estimate still settling: limited NFL games." };
-  }
-  if (confidence === "thin") {
-    return { tone: "model", line: "Early estimate: few NFL games so far." };
-  }
-  return { tone: "model", line: "" };
 }
 
 export function pickEqualLine(value, pick, best) {
@@ -123,7 +108,6 @@ export function buildRankBoard({
     const age = Number.isFinite(modelAge) && modelAge > 0 ? modelAge : playerAgeFromNfl(raw);
     const team = String(raw?.team || model?.team || "").trim().toUpperCase();
     const pickEqual = closestPick(value, picks);
-    const tape = marketTape({ confidence: model?.confidence, kind: "player" });
     players.push({
       assetId,
       playerId,
@@ -135,8 +119,8 @@ export function buildRankBoard({
       age: Number.isFinite(age) ? age : null,
       pickEqual,
       pickLine: pickEqualLine(value, pickEqual, bestPick),
-      tape,
       model,
+      tier: tierForValue(value, values),
       raw,
       ...(typeof detailFor === "function" ? detailFor(playerId, raw) : {}),
       owner: owners?.[assetId] || null,
@@ -161,13 +145,12 @@ export function buildRankBoard({
       age: null,
       pickEqual: null,
       pickLine: "",
-      tape: marketTape({ kind: "pick" }),
       model: null,
       owner: null,
       note: "",
       photoUrl: "",
       initials: "Pick",
-      spread: firstRoundSpread(pick, pickById),
+      spread: pickRoundSpread(pick, pickById),
       season: pick.season,
       round: pick.round,
     }));
@@ -261,6 +244,7 @@ export function rankView({
   format = "sf",
   leagueFormat = "",
   selectedId = "",
+  priceModel = null,
   caveat = "",
   leagueOpen = false,
   loading = false,
@@ -300,6 +284,7 @@ export function rankView({
     format: "sf",
     note: rankBoardNote({ format, leagueFormat, caveat }),
     rows: visible.slice(0, pageCount),
+    priceModel,
     hidden: Math.max(0, visible.length - pageCount),
     card,
     // A /player/<id> link to a player we have no price for.
@@ -387,7 +372,7 @@ export function renderRanksBody(view) {
   const rows = Array.isArray(view?.rows) ? view.rows : [];
   const table = rows.length ? `<div class="rankings-table-wrap"><table class="rankings-table"><caption class="sr-only">Player Rankings · 12-team Superflex PPR dynasty</caption><thead><tr><th scope="col" class="rank-face-col"><span class="sr-only">Face</span></th><th scope="col">Player</th>${sortHeader("rank", '<span class="rank-wide-label">Overall </span>Rank', view)}<th scope="col"><span class="rank-wide-label">Position </span><span class="rank-narrow-label">Pos. </span>Rank</th>${sortHeader("age", "Age", view)}${sortHeader("team", "Team", view, "rank-team-col")}<th scope="col">Value</th></tr></thead><tbody>${rows.map(renderRankTableRow).join("")}</tbody></table></div>` : `<p class="muted ranks-empty">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
   const more = Number(view?.hidden) > 0 ? `<button type="button" class="ghost-btn ranks-more" data-action="ranks-more">Show more</button>` : "";
-  return `${table}${more}<footer class="rankings-footnote"><p>Values are learned from completed 12-team Superflex PPR dynasty trades. Updated daily.</p>${renderValuesFreshness(view?.updated, { align: "end" })}</footer>`;
+  return `${table}${more}<footer class="rankings-footnote"><p>Player values combine projected lineup advantage, future production, draft capital and market evidence. Open a player to see the breakdown.</p>${renderValuesFreshness(view?.updated, { align: "end" })}</footer>`;
 }
 
 function renderRankTableRow(row) {
@@ -438,7 +423,7 @@ function shownRankNumber(row) {
 
 function rankTierTrend(row, view, { soon = false, spark = false } = {}) {
   if (row?.kind !== "player") return "";
-  const tier = renderValueTierBadge(row.value);
+  const tier = renderValueTierBadge(row.tier);
   const trend = playerValueTrend(view?.history, row.assetId, view?.format || "sf");
   const trendHtml = trend ? renderValueTrend(trend, { spark }) : (soon ? renderTrendSoon() : "");
   return `${tier}${trendHtml}`;
@@ -452,7 +437,7 @@ function renderRankValue(row, view) {
   const player = row?.kind === "player";
   const trend = player ? playerValueTrend(view?.history, row.assetId, view?.format || "sf") : null;
   const trendHtml = trend ? renderValueTrend(trend) : (player ? renderRankTrendSoon() : "");
-  const tier = player ? renderValueTierBadge(row.value) : "";
+  const tier = player ? renderValueTierBadge(row.tier) : "";
   return `<span class="ranks-value"><span class="ranks-value-num">${escapeHtml(formatNumber(row.value))}</span>${trendHtml}${tier}</span>`;
 }
 
@@ -488,8 +473,6 @@ function renderRankCard(row, view = {}) {
       ? { label: "Games played since last season", value: `${Math.round(Number(components.availability) * 100)}%` }
       : null,
     Number(components.roleOppPerGame) > 0
-      // player-values/build.py counts pass attempts + carries for a QB and
-      // carries + targets for everyone else. Say which.
       ? { label: row.position === "QB" ? "Pass attempts + carries per game" : "Carries + targets per game", value: Number(components.roleOppPerGame).toFixed(1) }
       : null,
   ].filter(Boolean);
@@ -599,8 +582,7 @@ function collectRankPicks(values, minSeason) {
     const value = Number(rawValue);
     if (!meta || !Number.isFinite(value) || value <= 0) continue;
     if (Number.isFinite(floor) && Number(meta.season) < floor) continue;
-    if (meta.round < 1 || meta.round > 3) continue;
-    if (meta.round > 1 && meta.bucket !== "any") continue;
+    if (meta.round < 1) continue;
     picks.push({
       assetId,
       value,
@@ -629,10 +611,9 @@ function closestPick(value, picks) {
   return best;
 }
 
-function firstRoundSpread(pick, pickById) {
-  if (pick.round !== 1) return [];
+function pickRoundSpread(pick, pickById) {
   return ["early", "mid", "late"].map((bucket) => {
-    const hit = pickById.get(`pick:${pick.season}:r1:${bucket}`);
+    const hit = pickById.get(`pick:${pick.season}:r${pick.round}:${bucket}`);
     if (!hit) return null;
     const label = bucket.charAt(0).toUpperCase() + bucket.slice(1);
     return { bucket, label, value: Math.round(hit.value) };
@@ -641,10 +622,7 @@ function firstRoundSpread(pick, pickById) {
 
 function pickPhrase(meta) {
   const round = ordinal(meta.round);
-  if (meta.round === 1 && meta.bucket === "early") return `${meta.season} early ${round}`;
-  if (meta.round === 1 && meta.bucket === "late") return `${meta.season} late ${round}`;
-  if (meta.round === 1 && meta.bucket === "mid") return `${meta.season} mid ${round}`;
-  return `${meta.season} ${round}`;
+  return meta.bucket === "any" ? `${meta.season} ${round}` : `${meta.season} ${meta.bucket} ${round}`;
 }
 
 function playerPosition(raw) {
