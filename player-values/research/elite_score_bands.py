@@ -9,7 +9,9 @@ import inseason_forecast as seasonal
 import preseason_trade_fit as preseason
 import ranking_holdout as audit
 from dynasty_calibration import MARKET_KNOTS, calibrated_football
-from dynasty_value import interpolate, raw_board, value_board
+from dynasty_value import interpolate, raw_board
+from inseason import remaining_share
+from trade_spacing import legacy_prices
 from market_calibration import BANDS
 
 
@@ -92,8 +94,8 @@ def inspect_board(label, fraction, values, anchors):
 
 
 def inspect_actual(label, board, picks, week, anchors):
-    results, _, context = value_board(board, picks, season_week=week)
-    inspect_board(label, context['remainingSeasonFraction'], [r['calibratedSurplus'] for r in results.values()], anchors)
+    results, _ = legacy_prices(board, picks, '60aa24a', season_week=week)
+    inspect_board(label, remaining_share(board, week), [r['calibratedSurplus'] for r in results.values()], anchors)
 
 
 def main():

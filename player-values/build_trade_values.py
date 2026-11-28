@@ -36,7 +36,9 @@ def assemble(inputs):
                            "forwardPpr": row.get("forward_ppr"), "forwardGames": row.get("forward_games"),
                            "backupGames": row.get("backup_games"),
                            "recentPpr": row.get("recent_ppr"), "recentTeamGames": row.get("recent_team_games")},
-            "factors": result["factors"], "coverage": result["coverage"],
+            "priceBasis": result["priceBasis"], "marketScore": result["marketScore"],
+            "footballScore": result["footballScore"], "factors": result["factors"],
+            "coverage": result["coverage"],
             "projectedSurplus": result["projectedSurplus"], "calibratedSurplus": result["calibratedSurplus"],
             "marketShare": result["marketShare"], "footballSurplus": result["footballSurplus"],
         }

@@ -17,8 +17,9 @@ VALUE_SCALE = 100
 HUNDREDTHS_PER_POINT = 100
 TEAMS = 12
 STARTERS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
-# Completed trades in the development panel support a market-led exchange price.
-MARKET_SHARE = 0.75
+# Quoted players use their full exchange price. Earlier replay scripts vary
+# this setting to reconstruct historical pre-score blends.
+MARKET_SHARE = 1.0
 # Year-two and year-three expected full-PPR surplus per scheduled team game.
 # nflverse, 2000–2016 draft classes. The NFL rounds are 1, 2, 3, and 4+.
 DRAFT_SURPLUS = {
@@ -185,14 +186,13 @@ def prospect_prior(row):
     return 17 * third, 0.25 * (1 - appearances)
 
 
-def apportion(components):
+def apportion(components, target):
     """Largest-remainder rounding keeps the published explanation additive."""
-    target = round(sum(components.values()))
     parts = {key: floor(val) for key, val in components.items()}
     order = sorted(parts, key=lambda key: components[key] - parts[key], reverse=True)
     for key in order[:target - sum(parts.values())]:
         parts[key] += 1
-    return target, parts
+    return parts
 
 
 DISCOUNT = 0.85
@@ -257,7 +257,7 @@ def raw_board(players, *, season_week=1):
 
 
 def value_board(players, picks, *, season_week=1):
-    """Blend football surplus and market exchange evidence into one native price."""
+    """Use the market price for a quoted player and the football forecast otherwise."""
     raw, context = raw_board(players, season_week=season_week)
     time_left = context["remainingSeasonFraction"]
     anchors = exchange_rating_anchors(time_left)
@@ -279,19 +279,30 @@ def value_board(players, picks, *, season_week=1):
         football_units = football_surplus * (1 - market_share)
         components = {k: football_units * v / projected if projected > 0 else 0.0
                       for k, v in football.items()}
-        components["market"] = market_share * exchange_surplus(row["market"], anchors)
+        market_units = exchange_surplus(row["market"], anchors)
+        components["market"] = market_share * market_units
         expected = sum(components.values())
         if expected <= 0:
             continue
         score = rate_from_anchors(expected, anchors)
-        # Allocate the final rating to the four underlying discounted-surplus
-        # signals in proportion to the amount each contributed.
+        # Keep each cent attributable to the source which supplied the price.
+        # On a football fallback, distribute the score across its three factors.
         target_scale = HUNDREDTHS_PER_POINT * score / expected
-        cents, allocated = apportion({k: v * target_scale for k, v in components.items()})
+        cents = round(score * HUNDREDTHS_PER_POINT)
         if cents == 0:
             continue
+        allocated = apportion({k: v * target_scale for k, v in components.items()}, cents)
+        value = cents / HUNDREDTHS_PER_POINT
+        market_score = None
+        if has_market:
+            market_score = value if market_share == 1 else round(rate_from_anchors(market_units, anchors) * 100) / 100
+        football_score = None
+        if has_football:
+            football_score = value if market_share == 0 else round(rate_from_anchors(football_surplus, anchors) * 100) / 100
         player_results[key] = {
-            "value": cents / HUNDREDTHS_PER_POINT,
+            "value": value,
+            "priceBasis": "market" if market_share == 1 else "football" if market_share == 0 else "blend",
+            "marketScore": market_score, "footballScore": football_score,
             "factors": {k: v / HUNDREDTHS_PER_POINT for k, v in allocated.items()},
             "coverage": row["coverage"], "remainingPpr": row["remainingPpr"],
             "projectedSurplus": round(projected, 3) if has_football else None,
@@ -316,7 +327,7 @@ def value_board(players, picks, *, season_week=1):
     return player_results, pick_results, {
         **context,
         "lineup": {"teams": TEAMS, **STARTERS, "FLEX": 1, "SUPER_FLEX": 1},
-        "method": "exchange-calibrated-rating",
+        "method": "market-quote-or-football",
         "scoreAnchors": [{"score": score, "surplus": surplus} for surplus, score in anchors],
         "ratingReference": {"buildingBlockScore": anchors[1][1], "earlyStartupScore": anchors[2][1],
                             "eliteScore": 95, "upperCurve": "rational-above-95"},

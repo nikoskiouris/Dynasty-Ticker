@@ -4947,10 +4947,10 @@ function paintTradeDraft() {
   const view = buildDraftView();
   // Cold /t/<code>: the recipient sees what was sent first (M1). A "Shared
   // trade" header, the full verdict, then the sides; the model notes fold away.
-  const priceNotes = `<details class="shared-trade-about"><summary>How values work</summary>
-    <p>Player values combine projected production with market prices. Draft picks use market prices on the same scale.</p>
-  </details>`;
   const shared = Boolean(activeSharedTrade(view.draft));
+  const priceNotes = `<details class="shared-trade-about"><summary>${shared ? "How today’s values work" : "How values work"}</summary>
+    <p>Market quotes set player and draft pick prices. For players without a quote, projected points above replacement determine the price.</p>
+  </details>`;
   host.dataset.sharedView = shared ? "1" : "";
   host.dataset.sharedEditing = shared && state.sharedEditing ? "1" : "";
   if (shared) {
