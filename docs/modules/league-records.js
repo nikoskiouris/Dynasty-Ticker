@@ -1,11 +1,11 @@
 import { resolveRosterIdentity } from "./franchise.js";
-import { buildSeasonModel } from "./standings.js";
+import { buildSeasonModel, matchupPoints, sleeperPoints } from "./standings.js";
 
 // League history draws facts from each Sleeper season rather than projecting
 // today's teams backward. Every source carries its original season/week.
 const id = (value) => String(value ?? "").trim();
 const number = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
-const points = (settings = {}, key) => number(settings[key]) + number(settings[`${key}_decimal`]) / 100;
+const points = (settings = {}, key) => sleeperPoints(settings[key], settings[`${key}_decimal`]) ?? 0;
 const round2 = (value) => Math.round(value * 100) / 100;
 
 function rosterName(entry, rosterId) {
@@ -67,8 +67,8 @@ export function championsWall(archive = {}) {
       completed: isCompleted(entry),
       champion: final ? rosterName(entry, final.w) : null,
       runnerUp: final?.l != null ? rosterName(entry, final.l) : null,
-      regularLeader: sorted.length ? rosterName(entry, sorted[0].roster_id) : null,
-      pointsLeader: pointsSorted.length ? rosterName(entry, pointsSorted[0].roster_id) : null,
+      regularLeader: sorted.some((roster) => { const r = rosterRecord(roster); return r.wins + r.losses + r.ties > 0; }) ? rosterName(entry, sorted[0].roster_id) : null,
+      pointsLeader: pointsSorted.some((roster) => rosterRecord(roster).pf !== 0) ? rosterName(entry, pointsSorted[0].roster_id) : null,
       lastPlace: sorted.length ? rosterName(entry, sorted[sorted.length - 1].roster_id) : null,
       consolationWinner: (() => {
         const game = (entry.losersBracket || []).find((match) => number(match.p) === 1 && match.w != null);
@@ -82,14 +82,16 @@ export function championsWall(archive = {}) {
 // games are played in the same weeks but are not playoff meetings.
 function bracketPairs(entry) {
   const start = number(entry.league?.settings?.playoff_week_start || 15);
-  const twoWeekFinal = number(entry.league?.settings?.playoff_round_type) === 1;
+  const roundType = number(entry.league?.settings?.playoff_round_type);
+  const titleRound = number((entry.winnersBracket || []).find((game) => Number(game.p) === 1)?.r);
   const pairs = new Set();
   for (const game of entry.winnersBracket || []) {
     if (game?.t1 == null || game?.t2 == null) continue;
     const key = [id(game.t1), id(game.t2)].sort().join("-");
-    const week = start + number(game.r) - 1;
+    const round = number(game.r);
+    const week = start + (round - 1) * (roundType === 2 ? 2 : 1);
     pairs.add(`${week}:${key}`);
-    if (twoWeekFinal) pairs.add(`${week + 1}:${key}`);
+    if (roundType === 2 || (roundType === 1 && round === titleRound)) pairs.add(`${week + 1}:${key}`);
   }
   return pairs;
 }
@@ -110,12 +112,11 @@ export function seasonGames(entry, archive) {
     for (const pair of byMatchup.values()) {
       if (pair.length !== 2) continue; // A bye is not a head-to-head game.
       const [a, b] = pair;
-      const left = Number(a.points), right = Number(b.points);
-      if (!Number.isFinite(left) || !Number.isFinite(right) || (left === 0 && right === 0)) continue;
+      if ((a.custom_points ?? a.points) == null || (b.custom_points ?? b.points) == null) continue;
+      const left = matchupPoints(a), right = matchupPoints(b);
+      if (left === 0 && right === 0) continue;
       games.push({ season: id(entry.season), leagueId: id(entry.leagueId), week: number(week),
-        playoff: number(week) >= playoffStart && (playoffPairs.size
-          ? playoffPairs.has(`${number(week)}:${[id(a.roster_id), id(b.roster_id)].sort().join("-")}`)
-          : true),
+        playoff: number(week) >= playoffStart && playoffPairs.has(`${number(week)}:${[id(a.roster_id), id(b.roster_id)].sort().join("-")}`),
         teams: [
           { rosterId: id(a.roster_id), name: rosterName(entry, a.roster_id), points: left },
           { rosterId: id(b.roster_id), name: rosterName(entry, b.roster_id), points: right },
@@ -171,7 +172,7 @@ export function leagueRecordBook(archive = {}) {
     for (const roster of entry.rosters || []) {
       const record = rosterRecord(roster);
       // A season still being played can hold this record, but it says "so far".
-      set("highSeasonPF", { season: id(entry.season), leagueId: id(entry.leagueId),
+      if (record.wins + record.losses + record.ties > 0) set("highSeasonPF", { season: id(entry.season), leagueId: id(entry.leagueId),
         team: rosterName(entry, roster.roster_id), value: round2(record.pf), partial: !isCompleted(entry) }, true);
       if (!isCompleted(entry)) continue;
       const seasonRecord = { season: id(entry.season), leagueId: id(entry.leagueId),

@@ -7,7 +7,7 @@ import {
   PLACE_ALIASES,
   SCOPED_ROOM_ALIASES,
 } from "./constants.js";
-import { isRankAssetId } from "./ranks.js";
+import { isRankAssetId } from "./history-route.js";
 
 const SLEEPER_LEAGUE_PATH = /leagues\/(\d+)/i;
 const SLEEPER_USER_PATH = /sleeper\.(?:app|com)\/(?:u|user)\/([^/?#]+)/i;

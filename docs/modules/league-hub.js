@@ -1,22 +1,8 @@
 import { escapeHtml } from './html.js';
 import { ordinal } from './standings.js';
 
-// What this league plays, in one chip: "14-team · 1QB · PPR · TE bonus".
-// It describes the league only; every value still uses the one 12-team
-// Superflex PPR dynasty set (ticket 044).
-export function leagueFormat(league) {
-  const slots = (league?.roster_positions || []).map(slot => String(slot).toUpperCase());
-  const superflex = slots.includes('SUPER_FLEX') || slots.includes('OP') || slots.filter(slot => slot === 'QB').length >= 2;
-  const scoring = league?.scoring_settings || {};
-  const rec = Number(scoring.rec);
-  const ppr = rec >= 1 ? 'PPR' : rec >= 0.5 ? 'Half PPR' : Number.isFinite(rec) ? 'Standard' : '';
-  const teBonus = Number(scoring.bonus_rec_te) > 0;
-  const teams = Number(league?.total_rosters) || 0;
-  const type = Number(league?.settings?.type);
-  const mode = type === 2 ? 'Dynasty' : type === 1 ? 'Keeper' : 'Redraft';
-  const chip = [teams ? `${teams}-team` : '', superflex ? 'SF' : '1QB', ppr, teBonus ? 'TE bonus' : '', mode].filter(Boolean).join(' · ');
-  return { chip };
-}
+import { leagueFormat } from './league-format.js';
+export { leagueFormat };
 
 // A regular-season leader is not a champion. Only a completed title match counts.
 export function recentChampion(seasons = []) {
@@ -32,14 +18,14 @@ export function recentChampion(seasons = []) {
 }
 
 // No username, no pick yet: ask which team is theirs instead of naming "Roster ?".
-function renderTeamPick({ myTeam, myRosterId, teams }) {
+export function renderTeamPick({ myTeam, myRosterId, teams, controlId = "hub-team-select" }) {
   if (!teams.length) return myTeam ? `<p>Viewing as ${escapeHtml(myTeam)}</p>` : '';
   const chosen = myTeam ? String(myRosterId) : '';
   const options = [...teams]
     .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: "base" }))
     .map(team => `<option value="${escapeHtml(String(team.id))}"${String(team.id) === chosen ? ' selected' : ''}>${escapeHtml(team.name)}</option>`)
     .join('');
-  return `<p class="league-hub-pick"><label for="hub-team-select">Your team</label> <select id="hub-team-select">${chosen ? '' : '<option value="" selected>Select team</option>'}${options}</select></p>`;
+  return `<p class="league-hub-pick"><label for="${escapeHtml(controlId)}">Your team</label> <select id="${escapeHtml(controlId)}">${chosen ? '' : '<option value="" selected>Select team</option>'}${options}</select></p>`;
 }
 
 export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', myRosterId = '', teams = [], model = null, transactions = [], tradesLoaded = false, loading = false, caveat = '', savedNote = '' } = {}) {

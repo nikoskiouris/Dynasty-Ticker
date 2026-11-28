@@ -3273,11 +3273,6 @@ a.inline-link:hover {
     align-content: start;
   }
 
-  /* Anchored jumps land below the fixed ☰ button. */
-  html {
-    scroll-padding-top: 4.5rem;
-  }
-
   .workspace {
     grid-column: auto;
   }
@@ -6294,7 +6289,7 @@ body.launch-open .workspace { display:block; }
 .player-detail-facts dd { margin:0; font-weight:700; }
 .player-detail-grid h3 { font-size:1rem; margin:20px 0 4px; }
 .player-comparables { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:16px 0 24px; }
-.player-comparables button { display:flex; gap:10px; align-items:center; text-align:left; }
+.player-comparables a { display:flex; gap:10px; align-items:center; text-align:left; }
 .player-comparables small { display:block; margin-top:5px; color:var(--muted,#a7b2c1); }
 @media(max-width:640px) {
  .player-detail-top { position:sticky; top:0; z-index:3; background:var(--panel,#111b26); padding:8px 0; margin-bottom:16px; }

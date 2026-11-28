@@ -34,8 +34,9 @@
 #league-page :is(input,select), #league-entry-controls :is(input,select) {
   min-width: 0; min-height: 37px; width: 100%; margin: 0;
   padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 5px;
-  background: #fff; color: var(--text); font-family: inherit;
+  background-color: #fff; color: var(--text); font-family: inherit;
 }
+#league-page select, #league-entry-controls select { padding-inline-end: 2.4rem; }
 #league-entry-controls .league-module { background: none; box-shadow: none; margin: 14px 0; }
 #league-entry-controls .league-load-form {
   display: grid; grid-template-columns: minmax(0, 1fr) auto;
@@ -108,14 +109,26 @@
 #league-page .trade-log-side h3 { margin: 0; }
 #league-page .received-asset { display: block; margin: 4px 0; }
 #league-page .trade-log-card details { margin-top: 4px; }
-#league-page .history-jump { margin: 14px 0 16px; width: min(100%,300px); }
-#league-page .history-section { scroll-margin-top: 8rem; }
+#league-page .league-history-page { --history-control-height: 37px; }
+#league-page .history-jump {
+  position: sticky;
+  top: env(safe-area-inset-top);
+  z-index: 2;
+  margin: 8px 0;
+  padding-block: 6px;
+  background: var(--bg);
+}
+#league-page .history-jump select { width: min(100%, 300px); min-height: var(--history-control-height); }
+#league-page .history-section,
+#league-page .history-section :is(a, button, summary, [tabindex]) {
+  scroll-margin-top: calc(var(--history-control-height) + 20px + env(safe-area-inset-top));
+}
 #league-page :is(.league-history-records,.league-history-awards,.league-trophy-list,.league-history-season-list) { gap: 0 16px; }
 #league-page :is(.league-history-season,.league-history-records > div,.league-history-awards > div,.league-trophy-card) {
   border: 0; border-bottom: 1px solid var(--line); background: none; border-radius: 0; padding: 9px 0;
 }
 #league-page :is(.league-history-table th,.league-history-table td) { padding: 7px 10px; font-size: 13px; }
-#league-page .league-history-table tbody th { max-width: min(200px, 40vw); overflow-wrap: anywhere; white-space: normal; }
+#league-page .league-history-table tbody th { max-width: min(200px, 40vw); overflow-wrap: break-word; white-space: normal; }
 #league-page .league-history-table th:first-child {
   position: sticky; left: 0; background: var(--bg); box-shadow: 1px 0 var(--line);
 }
@@ -139,7 +152,8 @@
   #league-page .league-hub-header { gap: 7px 10px; }
   #league-page .league-hub-header > div { flex-basis: 70%; }
   #league-page .league-hub-header a { padding-block: 4px; }
-  #league-page .history-jump { width: 100%; }
+  #league-page .league-history-page { --history-control-height: 44px; }
+  #league-page .history-jump select { width: 100%; }
   #league-page :is(.standings-row,.odds-row,.sheet-row,.league-back,summary) { min-height: 44px; }
 }
 

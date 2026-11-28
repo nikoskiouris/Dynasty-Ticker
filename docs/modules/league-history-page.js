@@ -112,7 +112,8 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
   const leagueId = encodeURIComponent(String(archive?.leagueId || ""));
   const name = seasons[0]?.league?.name || "League";
   const years = seasons.map((item) => Number(item.season)).filter(Number.isFinite);
-  const range = years.length ? `${Math.min(...years)}–${Math.max(...years)} · ${years.length} season${years.length === 1 ? "" : "s"}` : "No seasons loaded";
+  const range = years.length > 1 ? `${Math.min(...years)}–${Math.max(...years)} · ${years.length} seasons`
+    : years.length ? `${years[0]} season` : "No seasons loaded";
   const book = leagueRecordBook(archive);
   const issues = archive?.issues || [];
   const sections = [

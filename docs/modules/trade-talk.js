@@ -23,7 +23,7 @@ const ROUND_WORDS = {
   "1st": 1, first: 1, "2nd": 2, second: 2, "3rd": 3, third: 3, "4th": 4, fourth: 4, "5th": 5, fifth: 5,
 };
 const BUCKET_WORDS = { early: "early", mid: "mid", middle: "mid", late: "late" };
-const COUNT_WORDS = { a: 1, an: 1, one: 1, two: 2, both: 2, couple: 2, pair: 2, three: 3 };
+const COUNT_WORDS = { a: 1, an: 1, one: 1, two: 2, both: 2, couple: 2, pair: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12 };
 const PICK_FILLER = new Set(["round", "rounder", "rounders", "pick", "picks", "rookie", "draft", "in", "the", "of", "own", "s"]);
 const PIECE_FILLER = /^(?:a|an|the|some|also|like|maybe|just|plus|and)\s+/;
 
@@ -149,10 +149,8 @@ function cleanText(text) {
     .replace(/[’‘`]/g, "'")
     .replace(/[“”]/g, "\"")
     .replace(/\s*(?:\+|&)\s*/g, " and ")
-    // "Gibbs -> Chase": an arrow reads as "for".
-    .replace(/\s*(?:->|=>|→)\s*/g, " for ")
-    // "Gibbs <> Bijan", "Gibbs <-> Bijan", "Gibbs ↔ Bijan": the same.
-    .replace(/\s*(?:<->|<=>|<>|↔|⇄|⇆)\s*/g, " for ")
+    // Match longer exchange arrows before their one-way suffixes.
+    .replace(/\s*(?:<->|<=>|<>|->|=>|→|↔|⇄|⇆)\s*/g, " for ")
     // "Gibbs straight up for Bijan", "Gibbs for Bijan, even up": filler, not a
     // name. "Gibbs 1 for 1 Bijan" is a plain swap.
     .replace(/\s+(?:1|one)[ -]for[ -](?:1|one)\s+/g, " for ")
@@ -299,14 +297,13 @@ export function parsePickPhrase(text, { season = new Date().getUTCFullYear() + 1
       pick.round = Number(words[i + 1]);
       i += 1;
     } else if (/^r\d$/.test(word)) pick.round = Number(word.slice(1));
-    else if (/^\d$/.test(word) && pick.round == null) pick.count = Number(word);
+    else if (/^\d{1,2}$/.test(word) && pick.round == null) pick.count = Number(word);
     else if (COUNT_WORDS[word] != null && pick.round == null) pick.count = COUNT_WORDS[word];
     else if (!PICK_FILLER.has(word)) return null;
   }
-  if (!pick.round || pick.round > 7) return null;
+  if (!pick.round || pick.round > 7 || pick.count < 1 || pick.count > 12) return null;
   pick.seasonGiven = Boolean(pick.season);
   if (!pick.season) pick.season = Number(season);
-  pick.count = Math.max(1, Math.min(3, pick.count));
   return pick;
 }
 
@@ -400,6 +397,9 @@ function resolvePick(pick, { side, ownerRosterId, ctx }) {
   // "Three firsts" with no year: a team holds one 1st a year, and Sleeper
   // trades picks for the next three drafts, so read it as one per draft
   // (2027, 2028, 2029). "Three 2027 firsts" keeps the year typed.
+  if (pick.count > 3 && !pick.seasonGiven) {
+    return { reason: `Specify the draft years, for example “${pick.count} ${pick.season} ${roundLabel(pick.round)}s”.` };
+  }
   if (pick.count > 1 && !pick.seasonGiven) {
     const spread = Array.from({ length: pick.count }, (_, i) => genericPickAsset({ ...pick, season: pick.season + i }, ctx.pickIds));
     if (spread.every(Boolean)) {
@@ -545,23 +545,28 @@ function piecesWithSide(text, side, ctx, partner, index) {
 
 function findInDraft(text, draft, ctx) {
   const owned = pullOwner(text, ctx.managers, ctx.meRosterId);
-  const items = ["left", "right"].flatMap((side) => (draft?.[side] || []).map((item) => ({ ...item, side })));
+  const sides = owned.owner === "me" ? ["left"] : owned.owner ? ["right"] : ["left", "right"];
+  const items = sides.flatMap((side) => (draft?.[side] || []).map((item) => ({ ...item, side })));
   const pick = parsePickPhrase(owned.text, { season: ctx.season });
   if (pick) {
-    const explicitSeason = /\b(?:20)?\d{2}\b|next year|this year|future/.test(owned.text);
-    return items.filter((item) => {
+    const matches = items.filter((item) => {
       const meta = parsePickAssetId(item.assetId);
       if (!meta || Number(meta.round) !== pick.round) return false;
-      if (explicitSeason && Number(meta.season) !== pick.season) return false;
-      if (owned.owner === "me" && item.side !== "left") return false;
-      if ((owned.owner === "partner" || owned.owner === "manager") && item.side !== "right") return false;
-      return true;
-    }).slice(0, pick.count);
+      if (pick.bucket && meta.bucket !== pick.bucket) return false;
+      return !pick.seasonGiven || Number(meta.season) === pick.season;
+    });
+    if (matches.length > pick.count && matches.some((item) => item.side !== matches[0].side || item.assetId !== matches[0].assetId)) {
+      const choices = [...new Set(matches.map((item) => `${item.name} (Team ${item.side === "right" ? 1 : 2})`))];
+      return { matches: [], reason: `Several picks match (${choices.join(", ")}). Specify the pick or use its remove button.` };
+    }
+    return { matches: matches.slice(0, pick.count) };
   }
   const index = indexPlayers(items.map((item) => ({ ...item, value: 1 })));
   const found = resolvePlayer(owned.text, index);
-  if (found.match) return [found.match];
-  return found.options ? found.options.slice(0, 1) : [];
+  if (found.options) {
+    return { matches: [], reason: `Try the full name, such as ${found.options.map((row) => row.name).join(" or ")}.` };
+  }
+  return { matches: found.match ? [found.match] : [] };
 }
 
 function blankPlan(intent) {
@@ -675,11 +680,29 @@ export function parseTradeTalk(message, ctx = {}) {
   // "swap Gibbs for Bijan" edits the draft. "Trade Gibbs for Bijan" (and
   // "should I trade Gibbs for Bijan?") is a whole trade, not a swap.
   const replace = body.match(/^(?:swap|replace|change|sub|switch)\s+(?:out\s+)?(.+?)\s+(?:for|with|to|into)\s+(.+)$/);
-  if (replace && findInDraft(replace[1], context.draft, context).length) {
+  const source = replace && findInDraft(replace[1], context.draft, context);
+  if (source?.reason) {
     const plan = blankPlan("replace");
-    const gone = findInDraft(replace[1], context.draft, context);
-    plan.removes.push(...gone.map((item) => ({ side: item.side, uid: item.uid, name: item.name })));
-    absorb(plan, piecesWithSide(replace[2], gone[0].side, context, partner, index));
+    plan.misses.push({ text: replace[1], reason: source.reason });
+    return finish(plan);
+  }
+  if (source?.matches.length) {
+    const plan = blankPlan("replace");
+    const gone = source.matches;
+    const replacement = piecesWithSide(replace[2], gone[0].side, context, partner, index);
+    const duplicates = replacement.adds.filter(({ asset }) => valueCalcHasAsset(context.draft, asset)
+      && !gone.some((item) => item.assetId === asset.assetId));
+    if (replacement.misses.length || replacement.asks.length || duplicates.length) {
+      plan.misses.push(...replacement.misses);
+      for (const ask of replacement.asks) {
+        plan.notes.push(`Specify a replacement: ${ask.options.map((row) => row.name).join(" or ")}.`);
+      }
+      if (duplicates.length) plan.notes.push(`${listNames(duplicates)} ${duplicates.length === 1 ? "is" : "are"} already in the trade.`);
+      plan.notes.push("Your trade is unchanged.");
+    } else {
+      plan.removes.push(...gone.map((item) => ({ side: item.side, uid: item.uid, name: item.name })));
+      absorb(plan, replacement);
+    }
     return finish(plan);
   }
   // "Replace Nacua with Chase" when Nacua isn't in the trade: say that, rather
@@ -708,9 +731,9 @@ export function parseTradeTalk(message, ctx = {}) {
       return finish(plan);
     }
     splitPieces(remove[1]).forEach((piece) => {
-      const found = findInDraft(piece, context.draft, context);
-      if (!found.length) plan.misses.push({ text: piece, reason: "Not in the trade." });
-      found.forEach((item) => plan.removes.push({ side: item.side, uid: item.uid, name: item.name }));
+      const { matches, reason } = findInDraft(piece, context.draft, context);
+      if (!matches.length) plan.misses.push({ text: piece, reason: reason || "Not in the trade." });
+      matches.forEach((item) => plan.removes.push({ side: item.side, uid: item.uid, name: item.name }));
     });
     return finish(plan);
   }

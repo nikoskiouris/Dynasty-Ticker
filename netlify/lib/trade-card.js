@@ -215,7 +215,14 @@ export async function renderCardPng(svg) {
     fitTo: { mode: "width", value: W },
     font: { fontBuffers: fonts, loadSystemFonts: false, defaultFontFamily: SANS },
   });
-  return resvg.render().asPng();
+  let image;
+  try {
+    image = resvg.render();
+    return image.asPng();
+  } finally {
+    image?.free();
+    resvg.free();
+  }
 }
 
 // /og/t/<code>.png renders PNG (what X, iMessage, Slack, and Facebook need).

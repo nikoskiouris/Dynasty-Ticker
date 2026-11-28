@@ -27,7 +27,7 @@ export function sleeperResponseFailed(err) {
   const status = Number(err?.status);
   if (Number.isInteger(status) && status >= 400) return true;
   const raw = String(err?.message || "");
-  if (/Network\/CORS/.test(raw)) return true;
+  if (/Network\/CORS|timed out/i.test(raw)) return true;
   return /Sleeper API returned\s+\d{3}/.test(raw);
 }
 

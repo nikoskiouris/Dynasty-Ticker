@@ -34,7 +34,7 @@ html[data-players-board] body #ranks-section .panel-heading h2,
   color: var(--board-muted);
   margin: 4px 0 0;
 }
-#ranks-dashboard { scroll-margin-top: 65px; }
+#ranks-dashboard { scroll-margin-top: 8px; }
 #ranks-section .ranks { display: block; width: 100%; margin: 0; }
 #ranks-section .ranks-toolbar {
   display: grid;
@@ -63,7 +63,7 @@ html[data-players-board] body #ranks-section .panel-heading h2,
 #ranks-section .rank-asset-tabs button,
 #ranks-section .rank-pager button,
 #ranks-section button.rank-sort-btn,
-#ranks-section button.rank-name-link,
+#ranks-section :is(button, a).rank-name-link,
 #ranks-section .player-return {
   border: 0;
   box-shadow: none;
@@ -164,7 +164,8 @@ html[data-players-board] body #ranks-section .panel-heading h2,
   letter-spacing: 0;
 }
 #ranks-section .rankings-table thead th {
-  position: static;
+  position: sticky;
+  top: 0;
   height: 29px;
   width: auto;
   background: #eef0e9;
@@ -183,11 +184,14 @@ html[data-players-board] body #ranks-section .panel-heading h2,
   white-space: nowrap;
   font: inherit;
   color: inherit;
-  min-height: 27px;
+  width: 100%;
+  min-height: 29px;
   padding: 0;
+  text-align: inherit;
 }
+#ranks-section button.rank-sort-btn::after { content: none; }
 #ranks-section .rank-sort-arrow { font-size: .9em; }
-#ranks-section button.rank-name-link {
+#ranks-section :is(button, a).rank-name-link {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -251,23 +255,29 @@ html[data-players-board] body #ranks-section .panel-heading h2,
 #ranks-section .player-detail-facts > div { padding: 7px 0; border-bottom: 1px solid var(--board-rule); }
 #ranks-section .player-detail-facts dd { text-align: right; font-variant-numeric: tabular-nums; }
 #ranks-section .player-comparables { gap: 6px; }
+#ranks-section .player-comparables a { text-decoration: none; }
 @media (max-width: 620px) {
   html[data-players-board]:not([data-player-page]) body #ranks-section > .panel-heading { display: block; margin-bottom: 12px; }
   #ranks-section .rank-date { font-size: 11px; margin-top: 2px; }
-  #ranks-section .rank-search-label { flex: 1 1 0; max-width: 52%; }
-  #ranks-section .rank-asset-tabs button { padding-inline: 9px; }
-  #ranks-section .ranks-search { font-size: 16px; }
-  #ranks-section .col-rank { width: 9%; }
-  #ranks-section .col-position { width: 10%; }
-  #ranks-section .col-team { width: 12%; }
-  #ranks-section .col-value { width: 20%; }
+  #ranks-section .rank-tools { flex-wrap: wrap; gap: 6px 10px; }
+  #ranks-section .rank-search-label { flex: 1 1 188px; }
+  #ranks-section .rank-asset-tabs button { min-height: 40px; padding-inline: 9px; }
+  #ranks-section .rank-options summary { min-height: 36px; align-content: center; }
+  #ranks-section .ranks-search { min-height: 44px; font-size: 16px; }
+  #ranks-section .col-rank { width: 32px; }
+  #ranks-section .col-position { width: 30px; }
+  #ranks-section .col-team { width: 42px; }
+  #ranks-section .col-value { width: 72px; }
   #ranks-section .rankings-table :is(th,td) { padding-inline: 4px; }
   #ranks-section .rankings-table thead th { font-size: 10px; }
   #ranks-section .rankings-table td { font-size: 12px; }
-  #ranks-section button.rank-name-link { gap: 5px; font-size: 13px; }
+  #ranks-section :is(button, a).rank-name-link { gap: 5px; font-size: 13px; }
   #ranks-section .rankings-table td.rank-table-value { font-size: 13px; }
   #ranks-section .rank-pager button { min-height: 38px; }
-  #ranks-section .rank-sort-arrow { display: none; }
+  #ranks-section button.rank-sort-btn { min-height: 32px; }
+  #ranks-section .rank-options .ranks-filters { gap: 4px; }
+  #ranks-section button.ranks-chip { min-height: 36px; padding-inline: 9px; }
+  #ranks-section .rank-options select { font-size: 16px; min-height: 44px; }
 }
 #ranks-section [data-player-connect-slot]:not(:empty) { border-top: 1px solid var(--board-rule); padding-top: 12px; margin-top: 14px; }
 #ranks-section .player-connect { max-width: 440px; }
