@@ -6,13 +6,14 @@ from contextlib import contextmanager
 import json
 from pathlib import Path
 from random import Random
-from statistics import median
+from statistics import median, quantiles
 import subprocess
 from tempfile import TemporaryDirectory
 
 from preseason_trade_fit import END, KICKOFF, START, millis, reconstructed_inputs
 import ranking_holdout as audit
 from trade_spacing import V4, WINDOWS, exchanges, legacy_prices
+import dynasty_value
 from dynasty_value import value_board
 
 
@@ -84,7 +85,7 @@ def model_prices(inputs, picks):
             for k, result in versions.items()}
 
 
-def interval(records):
+def interval(records, baseline=('v4', 1), candidate=('v5', 1)):
     # Resample whole leagues. Each resample preserves the paired scores on every deal.
     by_league = defaultdict(list)
     for r in records:
@@ -94,10 +95,44 @@ def interval(records):
     changes = []
     for _ in range(1000):
         sample = [r for group in rng.choices(groups, k=len(groups)) for r in group]
-        old, new = (median(abs(r[k][1]) for r in sample) for k in ('v4', 'v5'))
+        old, new = (median(abs(r[k][column]) for r in sample) for k, column in (baseline, candidate))
         changes.append(new - old)
     changes.sort()
     return changes[24], changes[974]
+
+
+def weight_check(deals, inputs, picks, quotes):
+    # Run the production estimator for each research assumption, including its
+    # ordinary one-source fallback, and keep the original model state for callers.
+    prices = {}
+    original = dynasty_value.MARKET_SHARE
+    try:
+        for weight in (.25, .50, 1.0):
+            dynasty_value.MARKET_SHARE = weight
+            prices[weight] = {k: r['value'] for part in value_board(inputs, picks)[:2] for k, r in part.items()}
+    finally:
+        dynasty_value.MARKET_SHARE = original
+    selected, matched = scored_deals(deals, prices, quotes)
+    print(f'Market blend check: {len(matched)}/{len(selected)} fully covered')
+    for group, rows in (
+        ('All', matched),
+        ('Unequal', [d for d in matched if len(d['sides'][0]) != len(d['sides'][1])]),
+        ('Two for one', [d for d in matched if tuple(map(len, d['sides'])) == (1, 2)]),
+    ):
+        if not rows:
+            continue
+        print(f'  {group}: {len(rows)} deals from {len({r["league"] for r in rows})} leagues')
+        for weight in prices:
+            listed, credited = zip(*(r[weight] for r in rows))
+            print(f'    Market share {weight:.0%}: median absolute gap listed {median(map(abs, listed)):.1%}, '
+                  f'credited {median(map(abs, credited)):.1%}')
+        if group == 'Unequal' and len(rows) > 1:
+            gaps = [r[.25][1] for r in rows]
+            p90 = quantiles(map(abs, gaps), n=10, method='inclusive')[-1]
+            print(f'    Published credit: median signed gap {median(gaps):+.1%}, 90th percentile absolute {p90:.1%}')
+            for label, alternative in [('50% market', (.5, 1)), ('no credit', (.25, 0))]:
+                lo, hi = interval(rows, baseline=(.25, 1), candidate=alternative)
+                print(f'    {label} minus published median absolute gap, league bootstrap: {lo:+.1%} to {hi:+.1%}')
 
 
 def report(records, prices):
@@ -151,18 +186,29 @@ def main():
     parser.add_argument('--cache-dir', type=Path, default=Path.home()/'.cache/dynasty-ticker/2026-preseason')
     parser.add_argument('--historical-players', action='store_true',
                         help='Also replay the independent 2023 and 2024 player-only sample')
+    parser.add_argument('--weight-check', action='store_true',
+                        help='Compare 25%, 50% and 100% market weights and calculator credit')
     args = parser.parse_args()
     args.cache_dir.mkdir(parents=True, exist_ok=True)
     inputs, market, picks = reconstructed_inputs(args.cache_dir)
     prices = model_prices(inputs, picks)
     quotes = {**market, **{k: r['market'] for k, r in picks.items()}}
-    selected, covered = scored_deals(json.loads(args.deals.read_text()), prices, quotes)
+    deals = json.loads(args.deals.read_text())
+    selected, covered = scored_deals(deals, prices, quotes)
     for window, select in (('pre-kickoff', lambda r: r['accepted'] < millis(KICKOFF)),
                            ('after kickoff through Week 2', lambda r: r['accepted'] >= millis(KICKOFF)),
                            ('through Week 2', lambda r: True)):
         matches = list(filter(select, covered))
         print(f'{window}: {len(matches)}/{sum(select(r) for r in selected)} fully priced')
         report(matches, prices['v4'])
+    future_only = [r for r in covered if not any(k.startswith('pick:2026:') for s in r['sides'] for k in s)]
+    unequal = [r for r in future_only if len(r['sides'][0]) != len(r['sides'][1])]
+    if unequal:
+        gap = median(abs(r['v5'][1]) for r in unequal)
+        print(f'Excluding all current-draft picks: {len(future_only)} covered; '
+              f'{len(unequal)} unequal, v5 median credited gap {gap:.1%}')
+    if args.weight_check:
+        weight_check(deals, inputs, picks, quotes)
     if args.historical_players:
         historical_players(args.cache_dir)
 

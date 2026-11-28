@@ -14,7 +14,7 @@ export function valuationUpdatedAt(bundle) {
   if (Number.isNaN(date.getTime())) return text;
   return date.toISOString().slice(0, 10);
 }
-export const PLAYER_VALUE_MODEL_VERSION = "dynasty-sf-ppr-v5";
+export const PLAYER_VALUE_MODEL_VERSION = "dynasty-sf-ppr-v5.1";
 
 export function isCurrentValueBoard(payload) {
   return payload?.modelVersion === PLAYER_VALUE_MODEL_VERSION && payload.valueScale === 100;
@@ -27,7 +27,7 @@ const archivedIntegerModels = new Set([
   "sleeper-trades-v1", "sleeper-trades-v2", "sleeper-trades-v3", "sleeper-trades-v4",
   "dynasty-sf-ppr-v1", "dynasty-sf-ppr-v2-preview", "dynasty-sf-ppr-v2",
 ]);
-const archivedHundredPointModels = new Set(["dynasty-sf-ppr-v3", "dynasty-sf-ppr-v4"]);
+const archivedHundredPointModels = new Set(["dynasty-sf-ppr-v3", "dynasty-sf-ppr-v4", "dynasty-sf-ppr-v5"]);
 
 function priceScale(row) {
   if (row?.modelVersion === PLAYER_VALUE_MODEL_VERSION || archivedHundredPointModels.has(row?.modelVersion)) {
@@ -484,7 +484,9 @@ function assetSkipsOffensiveNameMatch(asset) {
 export function lookupMarketValue(asset, values, valueNameMap = NO_NAMES, catalog = null) {
   const exact = values?.[asset?.assetId];
   if (Number.isFinite(exact)) return { value: exact, estimated: exact === 0 };
-  if (!assetSkipsOffensiveNameMatch(asset)) {
+  // A numeric Sleeper ID identifies one player, including an unpriced one.
+  // Names can collide across NFL positions and draft classes.
+  if (asset?.assetType !== "pick" && !/^player:\d+$/.test(asset?.assetId) && !assetSkipsOffensiveNameMatch(asset)) {
     const named = findMarketValueByPlayerName(playerNameForAsset(asset), values, valueNameMap);
     if (Number.isFinite(named)) return { value: named, estimated: false };
   }

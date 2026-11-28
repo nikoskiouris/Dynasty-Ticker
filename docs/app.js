@@ -1160,7 +1160,7 @@ function rankOwners() {
 
 function rankPlayerNote(playerId, raw) {
   if (!playerNoteContext?.previousSeason && !playerNoteContext?.seasonStats) return "";
-  const position = String(raw?.position || raw?.fantasy_positions?.[0] || "").toUpperCase();
+  const position = String(state.valueBundles?.players?.[`player:${playerId}`]?.position || raw?.position || raw?.fantasy_positions?.[0] || "").toUpperCase();
   const line = formatPlayerDetail({
     isRookie: isRookiePlayer(raw, playerNoteContext.currentSeason),
     draft: lookupNflDraftPick(playerId, playerNoteContext.draftPicks, raw),
@@ -2197,12 +2197,17 @@ function sharedOnCurrentPrices(stamp) {
 function sharedVerdictFor(view) {
   const entry = activeSharedTrade(view.draft);
   if (!entry || !state.valueBundles) return null;
-  const today = shareSummary(entry.decoded, state.valueBundles);
+  const names = {};
+  for (const assetId of [...entry.decoded.give, ...entry.decoded.get]) {
+    const id = assetId.slice("player:".length);
+    if (assetId.startsWith("player:") && state.players?.[id]?.full_name) names[id] = state.players[id].full_name;
+  }
+  const today = shareSummary(entry.decoded, state.valueBundles, names);
   if (!today) return null;
   // A 1QB code was shared on 1QB prices we no longer publish. An old SF
   // snapshot is not what the sender saw, so do not print it as "Shared on".
   const legacy = Boolean(entry.decoded?.legacyFormat);
-  const shared = entry.snapshot && !legacy ? shareSummary(entry.decoded, entry.snapshot, {}, state.valueBundles) : null;
+  const shared = entry.snapshot && !legacy ? shareSummary(entry.decoded, entry.snapshot, names, state.valueBundles) : null;
   const moved = Boolean(shared) && !sameVerdict(shared, today);
   const earlierModel = shared && entry.snapshot.modelVersion !== state.valueBundles.modelVersion;
   if (entry.settled && !entry.reported) {
@@ -4804,7 +4809,7 @@ function renderRosterSheet() {
     .filter((asset) => asset.assetType === "player")
     .sort((a, b) => getAssetValue(b, values) - getAssetValue(a, values))
     .forEach((asset) => {
-      const pos = String(playerPositionForAsset(asset) || "").toUpperCase();
+      const pos = state.valueBundles?.players?.[asset.assetId]?.position || playerPositionForAsset(asset);
       const key = POSITION_ORDER.includes(pos) ? pos : "Other";
       if (!positionGroups.has(key)) positionGroups.set(key, []);
       positionGroups.get(key).push(asset);
@@ -5041,16 +5046,22 @@ function draftValuesReady() {
 
 // A player id from the URL that is not a real player: say so, drop it, no verdict.
 function dropUnknownDraftPlayers() {
-  const players = state.players;
-  if (!players || typeof players !== "object" || !Object.keys(players).length) return;
-  const bundles = state.valueBundles || {};
+  const shared = activeSharedTrade();
+  if (shared?.snapshotState === "loading") return;
   const known = (assetId) => {
     const id = String(assetId || "").replace(/^player:/, "");
-    return Boolean(players[id] || bundles.sf?.[assetId] != null || state.valueNameMap?.[assetId]);
+    return Boolean(state.players?.[id] || draftNamesDirectory?.[id] || state.valueBundles?.sf?.values?.[assetId] != null
+      || state.valueNameMap?.[assetId] || shared?.snapshot?.sf?.[assetId] != null);
   };
   const isPlayer = (item) => /^player:/.test(String(item?.assetId || ""));
   const bad = [...(state.valueCalc?.left || []), ...(state.valueCalc?.right || [])].filter((item) => isPlayer(item) && !known(item.assetId));
   if (!bad.length) return;
+  // A missing current quote is common on older links. Only a player-directory
+  // lookup can distinguish an unpriced player from a mistyped Sleeper id.
+  if (!draftNamesDirectory) {
+    requestDraftPlayerNames();
+    return;
+  }
   const ids = new Set(bad.map((item) => item.uid));
   state.valueCalc = {
     ...state.valueCalc,
@@ -5887,18 +5898,18 @@ function draftItemDisplayName(item, names) {
 }
 
 let draftNamesRequested = false;
+let draftNamesDirectory = null;
 function requestDraftPlayerNames() {
   if (draftNamesRequested) return;
   draftNamesRequested = true;
   const epoch = playerLoadEpoch;
-  // A league uses the slim file. A shared trade has no league, so a missing
-  // name still comes from Sleeper without downloading the slim dump.
-  const job = (state.leagueId || bootRoute?.leagueId)
-    ? loadPlayersWithCache()
-    : apiGetWithRetry(`/players/nfl`, { timeoutMs: 30000, retries: 1, cache: "default" }).then((raw) => slimPlayersMap(raw));
+  const job = loadSlimPlayersFile().then(players => players && Object.keys(players).length ? players
+    : apiGetWithRetry(`/players/nfl`, { timeoutMs: 30000, retries: 1, cache: "default" }).then(slimPlayersMap));
   void job
     .then((players) => {
-      if (epoch !== playerLoadEpoch || !players || !Object.keys(players).length) return;
+      if (!players || !Object.keys(players).length) return;
+      draftNamesDirectory = players;
+      if (epoch !== playerLoadEpoch) return;
       state.players = mergePlayerRecords(state.players, players);
       if (el.calculatorShell?.querySelector(".calc-grid")) patchTradeDraft();
     })
@@ -6240,7 +6251,13 @@ function renderDraftVerdict(view) {
   }
   if (view.missingPrices) {
     const shared = sharedVerdictFor(view);
-    return `<section class="calc-summary"><h3>Current verdict unavailable</h3><p>One or more pieces have no published value.</p>${shared?.shared ? `<p>When shared on ${escapeHtml(shared.date)} · ${escapeHtml(shared.shared.label)}</p>${renderArchivedTradePrices(shared.shared)}` : ""}<div class="calc-actions"><button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button></div></section>`;
+    const history = shared?.shared
+      ? `<p>Archived verdict for ${escapeHtml(shared.date)} · ${escapeHtml(shared.shared.label)}</p>${renderArchivedTradePrices(shared.shared)}`
+      : shared?.legacy ? `<p>${escapeHtml(LEGACY_FORMAT_NOTE)}</p>`
+      : shared?.missing ? `<p>${escapeHtml(missingBoardNote(shared.date))}</p>` : "";
+    const actions = shared ? `<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>`
+      : `<button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>`;
+    return `<section class="calc-summary"><h3>Current verdict unavailable</h3><p>One or more pieces have no published value.</p>${history}<div class="calc-actions">${actions}</div></section>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (bothSides) noteTradeChecked(draft);
@@ -6334,7 +6351,8 @@ function renderArchivedTradePrices(summary) {
     `${escapeHtml(piece.name)} (${piece.unpriced ? "unavailable" : formatNumber(piece.value)})`
   ).join(", ");
   const units = summary.sourceValueScale === 10000 ? "<p>These figures show the original archived prices divided by 100.</p>" : "";
-  return `<details class="calc-method"><summary>Prices when shared</summary><p>Team 1 received ${side(summary.get)}.</p><p>Team 2 received ${side(summary.give)}.</p>${units}</details>`;
+  const rules = summary.packageRuleNote ? `<p>${escapeHtml(summary.packageRuleNote)}</p>` : "";
+  return `<details class="calc-method"><summary>Prices when shared</summary><p>Team 1 received ${side(summary.get)}.</p><p>Team 2 received ${side(summary.give)}.</p>${units}${rules}</details>`;
 }
 
 // Shared link: the verdict line. When prices moved since it was shared, a
@@ -6346,12 +6364,12 @@ function renderSharedVerdictHead(shared) {
     return `<h3 class="sr-only">${verdictLineHtml(shared.today.label)}</h3>${note ? `<p class="calc-shared-note">${escapeHtml(note)}</p>` : ""}`;
   }
   return `
-    <h3 class="sr-only">Shared on ${escapeHtml(shared.date)}: ${escapeHtml(shared.shared.label)}. Today: ${escapeHtml(shared.today.label)}.</h3>
+    <h3 class="sr-only">Archived verdict for ${escapeHtml(shared.date)}: ${escapeHtml(shared.shared.label)}. Today: ${escapeHtml(shared.today.label)}.</h3>
     <dl class="calc-shared">
       <div><dt>${escapeHtml(shared.date)}</dt><dd>${verdictLineHtml(shared.shared.label)}</dd></div>
       <div class="is-today"><dt>Today</dt><dd><strong>${verdictLineHtml(shared.today.label)}</strong></dd></div>
     </dl>
-    <p class="calc-shared-note">Each verdict uses the model and prices published on its date.</p>
+    <p class="calc-shared-note">The archived verdict uses that board’s prices and package rules.</p>
     ${renderArchivedTradePrices(shared.shared)}
   `;
 }
@@ -8606,7 +8624,7 @@ function refreshPlayerPositionRanks() {
       || `${(player?.first_name || "").trim()} ${(player?.last_name || "").trim()}`.trim()
       || names[assetId]
       || assetId;
-    listed.push({ assetId, playerId, name, value });
+    listed.push({ assetId, playerId, name, value, position: state.valueBundles?.players?.[assetId]?.position });
   });
   const nextRankMap = {};
   buildPositionBoard(listed, nflPlayers).forEach((row) => {

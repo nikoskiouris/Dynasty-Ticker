@@ -91,13 +91,15 @@ def future_production(row, season_week):
     last, last_games = number(row.get("last_ppr")), number(row.get("last_games"))
     if last is not None and last_games and last_games > 0:
         reliability = min(8.0, last_games)
-        total += last * reliability
+        # A trade across bye weeks can give a player an 18-game regular
+        # season. Compare its scoring rate on the same 17-game horizon.
+        total += last * min(1.0, 17 / last_games) * reliability
         weight += reliability
     points, played = number(row.get("actual_ppr")), number(row.get("games"))
-    if season_week > 1 and points is not None and played and played > 0:
-        # The active week can be partially complete. Never annualize on fewer
-        # team opportunities than the player has actually played.
-        elapsed = min(17, max(played, (season_week - 1) * 17 / 18))
+    if points is not None and played and played > 0:
+        # A settled opener counts while Week 1 is still active. An 18th
+        # appearance counts as exposure even after the ordinary 17 games.
+        elapsed = max(played, min(17, (season_week - 1) * 17 / 18))
         total += 17 * points
         weight += elapsed
     return max(0, total / weight) if weight else None
@@ -230,7 +232,7 @@ def raw_board(players, *, season_week=1):
             coverage.append("recentTeamGames")
         if number(row.get("last_games")) and number(row.get("last_ppr")) is not None:
             coverage.append("priorSeason")
-        if week > 1 and number(row.get("games")) and number(row.get("actual_ppr")) is not None:
+        if number(row.get("games")) and number(row.get("actual_ppr")) is not None:
             coverage.append("currentSeason")
         age = number(row.get("age"))
         current_value = max(0, (current or 0) - now_level[pos])

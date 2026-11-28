@@ -28,7 +28,9 @@ Rankings, player pages, Trade Calculator, League History and share cards read th
 
 Run `python3 player-values/build_trade_values.py` to refresh the board and `python3 scripts/check_market_files.py --fail-on-age` to check the generated file. The [model notes](player-values/README.md) document the inputs, weights, assumptions and historical checks.
 
-The daily refresh (`.github/workflows/refresh-player-values.yml`) commits the new snapshot to `develop` and publishes the same checked files to the `market-data` Netlify Blobs store (`scripts/publish_market_blobs.mjs`). On the live site, `/data/player_values.json` and `/data/price-history/*` go through the `market` function, which serves the newer of that copy and the release's own copy. So values on dynastyticker.com update daily without a deploy. The repository variable `MARKET_PUBLISH=off` turns that off.
+The daily refresh (`.github/workflows/refresh-player-values.yml`) commits the new snapshot to `develop` and publishes the checked files to the `market-data` Netlify Blobs store. The live site serves the newest board for its deployed model. The repository variable `MARKET_PUBLISH=off` stops daily board publishing.
+
+A release ships its tagged prices when they pass the freshness and integrity checks. A manual refresh of the latest release rebuilds prices. Both paths preserve the dated board in Blobs before deployment, so an existing trade link can still retrieve those exact prices after a later release. The November 19, 2026 00:46 UTC archive was recovered from the production board before the model upgrade. It retains all 888 original integer-scale prices. [Recovered snapshot](docs/data/price-history/202611190046.json)
 
 ## Live site (dynastyticker.com)
 
@@ -54,7 +56,7 @@ Netlify emails on a GitHub merge do **not** mean credits were spent. On credit p
 8. GitHub Actions runs `.github/workflows/stop-netlify-git-builds.yml` so Netlify **Build status = Stopped builds**. Confirm in Netlify: **Project configuration → Build & deploy → Continuous deployment → Build settings → Stopped builds**. Do **not** use “Stop auto publishing”; that still starts a canceled production job. `netlify.toml` skip/refuse scripts are only a backup.
 9. Repo **Settings → Pages**: turn the source **off** once dynastyticker.com matches this desk. If a github.io URL is still up, replace it with a redirect to `https://dynastyticker.com/`. Do **not** add a custom domain there. Visit counts stay on dynastyticker.com only. An old Pages workflow left on `main` checks out `develop` and runs `scripts/stage_pages_preview.sh`. That script refuses, so the dispatch cannot publish a second desk.
 
-Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Local check: `npm run serve`. There is no GitHub Pages preview workflow.
+To release, merge the promotion PR from `develop` into `prod`. The cut-release workflow tags that commit, publishes a GitHub Release and deploys the tagged checkout with the Netlify CLI. The deploy-release workflow handles manually published releases. After upload the deploy verifies the live board, its exact dated prices, and a shared trade card. Use the manual refresh workflow to rebuild the latest release's market data. Run `npm run serve` for a local preview. [Production release](.github/workflows/cut-release.yml) · [Manual refresh](.github/workflows/deploy-site.yml)
 
 ### Traffic
 

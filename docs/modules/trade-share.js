@@ -1,4 +1,5 @@
 import { roundPrice } from "./price-units.js";
+import { archivedPackageRules } from "./archive-package-rules.js";
 import { formatNumber } from "./html.js";
 import { draftMarketPrice, draftVerdictModel } from "./trade-draft.js";
 import { FEWER_BETTER_LABEL, verdictCopy } from "./verdict-copy.js";
@@ -166,8 +167,11 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
   };
   const give = decoded.give.map(row);
   const get = decoded.get.map(row);
+  const stamp = priceStamp(payload?.asOf);
+  const packageRules = archivedPackageRules(decoded, stamp, bundle.sourceScale);
   const model = draftVerdictModel(give.map((r) => r.value), get.map((r) => r.value), {
     globalMaxValue: getGlobalMaxPlayerValue(values),
+    packageRules,
   });
   const credit = model.adjustment
     ? { amount: roundPrice(model.adjustment.amount), side: model.adjustment.side === "left" ? "give" : "get" }
@@ -179,6 +183,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
       : "12-team Superflex PPR dynasty · historical prices ÷ 100",
     valueScale: 100,
     sourceValueScale: bundle.sourceScale,
+    packageRuleNote: packageRules?.note || "",
     give,
     get,
     giveTotal: model.give,
@@ -192,7 +197,7 @@ export function shareSummary(decoded, payload, playerNames = {}, directory = pay
     pct: model.verdict.pct,
     tone: model.verdict.tone,
     verdict: model.verdict,
-    stamp: priceStamp(payload?.asOf),
+    stamp,
     unpriced: [...give, ...get].filter((piece) => piece.unpriced).map((piece) => piece.name),
   };
   summary.label = neutralVerdict(summary);

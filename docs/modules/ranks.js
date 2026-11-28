@@ -91,9 +91,11 @@ export function buildRankBoard({
     if (!Number.isFinite(value) || value < 0) continue;
     const playerId = assetId.slice("player:".length);
     const raw = nflPlayers?.[playerId] || nflPlayers?.[String(playerId)] || null;
-    if (raw && isInactivePlayerAsset({ assetType: "player", raw })) continue;
     const model = modelPlayers?.[assetId] || null;
-    const position = playerPosition(raw) || String(model?.position || "").toUpperCase();
+    if (!model && raw && isInactivePlayerAsset({ assetType: "player", raw })) continue;
+    // A published WR can also play DB, and a priced free agent can lack a team.
+    // Directory enrichment must not change his board position or remove him.
+    const position = String(model?.position || playerPosition(raw)).toUpperCase();
     if (position && !SKILL_POSITIONS.has(position)) continue;
     const name = playerName(assetId, names, raw);
     if (!name) continue;

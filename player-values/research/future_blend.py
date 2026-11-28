@@ -93,7 +93,7 @@ def reserve_audit(years, realized, bios, cache):
                         # games. Supply a fractional week for the counterfactual.
                         week = 1 + (elapsed + played) / 2 * 18 / 17
                     elif method == "Prior evidence only":
-                        week = 1
+                        row = dict(row, actual_ppr=None, games=None)
                 predicted[key] = future_production(row, week)
             population = {pos: sorted(v for k, v in predicted.items() if v and board[k]["pos"] == pos)
                           for pos in LIMIT}

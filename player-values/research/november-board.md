@@ -1,6 +1,6 @@
 # November 28, 2026 player board
 
-The v5 board prices 507 players and 24 picks for 12-team, full-PPR superflex dynasty. At 03:56 UTC, six players scored in the 90s and another twelve scored from 87 to just under 90. Gibbs and Smith-Njigba tie at the displayed precision. The previous column shows the preceding v4 prices. The last column uses KeepTradeCut's superflex, half-PPR, no-TE-premium player ranks from the same date. All ranks exclude draft picks. [Current snapshot](../../docs/data/price-history/202611280356.json) · [Previous snapshot](../../docs/data/price-history/202611280342.json) · [KeepTradeCut rankings](https://keeptradecut.com/dynasty-rankings?format=2)
+The audited v5.1 board prices 507 players and 24 picks for 12-team, full-PPR superflex dynasty. At 04:07 UTC, six players scored in the 90s and another twelve scored from 87 to just under 90. Gibbs and Smith-Njigba tie at the displayed precision. The audit corrected four prices below the top 20. The previous column shows the v4 prices before the upper score bands were recalibrated. The last column uses KeepTradeCut's superflex, half-PPR, no-TE-premium player ranks from the same date. All ranks exclude draft picks. [Audited snapshot](../../docs/data/price-history/202611280407.json) · [Previous snapshot](../../docs/data/price-history/202611280342.json) · [KeepTradeCut rankings](https://keeptradecut.com/dynasty-rankings?format=2)
 
 | Rank | Player | Pos. | New value | Previous value | Previous rank | KTC rank |
 | ---: | --- | --- | ---: | ---: | ---: | ---: |

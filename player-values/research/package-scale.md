@@ -1,6 +1,6 @@
 # How the new scale prices accepted packages
 
-We reconstructed the August 26, 2026 preseason football and market board, then ran v4 and v5 on the same inputs. The sample contains completed, two-manager Sleeper trades that transferred players or picks directly between the two teams. We required proposal and acceptance to follow the forecast. Through Week 2, 117 of 124 offers had a positive value for every asset under both versions and a dated independent quote; 72 involved unequal numbers of pieces, and 27 were two-for-ones. The 117 offers came from 53 leagues. Only two of the 72 unequal trades excluded picks. Each future pick received its generic year-and-round price because its final slot was unknown. [Input archives and exact forecast time](preseason-trades.md) · [League settings and sampling](market-packages.md)
+We reconstructed the August 26, 2026 preseason football and market board, then ran v4 and v5 on the same inputs. The sample contains completed, two-manager Sleeper trades that transferred players or picks directly between the two teams. We required proposal and acceptance to follow the forecast. Through Week 2, 117 of 124 offers had a positive value for every asset under both versions and a dated independent quote; 72 involved unequal numbers of pieces, and 27 were two-for-ones. The 117 offers came from 53 leagues. Only two of the 72 unequal trades excluded picks. Each pick received its generic year-and-round price. The audit did not price specific slots, including in leagues whose rookie draft order had been set. [Input archives and exact forecast time](preseason-trades.md) · [League settings and sampling](market-packages.md)
 
 For each trade, we compared the listed totals and then the totals from each release's calculator, which applies its consolidation credit. The calculator received the price of the highest-valued player on its own reconstructed board. We measured the median absolute gap, `abs(left − right) / (left + right)`, and the median signed gap between the side receiving more pieces and the other side. A positive signed gap favors the side with more pieces. A gap of 10% corresponds to side totals of 55 and 45. [Calculator implementation](../../docs/modules/package-value.js)
 
@@ -21,6 +21,22 @@ Before opening kickoff, the median credited gap fell from 15.8% to 13.7% on 42 u
 
 During development we compared two prototype scales on these accepted trades. Both used the same three upper reference bands. One added a fourth reference at historical rank 48; the other kept the lower range proportional up to the first upper reference. In the fourth-reference prototype the 72 deals favored the smaller package by 7.6% after calculator credit; the proportional alternative cut that to 1.6%. We retained the proportional lower range and the existing calculator credit. These 2026 transactions informed that decision, so the table is a replay of model behavior on a selection sample. Later market-only checks use time-matched quotes. [Reference construction](elite_score_bands.py) · [Later market-only trades](market-packages.md)
 
+Four of the 117 covered offers exchanged 2026 selections around one league’s three-round rookie draft. At least one proposal came after that draft began. Excluding all offers with current-draft picks leaves 113 covered trades and 70 unequal packages. Their v5 median credited gap was 14.3%, compared with 15.1% in the full unequal sample. The audit also excluded five startup-draft offers whose rounds had no matching quote. [Rookie draft metadata](https://api.sleeper.app/v1/league/1312859582195826688/drafts)
+
+## Independent check on market weight and consolidation credit
+
+After freezing v5, we selected a separate 2026 league panel without reading its transactions or prices. We began with the first 36 eligible 2024 leagues in the deterministic sample used for the earlier player-only study. We sorted each league’s public roster owners by SHA-256 of `independent-market-audit-2026` followed by the owner ID and took the first two. The 72 owners led to 34 eligible managed 2026 leagues with the same 12-team, one-QB, one-superflex, full-PPR and four-point passing-TD checks. None of the 34 league IDs appeared in the original candidate list. The frame follows owners still playing on Sleeper and can include managers who participated in multiple leagues. The frozen manifest allows the replay without collecting owner identifiers. [League manifest](market-leagues-independent-2026.txt) · [2024 starting sample](trade-spacing.md)
+
+The same August 26 football and market inputs priced 31 of 32 subsequent completed trades in the new panel through Week 2. They came from 18 leagues. Seventeen had unequal piece counts, with three such player-only trades. For a player with both sources, we compared the published 25% market weight with 50% and 100%, preserving the ordinary fallback for a missing source and direct pick quotes. The table shows median absolute gaps.
+
+| Independent trades | Count | 25% market, no credit | 25% market, with credit | 50% market, with credit | 100% market, with credit |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| All | 31 | 14.0% | 13.0% | 11.0% | 15.8% |
+| Unequal packages | 17 | 11.1% | 9.8% | 10.3% | 10.0% |
+| Two for one | 10 | 11.3% | 10.2% | 10.7% | 8.7% |
+
+Under the published settings the signed median for unequal trades was −0.2%, and the 90th percentile absolute gap was 22.1%. In the original 72 uneven trades the corresponding figures were −1.6% and 48.9%. In the independent panel, excluding two transactions involving current-draft picks left 15 unequal deals and the same rounded median absolute gap of 9.8%. The best market weight varied by group. Across the 13 leagues contributing unequal offers, the 95% league-bootstrap interval for the difference from the published median was −5.2 to +7.0 percentage points with 50% market and −2.8 to +4.6 points with no credit. The sample offers little basis for changing either setting. This compares accepted trade prices; football production after 2026 remains outside the observation window.
+
 ## Player-only check in 2023 and 2024
 
 We replayed football-only preseason boards against player-only exchanges in a separately sampled set of leagues. The 2023 and 2024 samples total 31 priced trades. No matching historical market quotes were used. In 2023, six unequal packages had a median credited gap of 11.0% under v4 and 10.1% under v5. In 2024, the corresponding median rounded to 15.3% in both models across seven packages. Across all deal sizes, the median credited gap went from 11.6% to 10.4% in 2023 and rounded to 21.3% in both models in 2024. Only seven trades across both seasons were two-for-ones. [Archived input dates, scoring and league selection](trade-spacing.md)
@@ -32,6 +48,8 @@ From the repository root, use Python 3.10+, Git, Node.js and the repository hist
 ```sh
 python3 player-values/research/market_packages.py --save-deals /tmp/dynasty-accepted-trades.json
 python3 player-values/research/package_scale.py /tmp/dynasty-accepted-trades.json --historical-players
+python3 player-values/research/market_packages.py --independent-panel --save-deals /tmp/dynasty-independent-trades.json
+python3 player-values/research/package_scale.py /tmp/dynasty-independent-trades.json --weight-check
 ```
 
 The [replay](package_scale.py) loads v4 and its calculator from the pinned Git revision. It calls both the current production model and the JavaScript calculator for v5. For unequal packages the CLI also resamples whole leagues 1,000 times using a fixed seed and reports the central 95% of the resulting differences in median credited gap. The sampling frame is connected, several managers participate in multiple leagues, and all transactions were accepted. The resulting interval describes variation within this panel.

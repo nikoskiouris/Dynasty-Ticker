@@ -1,4 +1,4 @@
-import { isMarketFile, MARKET_STORE, readMarketFile } from "./market-data.js";
+import { isMarketFile, MARKET_STORE, readBundledFile, readMarketFile } from "./market-data.js";
 import { getStore as getBlobStore } from "@netlify/blobs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -17,6 +17,7 @@ import {
 } from "../../docs/modules/trade-share.js";
 import { formatNumber } from "../../docs/modules/html.js";
 import { isCurrentValueBoard } from "../../docs/modules/values.js";
+import { playersFromSlimFile } from "../../docs/modules/sleeper.js";
 import { FEWER_BETTER_ADDEND } from "../../docs/modules/verdict-copy.js";
 
 export const SHARE_NAMES_STORE = "share-names";
@@ -80,7 +81,7 @@ export function shareText(summary, { today = null, legacy = false } = {}) {
     description: legacy
       // A 1QB link: today's SF prices, said plainly. Never "as of" the share date.
       ? `${side("get", "Team 1 receives")} vs ${side("give", "Team 2 receives")}. ${LEGACY_FORMAT_NOTE} Check your own trade free at Dynasty Ticker.`
-      : `${side("get", "Team 1 receives")} vs ${side("give", "Team 2 receives")}. Prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, ${summary.formatLabel}.${today ? ` Today: ${cardVerdict(today).line}.` : ""} Check your own trade free at Dynasty Ticker.`,
+      : `${side("get", "Team 1 receives")} vs ${side("give", "Team 2 receives")}. Prices${summary.stamp ? ` as of ${stampLabel(summary.stamp, { year: true })}` : ""}, ${summary.formatLabel}.${summary.packageRuleNote ? ` ${summary.packageRuleNote}` : ""}${today ? ` Today: ${cardVerdict(today).line}.` : ""} Check your own trade free at Dynasty Ticker.`,
     alt: `${verdictText}. Team 1 receives ${n(summary.getCredited)}, Team 2 receives ${n(summary.giveCredited)}.`,
   };
 }
@@ -185,7 +186,11 @@ export async function loadPlayerNames({ store = null, fetchImpl = fetch, now = D
     if (store) await store.setJSON(SHARE_NAMES_KEY, { at: now, names }).catch(() => {});
     return names;
   } catch {
-    return namesCache?.names || {};
+    if (namesCache) return namesCache.names;
+    const bundled = await readBundledFile("data/nfl_players_slim.json");
+    const names = bundled ? compactSleeperNames(playersFromSlimFile(JSON.parse(bundled))) : {};
+    if (Object.keys(names).length) namesCache = { at: now, names };
+    return names;
   }
 }
 

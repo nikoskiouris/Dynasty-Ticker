@@ -28,7 +28,7 @@ const DRAFT_ASSET_ID = /^(?:player:[A-Za-z0-9_.-]+|pick:\d{4}:r\d+:[A-Za-z0-9_-]
 // The one verdict, with or without a league. Pane totals stay the plain market sums.
 // A package of two or more adds a stud credit, even when both sides send the same
 // number of pieces. A straight one-for-one stays at the listed prices.
-export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxValue = 100 } = {}) {
+export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxValue = 100, packageRules } = {}) {
   // Keep a 0 in the list so a missing player still counts as a side. Infinity
   // and NaN become 0 here; stud credit drops them before the stud curve.
   const clean = (list) => (Array.isArray(list) ? list : []).map(finiteAssetValue);
@@ -37,7 +37,7 @@ export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxVa
   const give = roundPrice(giveList.reduce((sum, value) => sum + value, 0));
   const get = roundPrice(getList.reduce((sum, value) => sum + value, 0));
   const pkg = giveList.length && getList.length
-    ? calculatePackageAdjustment({ myValues: giveList, theirValues: getList, globalMaxValue })
+    ? calculatePackageAdjustment({ myValues: giveList, theirValues: getList, globalMaxValue }, packageRules)
     : null;
   const adjustment = pkg?.packageAdjustment > 0
     ? { amount: pkg.packageAdjustment, side: pkg.packageAdjustmentSide === "my" ? "left" : "right" }

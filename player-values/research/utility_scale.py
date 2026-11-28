@@ -196,7 +196,7 @@ def main():
         pure = [min(100., 100*estimate(r['lineup'] + r['future'] + r['draft'], knots)/reference)
                 for r in raw.values()]
         prices, _, _ = value_board(rows, inputs['picks'], season_week=inputs['seasonWeek'])
-        for label, values in [('football', pure), ('full', [r['value'] for r in prices.values()])]:
+        for label, values in [('v4 football-only units', pure), ('installed model, all factors', [r['value'] for r in prices.values()])]:
             values.sort(reverse=True)
             print(inputs['asOf'], label, 'top/12th/48th/capped:',
                   *(f'{values[i]:.2f}' for i in (0, 11, 47)), sum(v >= 100 for v in values))

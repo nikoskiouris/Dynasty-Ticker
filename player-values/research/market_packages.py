@@ -51,7 +51,7 @@ def exchange(trade):
     return sorted(sides, key=len) if all(sides) else None
 
 
-def collect_trades(cache, max_week=12):
+def collect_trades(cache, max_week=12, panel=DIRECTORY / "market-leagues-2026.txt"):
     def download(league_id):
         league = json.loads(fetch(SLEEPER + league_id, cache))
         if not league or not league_eligible(league):
@@ -73,7 +73,7 @@ def collect_trades(cache, max_week=12):
                                       accepted=t["status_updated"], sides=sides)
         return True, found
 
-    ids = (DIRECTORY / "market-leagues-2026.txt").read_text().splitlines()
+    ids = panel.read_text().splitlines()
     result, allowed = {}, 0
     with ThreadPoolExecutor(4) as pool:
         for eligible, trades in pool.map(download, ids):
@@ -198,14 +198,23 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache-dir", type=Path, default=Path.home() / ".cache/dynasty-ticker/market-packages")
     parser.add_argument("--save-deals", type=Path, help="Also save eligible exchanges, including those missing quotes")
+    parser.add_argument("--independent-panel", action="store_true",
+                        help="Export the separate 34-league Week 0–2 sample for package_scale.py")
     parser.add_argument("--later-packages", action="store_true",
                         help="Compare v4 and v5 calculator verdicts on Week 3–12 market-only prices")
     args = parser.parse_args()
     args.cache_dir.mkdir(parents=True, exist_ok=True)
-    trades = collect_trades(args.cache_dir)
+    if args.independent_panel:
+        if not args.save_deals:
+            parser.error("--independent-panel requires --save-deals for its output")
+        trades = collect_trades(args.cache_dir, 2, DIRECTORY / "market-leagues-independent-2026.txt")
+    else:
+        trades = collect_trades(args.cache_dir)
     print(f"Eligible two-sided transactions: {len(trades)}")
     if args.save_deals:
         args.save_deals.write_text(json.dumps(trades, separators=(",", ":")) + "\n")
+    if args.independent_panel:
+        return
     boards = read_quotes(args.cache_dir)
     if args.later_packages:
         later_packages(trades, boards)

@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "docs" / "data"
 MAX_VALUE_AGE_DAYS = 21
 # The model the builder is configured to write. A snapshot from any other model is not the one the desk expects.
-MODEL_VERSION = "dynasty-sf-ppr-v5"
+MODEL_VERSION = "dynasty-sf-ppr-v5.1"
 POSITIONS = {"QB", "RB", "WR", "TE"}
 
 

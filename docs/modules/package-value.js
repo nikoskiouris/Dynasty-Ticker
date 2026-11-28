@@ -50,7 +50,7 @@ function findEvenValueForRawGap(targetRawGap, tradeMaxValue, globalMaxValue) {
   return Math.max(0, Math.round(high));
 }
 
-function curvePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
+function curvePackageAdjustment({ myValues, theirValues, globalMaxValue }, allowTrailingCredit = true) {
   // A missing or removed player is stored as 0. Infinity and NaN are not prices.
   // Those pieces are not real package mates, so they must not mint a stud credit.
   const mine = (Array.isArray(myValues) ? myValues : []).map(finiteAssetValue).filter((value) => value > 0);
@@ -118,7 +118,7 @@ function curvePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
   const trailHoldsBest = myLeads ? theirBest > myBest : myBest > theirBest;
   let creditLead = Math.max(0, Math.round(trailBase + evenValue - leadBase));
   let creditTrail = 0;
-  if (trailHoldsBest) creditTrail = Math.max(0, Math.round(leadBase - evenValue - trailBase));
+  if (allowTrailingCredit && trailHoldsBest) creditTrail = Math.max(0, Math.round(leadBase - evenValue - trailBase));
   const packageAdjustment = creditLead || creditTrail;
   const creditMine = myLeads ? creditLead > 0 : creditTrail > 0;
   const side = packageAdjustment > 0 ? (creditMine ? "my" : "their") : null;
@@ -142,8 +142,12 @@ function curvePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
 // between the leads one piece earlier on either side. That bounds it at both
 // ends, so every throw-in moves the verdict toward the side that receives it,
 // or leaves it where it was.
-function fullPackageAdjustment({ myValues, theirValues, globalMaxValue }) {
-  const raw = curvePackageAdjustment({ myValues, theirValues, globalMaxValue });
+function fullPackageAdjustment(
+  { myValues, theirValues, globalMaxValue },
+  { boundAdditions = true, capThrowIns = true, allowTrailingCredit = true },
+) {
+  const raw = curvePackageAdjustment({ myValues, theirValues, globalMaxValue }, allowTrailingCredit);
+  if (!boundAdditions) return raw;
   const mine = (Array.isArray(myValues) ? myValues : []).map(finiteAssetValue).filter((value) => value > 0).sort((a, b) => b - a);
   const theirs = (Array.isArray(theirValues) ? theirValues : []).map(finiteAssetValue).filter((value) => value > 0).sort((a, b) => b - a);
   if (mine.length + theirs.length <= 2) return raw;
@@ -156,7 +160,9 @@ function fullPackageAdjustment({ myValues, theirValues, globalMaxValue }) {
       let value;
       if (!i || !j) value = sum(mine, i) - sum(theirs, j);
       else {
-        const step = curvePackageAdjustment({ myValues: mine.slice(0, i), theirValues: theirs.slice(0, j), globalMaxValue: globalMax });
+        const step = curvePackageAdjustment({
+          myValues: mine.slice(0, i), theirValues: theirs.slice(0, j), globalMaxValue: globalMax,
+        }, allowTrailingCredit);
         value = step.myAdjustedValue - step.theirAdjustedValue;
         value = Math.min(value, lead[i][j - 1]);
         value = Math.max(value, lead[i - 1][j]);
@@ -164,8 +170,8 @@ function fullPackageAdjustment({ myValues, theirValues, globalMaxValue }) {
         // price to the side that gets it. Without this, a 6-point add-on next
         // to Gibbs switched the stud curve on and moved Gibbs-for-Bijan from
         // "5% more" to "27% more".
-        if (j > 1) value = Math.max(value, lead[i][j - 1] - theirs[j - 1]);
-        if (i > 1) value = Math.min(value, lead[i - 1][j] + mine[i - 1]);
+        if (capThrowIns && j > 1) value = Math.max(value, lead[i][j - 1] - theirs[j - 1]);
+        if (capThrowIns && i > 1) value = Math.min(value, lead[i - 1][j] + mine[i - 1]);
       }
       lead[i].push(value);
     }
@@ -186,7 +192,7 @@ function fullPackageAdjustment({ myValues, theirValues, globalMaxValue }) {
 }
 
 
-export function calculatePackageAdjustment(options) {
+export function calculatePackageAdjustment(options, rules = {}) {
   // Apply the consolidation curve in integer hundredths. A one-cent add-on
   // remains distinct throughout the search and each rounding step.
   const hundredths = (values) => (Array.isArray(values) ? values.map(priceHundredths) : []);
@@ -194,8 +200,8 @@ export function calculatePackageAdjustment(options) {
     myValues: hundredths(options.myValues),
     theirValues: hundredths(options.theirValues),
     globalMaxValue: priceHundredths(options.globalMaxValue),
-  });
-  const packageAdjustment = Math.round(adjustment.packageAdjustment * PACKAGE_CREDIT_SHARE);
+  }, rules);
+  const packageAdjustment = Math.round(adjustment.packageAdjustment * (rules.creditShare ?? PACKAGE_CREDIT_SHARE));
   const side = packageAdjustment ? adjustment.packageAdjustmentSide : null;
   return {
     myBaseValue: adjustment.myBaseValue / 100,

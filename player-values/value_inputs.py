@@ -22,7 +22,7 @@ SLEEPER = "https://api.sleeper.app/v1"
 SCHEDULE = "https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv"
 MARKET = "https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&numTeams=12&ppr=1"
 POSITIONS = {"QB", "RB", "WR", "TE"}
-SLIM_FIELDS = ["full_name", "position", "team", "age", "injury_status", "status", "years_exp"]
+SLIM_FIELDS = ["full_name", "position", "team", "age", "injury_status", "status", "years_exp", "fantasy_positions"]
 
 
 def fetch(url, *, csv_format=False):
@@ -129,9 +129,21 @@ def team_schedule(rows, season, active_week, stamp):
 def optional_week(url):
     try:
         feed = fetch(url)
-        if "/stats/nfl/" in url and isinstance(feed, list):
-            return {str(row["player_id"]): (row["team"], *points_and_games(row["stats"])) for row in feed}
-        return feed
+        if "/v1/" in url:
+            if not isinstance(feed, dict) or any(not isinstance(row, dict) for row in feed.values()):
+                raise ValueError("Expected an ID-keyed Sleeper feed")
+            return feed
+        # Weekly score sheets include season, week and the team at game time.
+        # Reject a misdated or incomplete response; losing a player's row here
+        # would otherwise silently turn an unknown appearance into zero PPR.
+        season, week = url.split("?")[0].split("/")[-2:]
+        if not isinstance(feed, list) or not all(
+            isinstance(row, dict) and row.get("player_id") and row.get("team")
+            and str(row.get("season")) == season and str(row.get("week")) == week
+            and isinstance(row.get("stats"), dict) for row in feed
+        ):
+            raise ValueError("Unexpected weekly score sheet")
+        return {str(row["player_id"]): (row["team"], *points_and_games(row["stats"])) for row in feed}
     except (ValueError, OSError) as error:
         print(f"Weekly input unavailable: {url} ({error})", file=sys.stderr)
         return None
@@ -185,6 +197,9 @@ def settled_stats(schedule, weekly_stats):
 
 
 def game_evidence(player_id, team, pos, schedule, weekly, week):
+    # Before the regular season the schedule may not have been released yet.
+    if schedule is None:
+        return {"team_games": 0, "remaining_games": 17} if team else {}
     games = schedule.get(team)
     if games is None:
         return {}
@@ -247,24 +262,31 @@ def collect():
     if not isinstance(feeds.get("thisWeek"), dict):
         feeds["thisWeek"] = {}
         urls.pop("thisWeek", None)
+    if not feeds.get("thisSeason"):
+        urls.pop("thisSeason", None)
     registry = feeds["registry"]
     # Preseason before schedule release still has 17 games per team. Opening
     # week and later require a schedule so a completed game cannot be resold.
-    schedule, weekly = {}, ({}, {}, {})
-    actual_source = "Sleeper season aggregate"
+    schedule, weekly = None, ({}, {}, {})
+    through_week = 0
+    actual_source = "Regular season has not started"
     if week or season_ended:
         schedule = team_schedule(fetch(SCHEDULE, csv_format=True), season, season_week, stamp)
         urls["schedule"] = SCHEDULE
+        unfinished = [w for club in schedule.values() for state in ("started", "upcoming") for w in club[state]]
+        through_week = min(unfinished, default=19) - 1
+        actual_source = "Sleeper season aggregate"
         weekly = weekly_evidence(season, schedule, registry, week, feeds.get("thisWeek"), urls)
         settled = settled_stats(schedule, weekly[0])
         if settled is not None:
             feeds["thisSeason"] = settled
-            actual_source = "Sleeper weekly stats from completed games"
-        elif not isinstance(feeds.get("thisSeason"), dict):
+            actual_source = ("Sleeper weekly stats from completed games" if settled
+                             else "No regular-season games have finished")
+        elif not feeds.get("thisSeason"):
             raise ValueError("Incomplete final score sheets and no Sleeper season aggregate")
-    market, picks = market_quotes(feeds["market"], season, stage in {"regular", "post"})
+    market, picks = market_quotes(feeds["market"], season, bool(week) or season_ended)
     draft = json.loads((DATA / "nfl_draft_picks.json").read_text())
-    draft_year = season if stage in {"regular", "post"} or stamp.month >= 5 else season - 1
+    draft_year = season if week or season_ended or stamp.month >= 5 else season - 1
     if draft_year not in draft["seasons"]:
         raise ValueError(f"Missing NFL draft class {draft_year}; refresh nfl_draft_picks.json first")
     model_rows, slim = {}, {}
@@ -277,6 +299,8 @@ def collect():
         if primary in (POSITIONS | {"K", "FB", "DEF"}) or set(eligible) & (POSITIONS | {"K"}):
             slim[player_id] = [name, primary or "", info.get("team") or "", info.get("age"),
                                info.get("injury_status") or "", info.get("status") or "", info.get("years_exp")]
+            if eligible and eligible != [primary]:
+                slim[player_id].append(eligible)
         pos = primary if primary in POSITIONS else next((p for p in eligible if p in POSITIONS), None)
         if pos is None:
             continue
@@ -308,6 +332,6 @@ def collect():
             raise ValueError(f"Only {coverage} players with positive {field} in the incoming feed")
     urls["draftCapital"] = "https://github.com/nflverse/nflverse-data/releases/tag/draft_picks"
     return {
-        "asOf": stamp.isoformat(), "season": season, "week": week, "seasonWeek": season_week, "actualSource": actual_source,
+        "asOf": stamp.isoformat(), "season": season, "week": week, "seasonWeek": season_week, "throughWeek": through_week, "actualSource": actual_source,
         "sources": urls, "draftClasses": draft.get("seasons", []), "players": model_rows, "picks": picks,
     }, {"source": "sleeper", "fields": SLIM_FIELDS, "players": slim}

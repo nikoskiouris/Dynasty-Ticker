@@ -43,7 +43,7 @@ def assemble(inputs):
     return {
         "schemaVersion": 1, "modelVersion": MODEL_VERSION, "valueScale": VALUE_SCALE,
         "asOf": inputs["asOf"], "generatedAt": inputs["asOf"],
-        "season": inputs["season"], "throughWeek": inputs["seasonWeek"] - 1,
+        "season": inputs["season"], "throughWeek": inputs.get("throughWeek", inputs["seasonWeek"] - 1),
         "names": names, "sf": sf, "players": details,
         "meta": {"referenceTeams": 12, "scoring": "full PPR", "superflex": True, "price": diagnostics,
                  "sources": inputs["sources"], "actualSource": inputs["actualSource"], "draftClasses": inputs["draftClasses"],

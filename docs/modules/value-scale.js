@@ -5,10 +5,10 @@ export const DYNASTY_SCORE_GUIDE = "Scores of 90 and above mark elite dynasty as
 
 // Player-price tiers follow the current published board as its scale changes.
 const VALUE_TIERS = Object.freeze([
-  { label: "Top 24", rank: 24 },
-  { label: "Top 96", rank: 96 },
-  { label: "Top 192", rank: 192 },
-  { label: "Top 300", rank: 300 },
+  { label: "Top 24 players", rank: 24 },
+  { label: "Top 96 players", rank: 96 },
+  { label: "Top 192 players", rank: 192 },
+  { label: "Top 300 players", rank: 300 },
   { label: "Deep stash", rank: Infinity },
 ]);
 const tierBoards = new WeakMap();
