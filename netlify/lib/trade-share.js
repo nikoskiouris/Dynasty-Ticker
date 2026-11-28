@@ -25,7 +25,7 @@ export const SHARE_NAMES_KEY = "sleeper-player-names-v1";
 const NAMES_TTL_MS = 24 * 60 * 60 * 1000;
 const VALUES_TTL_MS = 10 * 60 * 1000;
 export const SITE_ORIGIN = "https://dynastyticker.com";
-export const CARD_DESIGN = "c4"; // 0–100 values with hundredth precision.
+export const CARD_DESIGN = "c5";
 export const PAGE_CACHE = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
 export const CARD_CACHE = "public, max-age=31536000, immutable";
 export const PAGE_CSP = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'";
@@ -163,6 +163,16 @@ export function compactSleeperNames(players = {}) {
   return names;
 }
 
+let bundledNames = null;
+
+async function bundledPlayerNames() {
+  if (!bundledNames) {
+    const bundled = await readBundledFile("data/nfl_players_slim.json");
+    bundledNames = bundled ? compactSleeperNames(playersFromSlimFile(JSON.parse(bundled))) : {};
+  }
+  return bundledNames;
+}
+
 // Sleeper asks for /players/nfl at most once a day. One fetch fills a blob
 // that every function instance shares, so a traffic spike never fans out to Sleeper.
 export async function loadPlayerNames({ store = null, fetchImpl = fetch, now = Date.now() } = {}) {
@@ -179,7 +189,7 @@ export async function loadPlayerNames({ store = null, fetchImpl = fetch, now = D
     }
   }
   try {
-    const res = await fetchImpl("https://api.sleeper.app/v1/players/nfl");
+    const res = await fetchImpl("https://api.sleeper.app/v1/players/nfl", { signal: AbortSignal.timeout(3000) });
     if (!res.ok) throw new Error(`sleeper ${res.status}`);
     const names = compactSleeperNames(await res.json());
     namesCache = { at: now, names };
@@ -187,15 +197,24 @@ export async function loadPlayerNames({ store = null, fetchImpl = fetch, now = D
     return names;
   } catch {
     if (namesCache) return namesCache.names;
-    const bundled = await readBundledFile("data/nfl_players_slim.json");
-    const names = bundled ? compactSleeperNames(playersFromSlimFile(JSON.parse(bundled))) : {};
-    if (Object.keys(names).length) namesCache = { at: now, names };
-    return names;
+    return bundledPlayerNames();
   }
 }
 
 export function valuesVersion(payload) {
   return priceStamp(payload?.asOf);
+}
+
+// Current prices already carry player names. The slim bundled directory also
+// covers most players who lost their price since the trade was shared.
+async function missingPlayerNames(decoded, payload, deps) {
+  const ids = [...decoded.give, ...decoded.get]
+    .filter(assetId => assetId.startsWith("player:") && !payload.names?.[assetId])
+    .map(assetId => assetId.slice("player:".length));
+  if (!ids.length) return {};
+  const names = await bundledPlayerNames();
+  if (ids.every(id => names[id])) return names;
+  return (deps.loadPlayerNames || loadPlayerNames)(deps);
 }
 
 const snapshotCache = new Map();
@@ -222,11 +241,11 @@ export async function loadSnapshot(stamp, { origin = SITE_ORIGIN } = {}) {
 export async function summaryForCode(code, deps = {}) {
   const decoded = decodeTradeShare(code);
   if (!decoded) return null;
-  const [payload, names, snapshot] = await Promise.all([
+  const [payload, snapshot] = await Promise.all([
     (deps.loadValues || loadValues)(deps),
-    (deps.loadPlayerNames || loadPlayerNames)(deps),
-    decoded.stamp ? (deps.loadSnapshot || loadSnapshot)(decoded.stamp, deps) : null,
+    decoded.stamp && !decoded.legacyFormat ? (deps.loadSnapshot || loadSnapshot)(decoded.stamp, deps) : null,
   ]);
+  const names = await missingPlayerNames(decoded, payload, deps);
   const today = shareSummary(decoded, payload, names);
   // 1QB codes were shared on prices we no longer publish; an SF snapshot from
   // that day is not what the sender saw.

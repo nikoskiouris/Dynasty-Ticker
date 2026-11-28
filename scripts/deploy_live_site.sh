@@ -64,12 +64,16 @@ node "$bundle_tools/verify_deploy_bundle.mjs" "$root"
 # This immutable write leaves the existing live board and history index alone.
 node scripts/publish_market_blobs.mjs --archive-only
 
+stage="$(mktemp -d)"
+trap 'rm -rf "$stage"' EXIT
+node scripts/stage_client.mjs "$stage/docs"
+
 # NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID stay in the environment.
 # The CLI reads both. Do not put the token on the command line.
 # --skip-functions-cache: never reuse zips from an old .netlify/functions manifest.
 npx --yes "netlify-cli@${NETLIFY_CLI_VERSION}" deploy \
   --prod \
-  --dir=docs \
+  --dir="$stage/docs" \
   --functions=netlify/functions \
   --no-build \
   --skip-functions-cache \

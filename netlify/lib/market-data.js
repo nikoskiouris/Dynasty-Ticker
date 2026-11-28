@@ -7,6 +7,7 @@
 // with whichever copy is newer: the one in the store, or the one bundled with
 // the last release. A release never goes backwards, and a day with no publish
 // still serves the release's files.
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { isCurrentValueBoard } from "../../docs/modules/values.js";
 import { join } from "node:path";
@@ -69,17 +70,17 @@ export async function readMarketFile(rel, { store = null, now = Date.now(), read
   if (!isMarketFile(rel)) return null;
   const hit = cache.get(rel);
   if (hit && now - hit.at < MARKET_TTL_MS) return hit.value;
-  const bundledText = await readBundled(rel);
-  let storedText = null;
-  if (store) {
-    try {
-      storedText = await store.get(rel, { type: "text" });
-    } catch {
-      storedText = null;
-    }
-  }
+  // Keep a previously published board through a transient Blobs outage.
+  const previousStored = hit?.value.source === "stored" ? hit.value.text : null;
+  const [bundledText, storedText] = await Promise.all([
+    readBundled(rel),
+    store ? store.get(rel, { type: "text" }).catch(() => previousStored) : previousStored,
+  ]);
   const pick = newerCopy(rel, bundledText, storedText);
-  const value = pick ? { text: pick === "stored" ? storedText : bundledText, source: pick } : null;
+  if (!pick) return null;
+  const text = pick === "stored" ? storedText : bundledText;
+  const etag = `W/"${createHash("sha256").update(text).digest("base64url")}"`;
+  const value = { text, source: pick, etag };
   cache.set(rel, { at: now, value });
   return value;
 }
@@ -103,16 +104,18 @@ export function createMarketHandler({ getStore = () => null } = {}) {
     }
     const file = await readMarketFile(rel, { store });
     if (!file) return new Response("Not found", { status: 404 });
-    return new Response(file.text, {
-      status: 200,
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-        // Browsers revalidate, as for the static file before. The CDN keeps a
-        // copy for five minutes so a busy day is not a function call per visit.
-        "cache-control": "public, max-age=0, must-revalidate",
-        "netlify-cdn-cache-control": "public, max-age=300, stale-while-revalidate=60",
-        "x-market-source": file.source,
-      },
-    });
+    const headers = {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "public, max-age=0, must-revalidate",
+      "netlify-cdn-cache-control": "public, max-age=300, stale-while-revalidate=60",
+      "x-market-source": file.source,
+      etag: file.etag,
+    };
+    const validators = (req.headers.get("if-none-match") || "").split(",").map(token => token.trim());
+    const canRevalidate = req.method === "GET" || req.method === "HEAD";
+    if (canRevalidate && validators.some(tag => tag === "*" || tag.replace(/^W\//, "") === file.etag.slice(2))) {
+      return new Response(null, { status: 304, headers });
+    }
+    return new Response(req.method === "HEAD" ? null : file.text, { headers });
   };
 }

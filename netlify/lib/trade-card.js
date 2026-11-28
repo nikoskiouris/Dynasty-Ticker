@@ -3,10 +3,10 @@ import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { formatNumber as count } from "../../docs/modules/html.js";
-import { cardVerdict, stampLabel } from "../../docs/modules/trade-share.js";
+import { cardVerdict, decodeTradeShare, stampLabel } from "../../docs/modules/trade-share.js";
 import { FEWER_BETTER_LABEL } from "../../docs/modules/verdict-copy.js";
 import { createMeasurer, truncateToWidth } from "./text-measure.js";
-import { CARD_CACHE, SAFE_HEADERS, codeFromPath, escapeMarkup, summaryForCode } from "./trade-share.js";
+import { CARD_CACHE, CARD_DESIGN, PAGE_CACHE, SAFE_HEADERS, codeFromPath, escapeMarkup, summaryForCode } from "./trade-share.js";
 
 const W = 1200;
 const H = 630;
@@ -46,7 +46,10 @@ const roughMeasure = (text, size) => Array.from(String(text ?? "")).length * siz
 // column's total is bright and gets a small triangle pointing at it.
 function sideColumn(summary, key, x, measure, bigger = "") {
   const rows = summary[key];
+  const complete = !summary.unpriced?.length;
+  const total = key === "give" ? summary.giveTotal : summary.getTotal;
   const credited = key === "give" ? summary.giveCredited : summary.getCredited;
+  const totalText = rows.some(row => row.unpriced) ? "Incomplete" : count(complete ? credited : total);
   // Same names as the verdict line and the app: the get side is what Team 1 receives.
   const label = key === "give" ? "TEAM 2 RECEIVES" : "TEAM 1 RECEIVES";
   // Room for MAX_ROWS: when a side has more, show its most valuable pieces
@@ -60,7 +63,7 @@ function sideColumn(summary, key, x, measure, bigger = "") {
   const parts = [
     `<rect x="${x}" y="${COL_TOP}" width="${COL_W}" height="${COL_H}" rx="12" fill="${C.panel}" stroke="${C.line}" stroke-width="1"/>`,
     `<text x="${x + PAD_X}" y="${COL_TOP + 40}" font-family="${SANS}" font-size="18" letter-spacing="1.5" fill="${C.muted}">${label}</text>`,
-    `<text x="${right}" y="${COL_TOP + 40}" font-family="${SANS}" font-size="18" font-weight="700" fill="${bigger === key ? C.text : C.muted}" text-anchor="end">${escapeMarkup(count(credited))}</text>`,
+    `<text x="${right}" y="${COL_TOP + 40}" font-family="${SANS}" font-size="18" font-weight="700" fill="${bigger === key ? C.text : C.muted}" text-anchor="end">${escapeMarkup(totalText)}</text>`,
   ];
   let y = COL_TOP + 50;
   shown.forEach((row, i) => {
@@ -83,7 +86,7 @@ function sideColumn(summary, key, x, measure, bigger = "") {
     y += 30;
     parts.push(`<text x="${x + PAD_X}" y="${y}" font-family="${SANS}" font-size="22" fill="${C.muted}">+${more} more</text>`);
   }
-  if (summary.credit?.side === key) {
+  if (complete && summary.credit?.side === key) {
     // The extra for fewer, better pieces is part of this side's total, so say so on the card.
     y += 32;
     parts.push(
@@ -114,7 +117,8 @@ export function renderCardSvg(summary, { measure = roughMeasure, wordmark = "" }
   const tone = TONE[verdict.tone] || C.amber;
   const verdictY = VERDICT_TOP + 54;
   const bigger = verdict.side === "Give" ? "give" : verdict.side === "Get" ? "get" : "";
-  const giveShare = summary.giveCredited / Math.max(1, summary.giveCredited + summary.getCredited);
+  const sum = summary.giveCredited + summary.getCredited;
+  const giveShare = sum > 0 ? summary.giveCredited / sum : 0;
   const giveW = Math.round(W * giveShare);
   const giveFill = bigger === "get" ? C.barSmaller : C.barBigger;
   const getFill = bigger === "get" ? C.barBigger : C.barSmaller;
@@ -126,6 +130,12 @@ export function renderCardSvg(summary, { measure = roughMeasure, wordmark = "" }
   const pointer = bigger === "give"
     ? `<path d="M${tx - 20} ${ty} L${tx} ${ty - 11} L${tx} ${ty + 11} Z" fill="${tone}"/>`
     : bigger === "get" ? `<path d="M${tx} ${ty} L${tx - 20} ${ty - 11} L${tx - 20} ${ty + 11} Z" fill="${tone}"/>` : "";
+  const missing = summary.unpriced?.length || 0;
+  let detail = verdict.pctText;
+  const available = pctX - SAFE.left - measure(verdict.text, 48) - 40;
+  if (missing && measure(detail, 32) > available) {
+    detail = missing === 1 ? "1 asset has no price" : `${missing} assets have no price`;
+  }
   const stamp = summary.stamp ? `as of ${stampLabel(summary.stamp, { year: true })} · ` : "";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`
     + `<rect width="${W}" height="${H}" fill="${C.bg}"/>`
@@ -135,10 +145,10 @@ export function renderCardSvg(summary, { measure = roughMeasure, wordmark = "" }
     + sideColumn(summary, "get", SAFE.left + COL_W + 32, measure, bigger)
     + `<text x="${SAFE.left}" y="${verdictY}" font-family="${SANS}" font-size="48" font-weight="700" fill="${tone}">${escapeMarkup(verdict.text)}</text>`
     + pointer
-    + `<text x="${pctX}" y="${verdictY - 2}" font-family="${SANS}" font-size="32" font-weight="700" fill="${tone}" text-anchor="end">${escapeMarkup(verdict.pctText)}</text>`
+    + `<text x="${pctX}" y="${verdictY - 2}" font-family="${SANS}" font-size="32" font-weight="700" fill="${tone}" text-anchor="end">${escapeMarkup(detail)}</text>`
     + `<text x="${W - SAFE.right}" y="${verdictY + 22}" font-family="${SANS}" font-size="16" fill="${C.muted}" text-anchor="end">${escapeMarkup(`${stamp}${summary.formatLabel}`)}</text>`
-    + `<rect x="0" y="${H - 12}" width="${giveW}" height="12" fill="${giveFill}"/>`
-    + `<rect x="${giveW}" y="${H - 12}" width="${W - giveW}" height="12" fill="${getFill}"/>`
+    + (missing ? "" : `<rect x="0" y="${H - 12}" width="${giveW}" height="12" fill="${giveFill}"/>`
+      + `<rect x="${giveW}" y="${H - 12}" width="${W - giveW}" height="12" fill="${getFill}"/>`)
     + `</svg>`;
 }
 
@@ -228,9 +238,12 @@ export function createTradeCardHandler(deps = {}) {
       });
     }
     const code = codeFromPath(file, { suffix: ".png" });
-    const hit = code ? await summaryForCode(code, deps).catch(() => null) : null;
-    if (!hit?.summary) {
+    if (!decodeTradeShare(code)) {
       return new Response("Not found", { status: 404, headers: { ...SAFE_HEADERS, "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=60" } });
+    }
+    const hit = await summaryForCode(code, deps).catch(() => null);
+    if (!hit?.summary) {
+      return new Response("Trade prices unavailable", { status: 503, headers: { ...SAFE_HEADERS, "cache-control": "no-store" } });
     }
     const art = await loadCardArt().catch(() => ({}));
     const svg = renderCardSvg(hit.summary, art);
@@ -238,7 +251,8 @@ export function createTradeCardHandler(deps = {}) {
     // an SVG og:image, so a missing resvg/wasm must fail loudly, uncached.
     try {
       const png = await (deps.renderPng || renderCardPng)(svg);
-      return new Response(png, { status: 200, headers: { ...SAFE_HEADERS, "content-type": "image/png", "cache-control": CARD_CACHE } });
+      const versioned = url.searchParams.get("v") === `${hit.version}${CARD_DESIGN}`;
+      return new Response(png, { status: 200, headers: { ...SAFE_HEADERS, "content-type": "image/png", "cache-control": versioned ? CARD_CACHE : PAGE_CACHE } });
     } catch {
       return new Response("Card renderer unavailable", { status: 503, headers: { ...SAFE_HEADERS, "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
     }
