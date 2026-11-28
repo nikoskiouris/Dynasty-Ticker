@@ -1,6 +1,8 @@
 # How a trade quote becomes expected lineup points
 
-A market quote has its own unit. The native chart uses a fixed conversion from a quote to the achieved production of historically comparable startup picks. Players with football and market evidence receive 75% calibrated football surplus and 25% market-implied surplus. Players with one source use the available estimate. A pick with a direct quote uses the same conversion as the market component of a player. Missing pick quotes leave the pick unpriced.
+This study documents the production-based market conversion through v5.2. V5.3 retains the source quote bands and prices them on an exchange scale. [Current method and evidence](pick-packages.md)
+
+The earlier chart used a fixed conversion from a quote to the achieved production of historically comparable startup picks. Players with football and market evidence receive 75% calibrated football surplus and 25% market-implied surplus. Players with one source use the available estimate. A pick with a direct quote uses the same conversion as the market component of a player. Missing pick quotes leave the pick unpriced.
 
 ## Source observations
 

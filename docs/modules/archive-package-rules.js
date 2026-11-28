@@ -5,8 +5,9 @@ export function archivedPackageRules(decoded, boardStamp, sourceScale, modelVers
   if (!boardStamp || decoded.legacyFormat || decoded.stamp !== boardStamp) return undefined;
   // Before v5.2, verdict bands used a rounded gap and near-tied top pieces
   // could receive the full consolidation credit.
-  const legacy = { roundToTenth: true, capBestDifference: false };
+  const legacy = { creditShare: 0.25, roundToTenth: true, capBestDifference: false };
   if (sourceScale !== 10000) {
+    if (modelVersion === "dynasty-sf-ppr-v5.2") return { creditShare: 0.25 };
     const rounded = ["dynasty-sf-ppr-v3", "dynasty-sf-ppr-v4", "dynasty-sf-ppr-v5", "dynasty-sf-ppr-v5.1"];
     return rounded.includes(modelVersion) ? legacy : undefined;
   }

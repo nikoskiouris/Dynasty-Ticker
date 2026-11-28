@@ -18,11 +18,13 @@ def assemble(inputs):
     players = inputs["players"]
     picks = inputs["picks"]
     results, pick_results, diagnostics = value_board(players, picks, season_week=inputs["seasonWeek"])
-    names, sf, details = {}, {}, {}
+    names, sf, details, quotes = {}, {}, {}, {}
     for player_id, result in results.items():
         row = players[player_id]
         key = f"player:{player_id}"
         sf[key], names[key] = result["value"], row["name"]
+        if "market" in result["coverage"]:
+            quotes[key] = row["market"]
         details[key] = {
             "position": row["pos"], "team": row["team"], "age": row["age"],
             "experience": row["years_exp"], "draftPick": row["draft_pick"],
@@ -36,15 +38,16 @@ def assemble(inputs):
                            "recentPpr": row.get("recent_ppr"), "recentTeamGames": row.get("recent_team_games")},
             "factors": result["factors"], "coverage": result["coverage"],
             "projectedSurplus": result["projectedSurplus"], "calibratedSurplus": result["calibratedSurplus"],
-            "marketShare": result["marketShare"],
+            "marketShare": result["marketShare"], "footballSurplus": result["footballSurplus"],
         }
     for key, result in pick_results.items():
         sf[key], names[key] = result["value"], picks[key]["name"]
+        quotes[key] = picks[key]["market"]
     return {
         "schemaVersion": 1, "modelVersion": MODEL_VERSION, "valueScale": VALUE_SCALE,
         "asOf": inputs["asOf"], "generatedAt": inputs["asOf"],
         "season": inputs["season"], "throughWeek": inputs.get("throughWeek", inputs["seasonWeek"] - 1),
-        "names": names, "sf": sf, "players": details,
+        "names": names, "sf": sf, "players": details, "marketQuotes": quotes,
         "meta": {"referenceTeams": 12, "scoring": "full PPR", "superflex": True, "price": diagnostics,
                  "sources": inputs["sources"], "actualSource": inputs["actualSource"], "draftClasses": inputs["draftClasses"],
                  "asOfMeaning": "UTC source retrieval time. Sleeper v1 projections and FantasyCalc quotes used here omit per-player update times."},
