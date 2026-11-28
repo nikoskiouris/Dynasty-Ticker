@@ -7,13 +7,7 @@ import {
   watchUsernameFields,
 } from "./modules/boot-gate.js";
 import { watchBootImport } from "./modules/boot-import.js";
-
-const PAGE_FILES = [
-  "./ui/landing.html",
-  "./ui/trades.html",
-  "./ui/league.html",
-  "./ui/page-shells.html",
-];
+import { PAGE_FILES } from "./modules/page-files.js";
 
 const host = document.querySelector("#ui-pages");
 
@@ -44,16 +38,25 @@ document.addEventListener("click", onBootIntent, true);
 watchUsernameFields(document);
 armBootChrome();
 
-try {
+// Production embeds the same four templates in the boot bundle. The unbuilt
+// development site and older cached clients can still fetch their original URLs.
+async function loadPageShells() {
+  if (typeof __BUNDLED_PAGE_SHELLS__ === "string") return __BUNDLED_PAGE_SHELLS__;
   const parts = await Promise.all(PAGE_FILES.map(async (file) => {
     const response = await fetch(file);
     if (!response.ok) throw new Error(`Missing page ${file}`);
     return response.text();
   }));
+  return parts.join("\n");
+}
+
+try {
+  const html = await loadPageShells();
   if (!host) throw new Error("Missing #ui-pages");
-  mountHtmlPreservingUsernames(host, parts.join("\n"), document);
+  mountHtmlPreservingUsernames(host, html, document);
   armBootChrome();
 } catch (err) {
+  document.documentElement.removeAttribute("data-booting");
   showBootError();
   throw err;
 }
@@ -64,3 +67,4 @@ await watchBootImport({
   reload: () => location.reload(),
   storage: safeStorage("sessionStorage"),
 });
+document.documentElement.removeAttribute("data-booting");

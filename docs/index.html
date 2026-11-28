@@ -159,6 +159,10 @@
             <p>Enable JavaScript and reload.</p>
           </section>
         </noscript>
+        <div id="boot-status" role="status">
+          <p>Opening Dynasty Ticker…</p>
+          <button type="button" hidden>Reload page</button>
+        </div>
         <div id="ui-pages"></div>
       </main>
     </div>
@@ -166,6 +170,6 @@
     <footer class="site-foot">
       <nav aria-label="Legal"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
     </footer>
-    <script type="module" src="./boot.js"></script>
+    <script id="app-boot" type="module" src="./boot.js"></script>
   </body>
 </html>

@@ -5,6 +5,18 @@
   var bag = host.__dynastyBootFind || (host.__dynastyBootFind = { pending: true, queued: false, username: "" });
   var IDS = ["sleeper-username", "landing-username"];
 
+  document.documentElement.setAttribute("data-booting", "");
+  // If the boot module itself fails, its own import-recovery UI cannot run.
+  document.addEventListener("error", function (event) {
+    if (event.target?.id !== "app-boot") return;
+    var status = document.getElementById("boot-status");
+    if (!status) return;
+    status.querySelector("p").textContent = "Dynasty Ticker couldn’t load.";
+    var retry = status.querySelector("button");
+    retry.hidden = false;
+    retry.addEventListener("click", function () { location.reload(); });
+  }, true);
+
   function remember(name) {
     if (!bag.pending) return;
     bag.queued = true;
