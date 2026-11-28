@@ -640,8 +640,9 @@ if (bootRoute?.badLeague) {
   updateUrlState({ mode: "replace" });
 } else {
   // A deep-linked league keeps its requested shell while data is loading.
-  setRoom(bootRoute.page, bootRoute.room);
-  setActivePage(bootRoute.page, { history: "silent" });
+  const place = state.pendingPlace || bootRoute;
+  setRoom(place.page, place.room);
+  setActivePage(place.page, { history: "silent" });
 }
 bindInfoTips(document);
 // In-page links (#some-id): scroll to the
@@ -759,6 +760,8 @@ function navigateTool(href) {
 }
 
 function clampRoom(page, room) {
+  // A real league is opening. Its room can paint before its data arrives.
+  if (page === "league" && !state.league && leagueLoader.busy() && isRoomOf(page, room)) return room;
   return visibleRoomFor(page, room, state.league) || defaultRoomFor(page);
 }
 
@@ -1033,6 +1036,9 @@ function renderActivePage() {
   renderLeagueHero();
   const page = state.activePage;
   const room = getRoom(page);
+  // Keep the requested heading on screen while the shared progress indicator
+  // is visible. Room data and archive requests need the loaded league.
+  if (page === "league" && !state.league && leagueLoader.busy()) return;
   if (livePoller && !(page === "league" && room === "standings")) stopLivePolling();
   if (page === "leagues") { moveLeagueControls(document.querySelector("#leagues-page-content")); return; }
   if (page === "league" && room === "hub") {
@@ -2418,7 +2424,7 @@ function guestRouteHeading() {
 }
 
 function routeHeadingText() {
-  if (state.leagueId && state.activePage === "league") {
+  if (state.activePage === "league" && (state.leagueId || leagueLoader.busy())) {
     return ROUTE_ROOM_TITLES[getRoom("league")] || ROUTE_TAB_LABELS.league;
   }
   return guestRouteHeading();
@@ -4230,13 +4236,7 @@ function clearHost(host) {
 }
 
 function renderLeagueGuest() {
-  // A league load is in flight: say so instead of flashing the username box.
-  const loading = leagueLoader.busy();
-  if (el.powerDashboard) {
-    el.powerDashboard.innerHTML = loading
-      ? `<p class="power-loading muted" role="status" aria-busy="true"><span class="name-skeleton" aria-hidden="true"></span> Loading your league…</p>`
-      : renderNoLeaguePreview("team");
-  }
+  if (el.powerDashboard) el.powerDashboard.innerHTML = renderNoLeaguePreview("team");
   clearHost(el.standingsDashboard);
   clearHost(el.rosterSheet);
   document.querySelector("#roster-sheet-section")?.classList.add("hidden");
