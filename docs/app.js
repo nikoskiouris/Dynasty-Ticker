@@ -750,8 +750,10 @@ function navigateTool(href) {
     // Same league: switch rooms in place so the loaded league and team pick stay.
     const room = resolveLocation(url.pathname, url.search).room || "hub";
     state.pendingPlace = { page: "league", room };
-    if (String(id) === String(state.leagueId)) openRoom("league", room, { history: "push", scroll: "top" });
-    else {
+    if (String(id) === String(state.leagueId)) {
+      if (room === "team") setLensRoster(parseShareParams(url.search).teamRosterId);
+      openRoom("league", room, { history: "push", scroll: "top" });
+    } else {
       restoreLeagueManager(id, parseShareParams(url.search).meRosterId);
       void loadLeagueById(id);
     }
@@ -927,14 +929,15 @@ function ensureLeagueArchive(scope) {
     onProgress(progress) {
       if (String(state.leagueId || "") !== leagueId) return;
       archiveProgressMessage = progress.message || archiveProgressMessage;
-      if (state.activePage === "league" && getRoom("league") === "history") requestActivePageRender();
+      if (state.activePage === "league" && ["trades", "history"].includes(getRoom("league"))) requestActivePageRender();
     },
   });
   archiveRequest = { leagueId, scope, promise };
   promise.then((archive) => {
     if (String(state.leagueId || "") !== leagueId || archiveRequest?.promise !== promise) return;
     state.transactions = archive.transactions?.[String(state.league?.season)] || [];
-    state.transactionsLoaded = Boolean(archive.transactions?.[String(state.league?.season)]);
+    state.transactionsLoaded = Boolean(archive.transactions?.[String(state.league?.season)])
+      && !archive.stale && !archive.issues.some((issue) => String(issue.season) === String(state.league?.season) && issue.resource?.startsWith("transactions/"));
     archiveErrorMessage = "";
     requestActivePageRender();
   }).catch((error) => {
@@ -1044,7 +1047,7 @@ function renderActivePage() {
       myTeam: hubTeamName(),
       myRosterId: connectedRosterId(),
       caveat: marketCaveat(state.league),
-      teams: (state.normalizedRosters || []).map((roster) => ({
+      teams: (matchedSleeperRosterId() ? [] : state.normalizedRosters || []).map((roster) => ({
         id: roster.rosterId,
         // "Dev Hours (benhipp52)": people know their username better than a team name.
         name: hubTeamOptionName(roster),
@@ -1066,7 +1069,6 @@ function renderActivePage() {
         <h2>${escapeHtml(state.leagueName || "League")}</h2>
         <p class="muted small">${state.league?.status === "pre_draft" ? "This league hasn't drafted yet." : `${live ? `Live · Week ${model.currentWeek}` : `Week ${model?.currentWeek || "—"}`}`}</p>
         ${savedAt ? `<p class="league-saved-note" role="status">${escapeHtml(savedLeagueNote(savedAt))}</p>` : ""}
-        ${!model && state.seasonLoadError ? `<p role="status">${escapeHtml(state.seasonLoadError)}</p>` : ""}
         ${model ? `${renderStandingsPanel(model, sim)}${renderPlayoffOddsPanel(model, sim)}`
           : '<p role="status">Standings are loading from Sleeper…</p>'}`;
     }
@@ -2067,6 +2069,7 @@ function applyDeskPlaceFromHistory(parsed, historyState) {
       nextPage = DEFAULT_PAGE;
       nextView = defaultRoomFor(DEFAULT_PAGE);
     }
+    if (nextPage === "league" && nextView === "team") setLensRoster(parsed.teamRosterId);
     setRoom(nextPage, nextView);
     applyPlayerRoute(historyState, parsed);
     if (route.name === "home" || route.name === "connect" || route.name === "leagues" || route.unknown) {
@@ -2392,14 +2395,16 @@ function hubTeamName() {
   return manager?.teamName || manager?.displayName || "";
 }
 
-function connectedRosterId() {
+function matchedSleeperRosterId() {
   const userId = String(state.sleeperUser?.user_id || "");
-  if (userId) {
-    const raw = (state.rosters || []).find((roster) => String(roster?.owner_id || "") === userId
-      || (Array.isArray(roster?.co_owners) && roster.co_owners.map(String).includes(userId)));
-    return raw ? String(raw.roster_id) : "";
-  }
-  return state.mePickedByUser && state.meRosterId != null ? String(state.meRosterId) : "";
+  if (!userId) return "";
+  const raw = (state.rosters || []).find((roster) => String(roster?.owner_id || "") === userId
+    || (Array.isArray(roster?.co_owners) && roster.co_owners.map(String).includes(userId)));
+  return raw ? String(raw.roster_id) : "";
+}
+
+function connectedRosterId() {
+  return matchedSleeperRosterId() || (state.mePickedByUser && state.meRosterId != null ? String(state.meRosterId) : "");
 }
 
 function goSiteHome({ history = "push" } = {}) {
@@ -2855,6 +2860,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     invalidatePlayerLoads();
     hideAppPages();
 
+    setStatus("Loading league from Sleeper…", { loading: true });
     const [coreData, nflState] = await Promise.all([
       loadLeagueCoreData(leagueId),
       apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 })
@@ -2863,7 +2869,10 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     ]);
     if (!leagueLoader.isCurrent(token)) return;
     const { league, users, rosters, tradedPicks, drafts } = coreData;
-    const leagueHistory = await loadLeagueHistoryContext(leagueId, coreData);
+    const [leagueHistory, draftLoad] = await Promise.all([
+      loadLeagueHistoryContext(leagueId, coreData, token),
+      loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts),
+    ]);
     if (!leagueLoader.isCurrent(token)) return;
     const previousEntry = leagueHistory.find((entry) => !entry.isCurrent) || null;
     const previousContext = previousEntry
@@ -2873,8 +2882,6 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
           rosters: previousEntry.rosters,
         }
       : { league: null, users: [], rosters: [] };
-    const draftLoad = await loadCurrentSeasonDraftContext(leagueId, league, rosters, drafts);
-    if (!leagueLoader.isCurrent(token)) return;
 
     const sameLeague = String(state.leagueId || "") === String(leagueId);
     // Switching leagues is a new place, so Back returns to the league you left.
@@ -3125,7 +3132,7 @@ async function loadSeasonWeeks(leagueId, league) {
     state.seasonSavedAt = filled ? saved.savedAt : null;
   }
   state.seasonLoaded = loaded > 0;
-  state.seasonLoadError = loaded > 0 ? "" : "Sleeper did not return matchups for the current season.";
+  state.seasonLoadError = loaded === weeks.length ? "" : "Some matchup weeks are unavailable from Sleeper.";
   invalidateSeasonCaches();
   settlePickProjection();
   renderSessionSnapshot();
@@ -3248,7 +3255,6 @@ async function loadLeagueCoreData(leagueId) {
   ];
 
   const tasks = endpointPlan.map(async (endpoint) => {
-    setStatus(`Loading ${endpoint.label}...`, { loading: true });
     const payload = await apiGetWithRetry(endpoint.path, { timeoutMs: 12000, retries: 1 });
     return { key: endpoint.key, payload };
   });
@@ -3276,6 +3282,7 @@ async function loadLeagueCoreData(leagueId) {
   }
 
   const core = {
+    finalCore: byKey.league?.status === "complete" && endpointPlan.slice(1).every(({ key }) => Array.isArray(byKey[key])),
     league: byKey.league,
     users: byKey.users,
     rosters: byKey.rosters,
@@ -3464,19 +3471,21 @@ function buildLeagueHistoryEntry(leagueId, coreData, isCurrent = false) {
   };
 }
 
-async function loadLeagueHistoryContext(currentLeagueId, currentCoreData) {
+async function loadLeagueHistoryContext(currentLeagueId, currentCoreData, token) {
   const entries = [buildLeagueHistoryEntry(currentLeagueId, currentCoreData, true)];
   const seenLeagueIds = new Set([String(currentLeagueId || "")]);
   let olderLeagueId = previousLeagueId(currentCoreData?.league?.previous_league_id);
 
   for (let depth = 1; depth < MAX_HISTORY_SEASONS && olderLeagueId; depth += 1) {
     const historyLeagueId = olderLeagueId;
-    if (seenLeagueIds.has(historyLeagueId)) break;
+    if (!leagueLoader.isCurrent(token) || seenLeagueIds.has(historyLeagueId)) break;
     seenLeagueIds.add(historyLeagueId);
 
     try {
       setStatus(`Loading league archive season ${depth + 1}...`, { loading: true });
-      const historicalCore = await loadLeagueCoreData(historyLeagueId);
+      const saved = await readDeskSnapshot(`core:${historyLeagueId}`);
+      // Only reuse an archived season after all seven endpoints succeeded.
+      const historicalCore = saved?.data?.finalCore ? saved.data : await loadLeagueCoreData(historyLeagueId);
       entries.push(buildLeagueHistoryEntry(historyLeagueId, historicalCore, false));
       olderLeagueId = previousLeagueId(historicalCore?.league?.previous_league_id);
     } catch (err) {
@@ -3839,12 +3848,13 @@ function getLensRoster() {
 // Null means "follow my team", so switching identity also resets the lens.
 function setLensRoster(rosterId) {
   const next = Number(rosterId);
-  state.lensRosterId = Number.isFinite(next) && next > 0 && next !== Number(state.meRosterId) ? next : null;
+  state.lensRosterId = Number.isFinite(next) && next > 0 && next !== Number(connectedRosterId()) ? next : null;
   if (state.weeklyValue) state.weeklyValue.selectedPlayerId = "";
 }
 
 function isViewingOtherRoster(roster) {
-  return Boolean(roster) && String(roster.rosterId) !== String(state.meRosterId ?? "");
+  const mine = connectedRosterId();
+  return Boolean(roster && mine) && String(roster.rosterId) !== mine;
 }
 
 function findNormalizedRoster(rosterId) {
@@ -4040,7 +4050,6 @@ function getSeasonModel() {
     state.seasonLoaded,
     state.rosters.length,
     state.users.length,
-    state.playerMetadataLoaded,
     state.nflState?.week ?? "na",
   ].join("|");
   if (state.seasonModelCache.key === key && state.seasonModelCache.model) return state.seasonModelCache.model;
@@ -4050,23 +4059,9 @@ function getSeasonModel() {
     users: state.users,
     weekRows: state.seasonWeekRows,
     nflState: state.nflState,
-    optimalPoints: state.playerMetadataLoaded ? computeOptimalPointsForSide : null,
   });
   state.seasonModelCache = { key, model };
   return model;
-}
-
-function computeOptimalPointsForSide(side) {
-  if (!state.playerMetadataLoaded || !Array.isArray(side?.players) || side.players.length === 0) return null;
-  const values = {};
-  const assets = side.players.map((playerId) => {
-    const raw = state.players?.[playerId] || {};
-    values[`player:${playerId}`] = Number(side.playersPoints?.[playerId]) || 0;
-    return { assetId: `player:${playerId}`, name: String(playerId), assetType: "player", raw };
-  });
-  // A past week's best lineup is picked by the points that week, not this week's start chance.
-  const lineup = buildOptimalStartingLineup(assets, getStarterRosterSlots(state.league), values);
-  return lineup.starters.reduce((sum, entry) => sum + (entry.asset ? values[entry.asset.assetId] || 0 : 0), 0);
 }
 
 function getSimulation(model) {
@@ -4288,11 +4283,12 @@ function renderStandingsPanel(model, sim) {
         </div>
         ${showDivisions ? `
           <div class="segmented" role="group" aria-label="Standings view">
-            <button type="button" class="${view === "overall" ? "active" : ""}" data-action="standings-view" data-view="overall">Overall</button>
-            <button type="button" class="${view === "division" ? "active" : ""}" data-action="standings-view" data-view="division">Divisions</button>
+            <button type="button" class="${view === "overall" ? "active" : ""}" aria-pressed="${view === "overall"}" data-action="standings-view" data-view="overall">Overall</button>
+            <button type="button" class="${view === "division" ? "active" : ""}" aria-pressed="${view === "division"}" data-action="standings-view" data-view="division">Divisions</button>
           </div>
         ` : ""}
       </div>
+      ${state.seasonLoadError ? `<p role="status">${escapeHtml(state.seasonLoadError)}</p>` : ""}
       <div class="standings-legend muted small">
         <span>Luck: real wins minus all-play expected wins. ${infoTipMarkup({ id: "pop-standings-luck", label: "What luck means", text: luckExplainer(model) })}</span>
         ${model.medianGames ? "<span>Includes weekly median games.</span>" : ""}
@@ -4312,7 +4308,7 @@ function renderStandingsRow(team, sim, { showLine, position, divisionLeader = fa
   const odds = sim?.byRosterId?.get(team.rosterId);
   const seed = team.seed;
   const badges = [];
-  if (hasGames && seed && seed <= playoffTeams) badges.push(`<span class="seed-chip">${seed}</span>`);
+  if (hasGames && seed && seed <= playoffTeams) badges.push(`<span class="seed-chip" title="Playoff seed ${seed}">Seed ${seed}</span>`);
   if (divisionLeader) badges.push(`<span class="mini-chip">Div lead</span>`);
   if (odds?.clinched) badges.push(`<span class="mini-chip green">Clinched</span>`);
   if (odds?.eliminated) badges.push(`<span class="mini-chip rose">Out</span>`);
@@ -4325,8 +4321,8 @@ function renderStandingsRow(team, sim, { showLine, position, divisionLeader = fa
         <span class="standings-badges">${badges.join("")}</span>
       </div>
       <span class="mono">${escapeHtml(team.recordLabel)}</span>
-      <span class="mono col-pf">${team.gamesPlayed ? formatPoints(team.pf) : odds ? `<em title="Projected wins">${odds.projectedWins.toFixed(1)} proj W</em>` : "—"}</span>
-      <span class="mono col-pa">${team.gamesPlayed ? formatPoints(team.pa) : "—"}</span>
+      <span class="mono col-pf">${team.gamesPlayed || team.wins + team.losses + team.ties ? formatPoints(team.pf) : "—"}</span>
+      <span class="mono col-pa">${team.gamesPlayed || team.wins + team.losses + team.ties ? formatPoints(team.pa) : "—"}</span>
       <span class="streak col-streak ${team.streak?.type === "W" ? "up" : team.streak?.type === "L" ? "down" : ""}">${streakLabel}</span>
       <span class="mono col-allplay">${team.allPlayGames ? escapeHtml(team.allPlayRecord) : "—"}</span>
       <span class="mono luck col-luck ${luckClass(team.luck)}"${team.gamesPlayed ? ` title="${escapeHtml(luckLine(team))}"` : ""}>${team.gamesPlayed ? formatLuck(team.luck) : "—"}</span>
@@ -4363,7 +4359,7 @@ function renderPlayoffOddsPanel(model, sim) {
           <div>
             <h2>Playoff odds</h2>
           </div>
-          <p class="section-copy">${noSchedule ? "Awaiting the season schedule from Sleeper." : "Matchups are still syncing from Sleeper."}</p>
+          <p class="section-copy">${noSchedule ? "Awaiting the season schedule from Sleeper." : state.seasonLoadError ? "Odds need a complete matchup schedule." : "Matchups are still syncing from Sleeper."}</p>
         </div>
       </section>
     `;
@@ -4386,7 +4382,7 @@ function renderPlayoffOddsPanel(model, sim) {
         <div class="odds-head"><span>Team</span><span>Playoffs</span><span>Title</span><span>Proj W</span></div>
         ${rows.map((row) => renderOddsRow(row, sim)).join("")}
       </div>
-      <p class="muted small">${model.divisionCount > 1 ? "Division winners take the top seeds (Sleeper default). " : ""}${sim.byeCount > 0 ? `Top ${sim.byeCount} seed${sim.byeCount === 1 ? "" : "s"} get a first-round bye.` : ""}</p>
+      <p class="muted small">${model.divisionCount > 1 && model.seedType !== 2 ? (model.seedType === 1 ? "Division winners qualify for the playoffs. " : "Division winners take the top seeds. ") : ""}${sim.byeCount > 0 ? `Top ${sim.byeCount} seed${sim.byeCount === 1 ? "" : "s"} get a first-round bye.` : ""}</p>
     </section>
   `;
 }
@@ -4576,7 +4572,7 @@ let seasonPointsCache = { key: "", value: null };
 function seasonPlayerPoints() {
   const model = getSeasonModel();
   const through = Number(model?.finalThroughWeek) || 0;
-  if (!state.seasonLoaded || through < 1) return null;
+  if (!state.seasonLoaded || through < 1 || state.seasonLoadError) return null;
   const key = `${state.leagueId}|${weekRowsFingerprint(state.seasonWeekRows)}|${through}`;
   if (seasonPointsCache.key === key) return seasonPointsCache.value;
   const points = new Map();
@@ -6798,7 +6794,7 @@ function handleWorkspaceClick(event) {
     }
     case "lens-me": {
       const keyboard = event.detail === 0;
-      setLensRoster(state.meRosterId);
+      setLensRoster(null);
       renderActivePage();
       updateUrlState({ mode: "replace" });
       // "Back to my team" is gone once you're back: keep focus on the team picker.
@@ -6807,7 +6803,10 @@ function handleWorkspaceClick(event) {
     }
     case "set-lens-teams": {
       setLensRoster(target.dataset.rosterId);
-      openRoom("league", "team");
+      if (teamsRosterVisible()) {
+        renderActivePage();
+        updateUrlState({ mode: "replace" });
+      } else openRoom("league", "team");
       el.powerSection?.scrollIntoView({ behavior: smoothScroll(), block: "start" });
       break;
     }

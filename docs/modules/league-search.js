@@ -1,5 +1,5 @@
 import { escapeHtml } from "./html.js";
-import { leagueTypeLabel } from "./league-format.js";
+import { leagueFormat } from "./league-format.js";
 import { sleeperAvatarUrl } from "./sleeper.js";
 
 export function isMissingSleeperUser(err) {
@@ -104,13 +104,12 @@ export function resolveDefaultMeRoster({
 } = {}) {
   const list = Array.isArray(rosters) ? rosters : [];
   const pending = findRosterById(list, pendingMeRosterId);
+  const searched = findRosterForSleeperUser(list, sleeperUser, rawRosters);
+  if (searched) return searched;
   if (pending) return pending;
 
   const selected = findRosterById(list, selectedRosterId);
   if (userPickedMe && selected) return selected;
-
-  const searched = findRosterForSleeperUser(list, sleeperUser, rawRosters);
-  if (searched) return searched;
 
   // A searched user who isn't in this league is not the first manager.
   if (sleeperUser) return null;
@@ -180,7 +179,7 @@ export function renderLeaguePickerMarkup(leagues, currentSeason, selectedId = ""
             <span class="league-pick-avatar">${avatar ? `<img src="${escapeHtml(avatar)}" alt="${escapeHtml(league.name || "League")} logo">` : `<span aria-hidden="true">${escapeHtml((league.name || "L").slice(0, 1))}</span>`}</span>
             <span class="league-pick-copy">
               <strong>${escapeHtml(league.name || "Untitled league")}</strong>
-              <small>${escapeHtml(String(league.season || ""))} · ${Number(league.total_rosters || 0)} teams · ${(league.roster_positions || []).includes("SUPER_FLEX") ? "Superflex" : "1QB"} · ${Number(league.scoring_settings?.rec) === 1 ? "PPR" : Number(league.scoring_settings?.rec) === 0.5 ? "Half PPR" : "Standard"} · ${escapeHtml(leagueStatusLabel(league.status))}</small>
+              <small>${escapeHtml(String(league.season || ""))} · ${escapeHtml(leagueFormat(league).chip)} · ${escapeHtml(leagueStatusLabel(league.status))}</small>
             </span>
           </button>
         `;

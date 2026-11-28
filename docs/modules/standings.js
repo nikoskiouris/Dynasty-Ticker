@@ -85,7 +85,12 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     });
   });
 
-  weeks.filter((entry) => entry.isFinal && !entry.isPlayoff && entry.hasPoints).forEach((entry) => {
+  const finalWeeks = weeks.filter((entry) => entry.isFinal && !entry.isPlayoff);
+  // A partial schedule would turn an 11-0 team into 10-0. Keep the
+  // official roster totals and wait for all played weeks to compute streaks.
+  const missingFinalWeek = finalWeeks.some((entry) => !weekRows.get(entry.week)?.length);
+  const scoredWeeks = missingFinalWeek ? [] : finalWeeks.filter((entry) => entry.hasPoints);
+  scoredWeeks.forEach((entry) => {
     const weekScores = [];
     entry.games.forEach((game) => {
       const [left, right] = game.sides;
@@ -147,7 +152,7 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     }
   });
 
-  const finalRegularWeeks = weeks.filter((entry) => entry.isFinal && !entry.isPlayoff).length;
+  const finalRegularWeeks = finalWeeks.length;
   const hasComputedGames = finalRegularWeeks > 0 && [...teams.values()].some((team) => team.scores.length > 0);
 
   teams.forEach((team) => {
@@ -194,7 +199,7 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     .flatMap((entry) => entry.games.map((game) => ({ week: entry.week, game })));
   // A missing week, or a future week Sleeper has not scheduled yet, is not
   // "zero games left". Locks and the Monte Carlo both read remainingGames.
-  const scheduleIncomplete = weeks.some((entry) => {
+  const scheduleIncomplete = missingFinalWeek || weeks.some((entry) => {
     if (entry.isPlayoff || entry.isFinal) return false;
     if (!weekRows.has(entry.week)) return true;
     return entry.games.length === 0 && entry.byes.length === 0;

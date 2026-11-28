@@ -63,7 +63,7 @@ export function leagueKeepsPlayers(league) {
 }
 
 export function leagueUsesFuturePicks(league) {
-  return true;
+  return leagueTypeMeta(league).futurePicks;
 }
 
 export function hiddenRoomsForLeague() { return []; }
@@ -102,21 +102,32 @@ export function roomHintFor(page, room) {
 
 export function roomDescriptionFor() { return ""; }
 
+function leagueShape(league) {
+  const slots = (league?.roster_positions || []).map((slot) => String(slot).trim().toUpperCase());
+  const flexCount = slots.filter((slot) => ["SUPER_FLEX", "SUPERFLEX", "OP"].includes(slot)).length;
+  const qbCount = slots.filter((slot) => slot === "QB").length;
+  const sf = flexCount === 1 && qbCount === 1;
+  const qbFormat = sf ? "SF" : [`${qbCount}QB`, flexCount === 1 ? "SF" : flexCount > 1 ? `${flexCount} SF` : ""].filter(Boolean).join(" + ");
+  // Sleeper omits unscored stats. A present scoring table with no rec is standard scoring.
+  const rec = league?.scoring_settings ? Number(league.scoring_settings.rec ?? 0) : NaN;
+  const scoring = rec === 1 ? "PPR" : rec === 0.5 ? "Half PPR" : rec === 0 ? "Standard"
+    : Number.isFinite(rec) ? `${rec} PPR` : "Unknown scoring";
+  return { teams: Number(league?.total_rosters), sf, qbFormat: slots.length ? qbFormat : "Unknown lineup", scoring, ppr: rec === 1, tep: Number(league?.scoring_settings?.bonus_rec_te) > 0 };
+}
+
+export function leagueFormat(league) {
+  const { teams, qbFormat, scoring, tep } = leagueShape(league);
+  const chip = [teams ? `${teams}-team` : "", qbFormat, scoring, tep ? "TE bonus" : "", leagueTypeLabel(league)].filter(Boolean).join(" · ");
+  return { chip };
+}
+
 // League settings describe a warning only. They never select another price map.
 export function marketCaveat(league) {
   if (!league) return "";
-  const teams = Number(league.total_rosters);
-  const slots = (league.roster_positions || []).map((slot) => String(slot).trim().toUpperCase());
-  const sf = slots.some((slot) => ["SUPER_FLEX", "SUPERFLEX", "OP"].includes(slot)) || slots.filter((slot) => slot === "QB").length >= 2;
-  const rec = Number(league.scoring_settings?.rec);
-  const ppr = rec === 1;
+  const { teams, sf, qbFormat, ppr, scoring, tep } = leagueShape(league);
   const dynasty = leagueTypeId(league) === "dynasty";
-  // TE premium (extra points per TE catch) is the most common dynasty tweak,
-  // and our TE prices assume none.
-  const tep = Number(league.scoring_settings?.bonus_rec_te) > 0;
   if (teams === 12 && sf && ppr && dynasty && !tep) return "";
-  const scoring = ppr ? "PPR" : rec === 0.5 ? "Half PPR" : rec === 0 ? "non-PPR" : "custom scoring";
-  const shape = [Number.isFinite(teams) && teams > 0 ? `${teams}-team` : "custom-size", sf ? "Superflex" : "1QB", scoring, tep ? "TE premium" : "", leagueTypeLabel(league).toLowerCase()].filter(Boolean).join(" ");
+  const shape = [Number.isFinite(teams) && teams > 0 ? `${teams}-team` : "custom-size", sf ? "Superflex" : qbFormat, scoring, tep ? "TE premium" : "", leagueTypeLabel(league).toLowerCase()].filter(Boolean).join(" ");
   // Name what differs, not just QBs: each gap affects different prices.
   const care = [
     !sf && "QB values (they assume Superflex)",
