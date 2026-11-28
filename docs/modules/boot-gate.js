@@ -140,6 +140,71 @@ function placeCaret(input, start, end) {
   }
 }
 
+// Read every username box before a render destroys the node.
+export function captureUsernameControls(root) {
+  const fields = {};
+  const active = root?.activeElement;
+  let focusedId = "";
+  let remembered = "";
+  USERNAME_IDS.forEach((id) => {
+    const input = usernameField(root, id);
+    if (!input) return;
+    const caret = caretOf(input);
+    fields[id] = caret;
+    if (active === input) {
+      focusedId = id;
+      if (caret.value) remembered = caret.value;
+    } else if (!remembered && caret.value) remembered = caret.value;
+  });
+  return { fields, focusedId, remembered };
+}
+
+function rememberedValue(snap, id) {
+  const own = snap?.fields?.[id]?.value || "";
+  if (own) return own;
+  return snap?.remembered || "";
+}
+
+// Put the typed name back on whatever input the render just created.
+export function restoreUsernameControls(root, snap) {
+  if (!root || !snap) return;
+  USERNAME_IDS.forEach((id) => {
+    const input = usernameField(root, id);
+    if (!input) return;
+    const had = String(input.value || "");
+    const next = had || rememberedValue(snap, id);
+    if (!had && next) input.value = next;
+    if (!had && next && snap.focusedId === id) {
+      const caret = snap.fields?.[id] || {};
+      input.focus?.();
+      placeCaret(input, caret.start, caret.end);
+    }
+  });
+}
+
+// Swap markup without dropping a username the visitor already typed.
+export function mountHtmlPreservingUsernames(host, html, root = globalThis.document) {
+  const snap = captureUsernameControls(root);
+  const held = new Map();
+  USERNAME_IDS.forEach((id) => {
+    const node = usernameField(root, id);
+    if (!node || !host?.contains?.(node)) return;
+    const caret = caretOf(node);
+    held.set(id, { node, ...caret });
+    node.remove?.();
+  });
+  if (host) host.innerHTML = html;
+  held.forEach((saved, id) => {
+    const fresh = usernameField(root, id);
+    if (fresh && fresh !== saved.node) fresh.replaceWith?.(saved.node);
+    if (snap.focusedId === id) {
+      saved.node.focus?.();
+      placeCaret(saved.node, saved.start, saved.end);
+    }
+  });
+  restoreUsernameControls(root, snap);
+}
+
 function harvestUsernameNode(node, snap, touched) {
   if (!node || node.nodeType !== 1) return;
   const take = (input) => {
