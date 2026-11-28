@@ -574,6 +574,7 @@ document.addEventListener("submit", (event) => {
   requestFindLeagues();
 });
 
+let selectedTradeSearchSide = "";
 let valuesLoadFailed = false;
 let leagueMissing = false;
 let sleeperUnreachable = false;
@@ -2119,6 +2120,7 @@ function playerPageDescription(name) {
 }
 
 function applyTradeRoute(route) {
+  selectedTradeSearchSide = "";
   state.badShareLink = Boolean(route?.badShare);
   state.droppedPlayerNote = "";
   // Back from a just-shared /t/<code> lands on /trade and should stay there.
@@ -4803,6 +4805,7 @@ function draftAssetKey(draft) {
 }
 
 function replaceDraft(next, note, { fromTalk = false } = {}) {
+  selectedTradeSearchSide = "";
   const current = state.valueCalc;
   setDraftReplaced(!isDraftEmpty(current) && draftAssetKey(current) !== draftAssetKey(next)
     ? { draft: current, note }
@@ -5063,12 +5066,21 @@ function restoreTradeTalkInput(host, snap) {
   }
 }
 
-let smartTradeSide = "right";
+function tradeSearchSide() {
+  if (selectedTradeSearchSide) return selectedTradeSearchSide;
+  return state.valueCalc.right.length && !state.valueCalc.left.length ? "left" : "right";
+}
+
+function tradeSearchPlaceholder() {
+  if (!selectedTradeSearchSide && isDraftEmpty(state.valueCalc)) return "Gibbs + a 1st for Maye";
+  return `Player or pick for ${tradeSearchSide() === "left" ? "Team 2" : "Team 1"}`;
+}
+
 function renderTradeTalk() {
   return `<section class="talk-box smart-trade-search" aria-labelledby="trade-talk-label">
     <form class="talk-form" data-trade-talk novalidate>
       <label id="trade-talk-label" for="trade-talk-input">Search players, picks or a trade</label>
-      <div class="talk-row"><input id="trade-talk-input" name="say" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="smart-trade-list" data-input="smart-trade" maxlength="${TRADE_TALK_MAX}" placeholder="Gibbs + a 1st for Maye" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" /><button type="submit" class="talk-send" aria-label="Build trade">Build</button></div>
+      <div class="talk-row"><input id="trade-talk-input" name="say" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="smart-trade-list" data-input="smart-trade" maxlength="${TRADE_TALK_MAX}" placeholder="${tradeSearchPlaceholder()}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" /><button type="submit" class="talk-send" aria-label="Build trade">Build</button></div>
       <div id="smart-trade-list" class="smart-trade-list" role="listbox" hidden></div>
       <span id="smart-trade-count" class="sr-only" role="status" aria-live="polite"></span>
     </form>
@@ -5134,6 +5146,7 @@ function refreshSmartTradeSearch(input) {
   input.removeAttribute("aria-activedescendant");
   const count = document.getElementById("smart-trade-count");
   if (!count) return;
+  const smartTradeSide = tradeSearchSide();
   count.classList.toggle("sr-only", rows.length > 0 || !matches.length);
   count.textContent = rows.length ? `${rows.length} ${rows.length === 1 ? "option" : "options"}. Enter adds to ${draftReceivingTeam(smartTradeSide, view)}. Shift Enter adds to ${draftReceivingTeam(smartTradeSide === "right" ? "left" : "right", view)}.` : matches.length ? "Already in this trade." : query ? "No matching assets. Enter to interpret a whole trade." : "";
 }
@@ -5272,7 +5285,7 @@ function tradeTalkContext(view) {
     meRosterId: me ? me.rosterId : null,
     partnerRosterId: view.context?.partnerRosterId ?? draft.partnerRosterId ?? null,
     // A typed piece with no side lands where Enter on a search match would.
-    defaultSide: smartTradeSide,
+    defaultSide: tradeSearchSide(),
     removedSides: Object.fromEntries(removedSides),
     season: nextRookieDraftSeason(),
     connected: basis.connected,
@@ -5519,6 +5532,8 @@ function patchTradeDraft(listSides = []) {
     if (notes) notes.innerHTML = renderDraftNotes(side, view);
     if (listSides.includes(side)) patchDraftSuggestions(side, view);
   });
+  const search = host.querySelector("#trade-talk-input");
+  if (search) search.placeholder = tradeSearchPlaceholder();
   const sharedTitle = host.querySelector("#shared-trade-title");
   if (sharedTitle) sharedTitle.textContent = sharedTradeTitle(view);
   const basisEl = host.querySelector("#draft-basis");
@@ -6420,6 +6435,7 @@ function addDraftAsset(side, asset, { fromTalk = false } = {}) {
 
 function addDraftFromPlayers(assetId, name, kind) {
   if (!assetId) return;
+  selectedTradeSearchSide = "";
   playersBoardOpen = false;
   // Player detail always adds to Team 1 Receives. Ownership is context, not
   // permission to move the owner's existing draft or swap this action's side.
@@ -6585,6 +6601,7 @@ function handleWorkspaceKeydown(event) {
     if (event.key === "Enter" && rows.length && !/\b(for|offered|receive|give|swap)\b/i.test(smart.value)) {
       event.preventDefault();
       const row = rows.find((item) => item.getAttribute("aria-selected") === "true") || rows[0];
+      const smartTradeSide = tradeSearchSide();
       const oppositeSide = smartTradeSide === "right" ? "left" : "right";
       pickSmartTradeAsset(row.querySelector(`[data-side="${event.shiftKey ? oppositeSide : smartTradeSide}"]`));
       return;
@@ -6649,10 +6666,10 @@ function handleWorkspaceClick(event) {
   calcKeyboardClick = event.detail === 0;
   switch (action) {
     case "smart-focus": {
-      smartTradeSide = target.dataset.side === "left" ? "left" : "right";
+      selectedTradeSearchSide = target.dataset.side === "left" ? "left" : "right";
       const input = document.getElementById("trade-talk-input");
       if (input) {
-        input.placeholder = `Add a player or pick to ${draftReceivingTeam(smartTradeSide, buildDraftView())}`;
+        input.placeholder = tradeSearchPlaceholder();
         input.focus();
       }
       break;

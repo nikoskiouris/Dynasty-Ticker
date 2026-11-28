@@ -156,8 +156,29 @@
 #calculator-shell .verdict-info-toggle[aria-expanded="true"] .trade-disclosure-arrow { transform: rotate(90deg); }
 #calculator-shell .verdict-fine-print { margin: 4px 0 0; padding: 2px 0; }
 #calculator-shell .trade-fairness-track { margin: 15px 25px 12px; border-color: var(--line-strong); }
-#calculator-shell .trade-fairness-marker { background: var(--green); }
-#calculator-shell .trade-fairness-stop { white-space: nowrap; font-size: 12px; }
+#calculator-shell .trade-fairness-marker { z-index: 1; background: var(--green); }
+#calculator-shell .trade-fairness-stop {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  white-space: nowrap;
+  font-size: 12px;
+}
+#calculator-shell .trade-fairness-stop::before {
+  content: "";
+  position: absolute;
+  top: -14px;
+  height: 5px;
+  border-left: 1px solid var(--line-strong);
+}
+#calculator-shell .trade-fairness-stop small { font: 500 12px/1.4 var(--font-ui); }
+#calculator-shell .trade-scale-short { display: none; }
+@media (max-width: 360px) {
+  #calculator-shell .trade-fairness-stop:has(.trade-scale-short) .trade-scale-tier { display: none; }
+  #calculator-shell .trade-scale-short { display: inline; text-decoration: none; }
+  #calculator-shell .trade-fairness-track { margin-inline: 21px; }
+  #calculator-shell .trade-fairness-stop { font-size: 11px; }
+}
 #calculator-shell :is(.calc-even, .draft-package, .calc-method) { margin: 6px 0; padding: 0; border: 0; background: none; }
 #calculator-shell .calc-actions { gap: 8px; }
 #calculator-shell .calc-actions button, #calculator-shell .draft-add-focus, #calculator-shell .shared-edit-btn {
