@@ -27,7 +27,13 @@ def assemble(inputs):
             "position": row["pos"], "team": row["team"], "age": row["age"],
             "experience": row["years_exp"], "draftPick": row["draft_pick"],
             "projection": {"season": inputs["season"], "week": inputs["week"],
-                           "seasonPpr": row["season_ppr"], "weekPpr": row["week_ppr"]},
+                           "seasonPpr": row["season_ppr"], "weekPpr": row["week_ppr"],
+                           "remainingPpr": result["remainingPpr"], "actualPpr": row["actual_ppr"],
+                           "gamesPlayed": row["games"], "teamGames": row.get("team_games"),
+                           "remainingGames": row.get("remaining_games"),
+                           "forwardPpr": row.get("forward_ppr"), "forwardGames": row.get("forward_games"),
+                           "backupGames": row.get("backup_games"),
+                           "recentPpr": row.get("recent_ppr"), "recentTeamGames": row.get("recent_team_games")},
             "factors": result["factors"], "coverage": result["coverage"],
         }
     for key, result in pick_results.items():
@@ -37,8 +43,8 @@ def assemble(inputs):
         "season": inputs["season"], "throughWeek": inputs["seasonWeek"] - 1,
         "names": names, "sf": sf, "players": details,
         "meta": {"referenceTeams": 12, "scoring": "full PPR", "superflex": True, "price": diagnostics,
-                 "sources": inputs["sources"], "draftClasses": inputs["draftClasses"],
-                 "asOfMeaning": "UTC retrieval time. Source feeds do not timestamp individual quotes or projections."},
+                 "sources": inputs["sources"], "actualSource": inputs["actualSource"], "draftClasses": inputs["draftClasses"],
+                 "asOfMeaning": "UTC source retrieval time. Sleeper v1 projections and FantasyCalc quotes used here omit per-player update times."},
     }
 
 

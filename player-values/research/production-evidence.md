@@ -76,3 +76,26 @@ A player can finish below the current starting lineup and still win a larger rol
 | 65–96 | 3.3 | 3.7 | 8.5 | 0.4 |
 
 The model pools adjacent rank bands where sampling noise reverses their order and interpolates between their centers. Its future production estimate combines 50% individual retained surplus and 50% age-adjusted positional cohort surplus before any rookie adjustment. The equal weights in this internal blend are a modeling choice. The cohort inputs come from completed-season ranks, while values apply them to estimated production ranks, which adds uncertainty.
+
+## Quarterbacks older than 35
+
+The broad 34+ cohort masks a change late in a quarterback’s career. Among 35 top-24 starter-seasons at ages 34–36 in the 2000–16 training cohort, the group retained 63% of current surplus one year later and 61% two years later. At ages 37–39, 16 starter-seasons retained 57% and 37%. A model that assigns the same retention at 35 and 42 misses that difference. Selecting only established top-24 incumbents is important here: an active 39-year-old starter has already outlasted many of his peers.
+
+We fitted two logistic regressions using 220 age-28+ starter-seasons from 61 QBs in 2000–16. Both outcomes, earning positive surplus above QB24 in the next season and in the season after that, were known by 2018. Each regression uses age and prior finish (top 12 or QB13–24). The weak regularization and the fixed top-12/QB13–24 mix used to compare ages are specified in `late_qb_retention` in the research CLI. A missed season, retirement or a lost starting job all yield zero surplus. The model scales the existing age-35 estimate by the **relative** chance of earning surplus at the older age. That ratio preserves attrition already counted at 35. Age affects future production, while the current-season projection still determines immediate lineup value.
+
+| Current QB age | Year +1 retention | Year +2 retention |
+| --- | ---: | ---: |
+| 35 | .610 | .530 |
+| 38 | .539 | .450 |
+| 41 | .466 | .373 |
+| 44 | .393 | .303 |
+
+We evaluated the resulting estimate of two-year surplus for held-out top-24 starters in 2018–22, using outcomes from 2019–24. All errors are in PPR points per scheduled team game. The comparison changes only the age adjustment.
+
+| Held-out sample | Seasons / QBs | Constant age-35 MAE | Age-specific MAE | Constant RMSE | Age-specific RMSE |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Age 35+ | 22 / 8 | 2.536 | 2.376 | 3.301 | 3.299 |
+| Age 35+, excluding Tom Brady | 17 / 7 | 2.106 | 1.920 | 2.801 | 2.650 |
+| Age 40+ | 7 / 2 | 3.111 | 3.026 | 3.928 | 4.163 |
+
+Only one age-40+ starter-season occurred in training, and Brady and Drew Brees accounted for all seven such seasons in the holdout. The larger errors for exceptionally productive older passers show the limit of extrapolating the fitted curve past 40. The time horizon stays at two forward seasons for everyone. An established 33-year-old still can derive more value from a higher production estimate than a younger QB gains from longer expected starter tenure.

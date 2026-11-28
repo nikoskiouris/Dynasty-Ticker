@@ -14,6 +14,7 @@ import {
   snapshotPath,
   stampLabel,
 } from "../../docs/modules/trade-share.js";
+import { PLAYER_VALUE_MODEL_VERSION } from "../../docs/modules/values.js";
 import { FEWER_BETTER_ADDEND } from "../../docs/modules/verdict-copy.js";
 
 export const SHARE_NAMES_STORE = "share-names";
@@ -144,6 +145,7 @@ export async function readSiteFile(rel, origin) {
 export async function loadValues({ origin = SITE_ORIGIN, now = Date.now() } = {}) {
   if (valuesCache && now - valuesCache.at < VALUES_TTL_MS) return valuesCache.payload;
   const payload = JSON.parse(await readSiteFile("data/player_values.json", origin));
+  if (payload?.modelVersion !== PLAYER_VALUE_MODEL_VERSION) throw new Error("Current dynasty values are unavailable.");
   valuesCache = { at: now, payload };
   return payload;
 }

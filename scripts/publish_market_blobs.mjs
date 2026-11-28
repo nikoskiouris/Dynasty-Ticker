@@ -13,7 +13,7 @@ import { getStore } from "@netlify/blobs";
 import { MARKET_STORE, isMarketFile } from "../netlify/lib/market-data.js";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const MODEL_VERSION = "dynasty-sf-ppr-v1";
+const MODEL_VERSION = "dynasty-sf-ppr-v2";
 
 async function main() {
   if (String(process.env.MARKET_PUBLISH || "").toLowerCase() === "off") {

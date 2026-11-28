@@ -26,7 +26,7 @@ The archived projection pool covered 48, 46 and 48 of the actual top 48 respecti
 
 **Scope.** A complete pre-kickoff FantasyCalc market board verified for twelve teams, superflex, full PPR and dynasty was unavailable for these origins. Market quotes were missing for every row. Thus the audit tests the actual football-only valuation path, employs alternative projections to historical Sleeper snapshots, and has no pick-price or accepted-trade target. Two seasons of lineup contribution capture only part of the horizon a dynasty manager buys.
 
-## Results
+## Original November 28 board
 
 Each cell gives the top-48 hit count, followed by the percentage of ideal top-48 surplus captured. Mean correlation weights each origin equally.
 
@@ -53,3 +53,17 @@ On September 3, 2020, a FantasyPros archive recorded a preseason board with 598 
 | Prior-season total PPR | 26 | 65.4% | 0.395 |
 
 This final comparison used the frozen model before any end-to-end results from the 2020 origin had been calculated. The source's single-season projection accuracy had already been examined, and the 2020–21 and 2021–22 outcome windows share 2021. The new model found one more top-48 player than each comparator. Raw projected points still captured more total surplus. Across all four origins, the new board identified 108 of 192 top-48 entries, compared with 116 for raw preseason projections, 104 for preseason projected marginal points and 101 for prior-season PPR. The model selected 45 QBs across these groups against 65 realized, while raw projections selected 94.
+
+
+## Recheck after the in-season and QB age revisions
+
+At the preseason cutoff, every regular-season game remains available. The corrected lineup forecast therefore uses the original preseason production estimate. The QB retention revision also applies at this cutoff. Running the same CLI on the revised model gave the following results.
+
+| Forecast origin | Top-48 hits | Two-year surplus captured | Rank correlation in preseason top 150 |
+| --- | ---: | ---: | ---: |
+| 2020 | 26 | 64.4% | .502 |
+| 2021 | 30 | 76.3% | .600 |
+| 2023 | 26 | 76.0% | .555 |
+| 2024 | 25 | 70.5% | .552 |
+
+The revised board identified 107 of 192 top-48 entries. The original found 108 and raw preseason PPR found 116. In the 2020 top 48, Odell Beckham Jr. displaced Aaron Rodgers after the late-career QB adjustment. That lowered the share of realized two-season surplus captured from 67.8% to 64.4%. This is a repeat of the same audit. The [in-season study](inseason-forecast.md) evaluates the new remaining-season estimator at its actual decision point.

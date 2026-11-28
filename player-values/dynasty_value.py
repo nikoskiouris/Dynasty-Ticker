@@ -8,6 +8,8 @@ from bisect import bisect_left, bisect_right
 from math import floor, isfinite
 from statistics import median
 
+from inseason import remaining_forecast, remaining_share
+
 
 TEAMS = 12
 STARTERS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
@@ -102,7 +104,10 @@ def future_production(row, season_week):
 # Ratios of year +1 and +2 realized surplus to starter-cohort surplus at Y.
 # Bins centered on age 23, 26, 29, 32, 35. Pool thin oldest RB and TE bins.
 RETENTION = {
-    "QB": ((.84, .79), (.86, .76), (.81, .70), (.78, .63), (.61, .53)),
+    # QB anchors after 35 scale that age's estimates by the relative chance of
+    # beating QB24, fitted to age and prior finish in the 2000–16 starter cohort.
+    "QB": ((.84, .79), (.86, .76), (.81, .70), (.78, .63), (.61, .53),
+           (.539, .450), (.466, .373), (.393, .303), (.323, .241), (.260, .188)),
     "RB": ((.78, .68), (.74, .51), (.49, .29), (.33, .14), (.33, .14)),
     "WR": ((.88, .83), (.70, .63), (.74, .59), (.57, .40), (.46, .16)),
     "TE": ((.72, .75), (.64, .56), (.59, .44), (.61, .39), (.61, .39)),
@@ -133,7 +138,10 @@ def retention_factor(pos, age):
     typical_age = {"QB": 29, "RB": 26, "WR": 27, "TE": 28}[pos]
     years = age if age is not None and 18 <= age <= 50 else typical_age
     retention = [(a + .85 * b) / 1.85 for a, b in RETENTION[pos]]
-    return interpolate(years, (23, 26, 29, 32, 35), retention)
+    anchors = (23, 26, 29, 32, 35)
+    if pos == "QB":
+        anchors += (38, 41, 44, 47, 50)
+    return interpolate(years, anchors, retention)
 
 
 def expected_surplus(pos, future, threshold, age, ordered):
@@ -191,10 +199,12 @@ def value_board(players, picks, *, season_week=1):
         if ("team" in row and not row["team"] and not row.get("market")
                 and not row.get("games")):
             continue
-        current = number(row.get("season_ppr"))
+        current = remaining_forecast(row, week)
         future = future_production(row, week)
         forecasts[key] = current, future
-        if current is not None and current > 0:
+        # Finished teams have no unearned points. Their zeros still occupy
+        # eligible seats late in Week 18, when only one game may remain.
+        if current is not None:
             season_board[pos].append(current)
         if future is not None and future > 0:
             future_board[pos].append(future)
@@ -207,8 +217,12 @@ def value_board(players, picks, *, season_week=1):
         row, pos = players[key], players[key]["pos"]
         coverage = []
         quote = max(0, number(row.get("market")) or 0)
-        if current is not None:
+        if number(row.get("season_ppr")) is not None:
             coverage.append("seasonProjection")
+        if row.get("forward_games"):
+            coverage.append("forwardWeeks")
+        if row.get("recent_team_games") and row.get("recent_ppr") is not None:
+            coverage.append("recentTeamGames")
         if number(row.get("last_games")) and number(row.get("last_ppr")) is not None:
             coverage.append("priorSeason")
         if week > 1 and number(row.get("games")) and number(row.get("actual_ppr")) is not None:
@@ -230,14 +244,20 @@ def value_board(players, picks, *, season_week=1):
     current_scale = max(row["lineup"] for row in raw.values())
     future_scale = max(row["future"] + row["draft"] for row in raw.values())
     market_scale = max(row["market"] for row in raw.values())
-    if min(current_scale, future_scale) <= 0:
+    if future_scale <= 0:
         raise ValueError("Missing usable full-board scoring spread")
+    # Independent normalization would otherwise make six games of lineup
+    # advantage worth as much as seventeen. Shift only unplayable weeks to
+    # the outlook, retaining the independent market anchor throughout.
+    time_left = remaining_share(players, week) if current_scale > 0 else 0
+    lineup_weight = WEIGHTS["lineup"] * time_left
+    future_weight = WEIGHTS["future"] + WEIGHTS["lineup"] - lineup_weight
     factors = {}
     for key, row in raw.items():
         factors[key] = {
-            "lineup": WEIGHTS["lineup"] * row["lineup"] / current_scale,
-            "future": WEIGHTS["future"] * row["future"] / future_scale,
-            "draft": WEIGHTS["future"] * row["draft"] / future_scale,
+            "lineup": lineup_weight * row["lineup"] / current_scale if current_scale > 0 else 0,
+            "future": future_weight * row["future"] / future_scale,
+            "draft": future_weight * row["draft"] / future_scale,
             "market": WEIGHTS["market"] * row["market"] / market_scale if market_scale else 0,
         }
 
@@ -249,7 +269,9 @@ def value_board(players, picks, *, season_week=1):
     for key, row in factors.items():
         value, parts = apportion({name: val * scale for name, val in row.items()})
         if value > 0:
-            player_results[key] = {"value": value, "factors": parts, "coverage": evidence[key]}
+            current = forecasts[key][0]
+            player_results[key] = {"value": value, "factors": parts, "coverage": evidence[key],
+                                   "remainingPpr": round(current, 1) if current is not None else None}
 
     pick_results = {}
     if market_scale:
@@ -262,7 +284,9 @@ def value_board(players, picks, *, season_week=1):
                 pick_results[key] = {"value": value, "factors": {"market": value}, "coverage": ["market"]}
     return player_results, pick_results, {
         "lineup": {"teams": TEAMS, **STARTERS, "FLEX": 1, "SUPER_FLEX": 1},
-        "weights": dict(WEIGHTS),
+        "weights": {"lineup": lineup_weight, "future": future_weight, "market": WEIGHTS["market"]},
+        "baseWeights": dict(WEIGHTS),
+        "remainingSeasonFraction": time_left,
         "futureSeasons": 2,
         "secondYearDiscount": 0.85,
         "futureCohortShare": 0.5,

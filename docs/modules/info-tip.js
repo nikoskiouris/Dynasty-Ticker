@@ -9,7 +9,7 @@ export const INFO_PHONE_MAX_WIDTH = 700;
 export function valuesWorkText(date = "") {
   const when = String(date || "").trim();
   const updated = when ? ` Updated ${when}.` : "";
-  return `We estimate player values for 12-team Superflex PPR dynasty. The model weighs lineup advantage, future production, early-career draft capital and available market prices. Each player’s page shows how those inputs contributed.${updated}`;
+  return `We estimate player values for 12-team Superflex PPR dynasty. The model weighs remaining-season lineup advantage, future production, early-career draft capital and available market prices. Each player’s page shows how those inputs contributed.${updated}`;
 }
 
 // Plain words for terms a first-time or non-native reader may not know.

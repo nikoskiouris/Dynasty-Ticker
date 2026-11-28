@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "docs" / "data"
 MAX_VALUE_AGE_DAYS = 21
 # The model the builder is configured to write. A snapshot from any other model is not the one the desk expects.
-MODEL_VERSION = "dynasty-sf-ppr-v1"
+MODEL_VERSION = "dynasty-sf-ppr-v2"
 POSITIONS = {"QB", "RB", "WR", "TE"}
 
 
@@ -93,6 +94,15 @@ def check_player_values(
                     or not all(type(weighted) is int and weighted >= 0 for weighted in factors.values())
                     or sum(factors.values()) != value):
                 errors.append(f"missing or invalid attribution for {asset_id}")
+                break
+            projection = info.get("projection")
+            if not isinstance(projection, dict) or "remainingPpr" not in projection:
+                errors.append(f"missing rest-of-season forecast field for {asset_id}")
+                break
+            remaining = projection["remainingPpr"]
+            if remaining is not None and (type(remaining) not in (int, float) or not math.isfinite(remaining)
+                                          or remaining < 0 or (projection.get("remainingGames") == 0 and remaining > 0)):
+                errors.append(f"invalid rest-of-season PPR for {asset_id}")
                 break
             position = info.get("position")
             if position not in POSITIONS:

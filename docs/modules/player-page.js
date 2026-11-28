@@ -4,12 +4,19 @@ import { playerValueTrend, renderValueTierBadge, renderValueTrend, renderValuesF
 
 const show = (value, digits = 1) => value != null && Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "—";
 
-function renderSleeperProjection(projection) {
-  const { season, seasonPpr, week, weekPpr } = projection || {};
-  const points = value => value == null ? "Unavailable" : escapeHtml(String(value));
-  return `<h3>Sleeper projections</h3>${season
-    ? `<dl class="player-detail-facts">${week ? `<div><dt>Week ${escapeHtml(week)} PPR points</dt><dd>${points(weekPpr)}</dd></div>` : ""}<div><dt>${escapeHtml(season)} season PPR points</dt><dd>${points(seasonPpr)}</dd></div></dl>`
-    : "<p>Projections unavailable.</p>"}`;
+function renderProjectionInputs(projection, replacement) {
+  const { season, seasonPpr, week, weekPpr, remainingPpr, remainingGames, actualPpr, gamesPlayed, recentPpr, recentTeamGames } = projection || {};
+  if (!season) return "<p>Projections unavailable.</p>";
+  const points = value => Number.isFinite(value) ? formatNumber(value) : "Unavailable";
+  return `<h3>Remaining regular season</h3><dl class="player-detail-facts">
+    <div><dt>Model PPR forecast${Number.isInteger(remainingGames) ? ` over ${remainingGames} remaining ${remainingGames === 1 ? "game" : "games"}` : ", rest of season"}</dt><dd>${points(remainingPpr)}</dd></div>
+    <div><dt>Replacement starter, remaining PPR points</dt><dd>${points(Number.isFinite(replacement) ? Math.round(replacement * 10) / 10 : null)}</dd></div>
+    </dl><h3>Sleeper scoring and projections</h3><dl class="player-detail-facts">
+    <div><dt>${escapeHtml(season)} points already scored${Number.isFinite(gamesPlayed) ? ` (${formatNumber(gamesPlayed)} ${gamesPlayed === 1 ? "game" : "games"})` : ""}</dt><dd>${points(actualPpr)}</dd></div>
+    ${Number.isFinite(recentPpr) && recentTeamGames > 0 ? `<div><dt>PPR points in the last ${formatNumber(recentTeamGames)} team ${recentTeamGames === 1 ? "game" : "games"}</dt><dd>${points(recentPpr)}</dd></div>` : ""}
+    ${week ? `<div><dt>Week ${escapeHtml(week)} PPR projection</dt><dd>${points(weekPpr)}</dd></div>` : ""}
+    <div><dt>Full-season PPR projection</dt><dd>${points(seasonPpr)}</dd></div>
+    </dl>`;
 }
 
 function renderValueFactors(model, weights) {
@@ -18,7 +25,7 @@ function renderValueFactors(model, weights) {
   const production = coverage.has("priorSeason") || coverage.has("currentSeason");
   const draftEligible = model.experience === 0 || model.experience === 1;
   const factors = [
-    ["lineup", "Projected lineup advantage", forecast, "Projection unavailable"],
+    ["lineup", "Remaining-season lineup advantage", Number.isFinite(model.projection?.remainingPpr), "Forecast unavailable"],
     ["future", "Future production", forecast || production, "Production data unavailable"],
     ["draft", "Early-career draft capital", coverage.has("draftCapital"), draftEligible ? "Draft data unavailable" : "Not applied"],
     ["market", "Comparable market value", coverage.has("market"), "Quote unavailable"],
@@ -28,10 +35,10 @@ function renderValueFactors(model, weights) {
     return `<div><dt>${label}</dt><dd>${available && Number.isFinite(points) ? formatNumber(points) : missing}</dd></div>`;
   });
   const marketOnly = coverage.size === 1 && coverage.has("market");
-  const summary = marketOnly ? "Only a market quote was available for this player." : "These contributions add up to the published value. Lineup advantage measures projected PPR points above a replacement starter.";
-  const percent = (weight) => `${Math.round(100 * weight)}%`;
+  const summary = marketOnly ? "Only a market quote was available for this player." : "These contributions add up to the published value. Lineup advantage measures how many more PPR points he can still earn than a replacement starter.";
+  const percent = (weight) => `${formatNumber(Math.round(1000 * weight) / 10)}%`;
   const recipe = weights && [weights.lineup, weights.future, weights.market].every(Number.isFinite)
-    ? `<p>Model weights are ${percent(weights.lineup)} for lineup advantage, ${percent(weights.future)} for future production (including early-career draft capital), and ${percent(weights.market)} for market value.</p>` : "";
+    ? `<p>Current weights are ${percent(weights.lineup)} for remaining-season lineup advantage, ${percent(weights.future)} for future production (including early-career draft capital), and ${percent(weights.market)} for market value. As games are played, more weight shifts to future seasons.</p>` : "";
   return `<p>${summary}</p><dl class="player-detail-facts">${rows.join("")}</dl>${recipe}`;
 }
 
@@ -71,7 +78,7 @@ export function renderPlayerPage(row, view = {}) {
     <header class="player-detail-header">${renderPlayerFace(row.playerId, row.name, { size: "md" })}<div><h1 id="player-detail-name">${escapeHtml(row.name)}</h1><p>${escapeHtml([row.position, row.team || "FA", `${show(row.age)} years old`, years != null ? (Number(years) === 0 ? "Rookie" : `${years} ${Number(years) === 1 ? "year" : "years"} experience`) : ""].filter(Boolean).join(" · "))}</p><p>${escapeHtml(draftLine)}${injury ? ` · ${escapeHtml(injury)}` : ""}</p>${owner ? `<p class="player-detail-owner">${escapeHtml(owner)}</p>` : ""}</div></header>
     <section class="player-detail-value" aria-label="Canonical player value"><strong>${priced ? escapeHtml(formatNumber(row.value)) : "Value unavailable"}</strong>${priced ? `<span>Overall rank ${row.overallRank} · ${escapeHtml(row.boardRank || row.position)}</span>` : ""}${renderValueTierBadge(row.tier)}${trend ? renderValueTrend(trend, { spark: true, showWindow: true }) : ""}${pickRefLine(row.value, row.pickRef) ? `<p class="player-pick-ref">${escapeHtml(pickRefLine(row.value, row.pickRef))}</p>` : ""}<p>12-team Superflex PPR dynasty values</p>${view.updated?.stale ? renderValuesFreshness(view.updated) : ""}</section>
     <div class="player-detail-grid"><section><h2>Why this value</h2>${renderValueFactors(model, view.priceModel?.weights)}</section>
-    <section><h2>Production</h2>${row.production?.lastLine ? `<p>${escapeHtml(row.production.lastLine)}</p>` : row.note ? `<p>${escapeHtml(row.note)}</p>` : `<p>${rookie ? "Rookie, little NFL data." : "Last-season production is unavailable."}</p>`}${renderSleeperProjection(model.projection)}</section></div>
+    <section><h2>Production</h2>${row.production?.lastLine ? `<p>${escapeHtml(row.production.lastLine)}</p>` : row.note ? `<p>${escapeHtml(row.note)}</p>` : `<p>${rookie ? "Rookie, little NFL data." : "Last-season production is unavailable."}</p>`}${renderProjectionInputs(model.projection, view.priceModel?.seasonReplacement?.[row.position])}</section></div>
     ${priced ? `<section><h2>Similar player values</h2>${comparables.length ? `<div class="player-comparables">${comparables.map(n => `<button type="button" class="ghost-btn" data-action="rank-open" data-asset-id="${escapeHtml(n.assetId)}">${renderPlayerFace(n.playerId, n.name, {size:"sm"})}<span>${escapeHtml(n.name)}<small>${escapeHtml(n.boardRank || n.position)} · ${escapeHtml(formatNumber(n.value))}</small></span></button>`).join("")}</div>` : `<p>No comparable player values available.</p>`}</section>
     <div class="player-detail-actions"><button type="button" class="player-trade-action" data-action="rank-calc" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="player">Add to a trade</button><button type="button" class="ghost-btn player-share" data-action="player-share" data-name="${escapeHtml(row.name)}" data-value="${escapeHtml(formatNumber(row.value))}">Share this player</button><p class="player-share-status" role="status" aria-live="polite"></p></div>` : ""}
   </article>`;

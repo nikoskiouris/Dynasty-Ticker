@@ -11,6 +11,7 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
+from math import exp
 from pathlib import Path
 from statistics import mean
 from urllib.request import urlopen
@@ -122,6 +123,81 @@ def compare_forecasts(observations, scores, cutoff_score):
                                      - cutoff_score[pos, r.year + horizon]) for r in cohort)
                     ratios.append(f'{future/current:.2f}' if current else 'n/a')
                 print(pos, f'{low}-{high}', len(cohort), f'{mean(r.retained for r in cohort):.1%}', *ratios)
+
+
+def late_qb_retention(observations, scores, cutoffs):
+    """Estimate future starter chances conditional on already having a top-24 finish."""
+    rows = []
+    for row in observations:
+        if row.position != 'QB' or not row.starter or row.age < 28 or row.year > 2022:
+            continue
+        current = max(0., row.current - cutoffs['QB', row.year])
+        future = [max(0., scores.get((row.player, year), 0.) - cutoffs['QB', year])
+                  for year in (row.year + 1, row.year + 2)]
+        rows.append((row, current, future))
+    training = [entry for entry in rows if entry[0].year <= 2016]
+    older = [entry for entry in training if entry[0].age >= 34]
+    held_out = [entry for entry in rows if entry[0].year >= 2018 and entry[0].age >= 35]
+
+    def probability(coefs, age, tier):
+        intercept, slope, role = coefs
+        return 1 / (1 + exp(-(intercept + slope * (age - 34) + role * tier)))
+
+    def fit(horizon):
+        # Penalized logistic model for earning positive surplus. Coordinate Newton
+        # iterations maximize the binomial log likelihood with L2 penalties on
+        # the age coefficient (SD 0.2 per year) and top-12/13–24 coefficient (SD 1).
+        coefs = [0., 0., 0.]
+        for _ in range(200):
+            largest = 0.
+            for j, penalty in enumerate((0., 25., 1.)):
+                gradient = -penalty * coefs[j]
+                curvature = penalty
+                for row, _, future in training:
+                    x = (1., row.age - 34, row.tier)[j]
+                    prob = probability(coefs, row.age, row.tier)
+                    gradient += x * ((future[horizon] > 0.) - prob)
+                    curvature += x * x * prob * (1 - prob)
+                step = gradient / curvature
+                coefs[j] += step
+                largest = max(largest, abs(step))
+            if largest < 1e-9:
+                break
+        return coefs
+
+    ages = (35, 38, 41, 44, 47, 50)
+    anchors = {age: [] for age in ages}
+    for horizon, base in enumerate((.61, .53)):
+        coefs = fit(horizon)
+        # Fix the role mix, weighted by the older cohort's starting surplus,
+        # so different ages are compared at the same prior quality. A ratio to
+        # age 35 preserves the attrition already included in the cohort estimate.
+        def weighted_chance(age):
+            return sum(current * probability(coefs, age, row.tier) for row, current, _ in older)
+        for age in ages:
+            anchors[age].append(round(base * weighted_chance(age) / weighted_chance(35), 3))
+    print('\nLate QB age anchors trained on 2000–16 top-24 starters:', anchors)
+    print('Training age 28+ and 40+ seasons:', len(training), sum(r.age >= 40 for r, _, _ in training))
+    for low, high in ((34, 36), (37, 39), (40, 50)):
+        group = [entry for entry in older if low <= entry[0].age <= high]
+        total = sum(current for _, current, _ in group)
+        ratios = [sum(future[h] for _, _, future in group) / total for h in (0, 1)]
+        print(f'Training age {low}–{high}: {len(group)} seasons; retention', *(f'{r:.2f}' for r in ratios))
+    for label, sample in [('35+', held_out), ('40+', [e for e in held_out if e[0].age >= 40]),
+                          ('35+ excluding Brady', [e for e in held_out if e[0].player != '00-0019596'])]:
+        errors = defaultdict(list)
+        for row, current, future in sample:
+            i = min((row.age - 35) // 3, len(ages) - 2)
+            share = min(1., (row.age - ages[i]) / 3)
+            curve = [a + share * (b - a) for a, b in zip(anchors[ages[i]], anchors[ages[i + 1]])]
+            actual = (future[0] + .85 * future[1]) / 1.85
+            for name, coefs in [('flat', anchors[35]), ('age', curve)]:
+                prediction = current * (coefs[0] + .85 * coefs[1]) / 1.85
+                errors[name].append(prediction - actual)
+        print(label, f'{len(sample)} seasons, {len({r.player for r, _, _ in sample})} QBs')
+        for name in ('flat', 'age'):
+            err = errors[name]
+            print(f'  {name}: MAE {mean(map(abs, err)):.3f}, RMSE {mean(e*e for e in err)**.5:.3f}')
 
 
 def rank_surplus(stats):
@@ -246,6 +322,7 @@ def main():
     stats, bios, draft, projections = [read_rows(source, cache) for source in SOURCES]
     scores, cutoff_score, observations = collect(stats, bios)
     compare_forecasts(observations, scores, cutoff_score)
+    late_qb_retention(observations, scores, cutoff_score)
     rank_surplus(stats)
     archived_forecasts(projections, stats, observations)
     rookie_surplus(draft, bios, scores, cutoff_score)
