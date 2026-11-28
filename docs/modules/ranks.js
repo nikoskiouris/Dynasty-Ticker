@@ -2,7 +2,6 @@ import { playerAliasName } from "./player-aliases.js";
 import { renderPlayerPage } from "./player-page.js";
 import { escapeHtml, formatNumber } from "./html.js";
 import {
-  DYNASTY_SCORE_GUIDE,
   playerValueTrend,
   renderTrendSoon,
   renderValueTierBadge,
@@ -63,9 +62,8 @@ export function ownerLine(owner, { leagueOpen = false, kind = "player" } = {}) {
 }
 
 export function rankBoardNote({ format = "sf", leagueFormat = "", caveat = "" } = {}) {
-  // The caveat already opens with "Values are built for 12-team Superflex PPR
-  // dynasty", so it replaces the plain line instead of repeating it.
-  return `${caveat || "12-team Superflex PPR dynasty."} ${DYNASTY_SCORE_GUIDE}`;
+  const scale = "Players and picks share a 0–100 scale. A 95 matches the historical benchmark for a top-three startup pick.";
+  return caveat ? `${caveat} ${scale}` : scale;
 }
 
 export function buildRankBoard({
@@ -320,12 +318,12 @@ export function sortRankRows(rows, sort = "rank") {
 }
 
 export function renderPlayerConnect() {
-  return `<p class="player-ownership-label">Who owns this player in your league?</p>
+  return `<details class="player-ownership"><summary>League ownership</summary>
     <form class="player-connect" data-player-connect>
       <input class="player-connect-user" name="username" aria-label="Sleeper username" placeholder="Sleeper username" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" />
       <button type="submit">Connect my league</button>
     </form>
-    <div class="player-league-list league-picker" data-player-league-list hidden></div>`;
+    <div class="player-league-list league-picker" data-player-league-list hidden></div></details>`;
 }
 
 // What a screen reader hears after a search or a position chip: the list
@@ -387,7 +385,7 @@ export function renderRanksMarkup(view) {
 
 export function renderRanksBody(view) {
   if (view?.card) return renderPlayerPage(view.card, view);
-  if (view?.missing) return `<article class="player-detail" role="status"><button type="button" class="ghost-btn player-return" data-action="player-rankings-return">Return to player rankings</button><h1>We can't find that player</h1><p>The link may be old, or we have no price for him right now. Dynasty Ticker does not guess one.</p></article>`;
+  if (view?.missing) return `<article class="player-detail" role="status"><button type="button" class="ghost-btn player-return" data-action="player-rankings-return">Rankings</button><h1>Player unavailable</h1><p>Check the link or search the rankings.</p></article>`;
   const rows = Array.isArray(view?.rows) ? view.rows : [];
   const isPicks = view.position === "PICK";
   const table = rows.length ? `<div class="rankings-table-wrap"><table class="rankings-table">

@@ -69,7 +69,6 @@
               id="sleeper-username"
               name="sleeper-username"
               maxlength="120"
-              placeholder="username"
               autocomplete="off"
               value=""
               autocapitalize="none"
@@ -87,11 +86,10 @@
           <details id="league-id-fallback" class="league-id-fallback">
             <summary>Have a league ID or URL instead?</summary>
             <form id="league-load-form" class="league-load-form" novalidate>
-              <label for="league-id">League ID</label>
+              <label for="league-id">League ID or link</label>
               <input
                 id="league-id"
                 name="league-id"
-                placeholder="Paste a league link or ID"
                 autocomplete="off"
                 value=""
                 autocapitalize="none"
@@ -105,9 +103,9 @@
             </form>
           </details>
 
-          <div id="league-status" class="status muted" aria-live="polite">
+          <div id="league-status" class="status muted hidden" aria-live="polite">
             <span id="league-status-loader" class="status-loader hidden" aria-hidden="true"></span>
-            <span id="league-status-text">Search your Sleeper username to pick a league.</span>
+            <span id="league-status-text"></span>
             <button type="button" id="league-status-retry" class="ghost-btn status-retry hidden">Retry</button>
           </div>
         </section>
@@ -141,7 +139,7 @@
               <div class="league-hero-copy">
                 <span class="eyebrow" id="hero-eyebrow">Sleeper dynasty league</span>
                 <p id="hero-title">Your Sleeper league</p>
-                <p class="workspace-lede" id="hero-lede">Type a username. Scores open first.</p>
+                <p class="workspace-lede" id="hero-lede"></p>
               </div>
             </div>
           </details>
@@ -156,7 +154,7 @@
         <noscript>
           <section class="boot-error">
             <h2>Dynasty Ticker needs JavaScript</h2>
-            <p>Player values, the Trade Calculator and your Sleeper league all run in the browser. Turn on JavaScript for dynastyticker.com and reload.</p>
+            <p>Enable JavaScript and reload.</p>
           </section>
         </noscript>
         <div id="ui-pages"></div>

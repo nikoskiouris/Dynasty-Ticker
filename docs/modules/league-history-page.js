@@ -67,9 +67,9 @@ function renderAllTime(rows) {
 function renderRecords(book) {
   const entries = Object.entries(RECORD_LABELS).filter(([key]) => book.records[key]);
   if (!entries.length) return `<section class="workspace-panel"><h2>Record book</h2>
-    <p class="muted">Weekly records will appear when Sleeper has matchups for the loaded seasons.</p></section>`;
+    <p class="muted">No weekly matchup records from Sleeper.</p></section>`;
   return `<section class="workspace-panel"><h2>Record book</h2>
-    <p class="muted small">Calculated from ${whole(book.gamesRead)} completed head-to-head ${Number(book.gamesRead) === 1 ? "matchup" : "matchups"} and ${whole(book.seasonsRead)} ${Number(book.seasonsRead) === 1 ? "season" : "seasons"}. Missing Sleeper weeks are excluded.</p>
+    <p class="muted small">${whole(book.gamesRead)} completed head-to-head ${Number(book.gamesRead) === 1 ? "matchup" : "matchups"} across ${whole(book.seasonsRead)} ${Number(book.seasonsRead) === 1 ? "season" : "seasons"}. Excludes missing weeks.</p>
     <dl class="league-history-records">${entries.map(([key, label]) => {
       const item = book.records[key];
       const season = safeSeason(item.season);
@@ -130,16 +130,16 @@ export function renderLeagueHistory(archive, { valueNames = {}, values = {}, pla
   ].filter(([, , content]) => content);
   return `<div class="league-history-page">
     <p><a class="league-back" href="/l/${leagueId}">← League</a></p>
-    <header><h2>${e(name)} All-Time</h2><p class="muted">${e(range)}</p>
+    <header><h2>${e(name)}</h2><p class="muted">${e(range)}</p>
       ${savedNote ? `<p class="league-saved-note" role="status">${e(savedNote)}</p>` : ""}
-      ${caveat ? `<p class="muted small calc-market-caveat">${e(caveat)} Value-based awards use those values.</p>` : ""}
+      ${caveat ? `<p class="muted small calc-market-caveat">${e(caveat)}</p>` : ""}
     </header>
     ${issues.length ? `<section class="workspace-panel" aria-label="Incomplete league data"><h2>Some history is unavailable</h2>
       <ul>${issues.slice(0, 12).map((issue) => `<li>${e(issue.message || "A Sleeper request failed")}</li>`).join("")}</ul>
       ${issues.length > 12 ? `<p class="muted">${issues.length - 12} more unavailable resources.</p>` : ""}
     </section>` : ""}
-    <label class="history-jump">Jump to section
-      <select id="history-jump"><option value="">Choose a section</option>
+    <label class="history-jump"><span class="sr-only">Jump to history section</span>
+      <select id="history-jump"><option value="">Jump to section</option>
         ${sections.map(([id, label]) => `<option value="archive-${id}">${label}</option>`).join("")}
       </select>
     </label>

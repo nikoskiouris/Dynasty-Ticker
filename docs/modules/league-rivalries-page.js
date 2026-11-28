@@ -6,7 +6,7 @@ const e = (value) => escapeHtml(String(value ?? ""));
 export function renderRivalries(archive) {
   const history = headToHeadHistory(archive);
   if (!history.pairs.length) return `<section class="workspace-panel"><h2>Head-to-head history</h2>
-    <p class="muted">Completed head-to-head matchups are not available from Sleeper for these seasons.</p></section>`;
+    <p class="muted">No completed head-to-head matchups from Sleeper.</p></section>`;
   const byPair = history.pairByKey;
   const managers = history.managers.filter((manager) =>
     history.pairs.some((pair) => pair.first === manager.key || pair.second === manager.key));

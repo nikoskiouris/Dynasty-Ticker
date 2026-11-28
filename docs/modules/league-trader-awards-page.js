@@ -6,10 +6,10 @@ const e = (value) => escapeHtml(String(value ?? ""));
 const number = (value) => Number.isFinite(value) ? formatNumber(roundPrice(value)) : "—";
 
 function namedSide(row) {
-  if (!row) return '<p class="muted">Not enough fully priced trades to name a leader.</p>';
+  if (!row) return '<p class="muted">Too few fully priced trades.</p>';
   return `<strong>${e(row.name)}</strong> · net ${number(row.totalNet)} ·
     ${row.wins} positive of ${countLabel(row.tradeCount, "graded trade")}
-    (${row.winRate.toFixed(0)}% positive-value share)`;
+    (${row.winRate.toFixed(0)}%)`;
 }
 
 export function renderTraderAwards(archive, { values = {}, valueNames = {} } = {}) {
@@ -25,7 +25,7 @@ export function renderTraderAwards(archive, { values = {}, valueNames = {} } = {
     : "Not enough fully priced historical trades";
   return `<section class="workspace-panel">
     <h2>Trade awards · hindsight only</h2>
-    <p class="muted small">Net = value received minus value sent, on today's values. Ranked by total net, then win rate. Needs ${awards.minTrades} priced trades. Not proof of skill.</p>
+    <p class="muted small">Net is value received minus value sent at today's prices. Minimum ${awards.minTrades} priced trades. Win rate breaks ties.</p>
     <dl class="league-history-records">
       <div><dt>Highest cumulative net</dt><dd>${namedSide(awards.best)}</dd></div>
       <div><dt>Lowest cumulative net</dt><dd>${namedSide(awards.worst)}</dd></div>

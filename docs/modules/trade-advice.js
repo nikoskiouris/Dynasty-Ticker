@@ -3,11 +3,6 @@ import { draftVerdictModel } from "./trade-draft.js";
 import { formatGenericPickAssetLabel, getGlobalMaxPlayerValue, parsePickAssetId } from "./values.js";
 import { verdictLineNamed } from "./verdict-copy.js";
 
-// "Give real trade advice" (ticket 030). Rules only, no AI: the calculator's
-// own verdict and even-up search, put in plain words.
-// buildTradeAdvice() is the seam a later AI section can extend: it returns
-// sections, and the panel renders whatever sections it is given.
-
 // Vary one unspecified pick at a time. Repeated copies on the same side have
 // the same effect. A later year's unsplit round keeps its published price.
 function pickSlotAdvice({ draft, priceOf, values, teamNames }) {
@@ -28,98 +23,92 @@ function pickSlotAdvice({ draft, priceOf, values, teamNames }) {
         return;
       }
       const receiver = side === "left" ? teamNames.Give : teamNames.Get;
-      for (const bucket of slots) {
+      const outcomes = slots.map(bucket => {
         const adjusted = [...base[side]];
         adjusted[index] = values[prefix + bucket];
         const sides = { ...base, [side]: adjusted };
         const { verdict } = draftVerdictModel(sides.left, sides.right, { globalMaxValue });
-        lines.push(`${receiver} ${bucket === "early" ? "an early" : "a late"} ${name} — ${verdictLineNamed(verdict, teamNames)}.`);
+        return verdictLineNamed(verdict, teamNames);
+      });
+      if (outcomes.length === 2 && outcomes[0] === outcomes[1]) {
+        lines.push(`${receiver} an early or late ${name} — ${outcomes[0]}.`);
+      } else {
+        slots.forEach((bucket, i) => lines.push(`${receiver} ${bucket === "early" ? "an early" : "a late"} ${name} — ${outcomes[i]}.`));
       }
     });
   }
-  const note = lines.length ? "Each scenario changes one pick and re-prices the full trade." : "";
+  const note = lines.length ? "Each estimate changes one pick at a time." : "";
   if (unsplit.size) lines.push(`The board has no early or late estimates for ${[...unsplit].join(", ")}.`);
   if (!lines.length) return null;
-  return { id: "pick-slots", title: "Where the picks land", lines, note };
+  return { id: "pick-slots", title: "Early and late pick scenarios", lines, note, collapsed: true };
 }
 
 const ppr = value => formatNumber(Math.round(value * 10) / 10);
 
-// Compare individual players with replacement at their eligible position.
-// Adding their projected points would imply every player enters an open slot.
-function lineupAdvice({ draft, players, replacements, teamNames }) {
-  const lines = [];
-  const playerCounts = {};
+// Compare individual projections with replacement at the same position.
+// Projected points from separate roster slots cannot simply be added together.
+function lineupAdvice({ draft, players, replacements, receivers }) {
+  const rows = [];
+  const counts = {};
+  const notes = [];
   let clipped = false;
-  for (const side of ["left", "right"]) {
+  for (const side of ["right", "left"]) {
     const incoming = draft[side].filter(item => item.assetId.startsWith("player:"));
-    playerCounts[side] = incoming.length;
-    const receiver = side === "left" ? teamNames.Give : teamNames.Get;
+    counts[side] = incoming.length;
     const forecasts = [];
     for (const { assetId, name } of incoming) {
       const player = players?.[assetId];
       const { season, remainingGames, remainingPpr } = player?.projection || {};
-      const baseline = replacements?.[player?.position];
-      if (!season || !(remainingGames > 0) || !Number.isFinite(remainingPpr) || !Number.isFinite(baseline)) continue;
-      const margin = remainingPpr - baseline;
-      const comparison = Math.abs(margin) < 0.05 ? "level with" : `${ppr(Math.abs(margin))} ${margin > 0 ? "above" : "below"}`;
-      forecasts.push({
-        margin,
-        line: `${receiver} ${name}, projected for ${ppr(remainingPpr)} PPR points over ${remainingGames} remaining ${season} regular-season ${remainingGames === 1 ? "game" : "games"}. That is ${comparison} the model’s replacement ${player.position}.`,
-      });
+      if (!season || !name || !(remainingGames > 0) || !Number.isFinite(remainingPpr)) continue;
+      const baseline = replacements?.[player.position];
+      const margin = Number.isFinite(baseline) ? remainingPpr - baseline : null;
+      forecasts.push({ name, position: player.position, receiver: receivers[side], season, remainingGames, remainingPpr, margin });
     }
-    forecasts.sort((a, b) => b.margin - a.margin);
+    forecasts.sort((a, b) => (b.margin ?? -Infinity) - (a.margin ?? -Infinity) || b.remainingPpr - a.remainingPpr);
     clipped ||= forecasts.length > 2;
-    lines.push(...forecasts.slice(0, 2).map(row => row.line));
+    rows.push(...forecasts.slice(0, 2));
   }
-  if (!lines.length) return null;
-  const picksOnly = !playerCounts.left || !playerCounts.right;
-  const title = picksOnly ? "Lineup now or picks later" : "Starting lineup and depth";
-  if (picksOnly) {
-    const picks = playerCounts.left ? draft.right : draft.left;
-    const drafts = [...new Set(picks.map(item => parsePickAssetId(item.assetId)?.season).filter(Boolean))].sort();
-    if (drafts.length) lines.push(`The draft capital can be traded now or used in ${drafts.join(" and ")}.`);
+  if (clipped) notes.push("Showing the top two available projections per team by margin over replacement.");
+  const extra = counts.left - counts.right;
+  if (extra) {
+    const side = extra > 0 ? "left" : "right";
+    const slots = Math.abs(extra);
+    notes.push(`${receivers[side]} takes on ${slots} extra roster ${slots === 1 ? "spot" : "spots"}.`);
   }
-  const extraPlayers = Math.abs(playerCounts.left - playerCounts.right);
-  if (extraPlayers) {
-    const receiver = playerCounts.left > playerCounts.right ? teamNames.Give : teamNames.Get;
-    lines.push(`${receiver} ${extraPlayers} more ${extraPlayers === 1 ? "player" : "players"} than it sends. A full roster may need to make room.`);
-  }
-  const note = `${clipped ? "Showing the two largest projected margins per side. " : ""}Compare each forecast with the starter that player would replace on your roster. A player who stays on the bench adds depth.`;
-  return { id: "lineup", title, lines, note };
+  if (!rows.length && !notes.length) return null;
+  return { id: "lineup", title: rows.length ? "Rest-of-season projections" : "Roster spots", rows, lines: [], note: notes.join(" ") };
 }
 
-/**
- * @param {object} input
- * @param {string} input.verdictLine   Same line as the Market verdict headline.
- * @param {boolean} input.fair         Already inside the fair band.
- * @param {object|null} input.evenUp   { line, side, assetId, name, closes } from the even-up search.
- *
- * No "For your team" section: Trade Calculator is never team-specific (owner
- * rule, Nov 19, 2026), so the panel never offers team advice or asks to connect.
- */
-export function buildTradeAdvice({ verdictLine = "", fair = false, alreadyClose = false, evenUp = null, lighter = "", context = null } = {}) {
-  const sections = [{
-    id: "verdict",
-    title: "Verdict",
-    lines: [verdictLine],
-    note: "Based on Dynasty Ticker prices (12-team Superflex PPR). A price gap is not a probability that either side wins the trade.",
-  }];
-  if (context) sections.push(...[lineupAdvice(context), pickSlotAdvice(context)].filter(Boolean));
+export function buildTradeAdvice({ verdictLine = "", fair, alreadyClose, evenUp, lighter = "the side receiving less", context } = {}) {
+  let title = "Keep the offer as written";
+  let reason = verdictLine;
+  let action = null;
   if (fair) {
-    sections.push({ id: "fair", title: "How to make it fair", lines: ["It is already inside the fair band. No add needed."] });
-  } else if (evenUp?.line) {
-    sections.push({
-      id: "fair",
-      title: "How to make it fair",
-      lines: [evenUp.line],
-      action: evenUp.assetId ? { side: evenUp.side, assetId: evenUp.assetId, name: evenUp.name, label: `Add ${evenUp.name} to ${evenUp.receiver}` } : null,
-      note: evenUp.closes ? "" : "This addition narrows the gap. More value is needed to reach Even or Close.",
-    });
-  } else {
-    sections.push({ id: "fair", title: "How to make it fair", lines: [alreadyClose ? "The offer is already Close. You can leave it as proposed." : `Try a different package for ${lighter || "the side that gets less"}.`] });
+    reason = "The two sides are within 5% on dynasty value.";
+  } else if (evenUp) {
+    title = `Add ${evenUp.name} for ${evenUp.receiver}`;
+    reason = `Revised offer · ${evenUp.outcome}`;
+    if (evenUp.assetId) action = { ...evenUp, label: "Apply change" };
+  } else if (!alreadyClose) {
+    title = `Rework the package for ${lighter}`;
   }
-  return sections;
+  return [
+    { id: "recommendation", title, lines: [reason], action },
+    context && lineupAdvice(context),
+    context && pickSlotAdvice(context),
+  ].filter(Boolean);
+}
+
+function renderProjections(rows) {
+  if (!rows?.length) return "";
+  return `<table class="advice-forecasts"><thead><tr><th scope="col">Player</th><th scope="col">PPR pts</th><th scope="col">vs. position<br>replacement</th></tr></thead><tbody>
+    ${rows.map(row => {
+      const gameLabel = row.remainingGames === 1 ? "game" : "games";
+      const rounded = row.margin == null ? null : Math.round(row.margin * 10) / 10;
+      const delta = rounded == null ? "—" : `${rounded > 0 ? "+" : ""}${ppr(rounded)}`;
+      return `<tr><th scope="row">${escapeHtml(row.name)}<small>${escapeHtml(row.receiver)} · ${escapeHtml(row.position)} · ${escapeHtml(row.remainingGames)} ${gameLabel} in ${escapeHtml(row.season)}</small></th><td>${ppr(row.remainingPpr)}</td><td>${delta}</td></tr>`;
+    }).join("")}
+  </tbody></table>`;
 }
 
 export function renderTradeAdviceButton({ ready = false } = {}) {
@@ -130,14 +119,15 @@ export function renderTradeAdvicePanel(sections = []) {
   return `<div class="trade-advice-backdrop" data-action="trade-advice-close"></div>
   <aside class="trade-advice-panel" role="dialog" aria-modal="true" aria-labelledby="trade-advice-title" tabindex="-1">
     <header><h2 id="trade-advice-title">Trade advice</h2><button type="button" class="ghost-btn btn-sm" data-action="trade-advice-close" aria-label="Close trade advice">✕</button></header>
-    <p class="muted small">From Dynasty Ticker prices. No AI.</p>
-    ${sections.map((section) => `<section class="trade-advice-section" data-advice="${escapeHtml(section.id)}">
-      <h3>${escapeHtml(section.title)}</h3>
-      ${section.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
-      ${section.action ? `<button type="button" class="ghost-btn btn-sm" data-action="trade-advice-apply" data-side="${section.action.side === "right" ? "right" : "left"}" data-asset-id="${escapeHtml(section.action.assetId)}" data-name="${escapeHtml(section.action.name)}">${escapeHtml(section.action.label)}</button>` : ""}
-      ${section.link ? `<a href="${escapeHtml(section.link.href)}">${escapeHtml(section.link.label)}</a>` : ""}
-      ${section.note ? `<p class="muted small">${escapeHtml(section.note)}</p>` : ""}
-    </section>`).join("")}
+    ${sections.map(section => {
+      const content = `${section.lines.map(line => `<p>${escapeHtml(line)}</p>`).join("")}
+        ${renderProjections(section.rows)}
+        ${section.action ? `<button type="button" class="ghost-btn btn-sm" data-action="trade-advice-apply" data-side="${section.action.side === "right" ? "right" : "left"}" data-asset-id="${escapeHtml(section.action.assetId)}" data-name="${escapeHtml(section.action.name)}">${escapeHtml(section.action.label)}</button>` : ""}
+        ${section.note ? `<p class="muted small">${escapeHtml(section.note)}</p>` : ""}`;
+      return section.collapsed
+        ? `<details class="trade-advice-section"><summary>${escapeHtml(section.title)}</summary>${content}</details>`
+        : `<section class="trade-advice-section" data-advice="${escapeHtml(section.id)}"><h3>${escapeHtml(section.title)}</h3>${content}</section>`;
+    }).join("")}
   </aside>`;
 }
 
@@ -205,7 +195,7 @@ if (typeof window !== "undefined") {
     if (event.key !== "Tab") return;
     // aria-modal: keep Tab inside the panel.
     const panel = host.querySelector(".trade-advice-panel");
-    const items = [...panel.querySelectorAll("button, a[href]")].filter((node) => !node.disabled);
+    const items = [...panel.querySelectorAll("button, a[href], summary")].filter((node) => !node.disabled);
     if (!items.length) return;
     const first = items[0];
     const last = items[items.length - 1];
