@@ -310,23 +310,134 @@ body:has(#leagues-page:not([hidden]):not(.hidden)) { background-color: #f8f5eb; 
   .almanac-contents { border-left: none; padding-left: 0; }
 }
 
-/* Weekly lineup calls follow the ruled rows of the roster below them. */
-#team-start-sit-content > :first-child { margin-top: 0; }
-#team-start-sit-content :is(.start-sit-calls, .start-sit-lineup) {
-  list-style: none;
-  margin: 8px 0;
-  padding: 0;
-}
-.start-sit-calls li, .start-sit-lineup li {
-  border-bottom: 1px solid var(--line);
-  padding: 8px 0;
+/* Weekly lineup decisions on My Team. */
+#team-start-sit > .panel-heading { align-items: flex-start; }
+.ss-board {
+  min-width: 0;
+  color: var(--text);
+  line-height: 1.45;
   overflow-wrap: anywhere;
 }
-.start-sit-calls li > strong { color: var(--green); }
-#team-start-sit-content li small { display: block; color: var(--muted); }
-.start-sit-lineup li {
+.ss-board :where(p, ol, ul) { margin: 0; }
+.ss-board :is(ol, ul) { list-style: none; padding: 0; }
+.ss-context, .ss-footer { color: var(--muted); font-size: 12px; }
+.ss-context { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin-bottom: 8px; }
+.ss-context strong { color: var(--green); }
+.ss-context span:last-child:not(:nth-child(2)) { margin-inline-start: auto; }
+.ss-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding: clamp(14px, 2vw, 22px);
+  border-inline-start: 4px solid var(--green);
+  background: var(--green-soft);
+}
+.ss-summary[data-tone="review"] { background: #f6f1e3; border-color: var(--amber); }
+.ss-summary[data-tone="locked"] { background: var(--panel-soft); border-color: var(--line-strong); }
+#league-page .ss-summary h3 { margin: 0; font-size: clamp(19px, 2.2vw, 25px); line-height: 1.2; }
+.ss-summary p { margin: 4px 0 0; color: var(--muted-strong); }
+.ss-gain { flex-shrink: 0; text-align: end; color: var(--green); }
+.ss-gain strong { display: block; font-size: clamp(22px, 3vw, 32px); letter-spacing: -.035em; line-height: 1.15; }
+.ss-gain small { display: block; font-size: 12px; }
+
+.ss-nav { display: flex; gap: clamp(4px, 1.2vw, 14px); border-bottom: 1px solid var(--line); }
+.ss-nav button {
+  min-height: 46px;
+  margin-bottom: -1px;
+  padding: 4px clamp(8px, 1.3vw, 14px);
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  box-shadow: none;
+  line-height: 1.25;
+}
+.ss-nav button[aria-pressed="true"] { border-color: var(--green); color: var(--green); }
+.ss-nav button:hover, .ss-link:hover { background: var(--panel-tint); color: var(--text); }
+.ss-body { padding-block: 14px; }
+.ss-body:empty { padding: 0; }
+.ss-body h4 { margin: 0; font-weight: 650; }
+.ss-calls { display: grid; gap: 10px; }
+.ss-call, .ss-comparison { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); }
+.ss-call { padding: 12px 14px; }
+.ss-call-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 10px; margin-bottom: 8px; }
+.ss-slot {
+  display: inline-block;
+  width: fit-content;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--panel-soft);
+  color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 650;
+}
+.ss-duel, .ss-selectors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ss-duel { background: var(--bg); padding: 12px; }
+.ss-player { display: flex; align-items: center; min-width: 0; gap: 8px; }
+.ss-player-info { flex: 1; min-width: 0; }
+.ss-player-info :is(small, strong), .ss-points small { display: block; }
+.ss-player-role {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--muted-strong);
+}
+.ss-player-info strong { font-size: 15px; line-height: 1.3; }
+.ss-player-meta, .ss-tag, .ss-points small, .ss-note { font-size: 12px; color: var(--muted); }
+.ss-points { align-self: center; text-align: end; font-size: 18px; font-weight: 700; line-height: 1.2; }
+.ss-points small { font-weight: 400; }
+.ss-duel > .ss-player:first-child .ss-player-role { color: var(--green); }
+.ss-duel > .ss-player + .ss-player { border-inline-start: 1px solid var(--line); padding-inline-start: 12px; }
+.ss-note { margin: 8px 0 0; color: var(--muted-strong); }
+.ss-close { margin-top: 12px; padding: 10px 12px 0; background: var(--panel-tint); border-inline-start: 3px solid var(--line-strong); }
+.ss-close:first-child { margin-top: 0; }
+.ss-close p, .ss-alert p, .ss-alert li { margin-top: 3px; font-size: 13px; }
+.ss-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--green);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ss-field { display: grid; gap: 4px; min-width: 0; color: var(--muted-strong); font-size: 13px; font-weight: 600; }
+#league-page .ss-field select { min-height: 44px; color: var(--text); }
+.ss-selectors { margin-bottom: 12px; }
+.ss-comparison { padding: 12px; }
+.ss-alert { margin-block: 10px; padding: 10px 12px; border-inline-start: 3px solid var(--amber); background: #f6f1e3; }
+.ss-empty { color: var(--muted-strong); }
+.ss-lineup > li {
   display: grid;
-  grid-template-columns: minmax(3.3em, auto) minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: baseline;
+  grid-template-columns: 5.5rem minmax(0, 1fr) 5rem;
+  gap: 8px 12px;
+  align-items: center;
+  padding-block: 9px;
+  border-bottom: 1px solid var(--line);
+}
+.ss-tag { text-align: end; }
+.ss-bench { margin-top: 8px; }
+#league-page .ss-bench summary { min-height: 44px; }
+.ss-bench li { border-bottom: 1px solid var(--line); padding-block: 8px; }
+.ss-footer { display: flex; gap: 4px 16px; flex-wrap: wrap; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-block: 4px; }
+.ss-footer p { flex: 1 1 28rem; }
+.ss-footer a { display: inline-flex; align-items: center; min-height: 44px; color: var(--green); font-weight: 650; text-underline-offset: 3px; }
+
+@media (max-width: 620px) {
+  .ss-nav button { flex: 1 1 auto; padding-inline: 3px; }
+  .ss-duel, .ss-selectors { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .ss-duel > .ss-player + .ss-player { padding: 8px 0 0; border-inline: 0; border-top: 1px solid var(--line); }
+  .ss-context span:last-child:not(:nth-child(2)) { margin-inline-start: 0; }
+  .ss-summary { gap: 8px; }
+  .ss-gain { max-width: 6rem; }
+  .ss-call { padding: 10px; }
+  .ss-lineup > li { grid-template-columns: 3.5rem minmax(0, 1fr); gap: 2px 8px; }
+  .ss-lineup .ss-tag { grid-column: 2; text-align: start; }
+  .ss-lineup .ss-player:has(.player-face) + .ss-tag { padding-inline-start: 36px; }
 }

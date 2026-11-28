@@ -33,7 +33,7 @@ function scheduleByTeam(board, season, week) {
     const ms = Date.parse(game.date);
     const kickoff = (locked || scheduled) && Number.isFinite(ms) ? new Date(ms).toISOString() : null;
     for (const [i, team] of teams.entries()) {
-      schedule.set(team, { opponent: teams[1 - i], kickoff, locked });
+      schedule.set(team, { opponent: teams[1 - i], kickoff, locked, away: game.competitors[i].homeAway === "away" });
     }
   }
   return schedule;
@@ -65,20 +65,53 @@ export function weeklyPlayer(slate, id, bio = {}) {
   return {
     id: String(id), name: raw.full_name || [raw.first_name, raw.last_name].filter(Boolean).join(" "),
     team, position: raw.position || "", positions: raw.fantasy_positions || (raw.position ? [raw.position] : []),
-    opponent: game?.opponent || null, kickoff: game?.kickoff || null, locked: Boolean(game?.locked),
-    points: null, halfPpr: null, standard: null, status: null,
+    opponent: game?.opponent || null, away: game?.away, kickoff: game?.kickoff || null, locked: Boolean(game?.locked),
+    points: null, stats: null, status: null,
     availability: bye ? "bye" : "unknown", reason: bye ? "Bye week" : "No weekly projection",
   };
 }
 
-// Use the league's reception setting only. Sleeper baseline totals do not
-// account for this league's other scoring rules (bonuses, passing TDs, etc.).
+// Sleeper supplies fractional projected stat lines. Weight additive offensive
+// stats directly; a projected average cannot establish a yardage milestone.
+const offensiveStats = new Set([
+  "pass_yd", "pass_td", "pass_int", "pass_2pt", "pass_att", "pass_cmp", "pass_inc", "pass_sack", "pass_fd",
+  "rush_yd", "rush_td", "rush_2pt", "rush_att", "rush_fd",
+  "rec_yd", "rec_td", "rec_2pt", "rec", "rec_fd",
+  "fum", "fum_lost", "bonus_rec_te", "bonus_rec_wr", "bonus_rec_rb",
+]);
+
 export function weeklyScoring(league) {
-  const settings = league?.scoring_settings;
-  const receptions = settings ? Number(settings.rec ?? 0) : NaN;
-  if (receptions === 0.5) return { label: "Half-PPR baseline", pointsKey: "halfPpr" };
-  if (receptions === 0) return { label: "Standard baseline", pointsKey: "standard" };
-  return { label: "Full-PPR baseline", pointsKey: "points" };
+  const settings = league?.scoring_settings || {};
+  const weights = Object.entries(settings).filter(([key, weight]) =>
+    offensiveStats.has(key) && Number.isFinite(weight) && weight !== 0);
+  const rec = settings.rec || 0;
+  const format = rec === 1 ? "PPR" : rec === 0.5 ? "Half PPR" : rec === 0 ? "Non-PPR" : `${rec} PPR`;
+  const premium = settings.bonus_rec_te ? ` · TE ${rec + settings.bonus_rec_te} PPR` : "";
+  if (!weights.length) {
+    return {
+      label: "Full-PPR baseline",
+      note: "Using Sleeper’s full-PPR projections because offensive scoring weights are unavailable.",
+      project: row => pointsOrNull(row?.points),
+    };
+  }
+  return {
+    label: `${format}${premium}`,
+    note: "Offensive projections use your league’s passing, rushing, receiving and fumble rates, including position reception premiums. Additional bonuses and IDP stats are excluded. Kickers and team defenses use Sleeper’s baseline.",
+    project(row) {
+      if (!Number.isFinite(row?.points)) return null;
+      if (row.position === "K" || row.position === "DEF") return row.points;
+      if (!row.stats) return null;
+      let total = 0;
+      for (const [key, weight] of weights) {
+        let stat = row.stats[key];
+        if (key.startsWith("bonus_rec_")) {
+          stat = row.position.toLowerCase() === key.slice("bonus_rec_".length) ? row.stats.rec : 0;
+        }
+        if (Number.isFinite(stat)) total += stat * weight;
+      }
+      return Math.round(total * 100) / 100;
+    },
+  };
 }
 
 // Recheck kickoff when displaying or changing a comparison while the tab is open.
@@ -112,8 +145,14 @@ export async function loadWeeklySlate({ signal } = {}) {
   const players = Object.create(null);
   for (const row of rows) {
     const player = row?.player;
-    if (!row?.player_id || !positions.includes(player?.position) || String(row.season) !== season
+    if (!row?.player_id || !player || String(row.season) !== season
       || Number(row.week) !== week || row.season_type !== "regular") continue;
+    // Some fullbacks are RB-eligible. Two-way players can have a supported
+    // offensive slot as well as an IDP slot for which we have no projection.
+    const listed = Array.isArray(player.fantasy_positions) && player.fantasy_positions.length
+      ? player.fantasy_positions : [player.position];
+    const eligiblePositions = listed.filter(position => positions.includes(position));
+    if (!eligiblePositions.length) continue;
     const id = String(row.player_id);
     const team = teamCode(player.team);
     const game = schedule.get(team);
@@ -122,9 +161,9 @@ export async function loadWeeklySlate({ signal } = {}) {
     const [availability, reason] = playerAvailability(status, team, game, teamCode(row.team), teamCode(row.opponent), points);
     players[id] = {
       id, name: [player.first_name, player.last_name].filter(Boolean).join(" ") || (player.position === "DEF" ? team : ""), team,
-      position: player.position, positions: [...new Set([player.position, ...(player.fantasy_positions || [])])],
-      opponent: game?.opponent || null, kickoff: game?.kickoff || null, locked: Boolean(game?.locked),
-      points, halfPpr: pointsOrNull(row.stats?.pts_half_ppr), standard: pointsOrNull(row.stats?.pts_std),
+      position: eligiblePositions.includes(player.position) ? player.position : eligiblePositions[0], positions: eligiblePositions,
+      opponent: game?.opponent || null, away: game?.away, kickoff: game?.kickoff || null, locked: Boolean(game?.locked),
+      points, stats: row.stats,
       status, availability, reason,
     };
   }
