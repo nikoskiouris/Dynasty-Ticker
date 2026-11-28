@@ -171,3 +171,8 @@ body.league-loaded #workspace-header {
   margin: 0; text-transform: none; white-space: normal; letter-spacing: 0; font-size: 12px;
 }
 #workspace-header .league-hero-copy #hero-lede { display: block; margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+
+
+/* A cold league URL can name the room before Sleeper returns its data. */
+body.league-loading:not(.league-loaded) #league-page [data-room-panel] > :not(h1),
+body.league-loading:not(.league-loaded) #workspace-header { display: none; }
