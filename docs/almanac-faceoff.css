@@ -1,0 +1,63 @@
+#league-page .faceoff {
+  --faceoff-ink: #173f31;
+  --faceoff-line: #bcb7a6;
+  padding: clamp(16px, 3.2vw, 35px);
+  background: #f7f3e7;
+  border: 1px solid var(--faceoff-line);
+  color: var(--faceoff-ink);
+}
+#league-page .faceoff h2 {
+  margin: 0 0 14px;
+  color: inherit;
+  font: 400 clamp(25px, 3.5vw, 38px)/1.1 "Instrument Serif", Georgia, serif;
+}
+#league-page .faceoff-pickers, #league-page .faceoff-score {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
+  align-items: end;
+  gap: 5px;
+}
+#league-page .faceoff-picker {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font: 600 13px/1.4 var(--font-ui);
+}
+#league-page .faceoff-pickers select { min-height: 44px; width: 100%; padding-left: 8px; font-size: 16px; }
+#league-page .faceoff-pickers > span { align-self: end; margin-bottom: 12px; text-align: center; font: italic 16px Georgia, serif; }
+#league-page .faceoff-result { margin-top: 19px; }
+#league-page .faceoff-score {
+  align-items: start;
+  padding-top: 15px;
+  border-block-start: 3px double var(--faceoff-line);
+  text-align: center;
+}
+#league-page .faceoff-total { display: grid; gap: 3px; overflow-wrap: anywhere; }
+#league-page .faceoff-total strong, #league-page .faceoff-dash {
+  color: var(--faceoff-ink);
+  font: 600 clamp(38px, 7vw, 68px)/1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.06em;
+}
+#league-page .faceoff-dash { font-weight: 400; font-size: 27px; line-height: 1.8; }
+#league-page .faceoff-total span { font-size: 13px; }
+#league-page .faceoff-meetings { margin: 10px 0 0; text-align: center; font-size: 12px; color: #4c5c50; }
+#league-page .faceoff-verdict {
+  margin: 22px 0 14px;
+  color: var(--faceoff-ink);
+  font: 400 clamp(24px, 3.4vw, 35px)/1.12 "Instrument Serif", Georgia, serif;
+  overflow-wrap: anywhere;
+}
+#league-page .faceoff-receipts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 195px), 1fr));
+  gap: 12px 24px;
+  margin: 0 0 16px;
+}
+#league-page .faceoff-receipts > div { min-width: 0; border-top: 1px solid var(--faceoff-line); padding-top: 10px; }
+#league-page .faceoff-receipts dt { margin: 0 0 3px; color: #4c5c50; font-size: 12px; }
+#league-page .faceoff-receipts dd { margin: 0; font: 600 15px/1.4 var(--font-ui); overflow-wrap: anywhere; }
+#league-page .faceoff-receipts .faceoff-date { color: #4c5c50; font-size: 12px; font-weight: 400; }
+#league-page .faceoff-empty { padding-block: 15px; border-top: 1px solid var(--faceoff-line); margin: 0; }
+#league-page .faceoff-total strong small { font: 500 12px/1 var(--font-ui); letter-spacing: normal; }
+#league-page .faceoff-scope { margin: -4px 0 18px; max-width: 60ch; color: #4c5c50; font-size: 13px; }

@@ -1,10 +1,11 @@
 import { syncSiteNavigation } from "./modules/site-menu.js";
 import { moveLeagueControls, renderLeagueRecent } from "./modules/tool-picker.js";
-import { renderLeagueHub, renderTeamPick } from "./modules/league-hub.js";
+import { recentChampion, renderLeagueHub, renderTeamPick } from "./modules/league-hub.js";
 import { leagueArchive, readDeskSnapshot, saveDeskSnapshot } from "./modules/league-archive.js";
 import { buildTradeAdvice, closeTradeAdvice, onTradeAdviceBack, openTradeAdvice, renderTradeAdviceButton, renderTradeAdvicePanel, tradeAdviceOpen } from "./modules/trade-advice.js";
 import { renderTradeLog, renderTradeLogRows } from "./modules/trade-log.js";
-import { renderLeagueHistory } from "./modules/league-history-page.js";
+import { restoreRivalryComparison, updateRivalryComparison } from "./modules/league-rivalries-page.js";
+import { renderArchiveLoading, renderLeagueHistory } from "./modules/league-history-page.js";
 import { renderTradeFairness, renderTradeScale } from "./modules/trade-fairness.js";
 import { safeStorage } from "./modules/safe-storage.js";
 import { forgetLastLeague, readLastLeague, writeLastLeague } from "./modules/last-league.js";
@@ -604,6 +605,9 @@ function noteSearchedUser(leagueId) {
 // load's first pageview. Opt-outs (DNT, GPC, localhost, previews, automation)
 // are enforced in modules/analytics.js before any send.
 setAnalyticsAdapter(createBeaconAdapter());
+// Boot stamps the picked league into the URL, so retain incoming archive links first.
+// Capture chapter links before league boot normalizes the address.
+let requestedArchiveChapter = archiveChapterFromUrl(window.location);
 bootFromUrl();
 if (bootRoute?.leagueId) void loadSlimPlayersFile();
 coldPlayerHeading = bootRoute?.name === "player";
@@ -682,6 +686,7 @@ document.addEventListener("focusin", (event) => {
   if (said && said === String(node.textContent || "").replace(/\s+/g, " ").trim()) live.textContent = "";
 });
 window.addEventListener("popstate", (event) => {
+  requestedArchiveChapter = archiveChapterFromUrl(window.location);
   // Skip to content only adds #workspace. That is not a desk move, and the
   // page-heading focus would take the workspace the link just targeted.
   if (window.location.hash === "#workspace" && !event.state?.tab) return;
@@ -721,6 +726,7 @@ if (runQueuedFind) scheduleBootFind(() => requestFindLeagues());
 
 function navigateTool(href) {
   const url = new URL(href, window.location.origin);
+  requestedArchiveChapter = archiveChapterFromUrl(url);
   // Leaving a shared /t link: load the page fresh. The in-place switch kept
   // the share's /t URL (or its /trade draft) and Back skipped the link.
   if (/^\/t\//.test(window.location.pathname) && url.pathname !== window.location.pathname) {
@@ -748,8 +754,13 @@ function navigateTool(href) {
   if (id) {
     // Same league: switch rooms in place so the loaded league and team pick stay.
     const room = resolveLocation(url.pathname, url.search).room || "hub";
+    const sameLeague = String(id) === String(state.leagueId);
+    if (sameLeague && requestedArchiveChapter && state.activePage === "league" && getRoom("league") === "history") {
+      if (archiveCovers(leagueArchive.snapshot, "all", id)) openRequestedArchiveChapter();
+      return;
+    }
     state.pendingPlace = { page: "league", room };
-    if (String(id) === String(state.leagueId)) {
+    if (sameLeague) {
       if (room === "team") setLensRoster(parseShareParams(url.search).teamRosterId);
       openRoom("league", room, { history: "push", scroll: "top" });
     } else {
@@ -911,6 +922,36 @@ let tradeLogSeason = "";
 let tradeLogTeam = "";
 let showLineupAwards = false;
 
+function archiveChapterFromUrl(url) {
+  const league = /^\/l\/(\d+)\/history\/?$/.exec(url.pathname);
+  return league && /^#archive-[a-z]+$/.test(url.hash)
+    ? { leagueId: league[1], id: url.hash.slice(1), matchup: new URLSearchParams(url.search).get("matchup") }
+    : null;
+}
+
+// The league and archive can finish well after the router handles a hub link.
+function openRequestedArchiveChapter() {
+  const requested = requestedArchiveChapter;
+  if (!requested || requested.leagueId !== String(state.leagueId)) return;
+  requestAnimationFrame(() => {
+    if (requested !== requestedArchiveChapter || state.activePage !== "league" || getRoom("league") !== "history") return;
+    const target = document.getElementById(requested.id);
+    requestedArchiveChapter = null;
+    if (!target?.matches(".almanac-chapter")) return;
+    target.open = true;
+    claimRouteFocus();
+    focusWithoutScroll(target.querySelector("summary"), { focusVisible: roomFocusVisible() });
+    target.scrollIntoView({ block: "start" });
+    const address = new URL(window.location.href);
+    address.hash = requested.id;
+    address.searchParams.delete("matchup");
+    if (requested.id === "archive-rivalries" && restoreRivalryComparison(target, leagueArchive.snapshot, requested.matchup)) {
+      address.searchParams.set("matchup", requested.matchup);
+    }
+    window.history.replaceState(window.history.state, "", address.href);
+  });
+}
+
 function archiveCovers(snapshot, scope, leagueId) {
   return String(snapshot?.leagueId || "") === String(leagueId)
     && (snapshot.scope === "all" || snapshot.scope === scope);
@@ -923,6 +964,8 @@ function ensureLeagueArchive(scope) {
     && (archiveRequest.scope === "all" || archiveRequest.scope === scope)) return;
   const key = `${leagueId}:${scope}`;
   if (archiveErrorKey === key) return;
+  archiveErrorKey = "";
+  archiveErrorMessage = "";
   archiveProgressMessage = scope === "all" ? "Loading league history…" : "Loading league trades…";
   const promise = leagueArchive.load(leagueId, {
     scope, nflState: state.nflState, preloadedSeasons: state.leagueHistory,
@@ -944,7 +987,9 @@ function ensureLeagueArchive(scope) {
     if (String(state.leagueId || "") !== leagueId || archiveRequest?.promise !== promise) return;
     if (error?.name === "AbortError") return;
     archiveErrorKey = key;
-    archiveErrorMessage = "Sleeper trade history could not load. Refresh the page to retry.";
+    archiveErrorMessage = scope === "all"
+      ? "Sleeper couldn't load the full league archive."
+      : "Sleeper trade history could not load. Refresh the page to retry.";
     console.warn("League archive unavailable", error);
     requestActivePageRender();
   }).finally(() => {
@@ -1001,9 +1046,20 @@ document.addEventListener("input", (event) => {
   redrawLeagueTradeRows(); // Keep the search input mounted and focused.
 });
 document.addEventListener("change", (event) => {
+  if (event.target?.matches("[data-rivalry-side]")) {
+    const matchup = updateRivalryComparison(event.target, leagueArchive.snapshot);
+    if (matchup) {
+      const address = new URL(window.location.href);
+      address.hash = "archive-rivalries";
+      address.searchParams.set("matchup", matchup);
+      window.history.replaceState(window.history.state, "", address.href);
+    }
+    return;
+  }
   if (event.target?.id === "history-jump") {
     const target = document.getElementById(event.target.value);
     if (!target) return;
+    if (target.tagName === "DETAILS") target.open = true;
     focusViewHeading(target, { focusVisible: roomFocusVisible() });
     target.scrollIntoView({ block: "start" });
     event.target.value = "";
@@ -1083,6 +1139,13 @@ function renderActivePage() {
     }
     const host = document.querySelector("#league-history-content");
     const archive = leagueArchive.snapshot;
+    const previousEdition = host?.querySelector("[data-archive-league]");
+    const openChapters = new Set();
+    if (previousEdition?.dataset.archiveLeague === String(state.leagueId)) {
+      previousEdition.querySelectorAll(".almanac-chapter[open]").forEach(chapter => openChapters.add(chapter.id));
+      if (previousEdition.querySelector(".almanac-more-stories[open]")) openChapters.add("more-stories");
+      if (previousEdition.querySelector(".almanac-coverage[open]")) openChapters.add("coverage");
+    }
     if (host) host.innerHTML = archiveCovers(archive, "all", state.leagueId)
       ? renderLeagueHistory(archive, {
           valueNames: state.valueBundles?.names || state.valueNameMap || {},
@@ -1090,11 +1153,12 @@ function renderActivePage() {
           players: state.players || {},
           peaks: state.valuePeaks || null,
           showLineup: showLineupAwards,
+          openChapters,
           savedNote: savedLeagueNote(),
           caveat: marketCaveat(state.league),
         })
-      : `<p><a class="league-back" href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
-        <p role="status">${escapeHtml(archiveErrorMessage || archiveProgressMessage || "Loading seasons…")}</p>`;
+      : renderArchiveLoading({ leagueId: state.leagueId, leagueName: state.league?.name, progress: archiveProgressMessage, error: archiveErrorMessage, champion: recentChampion(state.leagueHistory) });
+    if (archiveCovers(archive, "all", state.leagueId)) openRequestedArchiveChapter();
     return;
   }
   if (page === "league" && room !== "team") return;
@@ -1542,7 +1606,7 @@ function deskUrlPath() {
 function prepareDeskPush() {
   if (applyingHistory) return;
   if (typeof history?.replaceState !== "function") return;
-  const currentPath = `${window.location.pathname}${window.location.search}`;
+  const currentPath = archiveChapterFromUrl(window.location) ? window.location.href : `${window.location.pathname}${window.location.search}`;
   history.replaceState({
     ...history.state,
     ...historyPlaceNow(),
@@ -1936,7 +2000,16 @@ function updateUrlStateInner({ mode = "replace", force = false } = {}) {
     return;
   }
   routeFocus.forget();
-  history.replaceState(entry, "", path);
+  // Background league updates should preserve a link to this chapter and matchup.
+  const chapter = archiveChapterFromUrl(window.location);
+  const nextAddress = new URL(path, window.location.origin);
+  if (chapter && nextAddress.pathname === window.location.pathname) {
+    nextAddress.hash = chapter.id;
+    if (chapter.matchup) nextAddress.searchParams.set("matchup", chapter.matchup);
+    history.replaceState(entry, "", nextAddress.href);
+  } else {
+    history.replaceState(entry, "", path);
+  }
   reportRoute();
   // A same-place replace (cold /t -> /trade) still has to drop the shared title.
   syncDocumentMeta();
@@ -2664,7 +2737,6 @@ async function runUserLeagueSearch(username) {
     const season = String(nflState?.league_season || nflState?.season || new Date().getUTCFullYear());
     const { user, leagues, failedSeasons = [] } = await fetchUserLeagues(sleeper, username, uniqueSeasons(season, 1));
     state.sleeperUser = user;
-    try { safeStorage("localStorage")?.setItem("dt:sleeper-username", username); } catch {}
     searchedUserNoted = false;
     state.userLeagues = sortUserLeagues(leagues, season);
     const failed = new Set(failedSeasons.map((item) => String(item)));
@@ -2842,6 +2914,7 @@ function blankDeskForLeagueSwitch() {
 }
 
 async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
+  const submittedUsername = el.sleeperUsername?.value;
   const previousPlace = { page: state.activePage, room: getRoom() };
   try {
     if (!leagueLoader.isCurrent(token)) return;
@@ -2958,6 +3031,12 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     state.normalizedRosters = normalizeRosters(league, rosters, users, state.players, previousContext, tradedPicks, state.currentDraftContext);
     state.leagueSwitching = false;
     collapseLeaguePicker();
+    // The selected manager lives in state. A completed lookup can leave the
+    // form ready for a new search without erasing text entered during loading.
+    if (submittedUsername && el.sleeperUsername?.value === submittedUsername) {
+      el.sleeperUsername.value = "";
+      syncUsernameFields(el.sleeperUsername);
+    }
     setLeagueSwitchStale(false);
 
     setFieldError(el.leagueId, el.leagueIdError, "");
@@ -6676,6 +6755,30 @@ function focusWhenShown(selector, { heading = false } = {}) {
   requestAnimationFrame(tick);
 }
 
+async function copyAlmanacReceipt(button) {
+  const actions = button.closest(".almanac-actions");
+  const status = actions?.querySelector(".almanac-copy-status");
+  const receipt = button.dataset.almanacReceipt;
+  if (!status || !receipt || !state.leagueId) return;
+  const source = new URL(`/l/${encodeURIComponent(state.leagueId)}/history`, window.location.origin);
+  if (button.dataset.receiptMatchup) source.searchParams.set("matchup", button.dataset.receiptMatchup);
+  if (button.dataset.receiptChapter) source.hash = button.dataset.receiptChapter;
+  const text = `${receipt}\n${source.href}`;
+  const copied = await copyTextToClipboard(text);
+  if (!button.isConnected) return;
+  actions.querySelector("textarea")?.remove();
+  status.textContent = copied ? "Copied to clipboard." : "Select and copy your receipt.";
+  if (!copied) {
+    const field = document.createElement("textarea");
+    field.readOnly = true;
+    field.setAttribute("aria-label", "Group chat receipt");
+    field.value = text;
+    actions.append(field);
+    field.focus();
+    field.select();
+  }
+}
+
 function handleWorkspaceClick(event) {
   const target = event.target.closest("[data-action]");
   const inWorkspace = Boolean(target && el.workspace?.contains(target));
@@ -6684,6 +6787,13 @@ function handleWorkspaceClick(event) {
   const action = target.dataset.action;
   calcKeyboardClick = event.detail === 0;
   switch (action) {
+    case "retry-almanac":
+      archiveErrorKey = "";
+      renderActivePage();
+      break;
+    case "copy-almanac-receipt":
+      void copyAlmanacReceipt(target);
+      break;
     case "smart-focus": {
       selectedTradeSearchSide = target.dataset.side === "left" ? "left" : "right";
       const input = document.getElementById("trade-talk-input");

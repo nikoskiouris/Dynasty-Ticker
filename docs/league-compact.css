@@ -177,3 +177,123 @@ body.league-loaded #workspace-header {
 /* A cold league URL can name the room before Sleeper returns its data. */
 body.league-loading:not(.league-loaded) #league-page [data-room-panel] > :not(h1),
 body.league-loading:not(.league-loaded) #workspace-header { display: none; }
+
+/* The League Almanac's cover and lookup, confined to the league entrance. */
+@font-face {
+  font-family: "Almanac Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/instrument-serif-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Almanac Serif";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/instrument-serif-italic.woff2") format("woff2");
+}
+body:has(#leagues-page:not([hidden]):not(.hidden)) { background-color: #f8f5eb; }
+#leagues-page {
+  --almanac-ink: #153d31;
+  --almanac-rule: #c9c8b9;
+  --almanac-display: "Almanac Serif", Georgia, serif;
+  max-width: none;
+  gap: 0;
+  color: var(--almanac-ink);
+}
+.almanac-cover {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  align-items: center;
+  min-height: 305px;
+  padding: clamp(24px, 4vw, 44px);
+  background: #0e3d28;
+  color: #fff9e6;
+}
+.almanac-cover::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 0 41%;
+  background: url("./brand/almanac-cover.webp") center / contain no-repeat;
+  mask-image: linear-gradient(to right, transparent, black 16%);
+}
+.almanac-cover::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgb(224 201 137 / 52%);
+  pointer-events: none;
+}
+.almanac-cover-copy { width: 47%; }
+.almanac-cover-source, .almanac-contents > h2, #league-entry-controls .league-recent > span {
+  font: 700 10px/1.3 var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: .15em;
+}
+.almanac-cover-source { margin: 0 0 16px; color: #edce81; }
+#leagues-page .almanac-cover h1 {
+  margin: 0;
+  font: 400 clamp(64px, 7vw, 94px)/.86 var(--almanac-display);
+  letter-spacing: -.035em;
+  color: inherit;
+}
+.almanac-cover h1 em { display: block; font-weight: 400; color: #efd088; }
+.almanac-cover-deck { max-width: 31ch; margin: 18px 0 0; font: 400 15px/1.45 var(--font-ui); color: #f4f1de; }
+.almanac-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: clamp(24px, 5vw, 56px);
+  margin: clamp(24px, 4vw, 42px) 0 20px;
+}
+.almanac-lookup > h2 { margin: 0 0 17px; color: var(--almanac-ink); font: 400 38px/1 var(--almanac-display); }
+#league-entry-controls .league-module { margin: 0; gap: 0; }
+#league-entry-controls .league-load-form { max-width: none; gap: 6px; }
+#league-entry-controls .league-load-form label { color: #33483e; }
+#league-entry-controls .league-load-form input,
+#league-entry-controls .league-load-form button { min-height: 44px; border-radius: 3px; }
+#league-entry-controls .league-load-form input { background: #fffdf6; border-color: #8c9b8f; }
+#league-entry-controls .league-load-form button { background: var(--almanac-ink); padding-inline: clamp(12px, 2vw, 24px); }
+#league-entry-controls .league-load-form button:hover { background: #235842; }
+#league-entry-controls .league-id-fallback { margin: 15px 0 0; padding: 0; border-block-color: var(--almanac-rule); }
+#league-entry-controls .league-id-fallback summary { min-height: 44px; font-size: 14px; color: var(--almanac-ink); }
+#league-entry-controls .league-id-fallback .league-load-form { margin: 0 0 14px; }
+#league-entry-controls #league-status:not(.hidden) { margin-top: 12px; }
+#league-entry-controls #identity-section:not(.hidden) { margin-block: 8px; }
+#league-entry-controls #disconnect-btn:not(.hidden) { min-height: 40px; }
+#league-entry-controls .league-recent {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 12px;
+  margin-top: 20px;
+}
+#league-entry-controls .league-recent > span { grid-column: 1 / -1; color: #5a665d; }
+#league-entry-controls .league-recent > a { width: fit-content; font-weight: 650; color: var(--almanac-ink); overflow-wrap: anywhere; text-underline-offset: 3px; }
+#league-entry-controls .league-recent button { min-height: 44px; color: #586358; font-size: 12px; text-underline-offset: 3px; }
+.almanac-contents { border-left: 1px solid var(--almanac-rule); padding-left: clamp(20px, 3.5vw, 38px); }
+.almanac-contents > h2 { margin: 0 0 5px; padding: 0 0 8px; color: #6e4526; border-bottom: 3px double var(--almanac-rule); }
+.almanac-contents dl { margin: 0; }
+.almanac-contents dl > div { padding: 9px 0; }
+.almanac-contents dl > div + div { border-top: 1px solid var(--almanac-rule); }
+.almanac-contents dt { font: 400 23px/1.05 var(--almanac-display); }
+.almanac-contents dd { margin: 4px 0 0; font: 400 13px/1.4 var(--font-ui); color: #4c5c50; }
+@media (max-width: 620px) {
+  .almanac-cover { min-height: 210px; padding: 23px 19px 20px; }
+  .almanac-cover-copy { width: 100%; }
+  .almanac-cover::before {
+    inset: 8px 8px 26% 46%;
+    background-size: contain;
+    mask-image: linear-gradient(to right, transparent, black 10%);
+  }
+  .almanac-cover::after { inset: 5px; }
+  .almanac-cover-source { margin-bottom: 13px; font-size: 8px; }
+  #leagues-page .almanac-cover h1 { font-size: clamp(45px, 10vw, 62px); }
+  .almanac-cover-deck { max-width: 43ch; margin-top: 20px; font-size: 13px; }
+  .almanac-entry { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .almanac-lookup > h2 { margin-bottom: 14px; font-size: 33px; }
+  .almanac-contents { border-left: none; padding-left: 0; }
+}
