@@ -235,9 +235,17 @@ export function cardVerdict(summary) {
   return { text: copy.label, pctText: copy.pctText, tone: copy.publicTone || "fair", side: copy.side, line: copy.line };
 }
 
-// The share sheet text (sentence case, no exclamation marks).
-export function shareMessage(summary) {
-  return `${cardVerdict(summary).line}. Check it on Dynasty Ticker.`;
+// Forward a dated verdict only when the quote matches the date in the URL.
+export function shareMessage(decoded, current, archive) {
+  const neutral = "View this trade on Dynasty Ticker.";
+  if (!decoded || decoded.legacyFormat) return neutral;
+  const board = decoded.stamp
+    ? [archive, current].find((snapshot) => priceStamp(snapshot?.asOf) === decoded.stamp)
+    : current;
+  const summary = shareSummary(decoded, board, {}, current);
+  if (!summary) return neutral;
+  const date = decoded.stamp ? `${stampLabel(decoded.stamp, { year: true })} · ` : "";
+  return `${date}${cardVerdict(summary).line}. Check it on Dynasty Ticker.`;
 }
 
 // "Fewer, better pieces +7,413" on the side that gets the extra.

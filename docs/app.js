@@ -5359,7 +5359,7 @@ function runTradeTalk(text) {
     ? `Connect to see ${plan.unknownPartner}’s roster.`
     : "";
   if (plan.intent === "shop" && after.missingPrices) {
-    lines.push("A price is missing.");
+    lines.push(missingDraftPrices(after));
   } else if (plan.intent === "shop" && after.give > 0) {
     const partnerId = after.context?.partnerRosterId ?? null;
     const neighbors = priceNeighbors(ctx.catalog, after.give, {
@@ -6111,11 +6111,19 @@ function renderDraftActions(view, shared = false) {
   return `
     ${shared ? '<a class="shared-own-btn" href="/trade" data-action="shared-check-own">New trade</a>' : ""}
     ${ready && !shared ? renderTradeAdviceButton({ ready }) : ""}
-    ${ready && draftShareCode(view) ? '<button type="button" class="ghost-btn btn-sm calc-share" data-action="trade-share">Share trade</button>' : ""}
+    ${draftShareCode(view) ? '<button type="button" class="ghost-btn btn-sm calc-share" data-action="trade-share">Share trade</button>' : ""}
     ${shared ? "" : '<button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear trade</button>'}
     ${large ? `<p class="muted small">Dated share links support up to ${SHARE_MAX_SIDE} assets per side. Copy the page address to share this offer at current prices.</p>` : ""}
     <p class="calc-share-status" role="status" aria-live="polite"></p>
   `;
+}
+
+function missingDraftPrices(view) {
+  const directory = withPlayerDirectoryNames(view.basis.nameMap, state.players);
+  const missing = [...view.draft.left, ...view.draft.right]
+    .filter((item) => view.priced.get(String(item.uid))?.estimated)
+    .map((item) => draftItemDisplayName(item, directory) || `Sleeper player ${playerIdFromAssetId(item.assetId)}`);
+  return `No current price for ${new Intl.ListFormat("en").format([...new Set(missing)])}.`;
 }
 
 function renderDraftVerdict(view) {
@@ -6126,7 +6134,7 @@ function renderDraftVerdict(view) {
     const history = shared?.shared
       ? `<p>${escapeHtml(shared.date)} · ${escapeHtml(shared.shared.label)}</p>${renderArchivedTradePrices(shared.shared)}`
       : shared?.missing ? `<p>${escapeHtml(missingBoardNote(shared.date))}</p>` : "";
-    return `<section class="calc-summary"><h3>Current verdict unavailable</h3><p>A price is missing.</p>${history}</section>`;
+    return `<section class="calc-summary"><h3>Current verdict unavailable</h3><p>${escapeHtml(missingDraftPrices(view))}</p>${history}</section>`;
   }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (!bothSides) return `<p class="sr-only" role="status">Add a player or pick to ${escapeHtml(draftReceivingTeam(draft.right.length ? "left" : "right", view))} for a verdict.</p>`;
@@ -6311,8 +6319,8 @@ async function shareDraftTradeOnce(button) {
   }
   const url = new URL(sharePath(code), window.location.origin).href;
   rememberSentShare(code);
-  const text = shareMessage(shareSummary(decodeTradeShare(code), state.valueBundles));
   if (typeof navigator.share === "function") {
+    const text = shareMessage(decodeTradeShare(code), state.valueBundles, activeSharedTrade(view.draft)?.snapshot);
     try {
       await navigator.share({ title: "Dynasty Ticker trade check", text, url });
       trackShareTapped("webshare");
