@@ -124,6 +124,12 @@ export function decodeTradeShare(code) {
   return { format, give, get, stamp, legacyFormat: text[1] === "q" };
 }
 
+export function sharedSideTitle(items) {
+  const names = items.map(item => item.name).filter(Boolean);
+  if (!names.length) return "nothing";
+  return names.length === 1 ? names[0] : `${names[0]} + ${names.length - 1} more`;
+}
+
 export function sharePath(code) {
   return code ? `/t/${code}` : "";
 }

@@ -240,7 +240,7 @@ import {
 } from "./modules/verdict-copy.js";
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import { bindInfoTips, infoTipMarkup } from "./modules/info-tip.js";
-import { SHARE_MAX_SIDE, decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
+import { SHARE_MAX_SIDE, decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, sharedSideTitle, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
 import { chooseBestLineup, positionalStarterCutoff } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
@@ -5637,12 +5637,7 @@ function sharedTradeTitle(view) {
   if (all.some((item) => raw(item.name))) {
     return `${pieceCount(view.draft.left)} for ${pieceCount(view.draft.right)}`;
   }
-  const side = (items) => {
-    const names = items.map((item) => item.name).filter(Boolean);
-    if (!names.length) return "nothing";
-    return names.length > 1 ? `${names[0]} + ${names.length - 1} more` : names[0];
-  };
-  return `${side(view.draft.left)} for ${side(view.draft.right)}`;
+  return `${sharedSideTitle(view.draft.left)} for ${sharedSideTitle(view.draft.right)}`;
 }
 
 function renderBadShareNotice() {
