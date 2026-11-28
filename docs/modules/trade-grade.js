@@ -1,6 +1,10 @@
+import { archivedPackageRules } from "./archive-package-rules.js";
+import { slotToRosterIdFromDraft } from "./draft-picks.js";
+import { priceStamp } from "./trade-share.js";
+import { STALE_AFTER_DAYS } from "./value-scale.js";
 import { roundPrice } from "./price-units.js";
 import { calculatePackageAdjustment } from "./package-value.js";
-import { getGlobalMaxPlayerValue, resolvePickAssetValue } from "./values.js";
+import { getGlobalMaxPlayerValue, resolvePickAssetValue, snapshotPrices } from "./values.js";
 import { percentMore, tierForMore } from "./verdict-copy.js";
 
 // Ticket 038. All prices are from the one 12-team Superflex PPR board.
@@ -20,7 +24,7 @@ const LETTERS = Object.freeze({
 const id = (value) => String(value ?? "").trim();
 const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 const mapFor = (values) => object(values?.sf || values);
-const isPrice = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0;
+const isPrice = (value) => typeof value === "number" && Number.isFinite(value) && value > 0;
 const asMillis = (value) => {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : Number.NaN;
@@ -38,33 +42,34 @@ export function priceSnapshotForTrade(history, trade) {
   return snapshots
     .filter((row) => {
       const date = Date.parse(row?.asOf || row?.date || "");
-      return Number.isFinite(date) && date <= when && row?.sf && typeof row.sf === "object";
+      return Number.isFinite(date) && date <= when && when - date <= STALE_AFTER_DAYS * 86400000
+        && row?.sf && typeof row.sf === "object";
     })
     .sort((a, b) => Date.parse(b.asOf || b.date) - Date.parse(a.asOf || a.date))[0] || null;
 }
 
-function completedPick(draftPick, archive) {
-  const season = id(draftPick?.season);
-  const originalRosterId = id(draftPick?.roster_id);
-  const round = Number(draftPick?.round);
-  if (!season || !originalRosterId || !Number.isFinite(round)) return null;
-  const drafts = archive?.drafts?.[season] || [];
-  const entry = (archive?.seasons || []).find((item) => id(item.season) === season);
-  for (const draft of drafts) {
-    const order = object(draft.draft_order);
-    const draftSlot = Object.entries(order).find(([userId]) =>
-      (entry?.rosters || []).some((roster) =>
-        id(roster.roster_id) === originalRosterId &&
-        (id(roster.owner_id) === userId || (roster.co_owners || []).map(id).includes(userId))
-      )
-    )?.[1];
-    if (draftSlot == null) continue; // Never guess a traded pick's original owner.
+function hindsightPick(asset, archive, tradedAt) {
+  const entry = (archive?.seasons || []).find((item) => id(item.season) === asset.season);
+  const drafts = archive?.drafts?.[asset.season] || [];
+  const possible = drafts.filter((draft) =>
+    !(Number(draft.last_picked) < tradedAt && Number(draft.last_picked) > 0 && draft.status === "complete")
+    && !(Number(draft.settings?.rounds) > 0 && Number(draft.settings.rounds) < asset.round)
+  );
+  if (possible.length === 1 && asset.originalRosterId) {
+    const draft = possible[0];
+    const slots = slotToRosterIdFromDraft(draft, entry?.rosters);
     const selected = (draft.picks || []).find((pick) =>
-      Number(pick.round) === round && Number(pick.draft_slot) === Number(draftSlot)
+      Number(pick.round) === asset.round && id(slots[pick.draft_slot]) === asset.originalRosterId
     );
-    if (selected?.player_id) return id(selected.player_id);
+    if (selected?.player_id) return { draftedPlayerId: id(selected.player_id) };
   }
-  return null;
+  // Multiple drafts can contain the same round and original slot. An
+  // unresolved selection in a finished draft cannot be sold as a future pick.
+  const seasonDrafts = drafts.length ? drafts : entry?.drafts || [];
+  const currentSeason = Number(archive?.seasons?.[0]?.season || new Date().getUTCFullYear());
+  const missingDraft = Number(asset.season) < currentSeason
+    || possible.length > 1 || seasonDrafts.some((draft) => draft.status === "complete");
+  return { missingDraft };
 }
 
 // Sleeper's adds names the new owner; drops names the old owner.
@@ -104,7 +109,7 @@ export function tradeAssets(trade) {
   return { rosterIds: [...rosterIds], assets };
 }
 
-function assetPrice(asset, values, { basis, archive, valueNames }) {
+function assetPrice(asset, values, { basis, archive, valueNames, tradedAt }) {
   const prices = mapFor(values);
   if (asset.kind === "player") {
     const price = prices[asset.assetId];
@@ -115,18 +120,14 @@ function assetPrice(asset, values, { basis, archive, valueNames }) {
   }
   // Hindsight: a used pick is the specific drafted player, not a generic pick.
   // At-time: the draft outcome was not known; use that day's pick market price.
-  const draftedId = basis === "today" ? completedPick({
-    season: asset.season, round: asset.round, roster_id: asset.originalRosterId,
-  }, archive) : null;
-  if (draftedId) {
-    const price = prices[`player:${draftedId}`];
-    return { price: isPrice(price) ? price : null, pricedAs: `player:${draftedId}`, draftedPlayerId: draftedId };
-  }
-  // A pick from an earlier year that cannot be linked to its original
-  // drafting slot cannot be safely repriced using a future-pick estimate.
-  const currentSeason = Number(archive?.seasons?.[0]?.season || new Date().getUTCFullYear());
-  if (basis === "today" && Number(asset.season) < currentSeason) {
-    return { price: null, pricedAs: "", missingDraft: true };
+  if (basis === "today") {
+    const { draftedPlayerId, missingDraft } = hindsightPick(asset, archive, tradedAt);
+    if (draftedPlayerId) {
+      const pricedAs = `player:${draftedPlayerId}`;
+      const price = prices[pricedAs];
+      return { price: isPrice(price) ? price : null, pricedAs, draftedPlayerId };
+    }
+    if (missingDraft) return { price: null, pricedAs: "", missingDraft };
   }
   const pick = { assetType: "pick", assetId: asset.assetId,
     raw: { season: asset.season, round: asset.round, ktcBucket: "any" } };
@@ -149,19 +150,28 @@ export function gradeTrade(trade, {
     return { available: false, basis: label, reason: "Only completed trades can be graded", sides: [], notes };
   }
   const snapshot = basis === "at-time" ? priceSnapshotForTrade(history, trade) : null;
-  if (basis === "at-time" && !snapshot) {
+  const board = snapshot && snapshotPrices(snapshot);
+  if (basis === "at-time" && !board) {
     return { available: false, basis: label, reason: "No price from that date", sides: [], notes };
   }
+  const prices = board?.values || mapFor(values);
+  const stamp = priceStamp(snapshot?.asOf || snapshot?.date);
+  const packageRules = board ? archivedPackageRules({ stamp }, stamp, board.sourceScale, snapshot.modelVersion) : undefined;
+  if (board) notes.push(`Prices as of ${snapshot.asOf || snapshot.date}.`);
+  if (packageRules?.note) notes.push(packageRules.note);
   const { rosterIds, assets } = tradeAssets(trade);
+  const context = { basis, archive, valueNames: board?.nameMap || valueNames, tradedAt: asMillis(trade.created) };
   const priced = assets.map((asset) => ({
-    ...asset, ...assetPrice(asset, snapshot?.sf || values, { basis, archive, valueNames }),
+    ...asset, ...assetPrice(asset, prices, context),
   }));
-  const unresolved = priced.filter((asset) => !asset.sender || !asset.receiver || !rosterIds.includes(asset.sender) || !rosterIds.includes(asset.receiver));
+  const unresolved = priced.filter((asset) => !asset.sender || !asset.receiver || asset.sender === asset.receiver);
   const unpriced = priced.filter((asset) => !isPrice(asset.price));
+  if (unpriced.some((asset) => asset.missingDraft)) notes.push("A traded pick could not be matched to a unique draft selection.");
   const usedPicks = priced.filter((asset) => asset.draftedPlayerId).length;
   if (usedPicks) notes.push(`${usedPicks} pick${usedPicks === 1 ? "" : "s"} valued as the player later drafted.`);
-  if ((trade.waiver_budget || []).length) notes.push("FAAB transfers are shown but not assigned a player value.");
-  if (unresolved.length) notes.push(`${unresolved.length} asset${unresolved.length === 1 ? " has" : "s have"} an unknown sending or receiving team.`);
+  const hasFaab = (trade.waiver_budget || []).some((item) => Number(item.amount) > 0);
+  if (hasFaab) notes.push("FAAB has no published dynasty price.");
+  if (unresolved.length) notes.push(`${unresolved.length} asset${unresolved.length === 1 ? " has" : "s have"} an unresolved transfer.`);
   if (unpriced.length) notes.push(`${unpriced.length} asset${unpriced.length === 1 ? " has" : "s have"} no published price for this lens.`);
   const sides = rosterIds.map((rosterId) => {
     const received = priced.filter((asset) => asset.receiver === rosterId);
@@ -174,7 +184,9 @@ export function gradeTrade(trade, {
       faabSent: (trade.waiver_budget || []).filter((item) => id(item.sender) === rosterId).reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
     };
   });
-  if (rosterIds.length < 2 || !assets.length || unresolved.length || unpriced.length) {
+  if (hasFaab) return { available: false, basis: label, reason: "Trade includes unpriced FAAB", sides, notes };
+  if (rosterIds.length < 2 || !assets.length || unresolved.length || unpriced.length
+      || sides.some((side) => !side.received.length || !side.sent.length)) {
     return { available: false, basis: label, reason: unpriced.length ? "Some assets have no published price" : "Incomplete trade data", sides, notes };
   }
   let packageAdjustment = 0;
@@ -183,8 +195,8 @@ export function gradeTrade(trade, {
     const second = sides[1].received.map((item) => item.price);
     const adjusted = calculatePackageAdjustment({
       myValues: first, theirValues: second,
-      globalMaxValue: getGlobalMaxPlayerValue(mapFor(snapshot?.sf || values)),
-    });
+      globalMaxValue: getGlobalMaxPlayerValue(prices),
+    }, packageRules);
     sides[0].valueReceived = roundPrice(adjusted.myAdjustedValue);
     sides[1].valueReceived = roundPrice(adjusted.theirAdjustedValue);
     sides[0].valueSent = sides[1].valueReceived;
@@ -200,14 +212,14 @@ export function gradeTrade(trade, {
   }
   sides.forEach((side) => { side.net = roundPrice(side.valueReceived - side.valueSent); });
   const gapPct = sides.length === 2
-    ? percentMore(sides[0].valueReceived, sides[1].valueReceived)
+    ? percentMore(sides[0].valueReceived, sides[1].valueReceived, packageRules)
     : null;
   const tier = sides.length === 2 ? tierForMore(gapPct) : "multi-team";
   const maxNet = Math.max(...sides.map((side) => side.net));
   const winnerRosterId = maxNet > 0 && sides.filter((side) => side.net === maxNet).length === 1
     ? sides.find((side) => side.net === maxNet)?.rosterId : null;
   sides.forEach((side) => {
-    const more = sides.length === 2 ? gapPct : percentMore(side.valueReceived, side.valueSent);
+    const more = sides.length === 2 ? gapPct : percentMore(side.valueReceived, side.valueSent, packageRules);
     const letter = gradeLetters(more, side.net > 0);
     side.gapPct = more;
     side.tier = letter.tier;

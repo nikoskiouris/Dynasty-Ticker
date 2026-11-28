@@ -53,6 +53,7 @@ export function draftVerdictModel(giveValues = [], getValues = [], { globalMaxVa
     verdict: valueCalcVerdict(compareGive, compareGet, {
       leftCount: giveList.length,
       rightCount: getList.length,
+      roundToTenth: packageRules?.roundToTenth,
     }),
   };
 }
@@ -252,7 +253,7 @@ const EVEN_UP_FAIR_PCT = EVEN_UP_CLOSES_AT;
 // A pick evens the gap only when its price actually covers it. Pass scoreAdded
 // when adding the pick changes the stud credit; the raw 0.8–1.25 band does
 // not know about that credit.
-export function evenUpPickChoice(gap, picks = [], { scoreAdded = null } = {}) {
+export function evenUpPickChoice(gap, picks = [], { scoreAdded = null, beforePct = Infinity } = {}) {
   const need = Math.abs(Number(gap) || 0);
   if (!(need > 0)) return null;
   const score = typeof scoreAdded === "function" ? scoreAdded : null;
@@ -270,8 +271,8 @@ export function evenUpPickChoice(gap, picks = [], { scoreAdded = null } = {}) {
     const pct = Number(scored.pct);
     if (!Number.isFinite(afterGap) || !Number.isFinite(pct)) continue;
     const miss = Math.abs(afterGap);
-    const closes = pct <= EVEN_UP_FAIR_PCT;
-    const candidate = { assetId: String(pick.assetId || ""), name: String(pick.name), value, miss, closes, gap: need, afterGap, pct, verdict: scored.verdict || null };
+    const closes = pct <= EVEN_UP_FAIR_PCT && pct < beforePct;
+    const candidate = { assetId: String(pick.assetId || ""), name: String(pick.name), value, miss, closes, improves: pct < beforePct, gap: need, afterGap, pct, verdict: scored.verdict || null };
     // Among add-ons that make it fair, suggest the one priced nearest the raw
     // gap, not the one that lands nearest exactly even (that picked a 72.27
     // pick for a 17.76 gap). If none is fair, the one that gets closest.
@@ -280,7 +281,7 @@ export function evenUpPickChoice(gap, picks = [], { scoreAdded = null } = {}) {
     const betterClose = Boolean(best) && closes && !best.closes;
     const tighter = Boolean(best) && closes === best.closes && (closes
       ? (off < bestOff || (off === bestOff && miss < best.miss))
-      : (miss < best.miss || (miss === best.miss && value < best.value)));
+      : (pct < best.pct || (pct === best.pct && value < best.value)));
     if (!best || betterClose || tighter) best = candidate;
   }
   if (!best) return null;
@@ -299,9 +300,11 @@ export function evenUpTradePick({ giveValues = [], getValues = [], picks = [], g
   if (!give.length || !get.length) return null;
   const model = draftVerdictModel(give, get, { globalMaxValue });
   const gap = model.verdict.gap;
-  if (!(Math.abs(gap) > 0) || (percentMore(model.verdict.left, model.verdict.right) ?? Infinity) <= EVEN_UP_OFFER_ABOVE) return null;
+  const beforePct = percentMore(model.verdict.left, model.verdict.right) ?? Infinity;
+  if (!(Math.abs(gap) > 0) || beforePct <= EVEN_UP_OFFER_ABOVE) return null;
   const shortIsGive = gap > 0;
   return evenUpPickChoice(gap, picks, {
+    beforePct,
     scoreAdded(value) {
       const next = draftVerdictModel(
         shortIsGive ? [...give, value] : give,

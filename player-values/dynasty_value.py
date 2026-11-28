@@ -83,8 +83,8 @@ def future_production(row, season_week):
     """Estimate repeatable season production with partial-season shrinkage.
 
     A projection has six games of weight. Last year's full-season output has
-    up to eight. Estimate team games elapsed from the schedule, including missed
-    appearances and averaging the bye across the 18 regular-season weeks.
+    up to eight. Count completed team games, including missed appearances.
+    Use the league-wide bye estimate when the club schedule is unavailable.
     """
     projection = number(row.get("season_ppr"))
     total, weight = (projection * 6, 6) if projection is not None else (0, 0)
@@ -99,7 +99,10 @@ def future_production(row, season_week):
     if points is not None and played and played > 0:
         # A settled opener counts while Week 1 is still active. An 18th
         # appearance counts as exposure even after the ordinary 17 games.
-        elapsed = max(played, min(17, (season_week - 1) * 17 / 18))
+        club_games = number(row.get("team_games"))
+        if club_games is None:
+            club_games = (season_week - 1) * 17 / 18
+        elapsed = max(played, min(17, club_games))
         total += 17 * points
         weight += elapsed
     return max(0, total / weight) if weight else None

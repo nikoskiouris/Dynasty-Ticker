@@ -133,15 +133,14 @@ function curvePackageAdjustment({ myValues, theirValues, globalMaxValue }, allow
   };
 }
 
-// Adding a piece to a side never makes that side worth less in the verdict,
-// and a throw-in never adds more than its own price to that side.
+// Within each sorted package, extending a prefix with a cheaper piece cannot
+// worsen its signed lead or improve that lead by more than the piece’s price.
 // The stud curve alone broke that: a straight swap stays at listed prices, so
 // a 5-point throw-in on the other side switched the curve on and could turn
 // "you give 28% more" into "you give 70% more". Each side's pieces, best
 // first, are added one at a time; the lead for (i of mine, j of theirs) stays
 // between the leads one piece earlier on either side. That bounds it at both
-// ends, so every throw-in moves the verdict toward the side that receives it,
-// or leaves it where it was.
+// ends. An addition above an existing piece can reorder those prefixes.
 function fullPackageAdjustment(
   { myValues, theirValues, globalMaxValue },
   { boundAdditions = true, capThrowIns = true, allowTrailingCredit = true },
@@ -166,7 +165,7 @@ function fullPackageAdjustment(
         value = step.myAdjustedValue - step.theirAdjustedValue;
         value = Math.min(value, lead[i][j - 1]);
         value = Math.max(value, lead[i - 1][j]);
-        // A throw-in (any piece after a side's best) is worth at most its own
+        // A throw-in (the lowest-priced piece in this prefix) is worth at most its own
         // price to the side that gets it. Without this, a 6-point add-on next
         // to Gibbs switched the stud curve on and moved Gibbs-for-Bijan from
         // "5% more" to "27% more".
@@ -196,12 +195,19 @@ export function calculatePackageAdjustment(options, rules = {}) {
   // Apply the consolidation curve in integer hundredths. A one-cent add-on
   // remains distinct throughout the search and each rounding step.
   const hundredths = (values) => (Array.isArray(values) ? values.map(priceHundredths) : []);
+  const mine = hundredths(options.myValues);
+  const theirs = hundredths(options.theirValues);
   const adjustment = fullPackageAdjustment({
-    myValues: hundredths(options.myValues),
-    theirValues: hundredths(options.theirValues),
+    myValues: mine,
+    theirValues: theirs,
     globalMaxValue: priceHundredths(options.globalMaxValue),
   }, rules);
-  const packageAdjustment = Math.round(adjustment.packageAdjustment * (rules.creditShare ?? PACKAGE_CREDIT_SHARE));
+  const weightedCredit = Math.round(adjustment.packageAdjustment * (rules.creditShare ?? PACKAGE_CREDIT_SHARE));
+  // The curve can switch on trailing-side credit as soon as its best piece
+  // overtakes the other side's best. Limit that premium to their actual price
+  // difference so a one-cent advantage cannot suddenly create points of credit.
+  const bestDifference = Math.abs(Math.max(0, ...mine) - Math.max(0, ...theirs));
+  const packageAdjustment = rules.capBestDifference === false ? weightedCredit : Math.min(weightedCredit, bestDifference);
   const side = packageAdjustment ? adjustment.packageAdjustmentSide : null;
   return {
     myBaseValue: adjustment.myBaseValue / 100,

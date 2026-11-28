@@ -1,7 +1,7 @@
 import { roundPrice } from "./price-units.js";
 import { escapeHtml, formatNumber, ownerPossessive } from "./html.js";
 import { gradeTrade, tradeAssets } from "./trade-grade.js";
-import { tradeHref } from "./history-route.js";
+import { parseAssetList, tradeHref } from "./history-route.js";
 import { TIER_LABELS } from "./verdict-copy.js";
 
 const text = (value) => String(value ?? "").trim();
@@ -81,35 +81,32 @@ export function renderTradeLogRows({
 
   return rows.map((trade) => {
     const graded = gradeTrade(trade, { values, valueNames, archive });
-    const snapshot = tradeAssets(trade);
-    const sides = graded.sides.length ? graded.sides : snapshot.rosterIds.map((rosterId) => ({
-      rosterId,
-      received: snapshot.assets.filter((asset) => asset.receiver === rosterId),
-      sent: snapshot.assets.filter((asset) => asset.sender === rosterId),
-    }));
+    const sides = graded.sides;
     const date = new Date(Number(trade.status_updated || trade.created || 0));
     const dateLabel = Number.isFinite(date.getTime())
       ? date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
       : "Date unavailable";
     const calcHref = (() => {
-      if (sides.length !== 2 || !snapshot.assets.length) return "";
-      const [first, second] = sides.map((side) => side.rosterId);
-      if (snapshot.assets.some((asset) => ![first, second].includes(asset.receiver)
-        || ![first, second].includes(asset.sender))) return "";
-      const give = snapshot.assets.filter((asset) => asset.receiver === second).map((asset) => asset.assetId);
-      const get = snapshot.assets.filter((asset) => asset.receiver === first).map((asset) => asset.assetId);
-      // No ?league=: Trade Calculator frames a league trade as you vs a partner, so a
-      // trade between two other teams opened with the wrong team names on
-      // each column. The pieces here are market picks and players, so the
-      // plain calculator (Team 1 / Team 2) shows the right sides and prices.
-      return give.length && get.length ? tradeHref(give, get, "") : "";
+      if (sides.length !== 2 || sides.some((side) => !side.received.length)
+        || (trade.waiver_budget || []).some((transfer) => Number(transfer.amount) > 0)) return "";
+      const complete = tradeAssets(trade).assets.every((asset) =>
+        asset.sender && asset.receiver && asset.sender !== asset.receiver);
+      if (!complete) return "";
+      // An identifiable unpriced player can still open as unavailable. Use the
+      // drafted player for a spent pick and preserve every piece in the URL.
+      const [get, give] = sides.map((side) => side.received.map((asset) => asset.pricedAs));
+      const players = [...give, ...get].filter((assetId) => assetId?.startsWith("player:"));
+      if (new Set(players).size !== players.length) return "";
+      const representable = [give, get].every((ids) => parseAssetList(ids.join(",")).length === ids.length);
+      return representable ? tradeHref(give, get) : "";
     })();
     const parties = sides.map((side) => {
       const received = side.received.map((asset) => assetHtml(asset, context));
+      if (side.faabReceived) received.push(`$${formatNumber(side.faabReceived)} FAAB`);
       const isWinner = graded.available && graded.winnerRosterId === side.rosterId;
       return `<div class="trade-log-side">
         <h3>${escapeHtml(rosterLabel(side.rosterId, entry))}${isWinner ? ' <span class="mini-chip">Higher value</span>' : ""}</h3>
-        <p>${received.join(", ") || "No player or pick received"}</p>
+        <p>${received.join(", ") || "No assets received"}</p>
         <p class="muted small">Received ${graded.available ? `${priceLabel(side.valueReceived)}${receivedExtra(side)}` : "value unavailable"}
           · Sent ${graded.available ? priceLabel(side.valueSent) : "value unavailable"}
           · Trade grade: <strong>${graded.available ? escapeHtml(side.grade) : "Not graded"}</strong></p>
@@ -118,7 +115,7 @@ export function renderTradeLogRows({
     return `<article class="workspace-panel trade-log-card">
       <div class="panel-heading"><div><span class="eyebrow">${escapeHtml(dateLabel)}</span>
         <h2>${escapeHtml(sides.map((side) => rosterLabel(side.rosterId, entry)).join(" / ") || "Trade")}</h2></div>
-        <span class="mini-chip">${graded.available ? escapeHtml(TIER_LABELS[graded.tier] || (graded.tier === "multi-team" ? "Multi-team" : graded.tier)) : "Price unavailable"}</span></div>
+        <span class="mini-chip">${graded.available ? escapeHtml(TIER_LABELS[graded.tier] || (graded.tier === "multi-team" ? "Multi-team" : graded.tier)) : "Not graded"}</span></div>
       <div class="trade-log-parties">${parties}</div>
       ${calcHref ? `<p><a href="${escapeHtml(calcHref)}" target="_blank" rel="noopener noreferrer">Open in Trade Calculator (new tab)</a> <span class="muted small">Keeps your current draft intact.</span></p>` : ""}
       <details><summary>How was this graded?</summary><p class="muted small">Graded on today's values, not what they were when the trade happened.</p>
