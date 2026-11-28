@@ -119,7 +119,8 @@ export function dedupeArchiveTransactions(rows) {
 
 /**
  * Shared lazy archive. Scopes: core (hub), standings (current matchups),
- * recent (current + previous transactions), all (all matchups, moves and drafts).
+ * recent (current + previous transactions), all (all matchups, moves and drafts),
+ * trades:<season|all> (transactions plus draft outcomes needed by those trades).
  * A result is published only for the latest load; cancel aborts queued requests.
  */
 export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } = {}) {
@@ -157,7 +158,8 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
       ...options, validate: (row) => Boolean(row?.league_id && row?.season),
     });
     const completed = closedSeason(league, options.nflState);
-    const keys = { users: "users", rosters: "rosters", tradedPicks: "traded_picks", drafts: "drafts", winnersBracket: "winners_bracket", losersBracket: "losers_bracket" };
+    const keys = { users: "users", rosters: "rosters", drafts: "drafts" };
+    if (!options.tradeSeason) Object.assign(keys, { tradedPicks: "traded_picks", winnersBracket: "winners_bracket", losersBracket: "losers_bracket" });
     const result = { league };
     await mapInChunks(Object.entries(keys), 6, async ([key, suffix]) => {
       try {
@@ -181,6 +183,7 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
   }
 
   async function load(leagueId, { scope = "core", currentCore = null, preloadedSeasons = [], nflState = null, refresh = false, onProgress, signal } = {}) {
+    const tradeSeason = /^trades:(all|\d{4})$/.exec(scope)?.[1];
     const ownEpoch = ++epoch;
     controller?.abort();
     controller = new AbortController();
@@ -198,7 +201,7 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
       if (row.stale) { result.stale = true; issue({ season: "", resource: row.path, message: "Sleeper unavailable: showing saved data", stale: true }); }
       if (row.durable === false) issue({ season: "", resource: "cache", message: "Browser storage unavailable: data is saved only for this visit" });
     };
-    const options = { refresh, nflState, signal: ownController.signal, issue, report };
+    const options = { refresh, nflState, tradeSeason, signal: ownController.signal, issue, report };
     try {
       if (!nflState && scope !== "core") {
         try { nflState = await resource("/state/nfl", { ...options, validate: (row) => Boolean(row?.season) }); }
@@ -207,7 +210,7 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
       }
       let id = String(leagueId);
       const visited = new Set();
-      while (id && result.seasons.length < maxSeasons && !visited.has(id)) {
+      while (id && (tradeSeason || result.seasons.length < maxSeasons) && !visited.has(id)) {
         visited.add(id);
         try {
           // The desk has already loaded the historical league chain. Reuse its
@@ -220,15 +223,17 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
           checkSignal(ownController.signal);
           const entry = seasonEntry(data, result.seasons.length === 0);
           result.seasons.push(entry);
-          onProgress?.({ season: entry.season, loaded: result.seasons.length, total: maxSeasons, message: `Loading ${entry.season} season… ${result.seasons.length} of up to ${maxSeasons}` });
+          onProgress?.({ season: entry.season, loaded: result.seasons.length, total: tradeSeason ? null : maxSeasons, message: `Loading ${entry.season} season…` });
           id = previousLeagueId(data.league.previous_league_id);
         } catch (error) {
           checkSignal(ownController.signal);
           if (!result.seasons.length) throw error;
           issue({ season: "unknown", leagueId: id, resource: "season", message: `Older league ${id} unavailable from Sleeper; earlier seasons could not be reached` });
+          id = "";
           break;
         }
       }
+      if (id && visited.has(id)) issue({ season: "", resource: "season", message: "Sleeper's linked seasons loop back to a league already shown." });
       if (id && !visited.has(id)) issue({ season: "", resource: "historyLimit", message: `Showing the most recent ${maxSeasons} seasons` });
       result.franchiseIndex = buildFranchiseIndex({ currentLeagueId: String(leagueId), currentRosters: result.seasons[0]?.rosters || [], historyEntries: result.seasons, users: result.seasons.flatMap((entry) => entry.users) });
       for (const [index, entry] of result.seasons.entries()) {
@@ -244,7 +249,7 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
           });
           result.matchups[entry.season] = rows;
         }
-        if (scope === "all" || scope === "recent" && index < 2) {
+        if (scope === "all" || scope === "recent" && index < 2 || tradeSeason === "all" || tradeSeason === entry.season) {
           const moves = [];
           await mapInChunks(archiveWeeks(entry.league, nflState, { transactions: true }), 6, async (week) => {
             try { moves.push(...await resource(sleeperLeaguePath(entry.leagueId, `transactions/${week}`), common)); }
@@ -252,9 +257,22 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
           });
           result.transactions[entry.season] = dedupeArchiveTransactions(moves);
         }
-        // Recent trade grades need the actual player selected with a past
-        // pick. Fetch draft picks for the same two seasons as transactions.
-        if (scope === "all" || scope === "recent" && index < 2) {
+      }
+      // A pick in a 2022 deal might have been used in the 2024 draft.
+      // Fetch those outcomes even when only the trade season was requested.
+      const pickSeasons = new Set();
+      if (tradeSeason) {
+        for (const moves of Object.values(result.transactions)) {
+          for (const move of moves) {
+            if (move.type !== "trade") continue;
+            for (const pick of move.draft_picks || []) pickSeasons.add(String(pick.season));
+          }
+        }
+      }
+      for (const [index, entry] of result.seasons.entries()) {
+        if (scope === "all" || scope === "recent" && index < 2 || pickSeasons.has(entry.season)) {
+          checkSignal(ownController.signal);
+          const common = { ...options, season: entry.season, completed: closedSeason(entry.league, nflState), validate: Array.isArray };
           const drafts = [];
           await mapInChunks(entry.drafts, 6, async (draft) => {
             const draftId = String(draft.draft_id || "");
@@ -284,7 +302,15 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
     } finally { signal?.removeEventListener("abort", abort); }
   }
 
-  return { load, loadCore: core, cancel() { epoch += 1; controller?.abort(); snapshot = null; }, get snapshot() { return snapshot; } };
+  return {
+    load, loadCore: core,
+    cancel({ keepSnapshot = false } = {}) {
+      epoch += 1;
+      controller?.abort();
+      if (!keepSnapshot) snapshot = null;
+    },
+    get snapshot() { return snapshot; },
+  };
 }
 
 export const leagueArchive = createLeagueArchive();

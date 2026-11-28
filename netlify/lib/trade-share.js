@@ -29,7 +29,7 @@ export const SITE_ORIGIN = "https://dynastyticker.com";
 export const CARD_DESIGN = "c5";
 export const PAGE_CACHE = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
 export const CARD_CACHE = "public, max-age=31536000, immutable";
-export const PAGE_CSP = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app; form-action 'self'; frame-src 'none'";
+export const PAGE_CSP = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' https://sleepercdn.com https://*.sleepercdn.com; connect-src 'self' https://api.sleeper.app https://site.api.espn.com; form-action 'self'; frame-src 'none'";
 export const SAFE_HEADERS = Object.freeze({ "x-content-type-options": "nosniff", "x-frame-options": "DENY" });
 
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };

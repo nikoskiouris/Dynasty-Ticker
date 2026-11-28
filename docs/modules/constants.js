@@ -42,7 +42,7 @@ export const ROOM_LABELS = {
     calculator: "Trade Calculator",
   },
   league: {
-    hub: "League hub", standings: "Standings", trades: "Recent Trades", history: "Historical Data",
+    hub: "League hub", standings: "Standings", trades: "Trade History", history: "Historical Data",
     team: "My Team",
   },
 };

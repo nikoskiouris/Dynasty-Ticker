@@ -21,7 +21,7 @@ export function renderTraderAwards(archive, { values = {}, valueNames = {} } = {
     <td>${row.eligible ? `${row.winRate.toFixed(0)}%` : "—"}</td>
   </tr>`).join("");
   const single = (item) => item
-    ? `${e(item.managerName)} · ${e(item.season)} · ${e(item.grade)} · net ${number(item.net)}`
+    ? `<a href="/l/${encodeURIComponent(archive.leagueId)}/trades?season=${encodeURIComponent(item.season)}#trade-${encodeURIComponent(item.transactionId)}">${e(item.managerName)} · ${e(item.season)} · ${e(item.grade)} · net ${number(item.net)}</a>`
     : "Not enough fully priced historical trades";
   return `<section class="workspace-panel">
     <h2>Trade awards · hindsight only</h2>
