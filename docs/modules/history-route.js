@@ -1,5 +1,4 @@
 import { DEFAULT_PAGE, DEFAULT_ROOMS } from "./constants.js";
-import { isRankAssetId } from "./ranks.js";
 import { decodeTradeShare } from "./trade-share.js";
 import { isAssetLikePath } from "./asset-path.js";
 
@@ -54,6 +53,12 @@ export function urlPath(...segments) {
     .map((part) => String(part ?? "").replace(/^\/+|\/+$/g, ""))
     .filter(Boolean);
   return tail.length ? `${base}/${tail.join("/")}` : `${base}/`;
+}
+
+export function isRankAssetId(value) {
+  const token = String(value || "").trim();
+  if (/^player:\d+$/.test(token)) return true;
+  return /^pick:\d{4}:r\d+:(?:any|early|mid|late)$/.test(token);
 }
 
 export function isPlayerRouteId(value) {

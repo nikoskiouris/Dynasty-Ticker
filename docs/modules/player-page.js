@@ -1,3 +1,4 @@
+import { pathForPlace } from "./history-route.js";
 import { escapeHtml, formatNumber } from "./html.js";
 import { renderPlayerFace } from "./player-face.js";
 import { playerValueTrend, renderValueTrend, renderValuesFreshness } from "./value-scale.js";
@@ -119,6 +120,6 @@ export function renderPlayerPage(row, view = {}) {
         ${career || draftLine ? `<p>${escapeHtml([career, draftLine].filter(Boolean).join(" · "))}</p>` : ""}
       </details>` : ""}
     </div>
-    ${priced && comparables.length ? `<section><h2>Similar values</h2><div class="player-comparables">${comparables.map(n => `<button type="button" class="ghost-btn" data-action="rank-open" data-asset-id="${escapeHtml(n.assetId)}">${renderPlayerFace(n.playerId, n.name, {size:"sm"})}<span>${escapeHtml(n.name)}<small>${escapeHtml(n.boardRank || n.position)} · ${escapeHtml(formatNumber(n.value))}</small></span></button>`).join("")}</div></section>` : ""}
+    ${priced && comparables.length ? `<section><h2>Similar values</h2><div class="player-comparables">${comparables.map(n => `<a href="${escapeHtml(pathForPlace({ playerId: n.playerId, playerName: n.name, leagueId: view.leagueId }))}" class="ghost-btn" data-action="rank-open" data-asset-id="${escapeHtml(n.assetId)}">${renderPlayerFace(n.playerId, n.name, {size:"sm"})}<span>${escapeHtml(n.name)}<small>${escapeHtml(n.boardRank || n.position)} · ${escapeHtml(formatNumber(n.value))}</small></span></a>`).join("")}</div></section>` : ""}
   </article>`;
 }

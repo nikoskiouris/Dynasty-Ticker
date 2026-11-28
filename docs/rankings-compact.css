@@ -63,7 +63,7 @@ html[data-players-board] body #ranks-section .panel-heading h2,
 #ranks-section .rank-asset-tabs button,
 #ranks-section .rank-pager button,
 #ranks-section button.rank-sort-btn,
-#ranks-section button.rank-name-link,
+#ranks-section :is(button, a).rank-name-link,
 #ranks-section .player-return {
   border: 0;
   box-shadow: none;
@@ -191,7 +191,7 @@ html[data-players-board] body #ranks-section .panel-heading h2,
 }
 #ranks-section button.rank-sort-btn::after { content: none; }
 #ranks-section .rank-sort-arrow { font-size: .9em; }
-#ranks-section button.rank-name-link {
+#ranks-section :is(button, a).rank-name-link {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -255,6 +255,7 @@ html[data-players-board] body #ranks-section .panel-heading h2,
 #ranks-section .player-detail-facts > div { padding: 7px 0; border-bottom: 1px solid var(--board-rule); }
 #ranks-section .player-detail-facts dd { text-align: right; font-variant-numeric: tabular-nums; }
 #ranks-section .player-comparables { gap: 6px; }
+#ranks-section .player-comparables a { text-decoration: none; }
 @media (max-width: 620px) {
   html[data-players-board]:not([data-player-page]) body #ranks-section > .panel-heading { display: block; margin-bottom: 12px; }
   #ranks-section .rank-date { font-size: 11px; margin-top: 2px; }
@@ -270,7 +271,7 @@ html[data-players-board] body #ranks-section .panel-heading h2,
   #ranks-section .rankings-table :is(th,td) { padding-inline: 4px; }
   #ranks-section .rankings-table thead th { font-size: 10px; }
   #ranks-section .rankings-table td { font-size: 12px; }
-  #ranks-section button.rank-name-link { gap: 5px; font-size: 13px; }
+  #ranks-section :is(button, a).rank-name-link { gap: 5px; font-size: 13px; }
   #ranks-section .rankings-table td.rank-table-value { font-size: 13px; }
   #ranks-section .rank-pager button { min-height: 38px; }
   #ranks-section button.rank-sort-btn { min-height: 32px; }
