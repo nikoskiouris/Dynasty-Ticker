@@ -105,8 +105,7 @@ export function parseAssetList(raw) {
   return String(raw || "")
     .split(",")
     .map(canonicalizeAssetToken)
-    .filter(Boolean)
-    .slice(0, 12);
+    .filter(Boolean);
 }
 
 function publicTradeId(id) {
@@ -430,7 +429,7 @@ export function pathForPlace({
   let href = "";
   // An opened shared link keeps /t/<code> in the address bar while the trade is
   // unchanged, so copying the URL shares the same trade (and its date).
-  if (!sleeperId && placePage === "trades" && placeRoom === "calculator" && shareCode && decodeTradeShare(shareCode)) {
+  if (!sleeperId && !playersBoard && placePage === "trades" && placeRoom === "calculator" && shareCode && decodeTradeShare(shareCode)) {
     return urlPath("t", shareCode);
   }
   const leagueSegment = placePage === "league" ? LEAGUE_ROOM_SEGMENT[placeRoom] : "";
