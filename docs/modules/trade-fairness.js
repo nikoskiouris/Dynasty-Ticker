@@ -21,9 +21,15 @@ export function renderTradeFairness(verdict, options = {}) {
 
 export function renderTradeScale(verdict, options = {}) {
   const scale = tradeFairness(verdict, options);
-  const labels = [options.team1 || "Team 1", "Even", options.team2 || "Team 2"];
+  const labels = ["Lopsided", "Unfair", "Close", "Even", "Close", "Unfair", "Lopsided"];
+  const stop = (label, index) => {
+    const team = index === 0 ? options.team1 || "Team 1" : index === 6 ? options.team2 || "Team 2" : "";
+    return `<span class="trade-fairness-stop${index === scale.stop ? " is-current" : ""}" aria-hidden="true">
+      <span class="trade-scale-tier">${label}</span>${team ? '<abbr class="trade-scale-short" title="Lopsided">Lop.</abbr>' : ""}${team ? `<small>${escapeHtml(team)}</small>` : ""}
+    </span>`;
+  };
   return `<div class="trade-fairness-track" role="meter" aria-label="Trade fairness" aria-valuemin="0" aria-valuemax="6" aria-valuenow="${scale.stop}" aria-valuetext="${escapeHtml(scale.label)}">
     <span class="trade-fairness-marker" style="left:${scale.stop / 6 * 100}%" aria-hidden="true"></span>
-    ${labels.map((label) => `<span class="trade-fairness-stop" aria-hidden="true">${escapeHtml(label)}</span>`).join("")}
+    ${labels.map(stop).join("")}
   </div>`;
 }
