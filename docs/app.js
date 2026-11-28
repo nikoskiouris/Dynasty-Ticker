@@ -211,6 +211,7 @@ import {
   assetIdFromRoute,
   backTarget,
   decideHistoryWrite,
+  isRankAssetId,
   matchRoute,
   pathForPlace,
   playerIdFromPathname,
@@ -274,13 +275,11 @@ import { createBeaconAdapter, pageview as analyticsPageview, setAnalyticsAdapter
 import {
   buildPositionBoard,
   fetchNflDraftPicks,
-  formatPlayerDetail,
-  isRookiePlayer,
+  formatSeasonStats,
   lookupNflDraftPick,
 } from "./modules/player-notes.js";
 import {
   buildRankBoard,
-  isRankAssetId,
   RANK_PAGE_SIZE,
   rankFormatLabel,
   rankView,
@@ -1152,7 +1151,7 @@ function rankNflPlayers() {
 function rankOwners() {
   const owners = {};
   if (!state.leagueId) return owners;
-  const me = String(state.meRosterId || "");
+  const me = connectedRosterId();
   for (const roster of state.normalizedRosters || []) {
     const mine = String(roster.rosterId) === me;
     const name = roster.manager?.displayName || "A team";
@@ -1162,20 +1161,6 @@ function rankOwners() {
     }
   }
   return owners;
-}
-
-function rankPlayerNote(playerId, raw) {
-  if (!playerNoteContext?.previousSeason && !playerNoteContext?.seasonStats) return "";
-  const position = String(state.valueBundles?.players?.[`player:${playerId}`]?.position || raw?.position || raw?.fantasy_positions?.[0] || "").toUpperCase();
-  const line = formatPlayerDetail({
-    isRookie: isRookiePlayer(raw, playerNoteContext.currentSeason),
-    draft: lookupNflDraftPick(playerId, playerNoteContext.draftPicks, raw),
-    stats: playerNoteContext.seasonStats?.[playerId] || playerNoteContext.seasonStats?.[String(playerId)] || null,
-    position,
-    previousSeason: playerNoteContext.previousSeason,
-  });
-  if (!line || /^No \d{4} stats/.test(line)) return "";
-  return line;
 }
 
 function cachedRankRows() {
@@ -1191,7 +1176,7 @@ function cachedRankRows() {
     playerNoteContext?.previousSeason || "",
     state.leagueId || "",
     state.normalizedRosters?.length || 0,
-    state.meRosterId || "",
+    connectedRosterId(),
     nextRookieDraftSeason(),
   ].join("|");
   if (rankBoardCache.key === key) return rankBoardCache.rows;
@@ -1230,6 +1215,7 @@ function rankViewModel() {
     leagueFormat: state.league ? "sf" : "",
     selectedId: state.ranks?.selectedId || "",
     caveat: state.league ? marketCaveat(state.league) : "",
+    leagueId: state.leagueId,
     leagueOpen: Boolean(state.leagueId),
     history: state.valueHistory,
     updated: valuesFreshness(),
@@ -1237,7 +1223,8 @@ function rankViewModel() {
   if (view.card?.kind === "player") {
     const { playerId, raw } = view.card;
     view.card.draft = lookupNflDraftPick(playerId, playerNoteContext.draftPicks, raw);
-    view.card.note = rankPlayerNote(playerId, raw);
+    const previous = formatSeasonStats(playerNoteContext.seasonStats?.[playerId], view.card.position);
+    if (previous) view.card.note = `${playerNoteContext.previousSeason} · ${previous}`;
   }
   return view;
 }
@@ -6683,6 +6670,10 @@ function handleWorkspaceClick(event) {
       focusUsernameSearch();
       break;
     case "rank-open": {
+      if (target.tagName === "A") {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button) return;
+        event.preventDefault();
+      }
       const id = String(target.dataset.assetId || "");
       if (!isRankAssetId(id)) return;
       if (state.ranks.selectedId === id) {

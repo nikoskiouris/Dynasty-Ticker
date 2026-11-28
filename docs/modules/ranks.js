@@ -1,3 +1,4 @@
+import { pathForPlace } from "./history-route.js";
 import { playerAliasName } from "./player-aliases.js";
 import { renderPlayerPage } from "./player-page.js";
 import { escapeHtml, formatNumber } from "./html.js";
@@ -22,12 +23,6 @@ const SKILL_POSITIONS = new Set(["QB", "RB", "WR", "TE"]);
 const PICK_BUCKET_TIE = { any: 0, mid: 1, late: 2, early: 3 };
 const PICK_CLOSE_RATIO = 0.08;
 const PICK_FAR_RATIO = 1.8;
-
-export function isRankAssetId(value) {
-  const token = String(value || "").trim();
-  if (/^player:\d+$/.test(token)) return true;
-  return /^pick:\d{4}:r\d+:(?:any|early|mid|late)$/.test(token);
-}
 
 export function rankFormatLabel(format) {
   return "12-team Superflex PPR dynasty";
@@ -254,6 +249,7 @@ export function rankView({
   priceModel = null,
   caveat = "",
   leagueOpen = false,
+  leagueId = "",
   loading = false,
   failed = false,
   leagueValueFor = null,
@@ -305,6 +301,7 @@ export function rankView({
     missing: Boolean(selectedId) && !selected && rows.length > 0 && !loading,
     emptyLabel,
     leagueOpen: Boolean(leagueOpen),
+    leagueId,
     history,
     updated: updated || null,
     sort: sortKey,
@@ -408,7 +405,7 @@ export function renderRanksBody(view) {
       <th scope="col">${isPicks ? "Rd." : "Pos."}</th>
       ${isPicks ? '<th scope="col">Year</th>' : sortHeader("team", "Team", view)}
       ${sortHeader("rank", "Value / 100", view)}</tr></thead>
-    <tbody>${rows.map(row => renderRankTableRow(row, isPicks)).join("")}</tbody>
+    <tbody>${rows.map(row => renderRankTableRow(row, isPicks, view.leagueId)).join("")}</tbody>
   </table></div>` : `<p class="ranks-empty" role="status">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
   if (!rows.length) return table;
   const noun = view.query.trim() ? "result" : isPicks ? "draft pick" : "player";
@@ -420,15 +417,16 @@ export function renderRanksBody(view) {
   </nav>`;
 }
 
-function renderRankTableRow(row, isPicks) {
+function renderRankTableRow(row, isPicks, leagueId) {
   const pick = row.kind === "pick";
-  const label = pick ? `Add ${row.name} to a trade` : row.name;
   const owner = row.owner?.mine ? "On your team" : row.owner?.name || "";
   const more = [row.boardRank, !pick && Number.isFinite(row.age) ? `Age ${Number(row.age).toFixed(1)}` : ""].filter(Boolean).join(" · ");
-  const name = `<button type="button" class="link-btn rank-name-link" data-action="${pick ? "rank-calc" : "rank-open"}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${escapeHtml(row.kind)}" aria-label="${escapeHtml(label)}">
+  const tag = pick ? "button" : "a";
+  const destination = pick ? 'type="button"' : `href="${escapeHtml(pathForPlace({ playerId: row.playerId, playerName: row.name, leagueId }))}"`;
+  const name = `<${tag} ${destination} class="link-btn rank-name-link" data-action="${pick ? "rank-calc" : "rank-open"}" data-asset-id="${escapeHtml(row.assetId)}" data-name="${escapeHtml(row.name)}" data-kind="${escapeHtml(row.kind)}"${pick ? ` aria-label="Add ${escapeHtml(row.name)} to a trade"` : ""}>
       ${pick ? "" : renderPlayerFace(row.playerId, row.name, { size: "sm" })}
       <span>${escapeHtml(row.name)}${pick ? ' <small class="rank-add-hint" aria-hidden="true">+ Trade</small>' : ""}${owner ? `<small class="rank-owner">${escapeHtml(owner)}</small>` : ""}${more ? `<small class="rank-more-info">${escapeHtml(more)}</small>` : ""}</span>
-    </button>`;
+    </${tag}>`;
   return `<tr><td>${row.overallRank || "—"}</td><th scope="row">${name}</th>
     <td>${escapeHtml(isPicks ? row.round : row.position || "—")}</td>
     <td>${escapeHtml(isPicks ? row.season : pick ? "—" : row.team || "FA")}</td>
