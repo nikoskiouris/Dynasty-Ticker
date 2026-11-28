@@ -3273,11 +3273,6 @@ a.inline-link:hover {
     align-content: start;
   }
 
-  /* Anchored jumps land below the fixed ☰ button. */
-  html {
-    scroll-padding-top: 4.5rem;
-  }
-
   .workspace {
     grid-column: auto;
   }
