@@ -1004,7 +1004,7 @@ document.addEventListener("change", (event) => {
   if (event.target?.id === "history-jump") {
     const target = document.getElementById(event.target.value);
     if (!target) return;
-    target.focus({ preventScroll: true });
+    focusViewHeading(target, { focusVisible: roomFocusVisible() });
     target.scrollIntoView({ block: "start" });
     event.target.value = "";
     return;
