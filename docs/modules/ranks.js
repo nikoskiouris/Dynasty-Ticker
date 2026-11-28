@@ -173,14 +173,19 @@ export function buildRankBoard({
 // Pick rows are named "2027 1st", so map ordinals and drop filler words.
 const ORDINAL_WORDS = { first: "1st", second: "2nd", third: "3rd", fourth: "4th", fifth: "5th" };
 export function pickQueryWords(value) {
-  let text = String(value || "").toLowerCase()
+  const text = String(value || "").toLowerCase()
     .replace(/\b(first|second|third|fourth|fifth)\b/g, (word) => ORDINAL_WORDS[word])
+    .replace(/\b(?:round|rd)\s*([1-5])\b/g, (_, round) => ordinal(Number(round)))
     .replace(/[\u2018\u2019']\s*(\d\d)\b/g, "20$1"); // '27 -> 2027
-  const ordinal = text.match(/\b[1-5](st|nd|rd|th)\b/)?.[0];
-  if (!ordinal) return text;
-  // "first round 2028" and "2028 1st round pick" both mean the "2028 1st" row.
+  const round = text.match(/\b[1-5](?:st|nd|rd|th)\b/)?.[0];
+  if (!round) return text;
   const year = text.match(/\b20\d\d\b/)?.[0];
-  return year ? `${year} ${ordinal}` : text.replace(/\b(rounds?|rounders?|rd|picks?)\b/g, " ");
+  const bucket = text.match(/\b(early|mid|late)\b/)?.[0];
+  // Keep an explicit slot qualifier: "late first in 2027" is priced
+  // differently from an unspecified 2027 first.
+  const remainder = text.replace(round, "").replace(year || "", "").replace(bucket || "", "")
+    .replace(/\b(rounds?|rounders?|rd|picks?|draft|in|the)\b/g, "");
+  return foldRankQuery(remainder) ? text : [year, bucket, round].filter(Boolean).join(" ");
 }
 
 export function filterRankRows(rows, { query = "", position = "ALL" } = {}) {
@@ -196,7 +201,15 @@ export function filterRankRows(rows, { query = "", position = "ALL" } = {}) {
     && (code === "FA" || list.some((row) => row.kind !== "pick" && String(row.team || "").toUpperCase() === code)) ? code : "";
   const onTeam = (row) => teamCode && row.kind !== "pick"
     && (teamCode === "FA" ? !row.team || String(row.team).toUpperCase() === "FA" : String(row.team || "").toUpperCase() === teamCode);
-  return list.filter((row) => {
+  // Bucket prices are scenarios for a round. Only include one when the
+  // manager asks for that slot so it never changes the overall board ranks.
+  const bucket = String(query).toLowerCase().match(/\b(early|mid|late)\b/)?.[0];
+  const candidates = bucket ? list.flatMap(row => {
+    if (row.kind !== "pick") return [row];
+    const slot = row.spread?.find(item => item.bucket === bucket);
+    return slot ? [{ ...row, ...slot, overallRank: null, boardRank: "" }] : [];
+  }).sort(byRankValue) : list;
+  return candidates.filter((row) => {
     if (pos === "PICK" && row.kind !== "pick") return false;
     if (pos !== "ALL" && pos !== "PICK" && row.position !== pos) return false;
     if (want && !onTeam(row) && !foldRankQuery(row.name).includes(want) && !(alias && row.kind !== "pick" && foldRankQuery(row.name).includes(alias))) return false;
@@ -387,26 +400,27 @@ export function renderRanksBody(view) {
   if (view?.card) return renderPlayerPage(view.card, view);
   if (view?.missing) return `<article class="player-detail" role="status"><button type="button" class="ghost-btn player-return" data-action="player-rankings-return">Rankings</button><h1>Player unavailable</h1><p>Check the link or search the rankings.</p></article>`;
   const rows = Array.isArray(view?.rows) ? view.rows : [];
-  const isPicks = view.position === "PICK";
+  const isPicks = view.position === "PICK" || (rows.length > 0 && rows.every(row => row.kind === "pick"));
   const table = rows.length ? `<div class="rankings-table-wrap"><table class="rankings-table">
     <caption class="sr-only">Dynasty values on a scale of 0 to 100</caption>
     <colgroup><col class="col-rank"><col class="col-name"><col class="col-position"><col class="col-team"><col class="col-value"></colgroup>
-    <thead><tr><th scope="col">Rank</th><th scope="col">${isPicks ? "Draft pick" : "Player"}</th>
+    <thead><tr><th scope="col">Rank</th><th scope="col">${isPicks ? "Draft pick" : rows.some(row => row.kind === "pick") ? "Asset" : "Player"}</th>
       <th scope="col">${isPicks ? "Rd." : "Pos."}</th>
       ${isPicks ? '<th scope="col">Year</th>' : sortHeader("team", "Team", view)}
       ${sortHeader("rank", "Value / 100", view)}</tr></thead>
-    <tbody>${rows.map(row => renderRankTableRow(row, view)).join("")}</tbody>
+    <tbody>${rows.map(row => renderRankTableRow(row, isPicks)).join("")}</tbody>
   </table></div>` : `<p class="ranks-empty" role="status">${escapeHtml(view?.emptyLabel || "Nothing in this filter.")}</p>`;
   if (!rows.length) return table;
-  const noun = view.query.trim() ? "results" : isPicks ? "draft picks" : "players";
+  const noun = view.query.trim() ? "result" : isPicks ? "draft pick" : "player";
+  const count = view.total === 1 ? `1 ${noun}` : `${view.start + 1}–${view.start + rows.length} of ${view.total} ${noun}s`;
   return `${table}<nav class="rank-pager" aria-label="Rankings pages">
-    <span role="status">${view.start + 1}–${view.start + rows.length} of ${view.total} ${noun}</span>
+    <span role="status">${count}</span>
     <div><button type="button" data-action="ranks-page" data-shown="${view.start}"${view.start === 0 ? " disabled" : ""}>Previous</button>
     <button type="button" data-action="ranks-page" data-shown="${view.start + 2 * RANK_PAGE_SIZE}"${view.hidden ? "" : " disabled"}>Next <span aria-hidden="true">→</span></button></div>
   </nav>`;
 }
 
-function renderRankTableRow(row, view) {
+function renderRankTableRow(row, isPicks) {
   const pick = row.kind === "pick";
   const label = pick ? `Add ${row.name} to a trade` : row.name;
   const owner = row.owner?.mine ? "On your team" : row.owner?.name || "";
@@ -415,10 +429,9 @@ function renderRankTableRow(row, view) {
       ${pick ? "" : renderPlayerFace(row.playerId, row.name, { size: "sm" })}
       <span>${escapeHtml(row.name)}${pick ? ' <small class="rank-add-hint" aria-hidden="true">+ Trade</small>' : ""}${owner ? `<small class="rank-owner">${escapeHtml(owner)}</small>` : ""}${more ? `<small class="rank-more-info">${escapeHtml(more)}</small>` : ""}</span>
     </button>`;
-  const pickBoard = view.position === "PICK";
   return `<tr><td>${row.overallRank || "—"}</td><th scope="row">${name}</th>
-    <td>${escapeHtml(pickBoard ? row.round : row.position || "—")}</td>
-    <td>${escapeHtml(pickBoard ? row.season : pick ? "—" : row.team || "FA")}</td>
+    <td>${escapeHtml(isPicks ? row.round : row.position || "—")}</td>
+    <td>${escapeHtml(isPicks ? row.season : pick ? "—" : row.team || "FA")}</td>
     <td class="rank-table-value">${row.value > 0 ? escapeHtml(formatNumber(row.value)) : '<span aria-label="Value unavailable">—</span>'}</td>
   </tr>`;
 }
@@ -653,7 +666,7 @@ function pickRoundSpread(pick, pickById) {
     const hit = pickById.get(`pick:${pick.season}:r${pick.round}:${bucket}`);
     if (!hit) return null;
     const label = bucket.charAt(0).toUpperCase() + bucket.slice(1);
-    return { bucket, label, value: hit.value };
+    return { bucket, label, value: hit.value, assetId: hit.assetId, name: hit.phrase };
   }).filter(Boolean);
 }
 

@@ -430,7 +430,6 @@ let pendingTradeTalk = "";
 let swallowCalcClick = false;
 let swallowCalcTimer = 0;
 let ranksSearchTimer = 0;
-let rankingsReturnScroll = null;
 let draftBasisCache = { bundles: null, format: "", basis: null };
 let rankBoardCache = { key: "", rows: [] };
 let rankContextPromise = null;
@@ -1100,12 +1099,12 @@ function renderActivePage() {
   if (page === "trades") {
     renderTradesRoom(room);
     if (room === "calculator") {
-      renderRankHost(el.ranksDashboard);
-      // Last season's stat lines (a 1.2MB Sleeper file) are for the players
-      // board and player cards. The calculator alone needs only prices.
+      // The published prices include the entire rankings table. Previous-season
+      // stats, draft records and injury status are only shown on a profile.
       const showsPlayers = playersBoardOpen || /^\/players\/?$/.test(window.location.pathname) || Boolean(state.ranks?.selectedId);
       if (showsPlayers) {
-        if (!rankValuesReady() || !playerNoteContext?.previousSeason) void ensureRankExtras();
+        renderRankHost(el.ranksDashboard);
+        if (!rankValuesReady() || (state.ranks?.selectedId && !playerNoteContext?.previousSeason)) void ensureRankExtras();
       } else if (!rankValuesReady() && !state.leagueId) {
         void ensureCalcPrices();
       }
@@ -1201,8 +1200,6 @@ function cachedRankRows() {
       modelPlayers: state.valueBundles?.players || {},
       nflPlayers: players,
       owners: rankOwners(),
-      noteFor: rankPlayerNote,
-      detailFor: (id, raw) => ({ draft: lookupNflDraftPick(id, playerNoteContext.draftPicks, raw), production: { lastLine: rankPlayerNote(id, raw) } }),
       minPickSeason: nextRookieDraftSeason(),
     }),
   };
@@ -1219,7 +1216,7 @@ function rankViewModel() {
   if (!rankValuesReady() || leagueLoadBlocksPlayer()) {
     return rankView({ loading: true, failed: valuesLoadFailed && !rankValuesReady(), format: activeRankFormat() });
   }
-  return rankView({
+  const view = rankView({
     rows: cachedRankRows(),
     priceModel: state.valueBundles?.meta?.price,
     query: state.ranks?.query || "",
@@ -1234,6 +1231,12 @@ function rankViewModel() {
     history: state.valueHistory,
     updated: valuesFreshness(),
   });
+  if (view.card?.kind === "player") {
+    const { playerId, raw } = view.card;
+    view.card.draft = lookupNflDraftPick(playerId, playerNoteContext.draftPicks, raw);
+    view.card.note = rankPlayerNote(playerId, raw);
+  }
+  return view;
 }
 
 function paintRankToolbar(toolbar, view, typing) {
@@ -1343,7 +1346,7 @@ async function ensureRankExtras() {
 
       }
     }
-    if (!playerNoteContext?.previousSeason && !rankContextPromise) {
+    if (state.ranks?.selectedId && !playerNoteContext?.previousSeason && !rankContextPromise) {
       rankContextPromise = loadPlayerNoteContext()
         .then((ctx) => {
           if (ctx) playerNoteContext = ctx;
@@ -1351,8 +1354,7 @@ async function ensureRankExtras() {
         })
         .catch(() => null);
     }
-    if (rankContextPromise) await rankContextPromise;
-    await loadPlayerGameStatus();
+    if (state.ranks?.selectedId) await Promise.all([rankContextPromise, loadPlayerGameStatus()]);
   } catch (err) {
     console.warn("Could not load player ranks", err);
     // Remember the miss so the next paint shows it instead of fetching again.
@@ -1420,7 +1422,6 @@ function openPlayerBoard({ history = "push" } = {}) {
   playersBoardOpen = true;
   openRoom("trades", "calculator", { history });
   syncPlayersBoardFlag();
-  void ensureRankExtras();
 }
 
 function renderTradesRoom(room) {
@@ -1552,6 +1553,7 @@ function prepareDeskPush() {
   if (typeof history?.replaceState !== "function") return;
   const currentPath = `${window.location.pathname}${window.location.search}`;
   history.replaceState({
+    ...history.state,
     ...historyPlaceNow(),
     pushed: Boolean(history.state?.pushed),
   }, "", currentPath);
@@ -1914,7 +1916,14 @@ function updateUrlStateInner({ mode = "replace", force = false } = {}) {
   const boardFlip = /^\/players\/?$/.test(here) !== /^\/players\/?$/.test(nextPath);
   const write = (force || boardFlip) && mode === "push" && pathChanged ? "push" : placeWrite;
   const pushed = write === "push" ? true : (write === "replace" && sameHistoryPlace(history.state || {}, snapshot) && Boolean(history.state?.pushed));
-  const entry = { ...snapshot, pushed };
+  const entry = { ...snapshot, pushed, idx: routeFocus.index() + (write === "push" ? 1 : 0) };
+  // The Rankings link returns directly to the board, even after several
+  // Similar values links. A cold profile has no board entry to return to.
+  if (snapshot.playerId) {
+    const depth = history.state?.rankingsDepth || 0;
+    if (write === "push" && (/^\/players\/?$/.test(here) || here === "/")) entry.rankingsDepth = 1;
+    else if (depth && /^\/player\//.test(here)) entry.rankingsDepth = depth + (write === "push" ? 1 : 0);
+  }
   // The history entry keeps whatever document.title is right now. Set the
   // rendered title first so Back cannot restore an outage title onto a team.
   syncDocumentMeta();
@@ -2286,7 +2295,6 @@ function syncLaunchChrome() {
 function openPlayerPage(assetId) {
   const id = String(assetId || "");
   if (!/^player:\d+$/.test(id)) return;
-  if (playersBoardOpen && !state.ranks.selectedId) rankingsReturnScroll = window.scrollY || 0;
   prepareDeskPush();
   state.ranks.selectedId = id;
   setRoom("trades", "calculator");
@@ -6644,12 +6652,11 @@ function handleWorkspaceClick(event) {
         return;
       }
       routeFocus.remember(target);
-      // Return to player rankings comes back to this filter and this scroll.
-      if (playersBoardOpen && !state.ranks.selectedId) rankingsReturnScroll = window.scrollY || 0;
       prepareDeskPush();
       state.ranks.selectedId = id;
       renderRankSurfaces();
-      void loadPlayerGameStatus();
+      if (!playerNoteContext?.previousSeason) void ensureRankExtras();
+      else void loadPlayerGameStatus();
       updateUrlState({ mode: "push" });
       syncLaunchChrome();
       // A player page (from Similar player values) starts at the top.
@@ -6666,12 +6673,9 @@ function handleWorkspaceClick(event) {
       }
       break;
     case "player-rankings-return": {
-      const scroll = rankingsReturnScroll;
-      if (scroll != null && history.state?.pushed) history.back();
-      else {
-        openPlayerBoard({ history: "push" });
-        requestAnimationFrame(() => window.scrollTo({ top: scroll || 0, left: 0, behavior: "instant" }));
-      }
+      const depth = history.state?.rankingsDepth;
+      if (Number.isInteger(depth) && depth > 0) history.go(-depth);
+      else openPlayerBoard({ history: "push" });
       break;
     }
     case "player-back":
