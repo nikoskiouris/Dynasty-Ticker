@@ -1,3 +1,4 @@
+import { renderPlayerLabel } from "./player-face.js";
 import { formatPoints } from "./standings.js";
 import { countLabel, escapeHtml, formatNumber } from "./html.js";
 import { lineupAwards } from "./league-lineup-awards.js";
@@ -29,7 +30,7 @@ export function renderOperationsAwards(archive, { players = {}, values = {}, val
   // only after the user requests the result, and cache the immutable archive.
   const lineup = showLineup ? cachedLineup(archive, players) : null;
   const waiver = waiverAwards(archive, { values });
-  const playerName = (id) => e(valueNames[`player:${id}`] || `Player ${id}`);
+  const playerName = (id) => renderPlayerLabel(valueNames[`player:${id}`] || `Player ${id}`, id, { size: "xs" });
   const waiverPlayer = (row) => row
     ? `<p><strong>${playerName(row.playerId)}</strong> · ${e(row.managerName)} (${e(row.season)}) ·
       ${points(row.startedPoints)} started points · ${valueLabel(row.currentRosterValue)} value still owned</p>

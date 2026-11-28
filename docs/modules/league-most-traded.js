@@ -1,3 +1,4 @@
+import { renderPlayerLabel } from "./player-face.js";
 import { countLabel, escapeHtml } from "./html.js";
 import { playerPathname } from "./history-route.js";
 
@@ -50,7 +51,8 @@ export function mostTradedPlayers(archive = {}, { values = {}, valueNames = {}, 
 function playerItem(row, index, detail) {
   const href = playerPathname(row.playerId, row.name);
   // data-action keeps a plain click in the app (no reload, league stays open).
-  const name = href ? `<a href="${e(href)}" data-action="open-player" data-asset-id="player:${e(row.playerId)}">${e(row.name)}</a>` : e(row.name);
+  const label = renderPlayerLabel(row.name, row.playerId);
+  const name = href ? `<a href="${e(href)}" data-action="open-player" data-asset-id="player:${e(row.playerId)}">${label}</a>` : label;
   return `<li><span class="league-most-traded-rank">${index + 1}</span>
     <span class="league-most-traded-name">${name}</span>
     <span class="league-most-traded-count muted">${detail}</span></li>`;

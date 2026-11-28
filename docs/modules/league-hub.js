@@ -64,8 +64,23 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
     ['trades', 'Recent Trades', tradesLoaded ? `${recent} completed ${Number(recent) === 1 ? 'trade' : 'trades'} in the last 30 days` : 'Browse completed league trades'],
     ['history', 'Historical Data', loading ? 'Loading seasons…' : `${seasons.length} ${seasons.length === 1 ? "season" : "seasons"} of records`],
   ];
-  return `<header class="league-hub-header">${league.avatar ? `<img width="64" height="64" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(league.avatar)}">` : ''}<h2>${escapeHtml(league.name || 'Your league')}</h2><p>${escapeHtml(league.season)} · <span class="league-format-chip">${escapeHtml(format.chip)}</span></p><p class="muted small">${escapeHtml(valuesLine)}</p>${savedNote ? `<p class="league-saved-note" role="status">${escapeHtml(savedNote)}</p>` : ''}<a href="/leagues">Change league</a></header>
+  return `<header class="league-hub-header">
+    ${league.avatar ? `<img width="40" height="40" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(league.avatar)}">` : ''}
+    <div><h2>${escapeHtml(league.name || 'Your league')}</h2>
+      <p>${escapeHtml(league.season)} · ${escapeHtml(format.chip)}</p></div>
+    <a href="/leagues">Change league</a>
+  </header>
+  <p class="league-format-note">${escapeHtml(valuesLine)}</p>
+  ${savedNote ? `<p class="league-saved-note" role="status">${escapeHtml(savedNote)}</p>` : ''}
   ${renderTeamPick({ myTeam, myRosterId, teams })}
-  <h2>What to see?</h2><nav class="league-hub-grid" aria-label="League pages">${links.map(([path, label, teaser]) => `<a class="workspace-panel" href="/l/${id}/${path}"><h3>${label}</h3><p>${escapeHtml(teaser)}</p></a>`).join('')}</nav>
-  <section class="workspace-panel league-winner" aria-label="Recent winner">${winner ? `${winner.avatar ? `<img width="48" height="48" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(winner.avatar)}">` : ''}<h2>RECENT WINNER: ★ ${escapeHtml(winner.name)} ★</h2><p>${escapeHtml(winner.season)} champion</p>` : `<h2>${loading ? 'Loading recent winner…' : 'No champion yet'}</h2><p>${loading ? 'Checking completed seasons and playoff brackets.' : 'First season in progress, or Sleeper has not published a completed championship bracket.'}</p>`}</section>`;
+  <nav class="league-hub-grid" aria-label="League pages">
+    ${links.map(([path, label, teaser]) => `<a href="/l/${id}/${path}">
+      <strong>${label}</strong><span>${escapeHtml(teaser)}</span><i aria-hidden="true">→</i></a>`).join('')}
+  </nav>
+  <section class="league-winner" aria-label="Recent champion">
+    ${winner ? `${winner.avatar ? `<img width="36" height="36" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(winner.avatar)}">` : ''}
+      <div><h3>${escapeHtml(winner.season)} champion</h3><p>${escapeHtml(winner.name)}</p></div>`
+      : `<div><h3>${loading ? 'Loading recent champion…' : 'No champion yet'}</h3>
+        <p>${loading ? 'Checking completed seasons and playoff brackets.' : 'Sleeper has not published a completed championship bracket for the available seasons.'}</p></div>`}
+  </section>`;
 }

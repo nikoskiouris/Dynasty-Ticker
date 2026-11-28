@@ -8,7 +8,7 @@ Dynasty Ticker helps a dynasty manager answer three connected questions:
 2. **Is this offer fair, and what is the tradeoff?** Trade Calculator (`/trade`), including the talk box that reads a typed trade, and shared trade links (`/t/<code>`).
 3. **Does this move help my team and my window?** League History for a connected Sleeper league (`/l/<id>`: hub, Standings, My Team, Recent Trades, Historical Data). Trade Calculator is never team-specific (owner rule, Nov 19, 2026): with or without a league it shows Team 1 / Team 2, no league header, team browse, ownership or Team impact.
 
-The site has three tools, reached from the Home tool picker and the ☰ menu: Trade Calculator, Player Rankings and League History. Player Rankings and Trade Calculator must work without a league. Connecting Sleeper adds league context to League History and Player Rankings. It must never reset that task. A good visit ends with: "I understand the answer, why I should trust it, and what I can do next."
+Home opens Player Rankings. The shared header links to Player Rankings, Trade Calculator and League History. Player Rankings and Trade Calculator must work without a league. Connecting Sleeper adds league context to League History and Player Rankings. It must never reset that task. A good visit ends with: "I understand the answer, why I should trust it, and what I can do next."
 
 Trustworthy numbers and useful league context are the product. More features or more elaborate formulas do not prove it.
 

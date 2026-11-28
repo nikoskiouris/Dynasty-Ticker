@@ -1,59 +1,35 @@
-/* ==========================================================================
-   Dynasty Ticker — Day desk
-   Paper field, ink type. Instrument Sans on the UI.
-   Instrument Serif is only .brand. Sizes come from tokens.css.
-   burgundy ink accents stay in the brand marks and field coral.
-   ========================================================================== */
-
 :root {
   color-scheme: light;
   --font-display: var(--font-ui);
   --font-body: var(--font-ui);
   --font-mono: var(--font-ui);
 
-  --bg: #f7f5f1;
   --bg-glow-1: transparent;
   --bg-glow-2: transparent;
   --bg-glow-3: transparent;
 
-  --rail: #ffffff;
-  --rail-2: #efece7;
-  --rail-line: rgba(20, 18, 16, 0.14);
-  --rail-text: #141210;
-  --rail-muted: #6b625b;
+  --rail: var(--panel);
+  --rail-2: var(--panel-soft);
+  --rail-line: var(--line);
+  --rail-text: var(--text);
+  --rail-muted: var(--muted);
   --rail-input: #ffffff;
-  --rail-placeholder: #857b74;
+  --rail-placeholder: var(--muted);
   --backdrop: rgba(20, 18, 16, 0.4);
 
-  --panel: #ffffff;
-  --panel-soft: #efece7;
-  --panel-tint: rgba(20, 18, 16, 0.04);
-  --panel-solid: #ffffff;
-  --line: rgba(20, 18, 16, 0.12);
-  --line-strong: rgba(20, 18, 16, 0.32);
+  --panel-solid: var(--panel);
   --hover-fill: rgba(20, 18, 16, 0.05);
 
-  --text: #141210;
-  --muted: #6b625b;
-  --muted-strong: #3a332e;
-  --on-accent: #faf8f5;
-  --link: #141210;
+  --link: var(--green);
 
-  --blue: #141210;
-  --blue-soft: rgba(20, 18, 16, 0.08);
-  --violet: #2f5bb8;
+  --blue: var(--green);
+  --blue-soft: var(--green-soft);
   --violet-soft: rgba(47, 91, 184, 0.12);
-  --green: #13794c;
-  --green-soft: rgba(19, 121, 76, 0.12);
-  --amber: #8f5f00;
   --amber-soft: rgba(143, 95, 0, 0.12);
   /* Text on the -soft chip fills. --green and --amber read 3.9:1 and 4.0:1
      there, under the 4.5:1 small text needs; these read 5.0 and 5.1. */
   --green-ink: #0f6740;
   --amber-ink: #7a5000;
-  --red: #c0362c;
-  --red-soft: rgba(192, 54, 44, 0.1);
-  --teal: #9c3d50;
   --teal-soft: rgba(156, 61, 80, 0.12);
 
   --team-a: #141210;
@@ -63,18 +39,17 @@
   --team-b-soft: rgba(47, 91, 184, 0.1);
   --team-b-border: rgba(47, 91, 184, 0.45);
 
-  --gradient: #141210;
-  --gradient-soft: #efece7;
+  --gradient: var(--green);
+  --gradient-soft: var(--green-soft);
   --shadow: none;
   --shadow-soft: none;
   --lift-shadow: none;
   --accent-glow: transparent;
   --radius: var(--r-md);
   --radius-sm: var(--r-sm);
-  --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--text);
-  --ink: #141210;
-  --paper: #faf8f5;
-  --field: #e85d4c;
+  --ink: var(--text);
+  --paper: var(--bg);
+  --field: var(--green);
 }
 
 /* ==========================================================================
@@ -845,7 +820,7 @@ select.is-invalid {
   overflow: hidden;
   border: 0;
   border-radius: 0;
-  background: #f7f5f1;
+  background: var(--bg);
   color: #141210;
   font-weight: 700;
   text-align: left;
@@ -4515,11 +4490,11 @@ body:not(.league-loaded):has(#landing:not(.hidden)) #league-page {
    ========================================================================== */
 
 :root {
-  --product-shadow: 0 18px 50px rgba(20, 18, 16, 0.12);
+  --product-shadow: 0 4px 18px rgba(24, 46, 34, 0.1);
 }
 
 body {
-  background: #f7f5f1;
+  background: var(--bg);
 }
 
 /* --------------------------------------------------------------------------
@@ -6263,26 +6238,6 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
    spells it out), as phones already do. */
 #roster-sheet .sheet-slot-superflex .sheet-slot-full { display: none; }
 #roster-sheet .sheet-slot-superflex .sheet-slot-short { display: inline; }
-/* Tool navigation: one modal drawer at every viewport. */
-.site-menu-toggle { position:fixed; z-index:110; top:max(12px,env(safe-area-inset-top)); left:max(12px,env(safe-area-inset-left)); width:46px; height:46px; border:1px solid var(--line,#3b3b40); border-radius:12px; background:#ffffff; color:#141210; font-size:24px; cursor:pointer; }
-.site-menu-backdrop { position:fixed; inset:0; background:#14121066; z-index:120; }
-.site-menu { position:fixed; inset:0 auto 0 0; width:min(340px,85vw); z-index:121; padding:24px; background:#ffffff; border-right:1px solid #d9d5cf; box-shadow:12px 0 50px #14121026; }
-.site-menu[hidden], .site-menu-backdrop[hidden] { display:none; }
-.site-menu-head { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:36px; }
-.site-menu-head a { font-size:21px; font-weight:700; color:#141210; text-decoration:none; }
-.site-menu-head button { width:40px; height:40px; font-size:26px; }
-.site-menu nav { display:grid; gap:12px; }
-.site-menu nav a { color:#2a2420; padding:18px; border:1px solid #d9d5cf; border-radius:12px; text-decoration:none; font-size:18px; }
-.site-menu nav a[aria-current] { border-color:#13794c; color:#13794c; background:#13794c0f; }
-.tool-picker { max-width:1050px; margin:0 auto; padding:clamp(24px,5vw,72px) 0; }
-.tool-picker h1 { font-size:clamp(32px,5vw,64px); line-height:1.1; margin:0 0 22px; }
-.tool-picker h2 { font-size:clamp(21px,3vw,32px); margin:0 0 28px; }
-.tool-picker-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; margin:24px 0; }
-.tool-picker-cards a { display:flex; flex-direction:column; gap:14px; min-height:156px; padding:28px; border:1px solid #d9d5cf; background:#ffffff; color:#141210; border-radius:16px; text-decoration:none; }
-.tool-picker-cards a:hover { border-color:#13794c; }
-.tool-picker-cards strong { font-size:22px; }
-.tool-picker-cards span,.tool-picker-note { color:#6b625b; line-height:1.5; }
-#home-page > h1 { display:none; }
 #leagues-page { max-width:760px; margin:0 auto; }
 #league-entry-controls .league-module { border:0; padding:0; margin:24px 0; }
 #league-entry-controls .module-heading { display:none; }
@@ -6291,7 +6246,6 @@ html[data-player-page] #ranks-section .values-freshness { display: none !importa
 body .app-frame { display:block; }
 body .workspace { margin:0; width:100%; max-width:1440px; padding:84px clamp(16px,4vw,52px) 32px; }
 body.launch-open .workspace { display:block; }
-@media(max-width:650px) { .tool-picker-cards { grid-template-columns:1fr; gap:12px; } .tool-picker-cards a { min-height:95px; padding:20px; gap:7px; } .tool-picker { padding-top:16px; } .tool-picker h1 { margin-bottom:16px; } .tool-picker h2 { margin-bottom:18px; } }
 /* Player Rankings: compact, readable columns at every screen size. */
 .rankings-table-wrap { width:100%; }
 .rankings-table { width:100%; border-collapse:collapse; table-layout:fixed; font-variant-numeric:tabular-nums; }
@@ -6467,10 +6421,6 @@ body.launch-open .workspace { display:block; }
 .league-history-awards > div { border: 1px solid var(--line, #ddd); border-radius: .7rem; padding: .9rem; min-width: 0; overflow-wrap: anywhere; }
 .league-history-awards h3 { font-size: 1rem; margin: 0 0 .45rem; }
 .league-history-awards p { margin: .3rem 0; }
-/* The fixed ☰ button sits over the top-left corner, so every page starts
-   under it (12px + 46px + gap) at every width. */
-html body.league-loaded .workspace,
-html body:not(.league-loaded) .workspace { padding-top: 70px; }
 .league-hub-pick { display:grid; gap:6px; margin:16px 0; }
 .league-hub-pick select { max-width:360px; }
 .calc-subline .verdict-info-toggle:has(.verdict-info-label) { display:inline-flex; gap:6px; align-items:center; margin:0; font-size:var(--fs-sm); }
@@ -6604,3 +6554,14 @@ html:not([data-players-board]):not([data-player-page]) body.trades-open .workspa
 
 .calc-pane-total .calc-pane-extra { color: var(--accent, #5b78ff); font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
 .calc-pane-head .calc-pane-total { display: grid; justify-items: end; }
+
+/* Standalone pages share the compact masthead and reading rhythm of the app. */
+.legal-shell { width: min(720px, calc(100% - 32px)); gap: 16px; padding: 16px 0 32px; }
+.legal-card { border: 0; padding: 8px 0; }
+.legal-shell h1 { letter-spacing: -.04em; }
+.legal-prose h2 { margin-top: 22px; }
+.legal-prose p, .legal-prose li { font-size: var(--fs-body); overflow-wrap: anywhere; }
+.legal-foot { padding-top: 12px; border-top: 1px solid var(--line); }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}

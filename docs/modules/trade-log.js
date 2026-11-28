@@ -1,3 +1,4 @@
+import { renderPlayerLabel } from "./player-face.js";
 import { roundPrice } from "./price-units.js";
 import { escapeHtml, formatNumber, ownerPossessive } from "./html.js";
 import { gradeTrade, tradeAssets } from "./trade-grade.js";
@@ -21,7 +22,7 @@ const assetLabel = (asset, context) => asset.kind === "player"
     : pickLabel(asset, context);
 
 // Same text as assetLabel, with each player as a link to his player page.
-const playerButton = (playerId, context) => `<button type="button" class="link-btn player-link" data-action="open-player" data-asset-id="player:${escapeHtml(playerId)}">${escapeHtml(playerLabel(playerId, context))}</button>`;
+const playerButton = (playerId, context) => `<button type="button" class="link-btn player-link" data-action="open-player" data-asset-id="player:${escapeHtml(playerId)}">${renderPlayerLabel(playerLabel(playerId, context), playerId)}</button>`;
 const assetHtml = (asset, context) => asset.kind === "player"
   ? playerButton(asset.playerId, context)
   : asset.draftedPlayerId
@@ -106,7 +107,7 @@ export function renderTradeLogRows({
       const isWinner = graded.available && graded.winnerRosterId === side.rosterId;
       return `<div class="trade-log-side">
         <h3>${escapeHtml(rosterLabel(side.rosterId, entry))}${isWinner ? ' <span class="mini-chip">Higher value</span>' : ""}</h3>
-        <p>${received.join(", ") || "No assets received"}</p>
+        <p>${received.length ? received.map((item) => `<span class="received-asset">${item}</span>`).join("") : "No assets received"}</p>
         <p class="muted small">Received ${graded.available ? `${priceLabel(side.valueReceived)}${receivedExtra(side)}` : "value unavailable"}
           · Sent ${graded.available ? priceLabel(side.valueSent) : "value unavailable"}
           · Trade grade: <strong>${graded.available ? escapeHtml(side.grade) : "Not graded"}</strong></p>
@@ -134,13 +135,13 @@ export function renderTradeLog({ season = "", seasons = [], query = "", team = "
   const teamOptions = teams.map((row) => `<option value="${escapeHtml(row.id)}"${row.id === team ? " selected" : ""}>${escapeHtml(row.label)}</option>`).join("");
   return `<p><a class="league-back" href="/l/${encodeURIComponent(context.archive?.leagueId || context.entry?.leagueId || "")}">← League</a></p>
     ${caveat ? `<p class="muted small calc-market-caveat">${escapeHtml(caveat)} Grades use those values.</p>` : ""}
-    <div class="workspace-panel">
-      <label for="league-trade-search">Search a player or pick</label>
-      <input id="league-trade-search" type="search" placeholder="Search a player" autocomplete="off" value="${escapeHtml(query)}">
-      <label for="league-trade-season">Season</label>
-      <select id="league-trade-season">${choices}</select>
-      <label for="league-trade-team">Team</label>
-      <select id="league-trade-team"><option value="">All teams</option>${teamOptions}</select>
+    <div class="trade-log-filters">
+      <label for="league-trade-search">Player or pick
+      <input id="league-trade-search" type="search" placeholder="Search names or picks" autocomplete="off" value="${escapeHtml(query)}"></label>
+      <label for="league-trade-season">Season
+      <select id="league-trade-season">${choices}</select></label>
+      <label for="league-trade-team">Team
+      <select id="league-trade-team"><option value="">All teams</option>${teamOptions}</select></label>
     </div>
     <div id="league-trade-results" aria-live="polite">${renderTradeLogRows({ ...context, query, team })}</div>`;
 }

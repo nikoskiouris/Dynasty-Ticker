@@ -1,0 +1,78 @@
+/* Shared chrome for the compact rankings, trade and league views. */
+.site-masthead {
+  border-bottom: 1px solid #daddd5;
+  background: white;
+}
+.masthead-inner,
+.site-foot nav {
+  box-sizing: border-box;
+  max-width: 956px;
+  margin-inline: auto;
+  padding-inline: 28px;
+}
+.masthead-inner {
+  display: flex;
+  align-items: center;
+  gap: 50px;
+  min-height: 54px;
+}
+.masthead-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: #202c29;
+  font: 700 19px/1.4 var(--font-ui);
+  letter-spacing: -.065em;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.masthead-brand img { display: block; }
+.masthead-tools {
+  display: flex;
+  align-self: stretch;
+  gap: 26px;
+}
+.masthead-tools a {
+  display: flex;
+  align-items: center;
+  position: relative;
+  color: #58665e;
+  font: 400 13px/1.4 var(--font-ui);
+  white-space: nowrap;
+  text-decoration: none;
+}
+.masthead-tools a[aria-current] { color: #146248; font-weight: 700; }
+.masthead-tools a[aria-current]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 2px;
+  background: currentColor;
+}
+.site-masthead a:hover,
+.site-foot a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.site-masthead a:focus-visible,
+.site-foot a:focus-visible { outline: 2px solid #146248; outline-offset: 2px; }
+body.compact-app { display: flex; flex-flow: column; min-height: 100vh; min-height: 100dvh; padding: 0; }
+html body.compact-app .app-frame { display: block; flex: 1; width: 100%; min-height: 0; margin: 0; padding: 0; }
+html body.compact-app #workspace {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  max-width: 956px;
+  margin: 0 auto;
+  padding: 31px 28px 18px;
+}
+body.compact-app .workspace:focus { outline: none; }
+body.compact-app.trades-open #workspace-header { display: none; }
+.site-foot nav { display: flex; gap: 18px; justify-content: flex-end; padding-block: 18px; }
+.site-foot a { font: 400 12px/1.5 var(--font-ui); color: #58665e; text-decoration: none; }
+@media (max-width: 620px) {
+  .masthead-inner, .site-foot nav { padding-inline: 16px; }
+  .masthead-inner { display: block; padding-top: 11px; }
+  .masthead-brand { font-size: 18px; }
+  .masthead-tools { min-height: 39px; gap: 23px; }
+  .masthead-tools a { font-size: 12px; }
+  html body.compact-app #workspace { padding: 21px 16px 18px; }
+}

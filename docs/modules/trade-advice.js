@@ -123,7 +123,7 @@ export function buildTradeAdvice({ verdictLine = "", fair = false, alreadyClose 
 }
 
 export function renderTradeAdviceButton({ ready = false } = {}) {
-  return `<button type="button" class="ghost-btn btn-sm trade-advice-btn" data-action="trade-advice-open"${ready ? "" : ' disabled aria-describedby="trade-advice-hint"'}><span class="mini-chip">New</span> Give real trade advice</button>${ready ? "" : '<span id="trade-advice-hint" class="muted small trade-advice-hint">Add a player or pick to both sides first.</span>'}`;
+  return `<button type="button" class="ghost-btn btn-sm trade-advice-btn" data-action="trade-advice-open"${ready ? "" : ' disabled aria-describedby="trade-advice-hint"'}>Get trade advice</button>${ready ? "" : '<span id="trade-advice-hint" class="muted small trade-advice-hint">Add a player or pick to both sides first.</span>'}`;
 }
 
 export function renderTradeAdvicePanel(sections = []) {
