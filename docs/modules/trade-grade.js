@@ -1,3 +1,4 @@
+import { roundPrice } from "./price-units.js";
 import { calculatePackageAdjustment } from "./package-value.js";
 import { getGlobalMaxPlayerValue, resolvePickAssetValue } from "./values.js";
 import { percentMore, tierForMore } from "./verdict-copy.js";
@@ -17,7 +18,6 @@ const LETTERS = Object.freeze({
 });
 
 const id = (value) => String(value ?? "").trim();
-const roundValue = (value) => Math.round((Number(value) || 0) * 100) / 100;
 const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 const mapFor = (values) => object(values?.sf || values);
 const isPrice = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0;
@@ -168,8 +168,8 @@ export function gradeTrade(trade, {
     const sent = priced.filter((asset) => asset.sender === rosterId);
     return {
       rosterId, received, sent,
-      listedReceived: roundValue(received.reduce((sum, item) => sum + (item.price || 0), 0)),
-      listedSent: roundValue(sent.reduce((sum, item) => sum + (item.price || 0), 0)),
+      listedReceived: roundPrice(received.reduce((sum, item) => sum + (item.price || 0), 0)),
+      listedSent: roundPrice(sent.reduce((sum, item) => sum + (item.price || 0), 0)),
       faabReceived: (trade.waiver_budget || []).filter((item) => id(item.receiver) === rosterId).reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
       faabSent: (trade.waiver_budget || []).filter((item) => id(item.sender) === rosterId).reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
     };
@@ -185,8 +185,8 @@ export function gradeTrade(trade, {
       myValues: first, theirValues: second,
       globalMaxValue: getGlobalMaxPlayerValue(mapFor(snapshot?.sf || values)),
     });
-    sides[0].valueReceived = roundValue(adjusted.myAdjustedValue);
-    sides[1].valueReceived = roundValue(adjusted.theirAdjustedValue);
+    sides[0].valueReceived = roundPrice(adjusted.myAdjustedValue);
+    sides[1].valueReceived = roundPrice(adjusted.theirAdjustedValue);
     sides[0].valueSent = sides[1].valueReceived;
     sides[1].valueSent = sides[0].valueReceived;
     packageAdjustment = adjusted.packageAdjustment;
@@ -198,7 +198,7 @@ export function gradeTrade(trade, {
     });
     notes.push("Multi-team grades compare each team's received and sent values without a two-side package bonus.");
   }
-  sides.forEach((side) => { side.net = roundValue(side.valueReceived - side.valueSent); });
+  sides.forEach((side) => { side.net = roundPrice(side.valueReceived - side.valueSent); });
   const gapPct = sides.length === 2
     ? percentMore(sides[0].valueReceived, sides[1].valueReceived)
     : null;
@@ -214,6 +214,6 @@ export function gradeTrade(trade, {
     side.grade = letter.letter;
     side.letter = letter.letter;
   });
-  if (packageAdjustment > 0) notes.push(`Includes +${Math.round(packageAdjustment).toLocaleString()} for fewer, better pieces.`);
+  if (packageAdjustment > 0) notes.push(`Includes +${packageAdjustment.toLocaleString()} for fewer, better pieces.`);
   return { available: true, basis: label, sides, winnerRosterId, gapPct, tier, packageAdjustment, notes };
 }

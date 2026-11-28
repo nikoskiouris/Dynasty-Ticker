@@ -1,12 +1,12 @@
 # Dynasty Ticker
 
-Dynasty Ticker helps a Sleeper dynasty manager answer three questions: what is this player worth, is this trade fair, and does this move help my team. Player values come from Dynasty Ticker's independent full-PPR football forecast. The site is static. It talks to Sleeper from the browser.
+Dynasty Ticker helps a Sleeper dynasty manager answer three questions: what is this player worth, is this trade fair, and does this move help my team. The site publishes one dynasty value per supported asset for 12-team superflex PPR leagues. Player point projections come directly from Sleeper. The site is static. It talks to Sleeper from the browser.
 
 ## What is in this repo
 - **Web app:** `docs/` — the site at [dynastyticker.com](https://dynastyticker.com/).
 - **Modules:** `docs/modules/` — routing, Sleeper client, values, verdict copy, trade talk, rankings, league history, season engine.
 - **Functions:** `netlify/` — shared-trade pages and cards (`/t/<code>`), the daily player-value file (`market`), first-party page counts, the searched-username list.
-- **Player values:** `player-values/` — the forecast, the builder, and the backtest.
+- **Player values:** `player-values/` — the valuation model, daily builder and historical evaluation.
 - **Agent coding policy:** `.cursor/skills/no-unit-tests/SKILL.md` — no unit tests or automated test suite.
 
 ## Web app
@@ -15,32 +15,22 @@ Open `docs/` locally (`npm run serve`) or [dynastyticker.com](https://dynastytic
 
 Home is a tool picker with three tools, and the ☰ menu reaches every page. Trade Calculator and Player Rankings work before a league is connected.
 
-1. **Trade Calculator** (`/trade?give=…&get=…`) — two columns (Team 1 receives / Team 2 receives) and one trade draft. Type a whole trade in plain words in the talk box ("Gibbs and a 1st for Nabers", "zim8box offers McConkey for my 1st", "undo") or add pieces by search. One verdict on a fairness scale (Even, Close, Unfair, Lopsided), the reason under **Why?**, and, with a league, who owns each piece and Team impact. Connecting Sleeper keeps the trade. **Share trade** makes a `/t/<code>` link with its own preview card.
-2. **Player Rankings** (`/players`) — every priced player and pick, sortable, with search (nicknames like JSN work). Player pages (`/player/<sleeper id>`) show the price, the season-by-season reason for it, its trend, production, and similar values.
-3. **League History** (`/leagues`, then `/l/<league>`) — enter a Sleeper username or league ID. The league hub links to **Standings** (luck, playoff odds), **My Team** (position ranks, best lineup, bench, picks, superlatives), **Recent Trades** (graded on today's values) and **Historical Data** (champions, all-time standings, records, head-to-head, trends, awards).
+1. **Trade Calculator** (`/trade?give=…&get=…`) — two columns (Team 1 receives / Team 2 receives) and one trade draft. Type a whole trade in plain words in the talk box ("Gibbs and a 1st for Nabers", "is Gibbs for Bijan fair?", "undo") or add pieces by search. One verdict on a fairness scale (Even, Close, Unfair, Lopsided), an "Even it up" suggestion, and **Give real trade advice** (rules, no AI). The calculator is never team-specific: with or without a league it shows Team 1 / Team 2 and no ownership or Team impact. Connecting Sleeper keeps the trade. **Share trade** makes a `/t/<code>` link with its own preview card.
+2. **Player Rankings** (`/players`) — every priced player and pick, sortable, with search (nicknames like JSN work). Player pages (`/player/<sleeper id>`) show the price, the factors behind it, its trend, production, and similar values.
+3. **League History** (`/leagues`, then `/l/<league>`) — enter a Sleeper username or league ID. The league hub links to **Standings** (luck, playoff odds), **My Team** (position ranks, roster value, bench, picks, superlatives), **Recent Trades** (graded on today's values) and **Historical Data** (champions, all-time standings, records, head-to-head, trends, awards).
 
 Old links (`?tab=…`, `?view=ranks`, removed rooms like Find a trade) still open the closest page.
 
 Product purpose and how to choose between competing asks live in `AGENTS.md`. First-visit usability tasks live in `research/first-visit-tasks.md`.
 
 ### Value source
-There is one player-value system: `player-values/`.
+Rankings, player pages, Trade Calculator, League History and share cards read the same **12-team Superflex full-PPR dynasty** snapshot at `docs/data/player_values.json`. Scores in the 90s identify elite dynasty assets. Players around 87–89 are strong building blocks. Players and picks use the same 0–100 scale, with historical benchmarks that account for the fraction of the regular season remaining. Player values combine historically calibrated lineup advantage and future production with format-specific market evidence. The calculator applies its package adjustment when comparing offers. Each asset keeps the same individual price throughout the app.
 
-- One published map: **12-team Superflex full-PPR dynasty**.
-- Each player gets a forecast of full-PPR points above a replacement player, one season at a time, for eight seasons of games. It is learned from the 15 most recent NFL seasons: his last two seasons, his age, and, through year three, his draft slot.
-- Value is that forecast, discounted by how far away each season is, converted with one fixed 20× display ruler. Every price is the sum of the seasons listed beside it.
-- Rookies and future picks use the same ruler. A pick is priced as the rookie it becomes.
-- All players and picks use that single reference league. Connected league settings never select another price map.
-- No imported external dynasty rankings, fitted trade-market prices, TE/RB scoring premiums, crowd-vote price shifts, star multipliers, league-specific prices, or hand-set bonuses for youth, draft capital, or past finishes feed the published player price.
-- Trade Calculator, Player Rankings, player pages, League History and the share cards all read `docs/data/player_values.json`.
-- League trade history is useful context, but it does not create a second player price.
-- Package consolidation credit can still affect a trade verdict without changing any player's listed price.
+Run `python3 player-values/build_trade_values.py` to refresh the board and `python3 scripts/check_market_files.py --fail-on-age` to check the generated file. The [model notes](player-values/README.md) document the inputs, weights, assumptions and historical checks.
 
-The running math and its caveats live in `player-values/README.md`; the target design is `player-values/SPEC.md`. `python3 player-values/backtest.py` rebuilds the forecast at every past kickoff from earlier games only and scores it against what players went on to do, beside two naive forecasts. The report lives in `player-values/validation.json` and on the snapshot `meta.validation` object. It tests the order and level of football production. It does not test trade-market prices.
+The daily refresh (`.github/workflows/refresh-player-values.yml`) commits the new snapshot to `develop` and publishes the checked files to the `market-data` Netlify Blobs store. The live site serves the newest board for its deployed model. The repository variable `MARKET_PUBLISH=off` stops daily board publishing.
 
-Refresh with `python3 player-values/build.py`. `python3 scripts/check_market_files.py` checks the committed file. A live publish and the player-value refresh fail if it is older than 21 days. The refresh validates before atomically replacing the last good snapshot.
-
-The daily refresh (`.github/workflows/refresh-player-values.yml`) commits the new snapshot to `develop` and publishes the same checked files to the `market-data` Netlify Blobs store (`scripts/publish_market_blobs.mjs`). On the live site, `/data/player_values.json` and `/data/price-history/*` go through the `market` function, which serves the newer of that copy and the release's own copy. So values on dynastyticker.com update daily without a deploy. The repository variable `MARKET_PUBLISH=off` turns that off.
+A release ships its tagged prices when they pass the freshness and integrity checks. A manual refresh of the latest release rebuilds prices. Both paths preserve the dated board in Blobs before deployment, so an existing trade link can still retrieve those exact prices after a later release. The November 19, 2026 00:46 UTC archive was recovered from the production board before the model upgrade. It retains all 888 original integer-scale prices. [Recovered snapshot](docs/data/price-history/202611190046.json)
 
 ## Live site (dynastyticker.com)
 
@@ -66,7 +56,7 @@ Netlify emails on a GitHub merge do **not** mean credits were spent. On credit p
 8. GitHub Actions runs `.github/workflows/stop-netlify-git-builds.yml` so Netlify **Build status = Stopped builds**. Confirm in Netlify: **Project configuration → Build & deploy → Continuous deployment → Build settings → Stopped builds**. Do **not** use “Stop auto publishing”; that still starts a canceled production job. `netlify.toml` skip/refuse scripts are only a backup.
 9. Repo **Settings → Pages**: turn the source **off** once dynastyticker.com matches this desk. If a github.io URL is still up, replace it with a redirect to `https://dynastyticker.com/`. Do **not** add a custom domain there. Visit counts stay on dynastyticker.com only. An old Pages workflow left on `main` checks out `develop` and runs `scripts/stage_pages_preview.sh`. That script refuses, so the dispatch cannot publish a second desk.
 
-Cut a release: open a PR from `develop` into `prod` and merge it (or push `develop` to `prod`). Workflow `.github/workflows/cut-release.yml` publishes a GitHub Release. `.github/workflows/deploy-release.yml` then uploads `docs/` plus functions with the Netlify CLI. Optional manual refresh of the last release: `.github/workflows/deploy-site.yml`. Local check: `npm run serve`. There is no GitHub Pages preview workflow.
+To release, merge the promotion PR from `develop` into `prod`. The cut-release workflow tags that commit, publishes a GitHub Release and deploys the tagged checkout with the Netlify CLI. The deploy-release workflow handles manually published releases. After upload the deploy verifies the live board, its exact dated prices, and a shared trade card. Use the manual refresh workflow to rebuild the latest release's market data. Run `npm run serve` for a local preview. [Production release](.github/workflows/cut-release.yml) · [Manual refresh](.github/workflows/deploy-site.yml)
 
 ### Traffic
 
@@ -105,4 +95,4 @@ That writes `searched-users.csv` (gitignored). **This repo is public. Never comm
 - Player assets: `player:<sleeper_player_id>`
 - Pick assets: `pick:<season>:r<round>:<original_owner|any>`
 - Playoff odds are a 4000-season Monte Carlo. Each simulated season draws team quality from the posterior, so a Week 1 favorite is not a 100% lock. 100% / 0% only appear when a team has mathematically clinched or been eliminated.
-- Phones (`max-width: 700px`) get a fixed three-tab bar at the bottom and a "Connect my league" chip in the header. iPad and desktop show the same three tabs in one row above the page.
+- Every page has the ☰ menu (Trade Calculator, Player Rankings, League History). Home is the tool picker.

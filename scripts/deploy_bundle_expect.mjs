@@ -16,6 +16,7 @@ export const OPTIONAL = Object.freeze([
   { pr: "#164", marker: "docs/modules/trade-share.js", functions: ["trade-page", "trade-card"], edge: [], resvg: true },
   { pr: "#165", marker: "docs/modules/asset-path.js", functions: [], edge: ["asset-404"] },
   { pr: "daily values", marker: "netlify/lib/market-data.js", functions: ["market"], edge: [] },
+  { pr: "player link previews", marker: "netlify/lib/player-share.js", functions: ["player-page"], edge: [] },
 ]);
 
 // The PNG card needs resvg's JS (bundled into trade-card) and its wasm
@@ -86,6 +87,9 @@ export function staticDeployProblems(root) {
     if (!existsSync(join(root, "node_modules", RESVG_PACKAGE, "package.json"))) problems.push(`${RESVG_PACKAGE} is not installed (run npm ci)`);
     if (!existsSync(join(root, RESVG_WASM))) problems.push(`${RESVG_WASM} missing`);
     if (!includedFiles.includes(RESVG_WASM)) problems.push(`included_files lacks ${RESVG_WASM}`);
+  }
+  if (want.functions.includes("trade-page") && !includedFiles.includes("docs/data/nfl_players_slim.json")) {
+    problems.push("included_files lacks docs/data/nfl_players_slim.json for archived player names");
   }
   const files = [...listFiles(join(root, "docs"), root), ...listFiles(join(root, "netlify"), root), ...listFiles(join(root, "node_modules/@resvg"), root)];
   for (const glob of includedFiles) {

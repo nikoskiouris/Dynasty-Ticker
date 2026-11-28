@@ -1,5 +1,5 @@
 import { mountSiteMenu } from "./modules/site-menu.js";
-import { renderToolPicker, moveLeagueControls } from "./modules/tool-picker.js";
+import { renderToolPicker, moveLeagueControls, renderLeagueRecent } from "./modules/tool-picker.js";
 import { renderLeagueHub } from "./modules/league-hub.js";
 import { leagueArchive, readDeskSnapshot, saveDeskSnapshot } from "./modules/league-archive.js";
 import { buildTradeAdvice, closeTradeAdvice, onTradeAdviceBack, openTradeAdvice, renderTradeAdviceButton, renderTradeAdvicePanel, tradeAdviceOpen } from "./modules/trade-advice.js";
@@ -82,7 +82,6 @@ import {
   playersFromValueSnapshot,
   fetchPriceHistory,
   fetchPeakValues,
-  PRICE_HISTORY_INDEX_PATH,
   getAssetValue as marketAssetValue,
   isEstimatedAsset as marketIsEstimated,
   buildPickValuationCatalog,
@@ -102,6 +101,7 @@ import {
   playerValueTrend,
   renderTrendSoon,
   renderValueTierBadge,
+  tierForValue,
   renderValueTrend,
   renderValuesFreshness,
   valuationStamp,
@@ -187,6 +187,7 @@ import {
   releaseBootGate,
   scheduleBootFind,
 } from "./modules/boot-gate.js";
+import { roundPrice } from "./modules/price-units.js";
 import { ownerPossessive } from "./modules/html.js";
 import {
   describeUserSearchFailure,
@@ -224,6 +225,7 @@ import {
   topOverlay,
   urlPath,
   legacyRedirect,
+  rankPositionFromSearch,
 } from "./modules/history-route.js";
 import {
   EVEN_UP_OFFER_ABOVE,
@@ -239,7 +241,7 @@ import {
 } from "./modules/verdict-copy.js";
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import { GLOSSARY, bindInfoTips, infoTipMarkup, renderPriceLegend, valuesWorkText } from "./modules/info-tip.js";
-import { LEGACY_FORMAT_NOTE, decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotRequestForStamp, stampLabel } from "./modules/trade-share.js";
+import { LEGACY_FORMAT_NOTE, decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
 import { chooseBestLineup, countStartableAtPosition } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
@@ -257,14 +259,16 @@ import {
   projectPickSlots,
   resolvePickProjection,
   rosterRecordsReady,
-  valuedAsMidFirstHint,
+  futureRoundPriceHint,
 } from "./modules/pick-projection.js";
 import { currentPlaceForOwner } from "./modules/draft-order.js";
 import {
   applyDocumentMeta,
+  applyCanonical,
   buildDocumentTitle,
   holdDocumentTitle,
   buildPageDescription,
+  applyNoIndex,
   } from "./modules/site.js";
 import { recordSearchedUser, searchedUserPick } from "./modules/visits.js";
 import { createBeaconAdapter, pageview as analyticsPageview, setAnalyticsAdapter, track as analyticsTrack, trackShareTapped, trackTradeLinkOpened } from "./modules/analytics.js";
@@ -284,6 +288,7 @@ import {
   renderPlayerConnect,
   renderRanksBody,
   renderRanksMarkup,
+  rankCountMessage,
   } from "./modules/ranks.js";
 import {
   announceRoute,
@@ -679,7 +684,7 @@ document.addEventListener("click", (event) => {
   if (!target) return;
   event.preventDefault();
   if (target.tagName === "DETAILS") target.open = true;
-  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  target.scrollIntoView({ behavior: smoothScroll(), block: "start" });
   const focusable = target.tagName === "DETAILS" ? target.querySelector("summary") : target;
   focusable?.focus?.({ preventScroll: true });
 });
@@ -878,6 +883,16 @@ function playersBoardShown() {
   return playersBoardOpen
     && state.activePage === "trades"
     && getRoom("trades") === "calculator";
+}
+
+// CSS turns smooth scrolling off for prefers-reduced-motion, but an explicit
+// behavior: "smooth" in JS ignores that. Ask the same question here.
+function smoothScroll() {
+  try {
+    return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+  } catch {
+    return "smooth";
+  }
 }
 
 function syncPlayersBoardFlag() {
@@ -1145,7 +1160,7 @@ function rankOwners() {
 
 function rankPlayerNote(playerId, raw) {
   if (!playerNoteContext?.previousSeason && !playerNoteContext?.seasonStats) return "";
-  const position = String(raw?.position || raw?.fantasy_positions?.[0] || "").toUpperCase();
+  const position = String(state.valueBundles?.players?.[`player:${playerId}`]?.position || raw?.position || raw?.fantasy_positions?.[0] || "").toUpperCase();
   const line = formatPlayerDetail({
     isRookie: isRookiePlayer(raw, playerNoteContext.currentSeason),
     draft: lookupNflDraftPick(playerId, playerNoteContext.draftPicks, raw),
@@ -1202,6 +1217,7 @@ function rankViewModel() {
   }
   return rankView({
     rows: cachedRankRows(),
+    priceModel: state.valueBundles?.meta?.price,
     query: state.ranks?.query || "",
     position: state.ranks?.position || "ALL",
     sort: state.ranks?.sort || "rank",
@@ -1232,7 +1248,16 @@ function paintRankToolbar(toolbar, view, typing) {
   if (note) note.textContent = view.note;
   const input = toolbar.querySelector("[data-ranks-query]");
   if (input && !typing) input.value = view.query;
+  // Announce only when the search or the chip changed, not on every paint
+  // (load, sort, Show more).
+  const status = toolbar.querySelector("[data-ranks-count]");
+  const key = `${view.position}|${String(view.query || "").trim().toLowerCase()}`;
+  if (status && !view.loading && key !== rankCountKey) {
+    if (rankCountKey !== null) status.textContent = rankCountMessage(view);
+    rankCountKey = key;
+  }
 }
+let rankCountKey = null;
 
 function renderRankHost(host) {
   if (!host) return;
@@ -1324,6 +1349,11 @@ async function ensureCalcPrices() {
         }
       } catch (err) {
         console.warn("Could not load market prices", err);
+        // Same guard as the rankings path: remember the miss so the next paint
+        // shows "Couldn't load market prices · Try again". Without it, paint ->
+        // fetch -> fail -> paint re-requested the price file in a tight loop
+        // (about 200 requests a second) and the page sat on "Loading…".
+        if (!rankValuesReady()) valuesLoadFailed = true;
       } finally {
         calcPricesPromise = null;
       }
@@ -1365,6 +1395,22 @@ function renderTradesRoom(room) {
   // The full players board lives on /players only. Check a trade adds players
   // from each side's own search, so no 48-row list sits under the calculator.
   renderTradeDraft();
+}
+
+// Calculator buttons that re-render the trade (remove, clear, swap, restore)
+// take themselves out of the page, and focus fell to <body>: a keyboard or
+// screen-reader user started over from the top. Put it somewhere close.
+// Keyboard only (Enter/Space give a click with detail 0): a tap never pulls
+// up the phone keyboard by focusing the talk box.
+const FIRST_CALC_SEARCH = "#trade-talk-input";
+let calcKeyboardClick = false;
+function refocusCalc(preferred, fallbackSelector) {
+  if (!calcKeyboardClick) return;
+  const active = document.activeElement;
+  if (active && active !== document.body && document.contains(active)) return;
+  const shown = (node) => node && node.isConnected && node.getClientRects().length > 0 && !node.disabled;
+  const target = shown(preferred) ? preferred : el.calculatorShell?.querySelector(fallbackSelector);
+  if (shown(target)) target.focus({ preventScroll: true });
 }
 
 function bootFromUrl() {
@@ -1424,8 +1470,12 @@ function bootFromUrl() {
     applyTradeRoute(route);
   }
   if (route.name === "connect") connectAsked = true;
+  if (route.name === "players") state.ranks.position = rankPositionFromSearch(window.location.search) || "ALL";
   const leagueId = route.leagueId || parsed.leagueId;
   if (leagueId) {
+    // /players?league=…: the league loads first, then lands on the calculator
+    // room. Mark the board open now so it lands on Player Rankings, not /trade.
+    if (route.name === "players" || route.legacy === "ranks") playersBoardOpen = true;
     void loadLeagueById(leagueId);
   } else if (!routeDrivesPlace && parsed.tab === "trades" && parsed.view === "ranks") {
     openPlayerBoard({ history: "silent" });
@@ -1973,6 +2023,7 @@ function applyDeskPopState(historyState) {
   }
   if (route.name === "players" || route.legacy === "ranks") {
     document.querySelector("#landing")?.classList.add("hidden");
+    state.ranks.position = rankPositionFromSearch(window.location.search) || "ALL";
   }
   if (route.name === "home" || route.name === "connect") {
     document.querySelector("#landing")?.classList.remove("hidden");
@@ -2031,11 +2082,27 @@ function routedPlayerId() {
   return sleeperIdFrom(state.ranks?.selectedId);
 }
 
-function routedPlayerName() {
+function routedPlayerRow() {
   const assetId = assetIdFromRoute(routedPlayerId());
-  if (!assetId) return "";
-  const row = cachedRankRows().find((entry) => entry.assetId === assetId);
-  return row?.name || "";
+  if (!assetId) return null;
+  return cachedRankRows().find((entry) => entry.assetId === assetId) || null;
+}
+
+function routedPlayerName() {
+  return routedPlayerRow()?.name || "";
+}
+
+// Search snippet for a player page: the facts the page leads with, so a
+// result for "<name> dynasty value" answers the question before the click.
+function playerPageDescription(name) {
+  const row = routedPlayerRow();
+  const tag = [row?.position, row?.team || (row ? "FA" : "")].filter(Boolean).join(", ");
+  const ranks = [
+    Number(row?.overallRank) > 0 ? `#${row.overallRank} overall` : "",
+    row?.boardRank && row.boardRank !== row.position ? row.boardRank : "",
+  ].filter(Boolean).join(", ");
+  if (!row || !(Number(row.value) > 0)) return `${name}: dynasty value, rank and why, on 12-team Superflex PPR values.`;
+  return `${name}${tag ? ` (${tag})` : ""} dynasty value: ${formatNumber(row.value)}/100${ranks ? `, ${ranks}` : ""} in 12-team Superflex PPR. See why, the trend and similar values.`;
 }
 
 function applyTradeRoute(route) {
@@ -2085,27 +2152,15 @@ async function loadSharedTrade(code, draft) {
   };
   if (!decoded.stamp) return settle();
   try {
-    // Index first. A stamp that is not listed is not fetched, so a pruned
-    // board does not log a console 404.
-    let index = null;
-    const indexRes = await fetch(PRICE_HISTORY_INDEX_PATH);
-    if (indexRes?.ok) index = await indexRes.json();
-    const path = snapshotRequestForStamp(index, decoded.stamp);
-    if (!path) {
-      entry.snapshotState = "missing";
+    // A share can outlive the rolling history index while its dated file still exists.
+    const path = snapshotPath(decoded.stamp);
+    const response = path && await fetch(path);
+    const snapshot = response?.ok ? await response.json() : null;
+    if (snapshot?.sf && priceStamp(snapshot.asOf) === decoded.stamp) {
+      entry.snapshot = snapshot;
+      entry.snapshotState = "ready";
     } else {
-      const res = await fetch(path);
-      if (!res.ok) {
-        entry.snapshotState = "missing";
-      } else {
-        const snapshot = await res.json();
-        if (snapshot?.sf) {
-          entry.snapshot = snapshot;
-          entry.snapshotState = "ready";
-        } else {
-          entry.snapshotState = "missing";
-        }
-      }
+      entry.snapshotState = "missing";
     }
   } catch {
     entry.snapshotState = "missing";
@@ -2142,23 +2197,30 @@ function sharedOnCurrentPrices(stamp) {
 function sharedVerdictFor(view) {
   const entry = activeSharedTrade(view.draft);
   if (!entry || !state.valueBundles) return null;
-  const today = shareSummary(entry.decoded, state.valueBundles);
+  const names = {};
+  for (const assetId of [...entry.decoded.give, ...entry.decoded.get]) {
+    const id = assetId.slice("player:".length);
+    if (assetId.startsWith("player:") && state.players?.[id]?.full_name) names[id] = state.players[id].full_name;
+  }
+  const today = shareSummary(entry.decoded, state.valueBundles, names);
+  if (!today) return null;
   // A 1QB code was shared on 1QB prices we no longer publish. An old SF
   // snapshot is not what the sender saw, so do not print it as "Shared on".
   const legacy = Boolean(entry.decoded?.legacyFormat);
-  const shared = entry.snapshot && !legacy ? shareSummary(entry.decoded, entry.snapshot, {}, state.valueBundles) : null;
+  const shared = entry.snapshot && !legacy ? shareSummary(entry.decoded, entry.snapshot, names, state.valueBundles) : null;
   const moved = Boolean(shared) && !sameVerdict(shared, today);
+  const earlierModel = shared && entry.snapshot.modelVersion !== state.valueBundles.modelVersion;
   if (entry.settled && !entry.reported) {
     entry.reported = true;
     trackTradeLinkOpened({ drift: moved });
   }
   return {
     today,
-    shared: moved ? shared : null,
+    shared: moved || earlierModel ? shared : null,
     date: stampLabel(entry.decoded.stamp),
     legacy,
     // A link shared on today's prices is current, not "no longer saved".
-    missing: !legacy && entry.snapshotState === "missing" && !sharedOnCurrentPrices(entry.decoded.stamp),
+    missing: !legacy && (entry.snapshotState === "missing" || (entry.snapshotState === "ready" && !shared)) && !sharedOnCurrentPrices(entry.decoded.stamp),
   };
 }
 
@@ -2210,6 +2272,7 @@ document.addEventListener("click", (event) => {
   event.preventDefault();
   forgetLastLeague();
   renderLandingResume();
+  renderLeagueRecent(document.querySelector("#leagues-page-content"));
   // Home's tool picker reads the same record: redraw it without the league.
   const home = document.querySelector("#home-page-content");
   if (home?.contains(forget)) {
@@ -2389,6 +2452,7 @@ function buildShareUrl(overrides = {}) {
     shareCode: activeShareCode(),
     landing: landingVisible(),
     playersBoard: playersBoardShown(),
+    rankPosition: state.ranks?.position,
     format: state.leagueId ? "" : activeRankFormat(),
   });
   if (href) return `${overrides.origin ?? window.location.origin}${href}`;
@@ -2531,7 +2595,7 @@ function renderLeagueHero() {
 
 function scrollLoadedWorkspaceIntoView() {
   requestAnimationFrame(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: smoothScroll() });
   });
 }
 
@@ -2589,7 +2653,7 @@ function selectLandingJob(jobId) {
   syncLandingJobUi();
   if (nextId) {
     el.landingUsername?.focus();
-    el.landingUsernameForm?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.landingUsernameForm?.scrollIntoView({ behavior: smoothScroll(), block: "center" });
   }
 }
 
@@ -2643,8 +2707,13 @@ function requestFindLeagues(event) {
   syncUsernameFields(event?.currentTarget === el.landingUsernameForm ? el.landingUsername : el.sleeperUsername);
   const classified = classifyUsernameField(el.sleeperUsername?.value || el.landingUsername?.value);
   if (classified.kind === "empty") {
-    setUsernameError("Type your Sleeper username, then press Connect my league.");
-    setStatus("Type your Sleeper username, then press Connect my league.", { error: true });
+    // Name the button that is on screen: League History relabels it "Find my leagues".
+    const form = event?.currentTarget?.closest?.("form") || event?.target?.closest?.("form") || null;
+    const button = form?.querySelector?.("button[type='submit']");
+    const label = String(button?.dataset?.idleLabel || "Connect my league").trim() || "Connect my league";
+    const hint = `Type your Sleeper username, then press ${label}.`;
+    setUsernameError(hint);
+    setStatus(hint, { error: true });
     (el.landingUsername || el.sleeperUsername)?.focus();
     return;
   }
@@ -2743,8 +2812,8 @@ async function runUserLeagueSearch(username) {
       setUsernameError(`No NFL leagues for ${season}/${Number(season) - 1}.`);
     } else {
       setUsernameError("");
-      setStatus(`Found ${state.userLeagues.length} leagues for ${user.display_name || username}. Pick one.`);
-      el.landingLeaguePicker?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      setStatus(`Found ${state.userLeagues.length} ${state.userLeagues.length === 1 ? "league" : "leagues"} for ${user.display_name || username}. Pick one.`);
+      el.landingLeaguePicker?.scrollIntoView({ behavior: smoothScroll(), block: "nearest" });
     }
   } catch (err) {
     renderLeaguePicker([]);
@@ -3066,7 +3135,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
           missingTeam
             ? missingTeam
             : me
-              ? `Loaded ${state.leagueName}. Viewing as ${me.manager?.displayName || "your team"}. Switch teams in the Manager panel.`
+              ? `Loaded ${state.leagueName}. Viewing as ${me.manager?.displayName || "your team"}. Switch teams with the Viewing as picker on the league hub.`
               : `Loaded ${state.leagueName}. Choose your team to continue.`,
           missingTeam ? { error: true } : { ok: true },
         );
@@ -3094,6 +3163,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
   } catch (err) {
     if (!leagueLoader.isCurrent(token)) return;
     state.leagueSwitching = false;
+    const failedPlace = state.pendingPlace;
     state.pendingPlace = null;
     const season = String(state.nflState?.league_season || state.nflState?.season || "");
     renderLeaguePicker(state.userLeagues, season);
@@ -3113,6 +3183,9 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
         })
       : leagueLoadErrorMessage(err);
     const unreachable = message === SLEEPER_UNREACHABLE_MESSAGE;
+    // Retry after an outage opens the room the link asked for (/l/…/standings),
+    // not My Team.
+    if (unreachable && !state.leagueId) state.pendingPlace = failedPlace;
     setFieldError(el.leagueId, el.leagueIdError, unreachable || failedSwitch ? "" : message);
     setStatus(unreachable || failedSwitch ? "" : message, { error: true });
     leagueLoadRecovery.fail({ leagueId, token });
@@ -4370,7 +4443,7 @@ function renderStandingsPanel(model, sim) {
       <div class="panel-heading">
         <div>
           <span class="eyebrow">Standings</span>
-          <h2>${hasGames && model.finalThroughWeek > 0 ? `Through Week ${model.finalThroughWeek}` : "Season outlook"}</h2>
+          <h2>${hasGames && model.finalThroughWeek > 0 ? (model.regularSeasonComplete ? "Final regular season" : `Through Week ${model.finalThroughWeek}`) : "Season outlook"}</h2>
         </div>
         ${showDivisions ? `
           <div class="segmented" role="group" aria-label="Standings view">
@@ -4441,6 +4514,10 @@ function renderPlayoffOddsPanel(model, sim) {
     `;
   }
   if (!sim) {
+    // Before the draft or in the NFL offseason there is nothing to sync: the
+    // schedule doesn't exist yet. "Still syncing" would promise odds soon.
+    const noSchedule = ["pre_draft", "drafting"].includes(String(state.league?.status || ""))
+      || String(state.nflState?.season_type || "") === "off";
     return `
       <section class="workspace-panel odds-panel">
         <div class="panel-heading">
@@ -4448,7 +4525,7 @@ function renderPlayoffOddsPanel(model, sim) {
             <span class="eyebrow">Playoff Odds</span>
             <h2>Odds not in yet</h2>
           </div>
-          <p class="section-copy">Matchups are still syncing from Sleeper.</p>
+          <p class="section-copy">${noSchedule ? "No schedule yet. Odds start once Sleeper has this season's matchups." : "Matchups are still syncing from Sleeper."}</p>
         </div>
       </section>
     `;
@@ -4461,7 +4538,7 @@ function renderPlayoffOddsPanel(model, sim) {
     ? `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulated seasons. Odds are simulated, not guaranteed.`
     : `${countLabel(sim.remainingGameCount, "game")} left. ${sim.iterations.toLocaleString()} simulations.`;
   return `
-    <section class="workspace-panel odds-panel">
+    <section class="workspace-panel odds-panel${phase === "bracket" ? " odds-bracket" : ""}">
       <div class="panel-heading stack">
         <div>
           <span class="eyebrow">Playoff Odds</span>
@@ -4533,9 +4610,11 @@ function renderTeamExtras() {
   const header = document.querySelector("#team-header");
   const section = document.querySelector("#team-superlatives-section");
   const host = document.querySelector("#team-superlatives");
-  const roster = getLensRoster();
+  // Same rule as the roster card: a team the user chose (or is), never the
+  // team select's default. Unpicked, the page asks instead of showing Team 1.
+  const roster = myTeamPageRoster();
   if (!roster) {
-    if (header) header.innerHTML = "";
+    if (header) header.innerHTML = state.leagueId ? `<p><a class="league-back" href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>` : "";
     section?.classList.add("hidden");
     return;
   }
@@ -4576,11 +4655,12 @@ function renderTeamExtras() {
     history: state.valueHistory,
     latestStarters: latestStartersFor(state.seasonWeekRows, roster.rosterId, model?.finalThroughWeek),
     acquisitions: teamAcquisitions(roster.rosterId),
+    ownerLabel: String(roster.rosterId) === String(connectedRosterId() ?? "") ? "" : (manager.teamName || manager.displayName || "this team"),
   });
   section.classList.toggle("hidden", cards.length === 0);
   host.innerHTML = cards.map((card) => `
     <article class="team-superlative">
-      ${renderPlayerFace(card.playerId, card.name, { size: "md" })}
+      <span class="face-link" data-action="open-player" data-asset-id="player:${escapeHtml(card.playerId)}">${renderPlayerFace(card.playerId, card.name, { size: "md" })}</span>
       <div>
         <p class="eyebrow">${escapeHtml(card.title)}</p>
         <h3>${playerLinkHtml({ assetId: `player:${card.playerId}`, name: card.name })}</h3>
@@ -4620,7 +4700,7 @@ function renderLensPicker(roster, { label = "Viewing", extra = "" } = {}) {
   const meId = connectedRosterId();
   const options = state.normalizedRosters
     .slice()
-    .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName))
+    .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName, undefined, { numeric: true, sensitivity: "base" }))
     .map((entry) => `
       <option value="${escapeHtml(entry.rosterId)}" ${String(entry.rosterId) === String(roster.rosterId) ? "selected" : ""}>
         ${escapeHtml(entry.manager.displayName)}${String(entry.rosterId) === meId ? " (you)" : ""}
@@ -4709,9 +4789,32 @@ function renderRosterSheet() {
     el.rosterSheetHeading.textContent = roster.manager.displayName;
   }
   const summary = summarizeRosterAssets(roster, values);
-  const benchRows = roster.assets
-    .filter((asset) => asset.assetType === "player" && !strength.lineup.some((entry) => entry.asset?.assetId === asset.assetId))
-    .sort((a, b) => getAssetValue(b, values) - getAssetValue(a, values));
+  // Whole roster by position (ticket 037). The slot is where Sleeper has him
+  // now (Start, Bench, IR, Taxi), not a lineup we chose by value.
+  const sleeperRoster = (state.rosters || []).find((row) => String(row?.roster_id) === String(roster.rosterId)) || {};
+  const idSet = (list) => new Set((Array.isArray(list) ? list : []).map(String));
+  const started = idSet(sleeperRoster.starters);
+  const reserve = idSet(sleeperRoster.reserve);
+  const taxi = idSet(sleeperRoster.taxi);
+  const sleeperSlot = (asset) => {
+    const id = playerIdFromAssetId(asset.assetId);
+    if (started.has(id)) return "Start";
+    if (reserve.has(id)) return "IR";
+    if (taxi.has(id)) return "Taxi";
+    return "Bench";
+  };
+  const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
+  const positionGroups = new Map();
+  roster.assets
+    .filter((asset) => asset.assetType === "player")
+    .sort((a, b) => getAssetValue(b, values) - getAssetValue(a, values))
+    .forEach((asset) => {
+      const pos = state.valueBundles?.players?.[asset.assetId]?.position || playerPositionForAsset(asset);
+      const key = POSITION_ORDER.includes(pos) ? pos : "Other";
+      if (!positionGroups.has(key)) positionGroups.set(key, []);
+      positionGroups.get(key).push(asset);
+    });
+  const groupOrder = [...POSITION_ORDER, "Other"].filter((key) => positionGroups.has(key));
   const seasonPoints = seasonPlayerPoints();
   const renderPlayerRow = (asset, slotLabel, extra = {}) => {
     const playerId = playerIdFromAssetId(asset.assetId);
@@ -4722,9 +4825,12 @@ function renderRosterSheet() {
       "sheet-row",
       isInjuryFlaggedAsset(asset) ? "flagged" : "",
     ].filter(Boolean).join(" ");
+    // The value snapshot's age (30.3) over Sleeper's whole-year age (30), as on Player Rankings.
+    const age = Number(state.valueBundles?.players?.[asset.assetId]?.age) || playerAgeForAsset(asset);
     const meta = [
       escapeHtml(formatPlayerPositionLabel(asset)),
       team ? escapeHtml(team) : "",
+      Number.isFinite(age) && age > 0 ? `${escapeHtml(age.toFixed(1))}y` : "",
       injury ? `<span class="injury">${escapeHtml(injury)}</span>` : "",
     ].filter(Boolean).join(" · ");
     return `
@@ -4765,8 +4871,8 @@ function renderRosterSheet() {
     ${state.league && marketCaveat(state.league) ? `<p class="muted small calc-market-caveat">${escapeHtml(marketCaveat(state.league))}</p>` : ""}
     <div class="sheet-grid">
       <section class="sheet-column">
-        <h3 class="sheet-heading">Bench</h3>
-        ${benchRows.map((asset) => renderPlayerRow(asset, isTradeEligibleAsset(asset) ? "Bench" : formatPlayerPositionLabel(asset))).join("") || `<p class="muted small">No bench players.</p>`}
+        ${groupOrder.map((key) => `<h3 class="sheet-heading">${escapeHtml(key)} · ${positionGroups.get(key).length}</h3>
+        ${positionGroups.get(key).map((asset) => renderPlayerRow(asset, sleeperSlot(asset))).join("")}`).join("") || `<p class="muted small">No players on this roster.</p>`}
         ${showPicks ? `
         <h3 class="sheet-heading">Draft picks</h3>
         ${picks.length
@@ -4812,6 +4918,22 @@ function setDraftReplaced(next) {
   }
 }
 
+// Which column each recently removed asset was in, so "add Nabers back"
+// puts him back where he was instead of the default column.
+const removedSides = new Map();
+function rememberRemovedSides(before, after) {
+  const still = new Set([...(after?.left || []), ...(after?.right || [])].map((item) => item.assetId));
+  for (const side of ["left", "right"]) {
+    for (const item of before?.[side] || []) {
+      if (item?.assetId && !still.has(item.assetId)) {
+        removedSides.delete(item.assetId);
+        removedSides.set(item.assetId, side);
+      }
+    }
+  }
+  while (removedSides.size > 24) removedSides.delete(removedSides.keys().next().value);
+}
+
 function setDraft(next, { keepNotice = false } = {}) {
   // "Restore draft / Keep new" goes away on the next change to the trade.
   if (!keepNotice) setDraftReplaced(null);
@@ -4823,6 +4945,7 @@ function setDraft(next, { keepNotice = false } = {}) {
   const pushNow = leavingShared || draftPushNext;
   draftPushNext = false;
   if (leavingShared) prepareDeskPush();
+  rememberRemovedSides(state.valueCalc, next);
   state.valueCalc = next;
   writeStoredDraft(next);
   if (state.activePage === "trades" && getRoom("trades") === "calculator") {
@@ -4908,6 +5031,7 @@ function buildDraftView() {
     me,
     context,
     priced,
+    missingPrices: [...priced.values()].some((row) => row.estimated),
     priceOf,
     partner,
     model,
@@ -4922,16 +5046,22 @@ function draftValuesReady() {
 
 // A player id from the URL that is not a real player: say so, drop it, no verdict.
 function dropUnknownDraftPlayers() {
-  const players = state.players;
-  if (!players || typeof players !== "object" || !Object.keys(players).length) return;
-  const bundles = state.valueBundles || {};
+  const shared = activeSharedTrade();
+  if (shared?.snapshotState === "loading") return;
   const known = (assetId) => {
     const id = String(assetId || "").replace(/^player:/, "");
-    return Boolean(players[id] || bundles.sf?.[assetId] != null || state.valueNameMap?.[assetId]);
+    return Boolean(state.players?.[id] || draftNamesDirectory?.[id] || state.valueBundles?.sf?.values?.[assetId] != null
+      || state.valueNameMap?.[assetId] || shared?.snapshot?.sf?.[assetId] != null);
   };
   const isPlayer = (item) => /^player:/.test(String(item?.assetId || ""));
   const bad = [...(state.valueCalc?.left || []), ...(state.valueCalc?.right || [])].filter((item) => isPlayer(item) && !known(item.assetId));
   if (!bad.length) return;
+  // A missing current quote is common on older links. Only a player-directory
+  // lookup can distinguish an unpriced player from a mistyped Sleeper id.
+  if (!draftNamesDirectory) {
+    requestDraftPlayerNames();
+    return;
+  }
   const ids = new Set(bad.map((item) => item.uid));
   state.valueCalc = {
     ...state.valueCalc,
@@ -5166,6 +5296,15 @@ function renderTradeTalkLog() {
   `).join("");
 }
 
+// Remove, Clear, Swap and Restore change the trade silently for a screen
+// reader: the row or button is just gone. Say what happened and the new verdict.
+function announceDraftEdit(lead) {
+  const sentence = isDraftEmpty(state.valueCalc)
+    ? ""
+    : String(el.calculatorShell?.querySelector(".trade-fairness:not(.is-empty) .trade-fairness-sentence")?.textContent || "").replace(/\s+/g, " ").trim();
+  showTalkToast([lead, sentence].filter(Boolean));
+}
+
 let talkToastTimer = 0;
 function showTalkToast(lines) {
   const toast = el.calculatorShell?.querySelector("#talk-toast");
@@ -5184,7 +5323,7 @@ function tradeTalkNext(view) {
   const ctx = tradeTalkContext(view);
   const candidates = [];
   const gap = Number(view.model?.verdict?.gap) || 0;
-  const more = draft.left.length && draft.right.length ? verdictCopy(view.model.verdict).more : null;
+  const more = tradeAdviceReady(view) ? verdictCopy(view.model.verdict).more : null;
   if (more != null && more > EVEN_UP_OFFER_ABOVE && gap) {
     const pick = findEvenUpPick(view);
     // closes is scored with the stars credit, so it holds even when the pick's
@@ -5270,6 +5409,7 @@ function tradeTalkContext(view) {
     partnerRosterId: view.context?.partnerRosterId ?? draft.partnerRosterId ?? null,
     // A typed piece with no side lands where Enter on a search match would.
     defaultSide: smartTradeSide,
+    removedSides: Object.fromEntries(removedSides),
     season: nextRookieDraftSeason(),
     connected: basis.connected,
     draft,
@@ -5378,8 +5518,10 @@ function runTradeTalk(text) {
   }
   // "Is this fair?" gets the answer in the reply, the same line the verdict shows.
   if (bothSides && plan.asked && after.model?.verdict) {
-    const verdictLine = verdictLineNamed(after.model.verdict, { Give: "You give", Get: "You get" });
-    if (verdictLine) lines.push(`${verdictLine}. The reason is under “Why?” below.`);
+    // Same names as the columns and the scale ("Team 2 receives 13% more");
+    // the calculator is never "you" (owner rule, Nov 19).
+    const verdictLine = verdictLineNamed(after.model.verdict, { Give: giveLabel, Get: getLabel });
+    if (verdictLine) lines.push(`${verdictLine}.`);
   }
   // A question needs an answer, so its reply stays on screen instead of a toast over it.
   const sticky = !changed || plan.misses.length > 0 || plan.notes.length > 0 || plan.asks.length > 0
@@ -5534,7 +5676,7 @@ function patchTradeDraft(listSides = []) {
 // Trade advice panel (ticket 030): the calculator's own verdict, even-up
 // search and team impact, gathered in one place. No AI.
 function tradeAdviceReady(view) {
-  return view.draft.left.length > 0 && view.draft.right.length > 0;
+  return !view.missingPrices && view.draft.left.length > 0 && view.draft.right.length > 0;
 }
 
 function tradeAdviceSections(view) {
@@ -5551,33 +5693,19 @@ function tradeAdviceSections(view) {
   const choice = helps ? found : null;
   // findEvenUpPick adds to the Give (left) column when that side is short.
   const side = verdict.gap > 0 ? "left" : "right";
-  const giver = draftReceivingTeam(verdict.gap > 0 ? "right" : "left", view);
+  // "Team X needs …" names the team that receives less, the same team the
+  // calculator's Even it up line names and the button adds to (#406).
+  const short = draftReceivingTeam(side, view);
   // Name the pick and the verdict after adding it, scored the same way as the scale.
   const evenUp = choice ? {
-    line: evenUpOptionsLine(options, giver, teamNames),
+    line: evenUpOptionsLine(options, short, teamNames),
     side,
     receiver: draftReceivingTeam(side, view),
     assetId: choice.assetId || "",
     name: choice.name,
     closes: Boolean(choice.closes),
   } : null;
-  let team = { connected: Boolean(view.basis.connected) };
-  if (team.connected) {
-    const idea = view.context?.ready ? buildDraftImpact(view) : null;
-    const mySide = idea?.impactAnalysis?.mySide || null;
-    team = {
-      ...team,
-      ready: Boolean(mySide),
-      mySide,
-      partnerName: view.partner ? draftReceivingTeam("left", view) : "",
-      waiting: draftTeamSummary(view.context, {
-        leftCount: view.draft.left.length,
-        rightCount: view.draft.right.length,
-        partnerName: view.partner?.manager?.displayName || "",
-      }),
-    };
-  }
-  return buildTradeAdvice({ verdictLine: verdictLineNamed(verdict, teamNames), fair, evenUp, team,
+  return buildTradeAdvice({ verdictLine: verdictLineNamed(verdict, teamNames), fair, evenUp,
     lighter: draftReceivingTeam(side, view) });
 }
 
@@ -5628,7 +5756,7 @@ function refreshDraftSuggestions(side) {
 
 function renderDraftBasis(view) {
   const legacy = activeSharedTrade(view.draft)?.decoded?.legacyFormat || state.legacyValueLink;
-  return `<div class="draft-basis-row"><p class="draft-format-fixed">Values: 12-team Superflex PPR dynasty</p>
+  return `<div class="draft-basis-row"><p class="draft-format-fixed">Values on a 0–100 scale · 12-team Superflex PPR dynasty</p>
     ${infoTipMarkup({ id: "pop-format-trade", label: "Scoring and how values work", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10))}` })}
     ${legacy ? `<p class="muted">Shared with 1QB values, which we no longer publish. Shown on 12-team SF PPR values.</p>` : ""}</div>`;
 }
@@ -5715,9 +5843,10 @@ function renderDraftTotal(side, view) {
   const items = view.draft[side] || [];
   // The header shows what the verdict compares: listed prices plus any extra
   // for fewer, better pieces (owner, Nov 19, 2026). Rows keep listed prices.
+  if (items.some((item) => view.priced.get(String(item.uid))?.estimated)) return "<strong>Unavailable</strong>";
   const listed = side === "left" ? view.give : view.get;
-  const adj = view.model?.adjustment;
-  const extra = adj?.amount > 0 && (adj.side === "left") === (side === "left") ? Math.round(adj.amount) : 0;
+  const adj = view.missingPrices ? null : view.model?.adjustment;
+  const extra = adj?.amount > 0 && (adj.side === "left") === (side === "left") ? roundPrice(adj.amount) : 0;
   return `
     <strong>${formatNumber(listed + extra)}</strong>
     ${extra ? `<span class="calc-pane-extra">incl. +${formatNumber(extra)} extra</span>` : ""}
@@ -5729,7 +5858,7 @@ function renderDraftPartnerPicker(view) {
   if (!view.basis.connected || !view.me) return "";
   const others = state.normalizedRosters
     .filter((roster) => String(roster.rosterId) !== String(view.me.rosterId))
-    .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName));
+    .sort((a, b) => a.manager.displayName.localeCompare(b.manager.displayName, undefined, { numeric: true, sensitivity: "base" }));
   const selected = String(view.context?.partnerRosterId || "");
   return `
     <label class="draft-partner">
@@ -5769,18 +5898,18 @@ function draftItemDisplayName(item, names) {
 }
 
 let draftNamesRequested = false;
+let draftNamesDirectory = null;
 function requestDraftPlayerNames() {
   if (draftNamesRequested) return;
   draftNamesRequested = true;
   const epoch = playerLoadEpoch;
-  // A league uses the slim file. A shared trade has no league, so a missing
-  // name still comes from Sleeper without downloading the slim dump.
-  const job = (state.leagueId || bootRoute?.leagueId)
-    ? loadPlayersWithCache()
-    : apiGetWithRetry(`/players/nfl`, { timeoutMs: 30000, retries: 1, cache: "default" }).then((raw) => slimPlayersMap(raw));
+  const job = loadSlimPlayersFile().then(players => players && Object.keys(players).length ? players
+    : apiGetWithRetry(`/players/nfl`, { timeoutMs: 30000, retries: 1, cache: "default" }).then(slimPlayersMap));
   void job
     .then((players) => {
-      if (epoch !== playerLoadEpoch || !players || !Object.keys(players).length) return;
+      if (!players || !Object.keys(players).length) return;
+      draftNamesDirectory = players;
+      if (epoch !== playerLoadEpoch) return;
       state.players = mergePlayerRecords(state.players, players);
       if (el.calculatorShell?.querySelector(".calc-grid")) patchTradeDraft();
     })
@@ -5807,7 +5936,7 @@ function renderDraftTokens(side, view) {
         ${label.includes("player-face") ? "" : `<span class="token-face-blank" aria-hidden="true"></span>`}
         ${label}
         ${meta ? `<span class="selected-token-meta">${escapeHtml(meta)}</span>` : ""}
-        <span class="selected-token-price" title="Value">${formatNumber(price?.value || 0)}${price?.estimated ? " est" : ""}</span>
+        <span class="selected-token-price" title="Value">${price?.estimated ? "Unavailable" : formatNumber(price?.value)}</span>
         <button type="button" class="selected-token-remove" data-action="value-remove" data-side="${side}" data-uid="${escapeHtml(item.uid)}" aria-label="${escapeHtml(name ? `Remove ${name}` : "Remove")}"><span aria-hidden="true">×</span></button>
       </span>
     `;
@@ -5914,7 +6043,7 @@ function draftSuggestionRows(side, view) {
           name: row.name,
           assetType: row.assetType,
           position: String(record.position || ""),
-          value: Math.round(row.value),
+          value: row.value,
           estimated: false,
           context: String(record.team || ""),
           hint: wholeRoundPickHint(row, query),
@@ -5956,7 +6085,7 @@ function draftSuggestionRows(side, view) {
         round: Number(asset.raw?.round) || 0,
         context: mine ? ("Your roster") : roster.manager.displayName,
         leagueId: isLeaguePickAssetId(asset.assetId) ? String(state.leagueId) : "",
-        hint: valuedAsMidFirstHint(asset, state.league?.season),
+        hint: price.estimated ? "" : futureRoundPriceHint(asset, state.league?.season),
         group: side === "left" ? (mine ? 0 : 2) : (rosterId === partnerId ? 0 : 1),
       });
     }
@@ -5969,7 +6098,7 @@ function draftSuggestionRows(side, view) {
         name: row.name,
         assetType: row.assetType,
         position: row.assetType === "player" ? String(playerRecordFor(row.assetId).position || "") : "",
-        value: Math.round(row.value),
+        value: row.value,
         estimated: false,
         context: row.assetType === "pick" ? "Generic pick" : "Not on a roster here",
         leagueId: "",
@@ -6029,7 +6158,7 @@ function renderDraftSuggestions(side, view) {
             ${row.hint ? `<span class="pick-value-hint">${escapeHtml(row.hint)}</span>` : ""}
           </div>
         </div>
-        <span class="asset-value-badge" title="Value">${formatNumber(row.value)}${row.estimated ? " est" : ""}</span>
+        <span class="asset-value-badge" title="Value">${row.estimated ? "Unavailable" : formatNumber(row.value)}</span>
       </div>
     </div>
   `).join("");
@@ -6040,19 +6169,27 @@ function nextRookieDraftSeason() {
 }
 
 // A future pick evens the gap only when its price actually covers it.
+// Sleeper trades picks for the current season plus up to three future years,
+// so a "2032 2nd" is not a pick anyone can send there yet. Suggest a pick from the next
+// three drafts when one makes it fair; reach further out only when none does.
+const EVEN_UP_NEAR_DRAFTS = 3;
 function findEvenUpPick(view) {
   const first = nextRookieDraftSeason();
   const picks = listGenericPicks(view.basis.values, view.basis.nameMap)
     .filter((pick) => Number(pick.season) >= first);
-  return evenUpTradePick({
+  const search = (list) => evenUpTradePick({
     giveValues: view.draft.left.map(view.priceOf),
     getValues: view.draft.right.map(view.priceOf),
-    picks,
+    picks: list,
     globalMaxValue: getGlobalMaxPlayerValue(view.basis.values),
   });
+  const near = search(picks.filter((pick) => Number(pick.season) < first + EVEN_UP_NEAR_DRAFTS));
+  if (near?.closes) return near;
+  const any = search(picks);
+  return any?.closes || !near ? any : near;
 }
 
-const EVEN_UP_MIN_PLAYER = 3500;
+const EVEN_UP_MIN_PLAYER = 35;
 
 // The closest pick and the closest player that even the trade up. Players are
 // prefiltered to a price band around the gap, then scored like picks.
@@ -6069,7 +6206,7 @@ function findEvenUpOptions(view) {
     const taken = new Set([...view.draft.left, ...view.draft.right].map((item) => String(item.assetId)));
     const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
     const near = listValueCalcAssets(view.basis.values, names, { kinds: ["player"], limit: 2000 })
-      // A throw-in never decides a real trade: only starter-level players (3,500+).
+      // A throw-in never decides a real trade: only starter-level players (35+).
       .filter((row) => !taken.has(String(row.assetId)) && row.value >= EVEN_UP_MIN_PLAYER && row.value >= need * 0.3 && row.value <= need * 4)
       .sort((x, y) => Math.abs(x.value - need) - Math.abs(y.value - need));
     player = evenUpTradePick({ giveValues: give, getValues: get, picks: near, globalMaxValue });
@@ -6112,6 +6249,16 @@ function renderDraftVerdict(view) {
   if (!draft.left.length && !draft.right.length) {
     return `${renderTradeFairness(view.model.verdict, { ready: false })}<div class="calc-actions"><button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button></div>`;
   }
+  if (view.missingPrices) {
+    const shared = sharedVerdictFor(view);
+    const history = shared?.shared
+      ? `<p>Archived verdict for ${escapeHtml(shared.date)} · ${escapeHtml(shared.shared.label)}</p>${renderArchivedTradePrices(shared.shared)}`
+      : shared?.legacy ? `<p>${escapeHtml(LEGACY_FORMAT_NOTE)}</p>`
+      : shared?.missing ? `<p>${escapeHtml(missingBoardNote(shared.date))}</p>` : "";
+    const actions = shared ? `<a class="shared-own-btn" href="/trade" data-action="shared-check-own">Check your own trade</a>`
+      : `<button type="button" class="ghost-btn" data-action="draft-swap">Swap sides</button><button type="button" class="ghost-btn" data-action="value-clear">Clear both sides</button>`;
+    return `<section class="calc-summary"><h3>Current verdict unavailable</h3><p>One or more pieces have no published value.</p>${history}<div class="calc-actions">${actions}</div></section>`;
+  }
   const bothSides = draft.left.length > 0 && draft.right.length > 0;
   if (bothSides) noteTradeChecked(draft);
   const { verdict, adjustment } = model;
@@ -6129,7 +6276,7 @@ function renderDraftVerdict(view) {
   // fewer, better pieces as its own labeled segment, so "You give 63% more"
   // never sits beside two bars that look even.
   const bars = sharedBarSegments(model, null);
-  const maxSide = Math.max(bars.give.total, bars.get.total, 1);
+  const maxSide = Math.max(bars.give.total, bars.get.total, 0.01);
   // Same metric and bands as the headline (verdict-copy.js).
   const evenUp = bothSides && (copy.more == null || copy.more > EVEN_UP_OFFER_ABOVE) ? findEvenUpOptions(view) : null;
   // "Why?" names the sides like the columns (Team 2 Receives / Team 1 Receives).
@@ -6145,7 +6292,7 @@ function renderDraftVerdict(view) {
     <section class="calc-summary ${bothSides ? (sharedView ? copy.publicTone : copy.tone) : ""}">
       ${renderTradeFairness(verdict, { ready: bothSides, team1: draftReceivingTeam("right", view), team2: draftReceivingTeam("left", view) })}
       <div class="calc-summary-main">
-        ${sharedView ? `<span class="analytics-kicker">Market verdict</span>${renderSharedVerdictHead(sharedView)}` : ""}
+        ${sharedView ? `${sharedView.shared ? `<span class="analytics-kicker">Market verdict</span>` : ""}${renderSharedVerdictHead(sharedView)}` : ""}
         ${sharedView ? renderVerdictFinePrint("", `
           ${starsPremiumMarkup(model, { best, pick: bestPick, shared: true })}
           ${evenUp ? `<p class="calc-even"><strong>To make it fair:</strong> ${escapeHtml(evenUpOptionsLine(evenUp, draftReceivingTeam(verdict.gap > 0 ? "left" : "right", view), teamNames))}</p>` : ""}
@@ -6171,9 +6318,9 @@ function renderDraftVerdict(view) {
 function sharedBarSegments(model, meters = null) {
   const adj = model?.adjustment;
   const side = (key, listed) => {
-    const stars = !meters && adj && (adj.side === "left") === (key === "give") ? Math.round(Number(adj.amount) || 0) : 0;
-    const base = Math.round(Number(meters ? meters[key] : listed) || 0);
-    return { listed: base, stars, total: base + stars };
+    const stars = !meters && adj && (adj.side === "left") === (key === "give") ? roundPrice(adj.amount) : 0;
+    const base = roundPrice(meters ? meters[key] : listed);
+    return { listed: base, stars, total: roundPrice(base + stars) };
   };
   return { give: side("give", model?.give), get: side("get", model?.get) };
 }
@@ -6199,20 +6346,31 @@ function verdictLineHtml(line) {
   return String(line || "").split(" · ").map(escapeHtml).join(` <span class="verdict-dot">·</span> `);
 }
 
+function renderArchivedTradePrices(summary) {
+  const side = (rows) => rows.map((piece) =>
+    `${escapeHtml(piece.name)} (${piece.unpriced ? "unavailable" : formatNumber(piece.value)})`
+  ).join(", ");
+  const units = summary.sourceValueScale === 10000 ? "<p>These figures show the original archived prices divided by 100.</p>" : "";
+  const rules = summary.packageRuleNote ? `<p>${escapeHtml(summary.packageRuleNote)}</p>` : "";
+  return `<details class="calc-method"><summary>Prices when shared</summary><p>Team 1 received ${side(summary.get)}.</p><p>Team 2 received ${side(summary.give)}.</p>${units}${rules}</details>`;
+}
+
 // Shared link: the verdict line. When prices moved since it was shared, a
 // compact two-row compare (sharer's date, then today in bold) and one line.
 function renderSharedVerdictHead(shared) {
   if (!shared.shared) {
     const note = shared.legacy ? LEGACY_FORMAT_NOTE : shared.missing ? missingBoardNote(shared.date) : "";
-    return `<h3>${verdictLineHtml(shared.today.label)}</h3>${note ? `<p class="calc-shared-note">${escapeHtml(note)}</p>` : ""}`;
+    // The scale right above already says this line; show it once (sr-only keeps the heading).
+    return `<h3 class="sr-only">${verdictLineHtml(shared.today.label)}</h3>${note ? `<p class="calc-shared-note">${escapeHtml(note)}</p>` : ""}`;
   }
   return `
-    <h3 class="sr-only">Shared on ${escapeHtml(shared.date)}: ${escapeHtml(shared.shared.label)}. Today: ${escapeHtml(shared.today.label)}.</h3>
+    <h3 class="sr-only">Archived verdict for ${escapeHtml(shared.date)}: ${escapeHtml(shared.shared.label)}. Today: ${escapeHtml(shared.today.label)}.</h3>
     <dl class="calc-shared">
       <div><dt>${escapeHtml(shared.date)}</dt><dd>${verdictLineHtml(shared.shared.label)}</dd></div>
       <div class="is-today"><dt>Today</dt><dd><strong>${verdictLineHtml(shared.today.label)}</strong></dd></div>
     </dl>
-    <p class="calc-shared-note">Prices moved since this was shared.</p>
+    <p class="calc-shared-note">The archived verdict uses that board’s prices and package rules.</p>
+    ${renderArchivedTradePrices(shared.shared)}
   `;
 }
 
@@ -6274,6 +6432,42 @@ function showShareToast(text) {
 }
 
 // A double click shares once.
+// Player page: the native share sheet on phones, else copy the link, else
+// show it to copy by hand. The address is the page's own /player/<id>/<slug>,
+// without ?league= (that is the sharer's league, not the player's).
+let playerShareTimer = 0;
+async function sharePlayerPage(button) {
+  const status = button?.closest(".player-detail-actions")?.querySelector(".player-share-status");
+  const say = (text, keep = false) => {
+    if (!status) return;
+    status.textContent = text;
+    clearTimeout(playerShareTimer);
+    if (text && !keep) playerShareTimer = setTimeout(() => { if (status.isConnected && status.textContent === text) status.textContent = ""; }, SHARE_STATUS_MS);
+  };
+  const url = new URL(window.location.pathname, window.location.origin).href;
+  const name = button?.dataset.name || "This player";
+  const text = button?.dataset.value ? `${name}: ${button.dataset.value}/100 dynasty value (12-team Superflex PPR) on Dynasty Ticker.` : `${name} on Dynasty Ticker.`;
+  if (typeof navigator.share === "function") {
+    try {
+      await navigator.share({ title: `${name} · Dynasty Ticker`, text, url });
+      say("Shared.");
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        say("");
+        return;
+      }
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    say("Link copied.");
+    showShareToast("Link copied");
+  } catch {
+    say(`Copy this link: ${url}`, true);
+  }
+}
+
 async function shareDraftTrade(button) {
   if (shareInFlight) return;
   shareInFlight = true;
@@ -6611,12 +6805,32 @@ function handleWorkspacePointerDown(event) {
   pickDraftSuggestion(calcSuggestionItem(event));
 }
 
+// After a keyboard press re-renders the button away, move focus to what
+// replaced it once it is on screen (renders can be queued). Gives up after
+// ~1.5s, and never steals focus the user has already moved.
+function focusWhenShown(selector, { heading = false } = {}) {
+  const started = Date.now();
+  const tick = () => {
+    const active = document.activeElement;
+    if (active && active !== document.body && document.contains(active)) return;
+    const node = [].concat(selector).map((one) => document.querySelector(one)).find((hit) => hit && hit.getClientRects().length);
+    if (node) {
+      if (heading && /^H\d$/.test(node.tagName) && node.getAttribute("tabindex") == null) node.setAttribute("tabindex", "-1");
+      node.focus({ preventScroll: true });
+      return;
+    }
+    if (Date.now() - started < 1500) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
 function handleWorkspaceClick(event) {
   const target = event.target.closest("[data-action]");
   const inWorkspace = Boolean(target && el.workspace?.contains(target));
   if (!target || !inWorkspace) return;
   if (target.dataset.action === "league-home") return;
   const action = target.dataset.action;
+  calcKeyboardClick = event.detail === 0;
   switch (action) {
     case "smart-focus": {
       smartTradeSide = target.dataset.side === "left" ? "left" : "right";
@@ -6713,10 +6927,19 @@ function handleWorkspaceClick(event) {
       renderRankSurfaces();
       updateUrlState({ mode: "replace" });
       break;
-    case "ranks-more":
-      state.ranks.shown = (Number(state.ranks.shown) || RANK_PAGE_SIZE) + RANK_PAGE_SIZE;
+    case "ranks-more": {
+      const before = Number(state.ranks.shown) || RANK_PAGE_SIZE;
+      const keyboard = event.detail === 0;
+      state.ranks.shown = before + RANK_PAGE_SIZE;
       renderRankSurfaces();
+      // The button re-renders (or goes away at the end of the list), and focus
+      // fell to <body>. Keyboard users continue at the first new row.
+      if (keyboard) {
+        const names = document.querySelectorAll("#ranks-section .rankings-table tbody .rank-name-link");
+        (names[before] || document.querySelector('#ranks-section [data-action="ranks-more"]'))?.focus({ preventScroll: false });
+      }
       break;
+    }
     case "rank-calc":
       // Save the player page / rankings as its own history entry first, so
       // Back from the trade returns to it instead of skipping it.
@@ -6726,8 +6949,14 @@ function handleWorkspaceClick(event) {
       syncPlayerPageFlag();
       addDraftFromPlayers(target.dataset.assetId, target.dataset.name, target.dataset.kind);
       draftPushNext = false;
+      // The player page is gone; land on the calculator's heading, not <body>.
+      if (event.detail === 0) focusWhenShown("#calculator-section .calc-heading h2", { heading: true });
       break;
     case "open-player": {
+      // A real link (Most traded players) still opens a new tab on a
+      // modified click; a plain click stays in the app and keeps the league.
+      if (target.tagName === "A" && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button)) break;
+      event.preventDefault();
       openPlayerPage(target.dataset.assetId);
       break;
     }
@@ -6735,6 +6964,8 @@ function handleWorkspaceClick(event) {
       if (state.activePage === "league" && getRoom("league") === "history") {
         showLineupAwards = true;
         requestActivePageRender();
+        // The button is replaced by the results: read them next.
+        if (event.detail === 0) focusWhenShown('[data-lineup-award="best"]', { heading: true });
       }
       break;
     }
@@ -6751,15 +6982,18 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "lens-me": {
+      const keyboard = event.detail === 0;
       setLensRoster(state.meRosterId);
       renderActivePage();
       updateUrlState({ mode: "replace" });
+      // "Back to my team" is gone once you're back: keep focus on the team picker.
+      if (keyboard) focusWhenShown(['[data-change="lens-roster"]', "#league-team-heading"], { heading: true });
       break;
     }
     case "set-lens-teams": {
       setLensRoster(target.dataset.rosterId);
       openRoom("league", "team");
-      el.powerSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.powerSection?.scrollIntoView({ behavior: smoothScroll(), block: "start" });
       break;
     }
     case "retry-values": {
@@ -6792,12 +7026,25 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "value-remove": {
-      setDraft(removeValueCalcItem(state.valueCalc, target.dataset.side, target.dataset.uid));
+      const side = target.dataset.side;
+      const removeButtons = [...(el.calculatorShell?.querySelectorAll(`[data-action="value-remove"][data-side="${side}"]`) || [])];
+      const index = removeButtons.indexOf(target);
+      const removedName = String(target.getAttribute("aria-label") || "").replace(/^Remove\s+/, "").trim();
+      setDraft(removeValueCalcItem(state.valueCalc, side, target.dataset.uid));
       patchTradeDraft(["left", "right"]);
+      announceDraftEdit(removedName ? `Removed ${removedName}.` : "Removed.");
+      // The row (and its × button) is gone: land on the row that took its
+      // place, else the one above, else that side's search box.
+      const left = [...(el.calculatorShell?.querySelectorAll(`[data-action="value-remove"][data-side="${side}"]`) || [])];
+      refocusCalc(left[index] || left[index - 1] || el.calculatorShell?.querySelector(`[data-action="smart-focus"][data-side="${side}"]`), FIRST_CALC_SEARCH);
       break;
     }
     case "trade-share": {
       void shareDraftTrade(target);
+      break;
+    }
+    case "player-share": {
+      void sharePlayerPage(target);
       break;
     }
     case "verdict-info": {
@@ -6805,11 +7052,18 @@ function handleWorkspaceClick(event) {
       break;
     }
     case "shared-edit": {
-      // Inputs stay hidden on a cold /t until the recipient asks to edit.
-      state.sharedEditing = true;
-      if (el.calculatorShell) el.calculatorShell.dataset.sharedEditing = "1";
-      target.closest(".shared-trade-cta")?.remove();
-      el.calculatorShell?.querySelector("[data-draft-side='left'] [data-input='value-search']")?.focus({ preventScroll: true });
+      // Open the same pieces in the full calculator (search, talk box, + Add,
+      // Swap, Clear). The shared view had no search box, so "editing" there
+      // could only remove pieces and + Add focused nothing. The share is
+      // dropped first so the URL becomes /trade?give=…&get=… and Back
+      // returns to the /t link.
+      state.sharedTrade = null;
+      state.sentShare = null;
+      state.sharedEditing = false;
+      writeStoredDraft(state.valueCalc);
+      renderTradeDraft();
+      updateUrlState({ mode: "push", force: true });
+      document.getElementById("trade-talk-input")?.focus({ preventScroll: true });
       break;
     }
     case "shared-check-own": {
@@ -6831,11 +7085,16 @@ function handleWorkspaceClick(event) {
       replaceDraft(clearValueCalcSides(state.valueCalc), "Cleared both sides.");
       patchTradeDraft(["left", "right"]);
       el.calculatorShell?.querySelectorAll("[data-input='value-search']").forEach((input) => clearCalcSearchBox(input));
+      announceDraftEdit("Cleared both sides. Restore draft brings it back.");
+      // The button is gone with the trade. Restore draft is the likely next key.
+      refocusCalc(el.calculatorShell?.querySelector('[data-action="draft-restore"]'), FIRST_CALC_SEARCH);
       break;
     }
     case "draft-swap": {
       setDraft(swapValueCalcSides(state.valueCalc));
       renderTradeDraft();
+      announceDraftEdit("Swapped sides.");
+      refocusCalc(el.calculatorShell?.querySelector('[data-action="draft-swap"]'), FIRST_CALC_SEARCH);
       break;
     }
     case "draft-restore": {
@@ -6844,12 +7103,15 @@ function handleWorkspaceClick(event) {
       setDraftReplaced(isDraftEmpty(state.valueCalc) ? null : { draft: state.valueCalc, note: "Switched drafts." });
       setDraft(previous, { keepNotice: true });
       renderTradeDraft();
+      announceDraftEdit("Restored your draft.");
+      refocusCalc(null, FIRST_CALC_SEARCH);
       break;
     }
     case "draft-dismiss": {
       setDraftReplaced(null);
       const notice = el.calculatorShell?.querySelector("#draft-notice");
       if (notice) notice.innerHTML = "";
+      refocusCalc(null, FIRST_CALC_SEARCH);
       break;
     }
     case "draft-connect": {
@@ -6976,7 +7238,7 @@ function buildSeasonSnapshot(entry, tradeBucket = null) {
     parityScore,
     tradeCount: tradeBucket?.tradeCount || 0,
     movedAssetCount: tradeBucket?.movedAssetCount || 0,
-    movedValue: Math.round(tradeBucket?.movedValue || 0),
+    movedValue: roundPrice(tradeBucket?.movedValue || 0),
     tradedPickCount: Array.isArray(entry.tradedPicks) ? entry.tradedPicks.length : 0,
     playoffTeams: Number(entry.league?.settings?.playoff_teams || 0),
     rosterCount: standings.length,
@@ -7256,9 +7518,9 @@ function summarizeRosterAssets(roster, values) {
     .filter((entry) => Number.isFinite(entry.value))
     .sort(compareOwnedPickValue);
   const topWeightedAgeEntries = playerEntries.slice(0, 12).filter((entry) => Number.isFinite(playerAgeForAsset(entry.asset)));
-  const totalAgeWeight = topWeightedAgeEntries.reduce((sum, entry) => sum + Math.max(1, entry.value), 0);
+  const totalAgeWeight = topWeightedAgeEntries.reduce((sum, entry) => sum + Math.max(0.01, entry.value), 0);
   const averageAge = totalAgeWeight > 0
-    ? topWeightedAgeEntries.reduce((sum, entry) => sum + playerAgeForAsset(entry.asset) * Math.max(1, entry.value), 0) / totalAgeWeight
+    ? topWeightedAgeEntries.reduce((sum, entry) => sum + playerAgeForAsset(entry.asset) * Math.max(0.01, entry.value), 0) / totalAgeWeight
     : null;
   const teamStack = buildTopTeamStack(playerEntries);
 
@@ -7871,7 +8133,7 @@ function calculateTradeXp({ beforeProfile, afterProfile, delta }) {
   const rankGain = Math.max(0, beforeProfile.rank - afterProfile.rank);
   const starterGain = Math.max(0, afterProfile.metrics.starterValue - beforeProfile.metrics.starterValue);
   const base = delta > 0 ? 120 : 45;
-  return Math.round(base + Math.max(0, delta) * 95 + rankGain * 160 + Math.min(900, starterGain * 0.18));
+  return Math.round(base + Math.max(0, delta) * 95 + rankGain * 160 + Math.min(900, starterGain * 18));
 }
 
 function buildTradePowerBadges({ beforeProfile, afterProfile, delta, myAssets, theirAssets }) {
@@ -7879,8 +8141,8 @@ function buildTradePowerBadges({ beforeProfile, afterProfile, delta, myAssets, t
   if (delta >= 5) badges.push("Major Power-Up");
   if (delta > 0 && delta < 5) badges.push("Roster Buff");
   if (afterProfile.rank < beforeProfile.rank) badges.push(`Rank +${beforeProfile.rank - afterProfile.rank}`);
-  if (afterProfile.metrics.starterValue > beforeProfile.metrics.starterValue + 300) badges.push("Lineup Boost");
-  if (afterProfile.assetSummary.pickValue > beforeProfile.assetSummary.pickValue + 800) badges.push("Draft picks up");
+  if (afterProfile.metrics.starterValue > beforeProfile.metrics.starterValue + 3) badges.push("Lineup Boost");
+  if (afterProfile.assetSummary.pickValue > beforeProfile.assetSummary.pickValue + 8) badges.push("Draft picks up");
   if (theirAssets.length < myAssets.length) badges.push("Consolidation");
   if (theirAssets.length > myAssets.length) badges.push("Depth Gain");
   if (afterProfile.weakestPosition?.position !== beforeProfile.weakestPosition?.position) badges.push("Hole Patched");
@@ -7904,7 +8166,7 @@ function buildTradePowerSummary({ beforeProfile, afterProfile, delta }) {
     parts.push(`lineup rank stays ${ordinal(afterProfile.rank)}`);
   }
 
-  const starterDelta = afterProfile.metrics.starterValue - beforeProfile.metrics.starterValue;
+  const starterDelta = roundPrice(afterProfile.metrics.starterValue - beforeProfile.metrics.starterValue);
   if (starterDelta !== 0) {
     parts.push(`starters ${starterDelta > 0 ? "gain" : "lose"} ${formatNumber(Math.abs(starterDelta))}`);
   }
@@ -7913,9 +8175,9 @@ function buildTradePowerSummary({ beforeProfile, afterProfile, delta }) {
 }
 
 function buildTradeImpactSide({ title, managerName, beforeMetrics, afterMetrics, beforeRank, afterRank, totalTeams }) {
-  const starterDelta = afterMetrics.starterValue - beforeMetrics.starterValue;
-  const benchDelta = afterMetrics.benchValue - beforeMetrics.benchValue;
-  const totalDelta = afterMetrics.totalValue - beforeMetrics.totalValue;
+  const starterDelta = roundPrice(afterMetrics.starterValue - beforeMetrics.starterValue);
+  const benchDelta = roundPrice(afterMetrics.benchValue - beforeMetrics.benchValue);
+  const totalDelta = roundPrice(afterMetrics.totalValue - beforeMetrics.totalValue);
   const verdict = classifyTradeImpact({ starterDelta, beforeRank, afterRank, totalDelta });
 
   return {
@@ -7945,16 +8207,16 @@ function formatStarterRank(rank, totalTeams) {
 }
 
 function classifyTradeImpact({ starterDelta, beforeRank, afterRank, totalDelta }) {
-  if (afterRank < beforeRank || starterDelta >= 350) {
+  if (afterRank < beforeRank || starterDelta >= 3.5) {
     return { label: "Stronger starting lineup", className: "good" };
   }
-  if (afterRank > beforeRank || starterDelta <= -350) {
+  if (afterRank > beforeRank || starterDelta <= -3.5) {
     return { label: "Weaker starting lineup", className: "bad" };
   }
-  if (totalDelta >= 350) {
+  if (totalDelta >= 3.5) {
     return { label: "More total value", className: "good" };
   }
-  if (totalDelta <= -350) {
+  if (totalDelta <= -3.5) {
     return { label: "Paying a premium", className: "bad" };
   }
   return { label: "Mostly neutral", className: "" };
@@ -8020,7 +8282,7 @@ function evaluateRosterStrength(roster, values, league) {
     starterValue: lineupResult.starterValue,
     benchValue: lineupResult.benchValue,
     benchHighlights: lineupResult.benchAssets.slice(0, 5),
-    totalValue: Math.round(roster.assets.reduce((sum, asset) => sum + getAssetValue(asset, values), 0)),
+    totalValue: roundPrice(roster.assets.reduce((sum, asset) => sum + getAssetValue(asset, values), 0)),
   };
 }
 
@@ -8079,9 +8341,9 @@ function buildOptimalStartingLineup(assets, starterSlots, values) {
 
   return {
     starters,
-    starterValue: Math.round(starters.reduce((sum, entry) => sum + (entry.asset ? getAssetValue(entry.asset, values) : 0), 0)),
+    starterValue: roundPrice(starters.reduce((sum, entry) => sum + (entry.asset ? getAssetValue(entry.asset, values) : 0), 0)),
     benchAssets,
-    benchValue: Math.round(benchAssets.reduce((sum, asset) => sum + getAssetValue(asset, values), 0)),
+    benchValue: roundPrice(benchAssets.reduce((sum, asset) => sum + getAssetValue(asset, values), 0)),
   };
 }
 
@@ -8316,11 +8578,11 @@ function renderPlayerValueMarks(asset, values = state.values, { soon = false, sp
   const value = getAssetValue(asset, values);
   const trend = playerValueTrend(state.valueHistory, asset.assetId, "sf");
   const trendHtml = trend ? renderValueTrend(trend, { spark }) : (soon ? renderTrendSoon() : "");
-  return `${renderValueTierBadge(value)}${trendHtml}`;
+  return `${renderValueTierBadge(tierForValue(value, values))}${trendHtml}`;
 }
 
 function renderPickVaultRow(asset, values) {
-  const hint = valuedAsMidFirstHint(asset, state.league?.season);
+  const hint = isEstimatedAsset(asset, values) ? "" : futureRoundPriceHint(asset, state.league?.season);
   const body = `
               <span class="sheet-slot">${escapeHtml(String(asset?.raw?.season || ""))}</span>
               <div class="sheet-player"><strong>${escapeHtml(asset?.name || "Pick")}</strong>${hint ? `<span class="pick-value-hint">${escapeHtml(hint)}</span>` : ""}</div>
@@ -8362,7 +8624,7 @@ function refreshPlayerPositionRanks() {
       || `${(player?.first_name || "").trim()} ${(player?.last_name || "").trim()}`.trim()
       || names[assetId]
       || assetId;
-    listed.push({ assetId, playerId, name, value });
+    listed.push({ assetId, playerId, name, value, position: state.valueBundles?.players?.[assetId]?.position });
   });
   const nextRankMap = {};
   buildPositionBoard(listed, nflPlayers).forEach((row) => {
@@ -8794,7 +9056,7 @@ function resolveAssignedDraftSlot(pick, currentDraftContext, finishInfo = null, 
 }
 
 function buildPickValueAssetId(pick, pickBucket = "any") {
-  const bucket = Number(pick?.round) === 1 ? normalizePickBucket(pickBucket) : "any";
+  const bucket = normalizePickBucket(pickBucket);
   return `pick:${pick.season}:r${pick.round}:${bucket}`;
 }
 
@@ -8931,6 +9193,8 @@ function showLeagueNotFound() {
 function openLandingFromMissingLeague() {
   // Keep the outage title on this history entry, then push / with the landing title.
   prepareDeskPush();
+  // The failed link's room does not carry over to the next league picked.
+  state.pendingPlace = null;
   hideSleeperUnreachable();
   hideLeagueNotFound();
   const landing = document.querySelector("#landing");
@@ -8985,6 +9249,10 @@ function showInvalidLeagueLink() {
 
 function showSleeperUnreachable() {
   sleeperUnreachable = true;
+  // Same as a missing league: the outage panel is the page. A league page left
+  // behind it reads "Loading your league…" after the load has already failed.
+  hideAppPages();
+  stopLeagueLoadingUi();
   const missing = document.getElementById("league-missing");
   if (missing) {
     missing.hidden = true;
@@ -9153,7 +9421,7 @@ function focusUsernameSearch() {
   if (state.activePage !== "leagues") navigateTool("/leagues");
   const target = el.sleeperUsername || el.leagueId;
   target?.focus();
-  target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  target?.scrollIntoView({ behavior: smoothScroll(), block: "center" });
 }
 
 // A cold /t/<code> arrives with a trade-specific <title> and meta from the
@@ -9169,6 +9437,8 @@ function serverShareMeta() {
 }
 
 function syncDocumentMeta() {
+  // A /t/ share page keeps the canonical its server page set.
+  if (!/^\/t\//.test(window.location.pathname)) applyCanonical(document, window.location.pathname);
   if (leagueMissing) {
     applyDocumentMeta(document, {
       title: "We couldn't find that league · Dynasty Ticker",
@@ -9180,6 +9450,14 @@ function syncDocumentMeta() {
     applyDocumentMeta(document, {
       title: "Couldn't reach Sleeper · Dynasty Ticker",
       description: "Sleeper didn't answer. Your league is safe, so try again in a moment.",
+    });
+    return;
+  }
+  // A /t/ link that doesn't decode: the page says so, and so does the tab.
+  if (state.badShareLink && /^\/t\//.test(window.location.pathname) && !state.leagueId) {
+    applyDocumentMeta(document, {
+      title: "Broken trade link · Dynasty Ticker",
+      description: "Part of this trade link is missing. Ask for a new link, or check the trade yourself.",
     });
     return;
   }
@@ -9196,6 +9474,17 @@ function syncDocumentMeta() {
     return;
   }
   const place = routePlaceNow();
+  // /player/<id> for an id we have no price for: say so, not "Trade Calculator".
+  const missingPlayer = Boolean(activePlayerRouteId()) && !place.playerName && cachedRankRows().length > 0;
+  applyNoIndex(document, missingPlayer);
+  if (missingPlayer) {
+    applyDocumentMeta(document, {
+      title: "Player not found · Dynasty Ticker",
+      description: "We have no dynasty value for this player right now. See every priced player in Player Rankings.",
+    });
+    if (el.routeTitle) el.routeTitle.textContent = "Player not found";
+    return;
+  }
   const routedTitle = routeDocumentTitle({
     playerName: place.playerName,
     tab: place.titleTab,
@@ -9205,7 +9494,7 @@ function syncDocumentMeta() {
   const room = state.leagueId ? getRoom() : "";
   // Players board and player pages live in the trades room but are not the calculator.
   const boardDescription = place.playerName
-    ? `${place.playerName}: dynasty value, rank and why, on 12-team Superflex PPR values.`
+    ? playerPageDescription(place.playerName)
     : place.playersBoard ? "Every player and pick, ranked by 12-team Superflex PPR dynasty value." : "";
   const description = boardDescription || buildPageDescription({
       page: state.leagueId ? state.activePage : (place.titleTab || ""),

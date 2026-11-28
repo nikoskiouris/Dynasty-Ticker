@@ -1,20 +1,17 @@
+import { roundPrice } from "./price-units.js";
 import { escapeHtml, formatNumber } from "./html.js";
 
-// Cuts from the 2026-11-12 Superflex board (docs/data/player_values.json, football-forecast-v2).
-// Priced players (value > 0): n=731. p25=42, p50=412, p75=1,773, p95=8,203. Max 18,052.
-// Players at or above 10,000: 20. At or above 3,500: 97, about 9 starters × 12 teams.
-// At or above 1,500: 199. At or above 600: 310.
-// The ruler is displayScale 20 in player-values/config.json. It is not a 0–10,000 index.
-// A new model version moves the whole board, so re-cut these when the model changes.
-export const DISPLAY_SCALE = 20;
-export const VALUE_TIERS = Object.freeze([
-  { id: "elite", label: "Elite", min: 10000, blurb: "Top ~25 players" },
-  { id: "starter", label: "Starter", min: 3500, blurb: "Weekly starter" },
-  { id: "solid", label: "Solid", min: 1500, blurb: "Startable some weeks" },
-  { id: "depth", label: "Depth", min: 600, blurb: "Bye-week or injury fill-in." },
-  { id: "deep", label: "Deep stash", min: 1, blurb: "Roster filler" },
-]);
+export const DYNASTY_SCORE_GUIDE = "Scores of 90 and above mark elite dynasty assets. Players in the high 80s are strong building blocks.";
 
+// Player-price tiers follow the current published board as its scale changes.
+const VALUE_TIERS = Object.freeze([
+  { label: "Top 24 players", rank: 24 },
+  { label: "Top 96 players", rank: 96 },
+  { label: "Top 192 players", rank: 192 },
+  { label: "Top 300 players", rank: 300 },
+  { label: "Deep stash", rank: Infinity },
+]);
+const tierBoards = new WeakMap();
 
 export const TREND_WINDOW_DAYS = 30;
 export const STALE_AFTER_DAYS = 7;
@@ -36,19 +33,23 @@ const MONTHS = Object.freeze(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-export function tierForValue(value) {
-  const price = Number(value);
-  if (!Number.isFinite(price) || price <= 0) return null;
-  for (const tier of VALUE_TIERS) {
-    if (price >= tier.min) return tier;
+export function tierForValue(value, values) {
+  if (!(value > 0) || !values) return null;
+  let prices = tierBoards.get(values);
+  if (!prices) {
+    prices = Object.entries(values)
+      .filter(([id, price]) => id.startsWith("player:") && Number.isFinite(price) && price > 0)
+      .map(([, price]) => price)
+      .sort((a, b) => b - a);
+    tierBoards.set(values, prices);
   }
-  return null;
+  if (!prices.length) return null;
+  return VALUE_TIERS.find(tier => value >= prices[Math.min(tier.rank, prices.length) - 1]);
 }
 
-export function renderValueTierBadge(value) {
-  const tier = tierForValue(value);
+export function renderValueTierBadge(tier) {
   if (!tier) return "";
-  return `<span class="value-tier"><span aria-hidden="true">${escapeHtml(tier.label)}</span><span class="sr-only">Value tier: ${escapeHtml(tier.label)}</span></span>`;
+  return `<span class="value-tier"><span aria-hidden="true">${escapeHtml(tier.label)}</span><span class="sr-only">Dynasty player value tier: ${escapeHtml(tier.label)}</span></span>`;
 }
 
 function utcDay(value) {
@@ -203,7 +204,7 @@ export function valueChange(playerId, { days = 30, format = "sf", history = null
   const to = closestOnOrBefore(points, today);
   const from = closestOnOrBefore(points, shiftIsoDate(today, -span));
   if (!from || !to || from.date === to.date) return null;
-  const delta = to.value - from.value;
+  const delta = roundPrice(to.value - from.value);
   return {
     from: from.value,
     to: to.value,
@@ -259,13 +260,13 @@ export function valueTrend(points, { now = new Date(), windowDays = TREND_WINDOW
     .sort((a, b) => a.day - b.day || a.value - b.value);
   // A leading 0 means the model had no price for him yet (a rookie before
   // rookie pricing was fixed), not that he was worth nothing. Start the trend at
-  // his first real price so a new price never reads as "up 6,365".
+  // his first observed positive value.
   const firstPriced = series.findIndex((point) => point.value > 0);
   if (firstPriced > 0) series.splice(0, firstPriced);
   if (series.length < 2) return null;
   const first = series[0];
   const last = series[series.length - 1];
-  const delta = last.value - first.value;
+  const delta = roundPrice(last.value - first.value);
   return {
     delta,
     direction: delta > 0 ? "up" : delta < 0 ? "down" : "flat",
@@ -327,14 +328,19 @@ export function renderValueSparkline(series) {
   return `<svg class="value-spark" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true"><polyline points="${points}" /></svg>`;
 }
 
-export function renderValueTrend(trend, { spark = false, now = new Date() } = {}) {
+// showWindow puts the window on screen ("↑6.77 since Oct 28", "No change since
+// Nov 19"); a bare "→0" does not say over what time, so a reader cannot tell
+// flat-for-a-month from two days of history.
+export function renderValueTrend(trend, { spark = false, showWindow = false, now = new Date() } = {}) {
   if (!trend) return "";
   const arrow = trend.direction === "up" ? "↑" : trend.direction === "down" ? "↓" : "→";
   const word = trend.direction === "up" ? "up" : trend.direction === "down" ? "down" : "flat";
   const amount = formatNumber(Math.abs(trend.delta));
   const since = formatSince(trend.fromDate || trend.series?.[0]?.date, now);
   const windowText = since || "across saved snapshots";
-  const visual = `${arrow}${amount}`;
+  const visual = showWindow
+    ? (trend.direction === "flat" ? `No change ${windowText}` : `${arrow}${amount} ${windowText}`)
+    : `${arrow}${amount}`;
   return `<span class="value-trend ${trend.direction}" title="Change ${escapeHtml(windowText)}">${spark ? renderValueSparkline(trend.series) : ""}<span aria-hidden="true">${escapeHtml(visual)}</span><span class="sr-only">${escapeHtml(`${word} ${amount} ${windowText}`)}</span></span>`;
 }
 

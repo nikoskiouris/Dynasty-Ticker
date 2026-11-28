@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Publish this checkout to dynastyticker.com via Netlify CLI.
-# Runs the scrape on GitHub Actions, then uploads docs/ + functions.
+# Ships the tagged board when fresh, then uploads docs/ + functions.
 # Git-connected Netlify builds stay stopped; this is a file upload, not a git job.
 set -euo pipefail
 
@@ -32,12 +32,21 @@ python3 scripts/ensure_netlify_salts.py
 
 bash scripts/netlify_stop_git_builds.sh
 
-if [[ "${SKIP_MARKET_REFRESH:-}" != "1" ]]; then
-  bash scripts/refresh_market_data.sh
-fi
-
-# npm test only warns when the snapshot is old. A live publish must not ship it.
+# A manual market refresh explicitly requests a rebuild. On a normal release,
+# keep the reviewed board unless a fresh source snapshot is needed.
+case "${SKIP_MARKET_REFRESH:-auto}" in
+  auto)
+    if ! python3 scripts/check_market_files.py --fail-on-age; then
+      bash scripts/refresh_market_data.sh
+    fi
+    ;;
+  0) bash scripts/refresh_market_data.sh ;;
+  1) ;;
+  *) echo "SKIP_MARKET_REFRESH must be auto, 0, or 1." >&2; exit 1 ;;
+esac
 python3 scripts/check_market_files.py --fail-on-age
+python3 scripts/archive_price_snapshot.py
+node scripts/publish_market_blobs.mjs --check-only
 
 message="${DEPLOY_MESSAGE:-Dynasty Ticker live deploy}"
 
@@ -50,6 +59,10 @@ npm install --prefix "$bundle_tools" --no-save --no-audit --no-fund --silent \
   @netlify/config@25.2.6 @netlify/zip-it-and-ship-it@16.3.0 @netlify/edge-bundler@16.1.3
 cp scripts/verify_deploy_bundle.mjs "$bundle_tools/"
 node "$bundle_tools/verify_deploy_bundle.mjs" "$root"
+
+# Keep the exact board behind share links after this bundle is replaced.
+# This immutable write leaves the existing live board and history index alone.
+node scripts/publish_market_blobs.mjs --archive-only
 
 # NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID stay in the environment.
 # The CLI reads both. Do not put the token on the command line.
@@ -66,6 +79,16 @@ npx --yes "netlify-cli@${NETLIFY_CLI_VERSION}" deploy \
 # wasm did not ship, the .png URL returns 503 and link previews would break.
 # Read-only GETs against the live site; retries cover CDN propagation.
 check_origin="${DEPLOY_CHECK_ORIGIN:-https://dynastyticker.com}"
+for attempt in 1 2 3 4 5 6; do
+  if node scripts/publish_market_blobs.mjs --check-live "$check_origin"; then
+    break
+  fi
+  if [[ "$attempt" == 6 ]]; then
+    echo "Live price board or its dated archive failed verification." >&2
+    exit 1
+  fi
+  sleep 10
+done
 check_code="${DEPLOY_CHECK_CARD_CODE:-1s9221~p27r1e.p28r1a}"
 card_url="${check_origin}/og/t/${check_code}.png?deploycheck=$(date +%s)"
 card_ok=0

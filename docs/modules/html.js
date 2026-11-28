@@ -9,10 +9,12 @@ export function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+
 export function formatNumber(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return "—";
-  return numeric.toLocaleString();
+  return numberFormat.format(Math.abs(numeric) < 0.005 ? 0 : numeric);
 }
 
 export function playersAndPicksLabel(count) {
@@ -63,7 +65,7 @@ export function renderTradeAssetLabel(item, formatValue = formatNumber, options 
   if (item?.draftedPlayerName) {
     const pickLabel = escapeHtml(item.pickLabel || item.name || "Pick");
     const extraValue = Number(item.draftedPlayerValue) > 0
-      ? `, ${formatValue(Math.round(item.draftedPlayerValue))}`
+      ? `, ${formatValue(item.draftedPlayerValue)}`
       : "";
     const face = renderPlayerFace(item.draftedPlayerId, item.draftedPlayerName, { size: faceSize });
     return `${pickLabel} <span class="pick-selection">(${face}${escapeHtml(item.draftedPlayerName)}${extraValue})</span>`;

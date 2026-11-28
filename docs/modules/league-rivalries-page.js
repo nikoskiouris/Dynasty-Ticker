@@ -33,11 +33,13 @@ export function renderRivalries(archive) {
         <tbody>${cells}</tbody></table></div>
   </section>
   <section class="workspace-panel"><h2>Rivalries</h2>
+    ${top.mostPlayed || top.lopsided || top.playoff ? "" : '<p class="muted">No pairing has met more than once yet.</p>'}
     <dl class="league-history-records">
-      ${highlight("Most played", top.mostPlayed, `${top.mostPlayed?.meetings || 0} meetings`)}
+      ${highlight("Most played", top.mostPlayed, `${top.mostPlayed?.meetings || 0} meetings`,
+        top.mostPlayed?.tiedWith ? `Tied with ${top.mostPlayed.tiedWith} other ${top.mostPlayed.tiedWith === 1 ? "pairing" : "pairings"}` : "")}
       ${highlight("Most one-sided", top.lopsided,
         `${lopsided || ""} won ${Math.max(top.lopsided?.firstWins || 0, top.lopsided?.secondWins || 0)} of ${top.lopsided?.meetings || 0}`,
-        "Minimum 3 recorded meetings")}
+        `Minimum 3 recorded meetings${top.lopsided?.tiedWith ? ` · tied with ${top.lopsided.tiedWith} other ${top.lopsided.tiedWith === 1 ? "pairing" : "pairings"}` : ""}`)}
       ${highlight("Most playoff meetings", top.playoff, `${top.playoff?.playoffGames || 0} playoff games`)}
     </dl>
   </section>`;

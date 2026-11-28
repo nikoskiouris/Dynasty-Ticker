@@ -47,6 +47,10 @@
   --green-soft: rgba(19, 121, 76, 0.12);
   --amber: #8f5f00;
   --amber-soft: rgba(143, 95, 0, 0.12);
+  /* Text on the -soft chip fills. --green and --amber read 3.9:1 and 4.0:1
+     there, under the 4.5:1 small text needs; these read 5.0 and 5.1. */
+  --green-ink: #0f6740;
+  --amber-ink: #7a5000;
   --red: #c0362c;
   --red-soft: rgba(192, 54, 44, 0.1);
   --teal: #9c3d50;
@@ -1308,7 +1312,7 @@ body:not(.league-loaded) .workspace-header {
 .mini-chip.green {
   border-color: transparent;
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-ink);
 }
 
 .mini-chip.rose {
@@ -1320,7 +1324,7 @@ body:not(.league-loaded) .workspace-header {
 .mini-chip.gold {
   border-color: transparent;
   background: var(--amber-soft);
-  color: var(--amber);
+  color: var(--amber-ink);
 }
 
 .seed-chip {
@@ -1328,7 +1332,7 @@ body:not(.league-loaded) .workspace-header {
   height: 1.35rem;
   padding: 0 0.35rem;
   background: var(--amber-soft);
-  color: var(--amber);
+  color: var(--amber-ink);
 }
 
 .rank-number {
@@ -1492,13 +1496,17 @@ body:not(.league-loaded) .workspace-header {
 
 .standings-team .team-identity {
   flex: 1 1 auto;
-  min-width: 0;
+  /* Keep a few letters of the name. Without this, the seed and "Clinched"
+     chips took the whole cell on a 360px phone and the name shrank to "S…". */
+  min-width: min(6.5rem, 45%);
 }
 
 .standings-badges {
   display: inline-flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
   gap: 0.25rem;
 }
 
@@ -3225,6 +3233,21 @@ a.inline-link:hover {
   .odds-meter.title {
     display: none;
   }
+
+  /* Playoffs under way: every playoff % is 100 or 0, and the heading says
+     "Title odds", so the one meter that fits shows the title chance. */
+  .odds-bracket .odds-head span:nth-child(2),
+  .odds-bracket .odds-meter:not(.title) {
+    display: none;
+  }
+
+  .odds-bracket .odds-head span:nth-child(3) {
+    display: block;
+  }
+
+  .odds-bracket .odds-meter.title {
+    display: grid;
+  }
 }
 
 @media (max-width: 620px) {
@@ -3613,6 +3636,8 @@ a.inline-link:hover {
   flex-wrap: wrap;
   gap: 0.55rem;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .room-toolbar .ghost-btn {
@@ -3638,9 +3663,20 @@ a.inline-link:hover {
   text-transform: uppercase;
 }
 
+.lens-picker {
+  /* A long manager name made the picker (and its grid cell) wider than a
+     phone, and the panel clipped it and the position-rank bars beside it. */
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .lens-picker select {
   width: auto;
-  min-width: 10rem;
+  min-width: min(10rem, 100%);
+  max-width: 100%;
+  flex: 1 1 auto;
+  text-overflow: ellipsis;
   min-height: 0;
   margin: 0;
   padding: 0.3rem 1.8rem 0.3rem 0.6rem;
@@ -3650,6 +3686,14 @@ a.inline-link:hover {
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
+}
+
+/* iOS Safari zooms the page into any form field under 16px when it gets
+   focus. The "Viewing" team picker was 13px on phones. */
+@media (max-width: 700px), (pointer: coarse) {
+  .lens-picker select {
+    font-size: 16px;
+  }
 }
 
 /* Cross-room pointers shown where a feature used to live. */
@@ -4334,6 +4378,7 @@ body:not(.league-loaded):has(#landing:not(.hidden)) #league-page {
 
 /* Cold /t: read-only until "Edit this trade". */
 [data-shared-view="1"]:not([data-shared-editing="1"]) .selected-token-remove,
+[data-shared-view="1"]:not([data-shared-editing="1"]) .draft-add-focus,
 [data-shared-view="1"]:not([data-shared-editing="1"]) .draft-partner-slot {
   display: none;
 }
@@ -4630,14 +4675,20 @@ h1,
     min-height: var(--input-h);
     padding-inline: 1.05rem;
     border-color: transparent;
-    background: var(--panel);
+    /* Color only: the shorthand wiped the select's chevron (background-image),
+       so on desktop a dropdown looked like a text box. */
+    background-color: var(--panel);
     box-shadow: var(--product-shadow);
+  }
+
+  select {
+    padding-right: 2.4rem;
   }
 
   .rail-module input,
   .rail-module select {
     box-shadow: none;
-    background: var(--rail-input);
+    background-color: var(--rail-input);
   }
 
   .ghost-btn,
@@ -6272,6 +6323,9 @@ body.launch-open .workspace { display:block; }
 .player-detail { max-width:1080px; margin:auto; min-width:0; }
 .player-detail-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:24px; }
 .player-return { margin-left:auto; }
+.player-detail-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.player-share-status { flex-basis:100%; margin:0; color:var(--muted); font-size:var(--fs-sm); overflow-wrap:anywhere; }
+.player-share-status:empty { display:none; }
 .player-detail-header { display:flex; align-items:center; gap:24px; margin-bottom:24px; }
 .player-detail-header > .player-face { width:100px; height:100px; flex-shrink:0; }
 .player-detail-header h1 { margin:0 0 8px; font-size:clamp(1.7rem,4vw,3rem); }
@@ -6284,42 +6338,7 @@ body.launch-open .workspace { display:block; }
 .player-detail-facts { display:grid; gap:12px; }
 .player-detail-facts > div { display:flex; justify-content:space-between; gap:12px; }
 .player-detail-facts dd { margin:0; font-weight:700; }
-.player-forecast { display:grid; gap:12px; }
-.player-price-parts { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0 8px; }
-.player-price-parts div { border:1px solid var(--line,#293441); border-radius:10px; padding:10px 12px; }
-.player-price-parts dt { font-size:.8rem; color:var(--muted,#a7b2c1); }
-.player-price-parts dd { margin:4px 0 0; font-size:1.25rem; font-weight:700; font-variant-numeric:tabular-nums; }
 .player-detail-grid h3 { font-size:1rem; margin:20px 0 4px; }
-.player-forecast-row { display:grid; grid-template-columns:92px 1fr 48px; gap:8px; align-items:center; font-variant-numeric:tabular-nums; }
-.player-forecast-row.is-partial .player-forecast-track > span { opacity:.45; }
-.forecast-mode { position:relative; }
-.forecast-mode > input { position:absolute; left:0; top:0; width:1px; height:1px; margin:0; opacity:0; pointer-events:none; }
-.forecast-mode > label { display:inline-block; padding:6px 12px; margin:4px 6px 8px 0; border:1px solid var(--line,#293441); border-radius:999px; font-size:.85rem; cursor:pointer; }
-.forecast-mode > input:checked + label { background:var(--ink,#111); color:var(--paper,#fff); border-color:var(--ink,#111); }
-.forecast-mode > input:focus-visible + label { outline:2px solid var(--accent,#55d7a5); outline-offset:2px; }
-.forecast-mode .bar-full, .forecast-mode .pts-full, .forecast-mode .forecast-note-full { display:none; }
-.forecast-mode .forecast-mode-full:checked ~ .player-forecast .bar-full,
-.forecast-mode .forecast-mode-full:checked ~ .player-forecast .pts-full,
-.forecast-mode .forecast-mode-full:checked ~ .forecast-note-full { display:inline; }
-.forecast-mode .forecast-mode-full:checked ~ .player-forecast .bar-full { display:block; }
-.forecast-mode .forecast-mode-full:checked ~ .player-forecast .bar-risk,
-.forecast-mode .forecast-mode-full:checked ~ .player-forecast .pts-risk,
-.forecast-mode .forecast-mode-full:checked ~ .forecast-note-risk { display:none; }
-.forecast-mode .forecast-note-full { display:none; }
-.forecast-mode .forecast-mode-full:checked ~ .forecast-note-full { display:block; }
-.player-forecast-row b { font-weight:inherit; }
-.player-forecast .player-forecast-track { position:relative; overflow:visible; }
-.player-forecast .player-forecast-track > span { border-radius:6px; }
-.forecast-line { position:absolute; top:-3px; bottom:-3px; width:2px; margin-left:-1px; background:var(--ink,#111); border-radius:1px; }
-.forecast-mode .line-full { display:none; }
-.forecast-mode .forecast-mode-full:checked ~ .player-forecast .line-full { display:block; }
-.forecast-mode .forecast-mode-full:checked ~ .player-forecast .line-risk { display:none; }
-.forecast-legend { display:flex; gap:8px; align-items:flex-start; }
-.forecast-legend-mark { flex:0 0 2px; width:2px; height:14px; margin-top:3px; background:var(--ink,#111); }
-.player-forecast-row small strong { font-weight:700; color:var(--ink,inherit); }
-.player-forecast-row small { grid-column:2/4; color:var(--muted,#a7b2c1); font-size:.7rem; }
-.player-forecast-track { height:12px; border-radius:6px; background:var(--line,#293441); overflow:hidden; }
-.player-forecast-track > span { display:block; height:100%; min-width:1px; background:var(--accent,#55d7a5); }
 .player-comparables { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:16px 0 24px; }
 .player-comparables button { display:flex; gap:10px; align-items:center; text-align:left; }
 .player-comparables small { display:block; margin-top:5px; color:var(--muted,#a7b2c1); }
@@ -6554,6 +6573,11 @@ main details > summary::before {
 }
 .rank-sort-btn { all: unset; cursor: pointer; font: inherit; color: inherit; white-space: nowrap; }
 .rank-sort-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+/* The header text is 12px tall ("Age" is 16px wide): too small to tap on a
+   phone. A transparent ::after grows the hit area to about 40x32 (the header row's height) without
+   moving the header. */
+.rank-sort-btn { position: relative; }
+.rank-sort-btn::after { content: ""; position: absolute; inset: -10px -12px; }
 
 /* "← League" back link on league rooms: a quiet outlined chip so it reads as
    a button without competing with the page heading. */

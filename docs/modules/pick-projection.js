@@ -65,9 +65,8 @@ export function nextDraftSeason(leagueSeason) {
 
 const GENERIC_PICK_TAIL = /^(any|early|mid|middle|late)$/i;
 
-// Named 2028+ 1sts share one price: the mid 1st. Generic catalog rows
-// already say Early, Mid, or Late in the name.
-export function valuedAsMidFirstHint(asset, leagueSeason) {
+// Later drafts have whole-round market quotes.
+export function futureRoundPriceHint(asset, leagueSeason) {
   if (!asset || asset.assetType !== "pick") return "";
   const season = Number(asset.raw?.season ?? asset.season);
   const round = Number(asset.raw?.round ?? asset.round);
@@ -80,11 +79,10 @@ export function valuedAsMidFirstHint(asset, leagueSeason) {
   const named = (owner != null && String(owner) !== "" && String(owner) !== "any")
     || (tail && !GENERIC_PICK_TAIL.test(tail) && !/^r\d+$/i.test(tail));
   if (!named) return "";
-  return "valued as a mid 1st";
+  return "Uses the whole-round estimate";
 }
 
-// Next year keeps a slot and a finish. Later years are the mid 1st (or that
-// round's single price) with no slot and no finish claim. An assigned slot
+// Next year keeps a slot and a finish. Later years use a whole-round quote. An assigned slot
 // is a known pick, not a projection.
 export function resolvePickProjection({
   season,
@@ -96,7 +94,6 @@ export function resolvePickProjection({
 } = {}) {
   const year = Number(season);
   const nextYear = nextDraftSeason(leagueSeason);
-  const rnd = Number(round) || 1;
   const later = nextYear > 0 && Number.isFinite(year) && year > nextYear;
   if (later) {
     return {
@@ -104,7 +101,7 @@ export function resolvePickProjection({
       slot: null,
       rank: null,
       total: null,
-      valueBucket: rnd === 1 ? "mid" : "any",
+      valueBucket: "any",
       nameBucket: "any",
     };
   }
@@ -116,9 +113,7 @@ export function resolvePickProjection({
   const slot = hasAssigned
     ? knownSlot
     : (project ? projectedDraftSlot(place?.rank, teams) : null);
-  const valueBucket = rnd === 1
-    ? (slot ? bucketForProjectedSlot(slot, teams) : "any")
-    : "any";
+  const valueBucket = slot ? bucketForProjectedSlot(slot, teams) : "any";
   return {
     project,
     slot: slot || null,

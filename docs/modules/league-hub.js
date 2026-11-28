@@ -36,7 +36,7 @@ function renderTeamPick({ myTeam, myRosterId, teams }) {
   if (!teams.length) return myTeam ? `<p>Viewing as ${escapeHtml(myTeam)}</p>` : '';
   const chosen = myTeam ? String(myRosterId) : '';
   const options = [...teams]
-    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: "base" }))
     .map(team => `<option value="${escapeHtml(String(team.id))}"${String(team.id) === chosen ? ' selected' : ''}>${escapeHtml(team.name)}</option>`)
     .join('');
   return `<p class="league-hub-pick"><label for="hub-team-select">${myTeam ? 'Viewing as' : 'Which team is yours?'}</label> <select id="hub-team-select">${chosen ? '' : '<option value="" selected>Pick your team</option>'}${options}</select></p>`;
@@ -46,9 +46,13 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
   if (!league) return '<p role="status">Loading league…</p>';
   const id = encodeURIComponent(leagueId || league.league_id);
   const winner = recentChampion(seasons);
+  // A season that hasn't drafted (the offseason league) has no records yet,
+  // so "N seasons of records" below doesn't count it.
+  seasons = seasons.filter(row => !['pre_draft', 'drafting'].includes(String(row?.league?.status || '')));
   const recent = transactions.filter(row => row.type === 'trade' && row.status === 'complete' && Number(row.status_updated || row.created) >= Date.now() - 30 * 86400000).length;
   const mine = myRosterId ? model?.teams?.get?.(String(myRosterId)) : null;
-  const standingsTeaser = mine?.recordLabel && mine?.rank
+  // "You're 0-0, 3rd" before any game is final ranks nothing.
+  const standingsTeaser = mine?.recordLabel && mine?.rank && Number(model?.finalThroughWeek) > 0
     ? `You're ${mine.recordLabel}, ${ordinal(mine.rank)}${model?.finalThroughWeek ? ` through week ${model.finalThroughWeek}` : ''}`
     : model?.finalThroughWeek ? `Through week ${model.finalThroughWeek}` : 'Records, playoff odds and luck';
   const format = leagueFormat(league);
@@ -57,7 +61,7 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
   const links = [
     ['standings', 'Standings', standingsTeaser],
     ['team', 'My Team', myTeam || 'Pick your team above to see your roster'],
-    ['trades', 'Recent Trades', tradesLoaded ? `${recent} completed trades in the last 30 days` : 'Browse completed league trades'],
+    ['trades', 'Recent Trades', tradesLoaded ? `${recent} completed ${Number(recent) === 1 ? 'trade' : 'trades'} in the last 30 days` : 'Browse completed league trades'],
     ['history', 'Historical Data', loading ? 'Loading seasons…' : `${seasons.length} ${seasons.length === 1 ? "season" : "seasons"} of records`],
   ];
   return `<header class="league-hub-header">${league.avatar ? `<img width="64" height="64" alt="" src="https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(league.avatar)}">` : ''}<h2>${escapeHtml(league.name || 'Your league')}</h2><p>${escapeHtml(league.season)} · <span class="league-format-chip">${escapeHtml(format.chip)}</span></p><p class="muted small">${escapeHtml(valuesLine)}</p>${savedNote ? `<p class="league-saved-note" role="status">${escapeHtml(savedNote)}</p>` : ''}<a href="/leagues">Change league</a></header>

@@ -1,3 +1,4 @@
+import { roundPrice } from "./price-units.js";
 import { escapeHtml, formatNumber, ownerPossessive } from "./html.js";
 import { gradeTrade, tradeAssets } from "./trade-grade.js";
 import { tradeHref } from "./history-route.js";
@@ -18,6 +19,22 @@ const assetLabel = (asset, context) => asset.kind === "player"
   : asset.draftedPlayerId
     ? `${pickLabel(asset, context)} → ${playerLabel(asset.draftedPlayerId, context)} (drafted)`
     : pickLabel(asset, context);
+
+// Same text as assetLabel, with each player as a link to his player page.
+const playerButton = (playerId, context) => `<button type="button" class="link-btn player-link" data-action="open-player" data-asset-id="player:${escapeHtml(playerId)}">${escapeHtml(playerLabel(playerId, context))}</button>`;
+const assetHtml = (asset, context) => asset.kind === "player"
+  ? playerButton(asset.playerId, context)
+  : asset.draftedPlayerId
+    ? `${escapeHtml(pickLabel(asset, context))} → ${playerButton(asset.draftedPlayerId, context)} (drafted)`
+    : escapeHtml(pickLabel(asset, context));
+
+// The calculator's column total says "incl. +31.89 extra" when the fewer,
+// better pieces extra is counted; the grade uses the same total, so say so here
+// too. Otherwise "Received 253.83" does not add up from the pieces listed.
+function receivedExtra(side) {
+  const extra = roundPrice(Number(side?.valueReceived) - Number(side?.listedReceived));
+  return Number.isFinite(extra) && extra > 0 ? ` (incl. +${formatNumber(extra)} extra)` : "";
+}
 
 function rosterLabel(rosterId, entry) {
   const roster = (entry?.rosters || []).find((row) => text(row.roster_id) === text(rosterId));
@@ -57,7 +74,10 @@ export function renderTradeLogRows({
     return snapshot.assets.some((asset) => (want && foldSearch(assetLabel(asset, context)).includes(want))
       || asset.assetId.toLowerCase().includes(searchable));
   });
-  if (!rows.length) return `<p class="muted" role="status">${searchable || team ? "No trades match these filters." : "No completed trades yet this season."}</p>`;
+  // A finished season can't have trades "yet": say which season had none.
+  const finished = entry?.league?.status === "complete" && entry?.season;
+  const none = finished ? `No trades were made in the ${text(entry.season)} season.` : "No completed trades yet this season.";
+  if (!rows.length) return `<p class="muted" role="status">${searchable || team ? "No trades match these filters." : escapeHtml(none)}</p>`;
 
   return rows.map((trade) => {
     const graded = gradeTrade(trade, { values, valueNames, archive });
@@ -85,12 +105,12 @@ export function renderTradeLogRows({
       return give.length && get.length ? tradeHref(give, get, "") : "";
     })();
     const parties = sides.map((side) => {
-      const received = side.received.map((asset) => assetLabel(asset, context));
+      const received = side.received.map((asset) => assetHtml(asset, context));
       const isWinner = graded.available && graded.winnerRosterId === side.rosterId;
       return `<div class="trade-log-side">
         <h3>${escapeHtml(rosterLabel(side.rosterId, entry))}${isWinner ? ' <span class="mini-chip">Higher value</span>' : ""}</h3>
-        <p>${escapeHtml(received.join(", ") || "No player or pick received")}</p>
-        <p class="muted small">Received ${graded.available ? priceLabel(side.valueReceived) : "value unavailable"}
+        <p>${received.join(", ") || "No player or pick received"}</p>
+        <p class="muted small">Received ${graded.available ? `${priceLabel(side.valueReceived)}${receivedExtra(side)}` : "value unavailable"}
           · Sent ${graded.available ? priceLabel(side.valueSent) : "value unavailable"}
           · Trade grade: <strong>${graded.available ? escapeHtml(side.grade) : "Not graded"}</strong></p>
       </div>`;
@@ -113,7 +133,7 @@ export function renderTradeLog({ season = "", seasons = [], query = "", team = "
   const choices = seasons.map((item) => `<option value="${escapeHtml(item)}"${text(season) === text(item) ? " selected" : ""}>${escapeHtml(item)}</option>`).join("");
   const teams = (context.entry?.rosters || []).map((roster) => ({
     id: text(roster.roster_id), label: rosterLabel(roster.roster_id, context.entry),
-  })).sort((a, b) => a.label.localeCompare(b.label));
+  })).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" }));
   const teamOptions = teams.map((row) => `<option value="${escapeHtml(row.id)}"${row.id === team ? " selected" : ""}>${escapeHtml(row.label)}</option>`).join("");
   return `<p><a class="league-back" href="/l/${encodeURIComponent(context.archive?.leagueId || context.entry?.leagueId || "")}">← League</a></p>
     ${caveat ? `<p class="muted small calc-market-caveat">${escapeHtml(caveat)} Grades use those values.</p>` : ""}

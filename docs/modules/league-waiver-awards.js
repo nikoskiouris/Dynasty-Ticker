@@ -2,6 +2,9 @@ import { resolveRosterIdentity } from "./franchise.js";
 
 const id = (value) => String(value ?? "").trim();
 const round2 = (value) => Math.round(value * 100) / 100;
+// One hundred earned fantasy points contribute one point to the waiver score.
+const waiverScore = (startedPoints, currentValue) =>
+  (Math.round(startedPoints * 100) + Math.round(currentValue * 100) * 100) / 10000;
 const priceMap = (values) => values?.sf || values || {};
 const isPrice = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0;
 
@@ -131,7 +134,7 @@ function pickupScore(pickup, allStarts, owners, prices) {
   const currentValue = stillOwned ? prices[`player:${pickup.playerId}`] : 0;
   if (!isPrice(currentValue)) return null;
   return { ...pickup, startedPoints: round2(startedPoints),
-    currentRosterValue: currentValue, score: round2(startedPoints + currentValue),
+    currentRosterValue: currentValue, score: waiverScore(startedPoints, currentValue),
     starts, stillOwned };
 }
 
@@ -154,7 +157,7 @@ export function waiverAwards(archive = {}, { values = {}, minAdds = 5 } = {}) {
     pickups.push(pickup);
     if (!byManager.has(pickup.managerKey)) byManager.set(pickup.managerKey, {
       key: pickup.managerKey, name: pickup.managerName,
-      adds: 0, startedPoints: 0, currentRosterValue: 0, score: 0,
+      adds: 0, startedPoints: 0, currentRosterValue: 0,
       faabSpent: 0, faabKnownAdds: 0, faabStartedPoints: 0, bestPickup: null,
     });
     const row = byManager.get(pickup.managerKey);
@@ -162,7 +165,7 @@ export function waiverAwards(archive = {}, { values = {}, minAdds = 5 } = {}) {
     row.adds++;
     row.startedPoints += pickup.startedPoints;
     row.currentRosterValue += pickup.currentRosterValue;
-    row.score += pickup.score;
+
     if (pickup.faabBid != null) {
       row.faabSpent += pickup.faabBid;
       row.faabKnownAdds++;
@@ -171,7 +174,7 @@ export function waiverAwards(archive = {}, { values = {}, minAdds = 5 } = {}) {
     if (!row.bestPickup || pickup.score > row.bestPickup.score) row.bestPickup = pickup;
   }
   const standings = [...byManager.values()].map((row) => ({
-    ...row, eligible: row.adds >= minAdds, score: round2(row.score),
+    ...row, eligible: row.adds >= minAdds, score: waiverScore(row.startedPoints, row.currentRosterValue),
     startedPoints: round2(row.startedPoints),
     currentRosterValue: round2(row.currentRosterValue),
     faabSpent: round2(row.faabSpent),
@@ -186,6 +189,6 @@ export function waiverAwards(archive = {}, { values = {}, minAdds = 5 } = {}) {
     best: eligible[0] || null, worst: eligible.length > 1 ? eligible[eligible.length - 1] : null,
     standings, bestPickup, evaluatedAdds: pickups.length, unpricedAdds, undatedAdds,
     invalidWeeks, minAdds,
-    method: "Waiver score = points earned in the manager's starting lineup after each documented free-agent/waiver pickup (until a recorded drop or transfer), plus the player's current SF value only if still rostered by that manager. Minimum 5 priced adds. FAAB cost per started point uses only pickups made in FAAB seasons, over those pickups' own started points; missing acquisition dates or values exclude pickups.",
+    method: "Each 100 fantasy points earned in the manager's starting lineup after a documented pickup contribute 1 waiver score point. Starts count until a recorded drop or transfer. The player's current dynasty value adds to the score while that manager still owns him. Minimum 5 priced adds. FAAB cost per started point uses only pickups made in FAAB seasons, over those pickups' own started points; missing acquisition dates or values exclude pickups.",
   };
 }

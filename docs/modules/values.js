@@ -14,11 +14,47 @@ export function valuationUpdatedAt(bundle) {
   if (Number.isNaN(date.getTime())) return text;
   return date.toISOString().slice(0, 10);
 }
-export const PLAYER_VALUE_MODEL_VERSION = "forecast-consensus-blend-v1";
-// Archive rows saved before the index named the model that priced them.
-export const LEGACY_PRICE_MODEL_VERSION = "football-forecast-v1";
-// Same annual discount as player-values/config.json. A missing pick year uses this ruler.
-export const PICK_YEAR_DISCOUNT = 0.85;
+export const PLAYER_VALUE_MODEL_VERSION = "dynasty-sf-ppr-v5.1";
+
+export function isCurrentValueBoard(payload) {
+  return payload?.modelVersion === PLAYER_VALUE_MODEL_VERSION && payload.valueScale === 100;
+}
+
+// The archive predates explicit units. Unlabelled files and these known model
+// versions were written as integer hundredths of today's display unit.
+const archivedIntegerModels = new Set([
+  "football-forecast-v1", "football-forecast-v2", "forecast-consensus-blend-v1",
+  "sleeper-trades-v1", "sleeper-trades-v2", "sleeper-trades-v3", "sleeper-trades-v4",
+  "dynasty-sf-ppr-v1", "dynasty-sf-ppr-v2-preview", "dynasty-sf-ppr-v2",
+]);
+const archivedHundredPointModels = new Set(["dynasty-sf-ppr-v3", "dynasty-sf-ppr-v4", "dynasty-sf-ppr-v5"]);
+
+function priceScale(row) {
+  if (row?.modelVersion === PLAYER_VALUE_MODEL_VERSION || archivedHundredPointModels.has(row?.modelVersion)) {
+    return row.valueScale === 100 ? 100 : null;
+  }
+  if (row?.modelVersion && !archivedIntegerModels.has(row.modelVersion)) return null;
+  return row?.valueScale == null || row.valueScale === 10000 ? 10000 : null;
+}
+
+export function snapshotPrices(snapshot) {
+  if (!snapshot?.sf) return null;
+  const sourceScale = priceScale(snapshot);
+  if (!sourceScale) return null;
+  const { values, nameMap } = pickValueBundle(snapshot);
+  if (sourceScale === 100) return { values, nameMap, sourceScale };
+  return {
+    values: Object.fromEntries(Object.entries(values).filter(([, value]) => Number.isFinite(value))
+      .map(([id, value]) => [id, value / 100])),
+    nameMap, sourceScale,
+  };
+}
+
+// Trend and peak comparisons use the same valuation model at both endpoints.
+function comparableSnapshot(snapshot, row) {
+  if (!isCurrentValueBoard(snapshot) || !snapshot.sf || snapshot.asOf !== row.asOf) return null;
+  return { asOf: snapshot.asOf, stamp: row.stamp, sf: snapshot.sf };
+}
 
 // The NFL draft ends in late April. After that, this year's picks are players.
 export function upcomingDraftSeason(now = new Date()) {
@@ -131,7 +167,7 @@ export function playersFromValueSnapshot(playerMeta = {}, names = {}) {
     const age = Number(row.age);
     if (Number.isFinite(age) && age > 0) record.age = age;
     const years = Number(row.experience);
-    if (Number.isFinite(years) && years >= 0) record.years_exp = years;
+    if (row.experience != null && Number.isFinite(years) && years >= 0) record.years_exp = years;
     out[id] = record;
   });
   return out;
@@ -310,7 +346,7 @@ export function buildPickLookupMeta(asset) {
   if (assetMeta) {
     return {
       ...assetMeta,
-      bucket: assetMeta.round === 1 ? getAssetPickBucket(asset) : assetMeta.bucket,
+      bucket: assetMeta.bucket === "any" ? getAssetPickBucket(asset) : assetMeta.bucket,
     };
   }
   const season = asset?.raw?.season != null ? String(asset.raw.season) : "";
@@ -319,7 +355,7 @@ export function buildPickLookupMeta(asset) {
   return {
     season,
     round,
-    bucket: round === 1 ? getAssetPickBucket(asset) : "any",
+    bucket: getAssetPickBucket(asset),
   };
 }
 
@@ -334,22 +370,9 @@ export function buildPickValueLookupIds(asset) {
     ids.push(id);
   };
   if (asset.valueAssetId) push(asset.valueAssetId);
-  if (meta.round === 1) {
-    getPickBucketAliases(meta.bucket).forEach((bucket) => push(`pick:${meta.season}:r${meta.round}:${bucket}`));
-  }
+  getPickBucketAliases(meta.bucket).forEach((bucket) => push(`pick:${meta.season}:r${meta.round}:${bucket}`));
   push(`pick:${meta.season}:r${meta.round}:any`);
   return ids;
-}
-
-function adjustPickAcrossYears(value, sourceSeason, targetSeason) {
-  const source = Number(sourceSeason);
-  const target = Number(targetSeason);
-  if (!Number.isFinite(value) || !Number.isFinite(source) || !Number.isFinite(target)) return value;
-  const yearDelta = target - source;
-  // A later catalog row is not marked up onto an earlier year. Forward years use 0.85^n.
-  if (yearDelta <= 0) return Math.max(1, Math.round(value));
-  const factor = PICK_YEAR_DISCOUNT ** yearDelta;
-  return Math.max(1, Math.round(value * factor));
 }
 
 const pickCatalogs = new WeakMap();
@@ -375,9 +398,7 @@ export function findPickCatalogValue(meta, values, valueNameMap = NO_NAMES, cata
   const list = Array.isArray(catalog) && catalog.length > 0
     ? catalog
     : cachedPickCatalog(values, valueNameMap);
-  const desiredBuckets = meta.round === 1
-    ? [...getPickBucketAliases(meta.bucket), "any"]
-    : ["any"];
+  const desiredBuckets = [...getPickBucketAliases(meta.bucket), "any"];
   for (const bucket of desiredBuckets) {
     const exact = list.find((pick) =>
       pick.season === meta.season
@@ -386,18 +407,7 @@ export function findPickCatalogValue(meta, values, valueNameMap = NO_NAMES, cata
     );
     if (exact) return exact.value;
   }
-  const numericSeason = Number(meta.season);
-  if (!Number.isFinite(numericSeason)) return null;
-  const nearest = list
-    .filter((pick) => pick.round === meta.round && desiredBuckets.includes(pick.bucket))
-    .sort((a, b) => {
-      const distance = Math.abs(Number(a.season) - numericSeason) - Math.abs(Number(b.season) - numericSeason);
-      if (distance) return distance;
-      const bucketOrder = desiredBuckets.indexOf(a.bucket) - desiredBuckets.indexOf(b.bucket);
-      if (bucketOrder) return bucketOrder;
-      return Number(a.season) - Number(b.season);
-    })[0];
-  return nearest ? adjustPickAcrossYears(nearest.value, nearest.season, meta.season) : null;
+  return null;
 }
 
 export function resolvePickAssetValue(asset, values, valueNameMap = NO_NAMES, catalog = null) {
@@ -473,8 +483,10 @@ function assetSkipsOffensiveNameMatch(asset) {
 
 export function lookupMarketValue(asset, values, valueNameMap = NO_NAMES, catalog = null) {
   const exact = values?.[asset?.assetId];
-  if (Number.isFinite(exact)) return { value: exact, estimated: false };
-  if (!assetSkipsOffensiveNameMatch(asset)) {
+  if (Number.isFinite(exact)) return { value: exact, estimated: exact === 0 };
+  // A numeric Sleeper ID identifies one player, including an unpriced one.
+  // Names can collide across NFL positions and draft classes.
+  if (asset?.assetType !== "pick" && !/^player:\d+$/.test(asset?.assetId) && !assetSkipsOffensiveNameMatch(asset)) {
     const named = findMarketValueByPlayerName(playerNameForAsset(asset), values, valueNameMap);
     if (Number.isFinite(named)) return { value: named, estimated: false };
   }
@@ -499,7 +511,7 @@ export function isEstimatedAsset(asset, values, options = {}) {
 }
 
 export function getGlobalMaxPlayerValue(values, tradeMaxValue = 0) {
-  let maxValue = Math.max(1, Number.isFinite(tradeMaxValue) ? tradeMaxValue : 0);
+  let maxValue = Math.max(0.01, Number.isFinite(tradeMaxValue) ? tradeMaxValue : 0);
   for (const [assetId, value] of Object.entries(values || {})) {
     if (!String(assetId).startsWith("player:")) continue;
     if (Number.isFinite(value) && value > maxValue) maxValue = value;
@@ -542,7 +554,7 @@ async function loadValuationBundles(fetchImpl) {
   if (!payload || typeof payload !== "object") {
     throw new Error("Independent player values did not load.");
   }
-  if (payload.modelVersion !== PLAYER_VALUE_MODEL_VERSION) {
+  if (!isCurrentValueBoard(payload)) {
     throw new Error(`Unsupported player-value model: ${payload.modelVersion || "missing"}`);
   }
   const sf = coerceValueMap(payload.sf || {});
@@ -556,6 +568,7 @@ async function loadValuationBundles(fetchImpl) {
     players: payload.players && typeof payload.players === "object" ? payload.players : {},
     meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {},
     modelVersion: payload.modelVersion,
+    valueScale: payload.valueScale,
     asOf: payload.asOf || "",
     generatedAt: payload.generatedAt || "",
     lastModified,
@@ -569,23 +582,25 @@ export async function fetchPriceHistory(fetchImpl = globalThis.fetch, { now = ne
   // A new model reprices everyone at once. That is not a player moving, so a
   // trend only compares prices the current model produced.
   const listed = (Array.isArray(index.snapshots) ? index.snapshots : [])
-    .filter((row) => (row?.modelVersion || LEGACY_PRICE_MODEL_VERSION) === PLAYER_VALUE_MODEL_VERSION);
+    .filter(isCurrentValueBoard);
   const needed = stampsForWindow(listed, { now, days });
+  const rowsByStamp = new Map(listed.map(row => [row.stamp, row]));
   const loaded = await Promise.all(needed.map(async (row) => {
     const snap = await readJsonIfOk(fetchImpl, `./data/price-history/${row.stamp}.json`);
-    if (!snap || typeof snap !== "object") return null;
-    return { ...snap, stamp: row.stamp };
+    return comparableSnapshot(snap, rowsByStamp.get(row.stamp));
   }));
   const history = normalizePriceHistory(loaded.filter(Boolean));
   return history.snapshots.length ? history : null;
 }
 
-// Highest price each player has had in any archived snapshot (every model, so a
-// rough "was he ever a star" check, not a like-for-like trend).
+// Only prices on the current scale can be compared with the star threshold.
 export async function fetchPeakValues(fetchImpl = globalThis.fetch) {
   const index = await readJsonIfOk(fetchImpl, PRICE_HISTORY_INDEX_PATH);
-  const rows = Array.isArray(index?.snapshots) ? index.snapshots : [];
-  const snaps = await Promise.all(rows.map((row) => readJsonIfOk(fetchImpl, `./data/price-history/${row.stamp}.json`)));
+  const rows = (Array.isArray(index?.snapshots) ? index.snapshots : [])
+    .filter(row => isCurrentValueBoard(row) && /^20\d{10}$/.test(row.stamp));
+  const snaps = await Promise.all(rows.map(async row => comparableSnapshot(
+    await readJsonIfOk(fetchImpl, `./data/price-history/${row.stamp}.json`), row,
+  )));
   const peaks = {};
   let since = "";
   for (const snap of snaps) {

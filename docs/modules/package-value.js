@@ -1,9 +1,14 @@
+import { priceHundredths } from "./price-units.js";
+
 // Consolidation math for uneven packages: one better player is worth more than
 // the same total spread across more pieces.
+// Calibrated on completed packages in the two pre-holdout windows.
+const PACKAGE_CREDIT_SHARE = 0.25;
 const KTC_RAW_BASE = 0.10;
 const KTC_RAW_ELITE_WEIGHT = 0.08;
 const KTC_RAW_TRADE_WEIGHT = 0.11;
 const KTC_RAW_DEPTH_WEIGHT = 0.18;
+const DEPTH_OFFSET = priceHundredths(20);
 
 export function finiteAssetValue(value) {
   const number = Number(value);
@@ -18,7 +23,7 @@ function calculateKtcRawAdjustment(playerValue, tradeMaxValue, globalMaxValue) {
     KTC_RAW_BASE
       + KTC_RAW_ELITE_WEIGHT * (playerValue / globalMaxValue) ** 8
       + KTC_RAW_TRADE_WEIGHT * (playerValue / tradeMaxValue) ** 1.3
-      + KTC_RAW_DEPTH_WEIGHT * (playerValue / (globalMaxValue + 2000)) ** 1.28
+      + KTC_RAW_DEPTH_WEIGHT * (playerValue / (globalMaxValue + DEPTH_OFFSET)) ** 1.28
   );
 }
 
@@ -45,7 +50,7 @@ function findEvenValueForRawGap(targetRawGap, tradeMaxValue, globalMaxValue) {
   return Math.max(0, Math.round(high));
 }
 
-function curvePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
+function curvePackageAdjustment({ myValues, theirValues, globalMaxValue }, allowTrailingCredit = true) {
   // A missing or removed player is stored as 0. Infinity and NaN are not prices.
   // Those pieces are not real package mates, so they must not mint a stud credit.
   const mine = (Array.isArray(myValues) ? myValues : []).map(finiteAssetValue).filter((value) => value > 0);
@@ -113,7 +118,7 @@ function curvePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
   const trailHoldsBest = myLeads ? theirBest > myBest : myBest > theirBest;
   let creditLead = Math.max(0, Math.round(trailBase + evenValue - leadBase));
   let creditTrail = 0;
-  if (trailHoldsBest) creditTrail = Math.max(0, Math.round(leadBase - evenValue - trailBase));
+  if (allowTrailingCredit && trailHoldsBest) creditTrail = Math.max(0, Math.round(leadBase - evenValue - trailBase));
   const packageAdjustment = creditLead || creditTrail;
   const creditMine = myLeads ? creditLead > 0 : creditTrail > 0;
   const side = packageAdjustment > 0 ? (creditMine ? "my" : "their") : null;
@@ -131,14 +136,18 @@ function curvePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
 // Adding a piece to a side never makes that side worth less in the verdict,
 // and a throw-in never adds more than its own price to that side.
 // The stud curve alone broke that: a straight swap stays at listed prices, so
-// a 500-point throw-in on the other side switched the curve on and could turn
+// a 5-point throw-in on the other side switched the curve on and could turn
 // "you give 28% more" into "you give 70% more". Each side's pieces, best
 // first, are added one at a time; the lead for (i of mine, j of theirs) stays
 // between the leads one piece earlier on either side. That bounds it at both
 // ends, so every throw-in moves the verdict toward the side that receives it,
 // or leaves it where it was.
-export function calculatePackageAdjustment({ myValues, theirValues, globalMaxValue }) {
-  const raw = curvePackageAdjustment({ myValues, theirValues, globalMaxValue });
+function fullPackageAdjustment(
+  { myValues, theirValues, globalMaxValue },
+  { boundAdditions = true, capThrowIns = true, allowTrailingCredit = true },
+) {
+  const raw = curvePackageAdjustment({ myValues, theirValues, globalMaxValue }, allowTrailingCredit);
+  if (!boundAdditions) return raw;
   const mine = (Array.isArray(myValues) ? myValues : []).map(finiteAssetValue).filter((value) => value > 0).sort((a, b) => b - a);
   const theirs = (Array.isArray(theirValues) ? theirValues : []).map(finiteAssetValue).filter((value) => value > 0).sort((a, b) => b - a);
   if (mine.length + theirs.length <= 2) return raw;
@@ -151,16 +160,18 @@ export function calculatePackageAdjustment({ myValues, theirValues, globalMaxVal
       let value;
       if (!i || !j) value = sum(mine, i) - sum(theirs, j);
       else {
-        const step = curvePackageAdjustment({ myValues: mine.slice(0, i), theirValues: theirs.slice(0, j), globalMaxValue: globalMax });
+        const step = curvePackageAdjustment({
+          myValues: mine.slice(0, i), theirValues: theirs.slice(0, j), globalMaxValue: globalMax,
+        }, allowTrailingCredit);
         value = step.myAdjustedValue - step.theirAdjustedValue;
         value = Math.min(value, lead[i][j - 1]);
         value = Math.max(value, lead[i - 1][j]);
         // A throw-in (any piece after a side's best) is worth at most its own
-        // price to the side that gets it. Without this, a 600-point add-on next
+        // price to the side that gets it. Without this, a 6-point add-on next
         // to Gibbs switched the stud curve on and moved Gibbs-for-Bijan from
         // "5% more" to "27% more".
-        if (j > 1) value = Math.max(value, lead[i][j - 1] - theirs[j - 1]);
-        if (i > 1) value = Math.min(value, lead[i - 1][j] + mine[i - 1]);
+        if (capThrowIns && j > 1) value = Math.max(value, lead[i][j - 1] - theirs[j - 1]);
+        if (capThrowIns && i > 1) value = Math.min(value, lead[i - 1][j] + mine[i - 1]);
       }
       lead[i].push(value);
     }
@@ -176,6 +187,29 @@ export function calculatePackageAdjustment({ myValues, theirValues, globalMaxVal
     myAdjustedValue: raw.myBaseValue + (side === "my" ? packageAdjustment : 0),
     theirAdjustedValue: raw.theirBaseValue + (side === "their" ? packageAdjustment : 0),
     packageAdjustment,
+    packageAdjustmentSide: side,
+  };
+}
+
+
+export function calculatePackageAdjustment(options, rules = {}) {
+  // Apply the consolidation curve in integer hundredths. A one-cent add-on
+  // remains distinct throughout the search and each rounding step.
+  const hundredths = (values) => (Array.isArray(values) ? values.map(priceHundredths) : []);
+  const adjustment = fullPackageAdjustment({
+    myValues: hundredths(options.myValues),
+    theirValues: hundredths(options.theirValues),
+    globalMaxValue: priceHundredths(options.globalMaxValue),
+  }, rules);
+  const packageAdjustment = Math.round(adjustment.packageAdjustment * (rules.creditShare ?? PACKAGE_CREDIT_SHARE));
+  const side = packageAdjustment ? adjustment.packageAdjustmentSide : null;
+  return {
+    myBaseValue: adjustment.myBaseValue / 100,
+    theirBaseValue: adjustment.theirBaseValue / 100,
+    myAdjustedValue: (adjustment.myBaseValue + (side === "my" ? packageAdjustment : 0)) / 100,
+    theirAdjustedValue: (adjustment.theirBaseValue + (side === "their" ? packageAdjustment : 0)) / 100,
+    evenValue: adjustment.evenValue / 100,
+    packageAdjustment: packageAdjustment / 100,
     packageAdjustmentSide: side,
   };
 }

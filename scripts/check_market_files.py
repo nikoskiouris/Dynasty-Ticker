@@ -2,23 +2,48 @@
 """Check the JSON files the desk reads.
 
 Schema errors fail the run. A player-value file older than 21 days is a
-warning unless --fail-on-age is set. npm test uses the warning. The live
+warning unless --fail-on-age is set. The live
 deploy and the player-value refresh use the hard failure.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "docs" / "data"
 MAX_VALUE_AGE_DAYS = 21
 # The model the builder is configured to write. A snapshot from any other model is not the one the desk expects.
-MODEL_VERSION = json.loads((ROOT / "player-values" / "config.json").read_text(encoding="utf-8"))["modelVersion"]
+MODEL_VERSION = "dynasty-sf-ppr-v5.1"
 POSITIONS = {"QB", "RB", "WR", "TE"}
+
+
+def price_hundredths(value) -> int | None:
+    if type(value) not in (int, float) or not 0 <= value <= 100:
+        return None
+    scaled = Decimal(str(value)) * 100
+    return int(scaled) if scaled == scaled.to_integral_value() else None
+
+
+def nonnegative_number(value) -> bool:
+    return type(value) in (int, float) and math.isfinite(value) and value >= 0
+
+
+def valid_score_anchors(anchors) -> bool:
+    if not isinstance(anchors, list) or len(anchors) != 5:
+        return False
+    if not all(isinstance(row, dict) and nonnegative_number(row.get("score"))
+               and nonnegative_number(row.get("surplus")) for row in anchors):
+        return False
+    return ([row["score"] for row in anchors] == [0, 87, 90, 95, 100]
+            and anchors[0]["surplus"] == 0
+            and all(a["surplus"] < b["surplus"]
+                    for a, b in zip(anchors, anchors[1:])))
 
 
 def parse_stamp(value: str) -> datetime | None:
@@ -61,6 +86,8 @@ def check_player_values(
         errors.append(f"player_values schemaVersion is {data.get('schemaVersion')!r}")
     if data.get("modelVersion") != MODEL_VERSION:
         errors.append(f"player_values modelVersion is {data.get('modelVersion')!r}")
+    if data.get("valueScale") != 100:
+        errors.append("player_values must use the 0–100 scale")
     sf = data.get("sf")
     names = data.get("names")
     players = data.get("players")
@@ -71,8 +98,24 @@ def check_player_values(
         errors.append("player_values names and players must be objects")
         names = names if isinstance(names, dict) else {}
         players = players if isinstance(players, dict) else {}
+    meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+    if (meta.get("referenceTeams"), meta.get("scoring"), meta.get("superflex")) != (12, "full PPR", True):
+        errors.append("player_values league format must be 12-team superflex full PPR")
+    price_method = meta.get("price")
+    if not isinstance(price_method, dict) or not valid_score_anchors(price_method.get("scoreAnchors")):
+        errors.append("missing or invalid surplus-to-score calibration")
+    else:
+        scores = [row["score"] for row in price_method["scoreAnchors"]]
+        reference = price_method.get("ratingReference")
+        if (price_method.get("method") != "seasonal-startup-rating" or scores != [0, 87, 90, 95, 100]
+                or not isinstance(reference, dict) or reference.get("earlyDraftScore") != 87
+                or reference.get("eliteScore") != 90 or reference.get("upperCurve") != "rational-above-95"):
+            errors.append("missing or inconsistent v5 startup rating references")
+    if len(players) < 200 or not any(key.startswith("pick:") for key in sf):
+        errors.append("incomplete dynasty player or pick board")
     for asset_id, value in sf.items():
-        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        cents = price_hundredths(value)
+        if cents is None or cents == 0:
             errors.append(f"bad sf value {asset_id}")
             break
         if asset_id not in names:
@@ -83,12 +126,34 @@ def check_player_values(
             if not isinstance(info, dict):
                 errors.append(f"missing player meta for {asset_id}")
                 break
+            factors = info.get("factors")
+            if (not isinstance(factors, dict) or set(factors) != {"lineup", "future", "draft", "market"}
+                    or any(price_hundredths(part) is None for part in factors.values())
+                    or sum(price_hundredths(part) for part in factors.values()) != cents):
+                errors.append(f"missing or invalid attribution for {asset_id}")
+                break
+            market_share = info.get("marketShare")
+            projected = info.get("projectedSurplus")
+            if (not nonnegative_number(market_share) or market_share > 1
+                    or not nonnegative_number(info.get("calibratedSurplus"))
+                    or not (nonnegative_number(projected) or (projected is None and market_share == 1))):
+                errors.append(f"invalid surplus or market evidence for {asset_id}")
+                break
+            projection = info.get("projection")
+            if not isinstance(projection, dict) or "remainingPpr" not in projection:
+                errors.append(f"missing rest-of-season forecast field for {asset_id}")
+                break
+            remaining = projection["remainingPpr"]
+            if remaining is not None and (type(remaining) not in (int, float) or not math.isfinite(remaining)
+                                          or remaining < 0 or (projection.get("remainingGames") == 0 and remaining > 0)):
+                errors.append(f"invalid rest-of-season PPR for {asset_id}")
+                break
             position = info.get("position")
             if position not in POSITIONS:
                 errors.append(f"bad position for {asset_id}")
                 break
-    if not any(str(key).startswith("player:") for key in sf):
-        errors.append("player_values has no players")
+    if set(players) != {key for key in sf if key.startswith("player:")}:
+        errors.append("player metadata and priced player IDs do not match")
     stamp = parse_stamp(str(data.get("asOf") or ""))
     if stamp is None:
         errors.append(f"player_values asOf is not a time: {data.get('asOf')!r}")

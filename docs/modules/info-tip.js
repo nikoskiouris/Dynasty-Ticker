@@ -1,4 +1,5 @@
 import { escapeHtml } from "./html.js";
+import { DYNASTY_SCORE_GUIDE } from "./value-scale.js";
 
 export const INFO_ICON_PX = 18;
 export const INFO_HIT_PX = 44;
@@ -9,14 +10,14 @@ export const INFO_PHONE_MAX_WIDTH = 700;
 export function valuesWorkText(date = "") {
   const when = String(date || "").trim();
   const updated = when ? ` Updated ${when}.` : "";
-  return `Values are built for 12-team Superflex PPR dynasty from a learned mix of our own football forecast (a player's last two seasons, his age, and early on his draft slot) and where Superflex dynasty rankings put him. Same number everywhere on the site.${updated}`;
+  return `${DYNASTY_SCORE_GUIDE} The model weighs projected PPR production above replacement across the rest of this season and the next two, along with available market evidence. Draft picks use their market quotes on the same scale.${updated}`;
 }
 
 // Plain words for terms a first-time or non-native reader may not know.
 export const GLOSSARY = Object.freeze({
   PPR: "PPR (points per reception): every catch scores 1 point.",
   Superflex: "Superflex: one lineup spot can hold a quarterback, so quarterbacks are worth more.",
-  Stars: "Stars: one great player is worth more than several average players that add up to the same total. Player prices stay the same.",
+  Stars: "Stars: packages can get a small credit for their stronger assets. Player prices stay the same.",
   "Pick slot": "Pick slot, like 1.04: round 1, 4th pick in that round.",
   "Pick Hoarder": "Pick Hoarder: this team owns 3 or more future 1st-round picks.",
   Edge: "Edge: this position group is one of the strongest in the league.",
@@ -170,7 +171,7 @@ export function bindInfoTips(doc = globalThis.document) {
 
 const PRICE_LEGEND = {
   model: ["Value", "Same number on Trade Calculator, Player Rankings, and My Team."],
-  package: ["Stars", "One great player is worth more than several average ones with the same total. This changes the verdict, not player prices."],
+  package: ["Stars", "Each side’s listed total is the sum of its dynasty scores and can exceed 100. The verdict can also credit the side receiving the stronger assets."],
 };
 
 export function renderPriceLegend(ids = ["model"]) {

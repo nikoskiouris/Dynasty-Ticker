@@ -151,6 +151,8 @@ function cleanText(text) {
     .replace(/\s*(?:\+|&)\s*/g, " and ")
     // "Gibbs -> Chase": an arrow reads as "for".
     .replace(/\s*(?:->|=>|→)\s*/g, " for ")
+    // "Gibbs <> Bijan", "Gibbs <-> Bijan", "Gibbs ↔ Bijan": the same.
+    .replace(/\s*(?:<->|<=>|<>|↔|⇄|⇆)\s*/g, " for ")
     // "Gibbs straight up for Bijan", "Gibbs for Bijan, even up": filler, not a
     // name. "Gibbs 1 for 1 Bijan" is a plain swap.
     .replace(/\s+(?:1|one)[ -]for[ -](?:1|one)\s+/g, " for ")
@@ -159,12 +161,16 @@ function cleanText(text) {
     .trim();
 }
 
-const ASK_TAIL = /(?:^|[\s,.;:!?-]+)(?:what do you think|what do u think|wdyt|thoughts|is (?:this|that|it) (?:fair|good|even|bad|a win|a fleece|a rip ?off|worth it)|should i (?:do|take|accept|make) (?:it|this|that)|would you (?:do|take|accept) (?:it|this|that)|good deal|fair|win or loss|who wins|who won|did i win|did i lose|did i get (?:fleeced|robbed|ripped off)|was (?:it|that|this) (?:fair|good|a win|bad)|good trade|bad trade)\s*\??$/;
+const ASK_TAIL = /(?:^|[\s,.;:!?-]+)(?:what do you think|what do u think|wdyt|thoughts|is (?:this|that|it) (?:fair|good|even|bad|a win|a fleece|a rip ?off|worth it)|should i (?:do|take|accept|make) (?:it|this|that)|would you (?:do|take|accept) (?:it|this|that)|good deal|fair|win or loss|who wins|who won|did i win|did i lose|did i get (?:fleeced|robbed|ripped off)|was (?:it|that|this) (?:fair|good|a win|bad)|good trade|bad trade|(?:a |an )?(?:good|bad|fair|great) (?:deal|trade|offer|move)|a (?:win|loss)|worth it|(?:which|who)(?: one)?(?:'s| is| would you take| should i take| do you take)?(?: worth)?(?: more| better| the better (?:side|deal|one))?)(?:\s+(?:for|to)\s+(?:me|us|you|him|her|them|my team|my side|both(?: sides| teams)?|either side))?\s*\??$/;
 const LEAD_FILLER = /^(?:hey|so|ok|okay|yo|hmm|um|lol)[,!.\s]+|^(?:would you do|would you take|should i do|should i take|should i accept|should i|would you|is|how about|what about|what if|lets do|let's do|try|check|rate)\s+/;
 
 function stripChatter(text) {
   let body = text;
   let asked = false;
+  // "What is Bowers worth? Is that more or less than a 2027 first?" (first-visit
+  // task 1): one comparison, said in two sentences. Keep the second half.
+  const twoPart = body.match(/^what(?:'s| is)\s+(.+?)\s+worth\s*[?.!]*\s+(?:is|are)\s+(?:that|he|it|this|they|him)\s+(?:worth\s+)?(?:more|less)(?:\s+or\s+(?:more|less))?\s+than\s+(.+?)[?.!]*\s*$/);
+  if (twoPart) return { body: `${twoPart[1]} worth more than ${twoPart[2]}`, asked: true };
   // "... for Puka. Is that a good deal for me?": a closing question sentence
   // asks for the verdict. It is not part of the trade.
   body = body.replace(/[.!?]+\s+(?:is|isn't|should|would|does|do|was|am|are|can|could|how)\b[^.!?]*[.!?]*\s*$/, () => {
@@ -199,7 +205,8 @@ function pullPartner(text, managers, meRosterId) {
   });
   // No league loaded: "from Chris" at the end still names a person, not a player.
   let unknown = "";
-  if (!partner && !managers.length) {
+  // "replace Jeanty with Gibbs": "with" names the new piece, not a person.
+  if (!partner && !managers.length && !/^(?:swap|replace|change|sub|switch)\b/.test(body)) {
     body = body.replace(/\s+(?:from|with)\s+(@?[a-z][a-z0-9_.]*)$/, (whole, word) => {
       if (PRONOUNS.has(word)) return whole;
       unknown = word.replace(/^@/, "");
@@ -214,6 +221,39 @@ function splitPieces(text) {
     .split(/\s*(?:,|;|\band\b|\bplus\b|\balong with\b|\bwith\b)\s*/)
     .map((piece) => piece.trim())
     .filter(Boolean);
+}
+
+// Best name score any player gets for this text (0 when nobody fits).
+function bestNameScore(text, index) {
+  let query = normalizePlayerName(text);
+  if (!query) return 0;
+  if (PLAYER_ALIASES[query]) query = PLAYER_ALIASES[query];
+  const qToks = query.split(" ");
+  let best = 0;
+  for (const entry of index) best = Math.max(best, scorePlayer(query, qToks, entry));
+  return best;
+}
+
+// "Mahomes Burrow", "Josh Allen Lamar Jackson": names typed with no comma or
+// "and" between them. Only used when the whole piece names nobody. Each part
+// must be a full, last or first name (score 60+), never a typo guess, so a
+// real name is never cut in two. Longest first part wins.
+const RUN_ON_MIN_SCORE = 60;
+export function splitRunOnNames(text, index) {
+  const toks = normalizePlayerName(text).split(" ").filter(Boolean);
+  if (toks.length < 2 || toks.length > 8) return null;
+  const solve = (start) => {
+    const rest = toks.slice(start).join(" ");
+    if (start > 0 && bestNameScore(rest, index) >= RUN_ON_MIN_SCORE) return [rest];
+    for (let end = toks.length - 1; end > start; end -= 1) {
+      const head = toks.slice(start, end).join(" ");
+      if (bestNameScore(head, index) < RUN_ON_MIN_SCORE) continue;
+      const tail = solve(end);
+      if (tail) return [head, ...tail];
+    }
+    return null;
+  };
+  return solve(0);
 }
 
 // Owner words in front of a piece: "my", "his", "their", "chris's".
@@ -264,6 +304,7 @@ export function parsePickPhrase(text, { season = new Date().getUTCFullYear() + 1
     else if (!PICK_FILLER.has(word)) return null;
   }
   if (!pick.round || pick.round > 7) return null;
+  pick.seasonGiven = Boolean(pick.season);
   if (!pick.season) pick.season = Number(season);
   pick.count = Math.max(1, Math.min(3, pick.count));
   return pick;
@@ -355,6 +396,16 @@ function resolvePick(pick, { side, ownerRosterId, ctx }) {
   // instead of quietly dropping the word.
   if (pick.bucket && !generic.assetId.endsWith(`:${pick.bucket}`)) {
     notes.push(`There is no separate ${pick.bucket} price for a ${pickLabel({ ...pick, bucket: "" })}, so it is priced as ${generic.name}.`);
+  }
+  // "Three firsts" with no year: a team holds one 1st a year, and Sleeper
+  // trades picks for the next three drafts, so read it as one per draft
+  // (2027, 2028, 2029). "Three 2027 firsts" keeps the year typed.
+  if (pick.count > 1 && !pick.seasonGiven) {
+    const spread = Array.from({ length: pick.count }, (_, i) => genericPickAsset({ ...pick, season: pick.season + i }, ctx.pickIds));
+    if (spread.every(Boolean)) {
+      notes.push(`One ${roundLabel(pick.round)} per draft. Type “${pick.count} ${pick.season} ${roundLabel(pick.round)}s” to keep them in one draft.`);
+      return { picks: spread, note: notes.join(" ") };
+    }
   }
   return { picks: Array.from({ length: pick.count }, () => generic), note: notes.join(" ") };
 }
@@ -457,7 +508,18 @@ function carryPickYear(pieces, season) {
 // Players first, so "Pickens and his 2nd" reads "his" as Pickens's team.
 function piecesWithSide(text, side, ctx, partner, index) {
   const out = { adds: [], asks: [], misses: [], notes: [], partner: null };
-  const pieces = carryPickYear(splitPieces(text), ctx.season);
+  const pieces = carryPickYear(splitPieces(text), ctx.season).flatMap((piece) => {
+    const owned = pullOwner(piece, ctx.managers, ctx.meRosterId);
+    if (parsePickPhrase(owned.text, { season: ctx.season })) return [piece];
+    const found = resolvePlayer(owned.text, index);
+    if (found.match || found.options) return [piece];
+    const names = splitRunOnNames(owned.text, index);
+    if (!names) return [piece];
+    // Keep the owner word ("my", "his", "chris's") on every name it covered.
+    const at = piece.toLowerCase().lastIndexOf(owned.text.toLowerCase());
+    const owner = owned.owner && at > 0 ? piece.slice(0, at) : "";
+    return names.map((name) => `${owner}${name}`);
+  });
   const isPick = (piece) => Boolean(parsePickPhrase(pullOwner(piece, ctx.managers, ctx.meRosterId).text, { season: ctx.season }));
   const hits = new Map();
   const run = (piece, i) => {
@@ -594,6 +656,13 @@ export function parseTradeTalk(message, ctx = {}) {
     compared = true;
   }
 
+  // "Gibbs instead of Jeanty", "make it Gibbs instead of Jeanty", "instead of
+  // Jeanty, Gibbs": the same as "replace Jeanty with Gibbs".
+  const insteadAfter = body.match(/^(?:make it|use|try|do|go with|put in|add)?\s*(.+?)\s+instead of\s+(.+)$/);
+  const insteadBefore = !insteadAfter && body.match(/^instead of\s+(.+?)\s*,\s*(?:make it|use|try|do|go with|put in|add)?\s*(.+)$/);
+  if (insteadAfter) body = `replace ${insteadAfter[2]} with ${insteadAfter[1]}`;
+  else if (insteadBefore) body = `replace ${insteadBefore[1]} with ${insteadBefore[2]}`;
+
   // "give Bijan get Gibbs", "I give up Bijan and get Gibbs", "I receive Gibbs,
   // give Bijan": the same trade as "I give Bijan for Gibbs".
   if (!/\bfor\b/.test(body)) {
@@ -603,12 +672,22 @@ export function parseTradeTalk(message, ctx = {}) {
     else if (getGive) body = `i get ${getGive[1]} for ${getGive[2]}`;
   }
 
-  const replace = body.match(/^(?:swap|replace|change|sub|switch|trade)\s+(?:out\s+)?(.+?)\s+(?:for|with|to|into)\s+(.+)$/);
+  // "swap Gibbs for Bijan" edits the draft. "Trade Gibbs for Bijan" (and
+  // "should I trade Gibbs for Bijan?") is a whole trade, not a swap.
+  const replace = body.match(/^(?:swap|replace|change|sub|switch)\s+(?:out\s+)?(.+?)\s+(?:for|with|to|into)\s+(.+)$/);
   if (replace && findInDraft(replace[1], context.draft, context).length) {
     const plan = blankPlan("replace");
     const gone = findInDraft(replace[1], context.draft, context);
     plan.removes.push(...gone.map((item) => ({ side: item.side, uid: item.uid, name: item.name })));
     absorb(plan, piecesWithSide(replace[2], gone[0].side, context, partner, index));
+    return finish(plan);
+  }
+  // "Replace Nacua with Chase" when Nacua isn't in the trade: say that, rather
+  // than "Didn't catch “replace nacua”". ("Swap/trade X for Y" with X not in
+  // the trade is a new trade, handled below.)
+  if (replace && /^(?:replace|change|sub)\b/.test(body)) {
+    const plan = blankPlan("replace");
+    plan.misses.push({ text: replace[1].trim(), reason: "Not in the trade." });
     return finish(plan);
   }
 
@@ -725,6 +804,21 @@ export function parseTradeTalk(message, ctx = {}) {
     return finish(plan);
   }
 
+  // The columns are "Team 1 receives" (right) and "Team 2 receives" (left), and
+  // "Even it up" says "Team 2 needs …". Read the same names back: "team 2 gets
+  // a 2028 2nd", "give team 1 Bijan", "add a 2nd to team 2".
+  const teamSide = (n) => (String(n) === "1" ? "right" : "left");
+  const teamLead = body.match(/^team\s*([12])\s+(?:gets?|receives?|needs?|adds?|takes?)\s+(.+)$/)
+    || body.match(/^(?:give|send|add)\s+team\s*([12])\s+(.+)$/);
+  const teamTail = !teamLead && body.match(/^(?:(?:add|give|send|throw in|toss in|include|put in|put)\s+)?(.+?)\s+(?:to|on|into)\s+team\s*([12])(?:'s)?(?:\s+side)?$/);
+  if (teamLead || teamTail) {
+    const plan = blankPlan("add");
+    const n = teamLead ? teamLead[1] : teamTail[2];
+    const pieces = teamLead ? teamLead[2] : teamTail[1];
+    absorb(plan, piecesWithSide(pieces, teamSide(n), context, partner, index));
+    return finish(plan);
+  }
+
   const plan = blankPlan("add");
   let rest = body;
   let side = "";
@@ -750,14 +844,24 @@ export function parseTradeTalk(message, ctx = {}) {
     side = "left";
     rest = rest.replace(GIVE_ADD, "");
   } else {
-    rest = rest.replace(/^(?:add|plus|also|and|throw in|toss in|include|put in|tack on|i add|i'll add|ill add|i throw in)\b\s*/, "");
+    rest = rest.replace(/^(?:add|plus|also|and|throw in|toss in|include|put in|tack on|i add|i'll add|ill add|i throw in|put back|bring back|put|bring)\b\s*/, "");
   }
+  // "add Puka back", "put Jeanty back", "add Nabers again": the last word is
+  // filler, not part of the name ("running back" is a position, so it stays).
+  const putBack = /^(?:put back|bring back|put|bring)\b/.test(body) || /\s(?:back in|back)$/.test(rest);
+  if (!/\brunning back$/.test(rest)) rest = rest.replace(/\s+(?:back in|back|again|too|as well)$/, "");
   const tail = rest.match(/\s+(?:to|on|for)\s+(?:my|their|his|her|the)\s+(side|end|give side|get side)$/);
   if (tail) {
     side = /their|his|her|get/.test(tail[0]) ? "right" : "left";
     rest = rest.slice(0, tail.index);
   }
   absorb(plan, piecesWithSide(rest, side, context, subject, index));
+  // "Put it back": a piece taken out earlier goes back in the column it left.
+  if (putBack && !side) {
+    const was = context.removedSides || {};
+    plan.adds = plan.adds.map((add) => (was[add.asset?.assetId] === "left" || was[add.asset?.assetId] === "right")
+      && (!add.side || add.side === (context.defaultSide || "right")) ? { ...add, side: was[add.asset.assetId] } : add);
+  }
   if (!plan.adds.length && !plan.asks.length && asked && !plan.misses.length) return finish(blankPlan("verdict"));
   return finish(plan);
 }

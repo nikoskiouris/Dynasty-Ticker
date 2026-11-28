@@ -26,7 +26,9 @@ function seasonResult(entry, roster) {
   const games = wins + losses + ties;
   if (!games) return null;
   return { season: id(entry.season), wins, losses, ties, games,
-    winPct: (wins + ties / 2) / games, finish: seasonFinish(entry, roster.roster_id) };
+    winPct: (wins + ties / 2) / games, finish: seasonFinish(entry, roster.roster_id),
+    // Sleeper marks a finished season "complete". Anything else is still being played.
+    partial: entry?.league?.status !== "complete" };
 }
 
 // Trophy cases are evidence-based summaries of the data available from each
@@ -62,13 +64,18 @@ export function managerTrophyCases(archive = {}) {
   }
 
   return [...cases.values()].map((summary) => {
-    const ranked = summary.seasons.slice().sort((a, b) =>
+    // A season in progress (6–5 after 11 weeks) is not a "best" or "worst"
+    // season yet. Rank finished seasons; use the current one only if it is
+    // the only season there is, and then it says "so far".
+    const finished = summary.seasons.filter((season) => !season.partial);
+    const ranked = (finished.length ? finished : summary.seasons).slice().sort((a, b) =>
       b.winPct - a.winPct || b.wins - a.wins || Number(b.season) - Number(a.season));
     const topPlayer = [...summary.playerCounts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
     const topPartner = [...summary.partners].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
     return {
       key: summary.key, name: summary.name, titles: summary.titles,
       bestSeason: ranked[0] || null, worstSeason: ranked[ranked.length - 1] || null,
+      currentSeason: finished.length ? summary.seasons.find((season) => season.partial) || null : null,
       mostFrequentRosterPlayer: topPlayer ? { playerId: topPlayer[0], seasonAppearances: topPlayer[1] } : null,
       favoriteTradePartner: topPartner ? {
         managerKey: topPartner[0], managerName: cases.get(topPartner[0])?.name || "Another manager",

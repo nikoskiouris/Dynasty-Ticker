@@ -1,4 +1,4 @@
-import { countLabel, escapeHtml, formatNumber } from "./html.js";
+import { countLabel, escapeHtml } from "./html.js";
 import { playerPathname } from "./history-route.js";
 
 const id = (value) => String(value ?? "").trim();
@@ -7,7 +7,7 @@ const fullName = (raw) => String(raw?.full_name || [raw?.first_name, raw?.last_n
 
 // A player counts once per completed trade he moved in, however many sides
 // listed him. Draft picks and FAAB are not players and are not counted.
-export const STAR_PEAK = 9000;
+export const STAR_PEAK = 90;
 
 export function mostTradedPlayers(archive = {}, { values = {}, valueNames = {}, players = {}, peaks = null, limit = 5 } = {}) {
   const counts = new Map();
@@ -39,7 +39,7 @@ export function mostTradedPlayers(archive = {}, { values = {}, valueNames = {}, 
   });
   const byName = (a, b) => a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId);
   const rows = all.slice().sort((a, b) => b.trades - a.trades || byName(a, b)).slice(0, limit);
-  // Stars: peak price of 9,000+ at any archived point, whether they were traded before, during or after it.
+  // Stars: peak price of 90+ at any archived point, whether they were traded before, during or after it.
   const major = all.map((row) => ({ ...row, peak: Math.max(row.value || 0, Number(peaks?.peaks?.[`player:${row.playerId}`]) || 0) }))
     .filter((row) => row.peak >= STAR_PEAK)
     .sort((a, b) => b.trades - a.trades || b.peak - a.peak || byName(a, b)).slice(0, 10);
@@ -49,7 +49,8 @@ export function mostTradedPlayers(archive = {}, { values = {}, valueNames = {}, 
 
 function playerItem(row, index, detail) {
   const href = playerPathname(row.playerId, row.name);
-  const name = href ? `<a href="${e(href)}">${e(row.name)}</a>` : e(row.name);
+  // data-action keeps a plain click in the app (no reload, league stays open).
+  const name = href ? `<a href="${e(href)}" data-action="open-player" data-asset-id="player:${e(row.playerId)}">${e(row.name)}</a>` : e(row.name);
   return `<li><span class="league-most-traded-rank">${index + 1}</span>
     <span class="league-most-traded-name">${name}</span>
     <span class="league-most-traded-count muted">${detail}</span></li>`;
@@ -70,7 +71,7 @@ export function renderMostTraded(archive, options = {}) {
     <div class="league-most-traded-lists">
       <div><h3>By times traded</h3>
         <ol class="league-most-traded">${mostItems}</ol></div>
-      <div><h3>Most traded stars</h3><p class="muted small">Valued 9,000+ at some point${since ? ` since ${e(new Date(since).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }))}` : ""}.</p>
-        ${majorItems ? `<ol class="league-most-traded">${majorItems}</ol>` : '<p class="muted">No traded player has reached 9,000.</p>'}</div>
+      <div><h3>Most traded stars</h3><p class="muted small">Valued ${STAR_PEAK}+ at some point${since ? ` since ${e(new Date(since).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }))}` : ""}.</p>
+        ${majorItems ? `<ol class="league-most-traded">${majorItems}</ol>` : '<p class="muted">No traded player has reached the star threshold.</p>'}</div>
     </div></section>`;
 }

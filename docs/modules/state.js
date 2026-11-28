@@ -37,7 +37,7 @@ export function createState() {
     valuationRevision: 0,
     playerPositionRankByAssetId: {},
     pickValueCatalog: [],
-    globalMaxPlayerValue: 9999,
+    globalMaxPlayerValue: 100,
     tradedPicks: [],
     currentDraftContext: null,
     draftedPickByKey: new Map(),
