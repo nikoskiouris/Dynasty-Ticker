@@ -7,10 +7,15 @@ export const INFO_HIT_OUTSET = (INFO_HIT_PX - INFO_ICON_PX) / 2;
 export const INFO_SHEET_MIN_HEIGHT = 160;
 export const INFO_PHONE_MAX_WIDTH = 700;
 
-export function valuesWorkText(date = "") {
+export function valuesWorkText(date = "", marketWeight) {
   const when = String(date || "").trim();
   const updated = when ? ` Updated ${when}.` : "";
-  return `${DYNASTY_SCORE_GUIDE} The model weighs projected PPR production above replacement across the rest of this season and the next two, along with available market evidence. Draft picks use their market quotes on the same scale.${updated}`;
+  const basis = marketWeight === 1
+    ? "A player’s market quote sets his price. When a quote is missing, his projected PPR above replacement sets the price."
+    : Number.isFinite(marketWeight)
+      ? `When both estimates are available, the player price uses ${Math.round(100 * marketWeight)}% market value and ${Math.round(100 * (1 - marketWeight))}% projected production above replacement. With one estimate, that estimate sets the price.`
+      : "Player prices use available market quotes and projections of production above replacement.";
+  return `${DYNASTY_SCORE_GUIDE} ${basis} Draft picks use their market quotes on the same scale.${updated}`;
 }
 
 // Plain words for terms a first-time or non-native reader may not know.

@@ -4,7 +4,7 @@ Dynasty Ticker estimates the trade value of a player or a rookie pick in **12-te
 
 ## Reading a price
 
-The board publishes one trade price per asset. For a player with both sources, it combines a forecast of discounted PPR above replacement with a market estimate. A pick uses its own quote for its year, round and slot when available. A 2028 pick quoted today already reflects the wait until its draft.
+The board publishes one trade price per asset. In the v5.4 preview, a player with a market quote takes its value on the trade scale. When the quote is missing, the model uses its forecast of discounted PPR above replacement. A pick uses its own quote for its year, round and slot when available. A 2028 pick quoted today already reflects the wait until its draft.
 
 In the market component, two assets with a combined quote of 4,000 have the same listed value as a single asset quoted at 4,000. This proportional relationship holds through the historical top-three startup quote (10,069 = 95 points). Above 95 the scale tapers to 100. The calculator can separately credit consolidation when it compares complete packages.
 
@@ -23,7 +23,9 @@ The remaining-season forecast uses available Sleeper weekly projections, recent 
 
 **Market.** Frozen May 2026 median quotes of 5,673, 8,715 and 10,069 represent the startup bands containing ranks 21, 7 and 3. Their scores are proportional to the quotes (53.52, 82.23 and 95). The football component maps historical three-season surplus at the same startup ranks and stage of the season onto those scores. The market component uses the same anchors in reverse to express each quote in units compatible with the football forecast. This conversion makes the two sources comparable for blending. Only the football estimate is a forecast of NFL production. [Startup reference data](research/market-reference.md)
 
-**Combining evidence.** With both sources present, the model weights market evidence at 75% and calibrated football at 25% before converting the result to the published score. With one source it uses that source at full weight. A measured zero above replacement is football evidence. Each player page shows the four contributions that add to its price. The calculator can also show the raw quote comparison when it points to a different side or verdict band.
+**Combining evidence.** Convert the market quote and football forecast to 0–100 prices separately. Start at the market score and move a fitted fraction of the distance toward the football score. The early trades selected a fraction of zero. The later trades favored v5.3 over this preview. [Fit, holdout and board comparison](research/market-first.md)
+
+With one source the model uses that source at full weight. A measured zero above replacement is football evidence. Each player page shows the four contributions that add to its price. The calculator can also show the raw quote comparison when it points to a different side or verdict band.
 
 ## Validation
 
@@ -33,7 +35,7 @@ The remaining-season forecast uses available Sleeper weekly projections, recent 
 - **Earlier v4 trade audit.** A frozen preseason 2026 board priced 117 subsequent accepted exchanges. Across 72 unequal packages, the median gap between sides went from 17.0% to 16.2%. Across all 117 trades, both models gave 16.9%. FantasyCalc's unadjusted quote totals were closer on that sample. Most unequal packages contained rookie picks, and an accepted trade can reflect individual team goals. [Combined preseason replay](research/preseason-trades.md) · [Earlier player-only trades](research/trade-spacing.md) · [Market quotes on 855 accepted trades](research/market-packages.md)
 - **Current market comparisons.** KeepTradeCut publishes a crowd-ranked superflex board with half-PPR scoring. Its player-only ranks help identify differences worth investigating. The current head-to-head shows how the finite forecast horizon and injury assumptions affect particular players. [November comparison](research/november-board.md)
 - **Earlier v5 independent trade replay.** An additional 18 leagues supplied 31 accepted trades the model could price. Across 17 unequal packages, the median gap was 9.8% with the then-published settings, 10.3% with a 50% market weight and 11.1% without the consolidation credit. Across all 31 trades the 50% market weight had the smaller gap. That release retained a 25% market weight. [Sample and sensitivity analysis](research/package-scale.md)
-- **Later trades in the independent panel.** Across 182 subsequent accepted deals, the market component and calculator produced a 15.6% median gap, compared with 8.9% using the external trade quotes directly. Among 109 unequal offers, adding consolidation credit left the median absolute gap at 15.3% and shifted the signed gap toward the smaller side. The study reconstructs four public offers with dated inputs. [Model replay and transactions](research/market-packages.md#independent-late-season-replay) · [Historical site grades on archived boards](research/archived-trade-replay.md)
+- **Later trades in the independent panel.** Across 182 subsequent accepted deals, v5.2 produced a 15.6% median gap. Using the dated quotes and the v5.3 calculator gave 8.3%, versus 8.9% for raw quote sums. That replay had market quotes only. [v5.3 replay](research/pick-packages.md) Under v5.2, among 109 unequal offers, adding consolidation credit left the median absolute gap at 15.3% and shifted the signed gap toward the smaller side. The study reconstructs four public offers with dated inputs. [Model replay and transactions](research/market-packages.md#independent-late-season-replay) · [Historical site grades on archived boards](research/archived-trade-replay.md)
 
 ## Refresh and inspect
 

@@ -17,8 +17,9 @@ VALUE_SCALE = 100
 HUNDREDTHS_PER_POINT = 100
 TEAMS = 12
 STARTERS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
-# Completed trades in the development panel support a market-led exchange price.
-MARKET_SHARE = 0.75
+# The earlier completed trades favored a zero football adjustment for quoted
+# players among the candidate weights. See research/market-first.md.
+MARKET_SHARE = 1.0
 # Year-two and year-three expected full-PPR surplus per scheduled team game.
 # nflverse, 2000–2016 draft classes. The NFL rounds are 1, 2, 3, and 4+.
 DRAFT_SURPLUS = {
@@ -256,8 +257,11 @@ def raw_board(players, *, season_week=1):
                  "remainingSeasonFraction": remaining_share(players, week)}
 
 
-def value_board(players, picks, *, season_week=1):
-    """Blend football surplus and market exchange evidence into one native price."""
+def value_board(players, picks, *, season_week=1, football_weight=None):
+    """Price both sources independently, then blend on the displayed 0–100 scale."""
+    market_weight = MARKET_SHARE if football_weight is None else 1 - football_weight
+    if not 0 <= market_weight <= 1:
+        raise ValueError("Football weight must be between zero and one")
     raw, context = raw_board(players, season_week=season_week)
     time_left = context["remainingSeasonFraction"]
     anchors = exchange_rating_anchors(time_left)
@@ -274,20 +278,17 @@ def value_board(players, picks, *, season_week=1):
         has_market = row["market"] > 0
         if not has_football and not has_market:
             continue
-        market_share = MARKET_SHARE if has_market and has_football else float(has_market)
+        market_share = market_weight if has_market and has_football else float(has_market)
         football_surplus = calibrated_football(projected)
-        football_units = football_surplus * (1 - market_share)
-        components = {k: football_units * v / projected if projected > 0 else 0.0
-                      for k, v in football.items()}
-        components["market"] = market_share * exchange_surplus(row["market"], anchors)
-        expected = sum(components.values())
-        if expected <= 0:
-            continue
-        score = rate_from_anchors(expected, anchors)
-        # Allocate the final rating to the four underlying discounted-surplus
-        # signals in proportion to the amount each contributed.
-        target_scale = HUNDREDTHS_PER_POINT * score / expected
-        cents, allocated = apportion({k: v * target_scale for k, v in components.items()})
+        market_surplus = exchange_surplus(row["market"], anchors)
+        football_points = (1 - market_share) * rate_from_anchors(football_surplus, anchors)
+        market_points = market_share * rate_from_anchors(market_surplus, anchors)
+        # Distribute only the football portion across its underlying signals.
+        # The market contribution stays independent of the football forecast.
+        contributions = {k: football_points * v / projected if projected > 0 else 0.0
+                         for k, v in football.items()}
+        contributions["market"] = market_points
+        cents, allocated = apportion({k: v * HUNDREDTHS_PER_POINT for k, v in contributions.items()})
         if cents == 0:
             continue
         player_results[key] = {
@@ -296,7 +297,9 @@ def value_board(players, picks, *, season_week=1):
             "coverage": row["coverage"], "remainingPpr": row["remainingPpr"],
             "projectedSurplus": round(projected, 3) if has_football else None,
             "footballSurplus": round(football_surplus, 3) if has_football else None,
-            "calibratedSurplus": round(expected, 3), "marketShare": market_share,
+            # Retained in surplus units for historical football research.
+            "calibratedSurplus": round((1 - market_share) * football_surplus + market_share * market_surplus, 3),
+            "marketShare": market_share,
         }
 
     # Picks have no individual NFL production history. Convert each supported
@@ -316,11 +319,11 @@ def value_board(players, picks, *, season_week=1):
     return player_results, pick_results, {
         **context,
         "lineup": {"teams": TEAMS, **STARTERS, "FLEX": 1, "SUPER_FLEX": 1},
-        "method": "exchange-calibrated-rating",
+        "method": "market-first-score-blend",
         "scoreAnchors": [{"score": score, "surplus": surplus} for surplus, score in anchors],
         "ratingReference": {"buildingBlockScore": anchors[1][1], "earlyStartupScore": anchors[2][1],
                             "eliteScore": 95, "upperCurve": "rational-above-95"},
-        "marketWeight": MARKET_SHARE, "marketQuoteAnchors": list(EXCHANGE_QUOTES),
+        "marketWeight": market_weight, "marketQuoteAnchors": list(EXCHANGE_QUOTES),
         "horizonDiscount": DISCOUNT,
         "futureSeasons": 2, "secondYearDiscount": DISCOUNT, "futureCohortShare": 0.5,
         "draftPriorShare": {"rookieStart": 0.65, "rookieEnd": 0.25, "secondYearEnd": 0},

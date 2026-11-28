@@ -5610,7 +5610,7 @@ function refreshDraftSuggestions(side) {
 function renderDraftBasis(view) {
   const legacy = activeSharedTrade(view.draft)?.decoded?.legacyFormat || state.legacyValueLink;
   return `<div class="draft-basis-row"><p class="draft-format-fixed">12-team Superflex · Full PPR · 0–100 values</p>
-    ${infoTipMarkup({ id: "pop-format-trade", label: "Scoring and how values work", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10))}` })}
+    ${infoTipMarkup({ id: "pop-format-trade", label: "Scoring and how values work", text: `${GLOSSARY.PPR} ${GLOSSARY.Superflex} ${valuesWorkText(String(state.valueBundles?.asOf || "").slice(0, 10), state.valueBundles?.meta?.price?.marketWeight)}` })}
     ${legacy ? `<p class="muted">Shared with 1QB values, which we no longer publish. Shown on 12-team SF PPR values.</p>` : ""}</div>`;
 }
 
