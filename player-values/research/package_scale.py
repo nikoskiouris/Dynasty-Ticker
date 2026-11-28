@@ -24,9 +24,9 @@ CALCULATOR = """
 import fs from 'node:fs';
 import {pathToFileURL} from 'node:url';
 const {calculatePackageAdjustment} = await import(pathToFileURL(process.argv[1]));
-const {maximum, trades} = JSON.parse(fs.readFileSync(0, 'utf8'));
+const {maximum, trades, rules} = JSON.parse(fs.readFileSync(0, 'utf8'));
 const totals = trades.map(([myValues, theirValues]) => {
-  const r = calculatePackageAdjustment({myValues, theirValues, globalMaxValue: maximum});
+  const r = calculatePackageAdjustment({myValues, theirValues, globalMaxValue: maximum}, rules);
   return [[r.myBaseValue, r.theirBaseValue], [r.myAdjustedValue, r.theirAdjustedValue]];
 });
 process.stdout.write(JSON.stringify(totals));
@@ -40,11 +40,11 @@ def trade_key(key):
     return f'pick:{season}:r{rnd}:any'
 
 
-def calculator_totals(prices, matches, module):
+def calculator_totals(prices, matches, module, rules=None):
     maximum = max(v for k, v in prices.items() if not k.startswith('pick:'))
     trades = [[[prices[k] for k in side] for side in deal['sides']] for deal in matches]
     result = subprocess.run(['node', '--input-type=module', '-e', CALCULATOR, str(module)],
-                            input=json.dumps({'maximum': maximum, 'trades': trades}), text=True,
+                            input=json.dumps({'maximum': maximum, 'trades': trades, 'rules': rules or {}}), text=True,
                             capture_output=True, check=True)
     return json.loads(result.stdout)
 

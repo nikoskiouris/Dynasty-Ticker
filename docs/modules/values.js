@@ -14,7 +14,7 @@ export function valuationUpdatedAt(bundle) {
   if (Number.isNaN(date.getTime())) return text;
   return date.toISOString().slice(0, 10);
 }
-export const PLAYER_VALUE_MODEL_VERSION = "dynasty-sf-ppr-v5.2";
+export const PLAYER_VALUE_MODEL_VERSION = "dynasty-sf-ppr-v5.3";
 
 export function isCurrentValueBoard(payload) {
   return payload?.modelVersion === PLAYER_VALUE_MODEL_VERSION && payload.valueScale === 100;
@@ -27,7 +27,7 @@ const archivedIntegerModels = new Set([
   "sleeper-trades-v1", "sleeper-trades-v2", "sleeper-trades-v3", "sleeper-trades-v4",
   "dynasty-sf-ppr-v1", "dynasty-sf-ppr-v2-preview", "dynasty-sf-ppr-v2",
 ]);
-const archivedHundredPointModels = new Set(["dynasty-sf-ppr-v3", "dynasty-sf-ppr-v4", "dynasty-sf-ppr-v5", "dynasty-sf-ppr-v5.1"]);
+const archivedHundredPointModels = new Set(["dynasty-sf-ppr-v3", "dynasty-sf-ppr-v4", "dynasty-sf-ppr-v5", "dynasty-sf-ppr-v5.1", "dynasty-sf-ppr-v5.2"]);
 
 function priceScale(row) {
   if (row?.modelVersion === PLAYER_VALUE_MODEL_VERSION || archivedHundredPointModels.has(row?.modelVersion)) {
@@ -565,6 +565,7 @@ async function loadValuationBundles(fetchImpl) {
   return {
     sf: { values: sf.values, nameMap: { ...names, ...sf.nameMap } },
     names,
+    marketQuotes: payload.marketQuotes || {},
     players: payload.players && typeof payload.players === "object" ? payload.players : {},
     meta: payload.meta && typeof payload.meta === "object" ? payload.meta : {},
     modelVersion: payload.modelVersion,

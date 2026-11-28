@@ -60,6 +60,32 @@ def market_surplus(quote, remaining_fraction):
     return first * remaining_fraction + later
 
 
+# Median May 2026 trade quotes for startup ranks 17–30, 4–8 and 1–3.
+# These bands contain the ranks used by the historical surplus benchmarks.
+# Lock reference quotes so a change in one asset cannot reprice
+# other players or picks. Keep the older outcome mapping above for replays.
+EXCHANGE_QUOTES = (5673.0, 8715.0, 10069.0)
+
+
+def exchange_surplus(quote, anchors):
+    """Express trade quotes in the same units as the football signal for blending.
+
+    Each reference band has a historical football surplus and a trade quote.
+    The equivalent surplus lets both signals use the same seasonal anchors.
+    """
+    if quote <= 0:
+        return 0.0
+    previous_quote, previous_surplus = 0.0, 0.0
+    for reference, (surplus, _) in zip(EXCHANGE_QUOTES, anchors[1:4]):
+        slope = (surplus - previous_surplus) / (reference - previous_quote)
+        if quote <= reference:
+            return previous_surplus + (quote - previous_quote) * slope
+        previous_quote, previous_surplus = reference, surplus
+    # Continue at the slope of the last interval. The common rating curve
+    # tapers above 95 and already bounds the final score at 100.
+    return previous_surplus + (quote - previous_quote) * slope
+
+
 def rating_anchors(remaining_fraction):
     """Interpolate the frozen draft reference for this point in the schedule."""
     fraction = min(1.0, max(0.0, remaining_fraction))
@@ -69,6 +95,17 @@ def rating_anchors(remaining_fraction):
     progress = (fraction - left_t) / (right_t - left_t)
     references = [a + progress * (b - a) for a, b in zip(left, right)]
     return ((0.0, 0.0), *zip(references, (87.0, 90.0, 95.0)), (HISTORICAL_CEILING, 100.0))
+
+
+def exchange_rating_anchors(remaining_fraction):
+    """Preserve quote ratios up to the frozen top-three startup reference.
+
+    The football forecast still has a season-dependent surplus for each
+    reference tier. Its score at that tier now reflects exchange value.
+    """
+    historical = rating_anchors(remaining_fraction)
+    scores = (0.0, *(95.0 * quote / EXCHANGE_QUOTES[-1] for quote in EXCHANGE_QUOTES), 100.0)
+    return tuple((surplus, score) for (surplus, _), score in zip(historical, scores))
 
 
 def rate_from_anchors(surplus, anchors):
@@ -82,11 +119,12 @@ def rate_from_anchors(surplus, anchors):
     ceiling = anchors[-1][0]
     if surplus >= ceiling:
         return 100.0
-    # This shoulder starts with the same slope as the 90–95 segment, stays
+    # This shoulder starts with the same slope as the preceding segment, stays
     # strictly increasing and reaches 100 at the historical realized ceiling.
     excess = surplus - elite
-    gap = elite - previous
-    return 95 + 5 * excess / (gap + (1 - gap / (ceiling - elite)) * excess)
+    slope = (95 - anchors[-3][1]) / (elite - previous)
+    span = 5 / slope
+    return 95 + 5 * excess / (span + (1 - span / (ceiling - elite)) * excess)
 
 
 def native_score(surplus, remaining_fraction=1.0):

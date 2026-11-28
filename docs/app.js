@@ -229,6 +229,8 @@ import {
 } from "./modules/history-route.js";
 import {
   EVEN_UP_OFFER_ABOVE,
+  percentMore,
+  tierForMore,
   oldPctToMore,
   STAR_PREMIUM_KEY,
   UNAVAILABLE_PRICE_LINE,
@@ -241,7 +243,7 @@ import {
 import { bestRowIsPick, bestRowName, starsPremiumMarkup } from "./modules/verdict-bars.js";
 import { GLOSSARY, bindInfoTips, infoTipMarkup, renderPriceLegend, valuesWorkText } from "./modules/info-tip.js";
 import { LEGACY_FORMAT_NOTE, decodeTradeShare, encodeTradeShare, shareAssetIdFor, missingBoardNote, priceStamp, sameVerdict, shareMessage, sharePath, shareSummary, snapshotPath, stampLabel } from "./modules/trade-share.js";
-import { chooseBestLineup, countStartableAtPosition } from "./modules/lineup.js";
+import { chooseBestLineup, positionalStarterCutoff } from "./modules/lineup.js";
 import { createPageRenderQueue, isTextEntry } from "./modules/page-render.js";
 import {
   buildOwnedPickKey,
@@ -2126,8 +2128,7 @@ function applyTradeRoute(route) {
   const nameOf = (id) => state.valueNameMap?.[id] || id;
   for (const id of route?.give || []) draft = addValueCalcItem(draft, "left", { assetId: id, name: nameOf(id) });
   for (const id of route?.get || []) draft = addValueCalcItem(draft, "right", { assetId: id, name: nameOf(id) });
-  state.valueCalc = draft;
-  writeStoredDraft(draft);
+  storeDraft(draft);
   void loadSharedTrade(route?.shareCode, draft);
 }
 
@@ -4933,7 +4934,20 @@ function rememberRemovedSides(before, after) {
   while (removedSides.size > 24) removedSides.delete(removedSides.keys().next().value);
 }
 
-function setDraft(next, { keepNotice = false } = {}) {
+// Talk confirmations and unanswered choices describe a specific trade. An
+// outside edit invalidates them and ends that sequence of undoable talk edits.
+function storeDraft(next, fromTalk = false) {
+  if (!fromTalk && (tradeTalkLog.length || tradeTalkUndo.length) && talkDraftKey(state.valueCalc) !== talkDraftKey(next)) {
+    tradeTalkLog = [];
+    tradeTalkUndo = [];
+    patchTradeTalkLog();
+    showTalkToast([]);
+  }
+  state.valueCalc = next;
+  writeStoredDraft(next);
+}
+
+function setDraft(next, { keepNotice = false, fromTalk = false } = {}) {
   // "Restore draft / Keep new" goes away on the next change to the trade.
   if (!keepNotice) setDraftReplaced(null);
   // The first edit of a received /t trade gets its own history entry, so Back
@@ -4945,8 +4959,7 @@ function setDraft(next, { keepNotice = false } = {}) {
   draftPushNext = false;
   if (leavingShared) prepareDeskPush();
   rememberRemovedSides(state.valueCalc, next);
-  state.valueCalc = next;
-  writeStoredDraft(next);
+  storeDraft(next, fromTalk);
   if (state.activePage === "trades" && getRoom("trades") === "calculator") {
     updateUrlState(pushNow ? { mode: "push", force: true } : { mode: "replace" });
   }
@@ -4957,12 +4970,12 @@ function draftAssetKey(draft) {
   return `${ids(draft?.left)}|${ids(draft?.right)}`;
 }
 
-function replaceDraft(next, note) {
+function replaceDraft(next, note, { fromTalk = false } = {}) {
   const current = state.valueCalc;
   setDraftReplaced(!isDraftEmpty(current) && draftAssetKey(current) !== draftAssetKey(next)
     ? { draft: current, note }
     : null);
-  setDraft(next, { keepNotice: true });
+  setDraft(next, { keepNotice: true, fromTalk });
 }
 
 // Roster ids repeat across leagues, so a browse preference from one league means nothing in another.
@@ -5062,12 +5075,11 @@ function dropUnknownDraftPlayers() {
     return;
   }
   const ids = new Set(bad.map((item) => item.uid));
-  state.valueCalc = {
+  storeDraft({
     ...state.valueCalc,
     left: (state.valueCalc.left || []).filter((item) => !ids.has(item.uid)),
     right: (state.valueCalc.right || []).filter((item) => !ids.has(item.uid)),
-  };
-  writeStoredDraft(state.valueCalc);
+  });
   const names = bad.map((item) => String(item.assetId).replace(/^player:/, "")).join(", ");
   state.droppedPlayerNote = `Player not found (${names}). We removed it from the trade.`;
   updateUrlState({ mode: "replace" });
@@ -5324,25 +5336,16 @@ function tradeTalkNext(view) {
   const gap = Number(view.model?.verdict?.gap) || 0;
   const more = tradeAdviceReady(view) ? verdictCopy(view.model.verdict).more : null;
   if (more != null && more > EVEN_UP_OFFER_ABOVE && gap) {
-    const pick = findEvenUpPick(view);
-    // closes is scored with the stars credit, so it holds even when the pick's
-    // price is far from the raw gap.
-    if (pick?.closes && pick.name) {
-      candidates.push(gap > 0 ? `give a ${pick.name}` : `they add a ${pick.name}`);
-    } else {
-      const partnerId = view.context?.partnerRosterId ?? null;
-      const [player] = priceNeighbors(ctx.catalog, Math.abs(gap), {
-        exclude: [...draft.left, ...draft.right].map((item) => item.assetId),
-        ownerRosterId: gap > 0 ? ctx.meRosterId : partnerId,
-        notOwnerRosterId: gap > 0 ? partnerId : ctx.meRosterId,
-        limit: 1,
-      });
-      if (player) candidates.push(gap > 0 ? `give ${player.name}` : `they add ${player.name}`);
+    // The text follow-up must add the same piece the calculator rescored.
+    const option = findEvenUpOptions(view)?.find(({ choice }) => choice.closes);
+    if (option) {
+      const name = option.kind === "pick" ? `a ${option.choice.name}` : option.choice.name;
+      candidates.push(gap > 0 ? `give ${name}` : `they add ${name}`);
     }
   }
   const givePlayer = draft.left.find((item) => item.assetType !== "pick");
   if (givePlayer && !draft.right.length) candidates.push(`what could I get for ${givePlayer.name}`);
-  if (draft.left.length || draft.right.length) candidates.push(`add my ${season + 1} 2nd`);
+  if (Boolean(draft.left.length) !== Boolean(draft.right.length)) candidates.push(`add my ${season + 1} 2nd`);
   const inDraft = new Set([...draft.left, ...draft.right].map((item) => String(item.assetId)));
   const keep = [];
   for (const text of candidates) {
@@ -5350,7 +5353,7 @@ function tradeTalkNext(view) {
     const plan = parseTradeTalk(text, ctx);
     if (plan.misses.length || plan.asks.length) continue;
     if (plan.intent !== "shop" && !plan.adds.length) continue;
-    if (plan.adds.some((add) => inDraft.has(String(add.asset.assetId)))) continue;
+    if (plan.adds.some((add) => !isGenericPickAssetId(add.asset.assetId) && inDraft.has(String(add.asset.assetId)))) continue;
     keep.push(text);
   }
   if (draft.left.length || draft.right.length) keep.push("clear");
@@ -5434,13 +5437,14 @@ function runTradeTalk(text) {
   // lists returns priced near him.
   if (plan.intent === "shop" && plan.adds.length && !isDraftEmpty(state.valueCalc)) {
     const target = plan.adds[0].asset;
-    const value = draftMarketPrice(target, view.basis).value;
+    const { value, estimated } = draftMarketPrice(target, view.basis);
     const neighbors = priceNeighbors(ctx.catalog, value, {
       exclude: [target, ...state.valueCalc.left, ...state.valueCalc.right].map((item) => item.assetId),
     });
     tradeTalkLog = [{
       say,
-      lines: [`${target.name} is worth ${formatNumber(value)} on our board. Your trade is unchanged.`],
+      lines: [estimated ? `No published price is available for ${target.name}.`
+        : `${target.name} is worth ${formatNumber(value)} on our board. Your trade is unchanged.`],
       groups: neighbors.length ? [{ title: "Single players priced near that", chips: neighbors.map((row) => ({ ...row, side: "right" })) }] : [],
       next: [],
       sticky: true,
@@ -5453,9 +5457,9 @@ function runTradeTalk(text) {
     || result.draft.partnerRosterId !== state.valueCalc.partnerRosterId;
   if (changed) {
     rememberTalkChange(say, state.valueCalc, result.draft);
-    if (plan.intent === "clear") replaceDraft(result.draft, "Cleared both sides.");
-    else if (plan.replace) replaceDraft(result.draft, "Built a new trade from what you typed.");
-    else setDraft(result.draft);
+    if (plan.intent === "clear") replaceDraft(result.draft, "Cleared both sides.", { fromTalk: true });
+    else if (plan.replace) replaceDraft(result.draft, "Built a new trade from what you typed.", { fromTalk: true });
+    else setDraft(result.draft, { fromTalk: true });
   }
   const after = buildDraftView();
   // Name the sides the way the columns do: "Team 2 receives: Gibbs".
@@ -5492,7 +5496,9 @@ function runTradeTalk(text) {
   const connectLine = plan.unknownPartner && !after.basis.connected
     ? `Connect your Sleeper league to use ${plan.unknownPartner}’s roster. Until then these are market picks and players. This trade stays here.`
     : "";
-  if (plan.intent === "shop" && after.give > 0) {
+  if (plan.intent === "shop" && after.missingPrices) {
+    lines.push("One or more pieces have no published value.");
+  } else if (plan.intent === "shop" && after.give > 0) {
     const partnerId = after.context?.partnerRosterId ?? null;
     const neighbors = priceNeighbors(ctx.catalog, after.give, {
       exclude: [...after.draft.left, ...after.draft.right].map((item) => item.assetId),
@@ -5519,7 +5525,8 @@ function runTradeTalk(text) {
   if (bothSides && plan.asked && after.model?.verdict) {
     // Same names as the columns and the scale ("Team 2 receives 13% more");
     // the calculator is never "you" (owner rule, Nov 19).
-    const verdictLine = verdictLineNamed(after.model.verdict, { Give: giveLabel, Get: getLabel });
+    const verdictLine = after.missingPrices ? "Current verdict unavailable. One or more pieces have no published value"
+      : verdictLineNamed(after.model.verdict, { Give: giveLabel, Get: getLabel });
     if (verdictLine) lines.push(`${verdictLine}.`);
   }
   // A question needs an answer, so its reply stays on screen instead of a toast over it.
@@ -5563,7 +5570,7 @@ function undoTradeTalk(say) {
     line = "The trade was changed outside this box since then, so there is nothing here to undo.";
   } else {
     tradeTalkUndo.pop();
-    setDraft(last.before);
+    setDraft(last.before, { fromTalk: true });
     undone = true;
     line = `Undid “${last.say}”.`;
   }
@@ -5581,7 +5588,7 @@ function addTalkChip(target) {
     name: target.dataset.name,
     assetType: target.dataset.kind === "pick" ? "pick" : "player",
     leagueId: target.dataset.leagueId || "",
-  });
+  }, { fromTalk: true });
   const after = buildDraftView();
   // Name the column as its header does: "Added Bijan Robinson to Team 1 receives."
   const label = `${draftReceivingTeam(side, after)} receives`;
@@ -5706,6 +5713,8 @@ function tradeAdviceSections(view) {
     closes: Boolean(choice.closes),
   } : null;
   return buildTradeAdvice({ verdictLine: verdictLineNamed(verdict, teamNames), fair, evenUp,
+    context: { draft: view.draft, priceOf: view.priceOf, values: view.basis.values, teamNames,
+      players: state.valueBundles?.players, replacements: state.valueBundles?.meta?.price?.seasonReplacement },
     alreadyClose: copy.tier === "edge",
     lighter: draftReceivingTeam(side, view) });
 }
@@ -6169,59 +6178,73 @@ function nextRookieDraftSeason() {
   return tradablePickSeason(state.nflState);
 }
 
-// A future pick evens the gap only when its price actually covers it.
-// Sleeper trades picks for the current season plus up to three future years,
-// so a "2032 2nd" is not a pick anyone can send there yet. Suggest a pick from the next
-// three drafts when one makes it fair; reach further out only when none does.
+// In Sleeper the next three drafts are tradable after this season's rookie
+// draft. A later quote can appear on an older board but cannot be sent today.
 const EVEN_UP_NEAR_DRAFTS = 3;
 function findEvenUpPick(view) {
   const first = nextRookieDraftSeason();
-  const picks = listGenericPicks(view.basis.values, view.basis.nameMap)
-    .filter((pick) => Number(pick.season) >= first);
-  const search = (list) => evenUpTradePick({
+  const picks = listGenericPicks(view.basis.values, view.basis.nameMap, {
+    minSeason: first, includeWholeRounds: true,
+  }).filter((pick) => Number(pick.season) < first + EVEN_UP_NEAR_DRAFTS);
+  return evenUpTradePick({
     giveValues: view.draft.left.map(view.priceOf),
     getValues: view.draft.right.map(view.priceOf),
-    picks: list,
+    picks,
     globalMaxValue: getGlobalMaxPlayerValue(view.basis.values),
   });
-  const near = search(picks.filter((pick) => Number(pick.season) < first + EVEN_UP_NEAR_DRAFTS));
-  if (near?.closes) return near;
-  const any = search(picks);
-  return any?.closes || !near ? any : near;
 }
 
-const EVEN_UP_MIN_PLAYER = 35;
-
-// The closest pick and the closest player that even the trade up. Players are
-// prefiltered to a price band around the gap, then scored like picks.
+// Use the reference format's number of starting spots to size the player pool.
+// Each suggestion must still close the actual package after adding the player.
 function findEvenUpOptions(view) {
   const pick = findEvenUpPick(view);
-  const give = view.draft.left.map(view.priceOf);
-  const get = view.draft.right.map(view.priceOf);
-  const globalMaxValue = getGlobalMaxPlayerValue(view.basis.values);
-  const model = draftVerdictModel(give.map(Number), get.map(Number), { globalMaxValue });
-  const need = Math.abs(Number(model.verdict.gap) || 0);
+  const need = Math.abs(view.model.verdict.gap);
+  const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
+  const players = listValueCalcAssets(view.basis.values, names, { kinds: ["player"], limit: 0 });
+  const { teams, ...slots } = state.valueBundles?.meta?.price?.lineup || {};
+  const starterCount = teams * Object.values(slots).reduce((sum, count) => sum + count, 0);
+  // Older or partial boards may not contain the full reference pool.
+  const minPlayer = players[starterCount - 1]?.value ?? 35;
   let player = null;
-  // Small gaps are settled with a pick; a player only when the gap is player-sized.
-  if (need >= EVEN_UP_MIN_PLAYER && give.length && get.length) {
-    const taken = new Set([...view.draft.left, ...view.draft.right].map((item) => String(item.assetId)));
-    const names = withPlayerDirectoryNames(view.basis.nameMap, state.players);
-    const near = listValueCalcAssets(view.basis.values, names, { kinds: ["player"], limit: 2000 })
-      // A throw-in never decides a real trade: only starter-level players (35+).
-      .filter((row) => !taken.has(String(row.assetId)) && row.value >= EVEN_UP_MIN_PLAYER && row.value >= need * 0.3 && row.value <= need * 4)
-      .sort((x, y) => Math.abs(x.value - need) - Math.abs(y.value - need));
-    player = evenUpTradePick({ giveValues: give, getValues: get, picks: near, globalMaxValue });
+  if (need >= minPlayer) {
+    const taken = new Set([...view.draft.left, ...view.draft.right].map(item => item.assetId));
+    const candidates = players.filter(row => row.value >= minPlayer && row.value >= need * 0.3
+      && row.value <= need * 4 && !taken.has(row.assetId));
+    player = evenUpTradePick({
+      giveValues: view.draft.left.map(view.priceOf),
+      getValues: view.draft.right.map(view.priceOf),
+      picks: candidates,
+      globalMaxValue: getGlobalMaxPlayerValue(view.basis.values),
+    });
   }
   const options = [];
   if (pick) options.push({ kind: "pick", choice: pick });
-  // A player is offered only when he alone makes it fair; the pick is always shown.
+  // A player is offered only when he alone makes it fair.
   if (player?.closes) options.push({ kind: "player", choice: player });
   return options.length ? options : null;
 }
 
 function renderDraftMethod(view) {
-  // The verdict already shows any extra for fewer, better pieces; only say what the screen cannot.
-  return [...view.priced.values()].some((row) => row.estimated) ? `<p>${escapeHtml(UNAVAILABLE_PRICE_LINE)}</p>` : "";
+  if (view.missingPrices) return `<p>${escapeHtml(UNAVAILABLE_PRICE_LINE)}</p>`;
+  const { left, right } = view.draft;
+  if (!left.length || !right.length) return "";
+  const quotes = state.valueBundles?.marketQuotes || {};
+  const pieces = [...left, ...right];
+  if (!pieces.some(item => item.assetId.startsWith("player:"))
+      || !pieces.every(item => Number.isFinite(quotes[item.assetId]) && quotes[item.assetId] > 0)) return "";
+
+  const total = items => items.reduce((sum, item) => sum + quotes[item.assetId], 0);
+  const give = total(left);
+  const get = total(right);
+  const margin = percentMore(give, get);
+  const quoteTier = tierForMore(margin);
+  const model = view.model;
+  const sameDirection = Math.sign(give - get) === Math.sign(model.compareGive - model.compareGet);
+  if (quoteTier === tierForMore(model.verdict.more) && (quoteTier === "even" || sameDirection)) return "";
+
+  const team = draftReceivingTeam(give > get ? "left" : "right", view);
+  const comparison = give === get ? "are equal for both teams" : `total ${formatNumber(Math.round(margin * 10) / 10)}% more for ${team}`;
+  return `<p class="calc-method">At this board’s update, 12-team two-QB PPR market quotes ${escapeHtml(comparison)}. The calculator also considers player production and package composition.</p>`;
 }
 
 // trade_checked fires once per distinct give/get pair that reaches a verdict.
@@ -6593,10 +6616,10 @@ function renderDraftTeam(view) {
   `;
 }
 
-function addDraftAsset(side, asset) {
+function addDraftAsset(side, asset, { fromTalk = false } = {}) {
   const next = addValueCalcItem(state.valueCalc, side === "right" ? "right" : "left", asset);
   if (next === state.valueCalc) return false;
-  setDraft(next);
+  setDraft(next, { fromTalk });
   return true;
 }
 
@@ -7065,8 +7088,7 @@ function handleWorkspaceClick(event) {
       state.sharedTrade = null;
       state.sentShare = null;
       setDraftReplaced(null);
-      state.valueCalc = clearValueCalcSides(state.valueCalc);
-      writeStoredDraft(state.valueCalc);
+      storeDraft(clearValueCalcSides(state.valueCalc));
       renderTradeDraft();
       updateUrlState({ mode: "push", force: true });
       el.calculatorShell?.querySelector("[data-input='value-search']")?.focus({ preventScroll: true });
@@ -7411,15 +7433,28 @@ function buildLeaguePowerContext({ league, rosters, values, metricsByRosterId = 
   }
 
   const ranks = rankRosterMetrics(resolvedMetrics);
-  const positions = getPowerPositions(league, rosters);
+  // Count mandatory seats even if a roster leaves one empty. For a flex
+  // seat, use the position actually selected by the optimal dynasty lineup.
+  const occupied = new Map();
+  for (const { lineup } of resolvedMetrics.values()) {
+    for (const { slot, asset } of lineup) {
+      const allowed = getAllowedPositionsForSlot(slot);
+      const position = allowed.size === 1 ? allowed.values().next().value
+        : playerPositionsForAsset(asset).find(pos => allowed.has(pos));
+      if (position) occupied.set(position, (occupied.get(position) || 0) + 1);
+    }
+  }
+  const positions = ["QB", "RB", "WR", "TE"].filter(position => occupied.has(position));
+  const positionPools = new Map();
   const pickValues = rosters.map((roster) => summarizeRosterAssets(roster, values).pickValue);
   const positionValuesByPosition = new Map();
 
   positions.forEach((position) => {
-    positionValuesByPosition.set(
-      position,
-      rosters.map((roster) => calculateRosterPositionValue(roster, values, league, position))
-    );
+    const seats = occupied.get(position);
+    const demand = Math.max(1, Math.round(seats / rosters.length));
+    const rooms = rosters.map(roster => rankedPositionPrices(roster, values, position));
+    positionPools.set(position, { demand, cutoff: positionalStarterCutoff(rooms, seats) });
+    positionValuesByPosition.set(position, rooms.map(room => sumPositionStarters(room, demand)));
   });
 
   return {
@@ -7435,6 +7470,7 @@ function buildLeaguePowerContext({ league, rosters, values, metricsByRosterId = 
     pickValues,
     positions,
     positionValuesByPosition,
+    positionPools,
   };
 }
 
@@ -7443,11 +7479,11 @@ function buildTeamPowerProfile({ roster, values, league, context, metrics = null
   const resolvedRank = rank || context.ranks.get(roster.rosterId) || context.totalTeams;
   const assetSummary = summarizeRosterAssets(roster, values);
   const positionSummaries = context.positions.map((position) =>
-    buildPositionPowerSummary(roster, values, league, context, position)
+    buildPositionPowerSummary(roster, values, context, position)
   );
   const strongestPosition = positionSummaries.slice().sort((a, b) => b.percentile - a.percentile)[0] || null;
   const weakestPosition = positionSummaries
-    .filter((row) => !positionRoomIsCovered(roster, values, league, row.position))
+    .filter((row) => !row.covered)
     .sort((a, b) => a.percentile - b.percentile)[0] || null;
   const starterPercentile = percentileFromValues(context.starterValues, resolvedMetrics.starterValue);
   const benchPercentile = percentileFromValues(context.benchValues, resolvedMetrics.benchValue);
@@ -7560,56 +7596,25 @@ function isInjuryFlaggedAsset(asset) {
   return Boolean(injuryStatus) || status.includes("injured") || status.includes("ir") || status.includes("pup");
 }
 
-function getPowerPositions(league, rosters) {
-  const priority = ["QB", "RB", "WR", "TE"];
-  const playerPositions = new Set(
-    rosters.flatMap((roster) =>
-      roster.assets
-        .filter((asset) => asset.assetType === "player")
-        .flatMap((asset) => playerPositionsForAsset(asset))
-    )
-  );
-  return priority.filter((position) => playerPositions.has(position) || getPositionStarterDemand(league, position) > 0);
-}
-
-function getPositionStarterDemand(league, position) {
-  const slots = getStarterRosterSlots(league);
-  const normalizedPosition = normalizePlayerPosition(position);
-  const rawDemand = slots.reduce((sum, slot) => {
-    const allowed = getAllowedPositionsForSlot(slot);
-    if (!allowed.has(normalizedPosition)) return sum;
-    return sum + (allowed.size === 1 ? 1 : 1 / allowed.size);
-  }, 0);
-  return Math.max(1, Math.round(rawDemand));
-}
-
-function calculateRosterPositionValue(roster, values, league, position) {
-  const demand = getPositionStarterDemand(league, position);
+function rankedPositionPrices(roster, values, position) {
   return roster.assets
-    .filter((asset) => asset.assetType === "player" && playerPositionsForAsset(asset).includes(position))
-    .map((asset) => getAssetValue(asset, values))
-    .filter(Number.isFinite)
-    .sort((a, b) => b - a)
-    .slice(0, demand)
-    .reduce((sum, value) => sum + value, 0);
+    .filter(asset => asset.assetType === "player" && playerPositionsForAsset(asset).includes(position))
+    .map(asset => getAssetValue(asset, values))
+    .filter(value => Number.isFinite(value) && value > 0)
+    .sort((a, b) => b - a);
 }
 
-function positionRoomIsCovered(roster, values, league, position) {
-  const demand = getPositionStarterDemand(league, position);
-  const startable = countStartableAtPosition(
-    roster?.assets,
-    position,
-    (asset) => getAssetValue(asset, values),
-    (asset) => playerPositionsForAsset(asset),
-  );
-  return startable >= demand;
+function sumPositionStarters(prices, demand) {
+  return prices.slice(0, demand).reduce((sum, value) => sum + value, 0);
 }
 
-function buildPositionPowerSummary(roster, values, league, context, position) {
-  const value = calculateRosterPositionValue(roster, values, league, position);
+function buildPositionPowerSummary(roster, values, context, position) {
+  const { demand, cutoff } = context.positionPools.get(position);
+  const prices = rankedPositionPrices(roster, values, position);
+  const value = sumPositionStarters(prices, demand);
+  const covered = prices.length >= demand && prices[demand - 1] >= cutoff;
   const percentile = percentileFromValues(context.positionValuesByPosition.get(position) || [], value);
   const rank = rankValueDescending(context.positionValuesByPosition.get(position) || [], value);
-  const covered = positionRoomIsCovered(roster, values, league, position);
   // The rank decides the word. A covered room used to read "stable" even at
   // 12th of 12, beside a Next move that says to upgrade it.
   // Plain words: "edge" alone did not say what it was an edge in.
@@ -7621,6 +7626,7 @@ function buildPositionPowerSummary(roster, values, league, context, position) {
   return {
     position,
     value,
+    covered,
     percentile,
     rank,
     rankLabel: `${ordinal(rank)} / ${context.totalTeams}`,

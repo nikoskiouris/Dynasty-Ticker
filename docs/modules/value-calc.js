@@ -132,7 +132,7 @@ function sliceValueCalcRows(rows, limit) {
   return Number.isFinite(Number(limit)) && Number(limit) > 0 ? rows.slice(0, Number(limit)) : rows;
 }
 
-export function listGenericPicks(values = {}, names = {}, { minSeason = upcomingDraftSeason() } = {}) {
+export function listGenericPicks(values = {}, names = {}, { minSeason = upcomingDraftSeason(), includeWholeRounds = false } = {}) {
   const floor = Number(minSeason);
   // Rounds priced by slot (early/mid/late) list those; rounds priced only as a
   // whole ("any", usually 2nd-5th) list the single round pick.
@@ -145,7 +145,7 @@ export function listGenericPicks(values = {}, names = {}, { minSeason = upcoming
     .filter(([assetId, value]) => {
       if (!isGenericPickAssetId(assetId) || !Number.isFinite(Number(value))) return false;
       const meta = parsePickAssetId(assetId);
-      return meta.bucket !== "any" || !bucketed.has(`${meta.season}:${meta.round}`);
+      return includeWholeRounds || meta.bucket !== "any" || !bucketed.has(`${meta.season}:${meta.round}`);
     })
     .map(([assetId, value]) => {
       const meta = parsePickAssetId(assetId);
@@ -216,29 +216,11 @@ export function listValueCalcAssets(values = {}, names = {}, { query = "", limit
   const rows = [];
   if (want.has("player")) rows.push(...listValueCalcPlayerRows(values, names));
   if (want.has("pick")) {
-    const picks = listGenericPicks(values, names, { minSeason });
-    rows.push(...picks);
-    // "2027 1st" names no slot. Offer the plain round pick too, so Enter does not
-    // quietly add the Early 1st, the priciest slot.
-    if (String(query || "").trim() && !PICK_SLOT_WORD.test(String(query))) {
-      const floor = Number(minSeason);
-      const listed = new Set(picks.map((pick) => pick.assetId));
-      Object.entries(values).forEach(([assetId, value]) => {
-        const meta = parsePickAssetId(assetId);
-        if (!meta || meta.bucket !== "any" || listed.has(assetId) || !isGenericPickAssetId(assetId)) return;
-        if (!Number.isFinite(Number(value)) || (Number.isFinite(floor) && Number(meta.season) < floor)) return;
-        rows.push({
-          assetId,
-          name: names[assetId] || formatGenericPickAssetLabel(assetId),
-          value: Number(value),
-          assetType: "pick",
-          season: meta.season,
-          round: meta.round,
-          bucket: meta.bucket,
-          bucketLabel: formatPickBucketLabel(meta.bucket),
-        });
-      });
-    }
+    // A query with no slot should offer the whole-round price before its
+    // slot-specific prices. A search for "late" should only show a whole
+    // round when that is the only price available.
+    const includeWholeRounds = Boolean(String(query || "").trim()) && !PICK_SLOT_WORD.test(String(query));
+    rows.push(...listGenericPicks(values, names, { minSeason, includeWholeRounds }));
   }
   const sorted = rows.filter((row) => valueCalcAssetMatchesQuery(row, query)).sort(sortValueCalcRows);
   return sliceValueCalcRows(plainRoundFirst(sorted), limit);

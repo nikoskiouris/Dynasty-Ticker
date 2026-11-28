@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "docs" / "data"
 MAX_VALUE_AGE_DAYS = 21
 # The model the builder is configured to write. A snapshot from any other model is not the one the desk expects.
-MODEL_VERSION = "dynasty-sf-ppr-v5.2"
+MODEL_VERSION = "dynasty-sf-ppr-v5.3"
 POSITIONS = {"QB", "RB", "WR", "TE"}
 
 
@@ -40,7 +40,8 @@ def valid_score_anchors(anchors) -> bool:
     if not all(isinstance(row, dict) and nonnegative_number(row.get("score"))
                and nonnegative_number(row.get("surplus")) for row in anchors):
         return False
-    return ([row["score"] for row in anchors] == [0, 87, 90, 95, 100]
+    return (anchors[0]["score"] == 0 and anchors[-1]["score"] == 100
+            and all(a["score"] < b["score"] for a, b in zip(anchors, anchors[1:]))
             and anchors[0]["surplus"] == 0
             and all(a["surplus"] < b["surplus"]
                     for a, b in zip(anchors, anchors[1:])))
@@ -107,10 +108,22 @@ def check_player_values(
     else:
         scores = [row["score"] for row in price_method["scoreAnchors"]]
         reference = price_method.get("ratingReference")
-        if (price_method.get("method") != "seasonal-startup-rating" or scores != [0, 87, 90, 95, 100]
-                or not isinstance(reference, dict) or reference.get("earlyDraftScore") != 87
-                or reference.get("eliteScore") != 90 or reference.get("upperCurve") != "rational-above-95"):
-            errors.append("missing or inconsistent v5 startup rating references")
+        quotes = price_method.get("marketQuoteAnchors")
+        if (price_method.get("method") != "exchange-calibrated-rating"
+                or not isinstance(quotes, list) or len(quotes) != 3
+                or not all(nonnegative_number(q) and q > 0 for q in quotes)
+                or not all(math.isclose(s, 95 * q / quotes[-1]) for s, q in zip(scores[1:4], quotes))
+                or not isinstance(reference, dict) or reference.get("buildingBlockScore") != scores[1]
+                or reference.get("earlyStartupScore") != scores[2] or reference.get("eliteScore") != 95
+                or reference.get("upperCurve") != "rational-above-95"):
+            errors.append("inconsistent market quote and football score references")
+    quotes = data.get("marketQuotes")
+    expected_quotes = {key for key in sf if key.startswith("pick:")}
+    expected_quotes.update(key for key, info in players.items()
+                           if isinstance(info, dict) and "market" in (info.get("coverage") or []))
+    if (not isinstance(quotes, dict) or set(quotes) != expected_quotes
+            or not all(nonnegative_number(q) and q > 0 for q in quotes.values())):
+        errors.append("raw market quotes must cover exactly the assets with market evidence")
     if len(players) < 200 or not any(key.startswith("pick:") for key in sf):
         errors.append("incomplete dynasty player or pick board")
     for asset_id, value in sf.items():
@@ -136,6 +149,8 @@ def check_player_values(
             projected = info.get("projectedSurplus")
             if (not nonnegative_number(market_share) or market_share > 1
                     or not nonnegative_number(info.get("calibratedSurplus"))
+                    or (market_share < 1 and not nonnegative_number(info.get("footballSurplus")))
+                    or (market_share == 1 and info.get("footballSurplus") is not None)
                     or not (nonnegative_number(projected) or (projected is None and market_share == 1))):
                 errors.append(f"invalid surplus or market evidence for {asset_id}")
                 break

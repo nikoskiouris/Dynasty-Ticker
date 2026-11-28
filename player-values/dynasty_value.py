@@ -7,7 +7,9 @@ Input fields, assumptions and empirical references are in the model research not
 from bisect import bisect_left, bisect_right
 from math import floor, isfinite
 
-from dynasty_calibration import calibrated_football, market_surplus, rate_from_anchors, rating_anchors
+from dynasty_calibration import (
+    EXCHANGE_QUOTES, calibrated_football, exchange_rating_anchors, exchange_surplus, rate_from_anchors,
+)
 from inseason import remaining_forecast, remaining_share
 
 
@@ -15,7 +17,8 @@ VALUE_SCALE = 100
 HUNDREDTHS_PER_POINT = 100
 TEAMS = 12
 STARTERS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
-MARKET_SHARE = 0.25
+# Completed trades in the development panel support a market-led exchange price.
+MARKET_SHARE = 0.75
 # Year-two and year-three expected full-PPR surplus per scheduled team game.
 # nflverse, 2000–2016 draft classes. The NFL rounds are 1, 2, 3, and 4+.
 DRAFT_SURPLUS = {
@@ -254,10 +257,10 @@ def raw_board(players, *, season_week=1):
 
 
 def value_board(players, picks, *, season_week=1):
-    """Estimate three-season surplus and quote it in native dynasty points."""
+    """Blend football surplus and market exchange evidence into one native price."""
     raw, context = raw_board(players, season_week=season_week)
     time_left = context["remainingSeasonFraction"]
-    anchors = rating_anchors(time_left)
+    anchors = exchange_rating_anchors(time_left)
     player_results = {}
     for key, row in raw.items():
         football = {factor: row[factor] for factor in ("lineup", "future", "draft")}
@@ -272,10 +275,11 @@ def value_board(players, picks, *, season_week=1):
         if not has_football and not has_market:
             continue
         market_share = MARKET_SHARE if has_market and has_football else float(has_market)
-        football_units = calibrated_football(projected) * (1 - market_share)
+        football_surplus = calibrated_football(projected)
+        football_units = football_surplus * (1 - market_share)
         components = {k: football_units * v / projected if projected > 0 else 0.0
                       for k, v in football.items()}
-        components["market"] = market_share * market_surplus(row["market"], time_left)
+        components["market"] = market_share * exchange_surplus(row["market"], anchors)
         expected = sum(components.values())
         if expected <= 0:
             continue
@@ -291,6 +295,7 @@ def value_board(players, picks, *, season_week=1):
             "factors": {k: v / HUNDREDTHS_PER_POINT for k, v in allocated.items()},
             "coverage": row["coverage"], "remainingPpr": row["remainingPpr"],
             "projectedSurplus": round(projected, 3) if has_football else None,
+            "footballSurplus": round(football_surplus, 3) if has_football else None,
             "calibratedSurplus": round(expected, 3), "marketShare": market_share,
         }
 
@@ -301,7 +306,7 @@ def value_board(players, picks, *, season_week=1):
         quote = number(row.get("market"))
         if quote is None or quote <= 0:
             continue
-        expected = market_surplus(quote, time_left)
+        expected = exchange_surplus(quote, anchors)
         price = round(rate_from_anchors(expected, anchors) * HUNDREDTHS_PER_POINT) / HUNDREDTHS_PER_POINT
         if price > 0:
             pick_results[key] = {
@@ -311,10 +316,12 @@ def value_board(players, picks, *, season_week=1):
     return player_results, pick_results, {
         **context,
         "lineup": {"teams": TEAMS, **STARTERS, "FLEX": 1, "SUPER_FLEX": 1},
-        "method": "seasonal-startup-rating",
+        "method": "exchange-calibrated-rating",
         "scoreAnchors": [{"score": score, "surplus": surplus} for surplus, score in anchors],
-        "ratingReference": {"earlyDraftScore": 87, "eliteScore": 90, "upperCurve": "rational-above-95"},
-        "marketWeight": MARKET_SHARE, "horizonDiscount": DISCOUNT,
+        "ratingReference": {"buildingBlockScore": anchors[1][1], "earlyStartupScore": anchors[2][1],
+                            "eliteScore": 95, "upperCurve": "rational-above-95"},
+        "marketWeight": MARKET_SHARE, "marketQuoteAnchors": list(EXCHANGE_QUOTES),
+        "horizonDiscount": DISCOUNT,
         "futureSeasons": 2, "secondYearDiscount": DISCOUNT, "futureCohortShare": 0.5,
         "draftPriorShare": {"rookieStart": 0.65, "rookieEnd": 0.25, "secondYearEnd": 0},
         "marketPlayers": sum(row["market"] > 0 for row in raw.values()),
