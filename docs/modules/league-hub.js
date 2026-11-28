@@ -57,7 +57,7 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
     ${renderAlmanacMasthead({ leagueName: league.name || 'League', edition: yearRange || 'Current edition', subtitle: format.chip, avatar: league.avatar })}
     ${savedNote ? `<p class="league-saved-note" role="status">${escapeHtml(savedNote)}</p>` : ''}
     ${story ? renderAlmanacStory(story, { leagueName: league.name, leagueId: leagueId || league.league_id, lead: true })
-      : `<p class="almanac-empty"${loading ? ' role="status"' : ''}>${loading ? 'Reading season results from Sleeper…' : 'The record book opens with the first results. Every new champion and hard-luck loss gets a chance to make the almanac.'}</p>`}
+      : `<p class="almanac-empty"${loading ? ' role="status"' : ''}>${loading ? 'Reading season results from Sleeper…' : 'No headline yet from the available season results. Open the record book to explore this league’s history.'}</p>`}
     <nav class="almanac-features" aria-label="Explore league history">
       <a href="${historyHref}"><strong>Open the record book</strong><span>Champions, bad beats and season records</span><i aria-hidden="true">→</i></a>
       <a href="${historyHref}#archive-rivalries"><strong>Settle a score</strong><span>Compare two managers head to head</span><i aria-hidden="true">→</i></a>

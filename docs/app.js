@@ -606,6 +606,7 @@ function noteSearchedUser(leagueId) {
 // are enforced in modules/analytics.js before any send.
 setAnalyticsAdapter(createBeaconAdapter());
 // Boot stamps the picked league into the URL, so retain incoming archive links first.
+// Capture chapter links before league boot normalizes the address.
 let requestedArchiveChapter = archiveChapterFromUrl(window.location);
 bootFromUrl();
 if (bootRoute?.leagueId) void loadSlimPlayersFile();
@@ -1046,7 +1047,13 @@ document.addEventListener("input", (event) => {
 });
 document.addEventListener("change", (event) => {
   if (event.target?.matches("[data-rivalry-side]")) {
-    updateRivalryComparison(event.target, leagueArchive.snapshot);
+    const matchup = updateRivalryComparison(event.target, leagueArchive.snapshot);
+    if (matchup) {
+      const address = new URL(window.location.href);
+      address.hash = "archive-rivalries";
+      address.searchParams.set("matchup", matchup);
+      window.history.replaceState(window.history.state, "", address.href);
+    }
     return;
   }
   if (event.target?.id === "history-jump") {
@@ -1599,7 +1606,7 @@ function deskUrlPath() {
 function prepareDeskPush() {
   if (applyingHistory) return;
   if (typeof history?.replaceState !== "function") return;
-  const currentPath = `${window.location.pathname}${window.location.search}`;
+  const currentPath = archiveChapterFromUrl(window.location) ? window.location.href : `${window.location.pathname}${window.location.search}`;
   history.replaceState({
     ...history.state,
     ...historyPlaceNow(),
@@ -1993,7 +2000,16 @@ function updateUrlStateInner({ mode = "replace", force = false } = {}) {
     return;
   }
   routeFocus.forget();
-  history.replaceState(entry, "", path);
+  // Background league updates should preserve a link to this chapter and matchup.
+  const chapter = archiveChapterFromUrl(window.location);
+  const nextAddress = new URL(path, window.location.origin);
+  if (chapter && nextAddress.pathname === window.location.pathname) {
+    nextAddress.hash = chapter.id;
+    if (chapter.matchup) nextAddress.searchParams.set("matchup", chapter.matchup);
+    history.replaceState(entry, "", nextAddress.href);
+  } else {
+    history.replaceState(entry, "", path);
+  }
   reportRoute();
   // A same-place replace (cold /t -> /trade) still has to drop the shared title.
   syncDocumentMeta();

@@ -105,6 +105,7 @@ export function updateRivalryComparison(select, archive) {
   if (select.value === opponent.value) opponent.value = selectedSeries[side];
   selectedSeries = { leagueId: archive.leagueId, [side]: select.value, [other]: opponent.value };
   host.querySelector(".faceoff-result").innerHTML = seriesResult(seriesHistory(archive), selectedSeries.left, selectedSeries.right);
+  return `${selectedSeries.left}|${selectedSeries.right}`;
 }
 
 export function renderRivalries(archive) {

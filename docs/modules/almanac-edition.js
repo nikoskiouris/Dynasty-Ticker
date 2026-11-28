@@ -56,7 +56,7 @@ export function renderAlmanacEdition({ archive, leagueName, range, savedNote = "
   });
   return `${renderAlmanacMasthead({ leagueName, subtitle: range, edition: "Record book", avatar: archive.seasons?.[0]?.league?.avatar })}
     ${savedNote ? `<p class="league-saved-note" role="status">${e(savedNote)}</p>` : ""}
-    ${lead ? renderStory(lead, true) : `<p class="almanac-empty">The first bragging rights are still up for grabs. Stories appear here as Sleeper records results.</p>`}
+    ${lead ? renderStory(lead, true) : `<p class="almanac-empty">No headline yet from the available results. You can browse the season records below.</p>`}
     ${more.length ? `<section class="almanac-dispatches" aria-label="More league stories">
       <h2>More from the league</h2>
       <div class="almanac-stories">${more.slice(0, 2).map(story => renderStory(story)).join("")}</div>
