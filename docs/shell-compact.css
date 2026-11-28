@@ -1,5 +1,11 @@
 /* Shared chrome for the compact rankings, trade and league views. */
+:root {
+  --shell-gutter: 28px;
+  --shell-left: max(var(--shell-gutter), env(safe-area-inset-left));
+  --shell-right: max(var(--shell-gutter), env(safe-area-inset-right));
+}
 .site-masthead {
+  padding-top: env(safe-area-inset-top);
   border-bottom: 1px solid #daddd5;
   background: white;
 }
@@ -8,7 +14,7 @@
   box-sizing: border-box;
   max-width: 956px;
   margin-inline: auto;
-  padding-inline: 28px;
+  padding-inline: var(--shell-left) var(--shell-right);
 }
 .masthead-inner {
   display: flex;
@@ -62,17 +68,26 @@ html body.compact-app #workspace {
   width: 100%;
   max-width: 956px;
   margin: 0 auto;
-  padding: 31px 28px 18px;
+  padding: 31px var(--shell-right) 18px var(--shell-left);
 }
 body.compact-app .workspace:focus { outline: none; }
 body.compact-app.trades-open #workspace-header { display: none; }
 .site-foot nav { display: flex; gap: 18px; justify-content: flex-end; padding-block: 18px; }
 .site-foot a { font: 400 12px/1.5 var(--font-ui); color: #58665e; text-decoration: none; }
 @media (max-width: 620px) {
-  .masthead-inner, .site-foot nav { padding-inline: 16px; }
-  .masthead-inner { display: block; padding-top: 11px; }
-  .masthead-brand { font-size: 18px; }
-  .masthead-tools { min-height: 39px; gap: 23px; }
+  .masthead-inner { display: block; }
+  :root { --shell-gutter: 16px; }
+  .masthead-brand { min-height: 44px; font-size: 18px; }
+  .masthead-tools { min-height: 44px; gap: 23px; }
   .masthead-tools a { font-size: 12px; }
-  html body.compact-app #workspace { padding: 21px 16px 18px; }
+  html body.compact-app #workspace { padding-top: 21px; }
+}
+@media (pointer: coarse) {
+  .site-foot nav { padding-block: 5px max(5px, env(safe-area-inset-bottom)); }
+  .site-foot a { display: grid; place-items: center; min-width: 44px; min-height: 44px; }
+  .legal-shell a.legal-btn { min-height: 44px; }
+}
+.legal-shell {
+  width: min(720px, calc(100% - 2 * max(16px, env(safe-area-inset-left), env(safe-area-inset-right))));
+  padding-bottom: max(32px, env(safe-area-inset-bottom));
 }

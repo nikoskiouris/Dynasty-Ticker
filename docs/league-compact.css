@@ -109,13 +109,13 @@
 #league-page .received-asset { display: block; margin: 4px 0; }
 #league-page .trade-log-card details { margin-top: 4px; }
 #league-page .history-jump { margin: 14px 0 16px; width: min(100%,300px); }
-#league-page .history-section { scroll-margin-top: 8rem; }
+#league-page .history-section { scroll-margin-top: 8px; }
 #league-page :is(.league-history-records,.league-history-awards,.league-trophy-list,.league-history-season-list) { gap: 0 16px; }
 #league-page :is(.league-history-season,.league-history-records > div,.league-history-awards > div,.league-trophy-card) {
   border: 0; border-bottom: 1px solid var(--line); background: none; border-radius: 0; padding: 9px 0;
 }
 #league-page :is(.league-history-table th,.league-history-table td) { padding: 7px 10px; font-size: 13px; }
-#league-page .league-history-table tbody th { max-width: min(200px, 40vw); overflow-wrap: anywhere; white-space: normal; }
+#league-page .league-history-table tbody th { max-width: min(200px, 40vw); overflow-wrap: break-word; white-space: normal; }
 #league-page .league-history-table th:first-child {
   position: sticky; left: 0; background: var(--bg); box-shadow: 1px 0 var(--line);
 }
