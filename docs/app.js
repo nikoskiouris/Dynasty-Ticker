@@ -892,7 +892,6 @@ function syncPlayersBoardFlag() {
   const rankingsTool = playersBoardOpen || Boolean(state.ranks?.selectedId);
   syncSiteNavigation({
     tool: leagueTool ? "leagues" : rankingsTool ? "rankings" : "trade",
-    leagueId: state.leagueId || readLastLeague()?.leagueId,
   });
   document.documentElement.toggleAttribute("data-players-board", playersBoardOpen || /^\/players\/?$/.test(window.location.pathname));
   // /player/<id> is the player page: the card alone, no calculator or board list.
@@ -2659,7 +2658,6 @@ async function runUserLeagueSearch(username) {
   startFindLeaguesUi();
   missedLeagueSeasons = [];
   setStatus(`Looking up ${username} on Sleeper…`, { loading: true });
-  let autoloadId = "";
   try {
     const nflState = await apiGetWithRetry(`/state/nfl`, { timeoutMs: 8000, retries: 1 }).catch(() => state.nflState);
     if (nflState) state.nflState = nflState;
@@ -2693,7 +2691,6 @@ async function runUserLeagueSearch(username) {
   } finally {
     stopFindLeaguesUi();
   }
-  if (autoloadId) await loadLeagueById(autoloadId);
 }
 
 function renderLeaguePicker(leagues, season) {

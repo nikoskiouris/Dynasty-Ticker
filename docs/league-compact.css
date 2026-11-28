@@ -160,6 +160,7 @@
 body.league-loaded #workspace-header {
   grid-template-columns: minmax(0,1fr); border: 0; padding: 0; margin-bottom: 12px;
 }
+#workspace:has(#leagues-page:not([hidden])) #workspace-header { display: none; }
 .league-season-details > summary {
   cursor: pointer; width: fit-content; padding-block: 8px; color: var(--green);
   font: 600 13px/1.4 var(--font-ui);

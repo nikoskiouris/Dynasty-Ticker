@@ -4784,7 +4784,6 @@ h1,
     display: none;
   }
 
-  body.league-loaded .league-module,
   body.league-loaded #identity-section:not(.hidden) {
     display: flex;
     flex-flow: row wrap;
@@ -4799,26 +4798,6 @@ h1,
     box-shadow: none;
   }
 
-  body.league-loaded .league-module .module-heading,
-  body.league-loaded #identity-section .module-heading,
-  body.league-loaded .league-module label,
-  body.league-loaded #identity-section label,
-  body.league-loaded #league-status,
-  body.league-loaded .league-id-fallback {
-    display: none;
-  }
-
-  body.league-loaded #league-status:has(.status-retry:not(.hidden)) {
-    display: flex;
-  }
-
-  body.league-loaded .league-module .league-load-form {
-    display: flex;
-    gap: 0.45rem;
-    align-items: center;
-  }
-
-  body.league-loaded .league-module input,
   body.league-loaded #me-select {
     width: 14rem;
     min-height: var(--input-h);

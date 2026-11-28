@@ -1,7 +1,7 @@
 import { escapeHtml } from './html.js';
 import { readLastLeague } from './last-league.js';
 
-// "Recent: <league>" above the username box. Redrawn from the saved record
+// Optional return link below the username search. Redrawn from the saved record
 // every time the page opens, so "Forget this league" (or opening another
 // league) never leaves a stale link behind.
 export function renderLeagueRecent(root = document) {
@@ -9,7 +9,7 @@ export function renderLeagueRecent(root = document) {
   if (!controls) return;
   controls.querySelector('.league-recent')?.remove();
   const last = readLastLeague();
-  if (last) controls.insertAdjacentHTML('afterbegin', `<p class="league-recent"><a href="/l/${encodeURIComponent(last.leagueId)}">Return to ${escapeHtml(last.leagueName || 'your league')}</a> <button type="button" class="link-btn" data-action="forget-last-league">Forget this league</button></p>`);
+  if (last) controls.insertAdjacentHTML('beforeend', `<p class="league-recent"><a href="/l/${encodeURIComponent(last.leagueId)}">Return to ${escapeHtml(last.leagueName || 'your league')}</a> <button type="button" class="link-btn" data-action="forget-last-league">Forget this league</button></p>`);
 }
 
 export function moveLeagueControls(host) {
