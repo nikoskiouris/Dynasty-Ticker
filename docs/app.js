@@ -5011,12 +5011,13 @@ function paintTradeDraft() {
       ${renderValuesFreshness(valuesFreshness())}
     </div>
     ${renderTradeTalk()}
-    <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
-    <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
     <div class="calc-grid">
       ${renderDraftPane("right", view)}
       ${renderDraftPane("left", view)}
     </div>
+    <div id="talk-log" class="talk-log" aria-live="polite">${renderTradeTalkLog()}</div>
+    <div id="draft-notice">${renderBadShareNotice()}${renderDroppedPlayerNotice()}${renderDraftNotice()}</div>
+    <div id="value-calc-verdict" class="calc-verdict">${renderDraftVerdict(view)}</div>
     <div id="draft-actions" class="calc-actions">${renderDraftActions(view)}</div>
     ${priceNotes}
     <div id="draft-team" class="draft-team">${renderDraftTeam(view)}</div>
@@ -5093,7 +5094,7 @@ function renderTradeTalk() {
       <div id="smart-trade-list" class="smart-trade-list" role="listbox" hidden></div>
       <span id="smart-trade-count" class="sr-only" role="status" aria-live="polite"></span>
     </form>
-    <div id="talk-log" class="talk-log" aria-live="polite">${renderTradeTalkLog()}</div><p id="talk-toast" class="sr-only" role="status" hidden></p>
+    <p id="talk-toast" class="sr-only" role="status" hidden></p>
   </section>`;
 }
 
@@ -5176,11 +5177,15 @@ function renderTalkChip(chip) {
 // Confirmations ("Added Josh Allen to You give.") flash as a toast. Anything
 // that needs an answer or explains a miss stays on screen.
 function renderTradeTalkLog() {
-  if (!tradeTalkLog.length) return "";
-  return tradeTalkLog.slice(0, 1).map((turn) => `
+  const turn = tradeTalkLog[0];
+  if (!turn) return "";
+  const showLines = turn.sticky && turn.lines.length > 0;
+  const showConnect = turn.connectLine && !state.leagueId;
+  if (!showLines && !showConnect && !turn.groups.length) return "";
+  return `
     <div class="talk-turn">
-      ${turn.sticky && turn.lines.length ? `<div class="talk-lines">${turn.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>` : ""}
-      ${turn.connectLine && !state.leagueId ? `<div class="talk-lines"><p>${escapeHtml(turn.connectLine)}</p></div><button type="button" class="talk-connect" data-action="draft-connect">Connect my league</button>` : ""}
+      ${showLines ? `<div class="talk-lines">${turn.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>` : ""}
+      ${showConnect ? `<div class="talk-lines"><p>${escapeHtml(turn.connectLine)}</p></div><button type="button" class="talk-connect" data-action="draft-connect">Connect my league</button>` : ""}
       ${turn.groups.map((group, index) => `
         <div class="talk-choice" data-choice-index="${index}" role="group" aria-label="${escapeHtml(group.title)}">
           <p class="talk-choice-title">${escapeHtml(group.title)}</p>
@@ -5188,7 +5193,7 @@ function renderTradeTalkLog() {
         </div>
       `).join("")}
     </div>
-  `).join("");
+  `;
 }
 
 // Remove, Clear, Swap and Restore change the trade silently for a screen
