@@ -224,6 +224,7 @@ export function buildSeasonModel({ league, rosters = [], users = [], weekRows = 
     playoffStart,
     playoffTeams,
     playoffRounds: rounds,
+    playoffRoundType: Number(settings.playoff_round_type) || 0,
     regularWeeks,
     playoffWeeks,
     weeks,
@@ -317,7 +318,7 @@ export function playoffLockStatus(model) {
   const perGame = model.medianGames ? 2 : 1;
   const rows = teams.map((team) => {
     const remaining = (remainingByTeam.get(String(team.rosterId)) || 0) * perGame;
-    const winPts = Number(team.wins || 0) + 0.5 * Number(team.ties || 0);
+    const winPts = Number(team.wins || 0);
     return {
       rosterId: String(team.rosterId),
       division: Number(team.division) || 0,
@@ -336,24 +337,27 @@ export function playoffLockStatus(model) {
     return { clinched, eliminated };
   }
 
+  const divisions = new Set(rows.map((row) => row.division).filter(Boolean));
+  const automatic = divisions.size > 1 && Number(model.seedType) !== 2;
+  if (automatic && divisions.size > playoffTeams) return { clinched, eliminated };
   rows.forEach((team) => {
     const others = rows.filter((row) => row.rosterId !== team.rosterId);
+    const rivals = others.filter((row) => row.division === team.division);
     const canCatch = others.filter((row) => row.maxWins >= team.minWins).length;
-    if (canCatch < playoffTeams) clinched.add(team.rosterId);
-    const uncatchable = others.filter((row) => row.minWins > team.maxWins).length;
-    if (uncatchable >= playoffTeams) eliminated.add(team.rosterId);
-  });
-
-  if ((Number(model.divisionCount) || 0) > 1 && Number(model.seedType) !== 2) {
-    rows.forEach((team) => {
-      if (clinched.has(team.rosterId) || !team.division) return;
-      const rivals = rows.filter((row) => row.division === team.division && row.rosterId !== team.rosterId);
-      if (rivals.length > 0 && rivals.every((row) => row.maxWins < team.minWins)) clinched.add(team.rosterId);
-    });
-  }
-
-  eliminated.forEach((rosterId) => {
-    if (clinched.has(rosterId)) eliminated.delete(rosterId);
+    const ahead = others.filter((row) => row.minWins > team.maxWins).length;
+    // Reserve the automatic berths even when a division winner could finish
+    // below the overall cutoff. Equal records still depend on tiebreakers.
+    const wildcardSpots = playoffTeams - (automatic ? divisions.size : 0);
+    const divisionBerth = automatic && team.division;
+    // If this team misses its division, that winner is ahead. Each other
+    // division already at this win total also consumes an automatic berth.
+    const forcedWinners = automatic ? [...divisions].filter((division) => division === team.division
+      || others.some((row) => row.division === division && row.minWins >= team.minWins)).length : 0;
+    if (canCatch - forcedWinners < wildcardSpots || (divisionBerth && rivals.every((row) => row.maxWins < team.minWins))) {
+      clinched.add(team.rosterId);
+    } else if (ahead >= playoffTeams && (!divisionBerth || rivals.some((row) => row.minWins > team.maxWins))) {
+      eliminated.add(team.rosterId);
+    }
   });
   return { clinched, eliminated };
 }
@@ -366,6 +370,52 @@ export function formatOddsPct(value) {
   if (numeric >= 100) return "100%";
   if (numeric > 99) return ">99%";
   return `${Math.round(numeric)}%`;
+}
+
+// Resolve only matches that feed the title game. Placement games have
+// separate loser feeds and do not put eliminated managers back in contention.
+export function simulatePublishedPlayoffs(model, bracket, { priors, iterations = SIM_DEFAULT_ITERATIONS, seed = 7 } = {}) {
+  const final = bracket.find((game) => Number(game.p) === 1);
+  if (!final || model.scheduleIncomplete) return null;
+  const matches = new Map(bracket.map((game) => [game.m, game]));
+  const eligible = new Set();
+  const dist = buildTeamDistributions(model, priors);
+  const rng = mulberry32(seed);
+
+  // Compile each feeder before its parent. Every unplayed side must be
+  // either an actual roster or the winner of an earlier match.
+  function resolve(game) {
+    if (game.w != null) return roster(game.w);
+    const from = (slot) => {
+      if (game[slot] != null) return roster(game[slot]);
+      const prior = matches.get(game[`${slot}_from`]?.w);
+      return prior && Number(prior.r) < Number(game.r) ? resolve(prior) : null;
+    };
+    const left = from("t1"), right = from("t2");
+    if (!left || !right) return null;
+    return () => {
+      const a = left(), b = right();
+      return randomNormal(rng, dist.get(a).mean, dist.get(a).predictiveStd) >=
+        randomNormal(rng, dist.get(b).mean, dist.get(b).predictiveStd) ? a : b;
+    };
+  }
+  function roster(raw) {
+    const id = String(raw);
+    if (!dist.has(id)) return null;
+    eligible.add(id);
+    return () => id;
+  }
+  const winner = resolve(final);
+  if (!winner) return null;
+  const wins = new Map();
+  for (let i = 0; i < iterations; i++) {
+    const id = winner();
+    wins.set(id, (wins.get(id) || 0) + 1);
+  }
+  const titleOdds = [...eligible].map((rosterId) => ({
+    rosterId, pct: eligible.size === 1 ? 100 : Math.min(SIM_UNLOCKED_CEILING, Math.max(SIM_UNLOCKED_FLOOR, (wins.get(rosterId) || 0) / iterations * 100)),
+  })).sort((a, b) => b.pct - a.pct);
+  return { titleOdds };
 }
 
 export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEFAULT_ITERATIONS, seed = 7 } = {}) {
@@ -468,7 +518,8 @@ export function simulateSeason(model, { priors = new Map(), iterations = SIM_DEF
       seeds.map((rosterId) => teamIndex.get(rosterId)),
       dist,
       rng,
-      seasonMeans
+      seasonMeans,
+      model.playoffRoundType
     );
     if (bracket.champion != null) totals[bracket.champion].title += 1;
     if (bracket.finalists) bracket.finalists.forEach((index) => { totals[index].finals += 1; });
@@ -609,7 +660,7 @@ export function bracketByeCount(playoffTeams) {
   return Math.max(0, size - playoffTeams);
 }
 
-function simulateBracket(seedIndexes, dist, rng, seasonMeans = null) {
+function simulateBracket(seedIndexes, dist, rng, seasonMeans = null, roundType = 0) {
   if (seedIndexes.length === 0) return { champion: null, finalists: null };
   if (seedIndexes.length === 1) return { champion: seedIndexes[0], finalists: [seedIndexes[0]] };
   const size = nextPowerOfTwo(seedIndexes.length);
@@ -626,8 +677,9 @@ function simulateBracket(seedIndexes, dist, rng, seasonMeans = null) {
       else {
         const meanA = seasonMeans?.[a] ?? dist[a].mean;
         const meanB = seasonMeans?.[b] ?? dist[b].mean;
-        const scoreA = randomNormal(rng, meanA, dist[a].std);
-        const scoreB = randomNormal(rng, meanB, dist[b].std);
+        const weeks = roundType === 2 || (roundType === 1 && slots.length === 2) ? 2 : 1;
+        const scoreA = randomNormal(rng, weeks * meanA, Math.sqrt(weeks) * dist[a].std);
+        const scoreB = randomNormal(rng, weeks * meanB, Math.sqrt(weeks) * dist[b].std);
         next.push(scoreA >= scoreB ? a : b);
       }
     }

@@ -18,14 +18,14 @@ export function recentChampion(seasons = []) {
 }
 
 // No username, no pick yet: ask which team is theirs instead of naming "Roster ?".
-function renderTeamPick({ myTeam, myRosterId, teams }) {
+export function renderTeamPick({ myTeam, myRosterId, teams, controlId = "hub-team-select" }) {
   if (!teams.length) return myTeam ? `<p>Viewing as ${escapeHtml(myTeam)}</p>` : '';
   const chosen = myTeam ? String(myRosterId) : '';
   const options = [...teams]
     .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: "base" }))
     .map(team => `<option value="${escapeHtml(String(team.id))}"${String(team.id) === chosen ? ' selected' : ''}>${escapeHtml(team.name)}</option>`)
     .join('');
-  return `<p class="league-hub-pick"><label for="hub-team-select">Your team</label> <select id="hub-team-select">${chosen ? '' : '<option value="" selected>Select team</option>'}${options}</select></p>`;
+  return `<p class="league-hub-pick"><label for="${escapeHtml(controlId)}">Your team</label> <select id="${escapeHtml(controlId)}">${chosen ? '' : '<option value="" selected>Select team</option>'}${options}</select></p>`;
 }
 
 export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', myRosterId = '', teams = [], model = null, transactions = [], tradesLoaded = false, loading = false, caveat = '', savedNote = '' } = {}) {

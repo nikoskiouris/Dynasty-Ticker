@@ -1,6 +1,6 @@
 import { syncSiteNavigation } from "./modules/site-menu.js";
 import { moveLeagueControls, renderLeagueRecent } from "./modules/tool-picker.js";
-import { renderLeagueHub } from "./modules/league-hub.js";
+import { renderLeagueHub, renderTeamPick } from "./modules/league-hub.js";
 import { leagueArchive, readDeskSnapshot, saveDeskSnapshot } from "./modules/league-archive.js";
 import { buildTradeAdvice, closeTradeAdvice, onTradeAdviceBack, openTradeAdvice, renderTradeAdviceButton, renderTradeAdvicePanel, tradeAdviceOpen } from "./modules/trade-advice.js";
 import { renderTradeLog, renderTradeLogRows } from "./modules/trade-log.js";
@@ -11,6 +11,7 @@ import { forgetLastLeague, readLastLeague, writeLastLeague } from "./modules/las
 import {
   buildSeasonModel,
   simulateSeason,
+  simulatePublishedPlayoffs,
   formatPoints,
   formatOddsPct,
   ordinal,
@@ -553,7 +554,7 @@ el.meSelect?.addEventListener("change", () => {
 });
 // The hub's "Which team is yours?" picker drives the same Manager select.
 document.addEventListener("change", (event) => {
-  if (event.target?.id !== "hub-team-select" || !el.meSelect || !event.target.value) return;
+  if (!["hub-team-select", "team-page-select"].includes(event.target?.id) || !el.meSelect || !event.target.value) return;
   applyMeSelectValue(event.target.value);
   el.meSelect.dispatchEvent(new Event("change"));
 });
@@ -1044,11 +1045,7 @@ function renderActivePage() {
       myTeam: hubTeamName(),
       myRosterId: connectedRosterId(),
       caveat: marketCaveat(state.league),
-      teams: (matchedSleeperRosterId() ? [] : state.normalizedRosters || []).map((roster) => ({
-        id: roster.rosterId,
-        // "Dev Hours (benhipp52)": people know their username better than a team name.
-        name: hubTeamOptionName(roster),
-      })),
+      teams: matchedSleeperRosterId() ? [] : leagueTeamChoices(),
       model: getSeasonModel(), transactions: state.transactions, tradesLoaded: state.transactionsLoaded,
       loading: !(archive?.leagueId === state.leagueId || state.leagueHistory.length),
       savedNote: savedLeagueNote(),
@@ -1128,7 +1125,8 @@ function typingInActivePage() {
 
 function renderLeagueRoom(room) {
   renderTeamsPage();
-  renderStandingsRoom();
+  if (myTeamPageRoster()) renderStandingsRoom();
+  else clearHost(el.standingsDashboard);
   focusLeagueRoomHeading(room);
 }
 
@@ -1439,8 +1437,8 @@ function restoreLeagueManager(leagueId, requestedRosterId) {
   // selection identifies its manager.
   const last = leagueId ? readLastLeague() : null;
   const savedRoster = last?.leagueId === String(leagueId) ? last.rosterId : null;
-  state.pendingMeRosterId = requestedRosterId || savedRoster || null;
-  state.pendingMeIsMine = !requestedRosterId && Boolean(savedRoster);
+  state.pendingMeRosterId = savedRoster || null;
+  state.pendingLensRosterId = requestedRosterId || null;
 }
 
 function bootFromUrl() {
@@ -2374,6 +2372,10 @@ function hubTeamOptionName(roster) {
   return team || user || `Team ${roster?.rosterId}`;
 }
 
+function leagueTeamChoices() {
+  return state.normalizedRosters.map((roster) => ({ id: roster.rosterId, name: hubTeamOptionName(roster) }));
+}
+
 function hubTeamName() {
   const rosterId = connectedRosterId();
   if (!rosterId) return "";
@@ -2837,6 +2839,7 @@ function blankDeskForLeagueSwitch() {
 }
 
 async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
+  const previousPlace = { page: state.activePage, room: getRoom() };
   try {
     if (!leagueLoader.isCurrent(token)) return;
     leagueLoadRecovery.clear();
@@ -2991,7 +2994,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
       .then((players) => {
         if (playersLoadStale(playersEpoch, token, leagueId)) return;
         commitPlayerDirectory(players, { epoch: playersEpoch, leagueId, hydrate: true });
-        const me = getMyRoster();
+        const me = connectedRosterId() ? getMyRoster() : null;
         const missingTeam = me ? "" : noTeamInLeagueCopy(state.sleeperUser);
         setStatus(
           missingTeam
@@ -3053,9 +3056,14 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     leagueLoadRecovery.fail({ leagueId, token });
     paintLeagueLoadError(message);
     if (state.league) {
+      if (failedSwitch) state.pendingPlace = previousPlace;
       showAppPages();
     }
-    setLeagueSwitchStale(failedSwitch);
+    if (failedSwitch && state.activePage === "leagues" && isLeagueNotFound(err)) {
+      setFieldError(el.leagueId, el.leagueIdError, "Sleeper could not find this league. Check its ID or link.");
+      el.leagueId?.focus();
+    }
+    setLeagueSwitchStale(failedSwitch && state.activePage !== "leagues");
     // An outage stays on /l/… Back can return to the league that already loaded.
     // Any other dead league url still goes home.
     if (!unreachable && !state.leagueId && String(window.location.pathname || "").startsWith("/l/") && typeof history?.replaceState === "function") {
@@ -3194,13 +3202,19 @@ function startStandingsPolling() {
     if (stopped || document.hidden || String(state.leagueId) !== leagueId
       || state.activePage !== "league" || getRoom("league") !== "standings") return;
     try {
-      const rows = await apiGetWithRetry(sleeperLeaguePath(leagueId, `matchups/${week}`), {
-        timeoutMs: 12000, retries: 0,
-      });
+      const options = { timeoutMs: 12000, retries: 0 };
+      const [rows, bracket] = await Promise.all([
+        apiGetWithRetry(sleeperLeaguePath(leagueId, `matchups/${week}`), options),
+        week >= (Number(state.league.settings?.playoff_week_start) || 15)
+          ? apiGetWithRetry(sleeperLeaguePath(leagueId, "winners_bracket"), options).catch(() => null)
+          : null,
+      ]);
       if (!stopped && !document.hidden && String(state.leagueId) === leagueId
         && state.activePage === "league" && getRoom("league") === "standings"
         && Array.isArray(rows)) {
         state.seasonWeekRows.set(week, rows);
+        const current = state.leagueHistory.find((entry) => entry.isCurrent);
+        if (current && Array.isArray(bracket)) current.winnersBracket = bracket;
         invalidateSeasonCaches();
         requestActivePageRender();
       }
@@ -3777,13 +3791,8 @@ function hydrateManagerSelector({ syncUrl = true } = {}) {
     rawRosters: state.rosters,
     userPickedMe: state.mePickedByUser,
   });
-  const restoredMine = Boolean(state.pendingMeIsMine && chosen && String(chosen.rosterId) === String(state.pendingMeRosterId));
-  // ?me= in the URL is a team someone chose (hub links carry it): count it as a pick.
-  if (chosen && state.pendingMeRosterId != null && String(chosen.rosterId) === String(state.pendingMeRosterId)) {
-    state.mePickedByUser = true;
-  }
+  const restoredMine = chosen && state.pendingMeRosterId != null && String(chosen.rosterId) === String(state.pendingMeRosterId);
   state.pendingMeRosterId = null;
-  state.pendingMeIsMine = false;
   el.meSelect.innerHTML = renderMeSelectOptions(
     state.normalizedRosters,
     chosen?.rosterId,
@@ -3994,8 +4003,12 @@ function myTeamPageRoster() {
 function renderPowerDashboard() {
   if (!el.powerDashboard) return;
   const meRoster = myTeamPageRoster();
+  const heading = document.getElementById("power-heading");
+  if (heading) heading.textContent = meRoster ? "Position ranks" : "Select your team";
   if (!meRoster || state.normalizedRosters.length === 0) {
-    el.powerDashboard.innerHTML = `<p class="muted">${state.leagueId ? `<a href="/l/${encodeURIComponent(state.leagueId)}">Select your team</a>` : "Select your team."}</p>`;
+    el.powerDashboard.innerHTML = state.normalizedRosters.length
+      ? renderTeamPick({ teams: leagueTeamChoices(), controlId: "team-page-select" })
+      : '<p class="muted">No rosters available.</p>';
     return;
   }
   // "Viewing as": look at any team's page from My Team (ticket 037).
@@ -4051,13 +4064,17 @@ function getSeasonModel() {
 }
 
 function getSimulation(model) {
-  if (!model || model.scheduleIncomplete) return null;
+  if (!model || model.scheduleIncomplete || model.seasonComplete) return null;
   if (!state.seasonLoaded && model.remainingGames.length === 0 && !model.seasonComplete) return null;
   const key = simSignature(model);
   if (state.simCache.key === key) return state.simCache.result;
   let result = null;
   try {
-    result = simulateSeason(model, { priors: buildSimPriors(model), iterations: SIM_ITERATIONS, seed: 20260911 });
+    const options = { priors: buildSimPriors(model), iterations: SIM_ITERATIONS, seed: 20260911 };
+    if (model.regularSeasonComplete) {
+      const bracket = state.leagueHistory.find((entry) => entry.isCurrent)?.winnersBracket || [];
+      if (!Number(state.league?.settings?.playoff_round_type)) result = simulatePublishedPlayoffs(model, bracket, options);
+    } else result = simulateSeason(model, options);
   } catch (err) {
     console.warn("Playoff simulation failed", err);
   }
@@ -4247,7 +4264,7 @@ function renderStandingsPanel(model, sim) {
   const hasGames = model.standings.some((team) => team.gamesPlayed > 0 || team.wins + team.losses > 0);
   const showDivisions = model.divisions.length > 1;
   const view = showDivisions && state.standingsView === "division" ? "division" : "overall";
-  const rowOpts = { playoffTeams: model.playoffTeams, hasGames };
+  const rowOpts = { playoffTeams: model.playoffTeams, hasGames: hasGames && !model.regularSeasonComplete };
   const rowsHtml = view === "division"
     ? model.divisions.map((division) => `
         <div class="standings-division">
@@ -4257,7 +4274,7 @@ function renderStandingsPanel(model, sim) {
       `).join("")
     : model.standings.map((team, index) => renderStandingsRow(team, sim, {
         ...rowOpts,
-        showLine: hasGames && index === model.playoffTeams - 1 && index < model.standings.length - 1,
+        showLine: hasGames && !model.regularSeasonComplete && index === model.playoffTeams - 1 && index < model.standings.length - 1,
         position: index + 1,
       })).join("");
 
@@ -4317,7 +4334,7 @@ function renderStandingsRow(team, sim, { showLine, position, divisionLeader = fa
 }
 
 function renderPlayoffOddsPanel(model, sim) {
-  if (model.seasonComplete) {
+  if (model.seasonComplete || (model.regularSeasonComplete && state.leagueHistory.find((entry) => entry.isCurrent)?.winnersBracket.some((game) => Number(game.p) === 1 && game.w != null))) {
     const champion = resolveCurrentChampion();
     const snapshot = state.leagueHistory.find((item) => item.isCurrent) ? buildSeasonSnapshot(state.leagueHistory.find((item) => item.isCurrent)) : null;
     return `
@@ -4333,6 +4350,16 @@ function renderPlayoffOddsPanel(model, sim) {
         </div>
       </section>
     `;
+  }
+  if (model.regularSeasonComplete) {
+    const bracketUrl = `https://sleeper.com/leagues/${encodeURIComponent(state.leagueId)}/playoffs`;
+    const rows = sim?.titleOdds || [];
+    return `<section class="workspace-panel odds-panel"><h2>Title odds</h2>
+      ${rows.length ? `<p class="muted small">Pregame estimates using Sleeper’s bracket and completed playoff results. Live scores are excluded.</p>
+        <table class="league-history-table"><thead><tr><th scope="col">Team</th><th scope="col">Title chance</th></tr></thead>
+        <tbody>${rows.map((row) => `<tr><th scope="row">${renderTeamIdentity(row.rosterId)}</th><td>${percentLabel(row.pct)}</td></tr>`).join("")}</tbody></table>`
+        : `<p class="muted small">${Number(state.league?.settings?.playoff_round_type) ? "Title estimates are unavailable for multi-week playoff rounds." : "Title estimates need a confirmed championship bracket and complete regular-season scores."}</p>`}
+      <p><a href="${bracketUrl}" target="_blank" rel="noopener noreferrer">Playoff bracket on Sleeper ↗</a></p></section>`;
   }
   if (!sim) {
     // Before the draft or in the NFL offseason there is nothing to sync: the
@@ -4351,16 +4378,14 @@ function renderPlayoffOddsPanel(model, sim) {
     `;
   }
   const rows = sim.results.slice().sort((a, b) => b.playoffPct - a.playoffPct || b.titlePct - a.titlePct);
-  const phase = model.regularSeasonComplete ? "bracket" : "regular";
-  const heading = phase === "bracket" ? "Title odds" : "Playoff odds";
-  const copy = [phase === "regular" ? `${model.playoffTeams} playoff spots` : "",
+  const copy = [`${model.playoffTeams} playoff spots`,
     `${countLabel(sim.remainingGameCount, "game")} left`, `${sim.iterations.toLocaleString()} simulations`,
   ].filter(Boolean).join(" · ");
   return `
-    <section class="workspace-panel odds-panel${phase === "bracket" ? " odds-bracket" : ""}">
+    <section class="workspace-panel odds-panel">
       <div class="panel-heading stack">
         <div>
-          <h2>${heading}</h2>
+          <h2>Playoff odds</h2>
         </div>
         <p class="section-copy">${copy}</p>
       </div>
@@ -4404,7 +4429,7 @@ function renderOddsRow(row, sim) {
 function renderTeamsPage() {
   syncLeagueFormatCopy();
   const generation = ++teamsPaintGeneration;
-  if (!peekLeaguePowerBoard()) {
+  if (myTeamPageRoster() && !peekLeaguePowerBoard()) {
     // Cold board solves every roster. Let the Teams tab paint before that work.
     void trackRouteSettle(finishTeamsPagePaint(generation));
     return;
