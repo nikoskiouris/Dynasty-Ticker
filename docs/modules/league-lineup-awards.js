@@ -1,3 +1,4 @@
+import { matchupPoints } from "./standings.js";
 import { chooseBestLineup } from "./lineup.js";
 import { resolveRosterIdentity } from "./franchise.js";
 
@@ -98,10 +99,9 @@ export function lineupAwards(archive = {}, { players = {}, minWeeks = 6 } = {}) 
         const opponent = (rows || []).find((other) => other !== row
           && row.matchup_id != null && id(other.matchup_id) === id(row.matchup_id)
           && id(other.roster_id) !== rosterId);
-        if (opponent && Number.isFinite(Number(opponent.points))
-          && Number.isFinite(Number(row.points))
-          && Number(row.points) < Number(opponent.points)
-          && evaluated.optimal > Number(opponent.points)) {
+        if (opponent && (row.custom_points ?? row.points) != null && (opponent.custom_points ?? opponent.points) != null
+          && matchupPoints(row) < matchupPoints(opponent)
+          && matchupPoints(row) + evaluated.left > matchupPoints(opponent)) {
           manager.gamesLostToBench++;
         }
         if (!manager.worstWeek || manager.worstWeek.left < evaluated.left) {

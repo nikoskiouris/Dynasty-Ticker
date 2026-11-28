@@ -77,13 +77,14 @@ export function renderTradeLogRows({
   });
   // A finished season can't have trades "yet": say which season had none.
   const finished = entry?.league?.status === "complete" && entry?.season;
-  const none = finished ? `No completed trades in ${text(entry.season)}.` : "No completed trades yet this season.";
+  const incomplete = (archive?.issues || []).some((issue) => issue.resource?.startsWith("transactions/") && String(issue.season) === String(entry?.season));
+  const none = incomplete ? "No completed trades found in the available weeks." : finished ? `No completed trades in ${text(entry.season)}.` : "No completed trades yet this season.";
   if (!rows.length) return `<p class="muted" role="status">${searchable || team ? "No trades match these filters." : escapeHtml(none)}</p>`;
 
   return rows.map((trade) => {
     const graded = gradeTrade(trade, { values, valueNames, archive });
     const sides = graded.sides;
-    const date = new Date(Number(trade.status_updated || trade.created || 0));
+    const date = new Date(Number(trade.status_updated || trade.created || NaN));
     const dateLabel = Number.isFinite(date.getTime())
       ? date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
       : "Date unavailable";
@@ -132,9 +133,12 @@ export function renderTradeLog({ season = "", seasons = [], query = "", team = "
     id: text(roster.roster_id), label: rosterLabel(roster.roster_id, context.entry),
   })).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" }));
   const teamOptions = teams.map((row) => `<option value="${escapeHtml(row.id)}"${row.id === team ? " selected" : ""}>${escapeHtml(row.label)}</option>`).join("");
+  const missingWeeks = (context.archive?.issues || []).filter((issue) => issue.resource?.startsWith("transactions/") && String(issue.season) === String(season)).length;
   return `<p><a class="league-back" href="/l/${encodeURIComponent(context.archive?.leagueId || context.entry?.leagueId || "")}">← League</a></p>
     ${caveat ? `<p class="muted small calc-market-caveat">${escapeHtml(caveat)}</p>` : ""}
     <p class="muted small">Grades use today's dynasty values.</p>
+    ${missingWeeks ? `<p role="status">Sleeper did not return ${missingWeeks} ${missingWeeks === 1 ? "week" : "weeks"} of transactions for ${escapeHtml(season)}. Some trades may be missing.</p>` : ""}
+    ${context.archive?.stale ? '<p role="status">Sleeper could not refresh some data. Showing saved results.</p>' : ""}
     <div class="trade-log-filters">
       <label for="league-trade-search">Player or pick
       <input id="league-trade-search" type="search" autocomplete="off" value="${escapeHtml(query)}"></label>

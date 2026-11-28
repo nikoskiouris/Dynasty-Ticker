@@ -131,7 +131,7 @@ export function createLeagueArchive({ client = sleeperClient, maxSeasons = 6 } =
     checkSignal(signal);
     const key = `${path}|${season}`;
     const cached = await readCache(key);
-    if (!refresh && cached && (completed || cached.completed || Date.now() - cached.savedAt < ARCHIVE_TTL_MS)) {
+    if (!refresh && cached && (cached.completed || (!completed && Date.now() - cached.savedAt < ARCHIVE_TTL_MS))) {
       report?.({ cached: true, path });
       return cached.data;
     }
