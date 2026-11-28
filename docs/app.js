@@ -351,8 +351,7 @@ const el = {
   landingUsernameError: document.querySelector("#landing-username-error"),
   landingJobs: document.querySelector("#landing-jobs"),
   landingLeaguePicker: document.querySelector("#landing-league-picker"),
-  landingLoading: document.querySelector("#landing-loading"),
-  landingLoadingText: document.querySelector("#landing-loading-text"),
+  leagueLoadProgress: document.querySelector("#league-load-progress"),
   usernameError: document.querySelector("#username-error"),
   leagueIdError: document.querySelector("#league-id-error"),
   routeTitle: document.querySelector("#route-title"),
@@ -384,8 +383,6 @@ const pageRenderQueue = createPageRenderQueue({
   schedule: (run) => (typeof requestAnimationFrame === "function" ? requestAnimationFrame(run) : setTimeout(run, 16)),
   cancel: (id) => (typeof cancelAnimationFrame === "function" ? cancelAnimationFrame(id) : clearTimeout(id)),
 });
-let leagueLoadAnimationTimer = null;
-let leagueLoadStartedAt = 0;
 let livePoller = null;
 let playerLoadEpoch = 0;
 let playerLoadAbort = null;
@@ -9399,28 +9396,13 @@ function startLeagueLoadingUi() {
   }
   el.leagueLoadForm?.setAttribute("aria-busy", "true");
   document.body.classList.add("league-loading");
-  if (el.landingLoading) {
-    el.landingLoading.classList.remove("hidden");
-    if (el.landingLoadingText) el.landingLoadingText.textContent = "Opening league from Sleeper…";
-  }
-
-  leagueLoadStartedAt = Date.now();
-  setStatus("Loading Sleeper data...", { loading: true });
-
-  clearInterval(leagueLoadAnimationTimer);
-  leagueLoadAnimationTimer = setInterval(() => {
-    const elapsedSec = Math.floor((Date.now() - leagueLoadStartedAt) / 1000);
-    setStatus(`Loading Sleeper data • ${elapsedSec}s`, { loading: true });
-    if (el.landingLoadingText) el.landingLoadingText.textContent = `Opening league from Sleeper… ${elapsedSec}s`;
-  }, 850);
+  el.leagueLoadProgress?.classList.remove("hidden");
 }
 
 function stopLeagueLoadingUi() {
-  clearInterval(leagueLoadAnimationTimer);
-  leagueLoadAnimationTimer = null;
   document.body.classList.remove("league-loading");
   el.leagueLoadForm?.setAttribute("aria-busy", "false");
-  el.landingLoading?.classList.add("hidden");
+  el.leagueLoadProgress?.classList.add("hidden");
   if (!el.loadLeagueBtn) return;
   el.loadLeagueBtn.disabled = false;
   el.loadLeagueBtn.classList.remove("loading");
