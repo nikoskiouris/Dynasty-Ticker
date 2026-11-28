@@ -159,13 +159,89 @@
             <p>Enable JavaScript and reload.</p>
           </section>
         </noscript>
-        <div id="ui-pages"></div>
+        <div id="boot-status" role="status">
+          <p>Opening Dynasty Ticker…</p>
+          <button type="button" hidden>Reload page</button>
+        </div>
+        <div id="ui-pages">
+          <section id="league-missing" class="league-missing hidden" hidden>
+            <h1 id="league-missing-title" tabindex="-1">League not found</h1>
+            <div class="league-missing-actions">
+              <button type="button" class="league-missing-primary" data-action="find-my-leagues" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+            </div>
+          </section>
+
+          <section id="sleeper-down" class="league-missing sleeper-down hidden" hidden>
+            <h1 id="sleeper-down-title" tabindex="-1">Couldn't reach Sleeper</h1>
+            <div class="league-missing-actions">
+              <button type="button" id="sleeper-down-retry" class="league-missing-primary">Retry</button>
+              <button type="button" id="sleeper-down-find" class="ghost-btn" data-action="find-my-leagues" data-idle-label="Find my leagues" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+            </div>
+          </section>
+
+          <div id="trades-page" class="workspace-page app-page hidden" data-page="trades">
+            <div class="room" data-room-panel="calculator">
+              <section class="workspace-panel" id="calculator-section">
+                <div id="calculator-shell" class="calculator-shell"></div>
+              </section>
+              <section class="workspace-panel" id="ranks-section">
+                <div class="panel-heading">
+                  <div>
+                    <h2>Player rankings</h2>
+                    <p class="rank-format">12-team Superflex · Full PPR</p>
+                  </div>
+                  <p class="rank-date" data-rank-date></p>
+                </div>
+                <div id="ranks-dashboard"></div>
+              </section>
+            </div>
+          </div>
+
+          <div id="league-page" class="workspace-page app-page hidden" role="region" aria-label="Sleeper league" data-page="league">
+            <section class="room hidden" data-room-panel="hub"><h1 id="league-hub-heading" tabindex="-1">League hub</h1><div id="league-hub-content"><p>Loading your league…</p></div></section>
+            <section class="room hidden" data-room-panel="standings"><h1 id="league-standings-heading" tabindex="-1">Standings</h1><div id="league-standings-content"><p>Loading standings…</p></div></section>
+            <section class="room hidden" data-room-panel="trades"><h1 id="league-trades-heading" tabindex="-1">Recent Trades</h1><div id="league-trades-content"><p>Loading recent trades…</p></div></section>
+            <section class="room hidden" data-room-panel="history"><h1 id="league-history-heading" tabindex="-1">Historical Data</h1><div id="league-history-content"><p>Loading league history…</p></div></section>
+            <div class="room" data-room-panel="team"><h1 id="league-team-heading" tabindex="-1">My Team</h1>
+              <div id="team-header" class="team-header"></div>
+              <div id="start-dashboard" class="dashboard start-dashboard hidden"></div>
+              <section class="workspace-panel" id="power-section">
+                <div class="panel-heading">
+                  <h2 id="power-heading" tabindex="-1">Position ranks</h2>
+                </div>
+                <div id="power-dashboard" class="power-dashboard">
+                  <div class="empty-cta">
+                    <button type="button" data-action="find-my-leagues" data-idle-label="Connect my league" aria-disabled="true" aria-busy="true" data-boot-loading="1">Loading…</button>
+                  </div>
+                </div>
+              </section>
+              <section class="workspace-panel hidden" id="team-superlatives-section" aria-labelledby="team-superlatives-heading">
+                <div class="panel-heading">
+                  <h2 id="team-superlatives-heading">Superlatives</h2>
+                </div>
+                <div id="team-superlatives" class="team-superlatives"></div>
+              </section>
+              <section class="workspace-panel hidden" id="roster-sheet-section">
+                <div class="panel-heading">
+                  <h2 id="roster-sheet-heading">Roster</h2>
+                </div>
+                <div id="roster-sheet" class="roster-sheet"></div>
+              </section>
+              <div id="standings-dashboard" class="dashboard"></div>
+            </div>
+          </div>
+
+          <section id="leagues-page" class="workspace-page app-page hidden" data-page="leagues" aria-labelledby="leagues-heading" hidden>
+            <h1 id="leagues-heading" tabindex="-1">League History</h1>
+            <div id="leagues-page-content"></div>
+          </section>
+        </div>
       </main>
     </div>
 
     <footer class="site-foot">
       <nav aria-label="Legal"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
     </footer>
-    <script type="module" src="./boot.js"></script>
+    <script id="app-boot" type="module" src="./boot.js"></script>
   </body>
 </html>
