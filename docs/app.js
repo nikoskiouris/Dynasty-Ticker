@@ -1,9 +1,10 @@
+import { createStartSitPanel } from "./modules/start-sit-panel.js";
 import { syncSiteNavigation } from "./modules/site-menu.js";
 import { moveLeagueControls, renderLeagueRecent } from "./modules/tool-picker.js";
 import { recentChampion, renderLeagueHub, renderTeamPick } from "./modules/league-hub.js";
 import { leagueArchive, readDeskSnapshot, saveDeskSnapshot } from "./modules/league-archive.js";
 import { buildTradeAdvice, closeTradeAdvice, onTradeAdviceBack, openTradeAdvice, renderTradeAdviceButton, renderTradeAdvicePanel, tradeAdviceOpen } from "./modules/trade-advice.js";
-import { renderTradeLog, renderTradeLogRows } from "./modules/trade-log.js";
+import { renderTradeLog, renderTradeLogRows, showTradeDateGrade } from "./modules/trade-log.js";
 import { restoreRivalryComparison, updateRivalryComparison } from "./modules/league-rivalries-page.js";
 import { renderArchiveLoading, renderLeagueHistory } from "./modules/league-history-page.js";
 import { renderTradeFairness, renderTradeScale } from "./modules/trade-fairness.js";
@@ -363,6 +364,12 @@ const el = {
   leagueAvatar: document.querySelector("#league-avatar"),
 };
 
+const updateStartSit = createStartSitPanel(document.querySelector("#team-start-sit"), {
+  canFill: (player, slot) => assetCanFillRosterSlot({
+    assetType: "player", raw: { position: player.position, fantasy_positions: player.positions },
+  }, slot),
+  slotLabel: formatRosterSlotLabel,
+});
 const leagueLoader = createLeagueLoader();
 const leagueLoadRecovery = createLeagueLoadRecovery({
   isCurrent: (token) => leagueLoader.isCurrent(token),
@@ -608,6 +615,7 @@ setAnalyticsAdapter(createBeaconAdapter());
 // Boot stamps the picked league into the URL, so retain incoming archive links first.
 // Capture chapter links before league boot normalizes the address.
 let requestedArchiveChapter = archiveChapterFromUrl(window.location);
+let tradeHistoryLocation = tradeHistoryFromUrl(window.location);
 bootFromUrl();
 if (bootRoute?.leagueId) void loadSlimPlayersFile();
 coldPlayerHeading = bootRoute?.name === "player";
@@ -687,6 +695,7 @@ document.addEventListener("focusin", (event) => {
 });
 window.addEventListener("popstate", (event) => {
   requestedArchiveChapter = archiveChapterFromUrl(window.location);
+  tradeHistoryLocation = tradeHistoryFromUrl(window.location);
   // Skip to content only adds #workspace. That is not a desk move, and the
   // page-heading focus would take the workspace the link just targeted.
   if (window.location.hash === "#workspace" && !event.state?.tab) return;
@@ -727,6 +736,8 @@ if (runQueuedFind) scheduleBootFind(() => requestFindLeagues());
 function navigateTool(href) {
   const url = new URL(href, window.location.origin);
   requestedArchiveChapter = archiveChapterFromUrl(url);
+  tradeHistoryLocation = tradeHistoryFromUrl(url);
+  if (tradeHistoryLocation?.transaction) resetTradeFilters();
   // Leaving a shared /t link: load the page fresh. The in-place switch kept
   // the share's /t URL (or its /trade draft) and Back skipped the link.
   if (/^\/t\//.test(window.location.pathname) && url.pathname !== window.location.pathname) {
@@ -918,9 +929,25 @@ let archiveErrorKey = "";
 let archiveErrorMessage = "";
 let archiveProgressMessage = "";
 let tradeLogSearch = "";
-let tradeLogSeason = "";
 let tradeLogTeam = "";
+let tradeLogSort = "newest";
+let tradeLogLimit = 50;
 let showLineupAwards = false;
+
+function tradeHistoryFromUrl(url) {
+  const league = /^\/l\/(\d+)\/trades\/?$/.exec(url.pathname);
+  if (!league) return null;
+  const season = new URLSearchParams(url.search).get("season") || "";
+  const transaction = /^#trade-(\d+)$/.exec(url.hash)?.[1] || "";
+  return { leagueId: league[1], season: /^(all|\d{4})$/.test(season) ? season : "", transaction, focused: false };
+}
+
+function resetTradeFilters() {
+  tradeLogSearch = "";
+  tradeLogTeam = "";
+  tradeLogSort = "newest";
+  tradeLogLimit = 50;
+}
 
 function archiveChapterFromUrl(url) {
   const league = /^\/l\/(\d+)\/history\/?$/.exec(url.pathname);
@@ -953,15 +980,29 @@ function openRequestedArchiveChapter() {
 }
 
 function archiveCovers(snapshot, scope, leagueId) {
-  return String(snapshot?.leagueId || "") === String(leagueId)
-    && (snapshot.scope === "all" || snapshot.scope === scope);
+  if (!snapshot || String(snapshot.leagueId) !== String(leagueId)) return false;
+  if (snapshot.scope === scope) return true;
+  if (!scope.startsWith("trades:")) return snapshot.scope === "all";
+  // The full History page can stop at its six-season cap. Trade History
+  // walks the full chain, including leagues older than that cap.
+  if (snapshot.scope === "all" && snapshot.issues.some(issue => issue.resource === "historyLimit")) return false;
+  if (snapshot.scope !== "all" && snapshot.scope !== "trades:all") return false;
+  return scope === "trades:all" || Object.hasOwn(snapshot.transactions, scope.slice(7));
 }
 
 function ensureLeagueArchive(scope) {
   const leagueId = String(state.leagueId || "");
-  if (!leagueId || archiveCovers(leagueArchive.snapshot, scope, leagueId)) return;
+  if (!leagueId) return;
+  if (archiveCovers(leagueArchive.snapshot, scope, leagueId)) {
+    // A manager switched back to an already visible season during a fetch.
+    if (archiveRequest && archiveRequest.scope !== scope) {
+      leagueArchive.cancel({ keepSnapshot: true });
+      archiveRequest = null;
+    }
+    return;
+  }
   if (archiveRequest?.leagueId === leagueId
-    && (archiveRequest.scope === "all" || archiveRequest.scope === scope)) return;
+    && (archiveRequest.scope === scope || archiveRequest.scope === "all" && !scope.startsWith("trades:"))) return;
   const key = `${leagueId}:${scope}`;
   if (archiveErrorKey === key) return;
   archiveErrorKey = "";
@@ -978,9 +1019,12 @@ function ensureLeagueArchive(scope) {
   archiveRequest = { leagueId, scope, promise };
   promise.then((archive) => {
     if (String(state.leagueId || "") !== leagueId || archiveRequest?.promise !== promise) return;
-    state.transactions = archive.transactions?.[String(state.league?.season)] || [];
-    state.transactionsLoaded = Boolean(archive.transactions?.[String(state.league?.season)])
-      && !archive.stale && !archive.issues.some((issue) => String(issue.season) === String(state.league?.season) && issue.resource?.startsWith("transactions/"));
+    const currentSeason = String(state.league?.season);
+    if (archive.transactions[currentSeason]) {
+      state.transactions = archive.transactions[currentSeason];
+      state.transactionsLoaded = !archive.stale && !archive.issues.some(issue =>
+        issue.resource === "nflState" || String(issue.season) === currentSeason && issue.resource?.startsWith("transactions/"));
+    }
     archiveErrorMessage = "";
     requestActivePageRender();
   }).catch((error) => {
@@ -997,52 +1041,123 @@ function ensureLeagueArchive(scope) {
   });
 }
 
-function renderLeagueTradePage() {
-  const host = document.querySelector("#league-trades-content");
-  if (!host) return;
-  ensureLeagueArchive("recent");
-  const archive = leagueArchive.snapshot;
-  const ready = archiveCovers(archive, "recent", state.leagueId);
-  if (!ready) {
-    host.innerHTML = `<p><a class="league-back" href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
-      <p role="status">${escapeHtml(archiveErrorMessage || archiveProgressMessage || "Loading league trades…")}</p>`;
-    return;
-  }
-  const seasons = archive.seasons.slice(0, archive.scope === "all" ? undefined : 2)
-    .map((entry) => String(entry.season));
-  const season = seasons.includes(tradeLogSeason) ? tradeLogSeason : seasons[0];
-  const entry = archive.seasons.find((item) => String(item.season) === season);
-  host.innerHTML = renderTradeLog({
-    archive, entry, season, seasons,
-    trades: archive.transactions?.[season] || [],
+function selectedTradeSeason() {
+  return (tradeHistoryLocation?.leagueId === String(state.leagueId) && tradeHistoryLocation.season)
+    || String(state.league?.season || "");
+}
+
+function tradeLogContext(archive, season) {
+  return {
+    archive, season, seasons: archive.seasons.map(entry => String(entry.season)),
+    entry: archive.seasons.find(entry => String(entry.season) === season),
     values: state.valueBundles?.sf?.values || state.values,
     valueNames: state.valueBundles?.names || state.valueNameMap,
-    players: state.players,
-    query: tradeLogSearch,
-    team: tradeLogTeam,
+    players: state.players, query: tradeLogSearch, team: tradeLogTeam,
+    sort: tradeLogSort, limit: tradeLogLimit,
+    focusTradeId: tradeHistoryLocation?.leagueId === String(state.leagueId) ? tradeHistoryLocation.transaction : "",
     caveat: marketCaveat(state.league),
+  };
+}
+
+function replaceTradeLog(host, html) {
+  const expanded = Array.from(host.querySelectorAll(".trade-log-card > details[open]"),
+    node => node.parentElement.id);
+  const active = document.activeElement;
+  const focusedSummary = active?.matches(".trade-log-card > details > summary")
+    ? active.closest(".trade-log-card").id : "";
+  const focusedControl = active?.id && host.contains(active) ? active.id : "";
+  host.innerHTML = html;
+  for (const id of expanded) {
+    const details = document.getElementById(id)?.querySelector("details");
+    if (details) details.open = true;
+  }
+  const focus = focusedSummary ? document.getElementById(focusedSummary)?.querySelector("summary")
+    : focusedControl ? document.getElementById(focusedControl) : null;
+  if (focus && host.contains(focus)) focus.focus({ preventScroll: true });
+}
+
+function renderLeagueTradePage() {
+  const host = document.querySelector("#league-trades-content");
+  if (!host || !state.league) return;
+  const season = selectedTradeSeason();
+  const scope = `trades:${season}`;
+  ensureLeagueArchive(scope);
+  const archive = leagueArchive.snapshot;
+  if (!archiveCovers(archive, scope, state.leagueId)) {
+    const message = archiveErrorMessage || archiveProgressMessage || "Loading league trades…";
+    if (archive?.leagueId === String(state.leagueId)) {
+      replaceTradeLog(host, renderTradeLog({ ...tradeLogContext(archive, season), loadingMessage: message }));
+    } else {
+      host.innerHTML = `<p><a class="league-back" href="/l/${encodeURIComponent(state.leagueId)}">← League</a></p>
+        <p role="status">${escapeHtml(message)}</p>`;
+    }
+    return;
+  }
+  if (season !== "all" && !archive.seasons.some(entry => String(entry.season) === season)) {
+    host.innerHTML = `<p role="status">Season ${escapeHtml(season)} is outside this league’s available Sleeper history.</p>
+      <button type="button" data-current-trade-season>Show this season</button>`;
+    return;
+  }
+  const ctx = tradeLogContext(archive, season);
+  replaceTradeLog(host, renderTradeLog(ctx));
+  const requested = tradeHistoryLocation;
+  if (!requested?.transaction || requested.focused || requested.leagueId !== String(state.leagueId)) return;
+  requestAnimationFrame(() => {
+    if (requested !== tradeHistoryLocation || requested.focused || getRoom() !== "trades" || state.activePage !== "league") return;
+    requested.focused = true;
+    const target = document.getElementById(`trade-${requested.transaction}`);
+    if (!target) {
+      const status = document.createElement("p");
+      status.setAttribute("role", "status");
+      status.textContent = "This trade was not found in the available season history.";
+      host.prepend(status);
+      return;
+    }
+    const details = target.querySelector("details");
+    if (details) details.open = true;
+    claimRouteFocus();
+    focusWithoutScroll(details?.querySelector("summary") || target, { focusVisible: roomFocusVisible() });
+    target.scrollIntoView({ block: "start" });
   });
 }
 
 function redrawLeagueTradeRows() {
   const archive = leagueArchive.snapshot;
-  if (!archiveCovers(archive, "recent", state.leagueId)) return;
-  const seasons = archive.seasons.map((entry) => String(entry.season));
-  const season = seasons.includes(tradeLogSeason) ? tradeLogSeason : seasons[0];
-  const entry = archive.seasons.find((item) => String(item.season) === season);
+  const season = selectedTradeSeason();
+  if (!archiveCovers(archive, `trades:${season}`, state.leagueId)) return;
   const host = document.querySelector("#league-trade-results");
-  if (host) host.innerHTML = renderTradeLogRows({
-    archive, entry, query: tradeLogSearch, team: tradeLogTeam,
-    trades: archive.transactions?.[season] || [],
-    values: state.valueBundles?.sf?.values || state.values,
-    valueNames: state.valueBundles?.names || state.valueNameMap,
-    players: state.players,
-  });
+  if (host) replaceTradeLog(host, renderTradeLogRows(tradeLogContext(archive, season)));
 }
 
+function setTradeHistorySelection(season) {
+  tradeHistoryLocation = { leagueId: String(state.leagueId), season, transaction: "", focused: false };
+  history.replaceState(history.state, "", deskUrlPath());
+}
+
+document.addEventListener("click", event => {
+  if (event.target.closest?.("[data-current-trade-season]")) {
+    setTradeHistorySelection(String(state.league.season));
+    resetTradeFilters();
+    renderLeagueTradePage();
+    return;
+  }
+  const more = event.target.closest?.("[data-show-more-trades]");
+  if (more) {
+    const last = document.querySelector("#league-trade-results .trade-log-card:last-of-type");
+    tradeLogLimit = document.querySelectorAll("#league-trade-results .trade-log-card").length + 50;
+    redrawLeagueTradeRows();
+    const next = last?.id && document.getElementById(last.id)?.nextElementSibling;
+    next?.querySelector("summary")?.focus({ preventScroll: true });
+    return;
+  }
+  const grade = event.target.closest?.("[data-trade-date]");
+  if (grade) void showTradeDateGrade(grade, leagueArchive.snapshot);
+});
 document.addEventListener("input", (event) => {
   if (event.target?.id !== "league-trade-search") return;
   tradeLogSearch = event.target.value || "";
+  tradeLogLimit = 50;
+  if (tradeHistoryLocation?.transaction) setTradeHistorySelection(selectedTradeSeason());
   redrawLeagueTradeRows(); // Keep the search input mounted and focused.
 });
 document.addEventListener("change", (event) => {
@@ -1066,12 +1181,19 @@ document.addEventListener("change", (event) => {
     return;
   }
   if (event.target?.id === "league-trade-season") {
-    tradeLogSeason = event.target.value || "";
+    setTradeHistorySelection(event.target.value);
     tradeLogTeam = "";
+    tradeLogLimit = 50;
     // Season changes re-create team choices; search text persists.
     renderLeagueTradePage();
   } else if (event.target?.id === "league-trade-team") {
     tradeLogTeam = event.target.value || "";
+    tradeLogLimit = 50;
+    if (tradeHistoryLocation?.transaction) setTradeHistorySelection(selectedTradeSeason());
+    redrawLeagueTradeRows();
+  } else if (event.target?.id === "league-trade-sort") {
+    tradeLogSort = event.target.value === "gains" ? "gains" : "newest";
+    tradeLogLimit = 50;
     redrawLeagueTradeRows();
   }
 });
@@ -1082,6 +1204,7 @@ function renderActivePage() {
   // from each side's own search, so no 48-row list sits under the calculator.
   syncPlayersBoardFlag();
   if (state.leagueSwitching) {
+    updateStartSit(null);
     renderLeagueHero();
     hideAppPages();
     return;
@@ -1091,6 +1214,8 @@ function renderActivePage() {
   renderLeagueHero();
   const page = state.activePage;
   const room = getRoom(page);
+  const activeTeam = page === "league" && room === "team" && weeklyLeagueActive() ? myTeamPageRoster() : null;
+  updateStartSit(activeTeam ? { league: state.league, rosterId: activeTeam.rosterId, players: state.players } : null);
   // Keep the requested heading on screen while the shared progress indicator
   // is visible. Room data and archive requests need the loaded league.
   if (page === "league" && !state.league && leagueLoader.busy()) return;
@@ -1103,7 +1228,7 @@ function renderActivePage() {
     if (heading) heading.textContent = state.league?.name || "League hub";
     if (host) host.innerHTML = renderLeagueHub({ league: state.league, leagueId: state.leagueId,
       seasons: archive?.leagueId === state.leagueId ? archive.seasons : state.leagueHistory,
-      myTeam: hubTeamName(),
+      myTeam: hubTeamName(), weekly: weeklyLeagueActive(),
       myRosterId: connectedRosterId(),
       caveat: marketCaveat(state.league),
       teams: matchedSleeperRosterId() ? [] : leagueTeamChoices(),
@@ -1599,6 +1724,10 @@ function historyPlaceNow() {
 function deskUrlPath() {
   if (state.activePage === "home") return "/";
   if (state.activePage === "leagues") return "/leagues";
+  if (state.activePage === "league" && getRoom() === "trades" && tradeHistoryLocation?.leagueId === String(state.leagueId)) {
+    const { leagueId, season, transaction } = tradeHistoryLocation;
+    return `/l/${leagueId}/trades${season ? `?season=${season}` : ""}${transaction ? `#trade-${transaction}` : ""}`;
+  }
   const nextUrl = buildShareUrl({ origin: "" });
   return nextUrl || "/";
 }
@@ -1606,7 +1735,7 @@ function deskUrlPath() {
 function prepareDeskPush() {
   if (applyingHistory) return;
   if (typeof history?.replaceState !== "function") return;
-  const currentPath = archiveChapterFromUrl(window.location) ? window.location.href : `${window.location.pathname}${window.location.search}`;
+  const currentPath = archiveChapterFromUrl(window.location) || tradeHistoryFromUrl(window.location) ? window.location.href : `${window.location.pathname}${window.location.search}`;
   history.replaceState({
     ...history.state,
     ...historyPlaceNow(),
@@ -2874,9 +3003,7 @@ function unloadLeague() {
   archiveRequest = null;
   archiveErrorKey = "";
   archiveErrorMessage = "";
-  tradeLogSearch = "";
-  tradeLogSeason = "";
-  tradeLogTeam = "";
+  resetTradeFilters();
   showLineupAwards = false;
   leagueLoader.drop();
   stopLivePolling();
@@ -2986,9 +3113,7 @@ async function runLeagueLoad(leagueId, token, { fromHistory = false } = {}) {
     archiveRequest = null;
     archiveErrorKey = "";
     archiveErrorMessage = "";
-    tradeLogSearch = "";
-    tradeLogSeason = "";
-    tradeLogTeam = "";
+    resetTradeFilters();
     showLineupAwards = false;
     state.transactions = [];
     state.transactionsLoaded = false;
@@ -4075,6 +4200,13 @@ function renderRosterDirectory(roster) {
       </section>
     </div>
   `);
+}
+
+function weeklyLeagueActive() {
+  const league = state.league;
+  if (!league || ["pre_draft", "drafting", "complete"].includes(league.status) || Number(league.settings?.best_ball) === 1) return false;
+  if (!state.nflState) return true;
+  return String(league.season) === String(state.nflState.season) && state.nflState.season_type === "regular";
 }
 
 // My Team shows a team the user chose (or is), never the select's default.

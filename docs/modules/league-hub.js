@@ -30,7 +30,7 @@ export function renderTeamPick({ myTeam, myRosterId, teams, controlId = "hub-tea
   return `<p class="league-hub-pick"><label for="${escapeHtml(controlId)}">Your team</label> <select id="${escapeHtml(controlId)}">${chosen ? '' : '<option value="" selected>Select team</option>'}${options}</select></p>`;
 }
 
-export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', myRosterId = '', teams = [], model = null, transactions = [], tradesLoaded = false, loading = false, caveat = '', savedNote = '' } = {}) {
+export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', myRosterId = '', teams = [], model = null, transactions = [], tradesLoaded = false, weekly = false, loading = false, caveat = '', savedNote = '' } = {}) {
   if (!league) return '<p role="status">Loading league…</p>';
   const id = encodeURIComponent(leagueId || league.league_id);
   const format = leagueFormat(league);
@@ -49,8 +49,8 @@ export function renderLeagueHub({ league, leagueId, seasons = [], myTeam = '', m
   const historyHref = `/l/${id}/history`;
   const links = [
     ['standings', 'Standings', standingsTeaser],
-    ['team', 'My Team', myTeam || 'Roster and position ranks'],
-    ['trades', 'Recent Trades', tradesLoaded ? `${recent} ${recent === 1 ? 'trade' : 'trades'} in 30 days` : 'Deals around the league'],
+    ['team', 'My Team', weekly ? 'Check my lineup' : myTeam || 'Roster and position ranks'],
+    ['trades', 'Trade History', tradesLoaded ? `${recent} ${recent === 1 ? 'trade' : 'trades'} in 30 days` : 'Past deals and trade grades'],
   ];
   return `<div class="almanac-hub">
     <nav class="almanac-return" aria-label="League selection"><a href="/leagues">← Change league</a></nav>

@@ -35,17 +35,25 @@ const ordinal = (n) => {
 };
 
 // Require a snapshot on or before the trade; never borrow a newer price.
-export function priceSnapshotForTrade(history, trade) {
+export function priceRowForTrade(rows, trade) {
   const when = asMillis(trade?.created);
   if (!Number.isFinite(when)) return null;
-  const snapshots = Array.isArray(history) ? history : Array.isArray(history?.snapshots) ? history.snapshots : [];
-  return snapshots
-    .filter((row) => {
-      const date = Date.parse(row?.asOf || row?.date || "");
-      return Number.isFinite(date) && date <= when && when - date <= STALE_AFTER_DAYS * 86400000
-        && row?.sf && typeof row.sf === "object";
-    })
-    .sort((a, b) => Date.parse(b.asOf || b.date) - Date.parse(a.asOf || a.date))[0] || null;
+  let latest = null;
+  let latestTime = -Infinity;
+  for (const row of rows) {
+    const time = Date.parse(row?.asOf || row?.date || "");
+    if (time > latestTime && time <= when && when - time <= STALE_AFTER_DAYS * 86400000) {
+      latest = row;
+      latestTime = time;
+    }
+  }
+  return latest;
+}
+
+export function priceSnapshotForTrade(history, trade) {
+  const snapshots = Array.isArray(history) ? history : history?.snapshots;
+  if (!Array.isArray(snapshots)) return null;
+  return priceRowForTrade(snapshots.filter((row) => row?.sf && typeof row.sf === "object"), trade);
 }
 
 function hindsightPick(asset, archive, tradedAt) {
